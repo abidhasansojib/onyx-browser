@@ -11,3 +11,5 @@
 *.bin
 target/
 rust_engine/target/
+artifacts/
+
