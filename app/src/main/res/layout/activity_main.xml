@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mainRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/windowBackground">
+
+    <!-- Pinned Top Navigation Bar -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/topBar"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:background="?attr/colorSurface"
+        android:elevation="4dp"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Home Button -->
+        <ImageButton
+            android:id="@+id/btnHome"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/home"
+            android:src="@drawable/ic_home"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorControlNormal" />
+
+        <!-- Search Engine Selector Icon -->
+        <ImageView
+            android:id="@+id/btnSearchEngine"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/switch_search_engine"
+            android:padding="2dp"
+            android:src="@drawable/ic_engine_brave"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@id/btnHome"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Address / Search Bar Pill Container -->
+        <LinearLayout
+            android:id="@+id/searchBarContainer"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_search_bar"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnTabSwitcher"
+            app:layout_constraintStart_toEndOf="@id/btnSearchEngine"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <!-- SSL Lock Icon (shown in idle browsing) -->
+            <ImageView
+                android:id="@+id/ivSslLock"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginEnd="6dp"
+                android:contentDescription="SSL Lock"
+                android:src="@drawable/ic_lock"
+                app:tint="?attr/colorControlNormal" />
+
+            <!-- Address / Search EditText -->
+            <EditText
+                android:id="@+id/etUrl"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@null"
+                android:ellipsize="end"
+                android:hint="@string/search_or_type_url"
+                android:imeOptions="actionGo"
+                android:importantForAutofill="no"
+                android:inputType="textUri|textNoSuggestions"
+                android:maxLines="1"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textColorHint="?android:attr/textColorSecondary"
+                android:textSize="14sp" />
+
+            <!-- Clear Search Input Button -->
+            <ImageView
+                android:id="@+id/btnClearUrl"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/clear_search"
+                android:padding="2dp"
+                android:src="@drawable/ic_close"
+                android:visibility="gone"
+                app:tint="?attr/colorControlNormal" />
+
+            <!-- Voice Search Button (Mic) -->
+            <ImageView
+                android:id="@+id/btnVoiceSearch"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/voice_search"
+                android:src="@drawable/ic_mic"
+                app:tint="?attr/colorControlNormal" />
+        </LinearLayout>
+
+        <!-- Tab Switcher Badge Button -->
+        <FrameLayout
+            android:id="@+id/btnTabSwitcher"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/bg_tab_badge"
+            android:contentDescription="@string/tabs"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnMenu"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:id="@+id/tvTabCount"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="1"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </FrameLayout>
+
+        <!-- Three-Dot Menu Button -->
+        <ImageButton
+            android:id="@+id/btnMenu"
+            android:layout_width="36dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/menu"
+            android:src="@drawable/ic_more_vert"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorControlNormal" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Sleek Loading Progress Indicator -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="0dp"
+        android:layout_height="2.5dp"
+        android:elevation="6dp"
+        android:indeterminate="false"
+        android:max="100"
+        android:progressDrawable="@drawable/bg_search_bar"
+        android:progressTint="@color/primary"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        tools:progress="50"
+        tools:visibility="visible" />
+
+    <!-- Browser & Home View Container -->
+    <FrameLayout
+        android:id="@+id/contentContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/progressBar">
+
+        <!-- Included Homepage Body -->
+        <include
+            android:id="@+id/homeLayout"
+            layout="@layout/fragment_home"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- WebView Container (swapped in when active tab is on web) -->
+        <FrameLayout
+            android:id="@+id/webViewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <!-- Fullscreen Video/Custom View Container -->
+    <FrameLayout
+        android:id="@+id/fullscreenCustomViewContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:elevation="100dp"
+        android:visibility="gone" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

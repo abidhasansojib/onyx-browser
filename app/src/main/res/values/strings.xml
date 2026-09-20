@@ -1,0 +1,79 @@
+<resources>
+    <string name="app_name">Onyx Browser</string>
+
+    <!-- Toolbar & Search -->
+    <string name="search_or_type_url">Search or type URL</string>
+    <string name="clear_search">Clear search</string>
+    <string name="voice_search">Voice search</string>
+    <string name="home">Home</string>
+    <string name="switch_search_engine">Switch search engine</string>
+    <string name="tabs">Tabs</string>
+    <string name="menu">Menu</string>
+
+    <!-- Homepage -->
+    <string name="shortcuts">Shortcuts</string>
+    <string name="incognito">Incognito</string>
+    <string name="history">History</string>
+    <string name="downloads">Downloads</string>
+    <string name="bookmarks">Bookmarks</string>
+    <string name="share">Share</string>
+
+    <!-- Tab Switcher -->
+    <string name="normal_tabs">Normal</string>
+    <string name="incognito_tabs">Incognito</string>
+    <string name="new_tab">New Tab</string>
+    <string name="new_incognito_tab">New Incognito Tab</string>
+    <string name="close_all_tabs">Close All Tabs</string>
+    <string name="close_tab">Close tab</string>
+    <string name="delete_browsing_history">Delete Browsing History</string>
+    <string name="confirm_clear_history">Clear all browsing history?</string>
+    <string name="confirm_close_all_tabs">Close all open tabs?</string>
+    <string name="cancel">Cancel</string>
+    <string name="clear">Clear</string>
+    <string name="close">Close</string>
+
+    <!-- Menu -->
+    <string name="set_as_default_browser">Set as Default Browser</string>
+    <string name="set_default_desc">Browse faster with built-in native adblocking</string>
+    <string name="desktop_site">Desktop Site</string>
+    <string name="find_in_page">Find in Page</string>
+    <string name="add_bookmark">Add to Bookmarks</string>
+    <string name="settings">Settings</string>
+
+    <!-- Settings -->
+    <string name="pref_category_search">Search Engine</string>
+    <string name="pref_category_appearance">Appearance</string>
+    <string name="pref_category_adblock">Adblocker Settings</string>
+    <string name="pref_category_download">Download Settings</string>
+
+    <string name="theme_system">System Default</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark (AMOLED Pure Black)</string>
+    <string name="theme_dynamic">Dynamic Material You</string>
+
+    <string name="adblock_master_toggle">Enable Ad &amp; Tracker Blocking</string>
+    <string name="adblock_master_desc">Block ads, malicious trackers, and unwanted scripts</string>
+    <string name="cosmetic_filtering_toggle">Cosmetic Element Hiding</string>
+    <string name="cosmetic_filtering_desc">Inject element-hiding CSS to collapse empty ad placeholders</string>
+    <string name="blocked_requests_counter">Blocked requests: %d</string>
+    <string name="update_filters">Update Filter Rules</string>
+    <string name="update_filters_desc">Download the latest EasyList and AdGuard rule definitions</string>
+    <string name="filters_updated_success">Filter rules updated successfully!</string>
+    <string name="filters_update_failed">Failed to update filter rules. Check connection.</string>
+
+    <string name="ask_before_download">Ask before download</string>
+    <string name="ask_before_download_desc">Show routing dialog to choose internal or external downloader</string>
+
+    <!-- Download Prompt Dialog -->
+    <string name="download_prompt_title">Download File</string>
+    <string name="download_button">Download</string>
+    <string name="external_downloader_button">External Downloader</string>
+    <string name="file_size_unknown">Size unknown</string>
+
+    <!-- History & Bookmarks -->
+    <string name="search_history">Search history…</string>
+    <string name="no_history">No browsing history yet</string>
+    <string name="no_bookmarks">No bookmarks saved yet</string>
+    <string name="no_downloads">No downloads yet</string>
+    <string name="clear_browsing_data">Clear Browsing Data</string>
+</resources>
