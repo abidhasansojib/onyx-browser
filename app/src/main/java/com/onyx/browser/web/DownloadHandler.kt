@@ -9,6 +9,8 @@ import android.os.Environment
 import android.webkit.CookieManager
 import android.webkit.URLUtil
 import android.widget.Toast
+import androidx.fragment.app.FragmentActivity
+import com.onyx.browser.MainActivity
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.DownloadItem
 import com.onyx.browser.data.preferences.BrowserPreferences
@@ -20,6 +22,43 @@ import kotlinx.coroutines.launch
 object DownloadHandler {
 
     fun handleDownload(
+        activity: Activity,
+        coroutineScope: CoroutineScope,
+        url: String,
+        userAgent: String,
+        contentDisposition: String,
+        mimeType: String,
+        contentLength: Long
+    ) {
+        if (activity is MainActivity) {
+            // Request notification permission on Android 13+ for download notifications
+            activity.checkNotificationPermissionForDownloads()
+            // Check storage permission on Android 8-9
+            activity.checkAndRequestStoragePermission {
+                processDownloadWithPrompt(
+                    activity = activity,
+                    coroutineScope = coroutineScope,
+                    url = url,
+                    userAgent = userAgent,
+                    contentDisposition = contentDisposition,
+                    mimeType = mimeType,
+                    contentLength = contentLength
+                )
+            }
+        } else {
+            processDownloadWithPrompt(
+                activity = activity,
+                coroutineScope = coroutineScope,
+                url = url,
+                userAgent = userAgent,
+                contentDisposition = contentDisposition,
+                mimeType = mimeType,
+                contentLength = contentLength
+            )
+        }
+    }
+
+    private fun processDownloadWithPrompt(
         activity: Activity,
         coroutineScope: CoroutineScope,
         url: String,
@@ -58,7 +97,7 @@ object DownloadHandler {
                     userAgent = userAgent
                 )
             }
-            dialog.show((activity as androidx.fragment.app.FragmentActivity).supportFragmentManager, "DownloadPrompt")
+            dialog.show((activity as FragmentActivity).supportFragmentManager, "DownloadPrompt")
         } else {
             startSystemDownload(
                 context = activity,

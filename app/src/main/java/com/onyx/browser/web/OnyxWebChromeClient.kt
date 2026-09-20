@@ -3,6 +3,8 @@ package com.onyx.browser.web
 import android.graphics.Bitmap
 import android.net.Uri
 import android.view.View
+import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -13,7 +15,9 @@ class OnyxWebChromeClient(
     private val onIconReceivedCallback: ((Bitmap?) -> Unit)? = null,
     private val onShowCustomViewCallback: ((View, CustomViewCallback) -> Unit)? = null,
     private val onHideCustomViewCallback: (() -> Unit)? = null,
-    private val onFileChooserCallback: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null
+    private val onFileChooserCallback: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null,
+    private val onGeolocationPromptCallback: ((String?, GeolocationPermissions.Callback?) -> Unit)? = null,
+    private val onPermissionRequestCallback: ((PermissionRequest?) -> Unit)? = null
 ) : WebChromeClient() {
 
     override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -50,5 +54,24 @@ class OnyxWebChromeClient(
     ): Boolean {
         return onFileChooserCallback?.invoke(filePathCallback, fileChooserParams)
             ?: super.onShowFileChooser(webView, filePathCallback, fileChooserParams)
+    }
+
+    override fun onGeolocationPermissionsShowPrompt(
+        origin: String?,
+        callback: GeolocationPermissions.Callback?
+    ) {
+        if (onGeolocationPromptCallback != null) {
+            onGeolocationPromptCallback.invoke(origin, callback)
+        } else {
+            super.onGeolocationPermissionsShowPrompt(origin, callback)
+        }
+    }
+
+    override fun onPermissionRequest(request: PermissionRequest?) {
+        if (onPermissionRequestCallback != null) {
+            onPermissionRequestCallback.invoke(request)
+        } else {
+            super.onPermissionRequest(request)
+        }
     }
 }

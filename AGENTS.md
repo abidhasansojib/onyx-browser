@@ -83,3 +83,5 @@ onyx-browser/
 - [x] Implement GitHub Actions CI/CD workflow (`.github/workflows/build.yml`).
 - [x] Initialize Git repo, push to GitHub (`abidhasansojib/onyx-browser`), trigger workflow, and verify successful build.
 - [x] Monitor remote CI/CD execution and verify artifact generation.
+- [x] Implement modified monochrome Chrome-inspired adaptive app icon with AMOLED background and Android 13+ themed icon support.
+- [x] Configure complete runtime permissions: Notifications (Android 13+ download alerts/progress), Storage (Android 8-9 download saves), Microphone (Voice search & WebRTC), Geolocation (Web maps/weather), and Camera (Web uploads/calls).

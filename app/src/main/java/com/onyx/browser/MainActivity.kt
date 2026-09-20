@@ -1,11 +1,14 @@
 package com.onyx.browser
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.view.KeyEvent
@@ -13,12 +16,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -50,6 +56,68 @@ class MainActivity : AppCompatActivity() {
     private var isSearchMode = false
     private var customVideoView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+
+    // Permission Launchers
+    private var pendingStorageAction: (() -> Unit)? = null
+    private val storagePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            pendingStorageAction?.invoke()
+        } else {
+            Toast.makeText(this, "Storage permission required to download files", Toast.LENGTH_SHORT).show()
+        }
+        pendingStorageAction = null
+    }
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            Toast.makeText(this, "Download notifications disabled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val voiceSearchMicLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            startVoiceSearchIntent()
+        } else {
+            Toast.makeText(this, "Microphone permission required for voice search", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private var pendingGeoOrigin: String? = null
+    private var pendingGeoCallback: GeolocationPermissions.Callback? = null
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fine = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarse = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        val granted = fine || coarse
+        pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
+        pendingGeoOrigin = null
+        pendingGeoCallback = null
+    }
+
+    private var pendingWebMediaRequest: PermissionRequest? = null
+    private val webMediaPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val micGranted = permissions[Manifest.permission.RECORD_AUDIO] == true
+        val camGranted = permissions[Manifest.permission.CAMERA] == true
+        val grantedList = mutableListOf<String>()
+        if (micGranted) grantedList.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+        if (camGranted) grantedList.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+
+        if (grantedList.isNotEmpty()) {
+            pendingWebMediaRequest?.grant(grantedList.toTypedArray())
+        } else {
+            pendingWebMediaRequest?.deny()
+        }
+        pendingWebMediaRequest = null
+    }
 
     // Voice Search Result Launcher
     private val voiceSearchLauncher = registerForActivityResult(
@@ -90,6 +158,8 @@ class MainActivity : AppCompatActivity() {
         setupTopToolbar()
         setupHomepageInteractions()
         setupBackNavigation()
+
+        checkNotificationPermissionForDownloads()
 
         lifecycleScope.launch {
             tabManager.restoreTabs()
@@ -343,6 +413,12 @@ class MainActivity : AppCompatActivity() {
             },
             onHideCustomViewCallback = {
                 hideCustomFullscreenVideo()
+            },
+            onGeolocationPromptCallback = { origin, callback ->
+                handleGeolocationPrompt(origin, callback)
+            },
+            onPermissionRequestCallback = { request ->
+                handleWebPermissionRequest(request)
             }
         )
 
@@ -431,7 +507,34 @@ class MainActivity : AppCompatActivity() {
         binding.tvTabCount.text = count.toString()
     }
 
+    fun checkNotificationPermissionForDownloads() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    fun checkAndRequestStoragePermission(onGranted: () -> Unit) {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                pendingStorageAction = onGranted
+                storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                return
+            }
+        }
+        onGranted()
+    }
+
     private fun launchVoiceSearch() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startVoiceSearchIntent()
+        } else {
+            voiceSearchMicLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun startVoiceSearchIntent() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
