@@ -6,7 +6,9 @@
 ### Core Goals & Tech Stack
 - **Language**: Kotlin 2.x (Android App) & Rust (Ad-blocking Engine via JNI).
 - **UI Paradigm**: Classic Android XML Views with ViewBinding. Strictly NO Jetpack Compose to preserve instantaneous cold starts, minimize memory consumption, and ensure optimal hardware-accelerated WebView compositing.
-- **Native Ad-Blocker**: Brave's `adblock-rust` compiled to `.so` shared libraries (`libadblock_bridge.so`) across target Android ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`) via `cargo-ndk`.
+- **Native Ad-Blocker**: Brave's `adblock-rust` (linked via submodule and symlinked) compiled to `.so` shared libraries (`libadblock_bridge.so`) across target Android ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`) via `cargo-ndk`.
+- **Adblock Lists Integration**: Official Brave `adblock-lists` repository integrated via submodule and symlink, with automated aggregation into mobile assets.
+- **Continuous Upstream Synchronization**: Automated GitHub Actions cron workflow (`.github/workflows/sync_upstream.yml`) running every 6 hours to pull upstream changes, refresh filter lists, and rebuild APKs.
 - **Database**: Room Database for history, bookmarks, tabs, and downloads persistence.
 - **Preferences**: AndroidX Jetpack Preferences with AMOLED Pure Black `#000000`, Light, and Material You dynamic color themes.
 - **CI/CD**: Fully autonomous GitHub Actions workflow to cross-compile Rust NDK shared libraries and build Android release/debug APKs.
@@ -18,48 +20,38 @@
 onyx-browser/
 ├── .github/
 │   └── workflows/
-│       └── build.yml
+│       ├── build.yml             # Native Rust NDK & Gradle build pipeline
+│       └── sync_upstream.yml     # Automated upstream Brave sync pipeline
 ├── app/
 │   ├── src/
 │   │   └── main/
+│   │       ├── assets/
+│   │       │   ├── easylist_rules.txt  # Bundled compiled Brave adblock rules
+│   │       │   └── brave-lists/        # Symlink -> external/adblock-lists/brave-lists
 │   │       ├── java/com/onyx/browser/
-│   │       │   ├── data/
-│   │       │   │   ├── local/ (Room DB: History, Bookmarks, Downloads, Tabs)
-│   │       │   │   ├── model/ (SearchEngine, TabItem, DownloadItem, HistoryItem, BookmarkItem)
-│   │       │   │   └── preferences/ (BrowserPreferences)
-│   │       │   ├── nativebridge/ (AdBlockEngine.kt - JNI bridge)
-│   │       │   ├── ui/
-│   │       │   │   ├── home/ (Homepage body, quick action row)
-│   │       │   │   ├── browser/ (Tab manager, WebView container)
-│   │       │   │   ├── tabs/ (TabSwitcherBottomSheetDialogFragment & adapter)
-│   │       │   │   ├── menu/ (MenuBottomSheetDialogFragment)
-│   │       │   │   ├── settings/ (SettingsActivity & Preferences)
-│   │       │   │   ├── downloads/ (DownloadPromptDialog, DownloadsActivity)
-│   │       │   │   ├── history/ (HistoryActivity & adapter)
-│   │       │   │   └── bookmarks/ (BookmarksActivity & adapter)
-│   │       │   ├── web/ (OnyxWebViewClient, OnyxWebChromeClient, DownloadHandler)
-│   │       │   ├── MainActivity.kt
-│   │       │   └── OnyxApplication.kt
+│   │       │   ├── data/ (Room DB & Preferences)
+│   │       │   ├── nativebridge/ (AdBlockEngine.kt JNI bridge)
+│   │       │   ├── ui/ (Classic XML ViewBinding controllers)
+│   │       │   └── web/ (WebViewClient, ChromeClient, DownloadHandler)
 │   │       ├── res/
-│   │       │   ├── layout/
-│   │       │   ├── values/ (themes, colors, strings, attrs - AMOLED Dark/Light/Dynamic)
-│   │       │   ├── values-night/
-│   │       │   └── drawable/ (SVG vector assets for engines, actions, UI)
 │   │       ├── jniLibs/ (arm64-v8a, armeabi-v7a, x86_64)
 │   │       └── AndroidManifest.xml
 │   └── build.gradle.kts
+├── external/
+│   ├── adblock-rust/             # Submodule: https://github.com/brave/adblock-rust.git
+│   └── adblock-lists/            # Submodule: https://github.com/brave/adblock-lists.git
 ├── rust_engine/
+│   ├── adblock-rust/             # Symlink -> ../external/adblock-rust
 │   ├── Cargo.toml
-│   └── src/
-│       └── lib.rs
-├── gradle/
-│   └── wrapper/
-│       ├── gradle-wrapper.jar
-│       └── gradle-wrapper.properties
-├── gradlew
-├── gradlew.bat
-├── settings.gradle.kts
+│   └── src/lib.rs
+├── scripts/
+│   ├── fetch_icons.sh            # Automated Lucide icon acquisition
+│   ├── svg_to_vector.py          # SVG -> Android Vector Drawable converter
+│   ├── sync_upstream.sh          # Upstream submodule & symlink sync
+│   └── update_filter_lists.sh    # Bundles official Brave lists into assets
+├── .gitmodules
 ├── build.gradle.kts
+├── settings.gradle.kts
 └── AGENTS.md
 ```
 

@@ -1,0 +1,63 @@
+name: Sync Upstream Brave Repositories
+
+on:
+  schedule:
+    # Run automatically every 6 hours to check for upstream updates
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [ upstream_update ]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    name: Sync Brave adblock-rust & adblock-lists
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Onyx Browser Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git Identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Execute Upstream Sync & Refresh Lists
+        run: |
+          chmod +x scripts/sync_upstream.sh scripts/update_filter_lists.sh
+          ./scripts/sync_upstream.sh
+
+      - name: Check For Upstream Changes
+        id: check_changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changes_detected=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in submodules, filter lists, or symlinks:"
+            git status --short
+          else
+            echo "changes_detected=false" >> $GITHUB_OUTPUT
+            echo "No upstream changes detected. Everything is up-to-date."
+          fi
+
+      - name: Commit and Push Upstream Changes
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          git add -A
+          git commit -m "chore(upstream): auto-sync Brave adblock-rust & adblock-lists [skip ci]"
+          git push origin main
+
+      - name: Trigger Build Workflow for Updated Engine & Rules
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Triggering build workflow to generate updated APKs..."
+          gh workflow run build.yml --ref main || true

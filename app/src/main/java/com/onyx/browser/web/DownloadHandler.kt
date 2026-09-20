@@ -41,7 +41,7 @@ object DownloadHandler {
             )
             dialog.onDownloadConfirmed = { customFileName ->
                 startSystemDownload(
-                    activity = activity,
+                    context = activity,
                     coroutineScope = coroutineScope,
                     url = url,
                     userAgent = userAgent,
@@ -61,7 +61,7 @@ object DownloadHandler {
             dialog.show((activity as androidx.fragment.app.FragmentActivity).supportFragmentManager, "DownloadPrompt")
         } else {
             startSystemDownload(
-                activity = activity,
+                context = activity,
                 coroutineScope = coroutineScope,
                 url = url,
                 userAgent = userAgent,

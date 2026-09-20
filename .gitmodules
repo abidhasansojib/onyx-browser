@@ -1,0 +1,8 @@
+[submodule "external/adblock-rust"]
+	path = external/adblock-rust
+	url = https://github.com/brave/adblock-rust.git
+	branch = master
+[submodule "external/adblock-lists"]
+	path = external/adblock-lists
+	url = https://github.com/brave/adblock-lists.git
+	branch = master

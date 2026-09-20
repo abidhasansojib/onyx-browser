@@ -1,70 +1,389 @@
-! Onyx Browser Built-in Baseline Filters
-||googlesyndication.com^
-||googleadservices.com^
-||doubleclick.net^
-||adservice.google.*^
-||adcolony.com^
-||unityads.unity3d.com^
-||applovin.com^
-||chartboost.com^
-||vungle.com^
-||ironsrc.com^
-||mopub.com^
-||flurry.com^
-||facebook.com/tr/*
-||connect.facebook.net/*/fbevents.js
-||analytics.twitter.com^
-||ads-twitter.com^
-||criteo.com^
-||scorecardresearch.com^
-||quantserve.com^
-||outbrain.com^
-||taboola.com^
-||amazon-adsystem.com^
-||adnxs.com^
-||rubiconproject.com^
-||pubmatic.com^
-||openx.net^
-||advertising.com^
-||smartadserver.com^
-||casalemedia.com^
-||moatads.com^
-||tracking.kargo.com^
-||inmobi.com^
-||bidswitch.net^
-||popads.net^
-||popcash.net^
-||adcash.com^
-||propellerads.com^
-||revcontent.com^
-||zergnet.com^
-||mgid.com^
-||trafficjunky.com^
-||exoclick.com^
-||juicyads.com^
-||clickadu.com^
-||adsterra.com^
-||hilltopads.net^
-||admaven.com^
-/ads/*$image,script,subdocument
-/advert/*$image,script,subdocument
-/advertising/*$image,script,subdocument
-/banner/*$image,script,subdocument
-/banners/*$image,script,subdocument
-/popunder/*$image,script,subdocument
-/popup/*$image,script,subdocument
-/sponsor/*$image,script,subdocument
-/telemetry/*$image,script,subdocument
-/tracking/*$image,script,subdocument
-/tracker/*$image,script,subdocument
--ad-banner-
--ad-container-
--advertisement-
-##.adsbox
-##.ad-container
-##.ad_banner
-##.ad-wrapper
-##.advertisement
-##.sponsored-post
-##div[class*="sponsored"]
-##div[id*="google_ads"]
+[Adblock Plus 2.0]
+! Title: Onyx Browser Bundled Brave Filter Rules
+! Description: Compiled directly from official Brave Adblock Lists
+! Source: https://github.com/brave/adblock-lists
+! Auto-updated for high-performance mobile ad-blocking
+
+! Brave desktop filters
+
+! Title: Brave Android-Specific Rules
+! Expires: 2 days
+
+! https://github.com/brave/brave-browser/issues/16629
+diariodocentrodomundo.com.br,01net.com,gizchina.com,pocketpc.ch##.mrf-adv__wrapper 
+
+! Title: Brave Specific
+! Expires: 2 days
+
+! Specific filters (Tracking or ads) for Brave
+||0.0.0.0^$third-party,domain=~[::]|~[::ffff:0:0]
+||[::]^$third-party,domain=~0.0.0.0|~[::ffff:0:0]
+||[::ffff:0:0]^$third-party,domain=~0.0.0.0|~[::]
+||localhost^$third-party,domain=~127.0.0.1|~[::1]|~[::ffff:7f00:1]
+||127.0.0.1^$third-party,domain=~localhost|~[::1]|~[::ffff:7f00:1]
+||[::1]^$third-party,domain=~localhost|~127.0.0.1|~[::ffff:7f00:1]
+||[::ffff:7f00:1]^$third-party,domain=~localhost|~127.0.0.1|~[::1]
+
+! Allow page views in Brave to be counted by statcounter.com. The scripts that match the first
+! two rules below have been audited to confirm they don't try to circumvent Brave's cross-site
+! or cross-profile tracking protections (e.g., they don't try to fingerprint users, or detect
+! private mode, etc.). Brave's other protections (storage partitioning, ephemeral
+! storage, etc.) prevent statcounter code from tracking or profiling users. 
+@@||secure.statcounter.com/counter$script
+@@||www.statcounter.com/counter$script
+@@||c.statcounter.com^$image,xhr
+
+! brave.com specfic filters
+@@||ads.brave.software^$first-party
+@@||ads-admin.bravesoftware.com^$first-party
+@@||ads.bravesoftware.com^$first-party
+@@||ads-admin.brave.com^$first-party
+@@||ads-admin.brave.software^$first-party
+@@||ads.brave.com^$first-party
+@@||brave.com^$image,stylesheet,first-party
+@@||go-updater.brave.com^
+! basicattentiontoken.org specfic filters
+@@||basicattentiontoken.org^$ghide
+@@||basicattentiontoken.org^$first-party
+
+! search.brave.com specific filters
+! https://github.com/uBlockOrigin/uAssets/blob/master/filters/privacy.txt#L207
+search.brave.com#@#+js(no-fetch-if, body:browser)
+search.brave.com###search-ad
+! This is to make sure EasyList removal doesn't mess us up.
+||search.brave.com/api/ads/
+
+! stats.brave.com
+@@||stats.brave.com^$ghide
+@@||stats.brave.com^$first-party
+! community.brave.app
+@@||community.brave.app^$ghide
+
+! Make sure the domain doesn't accidentally get added again.
+! Was accidentally blocked twice leading to widespread breakage.
+! See https://github.com/easylist/easylist/issues/22894
+||cnstrc.com^$badfilter
+
+! Generic blocks
+.com/cuid/?
+.top/cuid/?
+.shop/opf/
+.shop/cuid/
+.shop/gd/
+.shop/sbx/
+.click/tsk/
+.click/opf/
+.click/gd/
+.com/tsf/
+.top/gd/*?md=
+/push/i?clk
+/script/ut.js
+/suurl5.php?
+
+! linkedin mobile app recommendations
+linkedin.com##+js(trusted-set-session-storage-item, blocking-upsell, '"DISMISSED"')
+linkedin.com##+js(trusted-set-session-storage-item, blocking-upsell_lastUpdatedAt, $now$)
+
+! Rotten tomatoes app recommendations
+rottentomatoes.com##+js(trusted-set-session-storage-item, mobileAppModal, '{"wasClosed":true}')
+rottentomatoes.com##+js(trusted-set-session-storage-item, mobileAndroidBanner, '{"wasClosed":true}')
+rottentomatoes.com##+js(trusted-set-local-storage-item, RtAppManager, '{"nextOpen":9999999999999,"wasClosed":true}')
+
+! thegatewaypundit.com (images fix)
+@@||ruamupr.com^$script,domain=thegatewaypundit.com
+
+! Fix localhost block on Trezor Bridge/Connect
+! https://community.brave.app/t/bug-brave-shields-break-trezor-bridge-connect-when-accessing-wallet/219544/
+@@||127.0.0.1^$domain=trezor.io
+
+! https://github.com/brave/brave-browser/issues/43050
+@@||127.0.0.1^$domain=pcsupport.lenovo.com
+
+!!! START OF UBO EXCEPTIONS
+! https://github.com/uBlockOrigin/uAssets/issues/23456
+@@||127.0.0.1^$xhr,domain=figma.com
+!
+! https://github.com/uBlockOrigin/uAssets/issues/19005
+@@||127.0.0.1^$xhr,domain=battlelog.battlefield.com
+!
+! https://github.com/uBlockOrigin/uAssets/pull/20768
+@@||127.0.0.1^$3p,domain=musicbrainz.org
+!
+! https://github.com/uBlockOrigin/uAssets/pull/22475
+@@||127.0.0.1^$domain=client.foldingathome.org
+!
+! https://github.com/uBlockOrigin/uAssets/issues/21960
+@@||127.0.0.1^$domain=mega.nz
+!
+! https://github.com/uBlockOrigin/uAssets/commit/b0e28ffe
+@@||127.0.0.1^$domain=intel.cn|intel.co.id|intel.co.jp|intel.co.kr|intel.com|intel.com.br|intel.com.tw|intel.de|intel.fr|intel.la|intel.vn
+!
+! https://github.com/uBlockOrigin/uAssets/issues/23388
+@@||localhost^$domain=deutsche-rentenversicherung.de
+@@||127.0.0.1^$domain=bund.de|organspende-register.de|bayernportal.de|mv-serviceportal.de
+!
+! https://github.com/uBlockOrigin/uAssets/pull/24488
+@@||localhost^$websocket,domain=www.faceit.com
+
+! https://community.brave.app/t/filecrypt-co-functionality-is-broken-when-shields-are-up/597698/
+@@||127.0.0.1^$domain=filecrypt.co
+
+! apollographql.com
+@@||localhost^$domain=apollographql.com
+
+! https://driverhub.asus.com/en
+@@||127.0.0.1^$domain=driverhub.asus.com
+
+!!! END OF UBO EXCEPTIONS
+
+! AD-Shield fix
+||joviallysafely.com/script/
+||quietlythough.com/script/
+||noisilyinstantly.com/script/
+||annualrallybran.com/script/
+/alm73cDylLvk1rXd1brtznfe1baIUT5.js
+
+! De-AMP rule that uses the De-AMP scriptlet
+google.*##+js(de-amp)
+
+! uritransform work around
+embed.wcostream.com##+js(rpnt, script, )();, )();(()=>{if(!location.href.includes('://embed.wcostream.com/inc/embed/index.php?file='))return;const e=`/inc/embed/video-js-new.php${location.search}`;location.href=e})();, sedCount, 1)
+
+! YouTube theater mode fix scriptlet rule
+youtube.*##+js(brave-youtube-theater-fix)
+
+! Fixes open-in-app warning
+m.youtube.com##+js(trusted-click-element, button.yt-spec-button-shape-next[aria-label="Close"][aria-disabled="false"], , 2000)
+
+! Trusted open-in-app notices
+alltrails.com##+js(trusted-set-local-storage-item, banner-dismissal-date, $now$)
+
+! YouTube navigation fix scriptlet rule
+youtube.*##+js(brave-youtube-navigation-fix)
+
+! Youtube playback speed fix scriptlet rule
+www.youtube.*##+js(brave-youtube-playback-speed-fix)
+
+! pageview-api detection
+music.youtube.com##+js(brave-video-bg-play)
+broadcastify.com,101espn.com,1027espn.com,1045espn.com,10play.com.au,11alive.com,1430espnfresno.com,6play.fr,7plus.com.au,973espn.com,9now.com.au,abc7news.com,abcactionnews.com,abema.tv,acast.com,accuradio.com,accuweather.com,acorn.tv,airtelxstream.in,altitudenow.com,altt.co.in,amcplus.com,ancientfaith.com,app.hzp.co,app.idagio.com,ardmediathek.de,arte.tv,ascoltareradio.com,audacy.com,audible.com,awa.fm,ballysports.com,bandcamp.com,bbc.co.uk,beinsports.com,bestpodcasts.co.uk,bigeradio.com,bilibili.com,binge.com.au,bitchute.com,boomplay.com,brighteon.com,britbox.com,c-span.org,canalplus.com,captivate.fm,castbox.fm,channel4.com,charlestonsportsradio.com,cheddar.tv,classicalking.org,classicalradio.com,classicalwcrb.org,clickorlando.com,cnn.com,cpac.ca,crave.ca,crunchyroll.com,curiositystream.com,cwtv.com,dazn.com,deezer.com,detroitpbs.org,di.fm,digitalradioplus.com.au,directv.com,discoveryplus.com,disneyplus.com,docplay.com,dr.dk,dstv.com,earthcam.com,eska.tv,espn.com,espnlouisville.com,espnradio941.com,espnrichmond.com,espnsiouxfalls.com,espnur.com,fanatiz.com,fandango.com,fandor.com,filmin.es,filmin.pt,fmradiofree.com,fmstream.org,fountain.fm,fox13news.com,fox35orlando.com,foxla.com,foxsports.com,foxtel.com.au,foxweather.com,france.tv,free-radio.us,freefy.app,freely.co.uk,fubo.tv,gaana.com,gem.cbc.ca,getmeradio.com,globalplayer.com,goodpods.com,goplay.be,gpb.org,hayu.com,hellorayo.co.uk,hidive.com,hoichoi.tv,hotstar.com,hulu.com,idahoptv.org,ieradio.org,iheart.com,internet-radio.com,itv.com,iview.abc.net.au,jango.com,jiocinema.com,jiosaavn.com,jiotv.com,joyn.de,kanopy.com,kdfc.com,kera.org,kick.com,kijk.nl,kkrt.com,knowledge.ca,kpbs.org,kqed.org,kron4.com,ktvu.com,kusc.org,liferadio.ca,listennotes.com,listnr.com,littlive.com,live.mystreamplayer.com,live365.com,liveone.com,liveradio.uk,liveradiouk.com,loadedradio.com,local10.com,mainepublic.org,max.com,maxdome.de,megaphone.fm,metalheartradio.com,milehighsports.com,montanapbs.org,mubi.com,music.amazon.ca,music.amazon.co.jp,music.amazon.co.uk,music.amazon.com,music.amazon.com.au,music.amazon.de,music.amazon.es,music.amazon.fr,music.amazon.it,music.apple.com,music.youtube.com,mytuner-radio.com,nba.com,nbcbayarea.com,nbcboston.com,nbcmiami.com,nbcnews.com,nbcsports.com,nebula.tv,nederlandseradio.nl,neontv.co.nz,netflix.com,nettradionorge.com,newson.us,nfl.com,nicovideo.jp,northernpublicradio.org,nostv.pt,nowtv.com,npo.nl,npoklassiek.nl,nzherald.co.nz,odysee.com,onlineradio.pl,onlineradiobox.com,orange.es,overcast.fm,pandora.com,paramountplus.com,pbs12.org,pbsfm.org.au,pbskids.org,pbssocal.org,pbswisconsin.org,peacocktv.com,philo.com,play.anghami.com,play.asti.ga,play.xumo.com,player.amperwave.net,player.simplecast.com,player.fm,player.listenlive.co,player.pl,player.streamguys.com,playeur.com,plex.tv,plus.nasa.gov,pluto.tv,pocketcasts.com,podbay.fm,podcast24.fr,podcastaddict.com,podcasts-online.org,podcasts.apple.com,podcasts.feedspot.com,podcasts.nz,podimo.com,podtail.com,polsatboxgo.pl,primevideo.com,protonradio.com,qobuz.com,raddio.net,radiko.jp,radio-australia.org,radio-stations.co.nz,radio-uk.co.uk,radio.de,radio.garden,radio.net,radio.org.nz,radio.org.se,radio.pp.ru,radioau.net,radiolisten.de,radioonline.fm,radioparadise.com,radios.lu,radioside.com,radioswissclassic.ch,rakuten.tv,randa.tv,rcast.net,rnz.co.nz,rockradio.com,roku.com,rova.nz,rtve.es,rumble.com,sbs.com.au,securenetsystems.net,shudder.com,siriusxm.com,skygo.co.nz,slingtv.com,sonatica.fm,sonyliv.com,soundcloud.com,spectrumsportsnet.com,sportscapitoldc.com,sportsnet.ca,spotify.com,spreaker.com,stacktv.ca,stan.com.au,starplus.com,starz.com,streema.com,stuff.co.nz,ted.com,telenet.tv,tencentmusic.com,theclassicalstation.org,thegame730am.com,threenow.co.nz,tidal.com,tiktok.com,tntdrama.com,totallyradio.com.au,tsn.ca,tubitv.com,tunein.com,tuner.bonneville.com,tv.kakao.com,tv.naver.com,tving.com,tvn24.pl,tvnz.co.nz,twitch.tv,u.co.uk,ukonlineradio.com,ukradiolive.com,viaplay.com,video.cascadepbs.org,video.unext.jp,video.vermontpublic.org,videoland.com,viki.com,vimeo.com,vix.com,watch.att.com,watch.jme.tv,wavve.com,wcmu.org,weather.com,wesh.com,wfmt.com,wfmu.org,wgbh.org,wibw.com,wlbt.com,wlxg.com,wmtv15news.com,wned.org,wnyc.org,wondery.com,worldchannel.org,wowow.co.jp,wowtv.de,wpbf.com,wptv.com,wqxr.org,wynk.in,xfinity.com,yourclassical.org,zdf.de##+js(brave-disable-pageview-api)
+
+! music/media annoyances
+! https://community.brave.app/t/websites-playing-sounds-only-if-ad-blocking-is-enabled-plus-flamecomics-is-a-nightmare/600105
+! flamecomics.xyz radio
+||players.radioonlinehd.net^$domain=flamecomics.xyz
+! gear4music.com music
+||assetscdn-wchat.freshchat.com/static/assets/$media
+
+
+! Used for Brave QA tests
+?335962573013224749$image,xhr,domain=dev-pages.brave.software|dev-pages.bravesoftware.com
+! Rules for testing cosmetic filters in frames
+dev-pages.brave.software,dev-pages.bravesoftware.com##+js(set, window.BRAVE_TEST_VALUE, true)
+
+! Fixing paywall scroll issue on scmp.com
+@@||c2.piano.io/xbuilder/experience/$xhr,domain=scmp.com
+@@||cdn.tinypass.com/api/tinypass.min.js$script,domain=scmp.com
+
+! Youtube sabr delay fix
+! m.youtube.*##+js(brave-yt-sabr-fix)
+
+! Title: Brave Social
+! Description: List used by Brave for preventing social elements from loading
+! Expires: 2 days
+
+! Facebook
+||connect.facebook.net^$third-party,domain=~atlassolutions.com|~facebook.com|~facebook.de|~facebook.fr|~facebook.net|~fb.com|~fb.me|~fbcdn.net|~fbsbx.com|~friendfeed.com|~instagram.com|~internalfb.com|~messenger.com|~oculus.com|~whatsapp.com|~workplace.com
+||connect.facebook.com^$third-party,domain=~atlassolutions.com|~facebook.com|~facebook.de|~facebook.fr|~facebook.net|~fb.com|~fb.me|~fbcdn.net|~fbsbx.com|~friendfeed.com|~instagram.com|~internalfb.com|~messenger.com|~oculus.com|~whatsapp.com|~workplace.com
+! Facebook Plugins (3rd-party embedded plugins)
+||facebook.com/plugins/$third-party,domain=~atlassolutions.com|~facebook.com|~facebook.de|~facebook.fr|~facebook.net|~fb.com|~fb.me|~fbcdn.net|~fbsbx.com|~friendfeed.com|~instagram.com|~internalfb.com|~messenger.com|~oculus.com|~whatsapp.com|~workplace.com
+! Twitter
+||api.twitter.com^$third-party,domain=~tweetdeck.com|~twitter.com|~twitter.jp
+||platform.twitter.com^$third-party,domain=~tweetdeck.com|~twitter.com|~twitter.jp
+! Linkedin
+||licdn.com^$third-party,domain=~linkedin.com|~lnkd.in
+||linkedin.com^$third-party
+! Outbrain
+||outbrain.com^$third-party,domain=~sphere.com
+
+! Title: Brave Cookie-snippet list
+! Description: Brave-specific additions to Easylist Cookie
+! Expires: 2 days
+!
+! List to cover domain wildcards for trusted cookie
+
+
+! longer delay
+! https://community.brave.app/t/google-com-cookie-popup/644375/9
+www.google.*##+js(trusted-click-element, button#W0wltc, , 1800)
+
+! https://github.com/uBlockOrigin/uAssets/blob/master/filters/annoyances-cookies.txt#L74
+chrono24.co.th,chrono24.ae,chrono24.fi,chrono24.pt,chrono24.hk,chrono24.hu,chrono24.at,chrono24.com,chrono24.ph,chrono24.in,chrono24.kr,chrono24.com.hr,chrono24.be,chrono24.co.uk,chrono24.de,chrono24.co.za,chrono24.no,chrono24.com.br,chrono24.es,chrono24.cn,chrono24.cz,chrono24.ch,chrono24.cl,chrono24.sk,chrono24.com.ar,chrono24.mx,chrono24.nl,chrono24.com.tr,chrono24.pl,chrono24.co.id,chrono24.tw,chrono24.com.ru,chrono24.se,chrono24.com.au,chrono24.it,chrono24.com.gr,chrono24.fr,chrono24.ca,chrono24.dk,chrono24.ro,chrono24.jp,chrono24.my,chrono24.co.nz,chrono24.sg##+js(trusted-click-element, button.js-cookie-accept-all, , 2000)
+chrono24.co.th,chrono24.ae,chrono24.fi,chrono24.pt,chrono24.hk,chrono24.hu,chrono24.at,chrono24.com,chrono24.ph,chrono24.in,chrono24.kr,chrono24.com.hr,chrono24.be,chrono24.co.uk,chrono24.de,chrono24.co.za,chrono24.no,chrono24.com.br,chrono24.es,chrono24.cn,chrono24.cz,chrono24.ch,chrono24.cl,chrono24.sk,chrono24.com.ar,chrono24.mx,chrono24.nl,chrono24.com.tr,chrono24.pl,chrono24.co.id,chrono24.tw,chrono24.com.ru,chrono24.se,chrono24.com.au,chrono24.it,chrono24.com.gr,chrono24.fr,chrono24.ca,chrono24.dk,chrono24.ro,chrono24.jp,chrono24.my,chrono24.co.nz,chrono24.sg##dialog.gdpr-layer
+
+! https://github.com/uBlockOrigin/uAssets/blob/master/filters/annoyances-cookies.txt#L526
+music.amazon.es,music.amazon.it,music.amazon.de,music.amazon.co.uk,music.amazon.de,music.amazon.fr##+js(trusted-click-element, #dialogButton1)
+music.amazon.es,music.amazon.it,music.amazon.de,music.amazon.co.uk,music.amazon.de,music.amazon.fr##+js(trusted-click-element, #dialogButton1, , 1500)
+music.amazon.es,music.amazon.it,music.amazon.de,music.amazon.co.uk,music.amazon.de,music.amazon.fr###overlay
+music.amazon.es,music.amazon.it,music.amazon.de,music.amazon.co.uk,music.amazon.de,music.amazon.fr##*:style(filter: none !important)
+
+! shadow-root workaround
+! dw.com,winfuture.de,lippu.fi,racingnews365.com##+js(trusted-click-element, #cmpwrapper >>> #cmpbntyestxt, , 1000)
+racingnews365.com##+js(trusted-set-cookie, __cmpcccu33611, aBQIdOAYgAByQABAAIAA4ACwAGgATAAuABoADwAIAARAAoABcADSAIAAggBKACbAFYAVwAsgBeADAAH8AQ4AmQBbAC_AGCAMcAZYA0wByADsAHwAP0AgEBCgELAIgARKAjgCOwEjASQAlABMACiAFHAKSAUuAp4CoAFSAKuAWYAvwBgwDHAGRAMqAZwA0QBpQDdgG-AOSAcwA6IB2wD2AH6AQGAgmBC4EMAIeARIAjABHICPQEjAJJASWAlEBKwCdQE9AJ9AUGAo0BSgCnwFSAKpgVeBWACuAFegLAgWGBYgC4QFxgLlAXiAvyBlAGUgMvAZqAz4BpIDVQGtgNeAbEA4IBxIDkQHLAOjAdMA6gB2QDtgHgAPLAe2BBUCDIEHAIWASlAlmBMACaAE1AJ_gUvAp6BYEC0QFwwLogXyAv4Bh4DHAGOwMewaFBpIDbAG7QN4gb5A36BwQDhwHFAOLAcqA5YBy4DmUHPAc9A6CB0cDpQHTAOngdUA66B2QDs4HaQO4geBA8iB5YD0AHpQPWAe4A-eB9ED7gH3wPxgfmA_QB-oD_wIDAQJAgbBA6CCYEFYILQQYgg0BBwCDwEH4IRAQjQhJCEuEKAQoghhBDICHYEPAIgARKgiYBFICKcEeUJBAkGBIWCRUEk8JLgkvBJsCToEowJSgSmglRBKsCVkEroJvQTtgndBQYCjQFOgAKAXQA)
+racingnews365.com##+js(trusted-set-cookie, __cmpconsent33611, CQIaYvgQIaYvgAfVnBENBQFgAP_AAEPAAAigJiJTfG7ebWlDOXpTYPsEeQUf4Fg54oAxBgDIIoIEiDqAMIQEUmAyJAyQMqACEQAAIhBBIQEoGBgAQFAAQIABACDIYAAAgBJAIkAAAGERYkBACAAIAAAgYAAQAABGI1EAmAhAwFIYEMAQgQAACSAACAAAUAABAgAgAgggQAAACQIA0AAQAAAABAAAEQAIAAAAMCEAggQAAAACAEEmAADDQqIASgBCQgkDCCBACIIAgIoEAQAABAEQEABAwAEAIAKDARAAAAAAAAAIAAAQAAgAAEAAQAACAAIEAAAAAEAAAAAAgAACAAABAAsAAAAAAEAAAQIAAAAAAjECAAQAQgAAgICCAAAAAABAAABAAAAAAAAAAAAQAQAAAAAAAASAAAAAAAAAAAAAAAAAAAABAAAQIAA)
+winfuture.de##+js(trusted-set-cookie, __cmpcccu28216, aBQIdrTWgAgABCggACAAUABgAHgAUABgADgAJgAVgAuADAAGgAOAAegBAAEUAJAAlABQAC4AGgAOAAeQBAAEEAIYATQAvABuAD2AH0AP4AhwBFgCNgEwATMApAClAF-AMGAYYBiADHAGWANkAbgA3wB7AD4AIKAQsAiUBIwEkAJqATgAnQBPYCngKgAVIAqoBVwCugFkALMAXEAuYBfADBAGTAMwAbYA44ByQDmAHOAPqAfwBAACBwENgIkARUAjEBHYCPQEmAKKAUaApoBU4C4wFygMLAZAA00BqMDcwN2AcGA4cBxIDlgHNgOjAdQA9EB6oEGQIOAQsAh6BEICJgEUAI3gR2AksBKUCWYEwAJkATLAouBRsCl4FPQKkAV3AsCBYYCyoFogLcgXDAumBdiC_4MAAYRAxMBi0DGsGNwY4Ax2BksDJ4GagM6gaLA0yBrgDZAG5wOngdYA9sB7gD6YIPgRUAkABIeCS8EoIJQwTJgnMhRmFGgKQgUjgqAABM0-)
+winfuture.de##+js(trusted-set-cookie, __cmpconsent28216, CQIaYvgQIaYvgAfZUBDEBQFsAP_AAEPAAAigIpJR9G7VbWFDeXp3YbskeIUX1lh54sQgAgCAM6ABSBOA8JQGkmASIAyAIiACCBIAohABIQBMCAgEQEAAQIARAADoQAAAgAAKIEBEABEAA0EACAgIAAAgAAAYAgBVAhQAiQBAIBLEAMQgAIAgKSAAAAAAAIAUAgMADAAIQAIAAQAAQIAAgIIAAAAAAAEEIQASDQqIACgJCQgkBCCBACIKwgIoEAQAABAEQAAJAgAcAIACDABAAAAAAAAAAAAQQAAgAAEAAQCACAAIEAAAAAUAAAAAAAEACAgAAgAAAAAAAQEAAAQAAAAAAAiAAIAQIAgEAgAACAAAAAQFAAAAAAAAEAIAAAAAAAEAAAAAAAAAAAAQEEAA)
+dw.com##+js(trusted-set-cookie, __cmpcccx70166, aBQIdrsGgAwAxADIDCAAIABQAGAAcABcADQAOAAmABcADQAHgARAAoABdAEAAQQAhgBeAEOAJkAYIAywBtAELgKeAqABZgDKgHJARIAjEBcoDdAG-gOJAcsA9ECDIEHAIWASlAmABP8CwIFogLhgY4Ax2CD8El4KFAUaAqAAGU4upz5U3OtZ61oVrUrYwA)
+dw.com##+js(trusted-set-cookie, __cmpconsentx70166, CQIdrrgQIdrrgAfCmDENBQFwAP_gAEPgAAigI7JB9G5VSWFDOHpTYKoAIAUXx1hJQgAgAACAAuAACBKAIAQEEEAQIAgAIAAAABAAIBQAIQAIAAAAAACAAAAAAAAAAAAAAAAIAAAAAAAAQkAAAAAMAAAAAAAQAAAAAlAAgBAAABAAAIAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAIAAAAAAAAAAEEM4FIACwAHQAUABUAC4AHAAPAAgABIADIAGgAPwAiABHACYAFIAKoAXQA9AB-AEJAIgAiQBHACaAE4AK0AYYA0QBzgDuAH6AQgAiwBHADPgIvATJAo8CkAFyALzAYsBDMAA)
+lippu.fi##+js(trusted-set-cookie, __cmpcvcx40263, __c24102_s94_s1052_s40_s73_s65_c24103_c9953_s7_c24098_c24290_s1_s26_s2612_s135_s1104_s1409_s905_s46_s10_s24_c24202_s898_c22143_c21373_c43939_s3009_s2536_s77_s30_U__)
+lippu.fi##+js(trusted-set-cookie, __cmpconsentx40263, CQIdrrgQIdrrgAfEHBFIBQFgAAAAAAAAAAigH8wBAAQAAyAM4A_kAMoAQAIAAZAAAA)
+
+
+! https://github.com/uBlockOrigin/uAssets/blob/master/filters/annoyances-cookies.txt#L595
+coolstuff.se,coolstuff.no,coolstuff.fi,coolstuff.de,coolstuff.dk##+js(trusted-set-cookie, ConsentStatus, %7B%22necessary%22%3Atrue%2C%22siteFeatures%22%3Atrue%2C%22statistics%22%3Afalse%2C%22marketing%22%3Afalse%7D, , , reload, 1)
+
+! Let cookie consent show on slower connections
+ilmattino.it,leggo.it##+js(trusted-click-element, .accept[onclick="cmpConsentWall.acceptAllCookies()"])
+ilmattino.it,leggo.it##+js(trusted-click-element, .accept[onclick="cmpConsentWall.acceptAllCookies()"], , 2000)
+m2o.it,deejay.it,capital.it,ilmattino.it,leggo.it,libero.it,tiscali.it##+js(trusted-click-element, 'button.iubenda-cs-customize-btn, button.iub-cmp-reject-btn, button#iubFooterBtn')
+m2o.it,deejay.it,capital.it,ilmattino.it,leggo.it,libero.it,tiscali.it##+js(trusted-click-element, 'button.iubenda-cs-customize-btn, button.iub-cmp-reject-btn, button#iubFooterBtn', , 2000)
+
+! Let cookie consent show on slower connections
+automoto.it,ansa.it,delladio.it,huffingtonpost.it,internazionale.it,lastampa.it,macitynet.it,moto.it,movieplayer.it,multiplayer.it,repubblica.it,tomshw.it,skuola.net,spaziogames.it,tuttoandroid.net,tuttotech.net##+js(trusted-click-element, button.iubenda-cs-accept-btn, , 2000)
+automoto.it,ansa.it,delladio.it,huffingtonpost.it,internazionale.it,lastampa.it,macitynet.it,moto.it,movieplayer.it,multiplayer.it,repubblica.it,tomshw.it,skuola.net,spaziogames.it,tuttoandroid.net,tuttotech.net##+js(trusted-click-element, button.iubenda-cs-accept-btn, , 3000)
+
+! https://github.com/uBlockOrigin/uAssets/blob/master/filters/annoyances-cookies.txt#L246
+just-eat.co.uk,just-eat.dk,just-eat.es,just-eat.ie,just-eat.fr,just-eat.no,justeat.it,lieferando.de,lieferando.at,pyszne.pl,takeaway.com,thuisbezorgd.nl##+js(trusted-set-cookie, cookieConsent, functional, 1year, , reload, 1)
+just-eat.co.uk,just-eat.dk,just-eat.es,just-eat.ie,just-eat.fr,just-eat.no,justeat.it,lieferando.de,lieferando.at,pyszne.pl,takeaway.com,thuisbezorgd.nl##+js(trusted-set-cookie, je-cookieConsent, necessary, 1year)
+just-eat.co.uk,just-eat.dk,just-eat.es,just-eat.ie,just-eat.fr,just-eat.no,justeat.it,lieferando.de,lieferando.at,pyszne.pl,takeaway.com,thuisbezorgd.nl##+js(trusted-set-cookie, customerCookieConsent, %5B%7B%22consentTypeId%22%3A103%2C%22consentTypeName%22%3A%22necessary%22%2C%22isAccepted%22%3Atrue%7D%2C%7B%22consentTypeId%22%3A104%2C%22consentTypeName%22%3A%22functional%22%2C%22isAccepted%22%3Atrue%7D%2C%7B%22consentTypeId%22%3A105%2C%22consentTypeName%22%3A%22analytical%22%2C%22isAccepted%22%3Afalse%7D%2C%7B%22consentTypeId%22%3A106%2C%22consentTypeName%22%3A%22personalized%22%2C%22isAccepted%22%3Afalse%7D%5D, 1year)
+
+! https://github.com/uBlockOrigin/uAssets/blob/master/filters/annoyances-cookies.txt#L84
+lidl.co.uk,lidl.fr,lidl.de,lidl.nl,lidl.dk,lidl.se,lidl.fi,lidl.at,lidl.ch,lidl.sk,lidl.pl,lidl.cz,lidl.it,lidl-hellas.gr,lidl.ro,lidl.hu,lidl.be,lidl.es,lidl.pt##+js(trusted-set-cookie, CookieConsent, {necessary:true%2Cpreferences:false%2Cstatistics:false%2Cmarketing:false}, 1year)
+
+arvopaperi.fi,iltalehti.fi,kauppalehti.fi,mediuutiset.fi,mikrobitti.fi,talouselama.fi,tekniikkatalous.fi,tivi.fi,uusisuomi.fi###alma-cmpv2-container
+
+!
+! dpgmedia consentwall - Necessary + Social media
+cmp.dpgmedia.nl,cmp.dpgmedia.be,cmp.ad.nl,cmp.autotrack.nl,cmp.autoweek.nl,cmp.bd.nl,cmp.bndestem.nl,cmp.demorgen.be,cmp.deondernemer.nl,cmp.destentor.nl,cmp.ed.nl,cmp.gaspedaal.nl,cmp.gelderlander.nl,cmp.hln.be,cmp.humo.be,cmp.margriet.nl,cmp.nu.nl,cmp.qmusic.nl,cmp.stijlvol-wonen.com,cmp.trouw.nl,cmp.tubantia.nl,cmp.vtwonen.be,cmp.vtwonen.nl,cmp.pzc.nl,cmp.zozitdat.nl#@#+js(trusted-click-element, .pg-configure-button[title="Instellen"], , 500)
+cmp-sp.vrt.be,cmp.dpgmedia.nl,cmp.dpgmedia.be,cmp.ad.nl,cmp.autotrack.nl,cmp.autoweek.nl,cmp.bd.nl,cmp.bndestem.nl,cmp.demorgen.be,cmp.deondernemer.nl,cmp.destentor.nl,cmp.ed.nl,cmp.gaspedaal.nl,cmp.gelderlander.nl,cmp.hln.be,cmp.humo.be,cmp.margriet.nl,cmp.nu.nl,cmp.qmusic.nl,cmp.stijlvol-wonen.com,cmp.trouw.nl,cmp.tubantia.nl,cmp.vtwonen.be,cmp.vtwonen.nl,cmp.pzc.nl,cmp.zozitdat.nl#@#+js(trusted-click-element, 'button[aria-checked="false"][aria-label^="Social"], button.sp_choice_type_SAVE_AND_EXIT', , 500)
+myprivacy.dpgmedia.nl,myprivacy.dpgmedia.be,ad.nl,autotrack.nl,autoweek.nl,bd.nl,bndestem.nl,demorgen.be,deondernemer.nl,destentor.nl,ed.nl,gaspedaal.nl,gelderlander.nl,hln.be,humo.be,margriet.nl,nu.nl,qmusic.nl,stijlvol-wonen.com,trouw.nl,tubantia.nl,vrt.be,vtwonen.be,vtwonen.nl,pzc.nl,zozitdat.nl#@#[title="SP Consent Message"]
+myprivacy.dpgmediagroup.net#@#+js(set-cookie, dummy, 1, , reload, 1)
+myprivacy.dpgmedia.nl,dpgmediagroup.com,story.nl,veronicasuperguide.nl#@#+js(trusted-click-element, '#pg-shadow-host >>> #pg-configure-btn, #pg-shadow-host >>> #purpose-row-SOCIAL_MEDIA input[type="checkbox"], #pg-shadow-host >>> button#pg-save-preferences-btn')
+myprivacy.dpgmedia.nl,dpgmediagroup.com,story.nl,veronicasuperguide.nl#@##pg-modal
+
+! derstandard timeouts (default = 1000)
+derstandard.at,derstandard.de##+js(trusted-click-element, button[title="Einverstanden"])
+derstandard.at,derstandard.de##+js(trusted-click-element, button[title="Einverstanden"], , 2000)
+
+! extend delay for .pl domains 
+ipolska24.pl,17bankow.com,5mindlazdrowia.pl,kazimierzdolny.pl,vpolshchi.pl,dobreprogramy.pl,essanews.com,dailywrap.ca,dailywrap.uk,money.pl,autokult.pl,komorkomania.pl,polygamia.pl,autocentrum.pl,allani.pl,homebook.pl,domodi.pl,jastrzabpost.pl,open.fm,gadzetomania.pl,fotoblogia.pl,abczdrowie.pl,parenting.pl,kafeteria.pl,vibez.pl,wakacje.pl,extradom.pl,totalmoney.pl,superauto.pl,nerwica.com,forum.echirurgia.pl,dailywrap.net,pysznosci.pl,genialne.pl,finansowysupermarket.pl,deliciousmagazine.pl,jastrzabpost.pl,audioteka.com,easygo.pl,so-magazyn.pl,o2.pl,pudelek.pl,benchmark.pl,wp.pl##+js(trusted-click-element, div[class]:has(a[href*="holding.wp.pl"]) div[class]:only-child > button[class*=" "] + button:not([class*=" "]), , 3500)
+ipolska24.pl,17bankow.com,5mindlazdrowia.pl,kazimierzdolny.pl,vpolshchi.pl,dobreprogramy.pl,essanews.com,dailywrap.ca,dailywrap.uk,money.pl,autokult.pl,komorkomania.pl,polygamia.pl,autocentrum.pl,allani.pl,homebook.pl,domodi.pl,jastrzabpost.pl,open.fm,gadzetomania.pl,fotoblogia.pl,abczdrowie.pl,parenting.pl,kafeteria.pl,vibez.pl,wakacje.pl,extradom.pl,totalmoney.pl,superauto.pl,nerwica.com,forum.echirurgia.pl,dailywrap.net,pysznosci.pl,genialne.pl,finansowysupermarket.pl,deliciousmagazine.pl,jastrzabpost.pl,audioteka.com,easygo.pl,so-magazyn.pl,o2.pl,pudelek.pl,benchmark.pl,wp.pl##+js(trusted-click-element, div[class]:has(a[href*="holding.wp.pl"]) div[class]:only-child > button[class*=" "] + button:not([class*=" "]), , 4600)
+
+! cmp.vg.no##button.sp_choice_type_SAVE_AND_EXIT:remove-attr(/^(aria-)?disabled$/)  (Unsupported)
+! Need to accept to avoid disabled scroll.
+cmp.vg.no##+js(trusted-click-element, button[title="Godta alle"], , 1000)
+
+!
+! reject
+easyjet.com,experian.co.uk,postoffice.co.uk##+js(trusted-click-element, button#ensRejectAll, , 500)
+easyjet.com,experian.co.uk,postoffice.co.uk##+js(trusted-click-element, button#ensRejectAll, , 2500)
+
+! opt-out (mobile)
+uber.com##+js(trusted-click-element, button[data-tracking-name="cookie-preferences-sloo-opt-out"], , 1000)
+
+! Accept cookie-wall (UK IP)
+independent.co.uk##+js(trusted-click-element, button[title="ACCEPT"], , 1000)
+independent.co.uk##+js(trusted-click-element, button[title="ACCEPT"], , 2500)
+! Save and exit  (UK IP)
+the-independent.com##+js(trusted-click-element, button[title="SAVE AND EXIT"], , 1000)
+the-independent.com##+js(trusted-click-element, button[title="SAVE AND EXIT"], , 2500)
+
+! Increase timeouts
+consent-pref.trustarc.com##+js(trusted-click-element, .call, , 1500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[aria-label="Agree"], , 1500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[title="Accept all"i], , 1500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button.accept-all, , 1500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[aria-label="Alle akzeptieren"], , 1500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[title="Dismiss"], , 1500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[aria-label="نعم انا موافق"], , 1500)
+cdn.privacy-mgmt.com,cmp.computerbild.de,cmp.petbook.de,cmp-sp.siegener-zeitung.de,cmp-sp.sportbuzzer.de,klarmobil.de##+js(trusted-click-element, button[title^="Alle akzeptieren"], , 1500)
+cookist.it,fanpage.it,geopop.it,lexplain.it##+js(trusted-click-element, '.gdpr-modal .gdpr-btn--secondary, .gdpr-modal .gdpr-modal__box-bottom-dx > button.gdpr-btn--br:first-child'), , 1500)
+privacy.topreality.sk##+js(trusted-click-element, button[aria-label="Prijať všetko"], , 1500)
+verksamt.se##+js(trusted-click-element, [data-testid="consent-necessary"], , 1500)
+gutefrage.net##+js(trusted-click-element, a.cmptxt_btn_yes, , 1500)
+degiro.*##+js(trusted-click-element, #CybotCookiebotDialogBodyButtonDecline, , 1500)
+mapillary.com##+js(trusted-click-element, [data-testid="cookie-policy-banner-accept"], , 1500)
+tf1info.fr##+js(trusted-click-element, button[title^="Continuer sans accepter"], , 1500)
+omegawatches.com##+js(trusted-click-element, button[data-action="disallow-all"], , 1600)
+giga.de##+js(trusted-click-element, button.sp_choice_type_11, , 1500)
+mediamarkt.*##+js(trusted-click-element, button[data-test="pwa-consent-layer-save-settings"], , 1500)
+ubereats.com##+js(trusted-click-element, button[data-tracking-name="cookie-preferences-mloi-initial-opt-out"], , 1500)
+hertz.*##+js(trusted-click-element, a.cc-dismiss, , 1500)
+corriere.it,gazzetta.it,oggi.it##+js(trusted-click-element, .privacy-cp-wall #privacy-cp-wall-accept, , 1500)
+cmp.sky.it##+js(trusted-click-element, button[aria-label="Continua senza accettare"], , 1500)
+formula1.com##+js(trusted-click-element, [aria-label="REJECT ALL"], , 1500)
+spiegel.de##+js(trusted-click-element, button[title^="Consent"], , 1500)
+www.nytimes.com##+js(trusted-click-element, button.fides-reject-all-button, , 1500)
+fplstatistics.co.uk##+js(trusted-click-element, button[onclick="IMOK()"], , 1500)
+festool.*,festoolcanada.com##+js(trusted-click-element, #usercentrics-root >>> button[data-testid="uc-deny-all-button"], , 1500)
+f1racing.pl##+js(trusted-click-element, [href="/x-set-cookie/"], , 1500)
+consent.yahoo.com##+js(trusted-click-element, button.reject-all, , 1500)
+consent.capital.fr,programme-tv.net##+js(trusted-click-element, button[title="Accepter"], , 1500)
+digi24.ro,digisport.ro,digitalfoundry.net,egx.net,eurogamer.it,gmx.*,mail.com,mcmcomiccon.com,nintendolife.com,oe24.at,paxsite.com,player.pl,purexbox.com,pushsquare.com,starwarscelebration.com,thehaul.com,timeextension.com,travelandleisure.com,tunein.com,videoland.com,wizzair.com,wetter.at##+js(trusted-click-element, #onetrust-accept-btn-handler, , 1500)
+dicebreaker.com,eurogamer.cz,eurogamer.es,eurogamer.net,eurogamer.nl,eurogamer.pl,eurogamer.pt,gamesindustry.biz,jelly.deals,reedpop.com,rockpapershotgun.com,thepopverse.com,vg247.com,videogameschronicle.com##+js(trusted-click-element, button[title="Accept and continue"]], , 1500)
+dicebreaker.com,eurogamer.cz,eurogamer.es,eurogamer.net,eurogamer.nl,eurogamer.pl,eurogamer.pt,gamesindustry.biz,jelly.deals,reedpop.com,rockpapershotgun.com,thepopverse.com,vg247.com,videogameschronicle.com##+js(trusted-click-element, button[title="Accept All Cookies"]], , 1500)
+eurogamer.de##+js(trusted-click-element, .accept-all, , 1500)
+roadtovr.com##+js(trusted-click-element, #CybotCookiebotDialogBodyButtonAccept, , 1500)
+sosfanta.com##+js(trusted-click-element, #privacy-cp-wall-accept, , 1500)
+calciomercato.com##+js(trusted-click-element, #cl-consent button[data-role="b_decline"], , 1500)
+youmath.it##+js(trusted-click-element, button#pt-accept-all, , 1500)
+bloomberg.com##+js(trusted-click-element, button[title="Reject All"], , 2000)
+jeuxvideo.com##+js(trusted-click-element, button[onclick="Didomi.setUserAgreeToAll();"], , 2000)
+idnes.cz##+js(trusted-click-element, a[href="javascript:Didomi.setUserAgreeToAll();"], , 2000)
+www.youtube.com,m.youtube.com##+js(trusted-click-element, button[aria-label*="Accept the use of cookie"], , 1500)
+consent.youtube.com##+js(trusted-click-element, form[action] button[jsname="tWT92d"], , 1500)
+consent.youtube.com##+js(trusted-click-element, [action="https://consent.youtube.com/save"][style="display:inline;"] [name="set_eom"][value="true"] ~ .basebuttonUIModernization[value][aria-label], , 1500)
+consent.google.*##+js(trusted-click-element, form[action] button[jsname="tWT92d"]), , 1500)
+forbes.com##+js(trusted-click-element, [aria-labelledby="banner-title"] > div[class^="buttons_"] > button[class*="secondaryButton_"] + button, , 1500)
+! Increase timeouts (fallbacks) For slower devices/networks
+20minutes.fr,20minutos.es,24sata.hr,abc.es,actu.fr,antena3.com,antena3internacional.com,atresmedia.com,atresmediapublicidad.com,atresmediastudios.com,atresplayer.com,autopista.es,belfasttelegraph.co.uk,bonduelle.it,bonniernews.se,cadenaser.com,ciclismoafondo.es,cnews.fr,cope.es,correryfitness.com,decathlon.nl,decathlon.pl,di.se,diepresse.com,dn.se,dnevnik.hr,dumpert.nl,ebuyclub.com,edreams.de,edreams.net,elcomercio.es,elconfidencial.com,eldesmarque.com,elespanol.com,elpais.com,elpais.es,engadget.com,euronews.com,europafm.com,expressen.se,flooxernow.com,france.tv,france24.com,fussballtransfers.com,ghacks.net,gva.be,hbvl.be,krone.at,kurier.at,ladepeche.fr,lalibre.be,lasexta.com,lasprovincias.es,ledauphine.com,lejdd.fr,leparisien.fr,lexpress.fr,libremercado.com,okdiario.com,marmiton.org,melodia-fm.com,m6.fr,metronieuws.nl,mundodeportivo.com,naszemiasto.pl,nicematin.com,nieuwsblad.be,numerama.com,ondacero.es,profil.at,radiofrance.fr,rankia.com,rfi.fr,rossmann.pl,rtbf.be,rtl.lu,science-et-vie.com,sensacine.com,sfgame.net,shure.com,silicon.es,sncf-connect.com,sport.es,techcrunch.com,telegraaf.nl,telequebec.tv,trailrun.es,video-streaming.orange.fr##+js(trusted-click-element, #didomi-notice-agree-button, , 2200)
+consent.youtube.com##+js(trusted-click-element, form[action] button[jsname="tWT92d"], , 2500)
+consent.youtube.com##+js(trusted-click-element, [action="https://consent.youtube.com/save"][style="display:inline;"] [name="set_eom"][value="true"] ~ .basebuttonUIModernization[value][aria-label], , 2500)
+consent.google.*##+js(trusted-click-element, form[action] button[jsname="tWT92d"]), , 2500)
+consent-pref.trustarc.com##+js(trusted-click-element, .call, , 2500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[aria-label*="Aceptar"], , 2500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[aria-label="Agree"], , 2500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[title="Accept all"i], , 2500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button.accept-all, , 2500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[aria-label="Alle akzeptieren"], , 2500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[title="Dismiss"], , 2500)
+cdn.privacy-mgmt.com##+js(trusted-click-element, button[aria-label="نعم انا موافق"], , 2500)
+infranken.de##+js(trusted-click-element, span#cmpbntyestxt, , 2500)
+youmath.it##+js(trusted-click-element, button#pt-accept-all, , 2500)
+calciomercato.com##+js(trusted-click-element, #cl-consent button[data-role="b_decline"], , 2500)
+degiro.*##+js(trusted-click-element, #CybotCookiebotDialogBodyButtonDecline, , 2500)
+cmp.chip.de##+js(trusted-click-element, button[title="Alle Akzeptieren"], , 2500)
+mapillary.com##+js(trusted-click-element, [data-testid="cookie-policy-banner-accept"], , 2500)
+www.youtube.com,m.youtube.com##+js(trusted-click-element, button[aria-label*="Accept the use of cookie"], , 2500)
+giga.de##+js(trusted-click-element, button.sp_choice_type_11, , 2500)
+tf1info.fr##+js(trusted-click-element, button[title^="Continuer sans accepter"], , 2500)
+ubereats.com##+js(trusted-click-element, button[data-tracking-name="cookie-preferences-mloi-initial-opt-out"], , 2500)
+mediamarkt.*##+js(trusted-click-element, button[data-test="pwa-consent-layer-save-settings"], , 2500)
+hertz.*##+js(trusted-click-element, a.cc-dismiss, , 2500)
+eurogamer.de##+js(trusted-click-element, .accept-all, , 2500)
+roadtovr.com##+js(trusted-click-element, #CybotCookiebotDialogBodyButtonAccept, , 2500)
+corriere.it,gazzetta.it,oggi.it##+js(trusted-click-element, .privacy-cp-wall #privacy-cp-wall-accept, , 2500)
+sosfanta.com##+js(trusted-click-element, #privacy-cp-wall-accept, , 2500)
+cmp.sky.it##+js(trusted-click-element, button[aria-label="Continua senza accettare"], , 2500)
+formula1.com##+js(trusted-click-element, [aria-label="REJECT ALL"], , 2500)
+consent.capital.fr,programme-tv.net##+js(trusted-click-element, button[title="Accepter"], , 2500)
+consent.yahoo.com##+js(trusted-click-element, button.reject-all, , 2500)
+digi24.ro,digisport.ro,digitalfoundry.net,egx.net,eurogamer.it,gmx.*,mail.com,mcmcomiccon.com,nachrichten.at,nintendolife.com,oe24.at,paxsite.com,peacocktv.com,player.pl,pricerunner.com,pricerunner.se,pricerunner.dk,proximus.be,proximus.com,purexbox.com,pushsquare.com,southparkstudios.com,starwarscelebration.com,thehaul.com,timeextension.com,travelandleisure.com,tunein.com,videoland.com,wizzair.com,wetter.at##+js(trusted-click-element, #onetrust-accept-btn-handler, , 2800)
+dicebreaker.com,eurogamer.cz,eurogamer.es,eurogamer.net,eurogamer.nl,eurogamer.pl,eurogamer.pt,gamesindustry.biz,jelly.deals,reedpop.com,rockpapershotgun.com,thepopverse.com,vg247.com,videogameschronicle.com##+js(trusted-click-element, button[title="Accept and continue"], , 2800)
+dicebreaker.com,eurogamer.cz,eurogamer.es,eurogamer.net,eurogamer.nl,eurogamer.pl,eurogamer.pt,gamesindustry.biz,jelly.deals,reedpop.com,rockpapershotgun.com,thepopverse.com,vg247.com,videogameschronicle.com##+js(trusted-click-element, button[title="Accept All Cookies"], , 2800)
+
+! experimental, time-limited investigation. https://github.com/brave/reviews/issues/2372
+oscaro.com,boulanger.com#@##didomi-host
+oscaro.com#@#+js(trusted-click-element, .didomi-continue-without-agreeing, , 1000)
+@@||sdk.privacy-center.org^$script,domain=oscaro.com|boulanger.com
+
