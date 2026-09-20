@@ -22,27 +22,31 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Determine & Install Android NDK
+      - name: Accept Android SDK Licenses & Locate NDK
         run: |
-          NDK_PATH=$(ls -d $ANDROID_HOME/ndk/* 2>/dev/null | tail -n 1 || true)
-          if [ -z "$NDK_PATH" ] || [ ! -d "$NDK_PATH" ]; then
-            echo "Installing Android NDK r26b..."
+          yes | sdkmanager --licenses || true
+          NDK_DIR=$(ls -d $ANDROID_HOME/ndk/* 2>/dev/null | sort -V | tail -n 1)
+          if [ -z "$NDK_DIR" ] || [ ! -d "$NDK_DIR" ]; then
+            echo "Installing NDK r26b via sdkmanager..."
             echo "y" | sdkmanager "ndk;26.3.11579264"
-            NDK_PATH="$ANDROID_HOME/ndk/26.3.11579264"
+            NDK_DIR="$ANDROID_HOME/ndk/26.3.11579264"
           fi
-          echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
-          echo "Using NDK at: $NDK_PATH"
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+          echo "Found Android NDK at: $NDK_DIR"
 
       - name: Setup Rust Stable Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
+      - name: Cache cargo-ndk
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: cargo-ndk-${{ runner.os }}
+
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk
+        run: which cargo-ndk || cargo install cargo-ndk
 
       - name: Build Native Rust Engine (libadblock_bridge.so)
         run: |
@@ -55,8 +59,8 @@ jobs:
             -o ../app/src/main/jniLibs \
             build --release
           cd ..
-          echo "Built native JNI libraries:"
-          ls -la app/src/main/jniLibs/*
+          echo "Generated JNI shared libraries:"
+          find app/src/main/jniLibs -type f
 
       - name: Grant Execute Permission to Gradlew
         run: chmod +x gradlew
