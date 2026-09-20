@@ -98,7 +98,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkUrl
             if let Some(ref engine) = *lock {
                 if let Ok(request) = Request::new(&url_str, &source_str, &type_str, "GET") {
                     let blocker_result = engine.check_network_request(&request);
-                    if blocker_result.matched && blocker_result.exception.is_none() {
+                    if blocker_result.should_block() {
                         return JNI_TRUE;
                     }
                 }
@@ -150,7 +150,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
 /// Serializes the current active engine to a byte array.
 #[no_mangle]
 pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_serializeEngine(
-    env: JNIEnv,
+    mut env: JNIEnv,
     _class: JClass,
 ) -> jbyteArray {
     let result = catch_unwind(move || {

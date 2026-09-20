@@ -8,7 +8,7 @@ name = "adblock_bridge"
 crate-type = ["cdylib"]
 
 [dependencies]
-adblock = "0.13"
+adblock = { version = "0.13", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
 jni = "0.21"
 
 [profile.release]
