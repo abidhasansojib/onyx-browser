@@ -80,13 +80,14 @@ onyx-browser/
 
 ## 4. Active Tasks & Milestones
 - [x] Create project structure and `AGENTS.md`.
-- [ ] Implement Rust native crate (`rust_engine/Cargo.toml`, `rust_engine/src/lib.rs`).
-- [ ] Configure root and app `build.gradle.kts`, `settings.gradle.kts`, and Gradle wrapper.
-- [ ] Implement Room Database, Entities, and DAOs (`data/local`, `data/model`).
-- [ ] Implement SharedPreferences manager (`BrowserPreferences`).
-- [ ] Implement Native JNI bridge (`nativebridge/AdBlockEngine.kt`).
-- [ ] Implement WebView client and chrome client with adblocking & cosmetic CSS injection (`web/`).
-- [ ] Implement UI: Top toolbar, Home body, Tab switcher, Quick menu, Downloads dialog, Settings, History, Bookmarks.
-- [ ] Provide high-tech vector drawables and AMOLED themes.
-- [ ] Implement GitHub Actions CI/CD workflow (`.github/workflows/build.yml`).
-- [ ] Initialize Git repo, push to GitHub (`abidhasansojib/onyx-browser`), trigger workflow, and verify successful build.
+- [x] Implement Rust native crate (`rust_engine/Cargo.toml`, `rust_engine/src/lib.rs`).
+- [x] Configure root and app `build.gradle.kts`, `settings.gradle.kts`, and Gradle wrapper.
+- [x] Implement Room Database, Entities, and DAOs (`data/local`, `data/model`).
+- [x] Implement SharedPreferences manager (`BrowserPreferences`).
+- [x] Implement Native JNI bridge (`nativebridge/AdBlockEngine.kt`).
+- [x] Implement WebView client and chrome client with adblocking & cosmetic CSS injection (`web/`).
+- [x] Implement UI: Top toolbar, Home body, Tab switcher, Quick menu, Downloads dialog, Settings, History, Bookmarks.
+- [x] Provide high-tech vector drawables and AMOLED themes via automated Lucide icon acquisition.
+- [x] Implement GitHub Actions CI/CD workflow (`.github/workflows/build.yml`).
+- [x] Initialize Git repo, push to GitHub (`abidhasansojib/onyx-browser`), trigger workflow, and verify successful build.
+- [x] Monitor remote CI/CD execution and verify artifact generation.
