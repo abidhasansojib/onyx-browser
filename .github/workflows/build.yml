@@ -62,6 +62,11 @@ jobs:
           echo "Generated JNI shared libraries:"
           find app/src/main/jniLibs -type f
 
+      - name: Fetch and Convert Official Lucide Icons
+        run: |
+          chmod +x scripts/fetch_icons.sh
+          ./scripts/fetch_icons.sh
+
       - name: Grant Execute Permission to Gradlew
         run: chmod +x gradlew
 
