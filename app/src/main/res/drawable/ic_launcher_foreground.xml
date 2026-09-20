@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="2.5"
+        android:scaleY="2.5"
+        android:translateX="24.0"
+        android:translateY="24.0">
+        <!-- Top Swirl Segment (Pure White) -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:strokeColor="#FF000000"
+            android:strokeWidth="0.4"
+            android:strokeLineJoin="round"
+            android:pathData="M12,0 C8.21,0 4.831,1.757 2.632,4.501 l3.953,6.848 A5.454,5.454 0 0,1 12,6.545 h10.691 A12,12 0 0,0 12,0z" />
+        <!-- Right Swirl Segment (Silver Platinum) -->
+        <path
+            android:fillColor="#FFDDDDDD"
+            android:strokeColor="#FF000000"
+            android:strokeWidth="0.4"
+            android:strokeLineJoin="round"
+            android:pathData="M15.273,7.636 a5.446,5.446 0 0,1 1.45,7.09 l0.002,0.001 h-0.002 l-5.344,9.257 c0.206,0.01 0.413,0.016 0.621,0.016 6.627,0 12,-5.373 12,-12 0,-1.54 -0.29,-3.011 -0.818,-4.364z" />
+        <!-- Left Swirl Segment (Obsidian Slate Gray) -->
+        <path
+            android:fillColor="#FF999999"
+            android:strokeColor="#FF000000"
+            android:strokeWidth="0.4"
+            android:strokeLineJoin="round"
+            android:pathData="M1.931,5.47 A11.943,11.943 0 0,0 0,12 c0,6.012 4.42,10.991 10.189,11.864 l3.953,-6.847 a5.45,5.45 0 0,1 -6.865,-2.29z" />
+        <!-- Concentric White Core Ring -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M12,17.4 a5.4,5.4 0 1,1 0,-10.8 a5.4,5.4 0 0,1 0,10.8z" />
+        <!-- Dark Onyx Pupil Center -->
+        <path
+            android:fillColor="#FF121212"
+            android:pathData="M12,16.2 a4.2,4.2 0 1,1 0,-8.4 a4.2,4.2 0 0,1 0,8.4z" />
+        <!-- Center Faceted Onyx Diamond Core -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M12,9.6 L14.4,12 L12,14.4 L9.6,12 Z" />
+    </group>
+</vector>

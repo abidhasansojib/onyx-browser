@@ -27,7 +27,7 @@
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/home"
-            android:src="@drawable/ic_home"
+            app:srcCompat="@drawable/ic_home"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
@@ -42,7 +42,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/switch_search_engine"
             android:padding="2dp"
-            android:src="@drawable/ic_engine_brave"
+            app:srcCompat="@drawable/ic_engine_brave"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toEndOf="@id/btnHome"
             app:layout_constraintTop_toTopOf="parent" />
@@ -71,7 +71,7 @@
                 android:layout_height="16dp"
                 android:layout_marginEnd="6dp"
                 android:contentDescription="SSL Lock"
-                android:src="@drawable/ic_lock"
+                app:srcCompat="@drawable/ic_lock"
                 app:tint="?attr/colorControlNormal" />
 
             <!-- Address / Search EditText -->
@@ -100,7 +100,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/clear_search"
                 android:padding="2dp"
-                android:src="@drawable/ic_close"
+                app:srcCompat="@drawable/ic_close"
                 android:visibility="gone"
                 app:tint="?attr/colorControlNormal" />
 
@@ -112,7 +112,7 @@
                 android:layout_marginStart="6dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/voice_search"
-                android:src="@drawable/ic_mic"
+                app:srcCompat="@drawable/ic_mic"
                 app:tint="?attr/colorControlNormal" />
         </LinearLayout>
 
@@ -146,7 +146,7 @@
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/menu"
-            android:src="@drawable/ic_more_vert"
+            app:srcCompat="@drawable/ic_more_vert"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"

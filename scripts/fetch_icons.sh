@@ -50,15 +50,7 @@ for entry in "${ICONS[@]}"; do
 done
 
 echo "==> Converting downloaded SVGs to Android Vector Drawables..."
-if command -v npx >/dev/null 2>&1; then
-    echo "  -> Using npx svg2vectordrawable..."
-    npx --yes svg2vectordrawable --in "$TEMP_DIR/" --out "$DRAWABLE_DIR/" --tint "?attr/colorControlNormal" || \
-    npx --yes svg2vectordrawable -f "$TEMP_DIR" -o "$DRAWABLE_DIR" || \
-    python3 "$SCRIPT_DIR/svg_to_vector.py" "$TEMP_DIR" "$DRAWABLE_DIR"
-else
-    echo "  -> npx not found in environment, converting using svg_to_vector.py..."
-    python3 "$SCRIPT_DIR/svg_to_vector.py" "$TEMP_DIR" "$DRAWABLE_DIR"
-fi
+python3 "$SCRIPT_DIR/svg_to_vector.py" "$TEMP_DIR" "$DRAWABLE_DIR"
 
 echo "==> Cleaning up temporary download directory..."
 rm -rf "$TEMP_DIR"
