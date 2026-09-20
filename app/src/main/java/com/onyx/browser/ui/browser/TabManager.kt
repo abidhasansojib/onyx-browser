@@ -146,12 +146,15 @@ class TabManager(
 
     fun updateActiveTab(url: String, title: String) {
         val current = _activeTab.value ?: return
-        current.url = url
-        current.title = title.ifBlank { url }
+        val updatedTab = current.copy(url = url, title = title.ifBlank { url })
+        _activeTab.value = updatedTab
 
-        if (!current.isIncognito) {
+        if (updatedTab.isIncognito) {
+            _incognitoTabs.value = _incognitoTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
+        } else {
+            _normalTabs.value = _normalTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
             coroutineScope.launch(Dispatchers.IO) {
-                database.tabDao().updateTab(current)
+                database.tabDao().updateTab(updatedTab)
             }
         }
     }

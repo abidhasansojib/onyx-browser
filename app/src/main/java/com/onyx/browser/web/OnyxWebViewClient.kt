@@ -34,8 +34,8 @@ class OnyxWebViewClient(
         if (request == null) return null
         val url = request.url.toString()
 
-        // Don't intercept internal schemes
-        if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("about:")) {
+        // Only process http and https network requests for adblocking
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
             return null
         }
 
@@ -45,14 +45,18 @@ class OnyxWebViewClient(
 
             // Never block the main frame document itself
             if (!request.isForMainFrame) {
-                val blocked = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
-                if (blocked) {
-                    preferences.incrementBlockedRequests()
-                    return WebResourceResponse(
-                        "text/plain",
-                        "UTF-8",
-                        ByteArrayInputStream(ByteArray(0))
-                    )
+                try {
+                    val blocked = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
+                    if (blocked) {
+                        preferences.incrementBlockedRequests()
+                        return WebResourceResponse(
+                            "text/plain",
+                            "UTF-8",
+                            ByteArrayInputStream(ByteArray(0))
+                        )
+                    }
+                } catch (t: Throwable) {
+                    // Fail open: never fail web request due to adblock inspection error
                 }
             }
         }
@@ -62,10 +66,14 @@ class OnyxWebViewClient(
 
     override fun onPageCommitVisible(view: WebView?, url: String?) {
         super.onPageCommitVisible(view, url)
-        if (url != null && preferences.isCosmeticFilteringEnabled) {
-            val cosmeticCss = AdBlockEngine.getCosmeticCss(url)
-            if (cosmeticCss.isNotBlank()) {
-                injectCosmeticCss(view, cosmeticCss)
+        if (url != null && (url.startsWith("http://") || url.startsWith("https://")) && preferences.isCosmeticFilteringEnabled) {
+            try {
+                val cosmeticCss = AdBlockEngine.getCosmeticCss(url)
+                if (cosmeticCss.isNotBlank()) {
+                    injectCosmeticCss(view, cosmeticCss)
+                }
+            } catch (t: Throwable) {
+                // Fail open
             }
         }
     }

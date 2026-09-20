@@ -34,8 +34,10 @@ import com.onyx.browser.data.model.SearchEngine
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityMainBinding
+import com.onyx.browser.ui.bookmarks.BookmarksActivity
 import com.onyx.browser.ui.browser.TabManager
 import com.onyx.browser.ui.common.SearchEnginePickerDialog
+import com.onyx.browser.ui.common.SearchEnginePopupMenu
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.menu.MenuBottomSheetDialogFragment
@@ -193,6 +195,29 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Handle edge-to-edge system bars (Status Bar & Gesture Nav Bar)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.mainRoot) { _, windowInsets ->
+            val statusBarInsets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            val navBarInsets = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars())
+
+            binding.topBar.setPadding(
+                binding.topBar.paddingLeft,
+                statusBarInsets.top,
+                binding.topBar.paddingRight,
+                binding.topBar.paddingBottom
+            )
+
+            binding.contentContainer.setPadding(
+                binding.contentContainer.paddingLeft,
+                binding.contentContainer.paddingTop,
+                binding.contentContainer.paddingRight,
+                navBarInsets.bottom
+            )
+            windowInsets
+        }
+
         tabManager = TabManager(this, lifecycleScope)
 
         setupTopToolbar()
@@ -211,14 +236,15 @@ class MainActivity : AppCompatActivity() {
         // Search Engine Icon
         updateSearchEngineIcon()
         binding.btnSearchEngine.setOnClickListener {
-            val dialog = SearchEnginePickerDialog().apply {
-                setSelectedEngine(preferences.searchEngine)
-                onSearchEngineSelected = { engine ->
+            val popup = SearchEnginePopupMenu(
+                context = this,
+                currentEngine = preferences.searchEngine,
+                onEngineSelected = { engine ->
                     preferences.searchEngine = engine
                     updateSearchEngineIcon()
                 }
-            }
-            dialog.show(supportFragmentManager, SearchEnginePickerDialog.TAG)
+            )
+            popup.show(binding.btnSearchEngine)
         }
 
         // Home Button
@@ -323,9 +349,9 @@ class MainActivity : AppCompatActivity() {
     private fun setupHomepageInteractions() {
         val home = binding.homeLayout
 
-        // Quick Action 1: Shortcuts
+        // Quick Action 1: Shortcuts -> opens Bookmarks
         home.actionShortcuts.setOnClickListener {
-            Toast.makeText(this, "Top Shortcuts", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, BookmarksActivity::class.java))
         }
 
         // Quick Action 2: Incognito Shortcut
@@ -391,18 +417,25 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.GONE
     }
 
-    private fun showWebView(tab: TabItem) {
+    private fun showWebView(tab: TabItem, forceUrl: String? = null) {
         binding.homeLayout.root.visibility = View.GONE
         binding.webViewContainer.visibility = View.VISIBLE
 
         val webView = tabManager.getOrCreateWebView(tab)
         attachWebViewToContainer(webView)
 
-        if (webView.url.isNullOrBlank() && tab.url.isNotBlank()) {
-            webView.loadUrl(tab.url)
+        val targetUrl = forceUrl ?: tab.url
+        if (targetUrl.isNotBlank()) {
+            if (forceUrl != null || webView.url.isNullOrBlank()) {
+                try {
+                    webView.loadUrl(targetUrl)
+                } catch (t: Throwable) {
+                    Toast.makeText(this, "Failed to load URL: ${t.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
-        updateAddressBarDisplay(webView.url ?: tab.url)
+        updateAddressBarDisplay(webView.url ?: targetUrl)
     }
 
     private fun attachWebViewToContainer(webView: OnyxWebView) {
@@ -476,22 +509,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun performSearchOrLoad(input: String) {
-        val url = if (input.startsWith("http://") || input.startsWith("https://")) {
-            input
-        } else if (input.contains(".") && !input.contains(" ")) {
-            "https://$input"
+        val trimmed = input.trim()
+        if (trimmed.isEmpty()) return
+
+        val url = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+            trimmed
+        } else if (trimmed.contains(".") && !trimmed.contains(" ")) {
+            "https://$trimmed"
         } else {
-            preferences.searchEngine.buildSearchUrl(input)
+            preferences.searchEngine.buildSearchUrl(trimmed)
         }
 
-        val activeTab = tabManager.activeTab.value
-        if (activeTab != null) {
-            tabManager.updateActiveTab(url, url)
-            val webView = tabManager.getOrCreateWebView(activeTab)
-            attachWebViewToContainer(webView)
-            webView.loadUrl(url)
-            showWebView(activeTab)
-        }
+        val activeTab = tabManager.activeTab.value ?: tabManager.createNewTab()
+        tabManager.updateActiveTab(url, url)
+        showWebView(activeTab, forceUrl = url)
     }
 
     private fun enterSearchMode() {

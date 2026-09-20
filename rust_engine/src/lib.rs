@@ -85,18 +85,28 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkUrl
             Ok(s) => s.into(),
             Err(_) => return JNI_FALSE,
         };
+        if url_str.is_empty() {
+            return JNI_FALSE;
+        }
+
         let source_str: String = match env.get_string(&source_url) {
             Ok(s) => s.into(),
-            Err(_) => return JNI_FALSE,
+            Err(_) => String::new(),
         };
         let type_str: String = match env.get_string(&resource_type) {
             Ok(s) => s.into(),
-            Err(_) => return JNI_FALSE,
+            Err(_) => "other".to_string(),
+        };
+
+        let effective_source = if source_str.is_empty() {
+            &url_str
+        } else {
+            &source_str
         };
 
         if let Ok(lock) = ENGINE.read() {
             if let Some(ref engine) = *lock {
-                if let Ok(request) = Request::new(&url_str, &source_str, &type_str, "GET") {
+                if let Ok(request) = Request::new(&url_str, effective_source, &type_str, "GET") {
                     let blocker_result = engine.check_network_request(&request);
                     if blocker_result.should_block() {
                         return JNI_TRUE;
@@ -118,12 +128,12 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
     _class: JClass,
     url: JString,
 ) -> jstring {
-    let result = catch_unwind(move || {
-        let url_str: String = match env.get_string(&url) {
-            Ok(s) => s.into(),
-            Err(_) => String::new(),
-        };
+    let url_str: String = match env.get_string(&url) {
+        Ok(s) => s.into(),
+        Err(_) => String::new(),
+    };
 
+    let result = catch_unwind(std::panic::AssertUnwindSafe(|| {
         let mut css = String::new();
         if !url_str.is_empty() {
             if let Ok(lock) = ENGINE.read() {
@@ -137,14 +147,14 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
                 }
             }
         }
+        css
+    }));
 
-        match env.new_string(css) {
-            Ok(s) => s.into_raw(),
-            Err(_) => ptr::null_mut(),
-        }
-    });
-
-    result.unwrap_or(ptr::null_mut())
+    let css_out = result.unwrap_or_default();
+    match env.new_string(css_out) {
+        Ok(s) => s.into_raw(),
+        Err(_) => env.new_string("").map(|s| s.into_raw()).unwrap_or(ptr::null_mut()),
+    }
 }
 
 /// Serializes the current active engine to a byte array.

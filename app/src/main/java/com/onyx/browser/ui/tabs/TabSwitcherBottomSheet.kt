@@ -1,19 +1,21 @@
 package com.onyx.browser.ui.tabs
 
-import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.PopupMenu
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.tabs.TabLayout
 import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
@@ -22,6 +24,7 @@ import com.onyx.browser.databinding.BottomSheetTabSwitcherBinding
 import com.onyx.browser.ui.browser.TabManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class TabSwitcherBottomSheet(
@@ -29,7 +32,7 @@ class TabSwitcherBottomSheet(
     private val coroutineScope: CoroutineScope,
     private val onTabSelected: (TabItem) -> Unit,
     private val onNewTabRequested: (Boolean) -> Unit
-) : BottomSheetDialogFragment() {
+) : DialogFragment() {
 
     private var _binding: BottomSheetTabSwitcherBinding? = null
     private val binding get() = _binding!!
@@ -37,18 +40,18 @@ class TabSwitcherBottomSheet(
     private lateinit var adapter: TabsAdapter
     private var isViewingIncognito = false
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val dialog = super.onCreateDialog(savedInstanceState) as BottomSheetDialog
-        dialog.setOnShowListener {
-            val bottomSheet = dialog.findViewById<FrameLayout>(com.google.android.material.R.id.design_bottom_sheet)
-            if (bottomSheet != null) {
-                val behavior = BottomSheetBehavior.from(bottomSheet)
-                behavior.state = BottomSheetBehavior.STATE_EXPANDED
-                behavior.skipCollapsed = true
-                behavior.isDraggable = true
-            }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NORMAL, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        dialog?.window?.apply {
+            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            setBackgroundDrawableResource(android.R.color.black)
+            WindowCompat.setDecorFitsSystemWindows(this, false)
         }
-        return dialog
     }
 
     override fun onCreateView(
@@ -65,10 +68,32 @@ class TabSwitcherBottomSheet(
 
         isViewingIncognito = tabManager.activeTab.value?.isIncognito ?: false
 
+        // Apply Window Insets for topBar and bottomBar
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val statusBars = insets.getInsets(
+                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+
+            binding.tabSwitcherTopBar.setPadding(
+                binding.tabSwitcherTopBar.paddingLeft,
+                statusBars.top,
+                binding.tabSwitcherTopBar.paddingRight,
+                binding.tabSwitcherTopBar.paddingBottom
+            )
+            binding.bottomBar.setPadding(
+                binding.bottomBar.paddingLeft,
+                binding.bottomBar.paddingTop,
+                binding.bottomBar.paddingRight,
+                navBars.bottom
+            )
+            insets
+        }
+
         setupRecyclerView()
         setupTopControls()
         setupBottomControls()
-        refreshTabsList()
+        observeTabs()
     }
 
     private fun setupRecyclerView() {
@@ -80,7 +105,6 @@ class TabSwitcherBottomSheet(
             },
             onTabClosed = { tab ->
                 tabManager.closeTab(tab)
-                refreshTabsList()
             }
         )
 
@@ -97,10 +121,9 @@ class TabSwitcherBottomSheet(
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.bindingAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
+                if (position != RecyclerView.NO_POSITION && position < adapter.currentList.size) {
                     val tab = adapter.currentList[position]
                     tabManager.closeTab(tab)
-                    refreshTabsList()
                 }
             }
         })
@@ -108,6 +131,10 @@ class TabSwitcherBottomSheet(
     }
 
     private fun setupTopControls() {
+        binding.btnCloseTabSwitcher.setOnClickListener {
+            dismiss()
+        }
+
         binding.tabModeLayout.getTabAt(if (isViewingIncognito) 1 else 0)?.select()
 
         binding.tabModeLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
@@ -121,6 +148,51 @@ class TabSwitcherBottomSheet(
 
         binding.btnTabSwitcherOverflow.setOnClickListener { v ->
             showOverflowMenu(v)
+        }
+    }
+
+    private fun observeTabs() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    tabManager.normalTabs.collectLatest { list ->
+                        if (!isViewingIncognito) {
+                            renderTabs(list)
+                        }
+                    }
+                }
+                launch {
+                    tabManager.incognitoTabs.collectLatest { list ->
+                        if (isViewingIncognito) {
+                            renderTabs(list)
+                        }
+                    }
+                }
+                launch {
+                    tabManager.activeTab.collectLatest { active ->
+                        adapter.activeTabId = active?.id
+                        adapter.notifyDataSetChanged()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun refreshTabsList() {
+        val list = if (isViewingIncognito) {
+            tabManager.incognitoTabs.value
+        } else {
+            tabManager.normalTabs.value
+        }
+        renderTabs(list)
+    }
+
+    private fun renderTabs(list: List<TabItem>) {
+        adapter.activeTabId = tabManager.activeTab.value?.id
+        adapter.submitList(ArrayList(list)) {
+            val isEmpty = list.isEmpty()
+            binding.emptyTabsView.visibility = if (isEmpty) View.VISIBLE else View.GONE
+            binding.rvTabs.visibility = if (isEmpty) View.GONE else View.VISIBLE
         }
     }
 
@@ -174,20 +246,6 @@ class TabSwitcherBottomSheet(
         binding.btnCloseAllTabs.setOnClickListener {
             confirmCloseAllTabs()
         }
-    }
-
-    private fun refreshTabsList() {
-        val list = if (isViewingIncognito) {
-            tabManager.incognitoTabs.value
-        } else {
-            tabManager.normalTabs.value
-        }
-
-        adapter.activeTabId = tabManager.activeTab.value?.id
-        adapter.submitList(list)
-
-        binding.emptyTabsView.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
-        binding.rvTabs.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
     }
 
     private fun confirmClearHistory() {

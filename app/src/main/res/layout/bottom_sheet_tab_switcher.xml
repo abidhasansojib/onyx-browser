@@ -10,23 +10,39 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/tabSwitcherTopBar"
         android:layout_width="0dp"
-        android:layout_height="56dp"
+        android:layout_height="wrap_content"
+        android:minHeight="56dp"
         android:background="?attr/colorSurface"
         android:elevation="4dp"
-        android:paddingStart="16dp"
+        android:paddingStart="8dp"
         android:paddingEnd="12dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Back / Close Tab Switcher Button -->
+        <ImageButton
+            android:id="@+id/btnCloseTabSwitcher"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/close"
+            android:padding="8dp"
+            app:srcCompat="@drawable/ic_close"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorControlNormal" />
 
         <!-- Segmented Control for Normal vs. Incognito Tabs -->
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabModeLayout"
             android:layout_width="wrap_content"
             android:layout_height="38dp"
+            android:layout_marginStart="8dp"
             android:background="@drawable/bg_search_bar"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintStart_toEndOf="@id/btnCloseTabSwitcher"
             app:layout_constraintTop_toTopOf="parent"
             app:tabIndicatorColor="@color/primary"
             app:tabIndicatorFullWidth="true"
@@ -112,7 +128,8 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/bottomBar"
         android:layout_width="0dp"
-        android:layout_height="64dp"
+        android:layout_height="wrap_content"
+        android:minHeight="64dp"
         android:background="?attr/colorSurface"
         android:elevation="8dp"
         android:paddingStart="24dp"

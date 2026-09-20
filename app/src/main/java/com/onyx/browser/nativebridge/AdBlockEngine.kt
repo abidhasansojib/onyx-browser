@@ -32,7 +32,7 @@ object AdBlockEngine {
     external fun initEngine(data: ByteArray): Boolean
     external fun initFromRules(rules: String): ByteArray?
     external fun checkUrl(url: String, sourceUrl: String, resourceType: String): Boolean
-    external fun getCosmeticResources(url: String): String
+    external fun getCosmeticResources(url: String): String?
     external fun serializeEngine(): ByteArray?
     external fun isEngineInitialized(): Boolean
 
@@ -104,8 +104,8 @@ object AdBlockEngine {
         if (!isNativeLoaded) return false
         return try {
             checkUrl(url, sourceUrl, resourceType)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in checkUrl", e)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error in checkUrl", t)
             false
         }
     }
@@ -113,9 +113,9 @@ object AdBlockEngine {
     fun getCosmeticCss(url: String): String {
         if (!isNativeLoaded) return ""
         return try {
-            getCosmeticResources(url)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in getCosmeticResources", e)
+            getCosmeticResources(url) ?: ""
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error in getCosmeticResources", t)
             ""
         }
     }

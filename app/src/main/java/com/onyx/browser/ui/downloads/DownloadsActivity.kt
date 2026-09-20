@@ -1,5 +1,6 @@
 package com.onyx.browser.ui.downloads
 
+import android.app.DownloadManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -32,8 +33,30 @@ class DownloadsActivity : AppCompatActivity() {
 
         binding.toolbarDownloads.setNavigationOnClickListener { finish() }
 
+        binding.btnOpenSystemDownloads.setOnClickListener {
+            openSystemDownloadsFolder()
+        }
+
         setupRecyclerView()
         observeDownloads()
+    }
+
+    private fun openSystemDownloadsFolder() {
+        try {
+            startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            })
+        } catch (e: Exception) {
+            try {
+                val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                    type = "*/*"
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                }
+                startActivity(Intent.createChooser(intent, "Open Downloads"))
+            } catch (ex: Exception) {
+                Toast.makeText(this, "Could not open downloads: ${ex.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun setupRecyclerView() {

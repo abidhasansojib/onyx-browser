@@ -83,5 +83,10 @@ onyx-browser/
 - [x] Implement GitHub Actions CI/CD workflow (`.github/workflows/build.yml`).
 - [x] Initialize Git repo, push to GitHub (`abidhasansojib/onyx-browser`), trigger workflow, and verify successful build.
 - [x] Monitor remote CI/CD execution and verify artifact generation.
-- [x] Implement modified monochrome Chrome-inspired adaptive app icon with AMOLED background and Android 13+ themed icon support.
+- [x] Implement monochrome Chrome silhouette adaptive app icon matching user reference image on AMOLED Pure Black `#000000` with Android 13+ themed icon support.
 - [x] Configure complete runtime permissions: Notifications (Android 13+ download alerts/progress), Storage (Android 8-9 download saves), Microphone (Voice search & WebRTC), Geolocation (Web maps/weather), and Camera (Web uploads/calls).
+- [x] Fix runtime search and restart crash: Remove `panic = "abort"` in Rust NDK release profile, harden JNI native bridge (`checkUrl`, `getCosmeticResources`), and fail open safely in `OnyxWebViewClient`.
+- [x] Resolve status bar collision: Apply WindowInsetsCompat systemBars top padding to toolbar and navigationBars bottom padding to containers across all activities.
+- [x] Transform Tab Switcher into a full-page DialogFragment with reactive StateFlow collection and swipe-to-dismiss gesture support.
+- [x] Fix homepage quick actions: Make History, Downloads, Bookmarks, and Incognito buttons clickable with ripple feedback and system downloads folder access.
+- [x] Fetch official brand search engine SVG vectors (Brave, Google, DuckDuckGo, Bing, Startpage, Yahoo) from simple-icons CDN and implement compact dropdown `SearchEnginePopupMenu`.

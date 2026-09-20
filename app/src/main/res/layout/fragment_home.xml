@@ -65,16 +65,22 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
                 android:gravity="center"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
 
                 <ImageView
+                    android:id="@+id/ivActionShortcuts"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
                     android:background="@drawable/bg_circle_action"
-                    android:clickable="true"
+                    android:clickable="false"
                     android:contentDescription="@string/shortcuts"
-                    android:focusable="true"
+                    android:focusable="false"
                     android:padding="15dp"
                     android:src="@drawable/ic_web"
                     app:tint="?attr/colorControlNormal" />
@@ -94,16 +100,22 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
                 android:gravity="center"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
 
                 <ImageView
+                    android:id="@+id/ivActionIncognito"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
                     android:background="@drawable/bg_circle_action"
-                    android:clickable="true"
+                    android:clickable="false"
                     android:contentDescription="@string/incognito"
-                    android:focusable="true"
+                    android:focusable="false"
                     android:padding="15dp"
                     android:src="@drawable/ic_incognito"
                     app:tint="@color/incognito_purple" />
@@ -123,16 +135,22 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
                 android:gravity="center"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
 
                 <ImageView
+                    android:id="@+id/ivActionHistory"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
                     android:background="@drawable/bg_circle_action"
-                    android:clickable="true"
+                    android:clickable="false"
                     android:contentDescription="@string/history"
-                    android:focusable="true"
+                    android:focusable="false"
                     android:padding="15dp"
                     android:src="@drawable/ic_history"
                     app:tint="?attr/colorControlNormal" />
@@ -152,16 +170,22 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
                 android:gravity="center"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
 
                 <ImageView
+                    android:id="@+id/ivActionDownloads"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
                     android:background="@drawable/bg_circle_action"
-                    android:clickable="true"
+                    android:clickable="false"
                     android:contentDescription="@string/downloads"
-                    android:focusable="true"
+                    android:focusable="false"
                     android:padding="15dp"
                     android:src="@drawable/ic_download"
                     app:tint="?attr/colorControlNormal" />
