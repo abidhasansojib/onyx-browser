@@ -119,6 +119,46 @@ class MainActivity : AppCompatActivity() {
         pendingWebMediaRequest = null
     }
 
+    private fun handleGeolocationPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
+        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (fine || coarse) {
+            callback?.invoke(origin, true, false)
+        } else {
+            pendingGeoOrigin = origin
+            pendingGeoCallback = callback
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    private fun handleWebPermissionRequest(request: PermissionRequest?) {
+        if (request == null) return
+        val resources = request.resources
+        val needed = mutableListOf<String>()
+        if (resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                needed.add(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+        if (resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                needed.add(Manifest.permission.CAMERA)
+            }
+        }
+
+        if (needed.isEmpty()) {
+            request.grant(resources)
+        } else {
+            pendingWebMediaRequest = request
+            webMediaPermissionLauncher.launch(needed.toTypedArray())
+        }
+    }
+
     // Voice Search Result Launcher
     private val voiceSearchLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
