@@ -31,7 +31,8 @@ class TabSwitcherBottomSheet(
     private val tabManager: TabManager,
     private val coroutineScope: CoroutineScope,
     private val onTabSelected: (TabItem) -> Unit,
-    private val onNewTabRequested: (Boolean) -> Unit
+    private val onNewTabRequested: (Boolean) -> Unit,
+    private val onSearchRequested: (() -> Unit)? = null
 ) : DialogFragment() {
 
     private var _binding: BottomSheetTabSwitcherBinding? = null
@@ -131,8 +132,9 @@ class TabSwitcherBottomSheet(
     }
 
     private fun setupTopControls() {
-        binding.btnCloseTabSwitcher.setOnClickListener {
+        binding.btnSearchTabSwitcher.setOnClickListener {
             dismiss()
+            onSearchRequested?.invoke()
         }
 
         binding.tabModeLayout.getTabAt(if (isViewingIncognito) 1 else 0)?.select()

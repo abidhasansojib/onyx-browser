@@ -358,6 +358,9 @@ class MainActivity : AppCompatActivity() {
                 onNewTabRequested = { isIncognito ->
                     val newTab = tabManager.createNewTab(isIncognito = isIncognito)
                     displayTab(newTab)
+                },
+                onSearchRequested = {
+                    enterSearchMode()
                 }
             )
             sheet.show(supportFragmentManager, TabSwitcherBottomSheet.TAG)

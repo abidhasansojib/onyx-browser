@@ -111,6 +111,9 @@ onyx-browser/
   - [x] Fixed "Set as Default Browser":
     - Added `<category android:name="android.intent.category.APP_BROWSER" />` and `WEB_SEARCH` action in `AndroidManifest.xml` to qualify for system browser role.
     - Replaced unhandled `startActivity` with `registerForActivityResult(StartActivityForResult())` on `RoleManager.createRequestRoleIntent(ROLE_BROWSER)` and robust multi-step OEM fallback intents (`ACTION_MANAGE_DEFAULT_APPS_SETTINGS`, application details, and general settings).
+  - [x] Tab Switcher Top Bar Redesign:
+    - Replaced top-left cross button with Search button (`ic_search`) to access search mode directly from the tab menu.
+    - Centered the "Normal" and "Incognito" segmented buttons properly in the middle top.
 
 
 

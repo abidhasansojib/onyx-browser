@@ -20,29 +20,29 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Back / Close Tab Switcher Button -->
+        <!-- Search Button (Top Left - Access Search Option) -->
         <androidx.appcompat.widget.AppCompatImageButton
-            android:id="@+id/btnCloseTabSwitcher"
+            android:id="@+id/btnSearchTabSwitcher"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/close"
+            android:contentDescription="@string/search_or_type_url"
             android:padding="8dp"
-            app:srcCompat="@drawable/ic_close"
+            app:srcCompat="@drawable/ic_search"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:tint="?attr/colorControlNormal" />
 
-        <!-- Segmented Control for Normal vs. Incognito Tabs -->
+        <!-- Segmented Control for Normal vs. Incognito Tabs (Aligned in middle top) -->
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabModeLayout"
             android:layout_width="wrap_content"
             android:layout_height="38dp"
-            android:layout_marginStart="8dp"
             android:background="@drawable/bg_search_bar"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toEndOf="@id/btnCloseTabSwitcher"
+            app:layout_constraintEnd_toStartOf="@id/btnTabSwitcherOverflow"
+            app:layout_constraintStart_toEndOf="@id/btnSearchTabSwitcher"
             app:layout_constraintTop_toTopOf="parent"
             app:tabIndicatorColor="@color/primary"
             app:tabIndicatorFullWidth="true"
