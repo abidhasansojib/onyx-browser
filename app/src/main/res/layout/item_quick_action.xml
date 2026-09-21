@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/quickActionItemContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackgroundBorderless"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="4dp"
+    android:paddingBottom="8dp">
+
+    <!-- Clean Circular Icon Container (NO box tile) -->
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/ivActionIcon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/bg_circle_action"
+        android:clickable="false"
+        android:focusable="false"
+        android:padding="12dp"
+        app:tint="?attr/colorControlNormal"
+        tools:srcCompat="@drawable/ic_bookmark" />
+
+    <TextView
+        android:id="@+id/tvActionTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="12sp"
+        tools:text="Bookmarks" />
+
+</LinearLayout>

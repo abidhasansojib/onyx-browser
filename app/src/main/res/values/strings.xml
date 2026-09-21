@@ -150,4 +150,14 @@
     <string name="url_copied">URL copied to clipboard</string>
     <string name="back">Back</string>
     <string name="copy_url">Copy URL</string>
+
+    <!-- Incognito Mode Indicator -->
+    <string name="incognito_mode">Incognito</string>
+    <string name="incognito_privacy_desc">Pages you view in incognito tabs won\'t be saved in your browsing history or cookies.</string>
+    <string name="search_privately">Search privately or type URL</string>
+
+    <!-- Adjust Quick Actions -->
+    <string name="adjust_quick_actions">Adjust Action Buttons</string>
+    <string name="adjust_quick_actions_hint">Drag buttons on homepage or use arrows below to customize button positions.</string>
+    <string name="reset_order">Reset Default</string>
 </resources>

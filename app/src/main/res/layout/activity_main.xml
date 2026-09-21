@@ -16,7 +16,9 @@
         android:background="?attr/colorSurface"
         android:elevation="4dp"
         android:paddingStart="6dp"
+        android:paddingTop="4dp"
         android:paddingEnd="6dp"
+        android:paddingBottom="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -80,6 +82,17 @@
             app:layout_constraintEnd_toStartOf="@id/btnTabSwitcher"
             app:layout_constraintStart_toEndOf="@id/btnSearchEngine"
             app:layout_constraintTop_toTopOf="parent">
+
+            <!-- Incognito Badge Indicator (shown when active tab is incognito) -->
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/ivIncognitoIndicator"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginEnd="6dp"
+                android:contentDescription="@string/incognito_mode"
+                android:visibility="gone"
+                app:srcCompat="@drawable/ic_incognito"
+                app:tint="?attr/colorControlNormal" />
 
             <!-- SSL Lock Icon (shown in idle browsing) -->
             <androidx.appcompat.widget.AppCompatImageView
@@ -171,6 +184,16 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- Subtle 1dp Outline Divider separating toolbar from webview / content -->
+    <View
+        android:id="@+id/topBarDivider"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutline"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Sleek Loading Progress Indicator -->
     <ProgressBar
         android:id="@+id/progressBar"
@@ -185,7 +208,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/topBar"
+        app:layout_constraintTop_toBottomOf="@id/topBarDivider"
         tools:progress="50"
         tools:visibility="visible" />
 
@@ -291,7 +314,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/progressBar">
+        app:layout_constraintTop_toBottomOf="@id/topBarDivider">
 
         <!-- Included Homepage Body -->
         <include
@@ -323,7 +346,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/topBar">
+        app:layout_constraintTop_toBottomOf="@id/topBarDivider">
 
         <!-- Current Webpage Action Card (Share, Copy, Edit) -->
         <com.google.android.material.card.MaterialCardView

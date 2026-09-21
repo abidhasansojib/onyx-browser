@@ -150,5 +150,16 @@
             android:nestedScrollingEnabled="false"
             android:overScrollMode="never" />
 
+        <!-- Adjust Quick Actions Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAdjustQuickActions"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/adjust_quick_actions"
+            app:icon="@drawable/ic_edit"
+            app:iconGravity="textStart" />
+
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

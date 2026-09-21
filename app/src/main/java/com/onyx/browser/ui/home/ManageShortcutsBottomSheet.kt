@@ -59,6 +59,11 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
             addNewShortcut()
         }
 
+        binding.btnAdjustQuickActions.setOnClickListener {
+            val adjustSheet = AdjustQuickActionsBottomSheet()
+            adjustSheet.show(parentFragmentManager, AdjustQuickActionsBottomSheet.TAG)
+        }
+
         lifecycleScope.launch {
             preferences.shortcutsFlow.collectLatest { list ->
                 adapter.submitList(list)

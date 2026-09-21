@@ -33,6 +33,9 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.core.view.ViewCompat
 import android.content.ClipData
 import android.content.ClipboardManager
+import com.onyx.browser.data.model.QuickActionItem
+import com.onyx.browser.ui.home.QuickActionsAdapter
+import com.onyx.browser.ui.home.AdjustQuickActionsBottomSheet
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -79,6 +82,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var suggestionRepository: SearchSuggestionRepository
     private lateinit var suggestionsAdapter: SuggestionsAdapter
     private lateinit var shortcutsAdapter: ShortcutsAdapter
+    private lateinit var quickActionsAdapter: QuickActionsAdapter
     private var suggestionJob: Job? = null
 
     private var isSearchMode = false
@@ -231,11 +235,13 @@ class MainActivity : AppCompatActivity() {
             )
             val navBarInsets = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars())
 
+            val bottomPaddingPx = (8 * resources.displayMetrics.density).toInt()
+            val topPaddingPx = (4 * resources.displayMetrics.density).toInt()
             binding.topBar.setPadding(
                 binding.topBar.paddingLeft,
-                statusBarInsets.top,
+                statusBarInsets.top + topPaddingPx,
                 binding.topBar.paddingRight,
-                binding.topBar.paddingBottom
+                bottomPaddingPx
             )
 
             binding.contentContainer.setPadding(
@@ -426,25 +432,70 @@ class MainActivity : AppCompatActivity() {
     private fun setupHomepageInteractions() {
         val home = binding.homeLayout
 
-        // Quick Action 1: Bookmarks Button
-        home.actionBookmarks.setOnClickListener {
-            startActivity(Intent(this, BookmarksActivity::class.java))
-        }
+        // Dynamic Quick Actions (Clean Non-Box Circular UI, Reorderable via Drag or Dialog, Add in 4th)
+        quickActionsAdapter = QuickActionsAdapter(
+            onActionClick = { item ->
+                when (item.id) {
+                    QuickActionItem.ID_BOOKMARKS -> startActivity(Intent(this, BookmarksActivity::class.java))
+                    QuickActionItem.ID_HISTORY -> historyLauncher.launch(Intent(this, HistoryActivity::class.java))
+                    QuickActionItem.ID_DOWNLOADS -> startActivity(Intent(this, DownloadsActivity::class.java))
+                    QuickActionItem.ID_ADD -> {
+                        val sheet = ManageShortcutsBottomSheet()
+                        sheet.show(supportFragmentManager, ManageShortcutsBottomSheet.TAG)
+                    }
+                }
+            },
+            onActionLongClick = { _ ->
+                val sheet = AdjustQuickActionsBottomSheet()
+                sheet.show(supportFragmentManager, AdjustQuickActionsBottomSheet.TAG)
+            }
+        )
 
-        // Quick Action 2: Add / Manage Shortcuts Button (+)
-        home.actionAddShortcut.setOnClickListener {
-            val sheet = ManageShortcutsBottomSheet()
-            sheet.show(supportFragmentManager, ManageShortcutsBottomSheet.TAG)
-        }
+        home.rvQuickActions.layoutManager = GridLayoutManager(this, 4)
+        home.rvQuickActions.adapter = quickActionsAdapter
 
-        // Quick Action 3: History Button
-        home.actionHistory.setOnClickListener {
-            historyLauncher.launch(Intent(this, HistoryActivity::class.java))
-        }
+        // Drag-and-drop with ItemTouchHelper for quick action buttons
+        val quickActionTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.START or ItemTouchHelper.END,
+            0
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val fromPos = viewHolder.bindingAdapterPosition
+                val toPos = target.bindingAdapterPosition
+                return quickActionsAdapter.onItemMove(fromPos, toPos)
+            }
 
-        // Quick Action 4: Downloads Button
-        home.actionDownloads.setOnClickListener {
-            startActivity(Intent(this, DownloadsActivity::class.java))
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+
+            override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+                super.onSelectedChanged(viewHolder, actionState)
+                if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+                    viewHolder?.itemView?.animate()?.scaleX(1.12f)?.scaleY(1.12f)?.setDuration(150)?.start()
+                }
+            }
+
+            override fun clearView(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ) {
+                super.clearView(recyclerView, viewHolder)
+                viewHolder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                val newOrder = quickActionsAdapter.getItems().map { it.id }
+                preferences.saveQuickActionOrder(newOrder)
+            }
+        })
+        quickActionTouchHelper.attachToRecyclerView(home.rvQuickActions)
+
+        // Observe quick actions order flow
+        lifecycleScope.launch {
+            preferences.quickActionsFlow.collectLatest { order ->
+                val items = QuickActionItem.getOrderedItems(order)
+                quickActionsAdapter.submitList(items)
+            }
         }
 
         // Dynamic Shortcuts RecyclerView
@@ -588,11 +639,33 @@ class MainActivity : AppCompatActivity() {
         binding.etUrl.setText("")
         binding.ivSslLock.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
+
+        val isIncognito = tabManager.activeTab.value?.isIncognito == true
+        updateIncognitoUI(isIncognito)
+    }
+
+    private fun updateIncognitoUI(isIncognito: Boolean) {
+        val home = binding.homeLayout
+        if (isIncognito) {
+            home.ivBrandLogo.visibility = View.GONE
+            home.tvTagline.visibility = View.GONE
+            home.incognitoHeader.visibility = View.VISIBLE
+            binding.ivIncognitoIndicator.visibility = View.VISIBLE
+            binding.etUrl.hint = getString(R.string.search_privately)
+        } else {
+            home.ivBrandLogo.visibility = View.VISIBLE
+            home.tvTagline.visibility = View.VISIBLE
+            home.incognitoHeader.visibility = View.GONE
+            binding.ivIncognitoIndicator.visibility = View.GONE
+            binding.etUrl.hint = getString(R.string.search_or_type_url)
+        }
     }
 
     private fun showWebView(tab: TabItem, forceUrl: String? = null, reloadIfChanged: Boolean = false) {
         binding.homeLayout.root.visibility = View.GONE
         binding.webViewContainer.visibility = View.VISIBLE
+
+        updateIncognitoUI(tab.isIncognito)
 
         val webView = tabManager.getOrCreateWebView(tab)
         attachWebViewToContainer(webView)

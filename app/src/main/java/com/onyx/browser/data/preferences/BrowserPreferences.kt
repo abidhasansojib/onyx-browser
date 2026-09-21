@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatDelegate
 import com.onyx.browser.data.model.SearchEngine
+import com.onyx.browser.data.model.QuickActionItem
 import com.onyx.browser.data.model.ShortcutItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import java.util.concurrent.atomic.AtomicLong
 
-class BrowserPreferences(context: Context) {
+class BrowserPreferences private constructor(context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -22,8 +23,12 @@ class BrowserPreferences(context: Context) {
     private val _shortcutsFlow = MutableStateFlow<List<ShortcutItem>>(emptyList())
     val shortcutsFlow: StateFlow<List<ShortcutItem>> = _shortcutsFlow.asStateFlow()
 
+    private val _quickActionsFlow = MutableStateFlow<List<String>>(emptyList())
+    val quickActionsFlow: StateFlow<List<String>> = _quickActionsFlow.asStateFlow()
+
     init {
         _shortcutsFlow.value = getShortcuts()
+        _quickActionsFlow.value = getQuickActionOrder()
     }
 
     private val blockedCounter = AtomicLong(getBlockedRequestsCount())
@@ -211,6 +216,25 @@ class BrowserPreferences(context: Context) {
         }
     }
 
+    fun getQuickActionOrder(): List<String> {
+        val raw = prefs.getString(KEY_QUICK_ACTION_ORDER, null)
+        if (raw.isNullOrBlank()) {
+            return QuickActionItem.DEFAULT_ORDER
+        }
+        return try {
+            val parts = raw.split(",").map { it.trim() }.filter { it.isNotBlank() }
+            if (parts.isEmpty()) QuickActionItem.DEFAULT_ORDER else parts
+        } catch (_: Exception) {
+            QuickActionItem.DEFAULT_ORDER
+        }
+    }
+
+    fun saveQuickActionOrder(order: List<String>) {
+        val serialized = order.joinToString(",")
+        prefs.edit().putString(KEY_QUICK_ACTION_ORDER, serialized).apply()
+        _quickActionsFlow.value = order
+    }
+
     companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
@@ -232,6 +256,7 @@ class BrowserPreferences(context: Context) {
         const val KEY_TRANSLATE_TARGET_LANG = "pref_translate_target_lang"
         const val KEY_TRANSLATE_TARGET_NAME = "pref_translate_target_name"
         const val KEY_HOMEPAGE_SHORTCUTS = "pref_homepage_shortcuts"
+        const val KEY_QUICK_ACTION_ORDER = "pref_quick_action_order"
 
         @Volatile
         private var INSTANCE: BrowserPreferences? = null

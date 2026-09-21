@@ -196,5 +196,22 @@ onyx-browser/
         - If exactly 1 external downloader is installed (e.g. 1DM): Launches it directly with all forwarded headers, cookies, and parameters without prompting.
         - If multiple external downloaders are installed (e.g. 1DM & ADM): Shows `SelectDownloaderBottomSheet` with app icons and names to select between them.
         - If no external downloader is installed: Shows a helpful prompt offering to open the Play Store or use the default Onyx Downloader.
+  - [x] Homepage Quick Action Reordering, Incognito Visual Clarity, and Toolbar Separation:
+    - Homepage Quick Actions Redesign (Non-Box UI & Reorderable):
+      - Replaced box-type card container with clean, circular flat action buttons (`item_quick_action.xml` and `bg_circle_action.xml`) matching modern mobile browser aesthetics.
+      - Default ordering sets Add (`+`) button to the 4th position: Bookmarks, History, Downloads, Add (`DEFAULT_ORDER = [bookmarks, history, downloads, add]`).
+      - Full drag-and-drop position swapping via `ItemTouchHelper` directly on the homepage, with instant persistent order saving to `BrowserPreferences`.
+      - Added `AdjustQuickActionsBottomSheet` and long-press dialog with Up/Down buttons and "Reset Default" action for effortless manual reordering.
+      - Integrated "Adjust Action Buttons" into `ManageShortcutsBottomSheet`.
+    - Toolbar Spacing & WebUI Boundary Separation:
+      - Added 8dp bottom padding and 4dp top padding to `topBar`, giving the search bar and action icons comfortable breathing room.
+      - Introduced a crisp 1dp outline divider line (`topBarDivider`) beneath the toolbar to physically separate the toolbar from web content, completely preventing UI blending.
+    - Authentic Incognito Icon & Tab Switcher Segmented Control:
+      - Replaced old lightbulb icon with authentic Fedora Hat & Spy Glasses vector drawable (`ic_incognito.xml`).
+      - Added `app:tabInlineLabel="true"` and icons (`@drawable/ic_tabs` and `@drawable/ic_incognito`) to the tab switcher segmented bar.
+    - Prominent Incognito Homepage Branding & Top Bar Indicator:
+      - Swapped normal brand header with dedicated `incognitoHeader` (Fedora Hat & Glasses logo, bold "Incognito" title, and privacy description) whenever the active tab is incognito.
+      - Added `ivIncognitoIndicator` in the top search bar and custom `"Search privately or type URL"` hint to provide unmistakable visual feedback that the user is browsing in Incognito mode.
+
 
 

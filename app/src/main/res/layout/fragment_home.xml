@@ -20,7 +20,7 @@
             android:orientation="horizontal"
             app:layout_constraintGuide_percent="0.32" />
 
-        <!-- Brand Header: Custom Geometric ONYX Vector Logo (Centered, diamond removed) -->
+        <!-- Brand Header: Custom Geometric ONYX Vector Logo (Normal Tabs) -->
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/ivBrandLogo"
             android:layout_width="180dp"
@@ -32,7 +32,7 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
-        <!-- Subtitle: Fast and Private -->
+        <!-- Subtitle: Fast and Private (Normal Tabs) -->
         <TextView
             android:id="@+id/tvTagline"
             android:layout_width="wrap_content"
@@ -46,172 +46,72 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/ivBrandLogo" />
 
-        <!-- Quick Action Box Card: 4 Elevated Modern Squircle Buttons -->
+        <!-- Incognito Brand Header (Shown when active tab is Incognito) -->
         <LinearLayout
-            android:id="@+id/quickActionRow"
-            android:layout_width="0dp"
+            android:id="@+id/incognitoHeader"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:background="@drawable/bg_material_box"
-            android:elevation="2dp"
             android:gravity="center"
-            android:orientation="horizontal"
-            android:paddingStart="8dp"
-            android:paddingTop="12dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="12dp"
+            android:orientation="vertical"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@id/guideCenter"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvTagline"
-            app:layout_constraintWidth_max="540dp">
+            tools:visibility="visible">
 
-            <!-- Action 1: Bookmarks Button -->
-            <LinearLayout
-                android:id="@+id/actionBookmarks"
-                android:layout_width="0dp"
+            <!-- Incognito Fedora & Glasses Logo -->
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/ivIncognitoLogo"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:contentDescription="@string/incognito_mode"
+                app:srcCompat="@drawable/ic_incognito"
+                app:tint="?attr/colorControlNormal" />
+
+            <!-- Title: Incognito -->
+            <TextView
+                android:id="@+id/tvIncognitoTitle"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp">
+                android:layout_marginTop="10dp"
+                android:letterSpacing="0.04"
+                android:text="@string/incognito_mode"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
 
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/ivActionBookmarks"
-                    android:layout_width="52dp"
-                    android:layout_height="52dp"
-                    android:background="@drawable/bg_box_tile"
-                    android:clickable="false"
-                    android:contentDescription="@string/bookmarks"
-                    android:focusable="false"
-                    android:padding="14dp"
-                    app:srcCompat="@drawable/ic_bookmark"
-                    app:tint="?attr/colorControlNormal" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="@string/bookmarks"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <!-- Action 2: Add/Manage Shortcuts Button (+) -->
-            <LinearLayout
-                android:id="@+id/actionAddShortcut"
-                android:layout_width="0dp"
+            <!-- Subtitle / Privacy Notice -->
+            <TextView
+                android:id="@+id/tvIncognitoTagline"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
+                android:layout_marginTop="6dp"
                 android:gravity="center"
-                android:orientation="vertical"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp">
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/ivActionAddShortcut"
-                    android:layout_width="52dp"
-                    android:layout_height="52dp"
-                    android:background="@drawable/bg_box_tile"
-                    android:clickable="false"
-                    android:contentDescription="@string/add_shortcut"
-                    android:focusable="false"
-                    android:padding="14dp"
-                    app:srcCompat="@drawable/ic_add"
-                    app:tint="?attr/colorControlNormal" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="@string/add"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <!-- Action 3: History Button -->
-            <LinearLayout
-                android:id="@+id/actionHistory"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp">
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/ivActionHistory"
-                    android:layout_width="52dp"
-                    android:layout_height="52dp"
-                    android:background="@drawable/bg_box_tile"
-                    android:clickable="false"
-                    android:contentDescription="@string/history"
-                    android:focusable="false"
-                    android:padding="14dp"
-                    app:srcCompat="@drawable/ic_history"
-                    app:tint="?attr/colorControlNormal" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="@string/history"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <!-- Action 4: Downloads Button -->
-            <LinearLayout
-                android:id="@+id/actionDownloads"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp">
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/ivActionDownloads"
-                    android:layout_width="52dp"
-                    android:layout_height="52dp"
-                    android:background="@drawable/bg_box_tile"
-                    android:clickable="false"
-                    android:contentDescription="@string/downloads"
-                    android:focusable="false"
-                    android:padding="14dp"
-                    app:srcCompat="@drawable/ic_download"
-                    app:tint="?attr/colorControlNormal" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="@string/downloads"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
-            </LinearLayout>
+                android:maxWidth="340dp"
+                android:text="@string/incognito_privacy_desc"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="12.5sp" />
         </LinearLayout>
+
+        <!-- Quick Action Buttons: Clean Non-Box UI (Reorderable via Drag or Dialog, Add in 4th) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvQuickActions"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:nestedScrollingEnabled="false"
+            android:overScrollMode="never"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/guideCenter"
+            app:layout_constraintWidth_max="540dp" />
 
         <!-- Top Sites Shortcuts Box Container (Dynamic Reorderable Grid) -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvShortcuts"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="16dp"
             android:layout_marginBottom="32dp"
             android:background="@drawable/bg_material_box"
             android:elevation="2dp"
@@ -221,7 +121,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/quickActionRow"
+            app:layout_constraintTop_toBottomOf="@id/rvQuickActions"
             app:layout_constraintVertical_bias="0.0"
             app:layout_constraintWidth_max="540dp" />
 
