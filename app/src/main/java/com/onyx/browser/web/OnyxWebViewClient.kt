@@ -105,32 +105,57 @@ class OnyxWebViewClient(
         if (request == null) return false
         val uri = request.url ?: return false
         val url = uri.toString()
+        val scheme = uri.scheme?.lowercase() ?: ""
 
-        if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("about:") || url.startsWith("data:")) {
+        // Standard web schemes — let WebView handle them normally
+        if (scheme == "http" || scheme == "https" || scheme == "about" ||
+            scheme == "data" || scheme == "blob" || scheme == "javascript" ||
+            scheme == "file" || scheme == "content") {
             return false
         }
 
+        // Custom app URL schemes (fb://, instagram://, twitter://, market://, etc.)
+        // and intent:// scheme — dispatch via the OS so the native app opens.
         return try {
-            val intent = android.content.Intent.parseUri(url, android.content.Intent.URI_INTENT_SCHEME).apply {
-                addCategory(android.content.Intent.CATEGORY_BROWSABLE)
-                component = null
-                selector = null
-            }
-
-            if (context.packageManager.resolveActivity(intent, 0) != null) {
-                context.startActivity(intent)
-                true
-            } else {
-                val fallbackUrl = intent.getStringExtra("browser_fallback_url")
-                if (!fallbackUrl.isNullOrBlank() && (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
-                    view?.loadUrl(fallbackUrl)
+            if (scheme == "intent") {
+                // Full intent:// parsing (preserves extras, package, fallback URL)
+                val intent = android.content.Intent.parseUri(
+                    url, android.content.Intent.URI_INTENT_SCHEME
+                ).apply {
+                    addCategory(android.content.Intent.CATEGORY_BROWSABLE)
+                    component = null
+                    selector = null
+                }
+                if (context.packageManager.resolveActivity(intent, 0) != null) {
+                    context.startActivity(intent)
                     true
                 } else {
-                    false
+                    val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                    if (!fallbackUrl.isNullOrBlank() &&
+                        (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
+                        view?.loadUrl(fallbackUrl)
+                    }
+                    // Either loaded fallback or silently consumed — never show error page
+                    true
                 }
+            } else {
+                // For all other custom schemes (fb://, instagram://, tel://, mailto://, etc.)
+                // try a plain ACTION_VIEW intent first.
+                val intent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW, uri
+                ).apply {
+                    addCategory(android.content.Intent.CATEGORY_BROWSABLE)
+                }
+                if (context.packageManager.resolveActivity(intent, 0) != null) {
+                    context.startActivity(intent)
+                } else {
+                    // No app installed for this scheme — silently suppress the error page.
+                    // (e.g. fb:// links when Facebook app is not installed)
+                }
+                true // Always consume: never show ERR_UNKNOWN_URL_SCHEME
             }
         } catch (e: Exception) {
-            false
+            true // Consume on any error to prevent the error page
         }
     }
 

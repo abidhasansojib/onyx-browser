@@ -47,13 +47,21 @@ class OnyxWebView @JvmOverloads constructor(
         }
 
         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+
+        // Use an authentic Chrome Mobile UA so sites like Facebook don't detect us as a
+        // bot / unknown client (which causes CAPTCHA confirmation timeouts and login failures).
+        val chromeUa = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36"
+        settings.userAgentString = chromeUa
+        defaultUserAgent = chromeUa
+
         try {
-            CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+            // Allow third-party cookies for normal sessions (required for Facebook login,
+            // Google accounts, etc.).  Incognito mode disables them in setIncognitoMode().
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         } catch (e: Exception) {
             // Safe fallback
         }
-
-        defaultUserAgent = settings.userAgentString
         isFocusable = true
         isFocusableInTouchMode = true
     }
@@ -67,10 +75,12 @@ class OnyxWebView @JvmOverloads constructor(
             clearHistory()
             clearFormData()
             CookieManager.getInstance().setAcceptCookie(false)
+            try { CookieManager.getInstance().setAcceptThirdPartyCookies(this, false) } catch (_: Exception) {}
         } else {
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.domStorageEnabled = true
             CookieManager.getInstance().setAcceptCookie(true)
+            try { CookieManager.getInstance().setAcceptThirdPartyCookies(this, true) } catch (_: Exception) {}
         }
     }
 
