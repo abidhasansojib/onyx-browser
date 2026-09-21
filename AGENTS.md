@@ -213,6 +213,18 @@ onyx-browser/
     - Prominent Incognito Homepage Branding & Top Bar Indicator:
       - Swapped normal brand header with dedicated `incognitoHeader` (Fedora Hat & Glasses logo, bold "Incognito" title, and privacy description) whenever the active tab is incognito.
       - Added `ivIncognitoIndicator` in the top search bar and custom `"Search privately or type URL"` hint to provide unmistakable visual feedback that the user is browsing in Incognito mode.
-
-
-
+  - [x] Tab Switcher Pill Segmented Control, Proper Bin Icon & Homepage UI Polish (commit `9345a52`):
+    - Tab Switcher Segmented Control:
+      - Replaced `bg_search_bar` with dedicated `bg_tab_mode_selector` (colorSurfaceVariant pill) for the Normal/Incognito toggle so the background blends seamlessly with the tab switcher surface in both Light and Dark themes.
+      - Set `tabIndicatorHeight=36dp` + `tabIndicatorGravity=center` so the active tab indicator fills the pill slot as a proper rounded pill — matching the selected tab visually.
+      - Added `@color/tab_mode_icon_tint` color state list: icon tints to `@color/primary` when selected and `?android:attr/textColorSecondary` when not, replacing the flat `?attr/colorControlNormal` which didn't differentiate state.
+      - Added top and bottom 1dp `colorOutline` dividers (alpha 0.4) between the top bar, tab grid, and bottom action bar for cleaner structural separation.
+    - Bottom Bar Broom → Proper Bin Icon:
+      - Replaced the broom icon with the `ic_delete` trash-bin icon (Lucide Trash-2) properly tinted via `app:tint="?attr/colorControlNormal"` so it adapts correctly to both Light (`#202124`) and Dark (`#E8EAED`) themes.
+    - Homepage Layout Improvements:
+      - Wrapped quick action `RecyclerView` inside a `MaterialCardView` (theme-matching `colorSurface` background, `colorOutline` stroke, 20dp corner radius) for visual grouping.
+      - Tightened layout max-width from 540dp → 480dp for better phone-proportioned display.
+      - "Top Sites" section label upgraded with `sans-serif-medium` font weight and 0.1 letter spacing for a more polished heading style.
+      - Removed elevation shadow from the shortcuts grid box (elevation=0dp) — cleaner flat look consistent with Google's UI language.
+      - Consistent 50dp icon sizing across quick action circles and shortcut squircle tiles; both now use 11.5sp label text.
+      - Empty tab state updated with secondary hint "Tap + to open a new tab" and reduced logo opacity (0.22).
