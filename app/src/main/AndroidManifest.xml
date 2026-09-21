@@ -116,6 +116,11 @@
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
+            android:name=".ui.settings.SettingsPrivacyActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
             android:name=".ui.downloads.DownloadsActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />

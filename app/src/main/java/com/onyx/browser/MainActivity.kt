@@ -267,6 +267,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         tabManager = TabManager(this, lifecycleScope)
+        
+        binding.swipeRefreshLayout.setOnRefreshListener { 
+            tabManager.getCurrentTab()?.webView?.reload() 
+        }
+
         val database = AppDatabase.getInstance(this)
         suggestionRepository = SearchSuggestionRepository(database.historyDao())
 
@@ -743,6 +748,7 @@ class MainActivity : AppCompatActivity() {
                     binding.progressBar.progress = progress
                 } else {
                     binding.progressBar.visibility = View.GONE
+                    binding.swipeRefreshLayout.isRefreshing = false
                 }
             },
             onTitleReceivedCallback = { title ->

@@ -170,283 +170,21 @@
                 android:layout_marginBottom="8dp"
                 android:background="?attr/colorOutline" />
 
-            <!-- CATEGORY 3: Adblocker Settings -->
+            <!-- CATEGORY 3: Privacy & Security -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="8dp"
-                android:text="@string/pref_category_adblock"
+                android:text="Privacy &amp; Security"
                 android:textColor="@color/primary"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
-            <!-- Master Toggle -->
+            <!-- Ad Blocker & Privacy Entry -->
             <LinearLayout
-                android:id="@+id/settingAdblockMasterRow"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="16dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="12dp">
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    app:srcCompat="@drawable/ic_shield"
-                    app:tint="@color/primary" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/adblock_master_toggle"
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="@string/adblock_master_desc"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/switchAdblockMaster"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="false" />
-            </LinearLayout>
-
-            <!-- Cosmetic Filtering Toggle -->
-            <LinearLayout
-                android:id="@+id/settingCosmeticFilteringRow"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="16dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="12dp">
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    app:srcCompat="@drawable/ic_desktop"
-                    app:tint="?attr/colorControlNormal" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/cosmetic_filtering_toggle"
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="@string/cosmetic_filtering_desc"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/switchCosmeticFiltering"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="false" />
-            </LinearLayout>
-
-            <!-- Blocking Level (Standard / Aggressive) -->
-            <LinearLayout
-                android:id="@+id/settingBlockingLevelRow"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="16dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="12dp">
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    app:srcCompat="@drawable/ic_shield_lock"
-                    app:tint="?attr/colorControlNormal" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/pref_blocking_level_title"
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="@string/pref_blocking_level_desc"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tvBlockingLevelValue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <!-- Fingerprint Protection Toggle -->
-            <LinearLayout
-                android:id="@+id/settingFingerprintRow"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="16dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="12dp">
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    app:srcCompat="@drawable/ic_incognito"
-                    app:tint="?attr/colorControlNormal" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/pref_fingerprint_title"
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="@string/pref_fingerprint_desc"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/switchFingerprintProtection"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="false" />
-            </LinearLayout>
-
-            <!-- HTTPS Upgrade Toggle -->
-            <LinearLayout
-                android:id="@+id/settingHttpsUpgradeRow"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="16dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="12dp">
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    app:srcCompat="@drawable/ic_lock"
-                    app:tint="?attr/colorControlNormal" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/pref_https_upgrade_title"
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="@string/pref_https_upgrade_desc"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/switchHttpsUpgrade"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="false" />
-            </LinearLayout>
-
-            <!-- Blocked Requests Counter Display & Reset -->
-            <LinearLayout
-                android:id="@+id/settingBlockedCounterRow"
+                android:id="@+id/settingPrivacyRow"
                 android:layout_width="match_parent"
                 android:layout_height="64dp"
                 android:background="?attr/selectableItemBackground"
@@ -460,54 +198,7 @@
                 <androidx.appcompat.widget.AppCompatImageView
                     android:layout_width="28dp"
                     android:layout_height="28dp"
-                    app:srcCompat="@drawable/ic_delete"
-                    app:tint="?attr/colorControlNormal" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tvBlockedCounter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp"
-                        tools:text="Blocked requests: 142" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Tap to reset counter"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- Update Filters Button -->
-            <LinearLayout
-                android:id="@+id/settingUpdateFiltersRow"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="16dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="12dp">
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/ivUpdateFiltersProgress"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    app:srcCompat="@drawable/ic_refresh"
+                    app:srcCompat="@drawable/ic_shield_lock"
                     app:tint="?attr/colorControlNormal" />
 
                 <LinearLayout
@@ -520,19 +211,24 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/update_filters"
+                        android:text="Ad Blocker &amp; Privacy"
                         android:textColor="?android:attr/textColorPrimary"
                         android:textSize="15sp" />
 
                     <TextView
-                        android:id="@+id/tvFilterUpdateStatus"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="@string/update_filters_desc"
+                        android:text="Manage shields, tracking, and fingerprints"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    app:srcCompat="@drawable/ic_external"
+                    app:tint="?attr/colorControlNormal" />
             </LinearLayout>
 
             <View

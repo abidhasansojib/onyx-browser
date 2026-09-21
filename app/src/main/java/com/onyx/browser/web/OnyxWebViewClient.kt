@@ -42,7 +42,12 @@ class OnyxWebViewClient(
         "ads-twitter.com", "scorecardresearch.com", "quantserve.com",
         "adsrvr.org", "casalemedia.com", "openx.net", "pubmatic.com",
         "rubiconproject.com", "criteo.com", "criteo.net", "amazon-adsystem.com",
-        "ads.linkedin.com", "bing.com/bat", "bat.bing.com"
+        "ads.linkedin.com", "bing.com/bat", "bat.bing.com",
+        "sentry.io", "bugsnag.com", "newrelic.com", "hotjar.com", "clarity.ms",
+        "mixpanel.com", "amplitude.com", "appsflyer.com", "branch.io", "segment.com",
+        "mc.yandex.ru", "statcounter.com", "outbrain.com", "taboola.com", "adroll.com",
+        "bluekai.com", "demdex.net", "optimizely.com", "crazyegg.com", "mouseflow.com",
+        "fullstory.com"
     )
 
     override fun shouldInterceptRequest(
@@ -200,6 +205,39 @@ class OnyxWebViewClient(
         val isHttp = url.startsWith("http://") || url.startsWith("https://")
         if (!isHttp) return
         val isWhitelisted = preferences.isDomainWhitelisted(url)
+
+        if ((view as? OnyxWebView)?.isDesktopModeEnabledForCurrentPage() == true) {
+            val js = """
+                (function() {
+                    var meta = document.querySelector('meta[name="viewport"]');
+                    if (meta) {
+                        meta.setAttribute('content', 'width=1024, initial-scale=1');
+                    } else {
+                        meta = document.createElement('meta');
+                        meta.name = 'viewport';
+                        meta.content = 'width=1024, initial-scale=1';
+                        document.head.appendChild(meta);
+                    }
+                })();
+            """.trimIndent()
+            view.evaluateJavascript(js, null)
+        }
+
+        if (preferences.isAdBlockEnabled && preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE && !isWhitelisted) {
+            val js = """
+                (function() {
+                    window.ga = window.ga || function(){};
+                    window.ga.q = window.ga.q || [];
+                    window.ga.l = +new Date;
+                    window.fbq = window.fbq || function(){};
+                    window.gtag = window.gtag || function(){};
+                    window.google_ad_client = true;
+                    window.google_ad_width = window.innerWidth;
+                    window.google_ad_height = window.innerHeight;
+                })();
+            """.trimIndent()
+            view.evaluateJavascript(js, null)
+        }
 
         // Cosmetic element hiding (CSS injection)
         if (preferences.isCosmeticFilteringEnabled && !isWhitelisted) {
@@ -366,6 +404,11 @@ class OnyxWebViewClient(
                             if (param === 37446) return 'Intel Iris OpenGL';
                             return _origGetParam2.call(this, param);
                         };
+                    }
+
+                    // Spoof WebRTC
+                    if (window.RTCPeerConnection) {
+                        window.RTCPeerConnection = function() { return {}; };
                     }
                 } catch(e) {}
             })();
