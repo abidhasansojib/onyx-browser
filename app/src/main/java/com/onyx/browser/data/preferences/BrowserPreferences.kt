@@ -290,6 +290,7 @@ class BrowserPreferences private constructor(context: Context) {
         }
     }
 
+    fun getQuickActionOrder(): List<String> {
         val raw = prefs.getString(KEY_QUICK_ACTION_ORDER, null)
         if (raw.isNullOrBlank()) {
             return QuickActionItem.DEFAULT_ORDER
@@ -302,6 +303,11 @@ class BrowserPreferences private constructor(context: Context) {
         }
     }
 
+    fun saveQuickActionOrder(order: List<String>) {
+        prefs.edit().putString(KEY_QUICK_ACTION_ORDER, order.joinToString(",")).apply()
+    }
+
+    companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
         const val THEME_SYSTEM = 0
