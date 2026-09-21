@@ -80,4 +80,16 @@
     <string name="no_bookmarks">No bookmarks saved yet</string>
     <string name="no_downloads">No downloads yet</string>
     <string name="clear_browsing_data">Clear Browsing Data</string>
+    <string name="delete_browsing_data">Delete browsing data</string>
+    <string name="time_range_last_15_mins">Last 15 minutes</string>
+    <string name="time_range_last_hour">Last hour</string>
+    <string name="time_range_last_24_hours">Last 24 hours</string>
+    <string name="time_range_last_7_days">Last 7 days</string>
+    <string name="time_range_last_4_weeks">Last 4 weeks</string>
+    <string name="time_range_all_time">All time</string>
+    <string name="browsing_history_preview">Browsing history: %1$d sites%2$s</string>
+    <string name="open_tabs_preview">Open tabs: %1$d tabs%2$s</string>
+    <string name="cookies_cache_warning">Cookies, cache, and other site data will be cleared for this period.</string>
+    <string name="clear_data">Clear Data</string>
+    <string name="browsing_data_cleared">Browsing data cleared</string>
 </resources>

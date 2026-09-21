@@ -144,6 +144,34 @@ class TabManager(
         }
     }
 
+    fun closeTabsCreatedSince(sinceTime: Long) {
+        val normalToClose = _normalTabs.value.filter { it.createdAt >= sinceTime }
+        val incognitoToClose = _incognitoTabs.value.filter { it.createdAt >= sinceTime }
+
+        for (tab in normalToClose + incognitoToClose) {
+            webViewPool.remove(tab.id)?.destroySafely()
+        }
+
+        val remainingNormal = _normalTabs.value.filter { it.createdAt < sinceTime }
+        val remainingIncognito = _incognitoTabs.value.filter { it.createdAt < sinceTime }
+
+        _normalTabs.value = remainingNormal
+        _incognitoTabs.value = remainingIncognito
+
+        coroutineScope.launch(Dispatchers.IO) {
+            for (tab in normalToClose) {
+                database.tabDao().deleteTabById(tab.id)
+            }
+        }
+
+        if (remainingNormal.isEmpty()) {
+            val newTab = createNewTab(isIncognito = false)
+            _activeTab.value = newTab
+        } else if (_activeTab.value == null || normalToClose.any { it.id == _activeTab.value?.id } || incognitoToClose.any { it.id == _activeTab.value?.id }) {
+            _activeTab.value = remainingNormal.lastOrNull()
+        }
+    }
+
     fun updateActiveTab(url: String, title: String) {
         val current = _activeTab.value ?: return
         val updatedTab = current.copy(url = url, title = title.ifBlank { url })

@@ -28,6 +28,12 @@ interface HistoryDao {
     @Query("DELETE FROM history WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    @Query("SELECT * FROM history WHERE visitTime >= :sinceTime ORDER BY visitTime DESC")
+    suspend fun getHistorySince(sinceTime: Long): List<HistoryItem>
+
+    @Query("DELETE FROM history WHERE visitTime >= :sinceTime")
+    suspend fun deleteHistorySince(sinceTime: Long)
+
     @Query("DELETE FROM history")
     suspend fun clearAllHistory()
 }

@@ -223,7 +223,7 @@ class TabSwitcherBottomSheet(
                     true
                 }
                 4 -> {
-                    confirmClearHistory()
+                    showClearBrowsingDataDialog()
                     true
                 }
                 else -> false
@@ -233,9 +233,9 @@ class TabSwitcherBottomSheet(
     }
 
     private fun setupBottomControls() {
-        // Left Button: Clear History
+        // Left Button: Clear Browsing Data (Brush icon)
         binding.btnClearHistory.setOnClickListener {
-            confirmClearHistory()
+            showClearBrowsingDataDialog()
         }
 
         // Center Button: New Tab
@@ -250,17 +250,14 @@ class TabSwitcherBottomSheet(
         }
     }
 
-    private fun confirmClearHistory() {
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.delete_browsing_history)
-            .setMessage(R.string.confirm_clear_history)
-            .setPositiveButton(R.string.clear) { _, _ ->
-                coroutineScope.launch(Dispatchers.IO) {
-                    AppDatabase.getInstance(requireContext()).historyDao().clearAllHistory()
-                }
+    private fun showClearBrowsingDataDialog() {
+        val dialog = ClearBrowsingDataDialog(
+            tabManager = tabManager,
+            onDataCleared = {
+                refreshTabsList()
             }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
+        )
+        dialog.show(childFragmentManager, ClearBrowsingDataDialog.TAG)
     }
 
     private fun confirmCloseAllTabs() {
