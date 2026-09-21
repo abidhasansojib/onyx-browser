@@ -11,22 +11,12 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.nativebridge.AdBlockEngine
 import java.io.ByteArrayInputStream
 
+/**
+ * Intercepts Service Worker background fetch and network requests.
+ * Applies both EasyList adblock rules and AdBlockDomainManager (Standard vs Aggressive).
+ */
 object AdBlockServiceWorkerHelper {
     private const val TAG = "AdBlockServiceWorker"
-
-    private val commonAdTrackerDomains = setOf(
-        "doubleclick.net", "googlesyndication.com", "googletagmanager.com",
-        "googleadservices.com", "google-analytics.com", "stats.g.doubleclick.net",
-        "adservice.google.com", "facebook.net", "connect.facebook.net",
-        "criteo.com", "criteo.net", "taboola.com", "outbrain.com",
-        "rubiconproject.com", "casalemedia.com", "openx.net", "pubmatic.com",
-        "adnxs.com", "amazon-adsystem.com", "adroll.com", "bat.bing.com",
-        "hotjar.com", "clarity.ms", "mixpanel.com", "amplitude.com",
-        "segment.com", "segment.io", "mc.yandex.ru", "statcounter.com",
-        "applovin.com", "vungle.com", "liftoff.io", "inmobi.com",
-        "chartboost.com", "unityads.unity3d.com", "mgid.com", "propellerads.com",
-        "media.net", "fingerprintjs.com", "fpjs.io", "datadoghq.com"
-    )
 
     fun initialize(context: Context) {
         try {
@@ -44,16 +34,22 @@ object AdBlockServiceWorkerHelper {
                             val reqDomain = prefs.cleanDomain(url)
                             if (prefs.isDomainWhitelisted(reqDomain)) return null
 
+                            val isAggressive = prefs.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
                             val blockedByEngine = AdBlockEngine.shouldBlock(url, "", "other")
-                            val blockedByDomain = commonAdTrackerDomains.any { adDomain ->
-                                reqDomain == adDomain || reqDomain.endsWith(".$adDomain")
-                            }
+                            val blockedByDomain = AdBlockDomainManager.shouldBlock(reqDomain, isAggressive)
 
                             if (blockedByEngine || blockedByDomain) {
                                 prefs.incrementBlockedRequests()
                                 return WebResourceResponse(
                                     "text/plain",
                                     "UTF-8",
+                                    403,
+                                    "Blocked by Onyx Shields",
+                                    mapOf(
+                                        "Access-Control-Allow-Origin" to "*",
+                                        "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
+                                        "Access-Control-Allow-Headers" to "*"
+                                    ),
                                     ByteArrayInputStream(ByteArray(0))
                                 )
                             }

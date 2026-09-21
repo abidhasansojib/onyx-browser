@@ -113,10 +113,11 @@ class OnyxWebView @JvmOverloads constructor(
 
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill
         try {
+            val currentBlockingLevel = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).blockingLevel
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
-                    AdBlockDocumentStart.SCRIPT,
+                    AdBlockDocumentStart.getScript(currentBlockingLevel),
                     setOf("*")
                 )
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
@@ -248,6 +249,10 @@ class OnyxWebView @JvmOverloads constructor(
 
     /** @deprecated Use toggleDesktopModeForPage / isDesktopModeEnabledForCurrentPage */
     fun isDesktopModeEnabled(): Boolean = isDesktopModeEnabledForCurrentPage()
+
+    fun updateShieldsLevel(level: Int) {
+        evaluateJavascript("if (window.__onyx_set_blocking_level) window.__onyx_set_blocking_level($level);", null)
+    }
 
     fun destroySafely() {
         try {

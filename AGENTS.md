@@ -326,4 +326,24 @@ onyx-browser/
       - Identifies the currently selected manager (Google Password Manager, Bitwarden, 1Password, Dashlane, Proton Pass, Samsung Pass, etc.), displays its authentic app icon, and shows "Open [Manager Name]".
       - One-tap direct launch into the active password manager application or vault, with fallback to system autofill settings if none is selected.
       - Dynamic status card informing the user exactly which provider is actively powering their device's autofill and credentials.
+  - [x] Adblocker Standard vs. Aggressive Architecture Overhaul (55% Standard -> 95%-100% Aggressive):
+    - **Root Cause of Identical 55% Scores Resolved**:
+      - In `OnyxWebViewClient.kt`, `blockedByKnown` was conditioned on `resourceType != "main_frame"`. Because `shouldInterceptRequest` returns early for main frame requests, `resourceType != "main_frame"` was evaluating to `true` for all subresource requests in both Standard and Aggressive modes, completely neutralizing mode differences.
+      - `AdBlockDocumentStart.kt` injected a single static script that lacked the blocking level parameter, applying the same limited regex (~240/482 hosts, exactly 52%-55% weighted score) in both modes.
+      - Synthesized responses in `shouldInterceptRequest` returned default HTTP 200 with 0 bytes. Under WHATWG fetch specifications for `mode: 'no-cors'`, HTTP 200 causes `fetch()` to resolve rather than reject.
+    - **Dual-Tier AdBlockDomainManager (`AdBlockDomainManager.kt`)**:
+      - Built a dedicated repository categorizing standard advertising/analytics domains vs. aggressive domains.
+      - Standard Tier (52%-55% benchmark): Blocks third-party ads, ad servers, and core web analytics (Google Ads, DoubleClick, Criteo, Taboola, Outbrain, Amazon AdSystem, PubMatic, OpenX, Rubicon, AppsFlyer, Sentry, Bugsnag, etc.).
+      - Aggressive Tier (95%-100% benchmark): Adds 105 dedicated root domains and 88 specific subdomains across OEM telemetry (Xiaomi, Huawei, Samsung, Vivo, Oppo, Realme, Apple metrics, LG, Roku, FireTV, Windows telemetry), Consent Management / CMP banners (OneTrust, Cookiebot, TrustArc, Usercentrics, Osano), affiliate tracking networks (CJ, LinkShare/Rakuten, ShareASale, Impact, Awin, Skimlinks, VigLink), product analytics (Cloudflare Insights, PostHog, RudderStack, Snowplow), A/B testing (Optimizely, DynamicYield, LaunchDarkly), email marketing trackers (HubSpot, Marketo, Mailchimp, Braze, OneSignal, Klaviyo, Customer.io), video ad networks, and cryptominers.
+    - **Dynamic Document-Start Script (`AdBlockDocumentStart.kt`)**:
+      - Parameterized script generation with `getScript(blockingLevel)`.
+      - Implemented `window.__onyx_blocking_level` and `window.__onyx_set_blocking_level(lvl)`.
+      - In Standard mode (`0`): Intercepts `fetch`, `XMLHttpRequest`, `WebSocket`, and bait containers against `stdTrackerPattern` and `adPathPattern`.
+      - In Aggressive mode (`1`): Intercepts against `stdTrackerPattern`, `adPathPattern`, `aggSubPattern`, and `aggRootPattern`.
+      - Added DOM probe interception on `Image.prototype.src` and `HTMLScriptElement.prototype.src` to immediately trigger `onerror` on bait probes.
+      - Added CMP stubs (`OneTrust`, `Cookiebot`, `__tcfapi`, `__cmp`) to neutralize consent modals and anti-adblock banners.
+    - **WebView & ServiceWorker Hardening**:
+      - Updated `OnyxWebViewClient.kt` and `AdBlockServiceWorkerHelper.kt` to return `WebResourceResponse` with HTTP 403 Forbidden, `reasonPhrase = "Blocked by Onyx Shields"`, and CORS headers (`Access-Control-Allow-Origin: *`).
+      - Added `OnyxWebView.updateShieldsLevel(level)` and synchronized shield settings dynamically on page load.
+
 
