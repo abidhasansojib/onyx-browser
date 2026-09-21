@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
+@kotlinx.coroutines.OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
 class TabManager(
     private val context: Context,
     private val coroutineScope: CoroutineScope
@@ -30,7 +31,13 @@ class TabManager(
 
     private val webViewPool = mutableMapOf<String, OnyxWebView>()
     
-    val snapshotCache = android.util.LruCache<String, android.graphics.Bitmap>(20)
+    val snapshotCache = object : android.util.LruCache<String, android.graphics.Bitmap>(20) {
+        override fun entryRemoved(evicted: Boolean, key: String?, oldValue: android.graphics.Bitmap?, newValue: android.graphics.Bitmap?) {
+            if (evicted && oldValue != null && oldValue != newValue) {
+                oldValue.recycle()
+            }
+        }
+    }
 
     suspend fun restoreTabs() = withContext(Dispatchers.IO) {
         val savedTabs = database.tabDao().getAllNormalTabs()
@@ -83,7 +90,7 @@ class TabManager(
             _incognitoTabs.value = _incognitoTabs.value + newTab
         } else {
             _normalTabs.value = _normalTabs.value + newTab
-            coroutineScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().insertTab(newTab)
             }
         }
@@ -110,7 +117,7 @@ class TabManager(
         } else {
             val updated = _normalTabs.value.filter { it.id != tab.id }
             _normalTabs.value = updated
-            coroutineScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().deleteTabById(tab.id)
             }
             if (_activeTab.value?.id == tab.id) {
@@ -138,7 +145,7 @@ class TabManager(
                 webViewPool.remove(tab.id)?.destroySafely()
             }
             _normalTabs.value = emptyList()
-            coroutineScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().clearNormalTabs()
             }
             val newTab = createNewTab(isIncognito = false)
@@ -160,7 +167,7 @@ class TabManager(
         _normalTabs.value = remainingNormal
         _incognitoTabs.value = remainingIncognito
 
-        coroutineScope.launch(Dispatchers.IO) {
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             for (tab in normalToClose) {
                 database.tabDao().deleteTabById(tab.id)
             }
@@ -183,7 +190,7 @@ class TabManager(
             _incognitoTabs.value = _incognitoTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
         } else {
             _normalTabs.value = _normalTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
-            coroutineScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().updateTab(updatedTab)
             }
         }

@@ -405,10 +405,25 @@ class MainActivity : AppCompatActivity() {
                         activeWebView.height / 2, 
                         android.graphics.Bitmap.Config.ARGB_8888
                     )
-                    val canvas = android.graphics.Canvas(bitmap)
-                    canvas.scale(0.5f, 0.5f)
-                    activeWebView.draw(canvas)
-                    tabManager.snapshotCache.put(activeTabId, bitmap)
+                    val location = IntArray(2)
+                    activeWebView.getLocationInWindow(location)
+                    val rect = android.graphics.Rect(
+                        location[0], 
+                        location[1], 
+                        location[0] + activeWebView.width, 
+                        location[1] + activeWebView.height
+                    )
+                    android.view.PixelCopy.request(
+                        window,
+                        rect,
+                        bitmap,
+                        { copyResult ->
+                            if (copyResult == android.view.PixelCopy.SUCCESS) {
+                                tabManager.snapshotCache.put(activeTabId, bitmap)
+                            }
+                        },
+                        android.os.Handler(android.os.Looper.getMainLooper())
+                    )
                 } catch (e: Exception) {
                     // Ignore snapshot failure
                 }

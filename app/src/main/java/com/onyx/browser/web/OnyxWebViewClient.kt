@@ -24,6 +24,7 @@ class OnyxWebViewClient(
     private val onPageFinishedCallback: (String) -> Unit
 ) : WebViewClient() {
 
+    private val upgradedUrls = mutableSetOf<String>()
     private val preferences = BrowserPreferences.getInstance(context)
     private val database = AppDatabase.getInstance(context)
 
@@ -149,9 +150,12 @@ class OnyxWebViewClient(
         // Automatically upgrade http:// main-frame navigations to https://, matching
         // Brave's "Upgrade Connections to HTTPS" feature.
         if (scheme == "http" && request.isForMainFrame && preferences.isHttpsUpgradeEnabled) {
-            val httpsUrl = url.replaceFirst("http://", "https://")
-            view?.loadUrl(httpsUrl)
-            return true
+            if (!upgradedUrls.contains(url)) {
+                upgradedUrls.add(url)
+                val httpsUrl = url.replaceFirst("http://", "https://")
+                view?.loadUrl(httpsUrl)
+                return true
+            }
         }
 
         // Standard web schemes — let WebView handle them normally
@@ -425,6 +429,36 @@ class OnyxWebViewClient(
 
         view?.post {
             try { view?.evaluateJavascript(js, null) } catch (_: Throwable) {}
+        }
+    }
+
+    override fun onReceivedError(
+        view: WebView?,
+        request: WebResourceRequest?,
+        error: android.webkit.WebResourceError?
+    ) {
+        super.onReceivedError(view, request, error)
+        if (request?.isForMainFrame == true) {
+            val url = request.url.toString()
+            val fallbackUrl = url.replaceFirst("https://", "http://")
+            if (upgradedUrls.contains(fallbackUrl)) {
+                view?.loadUrl(fallbackUrl)
+            }
+        }
+    }
+
+    override fun onReceivedSslError(
+        view: WebView?,
+        handler: android.webkit.SslErrorHandler?,
+        error: android.net.http.SslError?
+    ) {
+        val url = view?.url ?: ""
+        val fallbackUrl = url.replaceFirst("https://", "http://")
+        if (upgradedUrls.contains(fallbackUrl)) {
+            handler?.cancel()
+            view?.loadUrl(fallbackUrl)
+        } else {
+            super.onReceivedSslError(view, handler, error)
         }
     }
 }
