@@ -818,6 +818,7 @@ class MainActivity : AppCompatActivity() {
                     val url = hit.extra ?: return@setOnLongClickListener false
                     val sheet = ContextMenuBottomSheet.forLink(url)
                     sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
+                    sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
                     sheet.show(fm, ContextMenuBottomSheet.TAG)
                     true
                 }
@@ -825,6 +826,7 @@ class MainActivity : AppCompatActivity() {
                     val imgUrl = hit.extra ?: return@setOnLongClickListener false
                     val sheet = ContextMenuBottomSheet.forImage(imgUrl)
                     sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
+                    sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
                     sheet.show(fm, ContextMenuBottomSheet.TAG)
                     true
                 }
@@ -832,12 +834,21 @@ class MainActivity : AppCompatActivity() {
                     val imgUrl = hit.extra ?: return@setOnLongClickListener false
                     val sheet = ContextMenuBottomSheet.forImageLink(imgUrl, imgUrl)
                     sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
+                    sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
                     sheet.show(fm, ContextMenuBottomSheet.TAG)
                     true
                 }
                 else -> false
             }
         }
+    }
+
+    private fun editUrlInSearchBar(url: String) {
+        binding.etUrl.setText(url)
+        binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
+        binding.etUrl.requestFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.showSoftInput(binding.etUrl, InputMethodManager.SHOW_IMPLICIT)
     }
 
     private fun openUrlInNewTab(url: String) {

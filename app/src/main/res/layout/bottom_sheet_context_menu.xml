@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="?attr/colorSurface"
@@ -13,63 +14,237 @@
         android:layout_height="4dp"
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="10dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="12dp"
         android:background="@drawable/bg_search_bar"
         android:backgroundTint="?attr/colorOutline" />
 
-    <!-- Header: truncated URL -->
-    <LinearLayout
+    <!-- ── IMAGE PREVIEW CARD (shown only for image context) ─────────────── -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardImagePreview"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="8dp"
-        android:paddingBottom="10dp">
+        android:layout_height="170dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="12dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground"
+        android:visibility="gone"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        tools:visibility="visible">
 
-        <TextView
-            android:id="@+id/tvContextUrl"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ellipsize="middle"
-            android:maxLines="2"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp" />
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/ivImagePreview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="?attr/colorSurfaceVariant"
+            android:contentDescription="Image preview (tap to expand)"
+            android:scaleType="centerCrop" />
 
-        <androidx.appcompat.widget.AppCompatImageButton
-            android:id="@+id/btnContextClose"
+        <!-- Loading indicator over image -->
+        <ProgressBar
+            android:id="@+id/pbImageLoading"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
-            app:srcCompat="@drawable/ic_close"
-            app:tint="?attr/colorControlNormal" />
-    </LinearLayout>
+            android:layout_gravity="center"
+            android:visibility="visible" />
 
-    <!-- Divider -->
-    <View
+        <!-- Tap to preview badge overlay -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="10dp"
+            android:background="@drawable/bg_search_bar"
+            android:backgroundTint="#99000000"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="4dp">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                app:srcCompat="@drawable/ic_visibility"
+                app:tint="#FFFFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text="Preview"
+                android:textColor="#FFFFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
+    <!-- ── COMPACT LINK / PAGE HEADER CARD (Brave / Screenshot /storage/emulated/0/1.png inspired) ── -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardLinkHeader"
         android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:alpha="0.5"
-        android:background="?attr/colorOutline" />
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="0dp">
 
-    <!-- Open in new tab -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="10dp">
+
+            <!-- Website Icon on the left -->
+            <FrameLayout
+                android:id="@+id/flFaviconContainer"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="12dp">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/ivFavicon"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:contentDescription="Website icon"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone" />
+
+                <!-- Fallback letter badge / web icon -->
+                <FrameLayout
+                    android:id="@+id/flFaviconFallback"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/bg_circle_action">
+
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:id="@+id/ivFaviconFallback"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        app:srcCompat="@drawable/ic_web"
+                        app:tint="?attr/colorControlNormal" />
+
+                    <TextView
+                        android:id="@+id/tvFaviconLetter"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        tools:text="F" />
+                </FrameLayout>
+            </FrameLayout>
+
+            <!-- Website Title and under this the Link -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvContextTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    tools:text="Facebook" />
+
+                <TextView
+                    android:id="@+id/tvContextUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="middle"
+                    android:maxLines="1"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="12sp"
+                    tools:text="m.facebook.com/reel/24…" />
+            </LinearLayout>
+
+            <!-- Properly aligned action buttons: Share then Copy then Edit -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:layout_marginStart="6dp">
+
+                <!-- 1. Share Button -->
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnShare"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Share"
+                    android:padding="8dp"
+                    app:srcCompat="@drawable/ic_share"
+                    app:tint="?attr/colorControlNormal" />
+
+                <!-- 2. Copy Button -->
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnCopyUrl"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_marginStart="2dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Copy link"
+                    android:padding="8dp"
+                    app:srcCompat="@drawable/ic_copy"
+                    app:tint="?attr/colorControlNormal" />
+
+                <!-- 3. Edit Icon -->
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnEditUrl"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_marginStart="2dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Edit link"
+                    android:padding="8dp"
+                    app:srcCompat="@drawable/ic_edit"
+                    app:tint="?attr/colorControlNormal" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- ── ACTION ROWS ─────────────────────────────────────────────────────── -->
+
+    <!-- Open in new tab (shown for links) -->
     <LinearLayout
         android:id="@+id/itemOpenNewTab"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
+        android:layout_height="50dp"
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
 
         <androidx.appcompat.widget.AppCompatImageView
             android:layout_width="22dp"
             android:layout_height="22dp"
+            android:alpha="0.8"
             app:srcCompat="@drawable/ic_tabs"
             app:tint="?attr/colorControlNormal" />
 
@@ -82,51 +257,25 @@
             android:textSize="15sp" />
     </LinearLayout>
 
-    <!-- Copy link -->
-    <LinearLayout
-        android:id="@+id/itemCopyLink"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:background="?attr/selectableItemBackground"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp">
-
-        <androidx.appcompat.widget.AppCompatImageView
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            app:srcCompat="@drawable/ic_copy"
-            app:tint="?attr/colorControlNormal" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="Copy link"
-            android:textColor="?android:attr/textColorPrimary"
-            android:textSize="15sp" />
-    </LinearLayout>
-
-    <!-- Copy link text -->
+    <!-- Copy link text (when anchor text exists) -->
     <LinearLayout
         android:id="@+id/itemCopyLinkText"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
+        android:layout_height="50dp"
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
 
         <androidx.appcompat.widget.AppCompatImageView
             android:layout_width="22dp"
             android:layout_height="22dp"
-            app:srcCompat="@drawable/ic_edit"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_copy"
             app:tint="?attr/colorControlNormal" />
 
         <TextView
@@ -138,22 +287,86 @@
             android:textSize="15sp" />
     </LinearLayout>
 
-    <!-- Save image -->
+    <!-- ── IMAGE SPECIFIC ACTIONS (all grouped cleanly together in same place) ── -->
+
+    <!-- Preview image -->
     <LinearLayout
-        android:id="@+id/itemSaveImage"
+        android:id="@+id/itemPreviewImage"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
+        android:layout_height="50dp"
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
 
         <androidx.appcompat.widget.AppCompatImageView
             android:layout_width="22dp"
             android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_visibility"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Preview image"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- Open image in new tab -->
+    <LinearLayout
+        android:id="@+id/itemOpenImageNewTab"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_tabs"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Open image in new tab"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- Save image -->
+    <LinearLayout
+        android:id="@+id/itemSaveImage"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
             app:srcCompat="@drawable/ic_download"
             app:tint="?attr/colorControlNormal" />
 
@@ -166,9 +379,9 @@
             android:textSize="15sp" />
     </LinearLayout>
 
-    <!-- Save video -->
+    <!-- Search by image (Reverse image search: Google Lens, TinEye, Yandex, Bing) -->
     <LinearLayout
-        android:id="@+id/itemSaveVideo"
+        android:id="@+id/itemSearchByImage"
         android:layout_width="match_parent"
         android:layout_height="52dp"
         android:background="?attr/selectableItemBackground"
@@ -176,13 +389,126 @@
         android:focusable="true"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
 
         <androidx.appcompat.widget.AppCompatImageView
             android:layout_width="22dp"
             android:layout_height="22dp"
-            app:srcCompat="@drawable/ic_external"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_search"
+            app:tint="?attr/colorControlNormal" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Search by image"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Google Lens · TinEye · Yandex · Bing"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="11.5sp" />
+        </LinearLayout>
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:alpha="0.4"
+            app:srcCompat="@drawable/ic_chevron_right"
+            app:tint="?attr/colorControlNormal" />
+    </LinearLayout>
+
+    <!-- Copy image URL -->
+    <LinearLayout
+        android:id="@+id/itemCopyImageUrl"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_copy"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Copy image URL"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- Share image -->
+    <LinearLayout
+        android:id="@+id/itemShareImage"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_share"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Share image"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- Save video (for video URLs) -->
+    <LinearLayout
+        android:id="@+id/itemSaveVideo"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_download"
             app:tint="?attr/colorControlNormal" />
 
         <TextView

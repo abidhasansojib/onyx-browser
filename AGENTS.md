@@ -370,3 +370,23 @@ onyx-browser/
 - [x] **Homepage "Manage Shortcuts" button** (`fragment_home.xml`, `MainActivity.kt`):
   - Added a "SHORTCUTS" section label row with a pencil (`ic_edit`) icon button (`btnManageShortcuts`) positioned between the guide center and the `rvShortcuts` grid.
   - Wired `btnManageShortcuts.setOnClickListener` in `setupHomepageInteractions()` to open `ManageShortcutsBottomSheet`, giving users a permanent visible entry point to add, edit, delete, and reorder their homepage shortcuts.
+- [x] **Launcher Icon Smart Crop & Zoom**:
+  - Content-aware smart cropping using NumPy/Pillow bounding box detection to remove all surrounding white borders and zoom logo to fill 100% of icon bounds across all 5 mipmap densities (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`).
+- [x] **App Freeze Fix on App Switch (e.g. Bitwarden / Credential Manager)**:
+  - Added `resumeTimers()` and `requestFocus()` posted after window attachment in `MainActivity.onResume()`, plus implemented `onWindowFocusChanged(hasFocus: Boolean)` to unpause JavaScript execution and restore input focus when returning from external autofill or passkey managers.
+- [x] **Passkey Signing & Consistent Release Keystore**:
+  - Configured release `signingConfigs` in `app/build.gradle.kts` reading `KEYSTORE_BASE64`, `STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` env vars.
+  - Added workflow keystore decoding step in `.github/workflows/build.yml` and `scripts/generate_keystore.sh`.
+  - Added descriptive certificate mismatch error handling in `PasskeyWebAuthnBridge.kt`.
+- [x] **Shortcuts UI & Reordering Enhancement**:
+  - Removed "Shortcuts" title text from homepage, replaced pencil button with dedicated `+` (`ic_add`) button aligned to the right.
+  - Added drag-and-drop position reordering in `ManageShortcutsBottomSheet` with visual drag handle indicator and automatic order persistence.
+- [x] **Modern Tab Switcher Toggle & Download Manager Picker**:
+  - Replaced `TabLayout` with `MaterialButtonToggleGroup` in `bottom_sheet_tab_switcher.xml` to fix text hiding under blue indicator.
+  - Replaced old `AlertDialog` in settings with modern `DownloadManagerPickerSheet` bottom sheet using Material 3 cards and checkmark indicators.
+- [x] **Brave-Inspired Compact Context Menu, Image Preview & Reverse Image Search**:
+  - **Compact Link / Page Card**: Redesigned header card matching `/storage/emulated/0/1.png` with favicon on left (Google favicon service with letter fallback), bold title, URL underneath, and inline Share, Copy, and Edit (`ic_edit`) action buttons. Tapping Edit populates and focuses the URL in the main address bar with keyboard opened.
+  - **Image Preview**: Added 170dp rounded card preview with loading indicator and tap-to-expand badge, plus dedicated "Preview image" action row opening `ImagePreviewDialog` full-screen image viewer.
+  - **Reverse Image Search**: Added "Search by image" option with chevron opening `ImageSearchPickerSheet` supporting Google Lens, TinEye, Yandex Images, and Bing Visual Search.
+  - **Clean Actions Grouping**: Image actions (preview, open in new tab, save image, search by image, copy image URL, share image) cleanly organized together in the same bottom sheet.
+
