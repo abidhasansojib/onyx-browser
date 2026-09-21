@@ -49,10 +49,10 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="20dp"
                 android:layout_height="20dp"
-                android:src="@drawable/ic_search"
+                app:srcCompat="@drawable/ic_search"
                 app:tint="?attr/colorControlNormal" />
 
             <EditText
@@ -70,13 +70,13 @@
                 android:textColorHint="?android:attr/textColorSecondary"
                 android:textSize="14sp" />
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/btnClearHistorySearch"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:padding="3dp"
-                android:src="@drawable/ic_close"
+                app:srcCompat="@drawable/ic_close"
                 android:visibility="gone"
                 app:tint="?attr/colorControlNormal" />
         </LinearLayout>
@@ -106,11 +106,11 @@
             android:visibility="gone"
             tools:visibility="visible">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="64dp"
                 android:layout_height="64dp"
                 android:alpha="0.3"
-                android:src="@drawable/ic_history"
+                app:srcCompat="@drawable/ic_history"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView

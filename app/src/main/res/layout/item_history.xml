@@ -12,11 +12,11 @@
     android:paddingStart="16dp"
     android:paddingEnd="12dp">
 
-    <ImageView
+    <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/ivHistoryIcon"
         android:layout_width="28dp"
         android:layout_height="28dp"
-        android:src="@drawable/ic_history"
+        app:srcCompat="@drawable/ic_history"
         app:tint="?attr/colorControlNormal" />
 
     <LinearLayout
@@ -50,14 +50,14 @@
             tools:text="https://github.com" />
     </LinearLayout>
 
-    <ImageButton
+    <androidx.appcompat.widget.AppCompatImageButton
         android:id="@+id/btnDeleteHistoryItem"
         android:layout_width="36dp"
         android:layout_height="36dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/clear"
         android:padding="8dp"
-        android:src="@drawable/ic_close"
+        app:srcCompat="@drawable/ic_close"
         app:tint="?attr/colorControlNormal" />
 
 </LinearLayout>

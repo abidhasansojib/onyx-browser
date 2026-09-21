@@ -40,11 +40,11 @@
             android:orientation="vertical"
             android:padding="8dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="26dp"
                 android:layout_height="26dp"
                 android:contentDescription="@string/bookmarks"
-                android:src="@drawable/ic_bookmark"
+                app:srcCompat="@drawable/ic_bookmark"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
@@ -69,11 +69,11 @@
             android:orientation="vertical"
             android:padding="8dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="26dp"
                 android:layout_height="26dp"
                 android:contentDescription="@string/history"
-                android:src="@drawable/ic_history"
+                app:srcCompat="@drawable/ic_history"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
@@ -98,11 +98,11 @@
             android:orientation="vertical"
             android:padding="8dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="26dp"
                 android:layout_height="26dp"
                 android:contentDescription="@string/downloads"
-                android:src="@drawable/ic_download"
+                app:srcCompat="@drawable/ic_download"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
@@ -127,11 +127,11 @@
             android:orientation="vertical"
             android:padding="8dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="26dp"
                 android:layout_height="26dp"
                 android:contentDescription="@string/share"
-                android:src="@drawable/ic_share"
+                app:srcCompat="@drawable/ic_share"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
@@ -176,10 +176,10 @@
             android:orientation="horizontal"
             android:padding="14dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="32dp"
                 android:layout_height="32dp"
-                android:src="@drawable/ic_shield"
+                app:srcCompat="@drawable/ic_shield"
                 app:tint="@color/primary" />
 
             <LinearLayout
@@ -206,10 +206,10 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="20dp"
                 android:layout_height="20dp"
-                android:src="@drawable/ic_external"
+                app:srcCompat="@drawable/ic_external"
                 app:tint="?attr/colorControlNormal" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
@@ -232,10 +232,10 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_add"
+                app:srcCompat="@drawable/ic_add"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
@@ -259,10 +259,10 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_incognito"
+                app:srcCompat="@drawable/ic_incognito"
                 app:tint="@color/incognito_purple" />
 
             <TextView
@@ -286,10 +286,10 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_desktop"
+                app:srcCompat="@drawable/ic_desktop"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
@@ -320,11 +320,11 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/ivMenuBookmarkIcon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_bookmark_border"
+                app:srcCompat="@drawable/ic_bookmark_border"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
@@ -349,10 +349,10 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_search"
+                app:srcCompat="@drawable/ic_search"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
@@ -383,10 +383,10 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_settings"
+                app:srcCompat="@drawable/ic_settings"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView

@@ -23,8 +23,8 @@ object AdBlockEngine {
             System.loadLibrary("adblock_bridge")
             isNativeLoaded = true
             Log.i(TAG, "Successfully loaded native library libadblock_bridge.so")
-        } catch (e: UnsatisfiedLinkError) {
-            Log.e(TAG, "Native library libadblock_bridge.so not found or could not be loaded", e)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Native library libadblock_bridge.so not found or could not be loaded", t)
             isNativeLoaded = false
         }
     }

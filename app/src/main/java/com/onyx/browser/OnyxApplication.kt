@@ -16,6 +16,9 @@ class OnyxApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Enable vector drawable support across all API levels
+        androidx.appcompat.app.AppCompatDelegate.setCompatVectorFromResourcesEnabled(true)
+
         // Apply saved theme early in process startup
         BrowserPreferences.getInstance(this).applyTheme()
 

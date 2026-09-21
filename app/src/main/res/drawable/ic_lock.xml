@@ -5,14 +5,14 @@
     android:viewportHeight="24">
     <path
         android:fillColor="#00000000"
-        android:strokeColor="?attr/colorControlNormal"
+        android:strokeColor="#FFFFFFFF"
         android:strokeWidth="2"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:pathData="M5.0,11.0 h14.0 a2.0,2.0 0 0,1 2.0,2.0 v7.0 a2.0,2.0 0 0,1 -2.0,2.0 h-14.0 a2.0,2.0 0 0,1 -2.0,-2.0 v-7.0 a2.0,2.0 0 0,1 2.0,-2.0 z" />
     <path
         android:fillColor="#00000000"
-        android:strokeColor="?attr/colorControlNormal"
+        android:strokeColor="#FFFFFFFF"
         android:strokeWidth="2"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"

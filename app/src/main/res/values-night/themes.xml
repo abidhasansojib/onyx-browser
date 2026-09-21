@@ -18,6 +18,14 @@
         <item name="android:navigationBarColor">@color/background_dark</item>
         <item name="android:windowLightNavigationBar">false</item>
 
+        <!-- Compatibility attributes for AppCompat & Vector drawables -->
+        <item name="colorControlNormal">@color/text_primary_dark</item>
+        <item name="android:colorControlNormal">@color/text_primary_dark</item>
+        <item name="colorControlHighlight">#26FFFFFF</item>
+        <item name="android:colorControlHighlight">#26FFFFFF</item>
+        <item name="colorOnSurface">@color/text_primary_dark</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary_dark</item>
+
         <item name="bottomSheetDialogTheme">@style/Theme.OnyxBrowser.BottomSheetDialog</item>
     </style>
 

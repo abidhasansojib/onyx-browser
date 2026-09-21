@@ -32,12 +32,12 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/ivTabFavicon"
                 android:layout_width="18dp"
                 android:layout_height="18dp"
                 android:contentDescription="Tab Favicon"
-                android:src="@drawable/ic_web"
+                app:srcCompat="@drawable/ic_web"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
@@ -54,14 +54,14 @@
                 android:textStyle="bold"
                 tools:text="Onyx Browser - Home" />
 
-            <ImageButton
+            <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/btnTabClose"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/close_tab"
                 android:padding="6dp"
-                android:src="@drawable/ic_close"
+                app:srcCompat="@drawable/ic_close"
                 app:tint="?attr/colorControlNormal" />
         </LinearLayout>
 
@@ -76,7 +76,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tabHeader">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/ivTabSnapshot"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -92,12 +92,12 @@
                 android:gravity="center"
                 android:orientation="vertical">
 
-                <ImageView
+                <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/ivCenterIcon"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:alpha="0.4"
-                    android:src="@drawable/ic_logo_onyx" />
+                    app:srcCompat="@drawable/ic_logo_onyx" />
 
                 <TextView
                     android:id="@+id/tvTabDomain"

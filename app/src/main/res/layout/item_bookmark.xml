@@ -12,11 +12,11 @@
     android:paddingStart="16dp"
     android:paddingEnd="12dp">
 
-    <ImageView
+    <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/ivBookmarkIcon"
         android:layout_width="28dp"
         android:layout_height="28dp"
-        android:src="@drawable/ic_bookmark"
+        app:srcCompat="@drawable/ic_bookmark"
         app:tint="@color/primary" />
 
     <LinearLayout
@@ -50,14 +50,14 @@
             tools:text="https://duckduckgo.com" />
     </LinearLayout>
 
-    <ImageButton
+    <androidx.appcompat.widget.AppCompatImageButton
         android:id="@+id/btnDeleteBookmarkItem"
         android:layout_width="36dp"
         android:layout_height="36dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/clear"
         android:padding="8dp"
-        android:src="@drawable/ic_close"
+        app:srcCompat="@drawable/ic_close"
         app:tint="?attr/colorControlNormal" />
 
 </LinearLayout>

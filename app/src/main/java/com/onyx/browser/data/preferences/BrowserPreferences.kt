@@ -88,11 +88,14 @@ class BrowserPreferences(context: Context) {
     }
 
     fun applyTheme() {
-        when (themeMode) {
-            THEME_LIGHT -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            THEME_DARK -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-            THEME_DYNAMIC, THEME_SYSTEM -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        val targetMode = when (themeMode) {
+            THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+            THEME_DARK -> AppCompatDelegate.MODE_NIGHT_YES
+            THEME_DYNAMIC, THEME_SYSTEM -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        }
+        if (AppCompatDelegate.getDefaultNightMode() != targetMode) {
+            AppCompatDelegate.setDefaultNightMode(targetMode)
         }
     }
 

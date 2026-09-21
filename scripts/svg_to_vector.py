@@ -79,7 +79,7 @@ def convert_svg_to_vector(svg_path, out_xml_path):
         else:
             xml_content.append('    <path')
             xml_content.append('        android:fillColor="#00000000"')
-            xml_content.append('        android:strokeColor="?attr/colorControlNormal"')
+            xml_content.append('        android:strokeColor="#FFFFFFFF"')
             xml_content.append('        android:strokeWidth="2"')
             xml_content.append('        android:strokeLineCap="round"')
             xml_content.append('        android:strokeLineJoin="round"')

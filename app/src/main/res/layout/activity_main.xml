@@ -22,7 +22,7 @@
         app:layout_constraintTop_toTopOf="parent">
 
         <!-- Home Button -->
-        <ImageButton
+        <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/btnHome"
             android:layout_width="40dp"
             android:layout_height="40dp"
@@ -35,7 +35,7 @@
             app:tint="?attr/colorControlNormal" />
 
         <!-- Search Engine Selector Icon -->
-        <ImageView
+        <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/btnSearchEngine"
             android:layout_width="28dp"
             android:layout_height="28dp"
@@ -66,7 +66,7 @@
             app:layout_constraintTop_toTopOf="parent">
 
             <!-- SSL Lock Icon (shown in idle browsing) -->
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/ivSslLock"
                 android:layout_width="16dp"
                 android:layout_height="16dp"
@@ -93,7 +93,7 @@
                 android:textSize="14sp" />
 
             <!-- Clear Search Input Button -->
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/btnClearUrl"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
@@ -106,7 +106,7 @@
                 app:tint="?attr/colorControlNormal" />
 
             <!-- Voice Search Button (Mic) -->
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/btnVoiceSearch"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
@@ -141,7 +141,7 @@
         </FrameLayout>
 
         <!-- Three-Dot Menu Button -->
-        <ImageButton
+        <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/btnMenu"
             android:layout_width="36dp"
             android:layout_height="40dp"

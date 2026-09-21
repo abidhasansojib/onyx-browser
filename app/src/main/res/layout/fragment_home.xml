@@ -21,12 +21,12 @@
             app:layout_constraintGuide_percent="0.32" />
 
         <!-- Brand Header: Custom Geometric High-Tech ONYX Vector Logo -->
-        <ImageView
+        <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/ivBrandLogo"
             android:layout_width="220dp"
             android:layout_height="70dp"
             android:contentDescription="Onyx Browser"
-            android:src="@drawable/ic_logo_onyx"
+            app:srcCompat="@drawable/ic_logo_onyx"
             app:layout_constraintBottom_toTopOf="@id/guideCenter"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
@@ -73,7 +73,7 @@
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp">
 
-                <ImageView
+                <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/ivActionShortcuts"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
@@ -82,7 +82,7 @@
                     android:contentDescription="@string/shortcuts"
                     android:focusable="false"
                     android:padding="15dp"
-                    android:src="@drawable/ic_web"
+                    app:srcCompat="@drawable/ic_web"
                     app:tint="?attr/colorControlNormal" />
 
                 <TextView
@@ -108,7 +108,7 @@
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp">
 
-                <ImageView
+                <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/ivActionIncognito"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
@@ -117,7 +117,7 @@
                     android:contentDescription="@string/incognito"
                     android:focusable="false"
                     android:padding="15dp"
-                    android:src="@drawable/ic_incognito"
+                    app:srcCompat="@drawable/ic_incognito"
                     app:tint="@color/incognito_purple" />
 
                 <TextView
@@ -143,7 +143,7 @@
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp">
 
-                <ImageView
+                <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/ivActionHistory"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
@@ -152,7 +152,7 @@
                     android:contentDescription="@string/history"
                     android:focusable="false"
                     android:padding="15dp"
-                    android:src="@drawable/ic_history"
+                    app:srcCompat="@drawable/ic_history"
                     app:tint="?attr/colorControlNormal" />
 
                 <TextView
@@ -178,7 +178,7 @@
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp">
 
-                <ImageView
+                <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/ivActionDownloads"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
@@ -187,7 +187,7 @@
                     android:contentDescription="@string/downloads"
                     android:focusable="false"
                     android:padding="15dp"
-                    android:src="@drawable/ic_download"
+                    app:srcCompat="@drawable/ic_download"
                     app:tint="?attr/colorControlNormal" />
 
                 <TextView
@@ -226,12 +226,12 @@
                     android:orientation="vertical"
                     android:padding="8dp">
 
-                    <ImageView
+                    <androidx.appcompat.widget.AppCompatImageView
                         android:layout_width="44dp"
                         android:layout_height="44dp"
                         android:background="@drawable/bg_circle_action"
                         android:padding="10dp"
-                        android:src="@drawable/ic_engine_google" />
+                        app:srcCompat="@drawable/ic_engine_google" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -251,12 +251,12 @@
                     android:orientation="vertical"
                     android:padding="8dp">
 
-                    <ImageView
+                    <androidx.appcompat.widget.AppCompatImageView
                         android:layout_width="44dp"
                         android:layout_height="44dp"
                         android:background="@drawable/bg_circle_action"
                         android:padding="10dp"
-                        android:src="@drawable/ic_engine_brave" />
+                        app:srcCompat="@drawable/ic_engine_brave" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -276,12 +276,12 @@
                     android:orientation="vertical"
                     android:padding="8dp">
 
-                    <ImageView
+                    <androidx.appcompat.widget.AppCompatImageView
                         android:layout_width="44dp"
                         android:layout_height="44dp"
                         android:background="@drawable/bg_circle_action"
                         android:padding="10dp"
-                        android:src="@drawable/ic_web"
+                        app:srcCompat="@drawable/ic_web"
                         app:tint="?attr/colorControlNormal" />
 
                     <TextView
@@ -302,12 +302,12 @@
                     android:orientation="vertical"
                     android:padding="8dp">
 
-                    <ImageView
+                    <androidx.appcompat.widget.AppCompatImageView
                         android:layout_width="44dp"
                         android:layout_height="44dp"
                         android:background="@drawable/bg_circle_action"
                         android:padding="10dp"
-                        android:src="@drawable/ic_web"
+                        app:srcCompat="@drawable/ic_web"
                         app:tint="?attr/colorControlNormal" />
 
                     <TextView

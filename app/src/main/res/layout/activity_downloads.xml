@@ -46,11 +46,11 @@
             android:visibility="gone"
             tools:visibility="visible">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="64dp"
                 android:layout_height="64dp"
                 android:alpha="0.3"
-                android:src="@drawable/ic_download"
+                app:srcCompat="@drawable/ic_download"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView

@@ -24,21 +24,21 @@
     <!-- Stylized Geometric ONYX Typography -->
     <!-- 'O' - Futuristic hexagon ring -->
     <path
-        android:fillColor="?attr/colorControlNormal"
+        android:fillColor="#FFFFFFFF"
         android:pathData="M72,16 L84,16 L92,26 L92,34 L84,44 L72,44 L64,34 L64,26 Z M73.5,21 L69,27 L69,33 L73.5,39 L82.5,39 L87,33 L87,27 L82.5,21 Z" />
 
     <!-- 'N' - Sleek dynamic diagonal cut -->
     <path
-        android:fillColor="?attr/colorControlNormal"
+        android:fillColor="#FFFFFFFF"
         android:pathData="M102,16 L107,16 L119,36 L119,16 L124,16 L124,44 L119,44 L107,24 L107,44 L102,44 Z" />
 
     <!-- 'Y' - Angular geometric fork -->
     <path
-        android:fillColor="?attr/colorControlNormal"
+        android:fillColor="#FFFFFFFF"
         android:pathData="M134,16 L140,16 L146,27 L152,16 L158,16 L149,32 L149,44 L143,44 L143,32 Z" />
 
     <!-- 'X' - Sleek cyber crossing bars with center accent -->
     <path
-        android:fillColor="?attr/colorControlNormal"
+        android:fillColor="#FFFFFFFF"
         android:pathData="M168,16 L174,16 L181,27 L188,16 L194,16 L184,30 L194,44 L188,44 L181,33 L174,44 L168,44 L178,30 Z" />
 </vector>
