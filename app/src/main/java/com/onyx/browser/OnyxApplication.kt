@@ -22,9 +22,6 @@ class OnyxApplication : Application() {
         // Apply saved theme early in process startup
         val prefs = BrowserPreferences.getInstance(this)
         prefs.applyTheme()
-        if (prefs.themeMode == BrowserPreferences.THEME_SYSTEM) {
-            com.google.android.material.color.DynamicColors.applyToActivitiesIfAvailable(this)
-        }
 
         // Initialize Room Database
         AppDatabase.getInstance(this)

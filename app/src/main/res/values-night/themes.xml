@@ -1,5 +1,5 @@
 <resources>
-    <!-- Dark AMOLED Pure Black theme -->
+    <!-- Dark Theme: Google Dark Theme (matches google.com and Chrome in dark mode, not AMOLED) -->
     <style name="Theme.OnyxBrowser" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_variant</item>
@@ -13,9 +13,9 @@
         <item name="colorSurfaceVariant">@color/surface_variant_dark</item>
         <item name="colorOutline">@color/outline_dark</item>
 
-        <item name="android:statusBarColor">@color/surface_dark</item>
+        <item name="android:statusBarColor">@color/background_dark</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:navigationBarColor">@color/surface_dark</item>
+        <item name="android:navigationBarColor">@color/background_dark</item>
         <item name="android:windowLightNavigationBar">false</item>
 
         <!-- Compatibility attributes for AppCompat & Vector drawables -->

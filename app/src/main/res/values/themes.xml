@@ -1,5 +1,5 @@
 <resources>
-    <!-- Base application theme -->
+    <!-- Base application theme: Google Light Theme -->
     <style name="Theme.OnyxBrowser" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_variant</item>
@@ -7,6 +7,7 @@
         <item name="colorSecondary">@color/secondary</item>
         <item name="colorOnSecondary">@color/on_secondary</item>
 
+        <!-- Google Light Colors (pure white background, Google search grey card borders) -->
         <item name="android:windowBackground">@color/background_light</item>
         <item name="colorSurface">@color/surface_light</item>
         <item name="colorSurfaceVariant">@color/surface_variant_light</item>

@@ -57,9 +57,6 @@ class DownloadPromptActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         preferences = BrowserPreferences.getInstance(this)
         preferences.applyTheme()
-        if (preferences.themeMode == BrowserPreferences.THEME_SYSTEM) {
-            com.google.android.material.color.DynamicColors.applyIfAvailable(this)
-        }
 
         binding = ActivityDownloadPromptBinding.inflate(layoutInflater)
         setContentView(binding.root)

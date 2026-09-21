@@ -163,17 +163,17 @@ onyx-browser/
       - `ManageShortcutsBottomSheet`: Bottom sheet invoked via quick action plus button containing an Add Shortcut card (Title and URL inputs with scheme validation) and a list of all current shortcuts with Edit and Delete actions.
       - `EditShortcutDialog`: Material 3 dialog for customizing shortcut title and URL.
       - Synchronous reactive persistence via `BrowserPreferences` JSON storage and StateFlow updates.
-  - [x] Material Box-Type UI & 3-Option Google Dark Theme System:
+  - [x] Material Box-Type UI & Pure Google Theme System (System, Google Dark, Google Light):
     - Material 3 Box-Type UI & Responsive Multi-Display Layout:
       - Encapsulated quick action buttons into elevated Material 3 box card container (`bg_material_box.xml`) with rounded corners and subtle outline.
       - Encapsulated dynamic shortcuts grid in a matching Material 3 box card container with elevation.
       - Upgraded individual shortcut buttons to interactive squircle box tiles (`bg_box_tile.xml`) with ripple and border stroke.
       - Responsive multi-display optimization: Centered max-width constraints (`layout_constraintWidth_max="540dp"` for home, `760dp` for tab switcher) ensuring optimal readability on compact phones, foldables, and large tablets.
       - Adaptive grid span counts: 4 columns on phones, 6 columns on tablets/wide screens for shortcuts; 2 columns on phones, 3 columns on tablets for tab switcher.
-    - 3-Option Theme System:
-      - 1. **System / Dynamic Material** (`THEME_SYSTEM`): Automatically follows system dark/light state and applies Material You dynamic color palette on Android 12+ (API 31+) via `DynamicColors.applyToActivitiesIfAvailable`.
-      - 2. **Dark (Google Dark)** (`THEME_DARK`): Rich, authentic Google Dark Mode matching web pages (`#202124` background, `#292A2D` surface, `#35363A` surface variant, `#3C4043` outline, `#E8EAED` text, avoiding harsh AMOLED contrast).
-      - 3. **Light** (`THEME_LIGHT`): Clean Google Material Light UI (`#F8F9FA` background, `#FFFFFF` surface, `#F1F3F4` variant, `#DADCE0` outline, `#202124` text).
+    - 3-Option Pure Google Theme System (No Material You dynamic tinting):
+      - 1. **System** (`THEME_SYSTEM`): Automatically checks system dark mode status via `AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM`. If system dark mode is ON, uses Google Dark; if OFF, uses Google Light.
+      - 2. **Dark** (`THEME_DARK`): Manual forced dark mode. Rich, authentic Google Dark Mode matching google.com and Chrome (`#202124` background, `#303134` surface, `#35363A` variant, `#3C4043` outline, `#E8EAED` text, `#8AB4F8` Google Blue 300 accent; avoiding harsh pure black `#000000`).
+      - 3. **Light** (`THEME_LIGHT`): Manual forced light mode. Authentic Google Light UI (`#FFFFFF` background & surface, `#DFE1E5` outline/borders, `#F1F3F4` chips/variant, `#202124` text, `#5F6368` secondary text, `#1A73E8` Google Blue 600 accent).
   - [x] Default Browser External Link Intent Handling & Routing:
     - Root Cause Resolved: Previously, `MainActivity` only ran `tabManager.restoreTabs()` on launch and never inspected `intent.data` or handled `onNewIntent`, causing external links from WhatsApp, SMS, Messenger, email, or pinned homescreen shortcuts to launch Onyx to the home screen without opening the target URL.
     - Android Manifest Enhancements:
