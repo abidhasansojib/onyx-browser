@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Shield contour -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2L4,5v6.09c0,5.05 3.41,9.76 8,10.91c4.59,-1.15 8,-5.86 8,-10.91V5L12,2z M12,4.15l6,2.25v4.69c0,4.02 -2.57,7.74 -6,8.76c-3.43,-1.02 -6,-4.74 -6,-8.76V6.4L12,4.15z" />
+    <!-- Centered padlock -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,8.5c-1.38,0 -2.5,1.12 -2.5,2.5v1H9c-0.55,0 -1,0.45 -1,1v3.5c0,0.55 0.45,1 1,1h6c0.55,0 1,-0.45 1,-1V13c0,-0.55 -0.45,-1 -1,-1h-0.5v-1c0,-1.38 -1.12,-2.5 -2.5,-2.5z M13.5,12h-3v-1c0,-0.83 0.67,-1.5 1.5,-1.5s1.5,0.67 1.5,1.5V12z" />
+</vector>

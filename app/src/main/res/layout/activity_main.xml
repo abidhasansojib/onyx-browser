@@ -189,6 +189,100 @@
         tools:progress="50"
         tools:visibility="visible" />
 
+    <!-- Find in Page Bar (Slides down under toolbar when activated) -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/findInPageBar"
+        android:layout_width="0dp"
+        android:layout_height="52dp"
+        android:background="?attr/colorSurface"
+        android:elevation="10dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/progressBar"
+        tools:visibility="visible">
+
+        <!-- Close Find in Page Button -->
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnCloseFind"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/close"
+            android:padding="8dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/ic_close"
+            app:tint="?attr/colorControlNormal" />
+
+        <!-- Find Query EditText -->
+        <EditText
+            android:id="@+id/etFindQuery"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_search_bar"
+            android:hint="@string/find_in_page_hint"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:maxLines="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textColorHint="?android:attr/textColorSecondary"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/tvFindMatches"
+            app:layout_constraintStart_toEndOf="@id/btnCloseFind"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Matches Counter (e.g. 1/5) -->
+        <TextView
+            android:id="@+id/tvFindMatches"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnFindPrev"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="1/5" />
+
+        <!-- Previous Match Button -->
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnFindPrev"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Previous match"
+            android:padding="6dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnFindNext"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/ic_keyboard_arrow_up"
+            app:tint="?attr/colorControlNormal" />
+
+        <!-- Next Match Button -->
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnFindNext"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Next match"
+            android:padding="6dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/ic_keyboard_arrow_down"
+            app:tint="?attr/colorControlNormal" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
     <!-- Browser & Home View Container -->
     <FrameLayout
         android:id="@+id/contentContainer"

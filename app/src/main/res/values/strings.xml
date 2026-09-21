@@ -101,4 +101,22 @@
     <string name="cookies_cache_warning">Cookies, cache, and other site data will be cleared for this period.</string>
     <string name="clear_data">Clear Data</string>
     <string name="browsing_data_cleared">Browsing data cleared</string>
+
+    <!-- Webpage Menu & Toolset -->
+    <string name="translate_to">Translate to %s</string>
+    <string name="select_translation_language">Select Translation Language</string>
+    <string name="add_to_home_screen">Add to Home screen</string>
+    <string name="added_to_home_screen">Added to Home screen</string>
+    <string name="developer_tools">Developer tools</string>
+    <string name="developer_tools_subtitle">Inspect elements, console, network</string>
+    <string name="site_protection_title">Site Protection</string>
+    <string name="protection_for_site">Protection for %s</string>
+    <string name="protection_active">Protection Active</string>
+    <string name="protection_paused">Protection Paused</string>
+    <string name="disable_adblock_for_this_site">Disable adblocker for this site only</string>
+    <string name="disable_adblock_desc">Allow ads, trackers, and unblock network requests on this domain</string>
+    <string name="site_shield_settings_button">Global Adblocker Settings</string>
+    <string name="find_in_page_hint">Find in page…</string>
+    <string name="no_matches">0/0</string>
+    <string name="matches_count">%1$d/%2$d</string>
 </resources>

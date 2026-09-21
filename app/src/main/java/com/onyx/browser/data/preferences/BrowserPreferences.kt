@@ -70,6 +70,50 @@ class BrowserPreferences(context: Context) {
             prefs.edit().putLong(KEY_FILTER_UPDATED, value).apply()
         }
 
+    var targetTranslateLanguage: String
+        get() = prefs.getString(KEY_TRANSLATE_TARGET_LANG, java.util.Locale.getDefault().language.ifBlank { "en" }) ?: "en"
+        set(value) {
+            prefs.edit().putString(KEY_TRANSLATE_TARGET_LANG, value).apply()
+        }
+
+    var targetTranslateLanguageName: String
+        get() = prefs.getString(KEY_TRANSLATE_TARGET_NAME, java.util.Locale.getDefault().displayLanguage.ifBlank { "English" }) ?: "English"
+        set(value) {
+            prefs.edit().putString(KEY_TRANSLATE_TARGET_NAME, value).apply()
+        }
+
+    fun cleanDomain(domainOrUrl: String): String {
+        return try {
+            val uri = if (!domainOrUrl.startsWith("http://") && !domainOrUrl.startsWith("https://")) {
+                java.net.URI("https://$domainOrUrl")
+            } else {
+                java.net.URI(domainOrUrl)
+            }
+            (uri.host ?: domainOrUrl).lowercase().removePrefix("www.")
+        } catch (_: Exception) {
+            domainOrUrl.lowercase().removePrefix("www.")
+        }
+    }
+
+    fun isDomainWhitelisted(domainOrUrl: String): Boolean {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return false
+        val set = prefs.getStringSet(KEY_ADBLOCK_WHITELIST, emptySet()) ?: emptySet()
+        return set.contains(domain)
+    }
+
+    fun setDomainWhitelisted(domainOrUrl: String, whitelisted: Boolean) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val currentSet = prefs.getStringSet(KEY_ADBLOCK_WHITELIST, emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (whitelisted) {
+            currentSet.add(domain)
+        } else {
+            currentSet.remove(domain)
+        }
+        prefs.edit().putStringSet(KEY_ADBLOCK_WHITELIST, currentSet).apply()
+    }
+
     fun getBlockedRequestsCount(): Long {
         return prefs.getLong(KEY_BLOCKED_REQUESTS_COUNT, 0L)
     }
@@ -116,6 +160,9 @@ class BrowserPreferences(context: Context) {
         const val KEY_JAVASCRIPT_ENABLED = "pref_javascript_enabled"
         const val KEY_BLOCKED_REQUESTS_COUNT = "pref_blocked_requests_count"
         const val KEY_FILTER_UPDATED = "pref_filter_updated"
+        const val KEY_ADBLOCK_WHITELIST = "pref_adblock_whitelist"
+        const val KEY_TRANSLATE_TARGET_LANG = "pref_translate_target_lang"
+        const val KEY_TRANSLATE_TARGET_NAME = "pref_translate_target_name"
 
         @Volatile
         private var INSTANCE: BrowserPreferences? = null

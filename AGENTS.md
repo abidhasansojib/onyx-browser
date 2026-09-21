@@ -127,5 +127,18 @@ onyx-browser/
       - Tab count summary pill displaying exact tab count to be closed.
       - Styled Material 3 action buttons: Tonal rounded "Cancel" button and filled red danger "Close All" button.
       - Empty tab list protection displaying an instant toast message.
-
-
+  - [x] Context-Aware 3-Dot Menu & Webpage Toolset Redesign:
+    - Homepage / New Tab Mode:
+      - Displays quick shortcuts (Bookmarks, History, Downloads, Share).
+      - Displays "Set as default browser" banner only when Onyx is not yet the system default.
+      - Displays Settings button directly underneath.
+      - Suppresses extra web-only navigation options (new tab, incognito tab, desktop site, bookmark, find in page).
+    - Webpage Mode:
+      - 1st Header Box-Type UI Card: Clean website domain, centered Shield with Lock button (`ic_shield_lock.xml`), and direct Share button (`ic_share.xml`).
+      - Site Shield & Privacy Dialog (`SiteShieldBottomSheetDialog.kt`): Real-time protection status, "Disable adblocker for this site only" toggle with persistent domain whitelist in `BrowserPreferences` and immediate tab reload.
+      - 2nd Translate to [Language] (`ic_translate.xml`): Contextual target language display, right gear icon opening `LanguageSelectionDialog.kt` (20 languages supported), and instant Google Web Translate loading.
+      - 3rd Find in Page: Interactive toolbar (`findInPageBar`) with real-time match counter (`X/Y`), previous/next navigation, and back-press handling.
+      - 4th Desktop Site: MaterialSwitch toggle switching desktop user agent and reloading.
+      - 5th Add to Home Screen (`ic_add_to_home_screen.xml`): Native Android launcher shortcut pinning with website title and favicon via `ShortcutManagerCompat`.
+      - 6th Developer Tools (`ic_terminal_outline.xml`): Bundled offline `eruda.min.js` in assets, injected dynamically to provide full mobile DevTools console (DOM, console, network, resources).
+      - 7th Settings: Direct access to global browser configuration.

@@ -25,6 +25,9 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
 import androidx.core.view.ViewCompat
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -237,6 +240,7 @@ class MainActivity : AppCompatActivity() {
 
         setupTopToolbar()
         setupSearchOverlay()
+        setupFindInPage()
         setupHomepageInteractions()
         setupBackNavigation()
 
@@ -370,23 +374,30 @@ class MainActivity : AppCompatActivity() {
         binding.btnMenu.setOnClickListener {
             val activeTab = tabManager.activeTab.value
             val activeWebView = tabManager.getActiveWebView()
+            val isHome = (binding.homeLayout.root.visibility == View.VISIBLE) || activeTab?.url.isNullOrBlank()
+
             val sheet = MenuBottomSheetDialogFragment().apply {
+                isHomePage = isHome
                 currentUrl = activeTab?.url ?: ""
                 currentTitle = activeTab?.title ?: ""
                 isDesktopSiteEnabled = activeWebView?.isDesktopModeEnabled() ?: false
-                onNewTabClicked = {
-                    val newTab = tabManager.createNewTab(isIncognito = false)
-                    displayTab(newTab)
-                }
-                onNewIncognitoTabClicked = {
-                    val newTab = tabManager.createNewTab(isIncognito = true)
-                    displayTab(newTab)
-                }
                 onDesktopSiteToggled = { enabled ->
                     activeWebView?.setDesktopMode(enabled)
                 }
                 onFindInPageClicked = {
-                    Toast.makeText(this@MainActivity, "Find in page activated", Toast.LENGTH_SHORT).show()
+                    showFindInPage()
+                }
+                onTranslateClicked = { langCode ->
+                    translateCurrentPage(langCode)
+                }
+                onAddToHomeScreenClicked = {
+                    addCurrentPageToHomeScreen()
+                }
+                onDeveloperToolsClicked = {
+                    injectDeveloperTools()
+                }
+                onSiteShieldWhitelistChanged = { _ ->
+                    activeWebView?.reload()
                 }
             }
             sheet.show(supportFragmentManager, MenuBottomSheetDialogFragment.TAG)
@@ -886,11 +897,182 @@ class MainActivity : AppCompatActivity() {
         imm?.hideSoftInputFromWindow(binding.etUrl.windowToken, 0)
     }
 
+    private fun setupFindInPage() {
+        binding.btnCloseFind.setOnClickListener {
+            hideFindInPage()
+        }
+
+        binding.etFindQuery.doAfterTextChanged { text ->
+            val query = text?.toString()?.trim() ?: ""
+            val webView = tabManager.getActiveWebView()
+            if (query.isNotEmpty()) {
+                webView?.findAllAsync(query)
+            } else {
+                webView?.clearMatches()
+                binding.tvFindMatches.text = getString(R.string.no_matches)
+            }
+        }
+
+        binding.etFindQuery.setOnEditorActionListener { _, actionId, event ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH ||
+                (event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+            ) {
+                tabManager.getActiveWebView()?.findNext(true)
+                true
+            } else {
+                false
+            }
+        }
+
+        binding.btnFindPrev.setOnClickListener {
+            tabManager.getActiveWebView()?.findNext(false)
+        }
+
+        binding.btnFindNext.setOnClickListener {
+            tabManager.getActiveWebView()?.findNext(true)
+        }
+    }
+
+    private fun showFindInPage() {
+        val webView = tabManager.getActiveWebView() ?: return
+        binding.findInPageBar.visibility = View.VISIBLE
+        binding.tvFindMatches.text = getString(R.string.no_matches)
+
+        webView.setFindListener { activeMatchOrdinal, numberOfMatches, _ ->
+            if (numberOfMatches > 0) {
+                binding.tvFindMatches.text = getString(R.string.matches_count, activeMatchOrdinal + 1, numberOfMatches)
+            } else {
+                binding.tvFindMatches.text = getString(R.string.no_matches)
+            }
+        }
+
+        binding.etFindQuery.requestFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.showSoftInput(binding.etFindQuery, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun hideFindInPage() {
+        binding.findInPageBar.visibility = View.GONE
+        tabManager.getActiveWebView()?.clearMatches()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(binding.etFindQuery.windowToken, 0)
+        binding.etFindQuery.setText("")
+    }
+
+    private fun translateCurrentPage(langCode: String) {
+        val activeTab = tabManager.activeTab.value ?: return
+        val currentUrl = activeTab.url
+        if (currentUrl.isBlank() || currentUrl.startsWith("onyx://") || currentUrl.startsWith("about:")) {
+            Toast.makeText(this, "Cannot translate internal page", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val encodedUrl = try {
+            java.net.URLEncoder.encode(currentUrl, "UTF-8")
+        } catch (_: Exception) {
+            currentUrl
+        }
+        val targetCode = if (langCode.startsWith("zh", ignoreCase = true)) langCode else langCode.take(2)
+        val translateUrl = "https://translate.google.com/translate?sl=auto&tl=$targetCode&u=$encodedUrl"
+        performSearchOrLoad(translateUrl)
+    }
+
+    private fun addCurrentPageToHomeScreen() {
+        val activeTab = tabManager.activeTab.value ?: return
+        val currentUrl = activeTab.url
+        if (currentUrl.isBlank() || currentUrl.startsWith("onyx://") || currentUrl.startsWith("about:")) {
+            Toast.makeText(this, "Cannot add internal page to Home screen", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val title = activeTab.title.ifBlank { currentUrl }
+        val webView = tabManager.getActiveWebView()
+        val favicon = webView?.favicon
+
+        if (ShortcutManagerCompat.isRequestPinShortcutSupported(this)) {
+            val shortcutIntent = Intent(this, MainActivity::class.java).apply {
+                action = Intent.ACTION_VIEW
+                data = Uri.parse(currentUrl)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val iconCompat = if (favicon != null) {
+                IconCompat.createWithBitmap(favicon)
+            } else {
+                IconCompat.createWithResource(this, R.mipmap.ic_launcher)
+            }
+            val pinShortcutInfo = ShortcutInfoCompat.Builder(this, "onyx_web_${currentUrl.hashCode()}")
+                .setShortLabel(title.take(20))
+                .setLongLabel(title)
+                .setIcon(iconCompat)
+                .setIntent(shortcutIntent)
+                .build()
+            ShortcutManagerCompat.requestPinShortcut(this, pinShortcutInfo, null)
+            Toast.makeText(this, getString(R.string.added_to_home_screen), Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Pin shortcut not supported by launcher", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun injectDeveloperTools() {
+        val webView = tabManager.getActiveWebView() ?: return
+        val activeTab = tabManager.activeTab.value
+        if (activeTab == null || activeTab.url.isBlank() || activeTab.url.startsWith("onyx://") || activeTab.url.startsWith("about:")) {
+            Toast.makeText(this, "Developer tools can only run on active web pages", Toast.LENGTH_SHORT).show()
+            return
+        }
+        lifecycleScope.launch {
+            val erudaCode = try {
+                assets.open("eruda.min.js").bufferedReader().use { it.readText() }
+            } catch (_: Exception) {
+                null
+            }
+
+            val script = if (!erudaCode.isNullOrBlank()) {
+                """
+                (function() {
+                    if (window.eruda) {
+                        window.eruda.show();
+                        return;
+                    }
+                    $erudaCode
+                    if (window.eruda) {
+                        window.eruda.init();
+                        window.eruda.show();
+                    }
+                })();
+                """.trimIndent()
+            } else {
+                """
+                (function() {
+                    if (window.eruda) {
+                        window.eruda.show();
+                        return;
+                    }
+                    var s = document.createElement('script');
+                    s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+                    s.onload = function() {
+                        if (window.eruda) {
+                            window.eruda.init();
+                            window.eruda.show();
+                        }
+                    };
+                    document.body.appendChild(s);
+                })();
+                """.trimIndent()
+            }
+            webView.evaluateJavascript(script, null)
+            Toast.makeText(this@MainActivity, "Eruda Developer Console activated", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun setupBackNavigation() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (customVideoView != null) {
                     hideCustomFullscreenVideo()
+                    return
+                }
+
+                if (binding.findInPageBar.visibility == View.VISIBLE) {
+                    hideFindInPage()
                     return
                 }
 

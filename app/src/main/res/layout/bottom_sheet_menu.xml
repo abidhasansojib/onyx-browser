@@ -9,7 +9,7 @@
     android:paddingTop="12dp"
     android:paddingBottom="24dp">
 
-    <!-- Drag Handle -->
+    <!-- Drag Handle Indicator -->
     <View
         android:layout_width="36dp"
         android:layout_height="4dp"
@@ -18,213 +18,373 @@
         android:background="@drawable/bg_search_bar"
         android:backgroundTint="?attr/colorOutline" />
 
-    <!-- Top Quick Bar: 4 Equal-Width Quick Icons -->
+    <!-- ========================================================== -->
+    <!-- 1. HOMEPAGE / NEW TAB MENU CONTAINER                       -->
+    <!-- (Visible only when user is on Homepage or New Tab)         -->
+    <!-- ========================================================== -->
     <LinearLayout
-        android:id="@+id/topQuickBar"
+        android:id="@+id/layoutHomeMenu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:orientation="horizontal">
+        android:orientation="vertical"
+        android:visibility="gone"
+        tools:visibility="visible">
 
-        <!-- 1. Bookmarks -->
+        <!-- Top Shortcuts Quick Bar (Bookmarks, History, Downloads, Share) -->
         <LinearLayout
-            android:id="@+id/menuQuickBookmarks"
-            android:layout_width="0dp"
+            android:id="@+id/homeQuickBar"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="8dp">
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:orientation="horizontal">
 
-            <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="26dp"
-                android:layout_height="26dp"
-                android:contentDescription="@string/bookmarks"
-                app:srcCompat="@drawable/ic_bookmark"
-                app:tint="?attr/colorControlNormal" />
-
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- 1. Bookmarks -->
+            <LinearLayout
+                android:id="@+id/homeQuickBookmarks"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/bookmarks"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="11sp" />
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:contentDescription="@string/bookmarks"
+                    app:srcCompat="@drawable/ic_bookmark"
+                    app:tint="?attr/colorControlNormal" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/bookmarks"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <!-- 2. History -->
+            <LinearLayout
+                android:id="@+id/homeQuickHistory"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:contentDescription="@string/history"
+                    app:srcCompat="@drawable/ic_history"
+                    app:tint="?attr/colorControlNormal" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/history"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <!-- 3. Downloads -->
+            <LinearLayout
+                android:id="@+id/homeQuickDownloads"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:contentDescription="@string/downloads"
+                    app:srcCompat="@drawable/ic_download"
+                    app:tint="?attr/colorControlNormal" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/downloads"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <!-- 4. Share App -->
+            <LinearLayout
+                android:id="@+id/homeQuickShare"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:contentDescription="@string/share"
+                    app:srcCompat="@drawable/ic_share"
+                    app:tint="?attr/colorControlNormal" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/share"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
         </LinearLayout>
 
-        <!-- 2. History -->
-        <LinearLayout
-            android:id="@+id/menuQuickHistory"
-            android:layout_width="0dp"
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="?attr/colorOutline" />
+
+        <!-- Set as Default Browser Banner (Shown only if not default browser) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/bannerDefaultBrowser"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="10dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone"
+            app:cardBackgroundColor="?attr/colorSurfaceVariant"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp"
+            tools:visibility="visible">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="14dp">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    app:srcCompat="@drawable/ic_shield_lock"
+                    app:tint="@color/primary" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/set_as_default_browser"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/set_default_desc"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    app:srcCompat="@drawable/ic_external"
+                    app:tint="?attr/colorControlNormal" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Settings Button (Under default browser banner) -->
+        <LinearLayout
+            android:id="@+id/menuItemHomeSettings"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="8dp">
+            android:gravity="center_vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
 
             <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="26dp"
-                android:layout_height="26dp"
-                android:contentDescription="@string/history"
-                app:srcCompat="@drawable/ic_history"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:srcCompat="@drawable/ic_settings"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/history"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <!-- 3. Downloads -->
-        <LinearLayout
-            android:id="@+id/menuQuickDownloads"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="8dp">
-
-            <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="26dp"
-                android:layout_height="26dp"
-                android:contentDescription="@string/downloads"
-                app:srcCompat="@drawable/ic_download"
-                app:tint="?attr/colorControlNormal" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/downloads"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <!-- 4. Share Page -->
-        <LinearLayout
-            android:id="@+id/menuQuickShare"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="8dp">
-
-            <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="26dp"
-                android:layout_height="26dp"
-                android:contentDescription="@string/share"
-                app:srcCompat="@drawable/ic_share"
-                app:tint="?attr/colorControlNormal" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/share"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="11sp" />
+                android:layout_marginStart="16dp"
+                android:text="@string/settings"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="15sp" />
         </LinearLayout>
 
     </LinearLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginBottom="12dp"
-        android:background="?attr/colorOutline" />
-
-    <!-- Middle Banner: "Set as Default Browser" Card -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/bannerDefaultBrowser"
+    <!-- ========================================================== -->
+    <!-- 2. WEBPAGE / WEBSITE MENU CONTAINER                        -->
+    <!-- (Visible when browsing an active website)                  -->
+    <!-- ========================================================== -->
+    <LinearLayout
+        android:id="@+id/layoutWebpageMenu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="12dp"
-        android:clickable="true"
-        android:focusable="true"
+        android:orientation="vertical"
         android:visibility="gone"
-        app:cardBackgroundColor="?attr/colorSurfaceVariant"
-        app:cardCornerRadius="14dp"
-        app:cardElevation="0dp"
-        app:strokeWidth="0dp"
         tools:visibility="visible">
 
-        <LinearLayout
+        <!-- 1st: Top Box-Type UI Card (Domain + Shield/Lock + Share) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardWebsiteHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="14dp">
-
-            <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                app:srcCompat="@drawable/ic_shield"
-                app:tint="@color/primary" />
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="?attr/colorSurfaceVariant"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="1dp">
 
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="10dp">
 
+                <!-- Web Globe Icon -->
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/ivWebsiteFavicon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    app:srcCompat="@drawable/ic_web"
+                    app:tint="?attr/colorControlNormal" />
+
+                <!-- Domain Name -->
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:id="@+id/tvWebsiteDomain"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="@string/set_as_default_browser"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
                     android:textColor="?android:attr/textColorPrimary"
                     android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    tools:text="example.com" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="@string/set_default_desc"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
+                <!-- Shield with Lock Icon Button (Per-site Adblock Settings & Whitelist) -->
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnSiteShield"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/bg_circle_action"
+                    android:contentDescription="@string/site_protection_title"
+                    android:padding="9dp"
+                    app:srcCompat="@drawable/ic_shield_lock"
+                    app:tint="@color/primary" />
+
+                <!-- Share Icon Button (Share webpage URL) -->
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnWebpageShare"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_circle_action"
+                    android:contentDescription="@string/share"
+                    android:padding="9dp"
+                    app:srcCompat="@drawable/ic_share"
+                    app:tint="?attr/colorControlNormal" />
+
             </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 2nd: Translate to [Language] Row (with right gear icon to select language) -->
+        <LinearLayout
+            android:id="@+id/menuItemTranslate"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="12dp">
 
             <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                app:srcCompat="@drawable/ic_external"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:srcCompat="@drawable/ic_translate"
                 app:tint="?attr/colorControlNormal" />
+
+            <TextView
+                android:id="@+id/tvTranslateTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_weight="1"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="15sp"
+                tools:text="Translate to English" />
+
+            <!-- Gear / Settings Icon to select target translation language -->
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/btnTranslateSettings"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/select_translation_language"
+                android:padding="8dp"
+                app:srcCompat="@drawable/ic_settings"
+                app:tint="?android:attr/textColorSecondary" />
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
 
-    <!-- Menu Items List -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <!-- New Tab -->
+        <!-- 3rd: Find in Page Row -->
         <LinearLayout
-            android:id="@+id/menuItemNewTab"
+            android:id="@+id/menuItemFindInPage"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="50dp"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
@@ -235,50 +395,23 @@
             <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                app:srcCompat="@drawable/ic_add"
+                app:srcCompat="@drawable/ic_search"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
-                android:text="@string/new_tab"
+                android:text="@string/find_in_page"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textSize="15sp" />
         </LinearLayout>
 
-        <!-- New Incognito Tab -->
-        <LinearLayout
-            android:id="@+id/menuItemNewIncognitoTab"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp">
-
-            <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                app:srcCompat="@drawable/ic_incognito"
-                app:tint="@color/incognito_purple" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:text="@string/new_incognito_tab"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
-        </LinearLayout>
-
-        <!-- Desktop Site Toggle Row -->
+        <!-- 4th: Request Desktop Site Row (with switch) -->
         <LinearLayout
             android:id="@+id/menuItemDesktopSite"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="50dp"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
@@ -308,11 +441,11 @@
                 android:clickable="false" />
         </LinearLayout>
 
-        <!-- Add / Remove Bookmark -->
+        <!-- 5th: Add to Home Screen Row -->
         <LinearLayout
-            android:id="@+id/menuItemAddBookmark"
+            android:id="@+id/menuItemAddToHomeScreen"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="50dp"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
@@ -321,27 +454,25 @@
             android:paddingEnd="20dp">
 
             <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/ivMenuBookmarkIcon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                app:srcCompat="@drawable/ic_bookmark_border"
+                app:srcCompat="@drawable/ic_add_to_home_screen"
                 app:tint="?attr/colorControlNormal" />
 
             <TextView
-                android:id="@+id/tvMenuBookmarkTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
-                android:text="@string/add_bookmark"
+                android:text="@string/add_to_home_screen"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textSize="15sp" />
         </LinearLayout>
 
-        <!-- Find In Page -->
+        <!-- 6th: Developer Tools (Eruda Console) Row -->
         <LinearLayout
-            android:id="@+id/menuItemFindInPage"
+            android:id="@+id/menuItemDeveloperTools"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="54dp"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
@@ -352,16 +483,29 @@
             <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                app:srcCompat="@drawable/ic_search"
+                app:srcCompat="@drawable/ic_terminal_outline"
                 app:tint="?attr/colorControlNormal" />
 
-            <TextView
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
-                android:text="@string/find_in_page"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/developer_tools"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/developer_tools_subtitle"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <View
@@ -371,9 +515,9 @@
             android:layout_marginBottom="6dp"
             android:background="?attr/colorOutline" />
 
-        <!-- Settings -->
+        <!-- 7th: Settings Button -->
         <LinearLayout
-            android:id="@+id/menuItemSettings"
+            android:id="@+id/menuItemWebSettings"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackground"

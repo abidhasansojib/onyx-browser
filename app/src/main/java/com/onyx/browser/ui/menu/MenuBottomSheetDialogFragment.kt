@@ -13,31 +13,29 @@ import android.view.ViewGroup
 import android.widget.Toast
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
-import com.onyx.browser.data.local.AppDatabase
-import com.onyx.browser.data.model.BookmarkItem
+import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetMenuBinding
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.settings.SettingsActivity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetMenuBinding? = null
     private val binding get() = _binding!!
 
+    var isHomePage: Boolean = true
     var currentUrl: String = ""
     var currentTitle: String = ""
     var isDesktopSiteEnabled: Boolean = false
 
-    var onNewTabClicked: (() -> Unit)? = null
-    var onNewIncognitoTabClicked: (() -> Unit)? = null
     var onDesktopSiteToggled: ((Boolean) -> Unit)? = null
     var onFindInPageClicked: (() -> Unit)? = null
+    var onTranslateClicked: ((String) -> Unit)? = null
+    var onAddToHomeScreenClicked: (() -> Unit)? = null
+    var onDeveloperToolsClicked: (() -> Unit)? = null
+    var onSiteShieldWhitelistChanged: ((Boolean) -> Unit)? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -51,44 +49,137 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        setupQuickBar()
-        setupDefaultBrowserBanner()
-        setupMenuItems()
-        checkBookmarkStatus()
+        if (isHomePage) {
+            binding.layoutHomeMenu.visibility = View.VISIBLE
+            binding.layoutWebpageMenu.visibility = View.GONE
+            setupHomeMenu()
+        } else {
+            binding.layoutHomeMenu.visibility = View.GONE
+            binding.layoutWebpageMenu.visibility = View.VISIBLE
+            setupWebpageMenu()
+        }
     }
 
-    private fun setupQuickBar() {
-        // Bookmarks
-        binding.menuQuickBookmarks.setOnClickListener {
+    private fun setupHomeMenu() {
+        // 1. Shortcuts: Bookmarks
+        binding.homeQuickBookmarks.setOnClickListener {
             startActivity(Intent(requireContext(), BookmarksActivity::class.java))
             dismiss()
         }
 
-        // History
-        binding.menuQuickHistory.setOnClickListener {
+        // 2. Shortcuts: History
+        binding.homeQuickHistory.setOnClickListener {
             startActivity(Intent(requireContext(), HistoryActivity::class.java))
             dismiss()
         }
 
-        // Downloads
-        binding.menuQuickDownloads.setOnClickListener {
+        // 3. Shortcuts: Downloads
+        binding.homeQuickDownloads.setOnClickListener {
             startActivity(Intent(requireContext(), DownloadsActivity::class.java))
             dismiss()
         }
 
-        // Share Page
-        binding.menuQuickShare.setOnClickListener {
+        // 4. Shortcuts: Share App
+        binding.homeQuickShare.setOnClickListener {
+            val sendIntent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, "Browse the web fast and private with Onyx Browser!")
+                type = "text/plain"
+            }
+            startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
+            dismiss()
+        }
+
+        // Default Browser Banner (under shortcuts, shown only if not default)
+        setupDefaultBrowserBanner()
+
+        // Settings Button (under default browser banner)
+        binding.menuItemHomeSettings.setOnClickListener {
+            startActivity(Intent(requireContext(), SettingsActivity::class.java))
+            dismiss()
+        }
+    }
+
+    private fun setupWebpageMenu() {
+        val prefs = BrowserPreferences.getInstance(requireContext())
+        val cleanDomain = prefs.cleanDomain(currentUrl)
+
+        // 1st: Box-Type UI Card
+        binding.tvWebsiteDomain.text = cleanDomain.ifBlank { "Webpage" }
+
+        // Shield with lock icon button: opens per-site adblock controls
+        binding.btnSiteShield.setOnClickListener {
+            val dialog = SiteShieldBottomSheetDialog(cleanDomain) { whitelisted ->
+                onSiteShieldWhitelistChanged?.invoke(whitelisted)
+            }
+            dialog.show(childFragmentManager, SiteShieldBottomSheetDialog.TAG)
+        }
+
+        // Share icon button: shares webpage URL
+        binding.btnWebpageShare.setOnClickListener {
             if (currentUrl.isNotBlank()) {
                 val sendIntent = Intent().apply {
                     action = Intent.ACTION_SEND
                     putExtra(Intent.EXTRA_TEXT, currentUrl)
                     type = "text/plain"
                 }
-                val shareIntent = Intent.createChooser(sendIntent, "Share Link")
-                startActivity(shareIntent)
+                startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
             } else {
                 Toast.makeText(requireContext(), "No webpage to share", Toast.LENGTH_SHORT).show()
             }
+            dismiss()
+        }
+
+        // 2nd: Translate to [Language]
+        fun updateTranslateText() {
+            binding.tvTranslateTitle.text = getString(R.string.translate_to, prefs.targetTranslateLanguageName)
+        }
+        updateTranslateText()
+
+        // Main translate row click
+        binding.menuItemTranslate.setOnClickListener {
+            onTranslateClicked?.invoke(prefs.targetTranslateLanguage)
+            dismiss()
+        }
+
+        // Right gear icon click: open language selector
+        binding.btnTranslateSettings.setOnClickListener {
+            val langDialog = LanguageSelectionDialog { code, name ->
+                updateTranslateText()
+            }
+            langDialog.show(childFragmentManager, LanguageSelectionDialog.TAG)
+        }
+
+        // 3rd: Find in Page
+        binding.menuItemFindInPage.setOnClickListener {
+            onFindInPageClicked?.invoke()
+            dismiss()
+        }
+
+        // 4th: Request Desktop Site
+        binding.switchDesktopSite.isChecked = isDesktopSiteEnabled
+        binding.menuItemDesktopSite.setOnClickListener {
+            val newState = !binding.switchDesktopSite.isChecked
+            binding.switchDesktopSite.isChecked = newState
+            onDesktopSiteToggled?.invoke(newState)
+            dismiss()
+        }
+
+        // 5th: Add to Home screen
+        binding.menuItemAddToHomeScreen.setOnClickListener {
+            onAddToHomeScreenClicked?.invoke()
+            dismiss()
+        }
+
+        // 6th: Developer Tools (Eruda Console)
+        binding.menuItemDeveloperTools.setOnClickListener {
+            onDeveloperToolsClicked?.invoke()
+            dismiss()
+        }
+
+        // 7th: Settings
+        binding.menuItemWebSettings.setOnClickListener {
+            startActivity(Intent(requireContext(), SettingsActivity::class.java))
             dismiss()
         }
     }
@@ -154,98 +245,6 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
                 startActivity(intent)
                 return
             } catch (_: Exception) {
-            }
-        }
-    }
-
-    private fun setupMenuItems() {
-        // New Tab
-        binding.menuItemNewTab.setOnClickListener {
-            onNewTabClicked?.invoke()
-            dismiss()
-        }
-
-        // New Incognito Tab
-        binding.menuItemNewIncognitoTab.setOnClickListener {
-            onNewIncognitoTabClicked?.invoke()
-            dismiss()
-        }
-
-        // Desktop Site
-        binding.switchDesktopSite.isChecked = isDesktopSiteEnabled
-        binding.menuItemDesktopSite.setOnClickListener {
-            val newState = !binding.switchDesktopSite.isChecked
-            binding.switchDesktopSite.isChecked = newState
-            onDesktopSiteToggled?.invoke(newState)
-            dismiss()
-        }
-
-        // Find In Page
-        binding.menuItemFindInPage.setOnClickListener {
-            onFindInPageClicked?.invoke()
-            dismiss()
-        }
-
-        // Add Bookmark
-        binding.menuItemAddBookmark.setOnClickListener {
-            toggleBookmark()
-        }
-
-        // Settings
-        binding.menuItemSettings.setOnClickListener {
-            startActivity(Intent(requireContext(), SettingsActivity::class.java))
-            dismiss()
-        }
-    }
-
-    private fun checkBookmarkStatus() {
-        if (currentUrl.isBlank()) return
-        CoroutineScope(Dispatchers.IO).launch {
-            val isBookmarked = AppDatabase.getInstance(requireContext())
-                .bookmarkDao()
-                .isBookmarked(currentUrl)
-            withContext(Dispatchers.Main) {
-                if (_binding != null) {
-                    if (isBookmarked) {
-                        binding.ivMenuBookmarkIcon.setImageResource(R.drawable.ic_bookmark)
-                        binding.tvMenuBookmarkTitle.text = "Remove Bookmark"
-                    } else {
-                        binding.ivMenuBookmarkIcon.setImageResource(R.drawable.ic_bookmark_border)
-                        binding.tvMenuBookmarkTitle.text = getString(R.string.add_bookmark)
-                    }
-                }
-            }
-        }
-    }
-
-    private fun toggleBookmark() {
-        if (currentUrl.isBlank()) {
-            Toast.makeText(requireContext(), "Cannot bookmark empty page", Toast.LENGTH_SHORT).show()
-            dismiss()
-            return
-        }
-
-        CoroutineScope(Dispatchers.IO).launch {
-            val db = AppDatabase.getInstance(requireContext())
-            val existing = db.bookmarkDao().getBookmarkByUrl(currentUrl)
-            if (existing != null) {
-                db.bookmarkDao().deleteBookmark(existing)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), "Bookmark removed", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                db.bookmarkDao().insertBookmark(
-                    BookmarkItem(
-                        url = currentUrl,
-                        title = currentTitle.ifBlank { currentUrl }
-                    )
-                )
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), "Bookmark added", Toast.LENGTH_SHORT).show()
-                }
-            }
-            withContext(Dispatchers.Main) {
-                dismiss()
             }
         }
     }
