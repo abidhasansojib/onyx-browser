@@ -51,7 +51,7 @@ class TabSwitcherBottomSheet(
         super.onStart()
         dialog?.window?.apply {
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            setBackgroundDrawableResource(android.R.color.black)
+            setBackgroundDrawableResource(android.R.color.transparent)
             WindowCompat.setDecorFitsSystemWindows(this, false)
         }
     }
@@ -110,7 +110,8 @@ class TabSwitcherBottomSheet(
             }
         )
 
-        binding.rvTabs.layoutManager = GridLayoutManager(requireContext(), 2)
+        val spanCount = if (resources.configuration.screenWidthDp >= 600) 3 else 2
+        binding.rvTabs.layoutManager = GridLayoutManager(requireContext(), spanCount)
         binding.rvTabs.adapter = adapter
 
         // Swipe-to-dismiss gesture support

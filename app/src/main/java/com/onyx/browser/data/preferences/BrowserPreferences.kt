@@ -142,9 +142,9 @@ class BrowserPreferences(context: Context) {
 
     fun applyTheme() {
         val targetMode = when (themeMode) {
-            THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
             THEME_DARK -> AppCompatDelegate.MODE_NIGHT_YES
-            THEME_DYNAMIC, THEME_SYSTEM -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+            THEME_SYSTEM, THEME_DYNAMIC -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
         }
         if (AppCompatDelegate.getDefaultNightMode() != targetMode) {
@@ -215,9 +215,9 @@ class BrowserPreferences(context: Context) {
         private const val PREF_NAME = "onyx_browser_prefs"
 
         const val THEME_SYSTEM = 0
-        const val THEME_LIGHT = 1
-        const val THEME_DARK = 2
-        const val THEME_DYNAMIC = 3
+        const val THEME_DARK = 1
+        const val THEME_LIGHT = 2
+        const val THEME_DYNAMIC = 0 // Legacy alias to THEME_SYSTEM (Dynamic Material)
 
         const val KEY_SEARCH_ENGINE = "pref_search_engine"
         const val KEY_THEME_MODE = "pref_theme_mode"

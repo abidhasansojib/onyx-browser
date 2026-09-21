@@ -20,7 +20,11 @@ class OnyxApplication : Application() {
         androidx.appcompat.app.AppCompatDelegate.setCompatVectorFromResourcesEnabled(true)
 
         // Apply saved theme early in process startup
-        BrowserPreferences.getInstance(this).applyTheme()
+        val prefs = BrowserPreferences.getInstance(this)
+        prefs.applyTheme()
+        if (prefs.themeMode == BrowserPreferences.THEME_SYSTEM) {
+            com.google.android.material.color.DynamicColors.applyToActivitiesIfAvailable(this)
+        }
 
         // Initialize Room Database
         AppDatabase.getInstance(this)

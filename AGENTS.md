@@ -163,4 +163,16 @@ onyx-browser/
       - `ManageShortcutsBottomSheet`: Bottom sheet invoked via quick action plus button containing an Add Shortcut card (Title and URL inputs with scheme validation) and a list of all current shortcuts with Edit and Delete actions.
       - `EditShortcutDialog`: Material 3 dialog for customizing shortcut title and URL.
       - Synchronous reactive persistence via `BrowserPreferences` JSON storage and StateFlow updates.
+  - [x] Material Box-Type UI & 3-Option Google Dark Theme System:
+    - Material 3 Box-Type UI & Responsive Multi-Display Layout:
+      - Encapsulated quick action buttons into elevated Material 3 box card container (`bg_material_box.xml`) with rounded corners and subtle outline.
+      - Encapsulated dynamic shortcuts grid in a matching Material 3 box card container with elevation.
+      - Upgraded individual shortcut buttons to interactive squircle box tiles (`bg_box_tile.xml`) with ripple and border stroke.
+      - Responsive multi-display optimization: Centered max-width constraints (`layout_constraintWidth_max="540dp"` for home, `760dp` for tab switcher) ensuring optimal readability on compact phones, foldables, and large tablets.
+      - Adaptive grid span counts: 4 columns on phones, 6 columns on tablets/wide screens for shortcuts; 2 columns on phones, 3 columns on tablets for tab switcher.
+    - 3-Option Theme System:
+      - 1. **System / Dynamic Material** (`THEME_SYSTEM`): Automatically follows system dark/light state and applies Material You dynamic color palette on Android 12+ (API 31+) via `DynamicColors.applyToActivitiesIfAvailable`.
+      - 2. **Dark (Google Dark)** (`THEME_DARK`): Rich, authentic Google Dark Mode matching web pages (`#202124` background, `#292A2D` surface, `#35363A` surface variant, `#3C4043` outline, `#E8EAED` text, avoiding harsh AMOLED contrast).
+      - 3. **Light** (`THEME_LIGHT`): Clean Google Material Light UI (`#F8F9FA` background, `#FFFFFF` surface, `#F1F3F4` variant, `#DADCE0` outline, `#202124` text).
+
 

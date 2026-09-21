@@ -217,6 +217,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         preferences = BrowserPreferences.getInstance(this)
         preferences.applyTheme()
+        if (preferences.themeMode == BrowserPreferences.THEME_SYSTEM) {
+            com.google.android.material.color.DynamicColors.applyIfAvailable(this)
+        }
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -448,7 +451,8 @@ class MainActivity : AppCompatActivity() {
             }
         )
 
-        home.rvShortcuts.layoutManager = GridLayoutManager(this, 4)
+        val shortcutSpanCount = if (resources.configuration.screenWidthDp >= 600) 6 else 4
+        home.rvShortcuts.layoutManager = GridLayoutManager(this, shortcutSpanCount)
         home.rvShortcuts.adapter = shortcutsAdapter
 
         // Drag-and-drop reordering with ItemTouchHelper

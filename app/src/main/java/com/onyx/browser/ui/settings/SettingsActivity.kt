@@ -65,18 +65,29 @@ class SettingsActivity : AppCompatActivity() {
         binding.settingThemeRow.setOnClickListener {
             val themes = arrayOf(
                 getString(R.string.theme_system),
-                getString(R.string.theme_light),
                 getString(R.string.theme_dark),
-                getString(R.string.theme_dynamic)
+                getString(R.string.theme_light)
             )
+
+            val currentIndex = when (preferences.themeMode) {
+                BrowserPreferences.THEME_DARK -> 1
+                BrowserPreferences.THEME_LIGHT -> 2
+                else -> 0
+            }
 
             AlertDialog.Builder(this)
                 .setTitle(R.string.pref_category_appearance)
-                .setSingleChoiceItems(themes, preferences.themeMode) { dialog, which ->
-                    preferences.themeMode = which
+                .setSingleChoiceItems(themes, currentIndex) { dialog, which ->
+                    val selectedMode = when (which) {
+                        1 -> BrowserPreferences.THEME_DARK
+                        2 -> BrowserPreferences.THEME_LIGHT
+                        else -> BrowserPreferences.THEME_SYSTEM
+                    }
+                    preferences.themeMode = selectedMode
                     preferences.applyTheme()
                     updateThemeDisplay()
                     dialog.dismiss()
+                    recreate()
                 }
                 .setNegativeButton(R.string.cancel, null)
                 .show()
@@ -85,9 +96,8 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updateThemeDisplay() {
         val themeText = when (preferences.themeMode) {
-            BrowserPreferences.THEME_LIGHT -> getString(R.string.theme_light)
             BrowserPreferences.THEME_DARK -> getString(R.string.theme_dark)
-            BrowserPreferences.THEME_DYNAMIC -> getString(R.string.theme_dynamic)
+            BrowserPreferences.THEME_LIGHT -> getString(R.string.theme_light)
             else -> getString(R.string.theme_system)
         }
         binding.tvCurrentTheme.text = themeText
