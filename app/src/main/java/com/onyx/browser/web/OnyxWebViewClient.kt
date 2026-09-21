@@ -31,22 +31,35 @@ class OnyxWebViewClient(
     @Volatile
     private var currentPageUrl: String = ""
 
-    // Known first-party ad/tracker domains for AGGRESSIVE mode
+    // Known ad/tracker domains
     private val firstPartyAdDomains = setOf(
         "doubleclick.net", "googlesyndication.com", "googletagmanager.com",
         "googletagservices.com", "googleadservices.com", "google-analytics.com",
         "analytics.google.com", "stats.g.doubleclick.net", "pagead2.googlesyndication.com",
         "adservice.google.com", "facebook.net", "connect.facebook.net",
         "tr.snapchat.com", "analytics.twitter.com", "t.co", "ads.twitter.com",
-        "ads-twitter.com", "scorecardresearch.com", "quantserve.com",
-        "adsrvr.org", "casalemedia.com", "openx.net", "pubmatic.com",
+        "ads-twitter.com", "scorecardresearch.com", "quantserve.com", "quantcast.com",
+        "adsrvr.org", "casalemedia.com", "openx.net", "pubmatic.com", "adnxs.com",
         "rubiconproject.com", "criteo.com", "criteo.net", "amazon-adsystem.com",
-        "ads.linkedin.com", "bing.com/bat", "bat.bing.com",
-        "sentry.io", "bugsnag.com", "newrelic.com", "hotjar.com", "clarity.ms",
-        "mixpanel.com", "amplitude.com", "appsflyer.com", "branch.io", "segment.com",
-        "mc.yandex.ru", "statcounter.com", "outbrain.com", "taboola.com", "adroll.com",
+        "ads.linkedin.com", "bing.com/bat", "bat.bing.com", "adroll.com",
+        "sentry.io", "bugsnag.com", "newrelic.com", "nr-data.net", "hotjar.com", "clarity.ms",
+        "mixpanel.com", "amplitude.com", "appsflyer.com", "branch.io", "segment.com", "segment.io",
+        "mc.yandex.ru", "statcounter.com", "outbrain.com", "taboola.com",
         "bluekai.com", "demdex.net", "optimizely.com", "crazyegg.com", "mouseflow.com",
-        "fullstory.com"
+        "fullstory.com", "chartboost.com", "applovin.com", "vungle.com", "liftoff.io",
+        "inmobi.com", "ironsource.mobi", "unityads.unity3d.com", "adcolony.com",
+        "mgid.com", "propellerads.com", "propellerclick.com", "onclickads.net",
+        "media.net", "adservetx.media.net", "spotxchange.com", "indexexchange.com",
+        "htlbid.com", "fls-na.amazon.com", "advertising.com", "bidswitch.net",
+        "moatads.com", "smartadserver.com", "adsafeprotected.com", "doubleverify.com",
+        "connatix.com", "innovid.com", "tremorhub.com", "crwdcntrl.net", "fwmrm.net",
+        "jwpltx.com", "jwpsrv.com", "rlcdn.com", "impactradius-event.com", "shareasale.com",
+        "awin1.com", "partnerstack.com", "refersion.com", "fingerprintjs.com", "fpjs.io",
+        "adlog.vivo.com", "ads-api.vivo.com", "click.oneplus.cn", "open.oneplus.net",
+        "a.lenovo.com", "ad.mail.ru", "top-fwz1.mail.ru", "ads.vk.com", "pangleglobal.com",
+        "luckyorange.com", "luckyorange.net", "freshmarketer.com", "heapanalytics.com",
+        "stats.wp.com", "driftt.com", "intercom.io", "wzrkt.com", "zenaps.com",
+        "statdynamic.com", "datadoghq.com", "omtrdc.net", "stickyadstv.com", "3lift.com"
     )
 
     // Social media tracker domains (analytics/pixel only, not content)
@@ -173,15 +186,16 @@ class OnyxWebViewClient(
                 // Standard mode: use EasyList engine
                 val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
 
-                // Aggressive mode: also block requests to known first-party ad domains
-                val blockedByAggressive = if (!blockedByEngine &&
-                    preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) {
-                    firstPartyAdDomains.any { adDomain ->
-                        reqDomain == adDomain || reqDomain.endsWith(".$adDomain")
-                    }
-                } else false
+                // Check known ad and tracker network domains
+                val isKnownAd = firstPartyAdDomains.any { adDomain ->
+                    reqDomain == adDomain || reqDomain.endsWith(".$adDomain")
+                }
+                val blockedByKnown = isKnownAd && (
+                    preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE ||
+                    resourceType != "main_frame"
+                )
 
-                if (blockedByEngine || blockedByAggressive) {
+                if (blockedByEngine || blockedByKnown) {
                     preferences.incrementBlockedRequests()
                     return WebResourceResponse(
                         "text/plain",
@@ -488,6 +502,9 @@ class OnyxWebViewClient(
             currentPageUrl = url
             (view as? OnyxWebView)?.applyUserAgentForUrl(url)
             onUrlChanged(url)
+            if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)) {
+                view?.evaluateJavascript(AdBlockDocumentStart.SCRIPT, null)
+            }
         }
     }
 

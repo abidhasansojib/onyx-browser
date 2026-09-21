@@ -111,6 +111,17 @@ class OnyxWebView @JvmOverloads constructor(
             } catch (_: Exception) {}
         }
 
+        // Document-Start Adblock & Anti-Adblock Shields
+        try {
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    AdBlockDocumentStart.SCRIPT,
+                    setOf("*")
+                )
+            }
+        } catch (_: Exception) {}
+
         isFocusable = true
         isFocusableInTouchMode = true
     }

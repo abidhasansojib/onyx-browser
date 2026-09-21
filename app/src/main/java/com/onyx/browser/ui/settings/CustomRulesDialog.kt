@@ -4,9 +4,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetCustomRulesBinding
+import kotlinx.coroutines.launch
 
 class CustomRulesDialog : BottomSheetDialogFragment() {
 
@@ -33,6 +35,10 @@ class CustomRulesDialog : BottomSheetDialogFragment() {
 
         binding.btnSave.setOnClickListener {
             prefs.customFilterRules = binding.etCustomRules.text?.toString() ?: ""
+            val ctx = requireContext().applicationContext
+            lifecycleScope.launch {
+                com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
+            }
             dismiss()
         }
 

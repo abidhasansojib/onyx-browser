@@ -1,5 +1,6 @@
 package com.onyx.browser.ui.settings
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
 import android.widget.EditText
@@ -184,8 +185,7 @@ class ShieldsActivity : AppCompatActivity() {
         }
 
         binding.rowFilterLists.setOnClickListener {
-            FilterListsBottomSheet.newInstance()
-                .show(supportFragmentManager, "filter_lists")
+            startActivity(Intent(this, ContentFiltersActivity::class.java))
         }
     }
 

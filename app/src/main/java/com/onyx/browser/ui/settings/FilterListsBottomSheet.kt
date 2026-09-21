@@ -6,11 +6,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.TextView
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetFilterListsBinding
+import kotlinx.coroutines.launch
 
 class FilterListsBottomSheet : BottomSheetDialogFragment() {
 
@@ -52,6 +54,10 @@ class FilterListsBottomSheet : BottomSheetDialogFragment() {
 
         val adapter = FilterListAdapter(items) { key, enabled ->
             prefs.setFilterListEnabled(key, enabled)
+            val ctx = requireContext().applicationContext
+            lifecycleScope.launch {
+                com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
+            }
         }
         binding.rvFilterLists.adapter = adapter
     }

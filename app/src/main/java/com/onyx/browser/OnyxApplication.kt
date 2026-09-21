@@ -30,5 +30,8 @@ class OnyxApplication : Application() {
         applicationScope.launch(Dispatchers.IO) {
             AdBlockEngine.initialize(applicationContext)
         }
+
+        // Initialize ServiceWorker ad/tracker interception
+        com.onyx.browser.web.AdBlockServiceWorkerHelper.initialize(this)
     }
 }

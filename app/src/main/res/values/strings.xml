@@ -298,4 +298,12 @@
     <string name="autofill_forms_passwords">Autofill forms and passwords</string>
     <string name="passkey_support">Passkey Support</string>
 
+    <!-- Content Filters Screen -->
+    <string name="content_filters_title">Content filters</string>
+    <string name="action_update_filters">UPDATE</string>
+    <string name="search_filters_hint">Search filters…</string>
+    <string name="updating_filters">Updating filter lists…</string>
+    <string name="filters_updated">Content filters updated successfully (%1$d rules active)</string>
+    <string name="filters_update_failed">Failed to update some filter lists. Using cached rules.</string>
+
 </resources>
