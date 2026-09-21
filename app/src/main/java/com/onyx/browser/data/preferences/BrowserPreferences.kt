@@ -103,6 +103,89 @@ class BrowserPreferences private constructor(context: Context) {
         get() = prefs.getBoolean(KEY_DO_NOT_TRACK, true)
         set(value) = prefs.edit().putBoolean(KEY_DO_NOT_TRACK, value).apply()
 
+    // ── AMP Redirect ─────────────────────────────────────────────────────────
+    var isAutoRedirectAmpEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_REDIRECT_AMP, false)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_REDIRECT_AMP, value).apply()
+
+    // ── Tracking URL Redirect ─────────────────────────────────────────────────
+    var isAutoRedirectTrackingUrlsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_REDIRECT_TRACKING, false)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_REDIRECT_TRACKING, value).apply()
+
+    // ── HTTPS Upgrade Mode ────────────────────────────────────────────────────
+    // 0 = Disabled, 1 = When Possible (default), 2 = Strict (fail if HTTPS unavailable)
+    var httpsUpgradeMode: Int
+        get() = prefs.getInt(KEY_HTTPS_UPGRADE_MODE, HTTPS_MODE_WHEN_POSSIBLE)
+        set(value) = prefs.edit().putInt(KEY_HTTPS_UPGRADE_MODE, value).apply()
+
+    // ── Global Script Blocking ────────────────────────────────────────────────
+    var isGlobalScriptBlockingEnabled: Boolean
+        get() = prefs.getBoolean(KEY_GLOBAL_SCRIPT_BLOCKING, false)
+        set(value) = prefs.edit().putBoolean(KEY_GLOBAL_SCRIPT_BLOCKING, value).apply()
+
+    // ── Cookie Blocking Mode ──────────────────────────────────────────────────
+    // 0 = Allow All, 1 = Block Third-Party (default), 2 = Block All
+    var cookieBlockingMode: Int
+        get() = prefs.getInt(KEY_COOKIE_BLOCKING_MODE, COOKIE_BLOCK_THIRD_PARTY)
+        set(value) = prefs.edit().putInt(KEY_COOKIE_BLOCKING_MODE, value).apply()
+
+    // ── Fingerprint via Language ──────────────────────────────────────────────
+    var isFingerprintLangEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FINGERPRINT_LANG, true)
+        set(value) = prefs.edit().putBoolean(KEY_FINGERPRINT_LANG, value).apply()
+
+    // ── Custom Filter Rules ───────────────────────────────────────────────────
+    var customFilterRules: String
+        get() = prefs.getString(KEY_CUSTOM_FILTER_RULES, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CUSTOM_FILTER_RULES, value).apply()
+
+    // ── Filter List Subscriptions (comma-separated keys) ─────────────────────
+    var enabledFilterLists: Set<String>
+        get() = prefs.getStringSet(KEY_ENABLED_FILTER_LISTS, setOf("easylist", "easyprivacy")) ?: setOf("easylist", "easyprivacy")
+        set(value) = prefs.edit().putStringSet(KEY_ENABLED_FILTER_LISTS, value).apply()
+
+    // ── Element Blocking in Private Windows ──────────────────────────────────
+    var isElementBlockingInPrivateEnabled: Boolean
+        get() = prefs.getBoolean(KEY_ELEMENT_BLOCKING_PRIVATE, true)
+        set(value) = prefs.edit().putBoolean(KEY_ELEMENT_BLOCKING_PRIVATE, value).apply()
+
+    // ── Social Media Blocking ─────────────────────────────────────────────────
+    var isSocialMediaBlockingEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SOCIAL_MEDIA_BLOCKING, false)
+        set(value) = prefs.edit().putBoolean(KEY_SOCIAL_MEDIA_BLOCKING, value).apply()
+
+    var allowFacebookLogins: Boolean
+        get() = prefs.getBoolean(KEY_ALLOW_FB_LOGINS, true)
+        set(value) = prefs.edit().putBoolean(KEY_ALLOW_FB_LOGINS, value).apply()
+
+    var allowTwitterEmbeds: Boolean
+        get() = prefs.getBoolean(KEY_ALLOW_TWITTER_EMBEDS, true)
+        set(value) = prefs.edit().putBoolean(KEY_ALLOW_TWITTER_EMBEDS, value).apply()
+
+    var allowLinkedInEmbeds: Boolean
+        get() = prefs.getBoolean(KEY_ALLOW_LINKEDIN_EMBEDS, true)
+        set(value) = prefs.edit().putBoolean(KEY_ALLOW_LINKEDIN_EMBEDS, value).apply()
+
+    // ── Open Links in App ─────────────────────────────────────────────────────
+    var isOpenLinksInAppEnabled: Boolean
+        get() = prefs.getBoolean(KEY_OPEN_LINKS_IN_APP, true)
+        set(value) = prefs.edit().putBoolean(KEY_OPEN_LINKS_IN_APP, value).apply()
+
+    // ── Secure DNS ────────────────────────────────────────────────────────────
+    var isSecureDnsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SECURE_DNS, false)
+        set(value) = prefs.edit().putBoolean(KEY_SECURE_DNS, value).apply()
+
+    var secureDnsProvider: String
+        get() = prefs.getString(KEY_SECURE_DNS_PROVIDER, "https://cloudflare-dns.com/dns-query") ?: "https://cloudflare-dns.com/dns-query"
+        set(value) = prefs.edit().putString(KEY_SECURE_DNS_PROVIDER, value).apply()
+
+    // ── Block Switch-to-App Banners ───────────────────────────────────────────
+    var isBlockAppBannerEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BLOCK_APP_BANNER, true)
+        set(value) = prefs.edit().putBoolean(KEY_BLOCK_APP_BANNER, value).apply()
+
     // ── Per-domain Script Blocking ───────────────────────────────────────────
 
     fun isScriptBlockingEnabledForDomain(domainOrUrl: String): Boolean {
@@ -307,6 +390,14 @@ class BrowserPreferences private constructor(context: Context) {
         prefs.edit().putString(KEY_QUICK_ACTION_ORDER, order.joinToString(",")).apply()
     }
 
+    fun isFilterListEnabled(key: String): Boolean = enabledFilterLists.contains(key)
+
+    fun setFilterListEnabled(key: String, enabled: Boolean) {
+        val current = enabledFilterLists.toMutableSet()
+        if (enabled) current.add(key) else current.remove(key)
+        enabledFilterLists = current
+    }
+
     companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
@@ -318,6 +409,16 @@ class BrowserPreferences private constructor(context: Context) {
         /** Blocking level constants (used with KEY_BLOCKING_LEVEL) */
         const val BLOCKING_STANDARD = 0   // third-party ads & trackers only
         const val BLOCKING_AGGRESSIVE = 1 // all ads & trackers incl. first-party
+
+        // HTTPS Upgrade Mode
+        const val HTTPS_MODE_DISABLED = 0
+        const val HTTPS_MODE_WHEN_POSSIBLE = 1
+        const val HTTPS_MODE_STRICT = 2
+
+        // Cookie Blocking Mode
+        const val COOKIE_BLOCK_NONE = 0
+        const val COOKIE_BLOCK_THIRD_PARTY = 1
+        const val COOKIE_BLOCK_ALL = 2
 
         const val KEY_SEARCH_ENGINE = "pref_search_engine"
         const val KEY_THEME_MODE = "pref_theme_mode"
@@ -339,6 +440,25 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_TRANSLATE_TARGET_NAME = "pref_translate_target_name"
         const val KEY_HOMEPAGE_SHORTCUTS = "pref_homepage_shortcuts"
         const val KEY_QUICK_ACTION_ORDER = "pref_quick_action_order"
+
+        // New keys
+        const val KEY_AUTO_REDIRECT_AMP = "pref_auto_redirect_amp"
+        const val KEY_AUTO_REDIRECT_TRACKING = "pref_auto_redirect_tracking"
+        const val KEY_HTTPS_UPGRADE_MODE = "pref_https_upgrade_mode"
+        const val KEY_GLOBAL_SCRIPT_BLOCKING = "pref_global_script_blocking"
+        const val KEY_COOKIE_BLOCKING_MODE = "pref_cookie_blocking_mode"
+        const val KEY_FINGERPRINT_LANG = "pref_fingerprint_lang"
+        const val KEY_CUSTOM_FILTER_RULES = "pref_custom_filter_rules"
+        const val KEY_ENABLED_FILTER_LISTS = "pref_enabled_filter_lists"
+        const val KEY_ELEMENT_BLOCKING_PRIVATE = "pref_element_blocking_private"
+        const val KEY_SOCIAL_MEDIA_BLOCKING = "pref_social_media_blocking"
+        const val KEY_ALLOW_FB_LOGINS = "pref_allow_fb_logins"
+        const val KEY_ALLOW_TWITTER_EMBEDS = "pref_allow_twitter_embeds"
+        const val KEY_ALLOW_LINKEDIN_EMBEDS = "pref_allow_linkedin_embeds"
+        const val KEY_OPEN_LINKS_IN_APP = "pref_open_links_in_app"
+        const val KEY_SECURE_DNS = "pref_secure_dns"
+        const val KEY_SECURE_DNS_PROVIDER = "pref_secure_dns_provider"
+        const val KEY_BLOCK_APP_BANNER = "pref_block_app_banner"
 
         @Volatile
         private var INSTANCE: BrowserPreferences? = null

@@ -186,4 +186,101 @@
     <string name="adjust_quick_actions">Adjust Action Buttons</string>
     <string name="adjust_quick_actions_hint">Drag buttons on homepage or use arrows below to customize button positions.</string>
     <string name="reset_order">Reset Default</string>
+
+    <!-- Shields Activity -->
+    <string name="shields_title">Brave Shields &amp; Privacy</string>
+    <string name="section_trackers_ads">Trackers &amp; Ads</string>
+    <string name="section_connections">Connections</string>
+    <string name="section_scripts">Scripts</string>
+    <string name="section_cookies">Cookies</string>
+    <string name="section_fingerprinting">Fingerprinting</string>
+    <string name="section_content_filtering">Content Filtering</string>
+    <string name="section_element_blocking">Element Blocking</string>
+    <string name="section_social_media">Social Media</string>
+    <string name="section_links">Links</string>
+    <string name="section_secure_dns">Secure DNS</string>
+    <string name="section_privacy">Privacy</string>
+
+    <!-- AMP Redirect -->
+    <string name="amp_redirect_title">Auto-redirect AMP pages</string>
+    <string name="amp_redirect_desc">Automatically redirect Google AMP pages to the original article</string>
+
+    <!-- Tracking URL Redirect -->
+    <string name="tracking_url_redirect_title">Auto-redirect tracking URLs</string>
+    <string name="tracking_url_redirect_desc">Strip UTM, fbclid, gclid and other tracking parameters from URLs</string>
+
+    <!-- HTTPS Upgrade -->
+    <string name="https_mode_title">Upgrade connections to HTTPS</string>
+    <string name="https_mode_disabled">Disabled</string>
+    <string name="https_mode_when_possible">When possible (default)</string>
+    <string name="https_mode_strict">Strict (block if HTTPS unavailable)</string>
+
+    <!-- Global Script Blocking -->
+    <string name="block_scripts_title">Block Scripts</string>
+    <string name="block_scripts_desc">Block all JavaScript globally (may break most pages)</string>
+
+    <!-- Cookies -->
+    <string name="cookie_blocking_title">Cookie Blocking</string>
+    <string name="cookie_allow_all">Allow all cookies</string>
+    <string name="cookie_block_third_party">Block third-party cookies</string>
+    <string name="cookie_block_all">Block all cookies</string>
+
+    <!-- Fingerprinting -->
+    <string name="fingerprint_lang_title">Prevent fingerprinting via language</string>
+    <string name="fingerprint_lang_desc">Report generic en-US language to prevent language-based fingerprinting</string>
+
+    <!-- Content Filtering -->
+    <string name="custom_rules_title">Custom Filter Rules</string>
+    <string name="custom_rules_desc">Add your own Adblock/uBlock rules (one per line)</string>
+    <string name="filter_lists_title">Ad Blocker Filter Lists</string>
+    <string name="filter_lists_desc">Choose which Brave/community filter lists to enable</string>
+    <string name="custom_rules_hint">e.g. ##.ad-banner\n||example.com^</string>
+
+    <!-- Element Blocking -->
+    <string name="element_blocking_private_title">Allow element blocking in private windows</string>
+    <string name="element_blocking_private_desc">Apply ad and tracker blocking in incognito tabs</string>
+
+    <!-- Social Media -->
+    <string name="social_media_blocking_title">Social media blocking</string>
+    <string name="social_media_blocking_desc">Block social media trackers, pixels, and analytics</string>
+    <string name="allow_fb_logins_title">Allow Facebook logins &amp; embedded posts</string>
+    <string name="allow_fb_logins_desc">Permit Facebook content for login buttons and post embeds</string>
+    <string name="allow_twitter_embeds_title">Allow Twitter embedded content</string>
+    <string name="allow_twitter_embeds_desc">Permit Twitter/X embedded tweets and timelines</string>
+    <string name="allow_linkedin_embeds_title">Allow LinkedIn embedded posts</string>
+    <string name="allow_linkedin_embeds_desc">Permit LinkedIn post and profile embeds</string>
+
+    <!-- Links -->
+    <string name="open_links_in_app_title">Allow links to open in app</string>
+    <string name="open_links_in_app_desc">Open links in native apps when available (e.g. YouTube, Maps)</string>
+
+    <!-- Secure DNS -->
+    <string name="secure_dns_title">Use Secure DNS</string>
+    <string name="secure_dns_desc">Route DNS lookups over HTTPS to prevent eavesdropping</string>
+    <string name="secure_dns_provider_title">DNS Provider</string>
+    <string name="dns_provider_cloudflare">Cloudflare (1.1.1.1)</string>
+    <string name="dns_provider_google">Google (8.8.8.8)</string>
+    <string name="dns_provider_nextdns">NextDNS</string>
+    <string name="dns_provider_custom">Custom URL</string>
+
+    <!-- App Banner -->
+    <string name="block_app_banner_title">Block switch-to-app notices</string>
+    <string name="block_app_banner_desc">Hide smart app banners that ask you to open native apps</string>
+
+    <!-- DNT -->
+    <string name="dnt_request_title">Send a Do Not Track request</string>
+    <string name="dnt_request_desc">Ask websites not to track you (not always honored)</string>
+
+    <!-- Filter Lists -->
+    <string name="filter_easylist">EasyList</string>
+    <string name="filter_easyprivacy">EasyPrivacy</string>
+    <string name="filter_ublock_filters">uBlock Filters</string>
+    <string name="filter_brave_default">Brave Default Filters</string>
+    <string name="filter_fanboy_annoyance">Fanboy Annoyance List</string>
+    <string name="filter_adguard_base">AdGuard Base Filter</string>
+    <string name="filter_adguard_mobile">AdGuard Mobile Ads</string>
+    <string name="filter_peter_lowes">Peter Lowe\'s Ad and tracking server list</string>
+    <string name="filter_brave_social">Brave Social Media Filters</string>
+    <string name="filter_cookie_notices">Cookie Consent Notices</string>
+
 </resources>

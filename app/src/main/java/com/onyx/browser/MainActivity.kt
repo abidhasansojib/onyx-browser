@@ -269,6 +269,8 @@ class MainActivity : AppCompatActivity() {
             tabManager.getActiveWebView()?.reload() 
         }
         binding.swipeRefreshLayout.setOnChildScrollUpCallback { _, _ ->
+            // Block pull-to-refresh on homepage and when webview can't scroll up
+            if (binding.homeLayout.root.visibility == View.VISIBLE) return@setOnChildScrollUpCallback true
             val webView = tabManager.getActiveWebView()
             webView != null && webView.scrollY > 0
         }
@@ -628,6 +630,7 @@ class MainActivity : AppCompatActivity() {
         binding.etUrl.setText("")
         binding.ivSslLock.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
+        binding.swipeRefreshLayout.isEnabled = false
 
         val isIncognito = tabManager.activeTab.value?.isIncognito == true
         updateIncognitoUI(isIncognito)
@@ -653,6 +656,7 @@ class MainActivity : AppCompatActivity() {
     private fun showWebView(tab: TabItem, forceUrl: String? = null, reloadIfChanged: Boolean = false) {
         binding.homeLayout.root.visibility = View.GONE
         binding.webViewContainer.visibility = View.VISIBLE
+        binding.swipeRefreshLayout.isEnabled = true
 
         updateIncognitoUI(tab.isIncognito)
 

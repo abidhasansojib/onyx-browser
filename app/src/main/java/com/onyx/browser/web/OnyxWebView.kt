@@ -66,7 +66,19 @@ class OnyxWebView @JvmOverloads constructor(
 
         try {
             val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-            CookieManager.getInstance().setAcceptThirdPartyCookies(this, !prefs.isBlockThirdPartyCookiesEnabled)
+            when (prefs.cookieBlockingMode) {
+                com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_ALL -> {
+                    android.webkit.CookieManager.getInstance().setAcceptCookie(false)
+                }
+                com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY -> {
+                    android.webkit.CookieManager.getInstance().setAcceptCookie(true)
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+                }
+                else -> { // COOKIE_BLOCK_NONE — allow all
+                    android.webkit.CookieManager.getInstance().setAcceptCookie(true)
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                }
+            }
         } catch (_: Exception) {}
 
         isFocusable = true
@@ -86,11 +98,21 @@ class OnyxWebView @JvmOverloads constructor(
         } else {
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.domStorageEnabled = true
-            CookieManager.getInstance().setAcceptCookie(true)
-            
             val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-            try { 
-                CookieManager.getInstance().setAcceptThirdPartyCookies(this, !prefs.isBlockThirdPartyCookiesEnabled) 
+            try {
+                when (prefs.cookieBlockingMode) {
+                    com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_ALL -> {
+                        CookieManager.getInstance().setAcceptCookie(false)
+                    }
+                    com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY -> {
+                        CookieManager.getInstance().setAcceptCookie(true)
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+                    }
+                    else -> {
+                        CookieManager.getInstance().setAcceptCookie(true)
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                    }
+                }
             } catch (_: Exception) {}
         }
     }
