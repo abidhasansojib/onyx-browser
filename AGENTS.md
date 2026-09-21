@@ -271,5 +271,6 @@ onyx-browser/
     - Consolidated all privacy and adblocking configuration into the single comprehensive "Shields & Privacy" (`ShieldsActivity`) entry.
     - Updated `SiteShieldBottomSheetDialog` "Global Adblocker Settings" button to open `ShieldsActivity`.
     - Converted legacy `SettingsPrivacyActivity` to automatically forward to `ShieldsActivity`.
-
-
+  - [x] Fix GitHub Actions Build Failure (run 35629351278):
+    - Resolved `pm.getApplicationIcon` overload resolution error in `AutofillHelper.kt` by passing package name String `"com.google.android.gms"` directly.
+    - Resolved unresolved reference `lifecycleScope` in `OnyxWebView.kt` by explicitly importing `androidx.lifecycle.LifecycleOwner` and `androidx.lifecycle.lifecycleScope`.

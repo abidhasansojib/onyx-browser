@@ -90,11 +90,12 @@ object AutofillHelper {
         // 1. Google Play Services / Google Password Manager (always supported on Android with GMS)
         try {
             val gmsInfo = pm.getPackageInfo("com.google.android.gms", 0)
+            val icon = try { pm.getApplicationIcon("com.google.android.gms") } catch (_: Exception) { null }
             list.add(
                 AutofillServiceInfo(
                     packageName = "com.google.android.gms",
                     appName = "Google Password Manager",
-                    icon = pm.getApplicationIcon(gmsInfo.applicationInfo),
+                    icon = icon,
                     isGoogle = true,
                     isCurrent = false
                 )

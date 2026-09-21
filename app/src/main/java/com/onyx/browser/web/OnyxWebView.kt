@@ -11,6 +11,10 @@ import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 @SuppressLint("SetJavaScriptEnabled")
 class OnyxWebView @JvmOverloads constructor(
@@ -98,8 +102,8 @@ class OnyxWebView @JvmOverloads constructor(
         val activity = findActivity(context)
         if (activity != null) {
             try {
-                val coroutineScope = (activity as? androidx.lifecycle.LifecycleOwner)?.lifecycleScope
-                    ?: kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main)
+                val coroutineScope = (activity as? LifecycleOwner)?.lifecycleScope
+                    ?: CoroutineScope(Dispatchers.Main)
                 addJavascriptInterface(
                     PasskeyWebAuthnBridge(activity, this, coroutineScope),
                     PasskeyWebAuthnBridge.JS_INTERFACE_NAME
