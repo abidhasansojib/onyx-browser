@@ -7,38 +7,38 @@
     <!-- Geometric faceted Onyx gemstone emblem on the left -->
     <path
         android:fillColor="#00E5FF"
-        android:pathData="M30,8 L48,22 L30,52 L12,22 Z" />
+        android:pathData="M 30 8 L 48 22 L 30 52 L 12 22 Z" />
     <path
         android:fillColor="#00B0FF"
-        android:pathData="M30,8 L48,22 L30,30 Z" />
+        android:pathData="M 30 8 L 48 22 L 30 30 Z" />
     <path
         android:fillColor="#0091EA"
-        android:pathData="M30,8 L12,22 L30,30 Z" />
+        android:pathData="M 30 8 L 12 22 L 30 30 Z" />
     <path
         android:fillColor="#00E5FF"
-        android:pathData="M30,30 L48,22 L30,52 Z" />
+        android:pathData="M 30 30 L 48 22 L 30 52 Z" />
     <path
         android:fillColor="#80D8FF"
-        android:pathData="M30,30 L12,22 L30,52 Z" />
+        android:pathData="M 30 30 L 12 22 L 30 52 Z" />
 
     <!-- Stylized Geometric ONYX Typography -->
     <!-- 'O' - Futuristic hexagon ring -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M72,16 L84,16 L92,26 L92,34 L84,44 L72,44 L64,34 L64,26 Z M73.5,21 L69,27 L69,33 L73.5,39 L82.5,39 L87,33 L87,27 L82.5,21 Z" />
+        android:pathData="M 72 16 L 84 16 L 92 26 L 92 34 L 84 44 L 72 44 L 64 34 L 64 26 Z M 73.5 21 L 69 27 L 69 33 L 73.5 39 L 82.5 39 L 87 33 L 87 27 L 82.5 21 Z" />
 
     <!-- 'N' - Sleek dynamic diagonal cut -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M102,16 L107,16 L119,36 L119,16 L124,16 L124,44 L119,44 L107,24 L107,44 L102,44 Z" />
+        android:pathData="M 102 16 L 107 16 L 119 36 L 119 16 L 124 16 L 124 44 L 119 44 L 107 24 L 107 44 L 102 44 Z" />
 
     <!-- 'Y' - Angular geometric fork -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M134,16 L140,16 L146,27 L152,16 L158,16 L149,32 L149,44 L143,44 L143,32 Z" />
+        android:pathData="M 134 16 L 140 16 L 146 27 L 152 16 L 158 16 L 149 32 L 149 44 L 143 44 L 143 32 Z" />
 
     <!-- 'X' - Sleek cyber crossing bars with center accent -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M168,16 L174,16 L181,27 L188,16 L194,16 L184,30 L194,44 L188,44 L181,33 L174,44 L168,44 L178,30 Z" />
+        android:pathData="M 168 16 L 174 16 L 181 27 L 188 16 L 194 16 L 184 30 L 194 44 L 188 44 L 181 33 L 174 44 L 168 44 L 178 30 Z" />
 </vector>

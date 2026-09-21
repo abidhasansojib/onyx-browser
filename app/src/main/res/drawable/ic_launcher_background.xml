@@ -7,11 +7,11 @@
     <!-- AMOLED Pure Black Background -->
     <path
         android:fillColor="#FF000000"
-        android:pathData="M0,0h108v108h-108z" />
+        android:pathData="M 0 0 h 108 v 108 h -108 z" />
     <!-- Subtle high-tech circular accent glow -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#1AFFFFFF"
         android:strokeWidth="1.5"
-        android:pathData="M54,20 A34,34 0 1,0 54,88 A34,34 0 1,0 54,20" />
+        android:pathData="M 54 20 A 34 34 0 1 0 54 88 A 34 34 0 1 0 54 20" />
 </vector>

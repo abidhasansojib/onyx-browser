@@ -92,5 +92,7 @@ onyx-browser/
 - [x] Fetch official brand search engine SVG vectors (Brave, Google, DuckDuckGo, Bing, Startpage, Yahoo) from simple-icons CDN and implement compact dropdown `SearchEnginePopupMenu`.
 - [x] Verified full end-to-end GitHub Actions build run (#35543759711), packaging native 64/32-bit Rust `libadblock_bridge.so` libraries, assets, and producing verified `app-debug.apk` and `app-release.apk` artifacts.
 - [x] Fix app launch crash / instant closure: Add `vectorDrawables.useSupportLibrary = true`, enable `setCompatVectorFromResourcesEnabled(true)`, add `colorControlNormal` and `colorControlHighlight` attributes to Material3 themes, sanitize all 22 vector drawables from dynamic theme references to rock-solid `#FFFFFFFF`, and migrate all layouts to `AppCompatImageButton`/`AppCompatImageView` with `app:srcCompat`.
+- [x] Fix PathParser IllegalArgumentException on `ic_engine_brave.xml` & `ic_engine_bing.xml`: Implement strict SVG path tokenizer and normalizer to unpack concatenated flags (e.g. `0 01-4.293` -> `0 0 1 -4.293`) across all vector drawables.
+
 
 
