@@ -88,7 +88,8 @@ jobs:
             echo "KEYSTORE_PATH=${{ github.workspace }}/keystore/release.keystore" >> $GITHUB_ENV
             echo "Release signing keystore decoded to keystore/release.keystore"
           else
-            echo "WARNING: KEYSTORE_BASE64 secret not set. Release APK will fall back to debug signing."
+            echo "Using committed release.keystore for consistent reproducible signing"
+            echo "KEYSTORE_PATH=${{ github.workspace }}/keystore/release.keystore" >> $GITHUB_ENV
           fi
 
       - name: Build Release and Debug APKs

@@ -38,9 +38,9 @@ android {
                 keyPassword = System.getenv("KEY_PASSWORD")
             } else if (defaultKeystore.exists()) {
                 storeFile = defaultKeystore
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "onyxrelease123"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "onyx-browser"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "onyxrelease123"
             } else {
                 val debugConfig = signingConfigs.getByName("debug")
                 storeFile = debugConfig.storeFile
