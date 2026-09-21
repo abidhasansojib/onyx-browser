@@ -20,29 +20,28 @@
             android:orientation="horizontal"
             app:layout_constraintGuide_percent="0.32" />
 
-        <!-- Brand Header: Custom Geometric High-Tech ONYX Vector Logo -->
+        <!-- Brand Header: Custom Geometric ONYX Vector Logo (Centered, diamond removed) -->
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/ivBrandLogo"
-            android:layout_width="220dp"
-            android:layout_height="70dp"
+            android:layout_width="180dp"
+            android:layout_height="56dp"
             android:contentDescription="Onyx Browser"
             app:srcCompat="@drawable/ic_logo_onyx"
+            app:tint="?attr/colorControlNormal"
             app:layout_constraintBottom_toTopOf="@id/guideCenter"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
-        <!-- Subtitle Badge: High-Performance Native Adblocking -->
+        <!-- Subtitle: Fast and Private -->
         <TextView
             android:id="@+id/tvTagline"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:letterSpacing="0.15"
-            android:text="NATIVE ADBLOCK • PRIVATE • FAST"
-            android:textAllCaps="true"
-            android:textColor="@color/primary"
-            android:textSize="11sp"
-            android:textStyle="bold"
+            android:letterSpacing="0.06"
+            android:text="@string/tagline_fast_and_private"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="13sp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/ivBrandLogo" />

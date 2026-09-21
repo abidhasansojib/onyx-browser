@@ -99,6 +99,13 @@ onyx-browser/
   - Multi-window & popup window lifecycle: Implemented `onCreateWindow` (spawns new tab with `WebViewTransport`) and `onCloseWindow` in `OnyxWebChromeClient`.
   - Battery & CPU lifecycle throttling: Background tabs and activities invoke `webView.onPause()`; active tab invokes `webView.onResume()`.
   - Hardware-accelerated rendering & privacy: `LAYER_TYPE_HARDWARE` enabled, third-party cookies blocked, deprecated render priority cleaned.
+- [/] UI Refinement & Modernization Phase (ACTIVE - No build until user confirms):
+  - [x] Remove diamond gemstone emblem from homepage logo and vector drawable (`ic_logo_onyx.xml`), center the clean geometric ONYX wordmark, and update subtitle to "Fast and Private" (`tagline_fast_and_private`).
+  - [ ] Homepage visual polish: Speed dials / custom shortcuts management (add, edit, remove), sleek modern search bar styling, customizable AMOLED layout.
+  - [ ] Interactive Tab Switcher UX: Grid view card previews, smooth swipe-to-dismiss tabs, clear all tabs action, incognito toggle indicator.
+  - [ ] Address Bar & Search UI: Interactive search suggestions dropdown, URL copy/share chip in search mode, SSL certificate security modal.
+  - [ ] Bottom Navigation Bar option (modern one-handed reachability toggle: top vs. bottom toolbar).
+  - [ ] Menus & Sheets UI: Polished bottom sheet menus with quick toggles (Desktop site, Dark mode, Reader mode, Adblock toggle with blocked count badge).
 
 
 

@@ -11,6 +11,7 @@
     <string name="menu">Menu</string>
 
     <!-- Homepage -->
+    <string name="tagline_fast_and_private">Fast and Private</string>
     <string name="shortcuts">Shortcuts</string>
     <string name="incognito">Incognito</string>
     <string name="history">History</string>
