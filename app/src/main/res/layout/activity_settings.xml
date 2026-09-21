@@ -293,6 +293,63 @@
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="8dp"
                 android:background="?attr/colorOutline" />
+
+            <!-- Autofill & Passwords Entry -->
+            <LinearLayout
+                android:id="@+id/settingAutofillRow"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    app:srcCompat="@drawable/ic_lock"
+                    app:tint="@color/primary" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Autofill &amp; Passwords"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:id="@+id/tvCurrentAutofillStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Google Password Manager &amp; Passkeys"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    app:srcCompat="@drawable/ic_external"
+                    app:tint="?attr/colorControlNormal" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:background="?attr/colorOutline" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

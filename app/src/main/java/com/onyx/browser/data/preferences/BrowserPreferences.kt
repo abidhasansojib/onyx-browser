@@ -33,7 +33,7 @@ class BrowserPreferences private constructor(context: Context) {
     var searchEngine: SearchEngine
         get() {
             val id = prefs.getString(KEY_SEARCH_ENGINE, SearchEngine.BRAVE.id)
-            return SearchEngine.fromId(id)
+            return SearchEngine.fromId(id, getCustomSearchEngines())
         }
         set(value) {
             prefs.edit().putString(KEY_SEARCH_ENGINE, value.id).apply()
@@ -398,6 +398,72 @@ class BrowserPreferences private constructor(context: Context) {
         enabledFilterLists = current
     }
 
+    // ── Custom Search Engines ────────────────────────────────────────────────
+    fun getCustomSearchEngines(): List<SearchEngine> {
+        val raw = prefs.getString(KEY_CUSTOM_SEARCH_ENGINES, null) ?: return emptyList()
+        return try {
+            val array = JSONArray(raw)
+            val list = mutableListOf<SearchEngine>()
+            for (i in 0 until array.length()) {
+                list.add(SearchEngine.fromJson(array.getJSONObject(i)))
+            }
+            list
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveCustomSearchEngines(engines: List<SearchEngine>) {
+        val array = JSONArray()
+        for (engine in engines) {
+            array.put(engine.toJson())
+        }
+        prefs.edit().putString(KEY_CUSTOM_SEARCH_ENGINES, array.toString()).apply()
+    }
+
+    fun addCustomSearchEngine(engine: SearchEngine) {
+        val current = getCustomSearchEngines().toMutableList()
+        current.add(engine)
+        saveCustomSearchEngines(current)
+    }
+
+    fun updateCustomSearchEngine(engine: SearchEngine) {
+        val current = getCustomSearchEngines().toMutableList()
+        val index = current.indexOfFirst { it.id == engine.id }
+        if (index != -1) {
+            current[index] = engine
+            saveCustomSearchEngines(current)
+        }
+    }
+
+    fun deleteCustomSearchEngine(id: String) {
+        val current = getCustomSearchEngines().toMutableList()
+        val removed = current.removeAll { it.id == id }
+        if (removed) {
+            saveCustomSearchEngines(current)
+            if (prefs.getString(KEY_SEARCH_ENGINE, "") == id) {
+                searchEngine = SearchEngine.BRAVE
+            }
+        }
+    }
+
+    fun getAllSearchEngines(): List<SearchEngine> {
+        return SearchEngine.BUILT_IN + getCustomSearchEngines()
+    }
+
+    // ── Autofill & Passkeys ──────────────────────────────────────────────────
+    var isAutofillEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUTOFILL_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_AUTOFILL_ENABLED, value).apply()
+
+    var isSavePasswordsPromptEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SAVE_PASSWORDS_PROMPT, true)
+        set(value) = prefs.edit().putBoolean(KEY_SAVE_PASSWORDS_PROMPT, value).apply()
+
+    var isPasskeysEnabled: Boolean
+        get() = prefs.getBoolean(KEY_PASSKEYS_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_PASSKEYS_ENABLED, value).apply()
+
     companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
@@ -459,6 +525,10 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_SECURE_DNS = "pref_secure_dns"
         const val KEY_SECURE_DNS_PROVIDER = "pref_secure_dns_provider"
         const val KEY_BLOCK_APP_BANNER = "pref_block_app_banner"
+        const val KEY_CUSTOM_SEARCH_ENGINES = "pref_custom_search_engines"
+        const val KEY_AUTOFILL_ENABLED = "pref_autofill_enabled"
+        const val KEY_SAVE_PASSWORDS_PROMPT = "pref_save_passwords_prompt"
+        const val KEY_PASSKEYS_ENABLED = "pref_passkeys_enabled"
 
         @Volatile
         private var INSTANCE: BrowserPreferences? = null

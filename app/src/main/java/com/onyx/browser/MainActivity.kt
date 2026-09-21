@@ -863,7 +863,24 @@ class MainActivity : AppCompatActivity() {
 
             isLikelyUrl(trimmed) -> "https://$trimmed"
 
-            else -> preferences.searchEngine.buildSearchUrl(trimmed)
+            else -> {
+                val allEngines = preferences.getAllSearchEngines()
+                val spaceIndex = trimmed.indexOf(' ')
+                if (spaceIndex > 0) {
+                    val firstToken = trimmed.substring(0, spaceIndex).trim()
+                    val queryAfterKeyword = trimmed.substring(spaceIndex + 1).trim()
+                    val matchedEngine = allEngines.firstOrNull {
+                        it.keyword.isNotBlank() && it.keyword.equals(firstToken, ignoreCase = true)
+                    }
+                    if (matchedEngine != null && queryAfterKeyword.isNotEmpty()) {
+                        matchedEngine.buildSearchUrl(queryAfterKeyword)
+                    } else {
+                        preferences.searchEngine.buildSearchUrl(trimmed)
+                    }
+                } else {
+                    preferences.searchEngine.buildSearchUrl(trimmed)
+                }
+            }
         }
 
         val activeTab = tabManager.activeTab.value ?: tabManager.createNewTab()
@@ -1360,6 +1377,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        updateSearchEngineIcon()
         tabManager.getActiveWebView()?.onResume()
     }
 

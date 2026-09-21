@@ -26,8 +26,9 @@ class SearchEnginePickerDialog : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        val engines = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext()).getAllSearchEngines()
         binding.rvSearchEngines.layoutManager = LinearLayoutManager(requireContext())
-        binding.rvSearchEngines.adapter = EngineAdapter(SearchEngine.entries) { selected ->
+        binding.rvSearchEngines.adapter = EngineAdapter(engines) { selected ->
             onSearchEngineSelected?.invoke(selected)
             dismiss()
         }
@@ -50,7 +51,7 @@ class SearchEnginePickerDialog : BottomSheetDialogFragment() {
             fun bind(item: SearchEngine) {
                 b.tvEngineName.text = item.displayName
                 b.ivEngineIcon.setImageResource(item.iconResId)
-                b.rbSelected.isChecked = (item == currentEngine)
+                b.rbSelected.isChecked = (item.id == currentEngine.id)
                 b.root.setOnClickListener { onSelect(item) }
             }
         }

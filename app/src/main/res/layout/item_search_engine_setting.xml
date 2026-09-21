@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="12dp">
+
+    <!-- Radio selection button -->
+    <RadioButton
+        android:id="@+id/rbSelected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:clickable="false"
+        android:focusable="false" />
+
+    <!-- Engine Icon or Letter Avatar -->
+    <FrameLayout
+        android:id="@+id/flIconContainer"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="14dp">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/ivEngineIcon"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            tools:srcCompat="@drawable/ic_engine_brave" />
+
+        <TextView
+            android:id="@+id/tvLetterAvatar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textColor="@color/primary"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="E" />
+    </FrameLayout>
+
+    <!-- Engine Info -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvEngineName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="15sp"
+                android:textStyle="normal"
+                tools:text="Brave Search" />
+
+            <TextView
+                android:id="@+id/tvKeywordBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_pill_danger"
+                android:backgroundTint="?attr/colorSurfaceVariant"
+                android:paddingStart="6dp"
+                android:paddingTop="1dp"
+                android:paddingEnd="6dp"
+                android:paddingBottom="1dp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text=":b"
+                tools:visibility="visible" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvEngineUrl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            tools:text="https://search.brave.com/search?q=%s" />
+    </LinearLayout>
+
+    <!-- Custom Engine Actions (Edit, Delete) -->
+    <LinearLayout
+        android:id="@+id/llCustomActions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnEdit"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Edit"
+            android:padding="8dp"
+            app:srcCompat="@drawable/ic_edit"
+            app:tint="?attr/colorControlNormal" />
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnDelete"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Delete"
+            android:padding="8dp"
+            app:srcCompat="@drawable/ic_delete"
+            app:tint="@color/red_danger" />
+    </LinearLayout>
+
+</LinearLayout>

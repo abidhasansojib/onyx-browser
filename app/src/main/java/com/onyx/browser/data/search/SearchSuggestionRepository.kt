@@ -60,20 +60,20 @@ class SearchSuggestionRepository(private val historyDao: HistoryDao) {
     private fun fetchRemoteSuggestions(query: String, engine: SearchEngine): List<String> {
         return try {
             val encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
-            when (engine) {
-                SearchEngine.BRAVE -> fetchOpenSearchSuggestions(
+            when (engine.id) {
+                SearchEngine.BRAVE.id -> fetchOpenSearchSuggestions(
                     "https://search.brave.com/api/suggest?q=$encodedQuery"
                 )
-                SearchEngine.GOOGLE -> fetchOpenSearchSuggestions(
+                SearchEngine.GOOGLE.id -> fetchOpenSearchSuggestions(
                     "https://suggestqueries.google.com/complete/search?client=firefox&hl=en&q=$encodedQuery"
                 )
-                SearchEngine.DUCKDUCKGO -> fetchDuckDuckGoSuggestions(
+                SearchEngine.DUCKDUCKGO.id -> fetchDuckDuckGoSuggestions(
                     "https://duckduckgo.com/ac/?q=$encodedQuery"
                 )
-                SearchEngine.BING -> fetchOpenSearchSuggestions(
+                SearchEngine.BING.id -> fetchOpenSearchSuggestions(
                     "https://api.bing.com/osjson.aspx?query=$encodedQuery"
                 )
-                SearchEngine.STARTPAGE -> {
+                SearchEngine.STARTPAGE.id -> {
                     val startpage = fetchOpenSearchSuggestions(
                         "https://www.startpage.com/do/suggest?query=$encodedQuery&format=json"
                     )
@@ -81,8 +81,11 @@ class SearchSuggestionRepository(private val historyDao: HistoryDao) {
                         "https://duckduckgo.com/ac/?q=$encodedQuery"
                     )
                 }
-                SearchEngine.YAHOO -> fetchOpenSearchSuggestions(
+                SearchEngine.YAHOO.id -> fetchOpenSearchSuggestions(
                     "https://search.yahoo.com/sugg/ff?output=fxjson&command=$encodedQuery"
+                )
+                else -> fetchOpenSearchSuggestions(
+                    "https://suggestqueries.google.com/complete/search?client=firefox&hl=en&q=$encodedQuery"
                 )
             }
         } catch (_: Exception) {

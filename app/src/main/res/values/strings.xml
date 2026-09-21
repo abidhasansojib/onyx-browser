@@ -283,4 +283,19 @@
     <string name="filter_brave_social">Brave Social Media Filters</string>
     <string name="filter_cookie_notices">Cookie Consent Notices</string>
 
+    <!-- Custom Search Engines -->
+    <string name="custom_search_engines">Custom Search Engines</string>
+    <string name="add_search_engine">Add Search Engine</string>
+    <string name="edit_search_engine">Edit Search Engine</string>
+    <string name="search_engine_name">Search engine name</string>
+    <string name="search_engine_keyword">Shortcut / Keyword</string>
+    <string name="search_engine_url">Search URL</string>
+    <string name="standard_search_engines">Standard Search Engines</string>
+
+    <!-- Autofill & Passkeys -->
+    <string name="autofill_and_passwords">Autofill &amp; Passwords</string>
+    <string name="google_password_manager">Google Password Manager</string>
+    <string name="autofill_forms_passwords">Autofill forms and passwords</string>
+    <string name="passkey_support">Passkey Support</string>
+
 </resources>

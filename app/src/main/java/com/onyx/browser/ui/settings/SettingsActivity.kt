@@ -30,26 +30,20 @@ class SettingsActivity : AppCompatActivity() {
         setupSearchEnginePreference()
         setupAppearancePreference()
         setupPrivacySettings()
+        setupAutofillSettings()
         setupDownloadPreferences()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateSearchEngineDisplay()
     }
 
     private fun setupSearchEnginePreference() {
         updateSearchEngineDisplay()
 
         binding.settingSearchEngineRow.setOnClickListener {
-            val engines = SearchEngine.entries.toTypedArray()
-            val engineNames = engines.map { it.displayName }.toTypedArray()
-            val currentIndex = engines.indexOf(preferences.searchEngine).coerceAtLeast(0)
-
-            AlertDialog.Builder(this)
-                .setTitle(R.string.pref_category_search)
-                .setSingleChoiceItems(engineNames, currentIndex) { dialog, which ->
-                    preferences.searchEngine = engines[which]
-                    updateSearchEngineDisplay()
-                    dialog.dismiss()
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
+            startActivity(android.content.Intent(this, SearchEngineSettingsActivity::class.java))
         }
     }
 
@@ -57,6 +51,12 @@ class SettingsActivity : AppCompatActivity() {
         val current = preferences.searchEngine
         binding.ivCurrentSearchEngineIcon.setImageResource(current.iconResId)
         binding.tvCurrentSearchEngineName.text = current.displayName
+    }
+
+    private fun setupAutofillSettings() {
+        binding.settingAutofillRow.setOnClickListener {
+            startActivity(android.content.Intent(this, AutofillSettingsActivity::class.java))
+        }
     }
 
     private fun setupAppearancePreference() {

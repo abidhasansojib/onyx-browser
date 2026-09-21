@@ -475,6 +475,11 @@ class OnyxWebViewClient(
         if (preferences.isFingerprintProtectionEnabled && !isWhitelisted) {
             injectFingerprintProtection(view)
         }
+
+        // Passkey / WebAuthn support
+        if (preferences.isPasskeysEnabled) {
+            view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
+        }
     }
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {

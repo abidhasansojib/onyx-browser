@@ -54,7 +54,10 @@ class SearchEnginePopupMenu(
         val iconMarginEnd = (14 * density).toInt()
         val checkSize = (18 * density).toInt()
 
-        for (engine in SearchEngine.entries) {
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        val allEngines = prefs.getAllSearchEngines()
+
+        for (engine in allEngines) {
             val row = LinearLayout(context).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -66,7 +69,6 @@ class SearchEnginePopupMenu(
                 isClickable = true
                 isFocusable = true
 
-                // Ripple background
                 val typedArray = context.obtainStyledAttributes(
                     intArrayOf(android.R.attr.selectableItemBackground)
                 )
@@ -87,10 +89,10 @@ class SearchEnginePopupMenu(
             // Engine Display Name
             val tvName = TextView(context).apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                text = engine.displayName
+                text = if (engine.keyword.isNotBlank()) "${engine.displayName} (${engine.keyword})" else engine.displayName
                 textSize = 14f
 
-                val isSelected = (engine == currentEngine)
+                val isSelected = (engine.id == currentEngine.id)
                 if (isSelected) {
                     setTextColor(ContextCompat.getColor(context, R.color.primary))
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -106,7 +108,7 @@ class SearchEnginePopupMenu(
             row.addView(tvName)
 
             // Checkmark indicator
-            if (engine == currentEngine) {
+            if (engine.id == currentEngine.id) {
                 val ivCheck = ImageView(context).apply {
                     layoutParams = LinearLayout.LayoutParams(checkSize, checkSize)
                     setImageResource(R.drawable.ic_check)
@@ -122,6 +124,63 @@ class SearchEnginePopupMenu(
 
             container.addView(row)
         }
+
+        // Divider
+        val divider = View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (1 * density).toInt().coerceAtLeast(1)
+            ).apply {
+                setMargins(0, (4 * density).toInt(), 0, (4 * density).toInt())
+            }
+            setBackgroundColor(Color.parseColor("#33888888"))
+        }
+        container.addView(divider)
+
+        // Manage Search Engines option
+        val manageRow = LinearLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(paddingHorizontal, paddingVertical, paddingHorizontal, paddingVertical)
+            isClickable = true
+            isFocusable = true
+
+            val typedArray = context.obtainStyledAttributes(
+                intArrayOf(android.R.attr.selectableItemBackground)
+            )
+            background = typedArray.getDrawable(0)
+            typedArray.recycle()
+
+            val ivManageIcon = ImageView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                    marginEnd = iconMarginEnd
+                }
+                setImageResource(R.drawable.ic_settings)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setColorFilter(ContextCompat.getColor(context, R.color.primary))
+            }
+            addView(ivManageIcon)
+
+            val tvManage = TextView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                text = "Manage search engines…"
+                textSize = 13f
+                setTextColor(ContextCompat.getColor(context, R.color.primary))
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+            }
+            addView(tvManage)
+
+            setOnClickListener {
+                popupWindow.dismiss()
+                val intent = android.content.Intent(context, com.onyx.browser.ui.settings.SearchEngineSettingsActivity::class.java)
+                context.startActivity(intent)
+            }
+        }
+        container.addView(manageRow)
     }
 
     fun show(anchor: View) {

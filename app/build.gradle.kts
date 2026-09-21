@@ -98,4 +98,8 @@ dependencies {
 
     // ML Kit Barcode Scanning (for QR code scanner)
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    // Credential Manager & Passkeys (WebAuthn / FIDO2 / Google Password Manager)
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
 }

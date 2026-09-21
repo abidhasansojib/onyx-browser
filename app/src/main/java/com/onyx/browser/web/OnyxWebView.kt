@@ -1,9 +1,12 @@
 package com.onyx.browser.web
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.util.AttributeSet
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebSettings
@@ -79,10 +82,42 @@ class OnyxWebView @JvmOverloads constructor(
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                 }
             }
+
+            // Android Autofill & Password Manager support
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                importantForAutofill = if (prefs.isAutofillEnabled) {
+                    View.IMPORTANT_FOR_AUTOFILL_YES
+                } else {
+                    View.IMPORTANT_FOR_AUTOFILL_NO
+                }
+            }
+            settings.saveFormData = prefs.isAutofillEnabled
         } catch (_: Exception) {}
+
+        // WebAuthn Passkeys bridge
+        val activity = findActivity(context)
+        if (activity != null) {
+            try {
+                val coroutineScope = (activity as? androidx.lifecycle.LifecycleOwner)?.lifecycleScope
+                    ?: kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main)
+                addJavascriptInterface(
+                    PasskeyWebAuthnBridge(activity, this, coroutineScope),
+                    PasskeyWebAuthnBridge.JS_INTERFACE_NAME
+                )
+            } catch (_: Exception) {}
+        }
 
         isFocusable = true
         isFocusableInTouchMode = true
+    }
+
+    private fun findActivity(ctx: Context): Activity? {
+        var current: Context? = ctx
+        while (current is android.content.ContextWrapper) {
+            if (current is Activity) return current
+            current = current.baseContext
+        }
+        return null
     }
 
     fun setIncognitoMode(incognito: Boolean) {

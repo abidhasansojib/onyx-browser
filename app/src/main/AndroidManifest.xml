@@ -46,6 +46,19 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
+        <intent>
+            <action android:name="android.service.autofill.AutofillService" />
+        </intent>
+        <package android:name="com.google.android.gms" />
+        <package android:name="com.x8bit.bitwarden" />
+        <package android:name="com.onepassword.android" />
+        <package android:name="com.dashlane" />
+        <package android:name="keepass2android.keepass2android" />
+        <package android:name="com.samsung.android.samsungpass" />
+        <package android:name="org.nordpass.android" />
+        <package android:name="com.lastpass.lpandroid" />
+        <package android:name="me.proton.android.pass" />
+        <package android:name="com.enpass.app" />
     </queries>
 
     <application
@@ -122,6 +135,16 @@
 
         <activity
             android:name=".ui.settings.ShieldsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
+            android:name=".ui.settings.SearchEngineSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
+            android:name=".ui.settings.AutofillSettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />
 

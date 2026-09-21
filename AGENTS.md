@@ -250,3 +250,20 @@ onyx-browser/
     - [x] **Do Not Track**: Send DNT header via OnyxWebView.loadUrl() + spoof `navigator.doNotTrack = '1'`
     - [x] **SettingsActivity**: New "Shields & Privacy" row linking to ShieldsActivity
     - [x] **AndroidManifest**: ShieldsActivity registered
+  - [x] Custom Search Engines, Google Password Manager & Passkeys System:
+    - [x] **Custom Search Engines (Brave-core Inspired)**:
+      - Migrated `SearchEngine` from enum to extensible data class with JSON serialization, maintaining full backward compatibility with built-in engines (Brave, Google, DuckDuckGo, Bing, Startpage, Yahoo).
+      - Added custom search engines persistent management in `BrowserPreferences` (`getCustomSearchEngines`, `addCustomSearchEngine`, `updateCustomSearchEngine`, `deleteCustomSearchEngine`, `getAllSearchEngines`).
+      - Created `SearchEngineSettingsActivity` with Standard Engines, Custom Engines list, and `AddEditSearchEngineDialog` (name, keyword shortcut, query URL with `%s` validation).
+      - Implemented Brave-style keyword address bar shortcuts in `MainActivity.performSearchOrLoad` (e.g. typing `e climate change` searches via Ecosia keyword `e`).
+      - Updated `SearchEnginePopupMenu` and `SearchEnginePickerDialog` with custom search engines and direct "Manage search engines…" shortcut.
+    - [x] **Google Password Manager & Autofill Services**:
+      - Created `AutofillHelper` querying `AutofillManager` and `PackageManager` for installed autofill providers (Google Password Manager, Bitwarden, 1Password, etc.).
+      - Created `AutofillSettingsActivity` with active service status card, system Autofill service picker launcher (`ACTION_REQUEST_SET_AUTOFILL_SERVICE`), direct Google Password Manager settings launcher (`com.google.android.gms.credential.manager.PasswordManagerActivity`), and detected provider list.
+      - Enabled native Android Autofill in `OnyxWebView` (`importantForAutofill = IMPORTANT_FOR_AUTOFILL_YES`, `saveFormData = true`).
+    - [x] **Passkeys Support (WebAuthn / FIDO2 / Credential Manager)**:
+      - Integrated Google's official AndroidX `androidx.credentials:credentials:1.3.0` and `androidx.credentials:credentials-play-services-auth:1.3.0`.
+      - Created `PasskeyWebAuthnBridge` with `@JavascriptInterface` handling `createPasskey` and `getPasskey` via `CreatePublicKeyCredentialRequest` and `GetPublicKeyCredentialOption`.
+      - Injected W3C-compliant WebAuthn polyfill into `OnyxWebView` handling ArrayBuffer <-> Base64URL conversions, `window.PublicKeyCredential`, and `navigator.credentials.create`/`get` interception for biometric and password manager passkey registration and login.
+      - Added Passkeys toggle and info card in `AutofillSettingsActivity`.
+
