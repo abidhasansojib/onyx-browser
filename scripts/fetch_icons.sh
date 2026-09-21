@@ -55,9 +55,6 @@ python3 "$SCRIPT_DIR/svg_to_vector.py" "$TEMP_DIR" "$DRAWABLE_DIR"
 echo "==> Cleaning up temporary download directory..."
 rm -rf "$TEMP_DIR"
 
-echo "==> Fetching official search engine brand VectorDrawables..."
-python3 "$SCRIPT_DIR/fetch_search_engine_icons.py"
-
 echo "==> Done! Official vector drawables generated in $DRAWABLE_DIR:"
 ls -la "$DRAWABLE_DIR"/ic_*.xml
 
