@@ -31,16 +31,20 @@ android {
             val keystorePath = System.getenv("KEYSTORE_PATH")
             val defaultKeystore = rootProject.file("keystore/release.keystore")
 
+            val envStorePass = (System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD"))?.takeUnless { it.isBlank() }
+            val envKeyAlias = System.getenv("KEY_ALIAS")?.takeUnless { it.isBlank() }
+            val envKeyPass = System.getenv("KEY_PASSWORD")?.takeUnless { it.isBlank() }
+
             if (!keystorePath.isNullOrBlank() && file(keystorePath).exists()) {
                 storeFile = file(keystorePath)
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+                storePassword = envStorePass ?: "onyxrelease123"
+                keyAlias = envKeyAlias ?: "onyx-browser"
+                keyPassword = envKeyPass ?: "onyxrelease123"
             } else if (defaultKeystore.exists()) {
                 storeFile = defaultKeystore
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "onyxrelease123"
-                keyAlias = System.getenv("KEY_ALIAS") ?: "onyx-browser"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: "onyxrelease123"
+                storePassword = envStorePass ?: "onyxrelease123"
+                keyAlias = envKeyAlias ?: "onyx-browser"
+                keyPassword = envKeyPass ?: "onyxrelease123"
             } else {
                 val debugConfig = signingConfigs.getByName("debug")
                 storeFile = debugConfig.storeFile
