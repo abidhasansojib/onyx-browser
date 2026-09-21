@@ -107,6 +107,9 @@ class TabSwitcherBottomSheet(
             },
             onTabClosed = { tab ->
                 tabManager.closeTab(tab)
+            },
+            getSnapshot = { tabId ->
+                tabManager.snapshotCache.get(tabId)
             }
         )
 

@@ -13,7 +13,8 @@ import com.onyx.browser.databinding.ItemTabBinding
 
 class TabsAdapter(
     private val onTabClicked: (TabItem) -> Unit,
-    private val onTabClosed: (TabItem) -> Unit
+    private val onTabClosed: (TabItem) -> Unit,
+    private val getSnapshot: (String) -> android.graphics.Bitmap?
 ) : ListAdapter<TabItem, TabsAdapter.TabViewHolder>(TabDiffCallback()) {
 
     var activeTabId: String? = null
@@ -59,6 +60,16 @@ class TabsAdapter(
             } else {
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_web)
                 binding.ivTabFavicon.clearColorFilter()
+            }
+            
+            val snapshot = getSnapshot(item.id)
+            if (snapshot != null) {
+                binding.ivTabSnapshot.setImageBitmap(snapshot)
+                binding.ivTabSnapshot.visibility = android.view.View.VISIBLE
+                binding.fallbackPreview.visibility = android.view.View.GONE
+            } else {
+                binding.ivTabSnapshot.visibility = android.view.View.GONE
+                binding.fallbackPreview.visibility = android.view.View.VISIBLE
             }
 
             binding.cardTab.setOnClickListener { onTabClicked(item) }

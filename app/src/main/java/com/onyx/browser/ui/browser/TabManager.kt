@@ -29,6 +29,8 @@ class TabManager(
     val activeTab: StateFlow<TabItem?> = _activeTab.asStateFlow()
 
     private val webViewPool = mutableMapOf<String, OnyxWebView>()
+    
+    val snapshotCache = android.util.LruCache<String, android.graphics.Bitmap>(20)
 
     suspend fun restoreTabs() = withContext(Dispatchers.IO) {
         val savedTabs = database.tabDao().getAllNormalTabs()

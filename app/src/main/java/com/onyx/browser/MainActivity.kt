@@ -396,6 +396,24 @@ class MainActivity : AppCompatActivity() {
 
         // Tab Switcher Button
         binding.btnTabSwitcher.setOnClickListener {
+            val activeTabId = tabManager.activeTab.value?.id
+            val activeWebView = tabManager.getActiveWebView()
+            if (activeTabId != null && activeWebView != null && activeWebView.width > 0 && activeWebView.height > 0) {
+                try {
+                    val bitmap = android.graphics.Bitmap.createBitmap(
+                        activeWebView.width / 2, 
+                        activeWebView.height / 2, 
+                        android.graphics.Bitmap.Config.ARGB_8888
+                    )
+                    val canvas = android.graphics.Canvas(bitmap)
+                    canvas.scale(0.5f, 0.5f)
+                    activeWebView.draw(canvas)
+                    tabManager.snapshotCache.put(activeTabId, bitmap)
+                } catch (e: Exception) {
+                    // Ignore snapshot failure
+                }
+            }
+
             val sheet = TabSwitcherBottomSheet(
                 tabManager = tabManager,
                 coroutineScope = lifecycleScope,
