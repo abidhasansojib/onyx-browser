@@ -266,4 +266,10 @@ onyx-browser/
       - Created `PasskeyWebAuthnBridge` with `@JavascriptInterface` handling `createPasskey` and `getPasskey` via `CreatePublicKeyCredentialRequest` and `GetPublicKeyCredentialOption`.
       - Injected W3C-compliant WebAuthn polyfill into `OnyxWebView` handling ArrayBuffer <-> Base64URL conversions, `window.PublicKeyCredential`, and `navigator.credentials.create`/`get` interception for biometric and password manager passkey registration and login.
       - Added Passkeys toggle and info card in `AutofillSettingsActivity`.
+  - [x] Settings Cleanup & Consolidation:
+    - Removed redundant "Ad Blocker & Privacy" row from `SettingsActivity` and `activity_settings.xml`.
+    - Consolidated all privacy and adblocking configuration into the single comprehensive "Shields & Privacy" (`ShieldsActivity`) entry.
+    - Updated `SiteShieldBottomSheetDialog` "Global Adblocker Settings" button to open `ShieldsActivity`.
+    - Converted legacy `SettingsPrivacyActivity` to automatically forward to `ShieldsActivity`.
+
 

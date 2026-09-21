@@ -104,9 +104,6 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupPrivacySettings() {
-        binding.settingPrivacyRow.setOnClickListener {
-            startActivity(android.content.Intent(this, SettingsPrivacyActivity::class.java))
-        }
         binding.settingShieldsRow.setOnClickListener {
             startActivity(android.content.Intent(this, ShieldsActivity::class.java))
         }
