@@ -32,6 +32,15 @@
     <string name="delete_browsing_history">Delete Browsing History</string>
     <string name="confirm_clear_history">Clear all browsing history?</string>
     <string name="confirm_close_all_tabs">Close all open tabs?</string>
+    <string name="close_all_tabs_title">Close all tabs?</string>
+    <string name="close_all_incognito_tabs_title">Close all incognito tabs?</string>
+    <string name="close_all_tabs_desc">Are you sure you want to close all %1$d open tabs? Any unsaved form data or active web pages will be closed.</string>
+    <string name="close_all_incognito_tabs_desc">Are you sure you want to close all %1$d incognito tabs? Your incognito browsing session will be cleared.</string>
+    <string name="close_single_tab_desc">Are you sure you want to close this tab?</string>
+    <string name="tabs_to_be_closed_count">%1$d tabs will be closed</string>
+    <string name="single_tab_to_be_closed_count">1 tab will be closed</string>
+    <string name="close_all_action">Close All</string>
+    <string name="no_tabs_to_close">No open tabs to close</string>
     <string name="cancel">Cancel</string>
     <string name="clear">Clear</string>
     <string name="close">Close</string>

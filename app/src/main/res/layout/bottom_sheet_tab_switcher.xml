@@ -176,7 +176,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/close_all_tabs"
             android:padding="10dp"
-            app:srcCompat="@drawable/ic_close"
+            app:srcCompat="@drawable/ic_tab_close"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"

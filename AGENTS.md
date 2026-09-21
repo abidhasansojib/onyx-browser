@@ -119,8 +119,13 @@ onyx-browser/
     - Implemented `ClearBrowsingDataDialog` with Chrome-style time range selection: Last 15 mins, Last hour, Last 24 hours, Last 7 days, Last 4 weeks, All time.
     - Dynamic preview calculating browsing history site count with domain examples, open tab count with tab title examples that will be closed, and cookies/cache warning.
     - Integrated Room DB time-range history deletion, tab closure (`closeTabsCreatedSince`), and WebView cookie/cache/storage clearing.
-
-
-
+  - [x] Tab Switcher Close All Tabs Icon & Dialog Redesign:
+    - Replaced generic cross icon (`ic_close`) with dedicated tab-close icon (`ic_tab_close.xml`: tab window outline with centered 'X').
+    - Redesigned "Close all tabs" confirmation prompt with modern Material 3 dialog layout (`dialog_confirm_close_all_tabs.xml` and `CloseAllTabsDialog.kt`):
+      - Prominent danger icon badge (`bg_circle_danger.xml` with `ic_tab_close` tinted `@color/red_danger`).
+      - Dynamic contextual title and warning message distinguishing between normal and incognito mode and single vs. multiple tabs.
+      - Tab count summary pill displaying exact tab count to be closed.
+      - Styled Material 3 action buttons: Tonal rounded "Cancel" button and filled red danger "Close All" button.
+      - Empty tab list protection displaying an instant toast message.
 
 

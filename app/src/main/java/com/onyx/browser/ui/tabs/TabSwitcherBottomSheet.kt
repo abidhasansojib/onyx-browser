@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.ViewCompat
@@ -261,15 +262,23 @@ class TabSwitcherBottomSheet(
     }
 
     private fun confirmCloseAllTabs() {
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.close_all_tabs)
-            .setMessage(R.string.confirm_close_all_tabs)
-            .setPositiveButton(R.string.close) { _, _ ->
-                tabManager.closeAllTabs(incognitoOnly = isViewingIncognito)
+        val tabList = if (isViewingIncognito) {
+            tabManager.incognitoTabs.value
+        } else {
+            tabManager.normalTabs.value
+        }
+        if (tabList.isEmpty()) {
+            Toast.makeText(requireContext(), R.string.no_tabs_to_close, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val dialog = CloseAllTabsDialog(
+            tabManager = tabManager,
+            isIncognito = isViewingIncognito,
+            onTabsClosed = {
                 refreshTabsList()
             }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
+        )
+        dialog.show(childFragmentManager, CloseAllTabsDialog.TAG)
     }
 
     override fun onDestroyView() {
