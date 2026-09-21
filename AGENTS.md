@@ -319,4 +319,11 @@ onyx-browser/
       - **Response Enrichment**: Enriched responses with matching Base64URL-encoded `clientDataJSON` ensuring server-side cryptographic hash verification succeeds.
       - **W3C Level 3 JS Polyfill**: Added `toJSON()` on `PublicKeyCredential` and responses, implemented robust `bufferToBase64Url` supporting `ArrayBuffer`, `Uint8Array`, and TypedArray buffer slices, added `AbortSignal` listener support, and configured full prototype chains for `PublicKeyCredential`, `AuthenticatorAttestationResponse`, and `AuthenticatorAssertionResponse`.
       - **Document-Start Polyfill Injection**: Injected `PasskeyWebAuthnBridge.getWebAuthnPolyfillJs()` via `WebViewCompat.addDocumentStartJavaScript` and `onPageStarted` so WebAuthn APIs are active immediately as the DOM document initializes.
+  - [x] Universal Active Password Manager & Streamlined Autofill Settings:
+    - **Removed Cluttered Available Providers List**: Cleaned up the settings UI by removing the installed services list and `item_autofill_service.xml`.
+    - **Universal Dynamic Password Manager Action**:
+      - Replaced static "Open Google Password Manager" with a universal, context-aware action that dynamically inspects system settings (`credential_service_primary`, `autofill_service`, `credential_service`).
+      - Identifies the currently selected manager (Google Password Manager, Bitwarden, 1Password, Dashlane, Proton Pass, Samsung Pass, etc.), displays its authentic app icon, and shows "Open [Manager Name]".
+      - One-tap direct launch into the active password manager application or vault, with fallback to system autofill settings if none is selected.
+      - Dynamic status card informing the user exactly which provider is actively powering their device's autofill and credentials.
 

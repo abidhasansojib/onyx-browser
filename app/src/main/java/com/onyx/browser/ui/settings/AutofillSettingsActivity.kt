@@ -1,17 +1,16 @@
 package com.onyx.browser.ui.settings
 
 import android.os.Bundle
-import android.view.LayoutInflater
 import androidx.appcompat.app.AppCompatActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityAutofillSettingsBinding
-import com.onyx.browser.databinding.ItemAutofillServiceBinding
 
 class AutofillSettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityAutofillSettingsBinding
     private lateinit var preferences: BrowserPreferences
+    private var activeManager: ActivePasswordManagerInfo? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,7 +22,6 @@ class AutofillSettingsActivity : AppCompatActivity() {
         binding.toolbar.setNavigationOnClickListener { finish() }
 
         setupAutofillStatus()
-        setupInstalledServicesList()
         setupToggles()
     }
 
@@ -34,23 +32,49 @@ class AutofillSettingsActivity : AppCompatActivity() {
 
     private fun setupAutofillStatus() {
         val isSupported = AutofillHelper.isAutofillSupported(this)
-        val hasService = AutofillHelper.hasEnabledAutofillServices(this)
+        activeManager = AutofillHelper.getActivePasswordManager(this)
 
         if (!isSupported) {
             binding.tvActiveAutofillTitle.text = "Autofill Not Supported"
             binding.tvActiveAutofillSubtitle.text = "Android Autofill requires Android 8.0 or higher."
             binding.btnChangeAutofillService.isEnabled = false
+            binding.rowGooglePasswordManager.isEnabled = false
             return
         }
 
-        if (hasService) {
-            binding.tvActiveAutofillTitle.text = "Autofill Service Active"
-            binding.tvActiveAutofillSubtitle.text = "Google Password Manager or third-party autofill service is enabled."
+        val manager = activeManager
+        if (manager != null) {
+            binding.tvActiveAutofillTitle.text = "${manager.appName} Active"
+            binding.tvActiveAutofillSubtitle.text = "${manager.appName} is configured as your active system password manager."
             binding.ivAutofillStatusIcon.setColorFilter(getColor(R.color.primary))
+            binding.btnChangeAutofillService.text = "Change Autofill Service"
+
+            // Universal "Open [Password Manager]" row
+            binding.tvPasswordManagerActionTitle.text = "Open ${manager.appName}"
+            if (manager.isGoogle) {
+                binding.tvPasswordManagerActionSubtitle.text = "View, edit, and check passwords saved in your Google Account"
+            } else {
+                binding.tvPasswordManagerActionSubtitle.text = "View, edit, and manage your ${manager.appName} vault and credentials"
+            }
+
+            if (manager.icon != null) {
+                binding.ivPasswordManagerIcon.setImageDrawable(manager.icon)
+                binding.ivPasswordManagerIcon.clearColorFilter()
+            } else {
+                binding.ivPasswordManagerIcon.setImageResource(R.drawable.ic_lock)
+                binding.ivPasswordManagerIcon.setColorFilter(getColor(R.color.primary))
+            }
         } else {
             binding.tvActiveAutofillTitle.text = "No Autofill Service Selected"
-            binding.tvActiveAutofillSubtitle.text = "Choose Google Password Manager or your preferred password manager."
+            binding.tvActiveAutofillSubtitle.text = "Choose Google Password Manager, Bitwarden, or your preferred password manager."
             binding.ivAutofillStatusIcon.setColorFilter(getColor(R.color.red_danger))
+            binding.btnChangeAutofillService.text = "Select Autofill Service"
+
+            // Universal row when none selected
+            binding.tvPasswordManagerActionTitle.text = "Select Password Manager"
+            binding.tvPasswordManagerActionSubtitle.text = "Tap to choose an autofill provider in Android Settings"
+            binding.ivPasswordManagerIcon.setImageResource(R.drawable.ic_lock)
+            binding.ivPasswordManagerIcon.setColorFilter(getColor(R.color.primary))
         }
 
         binding.btnChangeAutofillService.setOnClickListener {
@@ -58,49 +82,7 @@ class AutofillSettingsActivity : AppCompatActivity() {
         }
 
         binding.rowGooglePasswordManager.setOnClickListener {
-            AutofillHelper.openGooglePasswordManager(this)
-        }
-    }
-
-    private fun setupInstalledServicesList() {
-        val container = binding.llInstalledServices
-        container.removeAllViews()
-
-        val services = AutofillHelper.getInstalledAutofillServices(this)
-
-        for (service in services) {
-            val itemBinding = ItemAutofillServiceBinding.inflate(
-                LayoutInflater.from(this),
-                container,
-                false
-            )
-
-            itemBinding.tvServiceName.text = service.appName
-            itemBinding.tvServicePackage.text = service.packageName
-
-            if (service.icon != null) {
-                itemBinding.ivServiceIcon.setImageDrawable(service.icon)
-            } else {
-                itemBinding.ivServiceIcon.setImageResource(R.drawable.ic_lock)
-            }
-
-            itemBinding.btnSelectService.setOnClickListener {
-                if (service.isGoogle) {
-                    AutofillHelper.openGooglePasswordManager(this)
-                } else {
-                    AutofillHelper.openAutofillServiceSettings(this)
-                }
-            }
-
-            itemBinding.root.setOnClickListener {
-                if (service.isGoogle) {
-                    AutofillHelper.openGooglePasswordManager(this)
-                } else {
-                    AutofillHelper.openAutofillServiceSettings(this)
-                }
-            }
-
-            container.addView(itemBinding.root)
+            AutofillHelper.openActivePasswordManager(this, activeManager)
         }
     }
 
