@@ -639,6 +639,9 @@ class OnyxWebViewClient(
             if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)) {
                 view?.evaluateJavascript(AdBlockDocumentStart.SCRIPT, null)
             }
+            if (preferences.isPasskeysEnabled) {
+                view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
+            }
         }
     }
 

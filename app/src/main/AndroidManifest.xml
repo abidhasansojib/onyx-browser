@@ -23,6 +23,9 @@
     <!-- Camera Permission for web uploads and WebRTC video conferencing -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Credential Manager Passkey Origin Permission for Browsers (Android 14+ / API 34+) -->
+    <uses-permission android:name="android.permission.CREDENTIAL_MANAGER_SET_ORIGIN" />
+
     <!-- Optional Hardware Features -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />

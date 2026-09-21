@@ -306,4 +306,17 @@ onyx-browser/
       - Added package visibility declarations for primary messaging clients (`org.telegram.messenger`, `org.telegram.messenger.web`, `org.thunderdog.challegram`, `com.whatsapp`, `com.whatsapp.w4b`, `com.twitter.android`, `com.instagram.android`, `com.facebook.katana`, `com.discord`, `org.thoughtcrime.securesms`, `com.google.android.youtube`).
     - **Resource Sanitization**:
       - Resolved duplicate string resource `filters_update_failed` in `app/src/main/res/values/strings.xml`.
+  - [x] Passkey WebAuthn Origin Binding & Cryptographic Verification Overhaul:
+    - **Root Cause Resolved**:
+      - Passkeys previously failed authentication and registration on webauthn.io and passkey testers.
+      - Cause 1: WebAuthn origin mismatch. Android CredentialManager was called without specifying `origin`, causing Google Play Services / CredentialManager to tag credentials with `android:apk-key-hash:<sha256 of app signature>` instead of the relying party web domain (e.g. `https://webauthn.io`). When the web server verified `clientData.origin`, it rejected the authentication with "Authentication failed".
+      - Cause 2: Orphaned credentials. The server rejected registration, but Google Password Manager stored the credential locally under the app signature. Subsequent registration attempts failed with `InvalidStateError: This device already has a passkey for that user name`, and authentication attempts failed on the server with `That username has no registered credentials`.
+      - Cause 3: Missing Permission. Android 14+ requires `<uses-permission android:name="android.permission.CREDENTIAL_MANAGER_SET_ORIGIN" />` to set custom web origins in CredentialManager requests.
+      - Cause 4: Missing `toJSON()` serialization. Modern WebAuthn libraries (SimpleWebAuthn, webauthn-json) require `credential.toJSON()` and `response.toJSON()` for JSON transmission.
+    - **Architecture & Implementation Fixes**:
+      - **Permission**: Declared `android.permission.CREDENTIAL_MANAGER_SET_ORIGIN` in `AndroidManifest.xml`.
+      - **Origin & ClientDataHash Binding (`PasskeyWebAuthnBridge.kt`)**: Passed `window.location.origin` across JNI, computed W3C `clientDataJSON` (`{"type":..., "challenge":..., "origin":..., "crossOrigin":false}`) and exact SHA-256 `clientDataHash`, passing them to `CreatePublicKeyCredentialRequest` and `GetCredentialRequest.Builder().setOrigin(origin)` with fallback handling.
+      - **Response Enrichment**: Enriched responses with matching Base64URL-encoded `clientDataJSON` ensuring server-side cryptographic hash verification succeeds.
+      - **W3C Level 3 JS Polyfill**: Added `toJSON()` on `PublicKeyCredential` and responses, implemented robust `bufferToBase64Url` supporting `ArrayBuffer`, `Uint8Array`, and TypedArray buffer slices, added `AbortSignal` listener support, and configured full prototype chains for `PublicKeyCredential`, `AuthenticatorAttestationResponse`, and `AuthenticatorAssertionResponse`.
+      - **Document-Start Polyfill Injection**: Injected `PasskeyWebAuthnBridge.getWebAuthnPolyfillJs()` via `WebViewCompat.addDocumentStartJavaScript` and `onPageStarted` so WebAuthn APIs are active immediately as the DOM document initializes.
 

@@ -111,12 +111,17 @@ class OnyxWebView @JvmOverloads constructor(
             } catch (_: Exception) {}
         }
 
-        // Document-Start Adblock & Anti-Adblock Shields
+        // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill
         try {
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
                     AdBlockDocumentStart.SCRIPT,
+                    setOf("*")
+                )
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(),
                     setOf("*")
                 )
             }
