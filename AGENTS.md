@@ -99,7 +99,8 @@ onyx-browser/
   - Multi-window & popup window lifecycle: Implemented `onCreateWindow` (spawns new tab with `WebViewTransport`) and `onCloseWindow` in `OnyxWebChromeClient`.
   - Battery & CPU lifecycle throttling: Background tabs and activities invoke `webView.onPause()`; active tab invokes `webView.onResume()`.
   - Hardware-accelerated rendering & privacy: `LAYER_TYPE_HARDWARE` enabled, third-party cookies blocked, deprecated render priority cleaned.
-- [/] UI Refinement & Modernization Phase (ACTIVE - No build until user confirms):
+- [x] UI Refinement & Modernization Phase (Completed & Built):
+  - [x] Verified full end-to-end GitHub Actions build run (#35573934472), packaging native Rust `libadblock_bridge.so`, offline `eruda.min.js` assets, context-aware menu, Find in Page bar, and producing verified [`app-release.apk`](file:///root/onyx-browser/release/app-release.apk) (14MB) and [`app-debug.apk`](file:///root/onyx-browser/release/app-debug.apk) (16MB).
   - [x] Remove diamond gemstone emblem from homepage logo and vector drawable (`ic_logo_onyx.xml`), center the clean geometric ONYX wordmark, and update subtitle to "Fast and Private" (`tagline_fast_and_private`).
   - [x] Dedicated Full-Page Search Mode & Webpage Action Card:
     - Tap search bar opens full-page search overlay with back button and clean input ready for fresh search.
