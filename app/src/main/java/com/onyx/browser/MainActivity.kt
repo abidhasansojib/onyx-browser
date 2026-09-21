@@ -445,6 +445,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun attachWebViewToContainer(webView: OnyxWebView) {
         if (webView.parent != binding.webViewContainer) {
+            val currentChild = if (binding.webViewContainer.childCount > 0) {
+                binding.webViewContainer.getChildAt(0) as? OnyxWebView
+            } else null
+            currentChild?.onPause()
+
             (webView.parent as? ViewGroup)?.removeView(webView)
             binding.webViewContainer.removeAllViews()
             binding.webViewContainer.addView(
@@ -456,6 +461,7 @@ class MainActivity : AppCompatActivity() {
             )
 
             setupWebViewClients(webView)
+            webView.onResume()
         }
     }
 
@@ -497,6 +503,29 @@ class MainActivity : AppCompatActivity() {
             },
             onPermissionRequestCallback = { request ->
                 handleWebPermissionRequest(request)
+            },
+            onCreateWindowCallback = { _, _, _, resultMsg ->
+                if (resultMsg != null) {
+                    val newTab = tabManager.createNewTab()
+                    val newWebView = tabManager.getOrCreateWebView(newTab)
+                    val transport = resultMsg.obj as? WebView.WebViewTransport
+                    if (transport != null) {
+                        transport.webView = newWebView
+                        resultMsg.sendToTarget()
+                        displayTab(newTab)
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            },
+            onCloseWindowCallback = {
+                val activeTab = tabManager.activeTab.value
+                if (activeTab != null) {
+                    tabManager.closeTab(activeTab)
+                }
             }
         )
 
@@ -517,17 +546,32 @@ class MainActivity : AppCompatActivity() {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return
 
-        val url = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-            trimmed
-        } else if (trimmed.contains(".") && !trimmed.contains(" ")) {
-            "https://$trimmed"
-        } else {
-            preferences.searchEngine.buildSearchUrl(trimmed)
+        val url = when {
+            trimmed.startsWith("http://", ignoreCase = true) ||
+            trimmed.startsWith("https://", ignoreCase = true) ||
+            trimmed.startsWith("file://", ignoreCase = true) ||
+            trimmed.startsWith("about:", ignoreCase = true) ||
+            trimmed.startsWith("data:", ignoreCase = true) -> trimmed
+
+            isLikelyUrl(trimmed) -> "https://$trimmed"
+
+            else -> preferences.searchEngine.buildSearchUrl(trimmed)
         }
 
         val activeTab = tabManager.activeTab.value ?: tabManager.createNewTab()
         tabManager.updateActiveTab(url, url)
         showWebView(activeTab, forceUrl = url)
+    }
+
+    private fun isLikelyUrl(input: String): Boolean {
+        if (input.contains(" ")) return false
+        if (input.equals("localhost", ignoreCase = true) ||
+            input.startsWith("localhost:", ignoreCase = true) ||
+            input.matches(Regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(:\\d+)?(/.*)?$"))) {
+            return true
+        }
+        val domainRegex = Regex("^[a-zA-Z0-9][-a-zA-Z0-9]*(\\.[a-zA-Z0-9][-a-zA-Z0-9]*)+(:\\d+)?(/.*)?$")
+        return domainRegex.matches(input)
     }
 
     private fun enterSearchMode() {
@@ -707,6 +751,16 @@ class MainActivity : AppCompatActivity() {
                 finish()
             }
         })
+    }
+
+    override fun onPause() {
+        super.onPause()
+        tabManager.getActiveWebView()?.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        tabManager.getActiveWebView()?.onResume()
     }
 
     override fun onDestroy() {

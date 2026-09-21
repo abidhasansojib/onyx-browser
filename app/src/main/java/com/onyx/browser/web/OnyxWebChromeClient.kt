@@ -17,7 +17,9 @@ class OnyxWebChromeClient(
     private val onHideCustomViewCallback: (() -> Unit)? = null,
     private val onFileChooserCallback: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null,
     private val onGeolocationPromptCallback: ((String?, GeolocationPermissions.Callback?) -> Unit)? = null,
-    private val onPermissionRequestCallback: ((PermissionRequest?) -> Unit)? = null
+    private val onPermissionRequestCallback: ((PermissionRequest?) -> Unit)? = null,
+    private val onCreateWindowCallback: ((WebView?, Boolean, Boolean, android.os.Message?) -> Boolean)? = null,
+    private val onCloseWindowCallback: ((WebView?) -> Unit)? = null
 ) : WebChromeClient() {
 
     override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -72,6 +74,24 @@ class OnyxWebChromeClient(
             onPermissionRequestCallback.invoke(request)
         } else {
             super.onPermissionRequest(request)
+        }
+    }
+
+    override fun onCreateWindow(
+        view: WebView?,
+        isDialog: Boolean,
+        isUserGesture: Boolean,
+        resultMsg: android.os.Message?
+    ): Boolean {
+        return onCreateWindowCallback?.invoke(view, isDialog, isUserGesture, resultMsg)
+            ?: super.onCreateWindow(view, isDialog, isUserGesture, resultMsg)
+    }
+
+    override fun onCloseWindow(window: WebView?) {
+        if (onCloseWindowCallback != null) {
+            onCloseWindowCallback.invoke(window)
+        } else {
+            super.onCloseWindow(window)
         }
     }
 }

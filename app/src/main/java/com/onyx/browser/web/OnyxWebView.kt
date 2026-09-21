@@ -32,19 +32,25 @@ class OnyxWebView @JvmOverloads constructor(
             setSupportMultipleWindows(true)
             javaScriptCanOpenWindowsAutomatically = true
 
-            // Performance & Rendering
+            // Performance & Rendering (Via Browser optimized)
             cacheMode = WebSettings.LOAD_DEFAULT
-            setRenderPriority(WebSettings.RenderPriority.HIGH)
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
             useWideViewPort = true
             loadWithOverviewMode = true
 
-            // Security hardening
+            // Security & Privacy hardening
             allowFileAccess = false
             allowContentAccess = false
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        }
+
+        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+        try {
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+        } catch (e: Exception) {
+            // Safe fallback
         }
 
         defaultUserAgent = settings.userAgentString
