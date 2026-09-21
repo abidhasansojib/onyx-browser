@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-@kotlinx.coroutines.OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+@kotlin.OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
 class TabManager(
     private val context: Context,
     private val coroutineScope: CoroutineScope
