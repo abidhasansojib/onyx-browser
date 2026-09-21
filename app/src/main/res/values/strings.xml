@@ -304,6 +304,5 @@
     <string name="search_filters_hint">Search filters…</string>
     <string name="updating_filters">Updating filter lists…</string>
     <string name="filters_updated">Content filters updated successfully (%1$d rules active)</string>
-    <string name="filters_update_failed">Failed to update some filter lists. Using cached rules.</string>
 
 </resources>

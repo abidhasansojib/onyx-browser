@@ -1,9 +1,12 @@
 package com.onyx.browser.web
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Base64
+import android.widget.Toast
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -214,11 +217,21 @@ class OnyxWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         if (request == null) return false
         val uri = request.url ?: return false
-        var url = uri.toString()
+        return handleUrlLoading(view, uri, request.isForMainFrame)
+    }
+
+    @Deprecated("Deprecated in Java", ReplaceWith("handleUrlLoading(view, Uri.parse(url), true)"))
+    override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        return handleUrlLoading(view, Uri.parse(url), isForMainFrame = true)
+    }
+
+    private fun handleUrlLoading(view: WebView?, uri: Uri, isForMainFrame: Boolean): Boolean {
+        val url = uri.toString()
         val scheme = uri.scheme?.lowercase() ?: ""
 
         // ── Tracking URL Cleanup (strip tracking query params) ─────────────────
-        if (request.isForMainFrame && preferences.isAutoRedirectTrackingUrlsEnabled &&
+        if (isForMainFrame && preferences.isAutoRedirectTrackingUrlsEnabled &&
             (scheme == "http" || scheme == "https")) {
             val cleaned = stripTrackingParams(url)
             if (cleaned != url) {
@@ -228,7 +241,7 @@ class OnyxWebViewClient(
         }
 
         // ── AMP Redirect ───────────────────────────────────────────────────────
-        if (request.isForMainFrame && preferences.isAutoRedirectAmpEnabled &&
+        if (isForMainFrame && preferences.isAutoRedirectAmpEnabled &&
             (scheme == "http" || scheme == "https")) {
             val canonical = resolveAmpUrl(url)
             if (canonical != null && canonical != url) {
@@ -239,7 +252,7 @@ class OnyxWebViewClient(
 
         // ── HTTPS Upgrade ─────────────────────────────────────────────────────
         val httpsMode = preferences.httpsUpgradeMode
-        if (scheme == "http" && request.isForMainFrame &&
+        if (scheme == "http" && isForMainFrame &&
             httpsMode != BrowserPreferences.HTTPS_MODE_DISABLED) {
             if (!upgradedUrls.contains(url)) {
                 upgradedUrls.add(url)
@@ -253,60 +266,181 @@ class OnyxWebViewClient(
         if (scheme == "http" || scheme == "https" || scheme == "about" ||
             scheme == "data" || scheme == "blob" || scheme == "javascript" ||
             scheme == "file" || scheme == "content") {
+            // If "Open links in app" is enabled, check if there's a specialized app for this HTTP link
+            if (isForMainFrame && preferences.isOpenLinksInAppEnabled && (scheme == "http" || scheme == "https")) {
+                if (tryOpenAppForHttpLink(uri)) {
+                    return true
+                }
+            }
             return false
         }
 
-        // Custom app URL schemes — only dispatch if "Open Links in App" is enabled
-        if (!preferences.isOpenLinksInAppEnabled) {
-            // Still handle intent:// with fallback URL
-            if (scheme == "intent") {
-                return try {
-                    val intent = android.content.Intent.parseUri(url, android.content.Intent.URI_INTENT_SCHEME)
-                    val fallbackUrl = intent.getStringExtra("browser_fallback_url")
-                    if (!fallbackUrl.isNullOrBlank() &&
-                        (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
-                        view?.loadUrl(fallbackUrl)
-                    }
-                    true
-                } catch (_: Exception) { true }
-            }
-            return false  // Let non-http schemes fail silently on WebView
+        // External app URL schemes (tg://, whatsapp://, tel:, mailto:, sms:, geo:, intent:, market:, etc.)
+        return dispatchExternalScheme(view, uri, url, scheme)
+    }
+
+    private fun dispatchExternalScheme(
+        view: WebView?,
+        uri: Uri,
+        url: String,
+        scheme: String
+    ): Boolean {
+        if (scheme == "intent") {
+            return handleIntentScheme(view, url)
+        }
+
+        // Essential communication schemes always open external apps
+        val isEssentialScheme = scheme == "tel" || scheme == "mailto" ||
+                scheme == "sms" || scheme == "smsto" || scheme == "mms" ||
+                scheme == "geo" || scheme == "market"
+
+        // If user explicitly disabled "Open links in app" and this is not essential communication
+        if (!preferences.isOpenLinksInAppEnabled && !isEssentialScheme) {
+            return true
+        }
+
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
         return try {
-            if (scheme == "intent") {
-                val intent = android.content.Intent.parseUri(
-                    url, android.content.Intent.URI_INTENT_SCHEME
-                ).apply {
-                    addCategory(android.content.Intent.CATEGORY_BROWSABLE)
-                    component = null
-                    selector = null
-                }
-                if (context.packageManager.resolveActivity(intent, 0) != null) {
-                    context.startActivity(intent)
-                    true
-                } else {
-                    val fallbackUrl = intent.getStringExtra("browser_fallback_url")
-                    if (!fallbackUrl.isNullOrBlank() &&
-                        (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
-                        view?.loadUrl(fallbackUrl)
-                    }
-                    true
-                }
-            } else {
-                val intent = android.content.Intent(
-                    android.content.Intent.ACTION_VIEW, uri
-                ).apply {
-                    addCategory(android.content.Intent.CATEGORY_BROWSABLE)
-                }
-                if (context.packageManager.resolveActivity(intent, 0) != null) {
-                    context.startActivity(intent)
-                }
-                true
-            }
+            context.startActivity(intent)
+            true
+        } catch (_: ActivityNotFoundException) {
+            handleAppNotFoundFallback(view, scheme, uri)
+            true
         } catch (_: Exception) {
             true
         }
+    }
+
+    private fun handleIntentScheme(view: WebView?, url: String): Boolean {
+        return try {
+            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                component = null
+                selector = null
+            }
+
+            if (preferences.isOpenLinksInAppEnabled) {
+                try {
+                    context.startActivity(intent)
+                    return true
+                } catch (_: ActivityNotFoundException) {
+                    // Fall back to URL or store
+                }
+            }
+
+            // 1st Fallback: browser_fallback_url extra
+            val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+            if (!fallbackUrl.isNullOrBlank() &&
+                (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
+                view?.loadUrl(fallbackUrl)
+                return true
+            }
+
+            // 2nd Fallback: intent's data if it is http/https
+            val dataUri = intent.data
+            if (dataUri != null) {
+                val dataScheme = dataUri.scheme?.lowercase()
+                if (dataScheme == "http" || dataScheme == "https") {
+                    view?.loadUrl(dataUri.toString())
+                    return true
+                }
+            }
+
+            // 3rd Fallback: explicit package -> Google Play Store
+            val pkg = intent.getPackage()
+            if (!pkg.isNullOrBlank() && preferences.isOpenLinksInAppEnabled) {
+                try {
+                    val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(marketIntent)
+                } catch (_: Exception) {
+                    view?.loadUrl("https://play.google.com/store/apps/details?id=$pkg")
+                }
+            }
+            true
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    private fun handleAppNotFoundFallback(view: WebView?, scheme: String, uri: Uri) {
+        val appPackage = when (scheme) {
+            "tg", "telegram" -> "org.telegram.messenger"
+            "whatsapp" -> "com.whatsapp"
+            "twitter", "x" -> "com.twitter.android"
+            "instagram" -> "com.instagram.android"
+            "fb" -> "com.facebook.katana"
+            "fb-messenger" -> "com.facebook.orca"
+            "discord" -> "com.discord"
+            "sgnl", "signal" -> "org.thoughtcrime.securesms"
+            "viber" -> "com.viber.voip"
+            "skype" -> "com.skype.raider"
+            "line" -> "jp.naver.line.android"
+            "spotify" -> "com.spotify.music"
+            else -> null
+        }
+
+        if (appPackage != null) {
+            try {
+                val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$appPackage")).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(marketIntent)
+            } catch (_: Exception) {
+                view?.loadUrl("https://play.google.com/store/apps/details?id=$appPackage")
+            }
+        } else {
+            try {
+                Toast.makeText(context, "No app found to handle this link", Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun tryOpenAppForHttpLink(uri: Uri): Boolean {
+        if (!preferences.isOpenLinksInAppEnabled) return false
+        val host = uri.host?.lowercase() ?: return false
+
+        // Quick dispatch for dedicated app links when clicked from within webpages:
+        // E.g. t.me links: https://t.me/username -> tg://resolve?domain=username
+        if (host == "t.me" || host == "telegram.me") {
+            val path = uri.path?.removePrefix("/") ?: ""
+            if (path.isNotBlank() && !path.startsWith("s/") && !path.startsWith("share") && !path.contains("/")) {
+                val tgUri = Uri.parse("tg://resolve?domain=$path")
+                val intent = Intent(Intent.ACTION_VIEW, tgUri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                return try {
+                    context.startActivity(intent)
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+            }
+        } else if (host == "wa.me") {
+            val phone = uri.path?.removePrefix("/") ?: ""
+            if (phone.isNotBlank()) {
+                val text = uri.getQueryParameter("text")
+                val waUrl = if (!text.isNullOrBlank()) {
+                    "whatsapp://send?phone=$phone&text=${Uri.encode(text)}"
+                } else {
+                    "whatsapp://send?phone=$phone"
+                }
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                return try {
+                    context.startActivity(intent)
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+            }
+        }
+        return false
     }
 
     /**

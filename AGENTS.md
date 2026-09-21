@@ -289,4 +289,21 @@ onyx-browser/
       - Created `ContentFiltersActivity` matching user screenshots (`1.jpg` to `5.jpg`) from `/storage/emulated/0/` with title "Content filters", real-time search, and top-right "UPDATE" button.
       - Created `FilterListManager` cataloging all 54 filter lists (Cookie notice, Annoying distractions, Anti-AI suggestions, Newsletter popup, Mobile promo, Social media, YouTube Shorts, YouTube Playables, YouTube Recommendations, YouTube Autodubbed, YouTube End video, Tracking URL, Chat app, Paywall, Anti-porn, and all 35 regional country lists).
       - Background updater downloads enabled remote lists, merges them with bundled assets and custom rules, compiles into binary FlatBuffers cache (`onyx_filters.bin`) via `AdBlockEngine.initFromRules()`, and updates the native Rust engine dynamically.
+  - [x] External App Link Dispatching & Custom Schemes Resolution:
+    - **Root Cause Resolved**: When users navigated to profiles such as `https://t.me/abidhasansojib` and tapped "Send Message" (`tg://resolve?domain=abidhasansojib`), the browser failed silently without launching the Telegram native app.
+      - Cause 1: Package Visibility Filtering on Android 11+ (API 30+) caused `packageManager.resolveActivity(intent, 0)` to return `null` because `tg` was not declared under `<queries>` in `AndroidManifest.xml`.
+      - Cause 2: Hardcoded `intent.addCategory(CATEGORY_BROWSABLE)` prevented apps whose intent-filters only declare `CATEGORY_DEFAULT` from matching.
+      - Cause 3: Missing `FLAG_ACTIVITY_NEW_TASK` caused intent dispatching failures when invoked outside an explicit activity stack.
+    - **Robust Intent & Scheme Dispatching Engine (`OnyxWebViewClient`)**:
+      - Removed the blocking `resolveActivity != null` gate and `CATEGORY_BROWSABLE` restriction.
+      - Direct `context.startActivity(intent)` execution with `FLAG_ACTIVITY_NEW_TASK` wrapped in clean `try ... catch (ActivityNotFoundException)`.
+      - Complete `intent:` URI scheme parser handling `browser_fallback_url`, embedded http/https data fallback, and Google Play Store redirection via `intent.getPackage()`.
+      - Intelligent fallback mechanism for known messaging and social apps (Telegram `org.telegram.messenger`, WhatsApp `com.whatsapp`, Twitter, Instagram, Facebook, Discord, Signal, Viber, Skype): Automatically opens Google Play Store or web link if the target application is not installed on the device.
+      - Full backward and forward compatibility supporting both `shouldOverrideUrlLoading(view, request)` and `@Deprecated shouldOverrideUrlLoading(view, url)`.
+      - Added specialized HTTP link interceptor (`tryOpenAppForHttpLink`) for in-page `t.me` and `wa.me` links when "Open links in app" is enabled.
+    - **Comprehensive Manifest Queries Registration (`AndroidManifest.xml`)**:
+      - Added `<queries>` declarations for all core schemes: `tg`, `telegram`, `whatsapp`, `twitter`, `x`, `instagram`, `fb`, `fb-messenger`, `discord`, `sgnl`, `viber`, `skype`, `tel`, `mailto`, `sms`, `smsto`, `geo`, `market`.
+      - Added package visibility declarations for primary messaging clients (`org.telegram.messenger`, `org.telegram.messenger.web`, `org.thunderdog.challegram`, `com.whatsapp`, `com.whatsapp.w4b`, `com.twitter.android`, `com.instagram.android`, `com.facebook.katana`, `com.discord`, `org.thoughtcrime.securesms`, `com.google.android.youtube`).
+    - **Resource Sanitization**:
+      - Resolved duplicate string resource `filters_update_failed` in `app/src/main/res/values/strings.xml`.
 
