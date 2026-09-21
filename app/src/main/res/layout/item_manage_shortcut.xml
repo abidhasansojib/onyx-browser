@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="10dp">
+
+    <FrameLayout
+        android:id="@+id/flManageIcon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_circle_action">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/ivManageIcon"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/shortcuts"
+            app:srcCompat="@drawable/ic_web" />
+
+        <TextView
+            android:id="@+id/tvManageLetter"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="Y" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="8dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvManageTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="YouTube" />
+
+        <TextView
+            android:id="@+id/tvManageUrl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            tools:text="https://www.youtube.com" />
+    </LinearLayout>
+
+    <!-- Edit Action Button -->
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/btnEditShortcut"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/edit_shortcut"
+        android:padding="9dp"
+        app:srcCompat="@drawable/ic_edit"
+        app:tint="?attr/colorControlNormal" />
+
+    <!-- Delete Action Button -->
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/btnDeleteShortcut"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="4dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/delete_shortcut"
+        android:padding="9dp"
+        app:srcCompat="@drawable/ic_delete"
+        app:tint="@color/red_danger" />
+
+</LinearLayout>

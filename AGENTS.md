@@ -143,3 +143,24 @@ onyx-browser/
       - 5th Add to Home Screen (`ic_add_to_home_screen.xml`): Native Android launcher shortcut pinning with website title and favicon via `ShortcutManagerCompat`.
       - 6th Developer Tools (`ic_terminal_outline.xml`): Bundled offline `eruda.min.js` in assets, injected dynamically to provide full mobile DevTools console (DOM, console, network, resources).
       - 7th Settings: Direct access to global browser configuration.
+  - [x] Editable Homepage Shortcuts & Drag-to-Reorder System:
+    - Quick Action Row Redesign:
+      - Replaced `actionIncognito` with Plus button (`actionAddShortcut`, `ic_add.xml`, label "Add").
+      - Replaced `actionShortcuts` with direct Bookmarks button (`actionBookmarks`, `ic_bookmark.xml`).
+    - Dynamic Top Sites Grid:
+      - Replaced static XML table layout with dynamic `RecyclerView` (`rvShortcuts`) and `GridLayoutManager(context, 4)`.
+      - Integrated Android `ItemTouchHelper` to support drag-and-drop position swapping with scale animations and immediate persistent order saving.
+      - Long-press contextual options menu: Open in new tab, Edit shortcut, Delete shortcut, Share link.
+    - Default Prepopulated Shortcuts:
+      - YouTube (`https://www.youtube.com`, `ic_brand_youtube.xml`)
+      - GitHub (`https://www.github.com`, `ic_brand_github.xml`)
+      - Wikipedia (`https://www.wikipedia.org`, `ic_brand_wikipedia.xml`)
+      - Facebook (`https://www.facebook.com`, `ic_brand_facebook.xml`)
+      - Reddit (`https://www.reddit.com`, `ic_brand_reddit.xml`)
+      - Google (`https://www.google.com`, `ic_brand_google.xml`)
+      - Dynamic brand icon detection and custom site letter avatars for user-added URLs.
+    - Shortcut Management Interface:
+      - `ManageShortcutsBottomSheet`: Bottom sheet invoked via quick action plus button containing an Add Shortcut card (Title and URL inputs with scheme validation) and a list of all current shortcuts with Edit and Delete actions.
+      - `EditShortcutDialog`: Material 3 dialog for customizing shortcut title and URL.
+      - Synchronous reactive persistence via `BrowserPreferences` JSON storage and StateFlow updates.
+

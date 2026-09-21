@@ -37,9 +37,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.SearchEngine
+import com.onyx.browser.data.model.ShortcutItem
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.search.SearchSuggestionRepository
@@ -50,6 +55,9 @@ import com.onyx.browser.ui.common.SearchEnginePickerDialog
 import com.onyx.browser.ui.common.SearchEnginePopupMenu
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
+import com.onyx.browser.ui.home.EditShortcutDialog
+import com.onyx.browser.ui.home.ManageShortcutsBottomSheet
+import com.onyx.browser.ui.home.ShortcutsAdapter
 import com.onyx.browser.ui.menu.MenuBottomSheetDialogFragment
 import com.onyx.browser.ui.search.SuggestionsAdapter
 import com.onyx.browser.ui.tabs.TabSwitcherBottomSheet
@@ -69,6 +77,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var preferences: BrowserPreferences
     private lateinit var suggestionRepository: SearchSuggestionRepository
     private lateinit var suggestionsAdapter: SuggestionsAdapter
+    private lateinit var shortcutsAdapter: ShortcutsAdapter
     private var suggestionJob: Job? = null
 
     private var isSearchMode = false
@@ -408,15 +417,15 @@ class MainActivity : AppCompatActivity() {
     private fun setupHomepageInteractions() {
         val home = binding.homeLayout
 
-        // Quick Action 1: Shortcuts -> opens Bookmarks
-        home.actionShortcuts.setOnClickListener {
+        // Quick Action 1: Bookmarks Button
+        home.actionBookmarks.setOnClickListener {
             startActivity(Intent(this, BookmarksActivity::class.java))
         }
 
-        // Quick Action 2: Incognito Shortcut
-        home.actionIncognito.setOnClickListener {
-            val newTab = tabManager.createNewTab(isIncognito = true)
-            displayTab(newTab)
+        // Quick Action 2: Add / Manage Shortcuts Button (+)
+        home.actionAddShortcut.setOnClickListener {
+            val sheet = ManageShortcutsBottomSheet()
+            sheet.show(supportFragmentManager, ManageShortcutsBottomSheet.TAG)
         }
 
         // Quick Action 3: History Button
@@ -429,11 +438,103 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, DownloadsActivity::class.java))
         }
 
-        // Predefined Shortcuts
-        home.shortcutGoogle.setOnClickListener { performSearchOrLoad("https://www.google.com") }
-        home.shortcutBrave.setOnClickListener { performSearchOrLoad("https://search.brave.com") }
-        home.shortcutGitHub.setOnClickListener { performSearchOrLoad("https://github.com") }
-        home.shortcutWikipedia.setOnClickListener { performSearchOrLoad("https://www.wikipedia.org") }
+        // Dynamic Shortcuts RecyclerView
+        shortcutsAdapter = ShortcutsAdapter(
+            onShortcutClick = { shortcut ->
+                performSearchOrLoad(shortcut.url)
+            },
+            onShortcutLongClick = { shortcut ->
+                showShortcutOptionsMenu(shortcut)
+            }
+        )
+
+        home.rvShortcuts.layoutManager = GridLayoutManager(this, 4)
+        home.rvShortcuts.adapter = shortcutsAdapter
+
+        // Drag-and-drop reordering with ItemTouchHelper
+        val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.START or ItemTouchHelper.END,
+            0
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val fromPos = viewHolder.bindingAdapterPosition
+                val toPos = target.bindingAdapterPosition
+                return shortcutsAdapter.onItemMove(fromPos, toPos)
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+
+            override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+                super.onSelectedChanged(viewHolder, actionState)
+                if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+                    viewHolder?.itemView?.animate()?.scaleX(1.08f)?.scaleY(1.08f)?.setDuration(150)?.start()
+                }
+            }
+
+            override fun clearView(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ) {
+                super.clearView(recyclerView, viewHolder)
+                viewHolder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                preferences.saveShortcuts(shortcutsAdapter.getItems())
+            }
+        })
+        touchHelper.attachToRecyclerView(home.rvShortcuts)
+
+        // Observe shortcuts flow
+        lifecycleScope.launch {
+            preferences.shortcutsFlow.collectLatest { shortcuts ->
+                shortcutsAdapter.submitList(shortcuts)
+            }
+        }
+    }
+
+    private fun showShortcutOptionsMenu(shortcut: ShortcutItem) {
+        val options = arrayOf(
+            getString(R.string.open_in_new_tab),
+            getString(R.string.edit_shortcut),
+            getString(R.string.delete_shortcut),
+            getString(R.string.share)
+        )
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(shortcut.title.ifBlank { shortcut.url })
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        // Open in new tab
+                        val newTab = tabManager.createNewTab(url = shortcut.url)
+                        displayTab(newTab)
+                    }
+                    1 -> {
+                        // Edit shortcut
+                        val dialog = EditShortcutDialog(shortcut) { updated ->
+                            preferences.updateShortcut(updated)
+                            Toast.makeText(this, R.string.shortcut_updated, Toast.LENGTH_SHORT).show()
+                        }
+                        dialog.show(supportFragmentManager, EditShortcutDialog.TAG)
+                    }
+                    2 -> {
+                        // Delete shortcut
+                        preferences.deleteShortcut(shortcut.id)
+                        Toast.makeText(this, R.string.shortcut_deleted, Toast.LENGTH_SHORT).show()
+                    }
+                    3 -> {
+                        // Share
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, shortcut.url)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, getString(R.string.share)))
+                    }
+                }
+            }
+            .show()
     }
 
     private fun observeTabs() {

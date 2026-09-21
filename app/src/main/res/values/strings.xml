@@ -119,4 +119,21 @@
     <string name="find_in_page_hint">Find in page…</string>
     <string name="no_matches">0/0</string>
     <string name="matches_count">%1$d/%2$d</string>
+
+    <!-- Homepage Shortcuts -->
+    <string name="add_shortcut">Add Shortcut</string>
+    <string name="edit_shortcut">Edit Shortcut</string>
+    <string name="delete_shortcut">Delete Shortcut</string>
+    <string name="manage_shortcuts">Manage Shortcuts</string>
+    <string name="shortcut_title">Title</string>
+    <string name="shortcut_url">URL</string>
+    <string name="shortcut_title_hint">e.g. YouTube</string>
+    <string name="shortcut_url_hint">e.g. https://youtube.com</string>
+    <string name="shortcut_added">Shortcut added</string>
+    <string name="shortcut_updated">Shortcut updated</string>
+    <string name="shortcut_deleted">Shortcut deleted</string>
+    <string name="save">Save</string>
+    <string name="add">Add</string>
+    <string name="open_in_new_tab">Open in new tab</string>
+    <string name="drag_to_reorder">Drag to reorder</string>
 </resources>

@@ -4,9 +4,11 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatDelegate
 import com.onyx.browser.data.model.SearchEngine
+import com.onyx.browser.data.model.ShortcutItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
 import java.util.concurrent.atomic.AtomicLong
 
 class BrowserPreferences(context: Context) {
@@ -16,6 +18,13 @@ class BrowserPreferences(context: Context) {
 
     private val _blockedRequestsFlow = MutableStateFlow(getBlockedRequestsCount())
     val blockedRequestsFlow: StateFlow<Long> = _blockedRequestsFlow.asStateFlow()
+
+    private val _shortcutsFlow = MutableStateFlow<List<ShortcutItem>>(emptyList())
+    val shortcutsFlow: StateFlow<List<ShortcutItem>> = _shortcutsFlow.asStateFlow()
+
+    init {
+        _shortcutsFlow.value = getShortcuts()
+    }
 
     private val blockedCounter = AtomicLong(getBlockedRequestsCount())
 
@@ -143,6 +152,65 @@ class BrowserPreferences(context: Context) {
         }
     }
 
+    fun getShortcuts(): List<ShortcutItem> {
+        val jsonString = prefs.getString(KEY_HOMEPAGE_SHORTCUTS, null)
+        if (jsonString.isNullOrBlank()) {
+            val defaults = ShortcutItem.getDefaultShortcuts()
+            saveShortcuts(defaults)
+            return defaults
+        }
+        return try {
+            val jsonArray = JSONArray(jsonString)
+            val list = mutableListOf<ShortcutItem>()
+            for (i in 0 until jsonArray.length()) {
+                list.add(ShortcutItem.fromJson(jsonArray.getJSONObject(i)))
+            }
+            if (list.isEmpty()) {
+                val defaults = ShortcutItem.getDefaultShortcuts()
+                saveShortcuts(defaults)
+                defaults
+            } else {
+                list
+            }
+        } catch (_: Exception) {
+            val defaults = ShortcutItem.getDefaultShortcuts()
+            saveShortcuts(defaults)
+            defaults
+        }
+    }
+
+    fun saveShortcuts(shortcuts: List<ShortcutItem>) {
+        val jsonArray = JSONArray()
+        for (item in shortcuts) {
+            jsonArray.put(item.toJson())
+        }
+        prefs.edit().putString(KEY_HOMEPAGE_SHORTCUTS, jsonArray.toString()).apply()
+        _shortcutsFlow.value = shortcuts
+    }
+
+    fun addShortcut(shortcut: ShortcutItem) {
+        val current = getShortcuts().toMutableList()
+        current.add(shortcut)
+        saveShortcuts(current)
+    }
+
+    fun updateShortcut(updated: ShortcutItem) {
+        val current = getShortcuts().toMutableList()
+        val index = current.indexOfFirst { it.id == updated.id }
+        if (index != -1) {
+            current[index] = updated
+            saveShortcuts(current)
+        }
+    }
+
+    fun deleteShortcut(id: String) {
+        val current = getShortcuts().toMutableList()
+        val removed = current.removeAll { it.id == id }
+        if (removed) {
+            saveShortcuts(current)
+        }
+    }
+
     companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
@@ -163,6 +231,7 @@ class BrowserPreferences(context: Context) {
         const val KEY_ADBLOCK_WHITELIST = "pref_adblock_whitelist"
         const val KEY_TRANSLATE_TARGET_LANG = "pref_translate_target_lang"
         const val KEY_TRANSLATE_TARGET_NAME = "pref_translate_target_name"
+        const val KEY_HOMEPAGE_SHORTCUTS = "pref_homepage_shortcuts"
 
         @Volatile
         private var INSTANCE: BrowserPreferences? = null

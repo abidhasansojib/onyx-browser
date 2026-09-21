@@ -58,9 +58,9 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvTagline">
 
-            <!-- Action 1: Shortcuts -->
+            <!-- Action 1: Bookmarks Button -->
             <LinearLayout
-                android:id="@+id/actionShortcuts"
+                android:id="@+id/actionBookmarks"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -73,29 +73,29 @@
                 android:paddingBottom="8dp">
 
                 <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/ivActionShortcuts"
+                    android:id="@+id/ivActionBookmarks"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
                     android:background="@drawable/bg_circle_action"
                     android:clickable="false"
-                    android:contentDescription="@string/shortcuts"
+                    android:contentDescription="@string/bookmarks"
                     android:focusable="false"
                     android:padding="15dp"
-                    app:srcCompat="@drawable/ic_web"
+                    app:srcCompat="@drawable/ic_bookmark"
                     app:tint="?attr/colorControlNormal" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="@string/shortcuts"
+                    android:text="@string/bookmarks"
                     android:textColor="?android:attr/textColorSecondary"
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <!-- Action 2: Incognito Shortcut -->
+            <!-- Action 2: Add/Manage Shortcuts Button (+) -->
             <LinearLayout
-                android:id="@+id/actionIncognito"
+                android:id="@+id/actionAddShortcut"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -108,22 +108,22 @@
                 android:paddingBottom="8dp">
 
                 <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/ivActionIncognito"
+                    android:id="@+id/ivActionAddShortcut"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
                     android:background="@drawable/bg_circle_action"
                     android:clickable="false"
-                    android:contentDescription="@string/incognito"
+                    android:contentDescription="@string/add_shortcut"
                     android:focusable="false"
                     android:padding="15dp"
-                    app:srcCompat="@drawable/ic_incognito"
-                    app:tint="@color/incognito_purple" />
+                    app:srcCompat="@drawable/ic_add"
+                    app:tint="?attr/colorControlNormal" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="@string/incognito"
+                    android:text="@string/add"
                     android:textColor="?android:attr/textColorSecondary"
                     android:textSize="12sp" />
             </LinearLayout>
@@ -199,126 +199,19 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Top Sites Shortcuts Container -->
-        <LinearLayout
-            android:id="@+id/shortcutsGrid"
+        <!-- Top Sites Shortcuts Container (Dynamic Reorderable Grid) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvShortcuts"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:orientation="vertical"
+            android:layout_marginTop="28dp"
+            android:nestedScrollingEnabled="false"
+            android:overScrollMode="never"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/quickActionRow">
-
-            <!-- Row 1 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <LinearLayout
-                    android:id="@+id/shortcutGoogle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="8dp">
-
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:background="@drawable/bg_circle_action"
-                        android:padding="10dp"
-                        app:srcCompat="@drawable/ic_engine_google" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Google"
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/shortcutBrave"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="8dp">
-
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:background="@drawable/bg_circle_action"
-                        android:padding="10dp"
-                        app:srcCompat="@drawable/ic_engine_brave" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Brave"
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/shortcutGitHub"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="8dp">
-
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:background="@drawable/bg_circle_action"
-                        android:padding="10dp"
-                        app:srcCompat="@drawable/ic_web"
-                        app:tint="?attr/colorControlNormal" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="GitHub"
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/shortcutWikipedia"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="8dp">
-
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:background="@drawable/bg_circle_action"
-                        android:padding="10dp"
-                        app:srcCompat="@drawable/ic_web"
-                        app:tint="?attr/colorControlNormal" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Wikipedia"
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-            </LinearLayout>
-        </LinearLayout>
+            app:layout_constraintTop_toBottomOf="@id/quickActionRow" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.core.widget.NestedScrollView>
