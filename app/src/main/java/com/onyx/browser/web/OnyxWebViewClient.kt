@@ -177,6 +177,10 @@ class OnyxWebViewClient(
         super.onPageStarted(view, url, favicon)
         if (!url.isNullOrBlank()) {
             currentPageUrl = url
+            // Apply correct UA (desktop or mobile) for this domain before the page loads.
+            // This is what makes desktop mode per-domain: each navigation checks the domain
+            // against the tab's desktopDomains set and swaps UA accordingly.
+            (view as? OnyxWebView)?.applyUserAgentForUrl(url)
             onUrlChanged(url)
         }
     }

@@ -2,6 +2,7 @@ package com.onyx.browser.web
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.Uri
 import android.util.AttributeSet
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -17,8 +18,27 @@ class OnyxWebView @JvmOverloads constructor(
 
     var tabId: String = ""
     var isIncognito: Boolean = false
-    private var defaultUserAgent: String = ""
-    private var isDesktopUserAgent: Boolean = false
+
+    // The standard Chrome-on-Android mobile UA (used for all normal browsing).
+    private val mobileUserAgent =
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36"
+
+    // Real Windows Chrome desktop UA — what actual desktop Chrome sends.
+    // Using a proper desktop UA (not a mangled mobile one) ensures sites serve
+    // full desktop layouts instead of falling back to mobile.
+    private val desktopUserAgent =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/131.0.6778.135 Safari/537.36"
+
+    /**
+     * Per-tab set of registered hostnames (eTLD+1 level) where the user has
+     * requested desktop mode, matching Chrome/Firefox behaviour:
+     *   - Desktop mode applies to the *domain* (and its subdomains), not globally.
+     *   - Other domains in the same tab are unaffected.
+     *   - Switching tabs always reflects the new tab's domain state.
+     */
+    private val desktopDomains = mutableSetOf<String>()
 
     init {
         configureSettings()
@@ -32,7 +52,7 @@ class OnyxWebView @JvmOverloads constructor(
             setSupportMultipleWindows(true)
             javaScriptCanOpenWindowsAutomatically = true
 
-            // Performance & Rendering (Via Browser optimized)
+            // Performance & Rendering
             cacheMode = WebSettings.LOAD_DEFAULT
             setSupportZoom(true)
             builtInZoomControls = true
@@ -48,20 +68,15 @@ class OnyxWebView @JvmOverloads constructor(
 
         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 
-        // Use an authentic Chrome Mobile UA so sites like Facebook don't detect us as a
-        // bot / unknown client (which causes CAPTCHA confirmation timeouts and login failures).
-        val chromeUa = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36"
-        settings.userAgentString = chromeUa
-        defaultUserAgent = chromeUa
+        // Authentic Chrome Mobile UA — prevents bot detection on Facebook/Google/etc.
+        settings.userAgentString = mobileUserAgent
 
         try {
-            // Allow third-party cookies for normal sessions (required for Facebook login,
-            // Google accounts, etc.).  Incognito mode disables them in setIncognitoMode().
+            // Allow third-party cookies for normal sessions (Facebook login, Google OAuth, etc.)
+            // Incognito disables this again in setIncognitoMode().
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-        } catch (e: Exception) {
-            // Safe fallback
-        }
+        } catch (_: Exception) {}
+
         isFocusable = true
         isFocusableInTouchMode = true
     }
@@ -84,21 +99,65 @@ class OnyxWebView @JvmOverloads constructor(
         }
     }
 
-    fun setDesktopMode(enabled: Boolean) {
-        if (isDesktopUserAgent == enabled) return
-        isDesktopUserAgent = enabled
-        if (enabled) {
-            val desktopUa = defaultUserAgent
-                .replace("Mobile", "eliboM")
-                .replace("Android", "Linux")
-            settings.userAgentString = desktopUa
-        } else {
-            settings.userAgentString = defaultUserAgent
-        }
-        reload()
+    // ── Desktop Mode (per-domain) ────────────────────────────────────────────
+
+    /** Canonical hostname key for a URL: strips "www." so www.google.com == google.com */
+    private fun hostKey(urlString: String): String? {
+        if (urlString.isBlank() || !urlString.startsWith("http")) return null
+        return try {
+            Uri.parse(urlString).host?.removePrefix("www.")?.lowercase()
+        } catch (_: Exception) { null }
     }
 
-    fun isDesktopModeEnabled(): Boolean = isDesktopUserAgent
+    /**
+     * Returns true if the user has enabled desktop mode for the *current page's* domain.
+     * This is what the menu toggle should read to show the correct checked state.
+     */
+    fun isDesktopModeEnabledForCurrentPage(): Boolean {
+        val key = hostKey(url ?: "") ?: return false
+        return desktopDomains.any { key == it || key.endsWith(".$it") }
+    }
+
+    /**
+     * Toggle desktop mode for [pageUrl]'s domain and reload.
+     * Called by the 3-dot menu toggle.
+     */
+    fun toggleDesktopModeForPage(pageUrl: String) {
+        val key = hostKey(pageUrl) ?: return
+        if (desktopDomains.any { key == it || key.endsWith(".$it") }) {
+            desktopDomains.removeAll { key == it || key.endsWith(".$it") || it.endsWith(".$key") }
+            // Remove exact stored key too
+            desktopDomains.remove(key)
+        } else {
+            desktopDomains.add(key)
+        }
+        applyUserAgentForUrl(pageUrl, reload = true)
+    }
+
+    /**
+     * Called on every page navigation (from OnyxWebViewClient.onPageStarted).
+     * Applies the correct UA (desktop or mobile) for the new URL's domain —
+     * this is the core mechanism that makes desktop mode per-domain.
+     *
+     * We do NOT reload here because this fires as navigation begins; changing the
+     * UA before the page loads is sufficient for the server to serve the right version.
+     */
+    fun applyUserAgentForUrl(urlString: String, reload: Boolean = false) {
+        val key = hostKey(urlString)
+        val wantsDesktop = key != null && desktopDomains.any { key == it || key.endsWith(".$it") }
+        val currentIsDesktop = settings.userAgentString == desktopUserAgent
+        if (wantsDesktop == currentIsDesktop) {
+            if (reload) this.reload()
+            return
+        }
+        settings.userAgentString = if (wantsDesktop) desktopUserAgent else mobileUserAgent
+        if (reload) this.reload()
+    }
+
+    // ── Legacy compat (used by setDesktopMode call-sites that haven't been updated yet) ──
+
+    /** @deprecated Use toggleDesktopModeForPage / isDesktopModeEnabledForCurrentPage */
+    fun isDesktopModeEnabled(): Boolean = isDesktopModeEnabledForCurrentPage()
 
     fun destroySafely() {
         try {
@@ -108,8 +167,6 @@ class OnyxWebView @JvmOverloads constructor(
             (parent as? ViewGroup)?.removeView(this)
             removeAllViews()
             destroy()
-        } catch (e: Exception) {
-            // Ignore during teardown
-        }
+        } catch (_: Exception) {}
     }
 }

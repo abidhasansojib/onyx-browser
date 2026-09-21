@@ -405,9 +405,11 @@ class MainActivity : AppCompatActivity() {
                 isHomePage = isHome
                 currentUrl = activeTab?.url ?: ""
                 currentTitle = activeTab?.title ?: ""
-                isDesktopSiteEnabled = activeWebView?.isDesktopModeEnabled() ?: false
-                onDesktopSiteToggled = { enabled ->
-                    activeWebView?.setDesktopMode(enabled)
+                isDesktopSiteEnabled = activeWebView?.isDesktopModeEnabledForCurrentPage() ?: false
+                onDesktopSiteToggled = { _ ->
+                    // Toggle desktop mode scoped to the current page's domain only.
+                    // Other domains and other tabs remain unaffected.
+                    activeWebView?.toggleDesktopModeForPage(activeTab?.url ?: "")
                 }
                 onFindInPageClicked = {
                     showFindInPage()
