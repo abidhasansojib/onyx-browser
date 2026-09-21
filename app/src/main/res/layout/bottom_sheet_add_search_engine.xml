@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/colorSurface"
+    android:orientation="vertical">
+
+    <!-- ── Drag Handle ─────────────────────────────────────────────────── -->
+    <View
+        android:layout_width="36dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/bg_drag_handle"
+        android:alpha="0.4" />
+
+    <!-- ── Header ──────────────────────────────────────────────────────── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="12dp">
+
+        <!-- Icon badge -->
+        <FrameLayout
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="@drawable/bg_circle_action">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                app:srcCompat="@drawable/ic_web"
+                app:tint="@color/primary" />
+        </FrameLayout>
+
+        <!-- Title + subtitle -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvDialogTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Add search engine"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Custom search with %s query placeholder"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Close button -->
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnClose"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Close"
+            android:padding="8dp"
+            app:srcCompat="@drawable/ic_close"
+            app:tint="?android:attr/textColorSecondary" />
+    </LinearLayout>
+
+    <!-- ── Divider ──────────────────────────────────────────────────────── -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutline"
+        android:alpha="0.5" />
+
+    <!-- ── Scrollable form body ─────────────────────────────────────────── -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="false"
+        android:overScrollMode="never">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp">
+
+            <!-- Quick-add suggestion pills -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="QUICK ADD"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="10sp"
+                android:letterSpacing="0.08"
+                android:textAllCaps="true" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="18dp"
+                android:overScrollMode="never"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/llQuickSuggestions"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <!-- Engine Name field -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilEngineName"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:hint="Search engine name"
+                app:boxStrokeColor="@color/primary"
+                app:hintTextColor="@color/primary"
+                app:startIconDrawable="@drawable/ic_web"
+                app:startIconTint="?android:attr/textColorSecondary">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etEngineName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapWords"
+                    android:imeOptions="actionNext"
+                    android:singleLine="true" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Keyword / Shortcut field -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilEngineKeyword"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:hint="Shortcut keyword (e.g. e or :k)"
+                app:helperText="Type keyword + space in address bar to trigger"
+                app:helperTextEnabled="true"
+                app:boxStrokeColor="@color/primary"
+                app:hintTextColor="@color/primary"
+                app:startIconDrawable="@drawable/ic_search"
+                app:startIconTint="?android:attr/textColorSecondary">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etEngineKeyword"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textNoSuggestions"
+                    android:imeOptions="actionNext"
+                    android:singleLine="true" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Search URL field -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilEngineUrl"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                android:hint="URL with %s in place of query"
+                app:helperText="e.g. https://www.ecosia.org/search?q=%s"
+                app:helperTextEnabled="true"
+                app:boxStrokeColor="@color/primary"
+                app:hintTextColor="@color/primary"
+                app:startIconDrawable="@drawable/ic_link"
+                app:startIconTint="?android:attr/textColorSecondary">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etEngineUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textUri"
+                    android:imeOptions="actionDone"
+                    android:singleLine="true" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- ── Divider ──────────────────────────────────────────────────────── -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutline"
+        android:alpha="0.4" />
+
+    <!-- ── Action buttons ─────────────────────────────────────────────── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="20dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCancel"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginEnd="8dp"
+            android:minWidth="80dp"
+            android:text="@string/cancel"
+            android:textSize="14sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSave"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:minWidth="90dp"
+            android:text="@string/add"
+            android:textSize="14sp"
+            app:cornerRadius="24dp" />
+    </LinearLayout>
+
+</LinearLayout>

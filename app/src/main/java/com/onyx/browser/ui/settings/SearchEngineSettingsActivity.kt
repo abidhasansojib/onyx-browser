@@ -4,7 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.model.SearchEngine
@@ -156,7 +156,7 @@ class SearchEngineSettingsActivity : AppCompatActivity() {
     }
 
     private fun confirmDeleteCustomEngine(engine: SearchEngine) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Delete search engine?")
             .setMessage("Are you sure you want to delete '${engine.displayName}'?")
             .setPositiveButton("Delete") { _, _ ->
