@@ -12,4 +12,5 @@
 target/
 rust_engine/target/
 artifacts/
-
+build_artifacts/
+release/
