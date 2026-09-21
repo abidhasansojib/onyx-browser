@@ -148,4 +148,6 @@
     <string name="get_from_play_store">Open Play Store</string>
     <string name="use_default_downloader">Use Onyx Downloader</string>
     <string name="url_copied">URL copied to clipboard</string>
+    <string name="back">Back</string>
+    <string name="copy_url">Copy URL</string>
 </resources>
