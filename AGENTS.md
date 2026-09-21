@@ -115,8 +115,8 @@ onyx-browser/
   - [x] Tab Switcher Top Bar Redesign:
     - Replaced top-left cross button with Search button (`ic_search`) to access search mode directly from the tab menu.
     - Centered the "Normal" and "Incognito" segmented buttons properly in the middle top.
-  - [x] Clear Browsing Data & Tab Switcher Brush Action:
-    - Replaced bottom-left bin icon with Brush icon (`ic_brush.xml`).
+  - [x] Clear Browsing Data & Tab Switcher Broom Action:
+    - Replaced bottom-left bin and painting brush icons with dedicated cleaning broom icon (`ic_broom.xml`).
     - Implemented `ClearBrowsingDataDialog` with Chrome-style time range selection: Last 15 mins, Last hour, Last 24 hours, Last 7 days, Last 4 weeks, All time.
     - Dynamic preview calculating browsing history site count with domain examples, open tab count with tab title examples that will be closed, and cookies/cache warning.
     - Integrated Room DB time-range history deletion, tab closure (`closeTabsCreatedSince`), and WebView cookie/cache/storage clearing.

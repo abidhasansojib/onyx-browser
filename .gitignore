@@ -14,3 +14,5 @@ rust_engine/target/
 artifacts/
 build_artifacts/
 release/
+__pycache__/
+*.pyc
