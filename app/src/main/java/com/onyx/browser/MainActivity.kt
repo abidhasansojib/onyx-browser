@@ -701,6 +701,12 @@ class MainActivity : AppCompatActivity() {
         )
 
         webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+            val cookies = try {
+                android.webkit.CookieManager.getInstance().getCookie(url) ?: ""
+            } catch (_: Exception) {
+                ""
+            }
+            val referer = webView.url ?: ""
             DownloadHandler.handleDownload(
                 activity = this,
                 coroutineScope = lifecycleScope,
@@ -708,7 +714,9 @@ class MainActivity : AppCompatActivity() {
                 userAgent = userAgent,
                 contentDisposition = contentDisposition,
                 mimeType = mimetype,
-                contentLength = contentLength
+                contentLength = contentLength,
+                cookies = cookies,
+                referer = referer
             )
         }
     }

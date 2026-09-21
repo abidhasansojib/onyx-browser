@@ -9,12 +9,12 @@ import android.os.Environment
 import android.webkit.CookieManager
 import android.webkit.URLUtil
 import android.widget.Toast
-import androidx.fragment.app.FragmentActivity
 import com.onyx.browser.MainActivity
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.DownloadItem
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.downloads.DownloadPromptDialog
+import com.onyx.browser.ui.downloads.DownloadPromptActivity
+import com.onyx.browser.ui.downloads.ExternalDownloaderHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -28,77 +28,32 @@ object DownloadHandler {
         userAgent: String,
         contentDisposition: String,
         mimeType: String,
-        contentLength: Long
+        contentLength: Long,
+        cookies: String = "",
+        referer: String = ""
     ) {
-        if (activity is MainActivity) {
-            // Request notification permission on Android 13+ for download notifications
-            activity.checkNotificationPermissionForDownloads()
-            // Check storage permission on Android 8-9
-            activity.checkAndRequestStoragePermission {
-                processDownloadWithPrompt(
-                    activity = activity,
-                    coroutineScope = coroutineScope,
-                    url = url,
-                    userAgent = userAgent,
-                    contentDisposition = contentDisposition,
-                    mimeType = mimeType,
-                    contentLength = contentLength
-                )
+        val resolvedCookies = if (cookies.isNotBlank()) cookies else {
+            try {
+                CookieManager.getInstance().getCookie(url) ?: ""
+            } catch (_: Exception) {
+                ""
             }
-        } else {
-            processDownloadWithPrompt(
-                activity = activity,
-                coroutineScope = coroutineScope,
-                url = url,
-                userAgent = userAgent,
-                contentDisposition = contentDisposition,
-                mimeType = mimeType,
-                contentLength = contentLength
-            )
         }
-    }
 
-    private fun processDownloadWithPrompt(
-        activity: Activity,
-        coroutineScope: CoroutineScope,
-        url: String,
-        userAgent: String,
-        contentDisposition: String,
-        mimeType: String,
-        contentLength: Long
-    ) {
-        val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
         val preferences = BrowserPreferences.getInstance(activity)
-
         if (preferences.askBeforeDownload) {
-            val dialog = DownloadPromptDialog.newInstance(
-                url = url,
-                fileName = fileName,
-                fileSize = contentLength,
-                mimeType = mimeType,
-                userAgent = userAgent
-            )
-            dialog.onDownloadConfirmed = { customFileName ->
-                startSystemDownload(
-                    context = activity,
-                    coroutineScope = coroutineScope,
-                    url = url,
-                    userAgent = userAgent,
-                    fileName = customFileName,
-                    mimeType = mimeType,
-                    contentLength = contentLength
-                )
+            val intent = Intent(activity, DownloadPromptActivity::class.java).apply {
+                putExtra(DownloadPromptActivity.EXTRA_URL, url)
+                putExtra(DownloadPromptActivity.EXTRA_USER_AGENT, userAgent)
+                putExtra(DownloadPromptActivity.EXTRA_CONTENT_DISPOSITION, contentDisposition)
+                putExtra(DownloadPromptActivity.EXTRA_MIME_TYPE, mimeType)
+                putExtra(DownloadPromptActivity.EXTRA_CONTENT_LENGTH, contentLength)
+                putExtra(DownloadPromptActivity.EXTRA_COOKIES, resolvedCookies)
+                putExtra(DownloadPromptActivity.EXTRA_REFERER, referer)
             }
-            dialog.onExternalDownloadRequested = {
-                dispatchToExternalDownloader(
-                    context = activity,
-                    url = url,
-                    mimeType = mimeType,
-                    userAgent = userAgent
-                )
-            }
-            dialog.show((activity as FragmentActivity).supportFragmentManager, "DownloadPrompt")
+            activity.startActivity(intent)
         } else {
+            val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
             startSystemDownload(
                 context = activity,
                 coroutineScope = coroutineScope,
@@ -106,7 +61,9 @@ object DownloadHandler {
                 userAgent = userAgent,
                 fileName = fileName,
                 mimeType = mimeType,
-                contentLength = contentLength
+                contentLength = contentLength,
+                cookies = resolvedCookies,
+                referer = referer
             )
         }
     }
@@ -118,16 +75,30 @@ object DownloadHandler {
         userAgent: String,
         fileName: String,
         mimeType: String,
-        contentLength: Long
+        contentLength: Long,
+        cookies: String = "",
+        referer: String = ""
     ) {
         try {
-            val request = DownloadManager.Request(Uri.parse(url)).apply {
-                setMimeType(mimeType)
-                val cookies = CookieManager.getInstance().getCookie(url)
-                if (!cookies.isNullOrEmpty()) {
-                    addRequestHeader("Cookie", cookies)
+            val resolvedCookies = if (cookies.isNotBlank()) cookies else {
+                try {
+                    CookieManager.getInstance().getCookie(url) ?: ""
+                } catch (_: Exception) {
+                    ""
                 }
-                addRequestHeader("User-Agent", userAgent)
+            }
+
+            val request = DownloadManager.Request(Uri.parse(url)).apply {
+                setMimeType(mimeType.ifBlank { "*/*" })
+                if (resolvedCookies.isNotBlank()) {
+                    addRequestHeader("Cookie", resolvedCookies)
+                }
+                if (userAgent.isNotBlank()) {
+                    addRequestHeader("User-Agent", userAgent)
+                }
+                if (referer.isNotBlank()) {
+                    addRequestHeader("Referer", referer)
+                }
                 setDescription("Downloading $fileName")
                 setTitle(fileName)
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
@@ -162,25 +133,63 @@ object DownloadHandler {
         context: Context,
         url: String,
         mimeType: String,
-        userAgent: String
+        userAgent: String,
+        fileName: String = "",
+        cookies: String = "",
+        referer: String = ""
     ) {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(Uri.parse(url), mimeType.ifEmpty { "*/*" })
-                val cookies = CookieManager.getInstance().getCookie(url)
-                if (!cookies.isNullOrEmpty()) {
-                    putExtra("Cookie", cookies)
-                    putExtra("cookies", cookies)
-                }
-                putExtra("User-Agent", userAgent)
-                putExtra("user_agent", userAgent)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val downloaders = ExternalDownloaderHelper.getInstalledDownloaders(context, url, mimeType)
+        val resolvedCookies = if (cookies.isNotBlank()) cookies else {
+            try {
+                CookieManager.getInstance().getCookie(url) ?: ""
+            } catch (_: Exception) {
+                ""
             }
+        }
+        val resolvedFileName = if (fileName.isNotBlank()) fileName else URLUtil.guessFileName(url, null, mimeType)
 
-            val chooser = Intent.createChooser(intent, "Open with Downloader")
-            context.startActivity(chooser)
-        } catch (e: Exception) {
-            Toast.makeText(context, "No external downloader found", Toast.LENGTH_SHORT).show()
+        if (downloaders.size == 1) {
+            val single = downloaders.first()
+            val intent = ExternalDownloaderHelper.buildDownloadIntent(
+                downloader = single,
+                url = url,
+                fileName = resolvedFileName,
+                userAgent = userAgent,
+                cookies = resolvedCookies,
+                referer = referer,
+                mimeType = mimeType
+            )
+            try {
+                context.startActivity(intent)
+                Toast.makeText(context, "Opening in ${single.name}", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Failed to launch ${single.name}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            // Fallback generic intent
+            try {
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(Uri.parse(url), mimeType.ifEmpty { "*/*" })
+                    if (resolvedCookies.isNotBlank()) {
+                        putExtra("Cookie", resolvedCookies)
+                        putExtra("cookies", resolvedCookies)
+                    }
+                    if (userAgent.isNotBlank()) {
+                        putExtra("User-Agent", userAgent)
+                        putExtra("user_agent", userAgent)
+                    }
+                    if (referer.isNotBlank()) {
+                        putExtra("Referer", referer)
+                        putExtra("referer", referer)
+                    }
+                    putExtra("extra_filename", resolvedFileName)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                val chooser = Intent.createChooser(intent, "Open with Downloader")
+                context.startActivity(chooser)
+            } catch (e: Exception) {
+                Toast.makeText(context, "No external downloader found", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }

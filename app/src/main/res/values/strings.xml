@@ -135,4 +135,17 @@
     <string name="add">Add</string>
     <string name="open_in_new_tab">Open in new tab</string>
     <string name="drag_to_reorder">Drag to reorder</string>
+
+    <!-- Onyx Downloader -->
+    <string name="onyx_downloader_title">Onyx Downloader</string>
+    <string name="file_details">File Details</string>
+    <string name="website_details">Website Details</string>
+    <string name="forwarding_cookies_headers">Session cookies &amp; headers forwarded</string>
+    <string name="no_external_downloader_found">No External Downloader Found</string>
+    <string name="no_external_downloader_message">No external download manager (1DM, ADM, or FDM) was detected on your device. You can install one from the Play Store or use Onyx Downloader.</string>
+    <string name="select_external_downloader">Select Downloader</string>
+    <string name="select_downloader_subtitle">Choose an app to download this file</string>
+    <string name="get_from_play_store">Open Play Store</string>
+    <string name="use_default_downloader">Use Onyx Downloader</string>
+    <string name="url_copied">URL copied to clipboard</string>
 </resources>

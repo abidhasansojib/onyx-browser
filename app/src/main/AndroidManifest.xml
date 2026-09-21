@@ -28,6 +28,26 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
+    <!-- Visibility for External Downloaders (Android 11+ / API 30+) -->
+    <queries>
+        <package android:name="idm.internet.download.manager" />
+        <package android:name="idm.internet.download.manager.plus" />
+        <package android:name="idm.internet.download.manager.lite" />
+        <package android:name="com.dv.adm" />
+        <package android:name="com.dv.adm.pay" />
+        <package android:name="org.freedownloadmanager.fdm" />
+        <package android:name="org.nfield.downloadnavi" />
+        <package android:name="com.gianlu.aria2app" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:name=".OnyxApplication"
         android:allowBackup="true"
@@ -109,6 +129,12 @@
             android:name=".ui.bookmarks.BookmarksActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
+            android:name=".ui.downloads.DownloadPromptActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser"
+            android:windowSoftInputMode="adjustResize" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

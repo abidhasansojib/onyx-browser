@@ -184,5 +184,17 @@ onyx-browser/
       - Warm / Running State: Overrode `onNewIntent(intent)` to immediately handle new links delivered while the app is alive.
       - Tab Routing Policy: If the active tab is an unused blank normal tab (home screen), it reuses that tab; if the active tab is displaying a website or is incognito, it spawns a new normal tab with the incoming URL and displays it immediately.
       - URL & Query Extraction: Robust parsing supporting direct URIs, `EXTRA_TEXT` (direct links or links embedded within message text), and search queries.
+  - [x] Dedicated Onyx Downloader Page & External Downloader Integration:
+    - Replaced legacy popup dialog with a dedicated full page `DownloadPromptActivity` with Material Box UI:
+      - Title: "Onyx Downloader".
+      - File Details Card: File type icon, uppercase extension badge, formatted size, editable file name input with clear text icon, MIME type.
+      - Website Details Card: Domain name, full URL with one-tap copy button, referer details, and active "Session cookies & headers forwarded" indicator with green shield lock icon.
+      - Session & Security Forwarding: Automatically extracts and forwards `Cookie` (from `CookieManager`), `User-Agent`, and `Referer` to internal and external downloaders to ensure authenticated cloud storage, forums, and protected links download successfully.
+      - Download Button: Triggers built-in Onyx / Android system download with complete headers and records in Room database.
+      - External Downloader Button with Smart Dispatch:
+        - Added Android 11+ `<queries>` in `AndroidManifest.xml` for 1DM, 1DM+, 1DM Lite, ADM, ADM Pro, FDM, Download Navi, Aria2.
+        - If exactly 1 external downloader is installed (e.g. 1DM): Launches it directly with all forwarded headers, cookies, and parameters without prompting.
+        - If multiple external downloaders are installed (e.g. 1DM & ADM): Shows `SelectDownloaderBottomSheet` with app icons and names to select between them.
+        - If no external downloader is installed: Shows a helpful prompt offering to open the Play Store or use the default Onyx Downloader.
 
 
