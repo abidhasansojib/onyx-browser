@@ -93,6 +93,8 @@ onyx-browser/
 - [x] Verified full end-to-end GitHub Actions build run (#35543759711), packaging native 64/32-bit Rust `libadblock_bridge.so` libraries, assets, and producing verified `app-debug.apk` and `app-release.apk` artifacts.
 - [x] Fix app launch crash / instant closure: Add `vectorDrawables.useSupportLibrary = true`, enable `setCompatVectorFromResourcesEnabled(true)`, add `colorControlNormal` and `colorControlHighlight` attributes to Material3 themes, sanitize all 22 vector drawables from dynamic theme references to rock-solid `#FFFFFFFF`, and migrate all layouts to `AppCompatImageButton`/`AppCompatImageView` with `app:srcCompat`.
 - [x] Fix PathParser IllegalArgumentException on `ic_engine_brave.xml` & `ic_engine_bing.xml`: Implement strict SVG path tokenizer and normalizer to unpack concatenated flags (e.g. `0 01-4.293` -> `0 0 1 -4.293`) across all vector drawables.
+- [x] Fix ThreadPoolForeg crash on search & startup: Remove `view.url` access from `shouldInterceptRequest` (which runs on Chromium's background thread), implement thread-safe `@Volatile currentPageUrl` tracking with Referer header inspection, wrap interception in fail-open try-catch, implement robust `shouldOverrideUrlLoading` for external intent schemes, and track `currentDisplayedTabId` in `MainActivity` to eliminate tab churn.
+
 
 
 

@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity() {
     private var isSearchMode = false
     private var customVideoView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var currentDisplayedTabId: String? = null
 
     // Permission Launchers
     private var pendingStorageAction: (() -> Unit)? = null
@@ -403,10 +404,13 @@ class MainActivity : AppCompatActivity() {
     private fun displayTab(tab: TabItem) {
         updateTabBadgeCount()
 
+        val tabChanged = (currentDisplayedTabId != tab.id)
+        currentDisplayedTabId = tab.id
+
         if (tab.url.isBlank()) {
             showHomeScreen()
         } else {
-            showWebView(tab)
+            showWebView(tab, reloadIfChanged = tabChanged)
         }
     }
 
@@ -418,7 +422,7 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.GONE
     }
 
-    private fun showWebView(tab: TabItem, forceUrl: String? = null) {
+    private fun showWebView(tab: TabItem, forceUrl: String? = null, reloadIfChanged: Boolean = false) {
         binding.homeLayout.root.visibility = View.GONE
         binding.webViewContainer.visibility = View.VISIBLE
 
@@ -427,7 +431,7 @@ class MainActivity : AppCompatActivity() {
 
         val targetUrl = forceUrl ?: tab.url
         if (targetUrl.isNotBlank()) {
-            if (forceUrl != null || webView.url.isNullOrBlank()) {
+            if (forceUrl != null || reloadIfChanged || webView.url.isNullOrBlank() || webView.url == "about:blank") {
                 try {
                     webView.loadUrl(targetUrl)
                 } catch (t: Throwable) {

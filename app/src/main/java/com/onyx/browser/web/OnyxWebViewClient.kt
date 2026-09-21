@@ -27,41 +27,109 @@ class OnyxWebViewClient(
     private val preferences = BrowserPreferences.getInstance(context)
     private val database = AppDatabase.getInstance(context)
 
+    @Volatile
+    private var currentPageUrl: String = ""
+
     override fun shouldInterceptRequest(
         view: WebView?,
         request: WebResourceRequest?
     ): WebResourceResponse? {
         if (request == null) return null
-        val url = request.url.toString()
 
-        // Only process http and https network requests for adblocking
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            return null
-        }
+        return try {
+            val url = request.url?.toString() ?: return null
 
-        if (preferences.isAdBlockEnabled) {
-            val pageUrl = view?.url ?: ""
-            val resourceType = detectResourceType(request)
+            // Never block the main frame document itself; track the current page URL
+            if (request.isForMainFrame) {
+                currentPageUrl = url
+                return null
+            }
 
-            // Never block the main frame document itself
-            if (!request.isForMainFrame) {
-                try {
-                    val blocked = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
-                    if (blocked) {
-                        preferences.incrementBlockedRequests()
-                        return WebResourceResponse(
-                            "text/plain",
-                            "UTF-8",
-                            ByteArrayInputStream(ByteArray(0))
-                        )
-                    }
-                } catch (t: Throwable) {
-                    // Fail open: never fail web request due to adblock inspection error
+            // Only process http and https network requests for adblocking
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                return null
+            }
+
+            if (preferences.isAdBlockEnabled) {
+                val referer = request.requestHeaders?.let { headers ->
+                    headers["Referer"] ?: headers["referer"] ?: headers["Origin"] ?: headers["origin"]
+                }
+                val pageUrl = referer ?: currentPageUrl
+                val resourceType = detectResourceType(request)
+
+                val blocked = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
+                if (blocked) {
+                    preferences.incrementBlockedRequests()
+                    return WebResourceResponse(
+                        "text/plain",
+                        "UTF-8",
+                        ByteArrayInputStream(ByteArray(0))
+                    )
                 }
             }
+
+            null
+        } catch (t: Throwable) {
+            // Fail open: never allow adblock or inspection error to fail request or crash app
+            null
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun shouldInterceptRequest(view: WebView?, url: String?): WebResourceResponse? {
+        if (url == null) return null
+        return try {
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                return null
+            }
+            if (preferences.isAdBlockEnabled) {
+                val blocked = AdBlockEngine.shouldBlock(url, currentPageUrl, "other")
+                if (blocked) {
+                    preferences.incrementBlockedRequests()
+                    return WebResourceResponse(
+                        "text/plain",
+                        "UTF-8",
+                        ByteArrayInputStream(ByteArray(0))
+                    )
+                }
+            }
+            null
+        } catch (t: Throwable) {
+            null
+        }
+    }
+
+    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+        if (request == null) return false
+        val uri = request.url ?: return false
+        val url = uri.toString()
+
+        if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("about:") || url.startsWith("data:")) {
+            return false
         }
 
-        return super.shouldInterceptRequest(view, request)
+        return try {
+            val intent = android.content.Intent.parseUri(url, android.content.Intent.URI_INTENT_SCHEME).apply {
+                addCategory(android.content.Intent.CATEGORY_BROWSABLE)
+                component = null
+                selector = null
+            }
+
+            if (context.packageManager.resolveActivity(intent, 0) != null) {
+                context.startActivity(intent)
+                true
+            } else {
+                val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                if (!fallbackUrl.isNullOrBlank() && (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
+                    view?.loadUrl(fallbackUrl)
+                    true
+                } else {
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            false
+        }
     }
 
     override fun onPageCommitVisible(view: WebView?, url: String?) {
@@ -80,24 +148,39 @@ class OnyxWebViewClient(
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
-        url?.let { onUrlChanged(it) }
+        if (!url.isNullOrBlank()) {
+            currentPageUrl = url
+            onUrlChanged(url)
+        }
+    }
+
+    override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+        super.doUpdateVisitedHistory(view, url, isReload)
+        if (!url.isNullOrBlank()) {
+            currentPageUrl = url
+        }
     }
 
     override fun onPageFinished(view: WebView?, url: String?) {
         super.onPageFinished(view, url)
-        url?.let {
-            onPageFinishedCallback(it)
+        if (!url.isNullOrBlank()) {
+            currentPageUrl = url
+            onPageFinishedCallback(url)
             val isIncognito = (view as? OnyxWebView)?.isIncognito ?: false
-            if (!isIncognito && it.startsWith("http")) {
-                val title = view?.title ?: it
+            if (!isIncognito && url.startsWith("http")) {
+                val title = view?.title ?: url
                 coroutineScope.launch(Dispatchers.IO) {
-                    database.historyDao().insertHistory(
-                        HistoryItem(
-                            url = it,
-                            title = title,
-                            visitTime = System.currentTimeMillis()
+                    try {
+                        database.historyDao().insertHistory(
+                            HistoryItem(
+                                url = url,
+                                title = title,
+                                visitTime = System.currentTimeMillis()
+                            )
                         )
-                    )
+                    } catch (e: Exception) {
+                        // Ignore persistence error
+                    }
                 }
             }
         }
@@ -106,8 +189,8 @@ class OnyxWebViewClient(
     private fun detectResourceType(request: WebResourceRequest): String {
         if (request.isForMainFrame) return "main_frame"
 
-        val acceptHeader = request.requestHeaders["Accept"]?.lowercase() ?: ""
-        val urlPath = request.url.path?.lowercase() ?: ""
+        val acceptHeader = request.requestHeaders?.get("Accept")?.lowercase() ?: ""
+        val urlPath = request.url?.path?.lowercase() ?: ""
 
         return when {
             acceptHeader.contains("text/css") || urlPath.endsWith(".css") -> "stylesheet"
@@ -115,9 +198,10 @@ class OnyxWebViewClient(
             acceptHeader.contains("image/") || urlPath.endsWith(".png") ||
                     urlPath.endsWith(".jpg") || urlPath.endsWith(".jpeg") ||
                     urlPath.endsWith(".webp") || urlPath.endsWith(".gif") ||
-                    urlPath.endsWith(".svg") -> "image"
+                    urlPath.endsWith(".svg") || urlPath.endsWith(".ico") -> "image"
             acceptHeader.contains("font/") || urlPath.endsWith(".woff") ||
-                    urlPath.endsWith(".woff2") || urlPath.endsWith(".ttf") -> "font"
+                    urlPath.endsWith(".woff2") || urlPath.endsWith(".ttf") ||
+                    urlPath.endsWith(".otf") -> "font"
             acceptHeader.contains("text/html") -> "subdocument"
             else -> "other"
         }
@@ -141,7 +225,11 @@ class OnyxWebViewClient(
         """.trimIndent()
 
         view?.post {
-            view.evaluateJavascript(js, null)
+            try {
+                view.evaluateJavascript(js, null)
+            } catch (t: Throwable) {
+                // Ignore if view was destroyed
+            }
         }
     }
 }
