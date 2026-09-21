@@ -4,55 +4,64 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:attr/windowBackground">
+    android:background="?attr/colorSurface">
 
-    <!-- Top Bar Controls -->
+    <!-- ── Top App Bar ──────────────────────────────────────────────────────── -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/tabSwitcherTopBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:minHeight="56dp"
+        android:minHeight="60dp"
         android:background="?attr/colorSurface"
-        android:elevation="4dp"
-        android:paddingStart="8dp"
-        android:paddingEnd="12dp"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Search Button (Top Left - Access Search Option) -->
+        <!-- Left: Search / back button -->
         <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/btnSearchTabSwitcher"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/search_or_type_url"
-            android:padding="8dp"
+            android:padding="10dp"
             app:srcCompat="@drawable/ic_search"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:tint="?attr/colorControlNormal" />
 
-        <!-- Segmented Control for Normal vs. Incognito Tabs (Aligned in middle top) -->
+        <!-- Center: Segmented pill — Normal / Incognito
+             Background is bg_tab_mode_selector (colorSurfaceVariant pill).
+             The sliding indicator uses @color/primary at 20% alpha as a filled
+             rounded rect (tabIndicatorFullWidth + tabIndicatorGravity="center").
+             tabSelectedTextColor/@color/primary, unselected = textColorSecondary. -->
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabModeLayout"
-            android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:background="@drawable/bg_search_bar"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_tab_mode_selector"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/btnTabSwitcherOverflow"
             app:layout_constraintStart_toEndOf="@id/btnSearchTabSwitcher"
             app:layout_constraintTop_toTopOf="parent"
-            app:tabIconTint="?attr/colorControlNormal"
+            app:tabGravity="fill"
+            app:tabIconTint="@color/tab_mode_icon_tint"
             app:tabIndicatorColor="@color/primary"
             app:tabIndicatorFullWidth="true"
-            app:tabIndicatorHeight="3dp"
+            app:tabIndicatorGravity="center"
+            app:tabIndicatorHeight="36dp"
             app:tabInlineLabel="true"
             app:tabMode="fixed"
+            app:tabPaddingStart="10dp"
+            app:tabPaddingEnd="10dp"
             app:tabRippleColor="?attr/colorControlHighlight"
             app:tabSelectedTextColor="@color/primary"
-            app:tabTextAppearance="@style/TextAppearance.Material3.LabelMedium"
+            app:tabTextAppearance="@style/TextAppearance.Material3.LabelSmall"
             app:tabTextColor="?android:attr/textColorSecondary">
 
             <com.google.android.material.tabs.TabItem
@@ -68,13 +77,14 @@
                 android:text="@string/incognito_tabs" />
         </com.google.android.material.tabs.TabLayout>
 
-        <!-- Right 3-Dot Overflow Menu Button -->
+        <!-- Right: 3-dot overflow -->
         <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/btnTabSwitcherOverflow"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/menu"
+            android:padding="10dp"
             app:srcCompat="@drawable/ic_more_vert"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -83,7 +93,18 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Empty State View -->
+    <!-- Thin divider below top bar -->
+    <View
+        android:id="@+id/topBarDivider"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutline"
+        android:alpha="0.4"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tabSwitcherTopBar" />
+
+    <!-- ── Empty State ──────────────────────────────────────────────────────── -->
     <LinearLayout
         android:id="@+id/emptyTabsView"
         android:layout_width="wrap_content"
@@ -91,96 +112,125 @@
         android:gravity="center"
         android:orientation="vertical"
         android:visibility="gone"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintBottom_toTopOf="@id/bottomBarDivider"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tabSwitcherTopBar"
+        app:layout_constraintTop_toBottomOf="@id/topBarDivider"
         tools:visibility="visible">
 
         <androidx.appcompat.widget.AppCompatImageView
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:alpha="0.4"
-            app:srcCompat="@drawable/ic_logo_onyx" />
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:alpha="0.22"
+            app:srcCompat="@drawable/ic_logo_onyx"
+            app:tint="?attr/colorControlNormal" />
 
         <TextView
             android:id="@+id/tvEmptyTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="16dp"
             android:text="No tabs open"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="14sp" />
+            android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Tap + to open a new tab"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            android:alpha="0.6" />
     </LinearLayout>
 
-    <!-- Dual-Column Tabs Grid -->
+    <!-- ── Tab Grid ─────────────────────────────────────────────────────────── -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvTabs"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:clipToPadding="false"
-        android:padding="8dp"
+        android:padding="10dp"
         app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintBottom_toTopOf="@id/bottomBarDivider"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tabSwitcherTopBar"
+        app:layout_constraintTop_toBottomOf="@id/topBarDivider"
         app:layout_constraintWidth_max="760dp"
         app:spanCount="2"
         tools:listitem="@layout/item_tab" />
 
-    <!-- Bottom Navigation Bar -->
+    <!-- Divider above bottom bar -->
+    <View
+        android:id="@+id/bottomBarDivider"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutline"
+        android:alpha="0.4"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- ── Bottom Action Bar ────────────────────────────────────────────────── -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/bottomBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:minHeight="64dp"
+        android:minHeight="66dp"
         android:background="?attr/colorSurface"
-        android:elevation="8dp"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
+        android:paddingStart="20dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="4dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <!-- Left Button: Clear Browsing Data (Cleaning Broom Icon) -->
-        <androidx.appcompat.widget.AppCompatImageButton
+        <!-- Left: Clear Browsing Data — trash-bin icon -->
+        <LinearLayout
             android:id="@+id/btnClearHistory"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
             android:contentDescription="@string/delete_browsing_data"
-            android:padding="10dp"
-            app:srcCompat="@drawable/ic_broom"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:tint="?attr/colorControlNormal" />
+            app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Center Action Button: Large Circular Accent Plus ('+') Button -->
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:srcCompat="@drawable/ic_delete"
+                app:tint="?attr/colorControlNormal" />
+        </LinearLayout>
+
+        <!-- Center: FAB — New Tab -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabNewTab"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:contentDescription="@string/new_tab"
-            app:srcCompat="@drawable/ic_add"
             app:backgroundTint="@color/primary"
-            app:elevation="6dp"
+            app:elevation="4dp"
             app:fabSize="normal"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/ic_add"
             app:tint="@color/on_primary" />
 
-        <!-- Right Button: Close All Open Tabs in current mode -->
+        <!-- Right: Close All Tabs -->
         <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/btnCloseAllTabs"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/close_all_tabs"
-            android:padding="10dp"
+            android:padding="14dp"
             app:srcCompat="@drawable/ic_tab_close"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"

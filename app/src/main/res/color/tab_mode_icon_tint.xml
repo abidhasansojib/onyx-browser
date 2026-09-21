@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tab mode selector icon tint: primary color when selected, textColorSecondary when unselected -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/primary" android:state_selected="true" />
+    <item android:color="?android:attr/textColorSecondary" />
+</selector>

@@ -4,13 +4,13 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/cardTab"
     android:layout_width="match_parent"
-    android:layout_height="200dp"
+    android:layout_height="190dp"
     android:layout_margin="6dp"
     android:clickable="true"
     android:focusable="true"
     app:cardBackgroundColor="?attr/colorSurface"
-    app:cardCornerRadius="14dp"
-    app:cardElevation="3dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="2dp"
     app:strokeColor="?attr/colorOutline"
     app:strokeWidth="1dp">
 
@@ -18,15 +18,15 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Header Row: Favicon, Title, Close Button -->
+        <!-- Header: favicon + title + close -->
         <LinearLayout
             android:id="@+id/tabHeader"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="42dp"
             android:background="?attr/colorSurfaceVariant"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingStart="8dp"
+            android:paddingStart="10dp"
             android:paddingEnd="4dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -34,8 +34,8 @@
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/ivTabFavicon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:contentDescription="Tab Favicon"
                 app:srcCompat="@drawable/ic_web"
                 app:tint="?attr/colorControlNormal" />
@@ -45,27 +45,27 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:layout_marginEnd="4dp"
+                android:layout_marginEnd="2dp"
                 android:layout_weight="1"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold"
-                tools:text="Onyx Browser - Home" />
+                tools:text="Google — Search" />
 
             <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/btnTabClose"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/close_tab"
-                android:padding="6dp"
+                android:padding="8dp"
                 app:srcCompat="@drawable/ic_close"
                 app:tint="?attr/colorControlNormal" />
         </LinearLayout>
 
-        <!-- Tab Snapshot / Preview Content -->
+        <!-- Preview area: snapshot or fallback -->
         <FrameLayout
             android:id="@+id/previewContainer"
             android:layout_width="0dp"
@@ -76,6 +76,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tabHeader">
 
+            <!-- Actual page snapshot (shown if available) -->
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/ivTabSnapshot"
                 android:layout_width="match_parent"
@@ -83,7 +84,7 @@
                 android:scaleType="centerCrop"
                 android:visibility="gone" />
 
-            <!-- Fallback center icon / domain preview -->
+            <!-- Fallback: centered icon + domain text -->
             <LinearLayout
                 android:id="@+id/fallbackPreview"
                 android:layout_width="wrap_content"
@@ -94,22 +95,23 @@
 
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/ivCenterIcon"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:alpha="0.4"
-                    app:srcCompat="@drawable/ic_logo_onyx" />
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:alpha="0.3"
+                    app:srcCompat="@drawable/ic_logo_onyx"
+                    app:tint="?attr/colorControlNormal" />
 
                 <TextView
                     android:id="@+id/tvTabDomain"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:alpha="0.7"
+                    android:alpha="0.6"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="?android:attr/textColorSecondary"
                     android:textSize="11sp"
-                    tools:text="onyx.browser" />
+                    tools:text="google.com" />
             </LinearLayout>
         </FrameLayout>
 
