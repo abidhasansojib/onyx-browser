@@ -69,7 +69,7 @@ class SiteShieldBottomSheetDialog(
         setupBlockedCounter()
 
         binding.btnShieldSettings.setOnClickListener {
-            startActivity(Intent(requireContext(), SettingsActivity::class.java))
+            startActivity(Intent(requireContext(), com.onyx.browser.ui.settings.SettingsPrivacyActivity::class.java))
             dismiss()
         }
 

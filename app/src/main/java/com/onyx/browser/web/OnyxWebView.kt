@@ -72,9 +72,8 @@ class OnyxWebView @JvmOverloads constructor(
         settings.userAgentString = mobileUserAgent
 
         try {
-            // Allow third-party cookies for normal sessions (Facebook login, Google OAuth, etc.)
-            // Incognito disables this again in setIncognitoMode().
-            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, !prefs.isBlockThirdPartyCookiesEnabled)
         } catch (_: Exception) {}
 
         isFocusable = true
@@ -95,7 +94,11 @@ class OnyxWebView @JvmOverloads constructor(
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.domStorageEnabled = true
             CookieManager.getInstance().setAcceptCookie(true)
-            try { CookieManager.getInstance().setAcceptThirdPartyCookies(this, true) } catch (_: Exception) {}
+            
+            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+            try { 
+                CookieManager.getInstance().setAcceptThirdPartyCookies(this, !prefs.isBlockThirdPartyCookiesEnabled) 
+            } catch (_: Exception) {}
         }
     }
 
@@ -168,5 +171,24 @@ class OnyxWebView @JvmOverloads constructor(
             removeAllViews()
             destroy()
         } catch (_: Exception) {}
+    }
+
+    override fun loadUrl(url: String) {
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        if (prefs.isDoNotTrackEnabled) {
+            val headers = mutableMapOf<String, String>()
+            headers["DNT"] = "1"
+            super.loadUrl(url, headers)
+        } else {
+            super.loadUrl(url)
+        }
+    }
+
+    override fun loadUrl(url: String, additionalHttpHeaders: MutableMap<String, String>) {
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        if (prefs.isDoNotTrackEnabled) {
+            additionalHttpHeaders["DNT"] = "1"
+        }
+        super.loadUrl(url, additionalHttpHeaders)
     }
 }

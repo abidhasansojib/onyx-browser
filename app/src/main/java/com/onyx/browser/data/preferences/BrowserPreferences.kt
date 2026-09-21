@@ -98,6 +98,14 @@ class BrowserPreferences private constructor(context: Context) {
             prefs.edit().putBoolean(KEY_HTTPS_UPGRADE, value).apply()
         }
 
+    var isBlockThirdPartyCookiesEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BLOCK_THIRD_PARTY_COOKIES, true)
+        set(value) = prefs.edit().putBoolean(KEY_BLOCK_THIRD_PARTY_COOKIES, value).apply()
+
+    var isDoNotTrackEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DO_NOT_TRACK, true)
+        set(value) = prefs.edit().putBoolean(KEY_DO_NOT_TRACK, value).apply()
+
     // ── Per-domain Script Blocking ───────────────────────────────────────────
 
     fun isScriptBlockingEnabledForDomain(domainOrUrl: String): Boolean {
@@ -311,6 +319,8 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_COSMETIC_FILTERING = "pref_cosmetic_filtering"
         const val KEY_FINGERPRINT_PROTECTION = "pref_fingerprint_protection"
         const val KEY_HTTPS_UPGRADE = "pref_https_upgrade"
+        const val KEY_BLOCK_THIRD_PARTY_COOKIES = "pref_block_third_party_cookies"
+        const val KEY_DO_NOT_TRACK = "pref_do_not_track"
         const val KEY_SCRIPT_BLOCKING_DOMAINS = "pref_script_blocking_domains"
         const val KEY_ASK_BEFORE_DOWNLOAD = "pref_ask_before_download"
         const val KEY_DESKTOP_MODE = "pref_desktop_mode"

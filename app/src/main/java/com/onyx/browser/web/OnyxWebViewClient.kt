@@ -239,6 +239,15 @@ class OnyxWebViewClient(
             view.evaluateJavascript(js, null)
         }
 
+        if (preferences.isDoNotTrackEnabled) {
+            val dntJs = """
+                (function() {
+                    Object.defineProperty(navigator, 'doNotTrack', { get: function() { return '1'; } });
+                })();
+            """.trimIndent()
+            view.evaluateJavascript(dntJs, null)
+        }
+
         // Cosmetic element hiding (CSS injection)
         if (preferences.isCosmeticFilteringEnabled && !isWhitelisted) {
             try {

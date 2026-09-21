@@ -85,6 +85,22 @@ class SettingsPrivacyActivity : AppCompatActivity() {
             preferences.isHttpsUpgradeEnabled = newState
         }
 
+        // Block Third-Party Cookies Toggle
+        binding.switchBlockCookies.isChecked = preferences.isBlockThirdPartyCookiesEnabled
+        binding.settingBlockCookiesRow.setOnClickListener {
+            val newState = !binding.switchBlockCookies.isChecked
+            binding.switchBlockCookies.isChecked = newState
+            preferences.isBlockThirdPartyCookiesEnabled = newState
+        }
+
+        // Do Not Track Toggle
+        binding.switchDoNotTrack.isChecked = preferences.isDoNotTrackEnabled
+        binding.settingDoNotTrackRow.setOnClickListener {
+            val newState = !binding.switchDoNotTrack.isChecked
+            binding.switchDoNotTrack.isChecked = newState
+            preferences.isDoNotTrackEnabled = newState
+        }
+
         // Live Blocked Counter
         lifecycleScope.launch {
             preferences.blockedRequestsFlow.collectLatest { count ->
