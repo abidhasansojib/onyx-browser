@@ -19,7 +19,7 @@
         android:id="@+id/flIconContainer"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:background="@drawable/bg_box_tile">
+        android:background="@drawable/bg_circle_action">
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/ivShortcutIcon"

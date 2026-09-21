@@ -6,10 +6,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
+import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.widget.AppCompatImageView
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.google.android.material.color.MaterialColors
 import com.onyx.browser.R
 import com.onyx.browser.data.model.ShortcutItem
 import com.onyx.browser.data.preferences.BrowserPreferences
@@ -64,11 +67,62 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
             adjustSheet.show(parentFragmentManager, AdjustQuickActionsBottomSheet.TAG)
         }
 
+        // Populate suggested shortcuts horizontal row
+        populateSuggestedShortcuts()
+
         lifecycleScope.launch {
             preferences.shortcutsFlow.collectLatest { list ->
                 adapter.submitList(list)
-                binding.tvShortcutsCount.text = "${getString(R.string.shortcuts)} (${list.size})"
+                binding.tvShortcutsCount.text = "MY SHORTCUTS (${list.size})"
             }
+        }
+    }
+
+    private fun populateSuggestedShortcuts() {
+        val suggestedItems = listOf(
+            Triple("Google", "https://www.google.com", ShortcutItem.ICON_GOOGLE),
+            Triple("YouTube", "https://www.youtube.com", ShortcutItem.ICON_YOUTUBE),
+            Triple("GitHub", "https://github.com", ShortcutItem.ICON_GITHUB),
+            Triple("Wikipedia", "https://www.wikipedia.org", ShortcutItem.ICON_WIKIPEDIA),
+            Triple("Facebook", "https://www.facebook.com", ShortcutItem.ICON_FACEBOOK),
+            Triple("Reddit", "https://www.reddit.com", ShortcutItem.ICON_REDDIT),
+            Triple("X (Twitter)", "https://x.com", ShortcutItem.DEFAULT_ICON),
+            Triple("Instagram", "https://www.instagram.com", ShortcutItem.DEFAULT_ICON),
+            Triple("Amazon", "https://www.amazon.com", ShortcutItem.DEFAULT_ICON),
+            Triple("Netflix", "https://www.netflix.com", ShortcutItem.DEFAULT_ICON)
+        )
+        val inflater = LayoutInflater.from(requireContext())
+        suggestedItems.forEach { (title, url, iconType) ->
+            val itemView = inflater.inflate(R.layout.item_suggested_shortcut, binding.llSuggestedShortcuts, false)
+            val iv = itemView.findViewById<AppCompatImageView>(R.id.ivSuggestedIcon)
+            val tv = itemView.findViewById<TextView>(R.id.tvSuggestedTitle)
+            tv.text = title
+            // Map icon type to drawable
+            val iconRes = when (iconType) {
+                ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
+                ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
+                ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
+                ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
+                ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
+                ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
+                else -> R.drawable.ic_web
+            }
+            iv.setImageResource(iconRes)
+            if (iconType == ShortcutItem.DEFAULT_ICON) {
+                iv.imageTintList = android.content.res.ColorStateList.valueOf(
+                    MaterialColors.getColor(iv, android.R.attr.textColorSecondary)
+                )
+            }
+            itemView.setOnClickListener {
+                val existing = preferences.getShortcuts()
+                if (existing.any { it.url == url }) {
+                    Toast.makeText(requireContext(), "Already in shortcuts", Toast.LENGTH_SHORT).show()
+                } else {
+                    preferences.addShortcut(ShortcutItem(title = title, url = url, iconType = iconType))
+                    Toast.makeText(requireContext(), "$title added", Toast.LENGTH_SHORT).show()
+                }
+            }
+            binding.llSuggestedShortcuts.addView(itemView)
         }
     }
 

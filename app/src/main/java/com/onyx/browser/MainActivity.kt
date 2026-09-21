@@ -63,6 +63,7 @@ import com.onyx.browser.ui.home.EditShortcutDialog
 import com.onyx.browser.ui.home.ManageShortcutsBottomSheet
 import com.onyx.browser.ui.home.ShortcutsAdapter
 import com.onyx.browser.ui.menu.MenuBottomSheetDialogFragment
+import com.onyx.browser.ui.menu.ContextMenuBottomSheet
 import com.onyx.browser.ui.search.SuggestionsAdapter
 import com.onyx.browser.ui.tabs.TabSwitcherBottomSheet
 import com.onyx.browser.web.DownloadHandler
@@ -216,6 +217,18 @@ class MainActivity : AppCompatActivity() {
             val url = result.data?.getStringExtra(HistoryActivity.EXTRA_URL)
             if (!url.isNullOrBlank()) {
                 performSearchOrLoad(url)
+            }
+        }
+    }
+
+    // QR Scanner Result Launcher
+    private val qrScannerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val value = result.data?.getStringExtra(com.onyx.browser.ui.qr.QrScannerActivity.RESULT_QR_VALUE)
+            if (!value.isNullOrBlank()) {
+                performSearchOrLoad(value)
             }
         }
     }
@@ -791,6 +804,45 @@ class MainActivity : AppCompatActivity() {
                 referer = referer
             )
         }
+
+        // Long-press context menu for links and images
+        webView.setOnLongClickListener {
+            val hit = webView.hitTestResult
+            val fm = supportFragmentManager
+            when (hit.type) {
+                android.webkit.WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
+                    val url = hit.extra ?: return@setOnLongClickListener false
+                    val sheet = ContextMenuBottomSheet.forLink(url)
+                    sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
+                    sheet.show(fm, ContextMenuBottomSheet.TAG)
+                    true
+                }
+                android.webkit.WebView.HitTestResult.IMAGE_TYPE -> {
+                    val imgUrl = hit.extra ?: return@setOnLongClickListener false
+                    val sheet = ContextMenuBottomSheet.forImage(imgUrl)
+                    sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
+                    sheet.show(fm, ContextMenuBottomSheet.TAG)
+                    true
+                }
+                android.webkit.WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                    val imgUrl = hit.extra ?: return@setOnLongClickListener false
+                    val sheet = ContextMenuBottomSheet.forImageLink(imgUrl, imgUrl)
+                    sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
+                    sheet.show(fm, ContextMenuBottomSheet.TAG)
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun openUrlInNewTab(url: String) {
+        val newTab = tabManager.createNewTab(url = url, isIncognito = false)
+        displayTab(newTab)
+    }
+
+    private fun startQrScanner() {
+        qrScannerLauncher.launch(Intent(this, com.onyx.browser.ui.qr.QrScannerActivity::class.java))
     }
 
     private fun performSearchOrLoad(input: String) {

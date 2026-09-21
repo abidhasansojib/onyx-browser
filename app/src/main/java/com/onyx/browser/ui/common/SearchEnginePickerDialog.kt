@@ -4,89 +4,59 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.fragment.app.DialogFragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.onyx.browser.R
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.data.model.SearchEngine
-import com.onyx.browser.databinding.DialogSearchEnginePickerBinding
+import com.onyx.browser.databinding.BottomSheetSearchEnginePickerBinding
 import com.onyx.browser.databinding.ItemSearchEngineBinding
 
-class SearchEnginePickerDialog : DialogFragment() {
+class SearchEnginePickerDialog : BottomSheetDialogFragment() {
 
-    private var _binding: DialogSearchEnginePickerBinding? = null
+    private var _binding: BottomSheetSearchEnginePickerBinding? = null
     private val binding get() = _binding!!
 
     var onSearchEngineSelected: ((SearchEngine) -> Unit)? = null
     private var currentEngine: SearchEngine = SearchEngine.BRAVE
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setStyle(STYLE_NO_TITLE, R.style.Theme_OnyxBrowser_BottomSheetDialog)
-    }
-
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        _binding = DialogSearchEnginePickerBinding.inflate(inflater, container, false)
+    override fun onCreateView(i: LayoutInflater, c: ViewGroup?, s: Bundle?): View {
+        _binding = BottomSheetSearchEnginePickerBinding.inflate(i, c, false)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         binding.rvSearchEngines.layoutManager = LinearLayoutManager(requireContext())
         binding.rvSearchEngines.adapter = EngineAdapter(SearchEngine.entries) { selected ->
             onSearchEngineSelected?.invoke(selected)
             dismiss()
         }
-
         binding.btnCancelSearchEngine.setOnClickListener { dismiss() }
     }
 
-    fun setSelectedEngine(engine: SearchEngine) {
-        currentEngine = engine
-    }
+    fun setSelectedEngine(engine: SearchEngine) { currentEngine = engine }
 
     private inner class EngineAdapter(
         private val list: List<SearchEngine>,
         private val onSelect: (SearchEngine) -> Unit
     ) : RecyclerView.Adapter<EngineAdapter.ViewHolder>() {
-
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val itemBinding = ItemSearchEngineBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            return ViewHolder(itemBinding)
+            val b = ItemSearchEngineBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            return ViewHolder(b)
         }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            holder.bind(list[position])
-        }
-
-        override fun getItemCount(): Int = list.size
-
-        inner class ViewHolder(private val itemBinding: ItemSearchEngineBinding) :
-            RecyclerView.ViewHolder(itemBinding.root) {
-
+        override fun onBindViewHolder(h: ViewHolder, pos: Int) = h.bind(list[pos])
+        override fun getItemCount() = list.size
+        inner class ViewHolder(private val b: ItemSearchEngineBinding) : RecyclerView.ViewHolder(b.root) {
             fun bind(item: SearchEngine) {
-                itemBinding.tvEngineName.text = item.displayName
-                itemBinding.ivEngineIcon.setImageResource(item.iconResId)
-                itemBinding.rbSelected.isChecked = (item == currentEngine)
-
-                itemBinding.root.setOnClickListener {
-                    onSelect(item)
-                }
+                b.tvEngineName.text = item.displayName
+                b.ivEngineIcon.setImageResource(item.iconResId)
+                b.rbSelected.isChecked = (item == currentEngine)
+                b.root.setOnClickListener { onSelect(item) }
             }
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
+    override fun onDestroyView() { super.onDestroyView(); _binding = null }
 
-    companion object {
-        const val TAG = "SearchEnginePickerDialog"
-    }
+    companion object { const val TAG = "SearchEnginePickerDialog" }
 }
