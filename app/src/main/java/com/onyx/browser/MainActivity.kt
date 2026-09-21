@@ -2,6 +2,7 @@ package com.onyx.browser
 
 import android.Manifest
 import android.app.Activity
+import android.app.SearchManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -84,6 +85,8 @@ class MainActivity : AppCompatActivity() {
     private var customVideoView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var currentDisplayedTabId: String? = null
+    private var isTabsRestored = false
+    private var pendingIntent: Intent? = null
 
     // Permission Launchers
     private var pendingStorageAction: (() -> Unit)? = null
@@ -261,7 +264,13 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             tabManager.restoreTabs()
+            isTabsRestored = true
             observeTabs()
+            val intentToHandle = pendingIntent ?: intent
+            pendingIntent = null
+            if (savedInstanceState == null || intentToHandle != intent) {
+                handleIncomingIntent(intentToHandle)
+            }
         }
     }
 
@@ -1215,6 +1224,95 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         tabManager.getActiveWebView()?.onResume()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (isTabsRestored) {
+            handleIncomingIntent(intent)
+        } else {
+            pendingIntent = intent
+        }
+    }
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+        val targetUrl = extractUrlFromIntent(intent) ?: return
+
+        val currentTab = tabManager.activeTab.value
+        if (currentTab != null && !currentTab.isIncognito && currentTab.url.isBlank()) {
+            // Current tab is an unused blank normal tab: reuse it
+            tabManager.updateActiveTab(targetUrl, targetUrl)
+            showWebView(currentTab, forceUrl = targetUrl)
+        } else {
+            // Create a new normal tab for the incoming link so existing tabs remain intact
+            val newTab = tabManager.createNewTab(url = targetUrl, isIncognito = false)
+            displayTab(newTab)
+        }
+
+        if (isSearchMode) {
+            exitSearchMode()
+        }
+    }
+
+    private fun extractUrlFromIntent(intent: Intent?): String? {
+        if (intent == null) return null
+        val action = intent.action ?: return null
+
+        when (action) {
+            Intent.ACTION_VIEW -> {
+                val dataUri = intent.data
+                if (dataUri != null) {
+                    val uriStr = dataUri.toString().trim()
+                    if (uriStr.isNotBlank()) {
+                        return uriStr
+                    }
+                }
+                val dataString = intent.dataString?.trim()
+                if (!dataString.isNullOrBlank()) {
+                    return dataString
+                }
+                val extraText = intent.getStringExtra(Intent.EXTRA_TEXT)
+                if (!extraText.isNullOrBlank()) {
+                    return parseUrlOrExtract(extraText)
+                }
+            }
+            Intent.ACTION_SEND -> {
+                val extraText = intent.getStringExtra(Intent.EXTRA_TEXT)
+                if (!extraText.isNullOrBlank()) {
+                    return parseUrlOrExtract(extraText)
+                }
+            }
+            Intent.ACTION_WEB_SEARCH, Intent.ACTION_SEARCH -> {
+                val query = intent.getStringExtra(SearchManager.QUERY)
+                    ?: intent.getStringExtra("query")
+                if (!query.isNullOrBlank()) {
+                    return preferences.searchEngine.buildSearchUrl(query.trim())
+                }
+            }
+        }
+        return null
+    }
+
+    private fun parseUrlOrExtract(text: String): String {
+        val trimmed = text.trim()
+        if (trimmed.startsWith("http://", ignoreCase = true) ||
+            trimmed.startsWith("https://", ignoreCase = true) ||
+            trimmed.startsWith("file://", ignoreCase = true) ||
+            trimmed.startsWith("about:", ignoreCase = true)
+        ) {
+            return trimmed
+        }
+        val urlRegex = Regex("(https?://[^\\s]+)")
+        val match = urlRegex.find(trimmed)
+        if (match != null) {
+            return match.value
+        }
+        if (isLikelyUrl(trimmed)) {
+            return "https://$trimmed"
+        }
+        return preferences.searchEngine.buildSearchUrl(trimmed)
     }
 
     override fun onDestroy() {

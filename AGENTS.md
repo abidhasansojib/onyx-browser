@@ -174,5 +174,15 @@ onyx-browser/
       - 1. **System / Dynamic Material** (`THEME_SYSTEM`): Automatically follows system dark/light state and applies Material You dynamic color palette on Android 12+ (API 31+) via `DynamicColors.applyToActivitiesIfAvailable`.
       - 2. **Dark (Google Dark)** (`THEME_DARK`): Rich, authentic Google Dark Mode matching web pages (`#202124` background, `#292A2D` surface, `#35363A` surface variant, `#3C4043` outline, `#E8EAED` text, avoiding harsh AMOLED contrast).
       - 3. **Light** (`THEME_LIGHT`): Clean Google Material Light UI (`#F8F9FA` background, `#FFFFFF` surface, `#F1F3F4` variant, `#DADCE0` outline, `#202124` text).
+  - [x] Default Browser External Link Intent Handling & Routing:
+    - Root Cause Resolved: Previously, `MainActivity` only ran `tabManager.restoreTabs()` on launch and never inspected `intent.data` or handled `onNewIntent`, causing external links from WhatsApp, SMS, Messenger, email, or pinned homescreen shortcuts to launch Onyx to the home screen without opening the target URL.
+    - Android Manifest Enhancements:
+      - Set `android:launchMode="singleTask"` on `MainActivity` so all incoming links from other apps route directly to the single browser instance rather than duplicating activities across task stacks.
+      - Registered comprehensive intent filters: `ACTION_VIEW` (`http`, `https`, `file`, `content` for HTML/XHTML/text), `ACTION_WEB_SEARCH`, `ACTION_SEARCH`, and `ACTION_SEND` (`text/plain` for receiving shared links/text).
+    - Lifecycle-Safe Intent Dispatching:
+      - Cold Start: Tabs are asynchronously restored from Room DB, after which `handleIncomingIntent(intent)` inspects the launch intent.
+      - Warm / Running State: Overrode `onNewIntent(intent)` to immediately handle new links delivered while the app is alive.
+      - Tab Routing Policy: If the active tab is an unused blank normal tab (home screen), it reuses that tab; if the active tab is displaying a website or is incognito, it spawns a new normal tab with the incoming URL and displays it immediately.
+      - URL & Query Extraction: Robust parsing supporting direct URIs, `EXTRA_TEXT` (direct links or links embedded within message text), and search queries.
 
 
