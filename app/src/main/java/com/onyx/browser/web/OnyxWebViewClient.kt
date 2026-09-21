@@ -122,23 +122,7 @@ class OnyxWebViewClient(
         }
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun shouldInterceptRequest(view: WebView?, url: String?): WebResourceResponse? {
-        if (url == null) return null
-        return try {
-            if (!url.startsWith("http://") && !url.startsWith("https://")) return null
-            if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(currentPageUrl)) {
-                val blocked = AdBlockEngine.shouldBlock(url, currentPageUrl, "other")
-                if (blocked) {
-                    preferences.incrementBlockedRequests()
-                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
-                }
-            }
-            null
-        } catch (t: Throwable) {
-            null
-        }
-    }
+
 
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         if (request == null) return false
@@ -314,8 +298,21 @@ class OnyxWebViewClient(
         if (request.isForMainFrame) return "main_frame"
 
         val acceptHeader = request.requestHeaders?.get("Accept")?.lowercase() ?: ""
+        val fetchMode = request.requestHeaders?.get("Sec-Fetch-Mode")?.lowercase() ?: ""
+        val fetchDest = request.requestHeaders?.get("Sec-Fetch-Dest")?.lowercase() ?: ""
+        val reqWith = request.requestHeaders?.get("X-Requested-With")?.lowercase() ?: ""
         val urlPath = request.url?.path?.lowercase() ?: ""
 
+        // Sec-Fetch headers are extremely accurate for modern Chrome/WebView
+        if (fetchDest == "iframe" || fetchDest == "frame") return "sub_frame"
+        if (fetchDest == "script") return "script"
+        if (fetchDest == "image") return "image"
+        if (fetchDest == "style") return "stylesheet"
+        if (fetchDest == "font") return "font"
+        if (fetchDest == "video" || fetchDest == "audio") return "media"
+        if (fetchDest == "empty" || fetchMode == "cors" || reqWith == "xmlhttprequest") return "xmlhttprequest"
+
+        // Fallbacks based on Accept header and URL extension
         return when {
             acceptHeader.contains("text/css") || urlPath.endsWith(".css") -> "stylesheet"
             acceptHeader.contains("javascript") || urlPath.endsWith(".js") -> "script"
@@ -326,7 +323,10 @@ class OnyxWebViewClient(
             acceptHeader.contains("font/") || urlPath.endsWith(".woff") ||
                     urlPath.endsWith(".woff2") || urlPath.endsWith(".ttf") ||
                     urlPath.endsWith(".otf") -> "font"
-            acceptHeader.contains("text/html") -> "subdocument"
+            acceptHeader.contains("video/") || acceptHeader.contains("audio/") ||
+                    urlPath.endsWith(".mp4") || urlPath.endsWith(".mp3") || urlPath.endsWith(".webm") -> "media"
+            acceptHeader.contains("application/json") || acceptHeader.contains("xmlhttprequest") -> "xmlhttprequest"
+            acceptHeader.contains("text/html") -> "sub_frame"
             else -> "other"
         }
     }
