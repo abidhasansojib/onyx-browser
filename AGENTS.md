@@ -228,3 +228,25 @@ onyx-browser/
       - Removed elevation shadow from the shortcuts grid box (elevation=0dp) — cleaner flat look consistent with Google's UI language.
       - Consistent 50dp icon sizing across quick action circles and shortcut squircle tiles; both now use 11.5sp label text.
       - Empty tab state updated with secondary hint "Tap + to open a new tab" and reduced logo opacity (0.22).
+  - [x] Fix build failure: Restore missing `getQuickActionOrder()` declaration, `saveQuickActionOrder()`, and `companion object {` wrapper in `BrowserPreferences.kt` (commit `9122cbe`).
+  - [x] Full Brave-like Shields & Privacy System (commit `4aac01f`):
+    - [x] **Homepage Shortcut Tap Fix**: Disabled `SwipeRefreshLayout` on homepage — it was intercepting RecyclerView touch events. `isEnabled = false` in `showHomeScreen()`, re-enabled in `showWebView()`. Also fixed `setOnChildScrollUpCallback` to block pull-to-refresh when homeLayout is visible. No more refresh on homepage/new tab.
+    - [x] **BrowserPreferences**: 17 new preference fields, `HTTPS_MODE_*` constants, `COOKIE_BLOCK_*` constants, 17 new key constants, `isFilterListEnabled()`/`setFilterListEnabled()` helpers.
+    - [x] **OnyxWebViewClient** full rewrite with:
+      - Auto-redirect AMP pages (`resolveAmpUrl()` handles Google AMP cache, `amp.` subdomain, `/amp/` path, `?amp=1`)
+      - Auto-redirect tracking URLs (strips 25+ params: utm_*, fbclid, gclid, msclkid, ttclid, li_fat_id, igshid, etc.)
+      - HTTPS Upgrade: 3 modes — Disabled / When Possible (fallback to HTTP) / Strict (cancel+error on SSL failure)
+      - Global script blocking (`isGlobalScriptBlockingEnabled` gates all script resources)
+      - Social media tracker blocking with per-platform allowlists (Facebook logins/embeds, Twitter embeds, LinkedIn embeds)
+      - Element blocking in private windows toggle (`isElementBlockingInPrivateEnabled`)
+      - Language fingerprint spoofing (`navigator.language = 'en-US'`, `navigator.languages = ['en-US', 'en']`)
+      - Block smart app banners (CSS+JS removes apple-itunes-app/google-play-app meta tags and hides banner elements)
+      - Open links in app toggle (gates custom scheme dispatcher; `intent://` fallback always works)
+    - [x] **OnyxWebView** cookie blocking: 3-mode `CookieManager` integration — Block All / Block Third-Party (`setAcceptThirdPartyCookies`) / Allow All
+    - [x] **ShieldsActivity** (336 lines) with 11 sections: Trackers & Ads, Connections, Scripts, Cookies, Fingerprinting, Content Filtering, Element Blocking, Social Media, Links, Secure DNS, Privacy
+    - [x] **FilterListsBottomSheet**: 10 Brave/community filter lists (EasyList, EasyPrivacy, uBlock, Brave Default, Fanboy Annoyance, AdGuard Base, AdGuard Mobile, Peter Lowe's, Brave Social, Cookie Consent)
+    - [x] **CustomRulesDialog**: Multiline EditText for user-defined Adblock/uBlock rules
+    - [x] **Secure DNS**: Toggle + provider picker (Cloudflare 1.1.1.1, Google 8.8.8.8, NextDNS, Custom URL)
+    - [x] **Do Not Track**: Send DNT header via OnyxWebView.loadUrl() + spoof `navigator.doNotTrack = '1'`
+    - [x] **SettingsActivity**: New "Shields & Privacy" row linking to ShieldsActivity
+    - [x] **AndroidManifest**: ShieldsActivity registered
