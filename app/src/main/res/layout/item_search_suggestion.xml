@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:minHeight="48dp"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="8dp">
+
+    <!-- Suggestion Type Icon (Search glass / History clock) -->
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/ivSuggestionIcon"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="16dp"
+        android:contentDescription="Suggestion"
+        app:srcCompat="@drawable/ic_search"
+        app:tint="?attr/colorControlNormal" />
+
+    <!-- Query or Title text -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvSuggestionText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp"
+            tools:text="Search suggestion query" />
+
+        <TextView
+            android:id="@+id/tvSuggestionSubtext"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            android:visibility="gone"
+            tools:text="https://example.com"
+            tools:visibility="visible" />
+    </LinearLayout>
+
+    <!-- Insert Query Arrow (fills search bar without executing) -->
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/btnInsertQuery"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:contentDescription="Insert query"
+        android:focusable="true"
+        android:padding="8dp"
+        app:srcCompat="@drawable/ic_insert_query"
+        app:tint="?attr/colorControlNormal" />
+
+</LinearLayout>

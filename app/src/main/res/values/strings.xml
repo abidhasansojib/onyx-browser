@@ -18,6 +18,9 @@
     <string name="downloads">Downloads</string>
     <string name="bookmarks">Bookmarks</string>
     <string name="share">Share</string>
+    <string name="copy">Copy</string>
+    <string name="edit">Edit</string>
+    <string name="link_copied">Link copied to clipboard</string>
 
     <!-- Tab Switcher -->
     <string name="normal_tabs">Normal</string>

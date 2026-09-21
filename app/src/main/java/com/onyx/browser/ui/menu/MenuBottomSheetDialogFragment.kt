@@ -117,25 +117,44 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
         }
     }
 
+    private val roleRequestLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (isDefaultBrowser()) {
+            Toast.makeText(requireContext(), "Onyx set as default browser", Toast.LENGTH_SHORT).show()
+            binding.bannerDefaultBrowser.visibility = View.GONE
+        }
+    }
+
     private fun promptSetDefaultBrowser() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = requireContext().getSystemService(RoleManager::class.java)
             if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_BROWSER)) {
-                val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_BROWSER)
-                startActivity(intent)
-                return
+                try {
+                    val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_BROWSER)
+                    roleRequestLauncher.launch(intent)
+                    return
+                } catch (_: Exception) {
+                }
             }
         }
 
-        // Fallback to manage default apps settings
-        try {
-            val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
-            startActivity(intent)
-        } catch (e: Exception) {
-            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+        // Fallback for earlier Android versions or customized OEM ROMs
+        val fallbackIntents = listOf(
+            Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS),
+            Intent("android.settings.MANAGE_DEFAULT_APPS_SETTINGS"),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                 data = Uri.fromParts("package", requireContext().packageName, null)
+            },
+            Intent(Settings.ACTION_SETTINGS)
+        )
+
+        for (intent in fallbackIntents) {
+            try {
+                startActivity(intent)
+                return
+            } catch (_: Exception) {
             }
-            startActivity(intent)
         }
     }
 

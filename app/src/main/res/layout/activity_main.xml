@@ -21,18 +21,34 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Home Button -->
-        <androidx.appcompat.widget.AppCompatImageButton
-            android:id="@+id/btnHome"
+        <!-- Left Navigation Action Container: Home (Browsing mode) / Back Arrow (Search mode) -->
+        <FrameLayout
+            android:id="@+id/flNavAction"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/home"
-            app:srcCompat="@drawable/ic_home"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:tint="?attr/colorControlNormal" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/btnHome"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/home"
+                app:srcCompat="@drawable/ic_home"
+                app:tint="?attr/colorControlNormal" />
+
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/btnSearchBack"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Back"
+                android:visibility="gone"
+                app:srcCompat="@drawable/ic_arrow_back"
+                app:tint="?attr/colorControlNormal" />
+        </FrameLayout>
 
         <!-- Search Engine Selector Icon -->
         <androidx.appcompat.widget.AppCompatImageView
@@ -45,7 +61,7 @@
             android:padding="2dp"
             app:srcCompat="@drawable/ic_engine_brave"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toEndOf="@id/btnHome"
+            app:layout_constraintStart_toEndOf="@id/flNavAction"
             app:layout_constraintTop_toTopOf="parent" />
 
         <!-- Address / Search Bar Pill Container -->
@@ -198,6 +214,213 @@
             android:visibility="gone" />
 
     </FrameLayout>
+
+    <!-- Full-Page Search Overlay (Active when user taps search bar) -->
+    <LinearLayout
+        android:id="@+id/searchOverlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="?android:attr/windowBackground"
+        android:clickable="true"
+        android:elevation="8dp"
+        android:focusable="true"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topBar">
+
+        <!-- Current Webpage Action Card (Share, Copy, Edit) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardCurrentPage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="6dp"
+            app:cardBackgroundColor="?attr/colorSurfaceVariant"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="14dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="8dp">
+
+                <!-- Webpage Info Row (Globe icon + Title + URL) -->
+                <LinearLayout
+                    android:id="@+id/containerPageInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:id="@+id/ivCurrentPageFavicon"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_marginEnd="12dp"
+                        android:contentDescription="Webpage"
+                        app:srcCompat="@drawable/ic_web"
+                        app:tint="?attr/colorControlNormal" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvCurrentPageTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            tools:text="Wikipedia, the free encyclopedia" />
+
+                        <TextView
+                            android:id="@+id/tvCurrentPageUrl"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:textSize="12sp"
+                            tools:text="https://en.wikipedia.org/wiki/Main_Page" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Subtle Divider -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="6dp"
+                    android:alpha="0.2"
+                    android:background="?attr/colorOutline" />
+
+                <!-- Action Buttons: Share, Copy, Edit -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <!-- Share -->
+                    <LinearLayout
+                        android:id="@+id/btnCurrentPageShare"
+                        android:layout_width="0dp"
+                        android:layout_height="36dp"
+                        android:layout_weight="1"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_marginEnd="6dp"
+                            android:contentDescription="@string/share"
+                            app:srcCompat="@drawable/ic_share"
+                            app:tint="?attr/colorControlNormal" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/share"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <!-- Copy -->
+                    <LinearLayout
+                        android:id="@+id/btnCurrentPageCopy"
+                        android:layout_width="0dp"
+                        android:layout_height="36dp"
+                        android:layout_weight="1"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_marginEnd="6dp"
+                            android:contentDescription="@string/copy"
+                            app:srcCompat="@drawable/ic_copy"
+                            app:tint="?attr/colorControlNormal" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/copy"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <!-- Edit -->
+                    <LinearLayout
+                        android:id="@+id/btnCurrentPageEdit"
+                        android:layout_width="0dp"
+                        android:layout_height="36dp"
+                        android:layout_weight="1"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_marginEnd="6dp"
+                            android:contentDescription="@string/edit"
+                            app:srcCompat="@drawable/ic_edit"
+                            app:tint="?attr/colorControlNormal" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/edit"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Real-time Search Suggestions List -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvSearchSuggestions"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
+            android:paddingTop="2dp"
+            android:paddingBottom="16dp" />
+
+    </LinearLayout>
 
     <!-- Fullscreen Video/Custom View Container -->
     <FrameLayout

@@ -16,6 +16,9 @@ interface HistoryDao {
     @Query("SELECT * FROM history WHERE title LIKE '%' || :query || '%' OR url LIKE '%' || :query || '%' ORDER BY visitTime DESC")
     fun searchHistoryFlow(query: String): Flow<List<HistoryItem>>
 
+    @Query("SELECT * FROM history WHERE title LIKE '%' || :query || '%' OR url LIKE '%' || :query || '%' ORDER BY visitTime DESC LIMIT :limit")
+    suspend fun searchHistory(query: String, limit: Int = 3): List<HistoryItem>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHistory(item: HistoryItem): Long
 

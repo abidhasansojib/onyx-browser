@@ -26,14 +26,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.SearchEngine
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.data.search.SearchSuggestionRepository
 import com.onyx.browser.databinding.ActivityMainBinding
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
 import com.onyx.browser.ui.browser.TabManager
@@ -42,11 +47,14 @@ import com.onyx.browser.ui.common.SearchEnginePopupMenu
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.menu.MenuBottomSheetDialogFragment
+import com.onyx.browser.ui.search.SuggestionsAdapter
 import com.onyx.browser.ui.tabs.TabSwitcherBottomSheet
 import com.onyx.browser.web.DownloadHandler
 import com.onyx.browser.web.OnyxWebChromeClient
 import com.onyx.browser.web.OnyxWebView
 import com.onyx.browser.web.OnyxWebViewClient
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -55,6 +63,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var tabManager: TabManager
     private lateinit var preferences: BrowserPreferences
+    private lateinit var suggestionRepository: SearchSuggestionRepository
+    private lateinit var suggestionsAdapter: SuggestionsAdapter
+    private var suggestionJob: Job? = null
 
     private var isSearchMode = false
     private var customVideoView: View? = null
@@ -221,8 +232,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         tabManager = TabManager(this, lifecycleScope)
+        val database = AppDatabase.getInstance(this)
+        suggestionRepository = SearchSuggestionRepository(database.historyDao())
 
         setupTopToolbar()
+        setupSearchOverlay()
         setupHomepageInteractions()
         setupBackNavigation()
 
@@ -235,6 +249,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupTopToolbar() {
+        // Back Button in Search Mode (returns to page or homepage)
+        binding.btnSearchBack.setOnClickListener {
+            exitSearchMode()
+        }
+
         // Search Engine Icon
         updateSearchEngineIcon()
         binding.btnSearchEngine.setOnClickListener {
@@ -244,6 +263,10 @@ class MainActivity : AppCompatActivity() {
                 onEngineSelected = { engine ->
                     preferences.searchEngine = engine
                     updateSearchEngineIcon()
+                    val currentQuery = binding.etUrl.text?.toString()?.trim() ?: ""
+                    if (isSearchMode && currentQuery.isNotEmpty()) {
+                        fetchSearchSuggestions(currentQuery)
+                    }
                 }
             )
             popup.show(binding.btnSearchEngine)
@@ -260,10 +283,8 @@ class MainActivity : AppCompatActivity() {
 
         // Address Bar Focus & Search Mode
         binding.etUrl.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
+            if (hasFocus && !isSearchMode) {
                 enterSearchMode()
-            } else {
-                exitSearchMode()
             }
         }
 
@@ -273,11 +294,32 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.searchBarContainer.setOnClickListener {
+            if (!isSearchMode) {
+                enterSearchMode()
+            }
+        }
+
         binding.etUrl.doAfterTextChanged { text ->
             if (isSearchMode) {
-                val hasText = !text.isNullOrEmpty()
+                val query = text?.toString()?.trim() ?: ""
+                val hasText = query.isNotEmpty()
                 binding.btnClearUrl.visibility = if (hasText) View.VISIBLE else View.GONE
                 binding.btnVoiceSearch.visibility = if (hasText) View.GONE else View.VISIBLE
+
+                val currentTab = tabManager.activeTab.value
+                val hasCurrentUrl = !currentTab?.url.isNullOrBlank()
+
+                if (hasText) {
+                    binding.cardCurrentPage.visibility = View.GONE
+                    fetchSearchSuggestions(query)
+                } else {
+                    if (hasCurrentUrl) {
+                        binding.cardCurrentPage.visibility = View.VISIBLE
+                    }
+                    suggestionJob?.cancel()
+                    suggestionsAdapter.submitList(emptyList())
+                }
             }
         }
 
@@ -561,6 +603,9 @@ class MainActivity : AppCompatActivity() {
         val activeTab = tabManager.activeTab.value ?: tabManager.createNewTab()
         tabManager.updateActiveTab(url, url)
         showWebView(activeTab, forceUrl = url)
+        if (isSearchMode) {
+            exitSearchMode()
+        }
     }
 
     private fun isLikelyUrl(input: String): Boolean {
@@ -574,27 +619,146 @@ class MainActivity : AppCompatActivity() {
         return domainRegex.matches(input)
     }
 
-    private fun enterSearchMode() {
-        isSearchMode = true
-        binding.ivSslLock.visibility = View.GONE
-        binding.btnVoiceSearch.visibility = View.VISIBLE
+    private fun setupSearchOverlay() {
+        suggestionsAdapter = SuggestionsAdapter(
+            onSuggestionClicked = { suggestion ->
+                performSearchOrLoad(suggestion.queryOrUrl)
+                hideSoftKeyboard()
+            },
+            onInsertClicked = { suggestion ->
+                binding.etUrl.setText(suggestion.queryOrUrl)
+                binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
+            }
+        )
+        binding.rvSearchSuggestions.layoutManager = LinearLayoutManager(this)
+        binding.rvSearchSuggestions.adapter = suggestionsAdapter
 
-        val currentTab = tabManager.activeTab.value
-        if (!currentTab?.url.isNullOrBlank()) {
-            binding.etUrl.setText(currentTab?.url)
-            binding.etUrl.selectAll()
+        // Current Webpage Card Actions: Share, Copy, Edit
+        binding.btnCurrentPageShare.setOnClickListener {
+            val currentTab = tabManager.activeTab.value
+            val url = currentTab?.url ?: ""
+            if (url.isNotBlank()) {
+                val sendIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, url)
+                    type = "text/plain"
+                }
+                startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
+            }
         }
 
-        showSoftKeyboard()
+        binding.btnCurrentPageCopy.setOnClickListener {
+            val currentTab = tabManager.activeTab.value
+            val url = currentTab?.url ?: ""
+            if (url.isNotBlank()) {
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                val clip = ClipData.newPlainText("URL", url)
+                clipboard?.setPrimaryClip(clip)
+                Toast.makeText(this, getString(R.string.link_copied), Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Edit button populates the clean search bar with this URL so user can customize it
+        binding.btnCurrentPageEdit.setOnClickListener {
+            val currentTab = tabManager.activeTab.value
+            val url = currentTab?.url ?: ""
+            if (url.isNotBlank()) {
+                binding.etUrl.setText(url)
+                binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
+                binding.etUrl.requestFocus()
+                showSoftKeyboard()
+            }
+        }
+
+        binding.containerPageInfo.setOnClickListener {
+            val currentTab = tabManager.activeTab.value
+            val url = currentTab?.url ?: ""
+            if (url.isNotBlank()) {
+                binding.etUrl.setText(url)
+                binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
+                binding.etUrl.requestFocus()
+                showSoftKeyboard()
+            }
+        }
     }
 
-    private fun exitSearchMode() {
-        isSearchMode = false
+    private fun enterSearchMode() {
+        if (isSearchMode) return
+        isSearchMode = true
+
+        // 1. Transform top toolbar into search mode
+        binding.btnHome.visibility = View.GONE
+        binding.btnSearchBack.visibility = View.VISIBLE
+        binding.btnTabSwitcher.visibility = View.GONE
+        binding.btnMenu.visibility = View.GONE
+        binding.ivSslLock.visibility = View.GONE
+
+        // 2. Open Search Overlay Page
+        binding.searchOverlay.visibility = View.VISIBLE
+
+        // 3. Configure Current Webpage Card under search bar
+        val currentTab = tabManager.activeTab.value
+        val hasCurrentUrl = !currentTab?.url.isNullOrBlank()
+
+        if (hasCurrentUrl) {
+            binding.cardCurrentPage.visibility = View.VISIBLE
+            binding.tvCurrentPageTitle.text = currentTab?.title?.ifBlank { currentTab.url } ?: ""
+            binding.tvCurrentPageUrl.text = currentTab?.url ?: ""
+        } else {
+            binding.cardCurrentPage.visibility = View.GONE
+        }
+
+        // Clean search bar for fresh input as requested
+        binding.etUrl.setText("")
+        binding.etUrl.hint = getString(R.string.search_or_type_url)
         binding.btnClearUrl.visibility = View.GONE
         binding.btnVoiceSearch.visibility = View.VISIBLE
 
+        // 4. Focus search bar & show keyboard
+        binding.etUrl.requestFocus()
+        showSoftKeyboard()
+
+        // 5. Reset suggestions list
+        suggestionsAdapter.submitList(emptyList())
+    }
+
+    private fun exitSearchMode() {
+        if (!isSearchMode) return
+        isSearchMode = false
+
+        suggestionJob?.cancel()
+
+        // 1. Restore top toolbar
+        binding.btnSearchBack.visibility = View.GONE
+        binding.btnHome.visibility = View.VISIBLE
+        binding.btnTabSwitcher.visibility = View.VISIBLE
+        binding.btnMenu.visibility = View.VISIBLE
+        binding.btnClearUrl.visibility = View.GONE
+        binding.btnVoiceSearch.visibility = View.VISIBLE
+
+        // 2. Hide search overlay
+        binding.searchOverlay.visibility = View.GONE
+        binding.cardCurrentPage.visibility = View.GONE
+        suggestionsAdapter.submitList(emptyList())
+
+        // 3. Hide keyboard & clear focus
+        hideSoftKeyboard()
+        binding.etUrl.clearFocus()
+
+        // 4. Restore address bar host display
         val currentTab = tabManager.activeTab.value
         updateAddressBarDisplay(currentTab?.url ?: "")
+    }
+
+    private fun fetchSearchSuggestions(query: String) {
+        suggestionJob?.cancel()
+        suggestionJob = lifecycleScope.launch {
+            delay(150)
+            val suggestions = suggestionRepository.getSuggestions(query, preferences.searchEngine)
+            if (isSearchMode) {
+                suggestionsAdapter.submitList(suggestions)
+            }
+        }
     }
 
     private fun updateAddressBarDisplay(url: String) {
@@ -728,8 +892,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (isSearchMode) {
-                    binding.etUrl.clearFocus()
-                    hideSoftKeyboard()
+                    exitSearchMode()
                     return
                 }
 

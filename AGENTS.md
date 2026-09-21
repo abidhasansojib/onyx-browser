@@ -101,11 +101,16 @@ onyx-browser/
   - Hardware-accelerated rendering & privacy: `LAYER_TYPE_HARDWARE` enabled, third-party cookies blocked, deprecated render priority cleaned.
 - [/] UI Refinement & Modernization Phase (ACTIVE - No build until user confirms):
   - [x] Remove diamond gemstone emblem from homepage logo and vector drawable (`ic_logo_onyx.xml`), center the clean geometric ONYX wordmark, and update subtitle to "Fast and Private" (`tagline_fast_and_private`).
-  - [ ] Homepage visual polish: Speed dials / custom shortcuts management (add, edit, remove), sleek modern search bar styling, customizable AMOLED layout.
-  - [ ] Interactive Tab Switcher UX: Grid view card previews, smooth swipe-to-dismiss tabs, clear all tabs action, incognito toggle indicator.
-  - [ ] Address Bar & Search UI: Interactive search suggestions dropdown, URL copy/share chip in search mode, SSL certificate security modal.
-  - [ ] Bottom Navigation Bar option (modern one-handed reachability toggle: top vs. bottom toolbar).
-  - [ ] Menus & Sheets UI: Polished bottom sheet menus with quick toggles (Desktop site, Dark mode, Reader mode, Adblock toggle with blocked count badge).
+  - [x] Dedicated Full-Page Search Mode & Webpage Action Card:
+    - Tap search bar opens full-page search overlay with back button and clean input ready for fresh search.
+    - Current Webpage Card displayed beneath search bar with Favicon, Title, URL, and 3 quick action buttons: Share (`ic_share`), Copy (`ic_copy`), and Edit (`ic_edit` populates the clean search bar with current URL for customization).
+  - [x] Universal Real-time Search Suggestions Engine (`SearchSuggestionRepository` & `SuggestionsAdapter`):
+    - Full OpenSearch and JSON API support across all 6 search engines: Brave, Google, DuckDuckGo, Bing, Startpage, Yahoo.
+    - Blended local browsing history suggestions (`HistoryDao.searchHistory`).
+    - Diagonal insert arrow button (`ic_insert_query`) on each suggestion to append/customize query without immediate submission.
+  - [x] Fixed "Set as Default Browser":
+    - Added `<category android:name="android.intent.category.APP_BROWSER" />` and `WEB_SEARCH` action in `AndroidManifest.xml` to qualify for system browser role.
+    - Replaced unhandled `startActivity` with `registerForActivityResult(StartActivityForResult())` on `RoleManager.createRequestRoleIntent(ROLE_BROWSER)` and robust multi-step OEM fallback intents (`ACTION_MANAGE_DEFAULT_APPS_SETTINGS`, application details, and general settings).
 
 
 
