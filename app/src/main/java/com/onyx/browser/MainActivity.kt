@@ -545,6 +545,12 @@ class MainActivity : AppCompatActivity() {
         })
         // touchHelper.attachToRecyclerView(home.rvShortcuts)
 
+        // Manage Shortcuts button (pencil icon in the section header)
+        home.btnManageShortcuts.setOnClickListener {
+            val sheet = ManageShortcutsBottomSheet()
+            sheet.show(supportFragmentManager, ManageShortcutsBottomSheet.TAG)
+        }
+
         // Observe shortcuts flow
         lifecycleScope.launch {
             preferences.shortcutsFlow.collectLatest { shortcuts ->
@@ -746,30 +752,33 @@ class MainActivity : AppCompatActivity() {
             onPermissionRequestCallback = { request ->
                 handleWebPermissionRequest(request)
             },
-            onCreateWindowCallback = { _, _, _, resultMsg ->
-                if (resultMsg != null) {
+            onCreateWindowCallback = { _, isDialog, isUserGesture, resultMsg ->
+                // Only open a new tab when triggered by an explicit user gesture (tap/click).
+                // Script-driven window.open() calls (ads, pop-unders, redirect loops) have
+                // isUserGesture=false and must be silently blocked.
+                if (!isUserGesture || resultMsg == null) {
+                    false
+                } else {
                     val newTab = tabManager.createNewTab()
                     val newWebView = tabManager.getOrCreateWebView(newTab)
-                    
+
                     // Pre-setup the clients before passing it back, so it instantly has download listeners
                     setupWebViewClients(newWebView)
-                    
+
                     val transport = resultMsg.obj as? WebView.WebViewTransport
                     if (transport != null) {
                         transport.webView = newWebView
                         resultMsg.sendToTarget()
-                        
+
                         // Force show the WebView regardless of the URL being blank
                         currentDisplayedTabId = newTab.id
                         updateTabBadgeCount()
                         showWebView(newTab)
-                        
+
                         true
                     } else {
                         false
                     }
-                } else {
-                    false
                 }
             },
             onCloseWindowCallback = {

@@ -335,13 +335,22 @@ class BrowserPreferences private constructor(context: Context) {
                 saveShortcuts(defaults)
                 defaults
             } else {
-                if (!prefs.getBoolean("migrated_unified_shortcuts_v1", false)) {
-                    val defaults = ShortcutItem.getDefaultShortcuts().filter { it.id.startsWith("sys_") }
-                    list.addAll(0, defaults) // Add to top
-                    saveShortcuts(list)
-                    prefs.edit().putBoolean("migrated_unified_shortcuts_v1", true).apply()
+                // Deduplication-safe migration: add missing sys_ defaults at the top,
+                // only if they are not already present by ID. Mark done IMMEDIATELY so
+                // it never re-runs even if the app is killed before the next save.
+                if (!prefs.getBoolean("migrated_unified_shortcuts_v2", false)) {
+                    prefs.edit().putBoolean("migrated_unified_shortcuts_v2", true).apply()
+                    val existingIds = list.map { it.id }.toSet()
+                    val missingSysItems = ShortcutItem.getDefaultShortcuts()
+                        .filter { it.id.startsWith("sys_") && !existingIds.contains(it.id) }
+                    if (missingSysItems.isNotEmpty()) {
+                        list.addAll(0, missingSysItems)
+                    }
                 }
-                list
+                // Always deduplicate by id before returning to fix any historic doubles.
+                val deduped = list.distinctBy { it.id }
+                if (deduped.size != list.size) saveShortcuts(deduped)
+                deduped
             }
         } catch (_: Exception) {
             val defaults = ShortcutItem.getDefaultShortcuts()

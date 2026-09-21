@@ -50,7 +50,10 @@ class OnyxWebView @JvmOverloads constructor(
             domStorageEnabled = true
             databaseEnabled = true
             setSupportMultipleWindows(true)
-            javaScriptCanOpenWindowsAutomatically = true
+            // Set to false so ALL window.open() calls are routed through our
+            // onCreateWindow callback — where we enforce the isUserGesture gate.
+            // This prevents ad scripts from bypassing the callback entirely.
+            javaScriptCanOpenWindowsAutomatically = false
 
             // Performance & Rendering
             cacheMode = WebSettings.LOAD_DEFAULT

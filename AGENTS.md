@@ -360,3 +360,13 @@ onyx-browser/
       - Horizontal category filter chips: All, Core, Privacy, Annoyances, Social, Regional.
       - Real-time combined filtering matching selected category and text search query.
       - Real-time update progress indicator with active download status.
+- [x] **Unwanted tab creation fix** (`OnyxWebView.kt`, `MainActivity.kt`):
+  - Root cause: `javaScriptCanOpenWindowsAutomatically = true` meant ad scripts could directly spawn new tabs without going through our `onCreateWindow` callback. Even when the callback was hit, the original code didn't check `isUserGesture`, so ALL `window.open()` calls (ads, pop-unders, redirect scripts) created real browser tabs.
+  - Fix 1: Set `javaScriptCanOpenWindowsAutomatically = false` in `OnyxWebView` — forces ALL `window.open()` requests to route through `onCreateWindow`.
+  - Fix 2: Gated `onCreateWindowCallback` in `MainActivity` on `isUserGesture == true` — only explicit user taps/clicks on links open new tabs. Script-triggered opens silently return `false`.
+- [x] **Duplicate homepage shortcuts glitch fix** (`BrowserPreferences.kt`):
+  - Root cause: The `migrated_unified_shortcuts_v1` migration in `getShortcuts()` wrote the prefs flag AFTER mutating and saving the list. Any app kill between the `saveShortcuts()` and the `putBoolean` commit caused the migration to re-run on next cold start, prepending sys_ items again and again — creating Bookmarks/History/Downloads/QR duplicates.
+  - Fix: New `migrated_unified_shortcuts_v2` migration writes the flag **first** (atomically), then only inserts sys_ defaults that are absent by ID. The entire list is always passed through `distinctBy { it.id }` before being returned, cleaning up any pre-existing duplicates stored in SharedPreferences.
+- [x] **Homepage "Manage Shortcuts" button** (`fragment_home.xml`, `MainActivity.kt`):
+  - Added a "SHORTCUTS" section label row with a pencil (`ic_edit`) icon button (`btnManageShortcuts`) positioned between the guide center and the `rvShortcuts` grid.
+  - Wired `btnManageShortcuts.setOnClickListener` in `setupHomepageInteractions()` to open `ManageShortcutsBottomSheet`, giving users a permanent visible entry point to add, edit, delete, and reorder their homepage shortcuts.

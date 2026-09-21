@@ -103,12 +103,50 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <!-- ── Shortcuts Section Header with Manage button ──────────────── -->
+        <LinearLayout
+            android:id="@+id/shortcutsSectionHeader"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
+            android:paddingTop="4dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/guideCenter"
+            app:layout_constraintWidth_max="480dp">
+
+            <TextView
+                android:id="@+id/tvShortcutsHeader"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/shortcuts"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="11sp"
+                android:letterSpacing="0.06"
+                android:textAllCaps="true" />
+
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/btnManageShortcuts"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/manage_shortcuts"
+                android:padding="4dp"
+                app:srcCompat="@drawable/ic_edit"
+                app:tint="?android:attr/textColorSecondary" />
+
+        </LinearLayout>
+
         <!-- ── Unified Grid ────────────────────────────────────── -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvShortcuts"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="4dp"
             android:layout_marginBottom="36dp"
             android:elevation="0dp"
             android:nestedScrollingEnabled="false"
@@ -117,7 +155,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/guideCenter"
+            app:layout_constraintTop_toBottomOf="@id/shortcutsSectionHeader"
             app:layout_constraintVertical_bias="0.0"
             app:layout_constraintWidth_max="480dp" />
 
