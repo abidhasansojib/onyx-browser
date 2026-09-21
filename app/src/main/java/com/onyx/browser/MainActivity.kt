@@ -269,7 +269,7 @@ class MainActivity : AppCompatActivity() {
         tabManager = TabManager(this, lifecycleScope)
         
         binding.swipeRefreshLayout.setOnRefreshListener { 
-            tabManager.getCurrentTab()?.webView?.reload() 
+            tabManager.getActiveWebView()?.reload() 
         }
 
         val database = AppDatabase.getInstance(this)

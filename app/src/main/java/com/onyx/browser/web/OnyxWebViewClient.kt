@@ -220,7 +220,7 @@ class OnyxWebViewClient(
                     }
                 })();
             """.trimIndent()
-            view.evaluateJavascript(js, null)
+            view?.evaluateJavascript(js, null)
         }
 
         if (preferences.isAdBlockEnabled && preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE && !isWhitelisted) {
@@ -236,7 +236,7 @@ class OnyxWebViewClient(
                     window.google_ad_height = window.innerHeight;
                 })();
             """.trimIndent()
-            view.evaluateJavascript(js, null)
+            view?.evaluateJavascript(js, null)
         }
 
         if (preferences.isDoNotTrackEnabled) {
@@ -245,7 +245,7 @@ class OnyxWebViewClient(
                     Object.defineProperty(navigator, 'doNotTrack', { get: function() { return '1'; } });
                 })();
             """.trimIndent()
-            view.evaluateJavascript(dntJs, null)
+            view?.evaluateJavascript(dntJs, null)
         }
 
         // Cosmetic element hiding (CSS injection)
@@ -345,7 +345,7 @@ class OnyxWebViewClient(
         """.trimIndent()
 
         view?.post {
-            try { view.evaluateJavascript(js, null) } catch (_: Throwable) {}
+            try { view?.evaluateJavascript(js, null) } catch (_: Throwable) {}
         }
     }
 
@@ -424,7 +424,7 @@ class OnyxWebViewClient(
         """.trimIndent()
 
         view?.post {
-            try { view.evaluateJavascript(js, null) } catch (_: Throwable) {}
+            try { view?.evaluateJavascript(js, null) } catch (_: Throwable) {}
         }
     }
 }
