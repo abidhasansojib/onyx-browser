@@ -26,6 +26,29 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreBase64 = System.getenv("KEYSTORE_BASE64")
+            if (keystoreBase64 != null) {
+                // CI path: decode keystore from base64 env var into a temp file
+                val keystoreFile = File(buildDir, "release.keystore")
+                keystoreFile.parentFile.mkdirs()
+                keystoreFile.writeBytes(android.util.Base64.decode(keystoreBase64, android.util.Base64.DEFAULT))
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            } else {
+                // Local path: fall back to debug signing so local builds still work
+                val debugConfig = signingConfigs.getByName("debug")
+                storeFile = debugConfig.storeFile
+                storePassword = debugConfig.storePassword
+                keyAlias = debugConfig.keyAlias
+                keyPassword = debugConfig.keyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -33,7 +56,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             applicationIdSuffix = ".debug"

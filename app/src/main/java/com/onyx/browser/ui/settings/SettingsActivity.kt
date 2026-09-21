@@ -125,15 +125,11 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.settingDownloadManagerRow.setOnClickListener {
             val currentIndex = preferences.downloadManagerBehavior.coerceIn(0, 2)
-            AlertDialog.Builder(this)
-                .setTitle("Download Manager")
-                .setSingleChoiceItems(options, currentIndex) { dialog, which ->
-                    preferences.downloadManagerBehavior = which
-                    updateLabel()
-                    dialog.dismiss()
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
+            val sheet = DownloadManagerPickerSheet(currentIndex) { which ->
+                preferences.downloadManagerBehavior = which
+                updateLabel()
+            }
+            sheet.show(supportFragmentManager, DownloadManagerPickerSheet.TAG)
         }
     }
 }

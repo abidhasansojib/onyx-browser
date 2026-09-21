@@ -112,7 +112,12 @@ class PasskeyWebAuthnBridge(
                     } catch (_: CreateCredentialCancellationException) {
                         sendError(callbackId, "NotAllowedError", "User cancelled passkey creation")
                     } catch (e: CreateCredentialException) {
-                        sendError(callbackId, "InvalidStateError", e.message ?: "Passkey creation failed")
+                        if (e.message?.contains("signature", ignoreCase = true) == true ||
+                            e.message?.contains("match", ignoreCase = true) == true) {
+                            sendError(callbackId, "InvalidStateError", "App signing certificate mismatch. Please use a consistent release keystore.")
+                        } else {
+                            sendError(callbackId, "InvalidStateError", e.message ?: "Passkey creation failed")
+                        }
                     } catch (t: Throwable) {
                         sendError(callbackId, "UnknownError", t.message ?: "Passkey creation failed")
                     }
@@ -208,7 +213,12 @@ class PasskeyWebAuthnBridge(
                     } catch (_: GetCredentialCancellationException) {
                         sendError(callbackId, "NotAllowedError", "User cancelled passkey authentication")
                     } catch (e: GetCredentialException) {
-                        sendError(callbackId, "InvalidStateError", e.message ?: "Passkey authentication failed")
+                        if (e.message?.contains("signature", ignoreCase = true) == true ||
+                            e.message?.contains("match", ignoreCase = true) == true) {
+                            sendError(callbackId, "InvalidStateError", "App signing certificate mismatch. Please use a consistent release keystore.")
+                        } else {
+                            sendError(callbackId, "InvalidStateError", e.message ?: "Passkey authentication failed")
+                        }
                     } catch (t: Throwable) {
                         sendError(callbackId, "UnknownError", t.message ?: "Passkey authentication failed")
                     }

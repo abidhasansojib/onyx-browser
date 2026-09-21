@@ -1402,7 +1402,21 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateSearchEngineIcon()
-        tabManager.getActiveWebView()?.onResume()
+        val wv = tabManager.getActiveWebView()
+        wv?.onResume()
+        binding.root.post {
+            wv?.resumeTimers()
+            wv?.requestFocus()
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            val wv = tabManager.getActiveWebView()
+            wv?.resumeTimers()
+            wv?.requestFocus()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

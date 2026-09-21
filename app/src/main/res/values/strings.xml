@@ -313,4 +313,14 @@
     <string name="filter_category_annoyance">Annoyances</string>
     <string name="filter_category_social">Social</string>
     <string name="filter_category_regional">Regional</string>
+
+    <!-- Download Manager Picker Sheet -->
+    <string name="download_manager">Download Manager</string>
+    <string name="download_manager_subtitle">Choose how downloads are handled</string>
+    <string name="download_ask">Ask before download</string>
+    <string name="download_ask_desc">Show a dialog each time to choose internal or external downloader</string>
+    <string name="download_internal">Internal downloader</string>
+    <string name="download_internal_desc">Always use the built-in Onyx Downloader</string>
+    <string name="download_external">External download manager</string>
+    <string name="download_external_desc">Always hand off downloads to a third-party app (1DM, ADM, FDM…)</string>
 </resources>

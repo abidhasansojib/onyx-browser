@@ -1,8 +1,13 @@
 package com.onyx.browser.ui.home
 
+import android.annotation.SuppressLint
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.onyx.browser.R
 import com.onyx.browser.data.model.ShortcutItem
@@ -10,15 +15,35 @@ import com.onyx.browser.databinding.ItemManageShortcutBinding
 
 class ManageShortcutsAdapter(
     private val onEditClick: (ShortcutItem) -> Unit,
-    private val onDeleteClick: (ShortcutItem) -> Unit
-) : RecyclerView.Adapter<ManageShortcutsAdapter.ManageViewHolder>() {
+    private val onDeleteClick: (ShortcutItem) -> Unit,
+    private val onOrderChanged: (List<ShortcutItem>) -> Unit = {}
+) : ListAdapter<ShortcutItem, ManageShortcutsAdapter.ManageViewHolder>(DIFF_CALLBACK) {
 
+    /** Attached by ManageShortcutsBottomSheet so drag handles can start drags. */
+    var touchHelper: ItemTouchHelper? = null
+
+    // ── Mutable working copy kept in sync with ListAdapter's current list ──
     private val items = mutableListOf<ShortcutItem>()
 
-    fun submitList(newItems: List<ShortcutItem>) {
+    override fun submitList(list: List<ShortcutItem>?) {
+        val newList = list ?: emptyList()
         items.clear()
-        items.addAll(newItems)
-        notifyDataSetChanged()
+        items.addAll(newList)
+        super.submitList(newList.toList())
+    }
+
+    /** Returns a snapshot of the current ordered list. */
+    fun getItems(): List<ShortcutItem> = items.toList()
+
+    /**
+     * Moves an item from [from] to [to] position and notifies the adapter.
+     * Called by ItemTouchHelper during an active drag.
+     */
+    fun moveItem(from: Int, to: Int) {
+        if (from < 0 || to < 0 || from >= items.size || to >= items.size) return
+        val moved = items.removeAt(from)
+        items.add(to, moved)
+        notifyItemMoved(from, to)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ManageViewHolder {
@@ -36,9 +61,20 @@ class ManageShortcutsAdapter(
 
     override fun getItemCount(): Int = items.size
 
+    @SuppressLint("ClickableViewAccessibility")
     inner class ManageViewHolder(
         private val binding: ItemManageShortcutBinding
     ) : RecyclerView.ViewHolder(binding.root) {
+
+        init {
+            // Touch listener on the drag handle triggers the ItemTouchHelper drag
+            binding.ivDragHandle.setOnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    touchHelper?.startDrag(this)
+                }
+                false
+            }
+        }
 
         fun bind(item: ShortcutItem) {
             binding.tvManageTitle.text = item.title.ifBlank {
@@ -103,6 +139,16 @@ class ManageShortcutsAdapter(
             binding.btnDeleteShortcut.setOnClickListener {
                 onDeleteClick(item)
             }
+        }
+    }
+
+    companion object {
+        private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<ShortcutItem>() {
+            override fun areItemsTheSame(old: ShortcutItem, new: ShortcutItem): Boolean =
+                old.id == new.id
+
+            override fun areContentsTheSame(old: ShortcutItem, new: ShortcutItem): Boolean =
+                old == new
         }
     }
 }

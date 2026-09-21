@@ -10,7 +10,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.color.MaterialColors
 import com.onyx.browser.R
@@ -53,6 +55,37 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
 
         binding.rvManageShortcuts.layoutManager = LinearLayoutManager(requireContext())
         binding.rvManageShortcuts.adapter = adapter
+
+        // ── Drag-to-reorder support ───────────────────────────────────────
+        val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
+        ) {
+            override fun onMove(
+                rv: RecyclerView,
+                vh: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val from = vh.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                if (from != RecyclerView.NO_POSITION && to != RecyclerView.NO_POSITION) {
+                    adapter.moveItem(from, to)
+                }
+                return true
+            }
+
+            override fun onSwiped(vh: RecyclerView.ViewHolder, dir: Int) {
+                // Swipe-to-dismiss not used
+            }
+
+            override fun clearView(rv: RecyclerView, vh: RecyclerView.ViewHolder) {
+                super.clearView(rv, vh)
+                // Persist the new order after the drag gesture ends
+                preferences.saveShortcuts(adapter.getItems())
+            }
+        })
+        touchHelper.attachToRecyclerView(binding.rvManageShortcuts)
+        // Give the adapter a reference so drag handles can initiate drags
+        adapter.touchHelper = touchHelper
 
         binding.btnClose.setOnClickListener {
             dismiss()

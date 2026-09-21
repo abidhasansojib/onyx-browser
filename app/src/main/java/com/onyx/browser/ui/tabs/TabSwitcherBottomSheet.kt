@@ -17,7 +17,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.tabs.TabLayout
+import com.google.android.material.button.MaterialButtonToggleGroup
 import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.TabItem
@@ -142,16 +142,17 @@ class TabSwitcherBottomSheet(
             onSearchRequested?.invoke()
         }
 
-        binding.tabModeLayout.getTabAt(if (isViewingIncognito) 1 else 0)?.select()
+        // Set initial selection
+        binding.tabModeToggle.check(
+            if (isViewingIncognito) R.id.btnIncognitoTabs else R.id.btnNormalTabs
+        )
 
-        binding.tabModeLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: TabLayout.Tab?) {
-                isViewingIncognito = (tab?.position == 1)
+        binding.tabModeToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (isChecked) {
+                isViewingIncognito = (checkedId == R.id.btnIncognitoTabs)
                 refreshTabsList()
             }
-            override fun onTabUnselected(tab: TabLayout.Tab?) {}
-            override fun onTabReselected(tab: TabLayout.Tab?) {}
-        })
+        }
 
         binding.btnTabSwitcherOverflow.setOnClickListener { v ->
             showOverflowMenu(v)

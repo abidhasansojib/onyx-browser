@@ -33,49 +33,48 @@
             app:layout_constraintTop_toTopOf="parent"
             app:tint="?attr/colorControlNormal" />
 
-        <!-- Center: Segmented pill — Normal / Incognito
-             Background is bg_tab_mode_selector (colorSurfaceVariant pill).
-             The sliding indicator uses @color/primary at 20% alpha as a filled
-             rounded rect (tabIndicatorFullWidth + tabIndicatorGravity="center").
-             tabSelectedTextColor/@color/primary, unselected = textColorSecondary. -->
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/tabModeLayout"
+        <!-- Center: Normal / Incognito toggle — MaterialButtonToggleGroup
+             Replaces the old TabLayout whose sliding indicator obscured tab text. -->
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/tabModeToggle"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="38dp"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
-            android:background="@drawable/bg_tab_mode_selector"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/btnTabSwitcherOverflow"
             app:layout_constraintStart_toEndOf="@id/btnSearchTabSwitcher"
             app:layout_constraintTop_toTopOf="parent"
-            app:tabGravity="fill"
-            app:tabIconTint="@color/tab_mode_icon_tint"
-            app:tabIndicatorColor="@color/primary"
-            app:tabIndicatorFullWidth="true"
-            app:tabIndicatorGravity="center"
-            app:tabIndicatorHeight="36dp"
-            app:tabInlineLabel="true"
-            app:tabMode="fixed"
-            app:tabPaddingStart="10dp"
-            app:tabPaddingEnd="10dp"
-            app:tabRippleColor="?attr/colorControlHighlight"
-            app:tabSelectedTextColor="@color/on_primary"
-            app:tabTextAppearance="@style/TextAppearance.Material3.LabelSmall"
-            app:tabTextColor="?android:attr/textColorSecondary">
+            app:singleSelection="true"
+            app:selectionRequired="true">
 
-            <com.google.android.material.tabs.TabItem
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnNormalTabs"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:icon="@drawable/ic_tabs"
-                android:text="@string/normal_tabs" />
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="@string/normal_tabs"
+                android:textSize="12sp"
+                app:icon="@drawable/ic_tabs"
+                app:iconSize="16dp"
+                app:iconGravity="textStart"
+                app:strokeColor="?attr/colorOutline" />
 
-            <com.google.android.material.tabs.TabItem
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnIncognitoTabs"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:icon="@drawable/ic_incognito"
-                android:text="@string/incognito_tabs" />
-        </com.google.android.material.tabs.TabLayout>
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="@string/incognito_tabs"
+                android:textSize="12sp"
+                app:icon="@drawable/ic_incognito"
+                app:iconSize="16dp"
+                app:iconGravity="textStart"
+                app:strokeColor="?attr/colorOutline" />
+
+        </com.google.android.material.button.MaterialButtonToggleGroup>
 
         <!-- Right: 3-dot overflow -->
         <androidx.appcompat.widget.AppCompatImageButton
