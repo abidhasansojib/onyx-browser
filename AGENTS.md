@@ -184,11 +184,12 @@ onyx-browser/
       - Warm / Running State: Overrode `onNewIntent(intent)` to immediately handle new links delivered while the app is alive.
       - Tab Routing Policy: If the active tab is an unused blank normal tab (home screen), it reuses that tab; if the active tab is displaying a website or is incognito, it spawns a new normal tab with the incoming URL and displays it immediately.
       - URL & Query Extraction: Robust parsing supporting direct URIs, `EXTRA_TEXT` (direct links or links embedded within message text), and search queries.
-  - [x] Dedicated Onyx Downloader Page & External Downloader Integration:
-    - Replaced legacy popup dialog with a dedicated full page `DownloadPromptActivity` with Material Box UI:
-      - Title: "Onyx Downloader".
-      - File Details Card: File type icon, uppercase extension badge, formatted size, editable file name input with clear text icon, MIME type.
-      - Website Details Card: Domain name, full URL with one-tap copy button, referer details, and active "Session cookies & headers forwarded" indicator with green shield lock icon.
+  - [x] Dedicated Onyx Downloader Popup Menu & External Downloader Integration:
+    - Download Prompt Popup Menu (`DownloadPromptBottomSheet.kt` & `bottom_sheet_download_prompt.xml`):
+      - Replaced full-page activity with a bottom sheet modal popup menu matching the 3-dot menu experience, smoothly sliding over the active webpage without disrupting browsing state.
+      - Header: "Onyx Downloader" title with download badge and close button.
+      - File Details Card: Uppercase extension badge, formatted size, editable file name input with clear text icon, MIME type.
+      - Website Details Card: Domain name, full URL with one-tap copy button, and active "Session cookies & headers forwarded" indicator with green shield lock icon.
       - Session & Security Forwarding: Automatically extracts and forwards `Cookie` (from `CookieManager`), `User-Agent`, and `Referer` to internal and external downloaders to ensure authenticated cloud storage, forums, and protected links download successfully.
       - Download Button: Triggers built-in Onyx / Android system download with complete headers and records in Room database.
       - External Downloader Button with Smart Dispatch:

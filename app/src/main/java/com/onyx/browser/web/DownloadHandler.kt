@@ -10,10 +10,12 @@ import android.webkit.CookieManager
 import android.webkit.URLUtil
 import android.widget.Toast
 import com.onyx.browser.MainActivity
+import androidx.fragment.app.FragmentActivity
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.DownloadItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.downloads.DownloadPromptActivity
+import com.onyx.browser.ui.downloads.DownloadPromptBottomSheet
 import com.onyx.browser.ui.downloads.ExternalDownloaderHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,16 +44,29 @@ object DownloadHandler {
 
         val preferences = BrowserPreferences.getInstance(activity)
         if (preferences.askBeforeDownload) {
-            val intent = Intent(activity, DownloadPromptActivity::class.java).apply {
-                putExtra(DownloadPromptActivity.EXTRA_URL, url)
-                putExtra(DownloadPromptActivity.EXTRA_USER_AGENT, userAgent)
-                putExtra(DownloadPromptActivity.EXTRA_CONTENT_DISPOSITION, contentDisposition)
-                putExtra(DownloadPromptActivity.EXTRA_MIME_TYPE, mimeType)
-                putExtra(DownloadPromptActivity.EXTRA_CONTENT_LENGTH, contentLength)
-                putExtra(DownloadPromptActivity.EXTRA_COOKIES, resolvedCookies)
-                putExtra(DownloadPromptActivity.EXTRA_REFERER, referer)
+            if (activity is FragmentActivity) {
+                val sheet = DownloadPromptBottomSheet.newInstance(
+                    url = url,
+                    userAgent = userAgent,
+                    contentDisposition = contentDisposition,
+                    mimeType = mimeType,
+                    contentLength = contentLength,
+                    cookies = resolvedCookies,
+                    referer = referer
+                )
+                sheet.show(activity.supportFragmentManager, DownloadPromptBottomSheet.TAG)
+            } else {
+                val intent = Intent(activity, DownloadPromptActivity::class.java).apply {
+                    putExtra(DownloadPromptActivity.EXTRA_URL, url)
+                    putExtra(DownloadPromptActivity.EXTRA_USER_AGENT, userAgent)
+                    putExtra(DownloadPromptActivity.EXTRA_CONTENT_DISPOSITION, contentDisposition)
+                    putExtra(DownloadPromptActivity.EXTRA_MIME_TYPE, mimeType)
+                    putExtra(DownloadPromptActivity.EXTRA_CONTENT_LENGTH, contentLength)
+                    putExtra(DownloadPromptActivity.EXTRA_COOKIES, resolvedCookies)
+                    putExtra(DownloadPromptActivity.EXTRA_REFERER, referer)
+                }
+                activity.startActivity(intent)
             }
-            activity.startActivity(intent)
         } else {
             val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
             startSystemDownload(
