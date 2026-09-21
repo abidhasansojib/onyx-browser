@@ -389,4 +389,9 @@ onyx-browser/
   - **Image Preview**: Added 170dp rounded card preview with loading indicator and tap-to-expand badge, plus dedicated "Preview image" action row opening `ImagePreviewDialog` full-screen image viewer.
   - **Reverse Image Search**: Added "Search by image" option with chevron opening `ImageSearchPickerSheet` supporting Google Lens, TinEye, Yandex Images, and Bing Visual Search.
   - **Clean Actions Grouping**: Image actions (preview, open in new tab, save image, search by image, copy image URL, share image) cleanly organized together in the same bottom sheet.
+- [x] **QR Code Scanner Relocation (from Shortcuts to Searchbar)**:
+  - Removed `sys_qr` from `ShortcutItem.getDefaultShortcuts()` and filtered legacy entries out of `BrowserPreferences.getShortcuts()`.
+  - Added `btnQrScanner` (`ic_qr_code`) inside `searchBarContainer` beside the voice search microphone icon matching the Brave layout in screenshot `/storage/emulated/0/1.png`.
+  - Configured visibility lifecycle: normally hidden (`GONE`) during idle web browsing or home view; immediately revealed (`VISIBLE`) when user taps search bar to enter text or search.
+  - Tapping `btnQrScanner` launches `QrScannerActivity` directly for camera barcode and QR scanning.
 

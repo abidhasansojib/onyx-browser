@@ -362,6 +362,7 @@ class MainActivity : AppCompatActivity() {
                 val query = text?.toString()?.trim() ?: ""
                 val hasText = query.isNotEmpty()
                 binding.btnClearUrl.visibility = if (hasText) View.VISIBLE else View.GONE
+                binding.btnQrScanner.visibility = View.VISIBLE
                 binding.btnVoiceSearch.visibility = if (hasText) View.GONE else View.VISIBLE
 
                 val currentTab = tabManager.activeTab.value
@@ -382,6 +383,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnClearUrl.setOnClickListener {
             binding.etUrl.setText("")
+        }
+
+        binding.btnQrScanner.setOnClickListener {
+            startQrScanner()
         }
 
         binding.btnVoiceSearch.setOnClickListener {
@@ -1022,6 +1027,7 @@ class MainActivity : AppCompatActivity() {
         binding.etUrl.setText("")
         binding.etUrl.hint = getString(R.string.search_or_type_url)
         binding.btnClearUrl.visibility = View.GONE
+        binding.btnQrScanner.visibility = View.VISIBLE
         binding.btnVoiceSearch.visibility = View.VISIBLE
 
         // 4. Focus search bar & show keyboard
@@ -1044,6 +1050,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnTabSwitcher.visibility = View.VISIBLE
         binding.btnMenu.visibility = View.VISIBLE
         binding.btnClearUrl.visibility = View.GONE
+        binding.btnQrScanner.visibility = View.GONE
         binding.btnVoiceSearch.visibility = View.VISIBLE
 
         // 2. Hide search overlay

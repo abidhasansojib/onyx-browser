@@ -82,12 +82,6 @@ data class ShortcutItem(
                     iconType = ICON_DOWNLOADS
                 ),
                 ShortcutItem(
-                    id = "sys_qr",
-                    title = "QR Scan",
-                    url = "onyx://qr",
-                    iconType = ICON_QR_SCAN
-                ),
-                ShortcutItem(
                     id = "default_google",
                     title = "Google",
                     url = "https://www.google.com",

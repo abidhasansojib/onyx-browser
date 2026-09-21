@@ -134,6 +134,19 @@
                 android:visibility="gone"
                 app:tint="?attr/colorControlNormal" />
 
+            <!-- QR Code Scanner Button (shown when search bar is tapped to enter text, matching screenshot) -->
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/btnQrScanner"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/qr_scan"
+                android:padding="2dp"
+                app:srcCompat="@drawable/ic_qr_code"
+                android:visibility="gone"
+                app:tint="?attr/colorControlNormal" />
+
             <!-- Voice Search Button (Mic) -->
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/btnVoiceSearch"

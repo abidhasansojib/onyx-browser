@@ -347,8 +347,8 @@ class BrowserPreferences private constructor(context: Context) {
                         list.addAll(0, missingSysItems)
                     }
                 }
-                // Always deduplicate by id before returning to fix any historic doubles.
-                val deduped = list.distinctBy { it.id }
+                // Always deduplicate by id and filter out legacy sys_qr before returning.
+                val deduped = list.distinctBy { it.id }.filterNot { it.id == "sys_qr" || it.url == "onyx://qr" }
                 if (deduped.size != list.size) saveShortcuts(deduped)
                 deduped
             }
