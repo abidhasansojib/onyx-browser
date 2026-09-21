@@ -63,8 +63,8 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
         }
 
         binding.btnAdjustQuickActions.setOnClickListener {
-            val adjustSheet = AdjustQuickActionsBottomSheet()
-            adjustSheet.show(parentFragmentManager, AdjustQuickActionsBottomSheet.TAG)
+            // val adjustSheet = AdjustQuickActionsBottomSheet()
+            // adjustSheet.show(parentFragmentManager, AdjustQuickActionsBottomSheet.TAG)
         }
 
         // Populate suggested shortcuts horizontal row

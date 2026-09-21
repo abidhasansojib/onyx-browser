@@ -23,12 +23,9 @@ class BrowserPreferences private constructor(context: Context) {
     private val _shortcutsFlow = MutableStateFlow<List<ShortcutItem>>(emptyList())
     val shortcutsFlow: StateFlow<List<ShortcutItem>> = _shortcutsFlow.asStateFlow()
 
-    private val _quickActionsFlow = MutableStateFlow<List<String>>(emptyList())
-    val quickActionsFlow: StateFlow<List<String>> = _quickActionsFlow.asStateFlow()
 
     init {
         _shortcutsFlow.value = getShortcuts()
-        _quickActionsFlow.value = getQuickActionOrder()
     }
 
     private val blockedCounter = AtomicLong(getBlockedRequestsCount())
@@ -125,10 +122,10 @@ class BrowserPreferences private constructor(context: Context) {
 
     // ── Misc ─────────────────────────────────────────────────────────────────
 
-    var askBeforeDownload: Boolean
-        get() = prefs.getBoolean(KEY_ASK_BEFORE_DOWNLOAD, true)
+    var downloadManagerBehavior: Int
+        get() = prefs.getInt("download_manager_behavior", 0) // 0: Ask, 1: Internal, 2: External
         set(value) {
-            prefs.edit().putBoolean(KEY_ASK_BEFORE_DOWNLOAD, value).apply()
+            prefs.edit().putInt("download_manager_behavior", value).apply()
         }
 
     var isDesktopMode: Boolean
@@ -147,6 +144,12 @@ class BrowserPreferences private constructor(context: Context) {
         get() = prefs.getLong(KEY_FILTER_UPDATED, 0L)
         set(value) {
             prefs.edit().putLong(KEY_FILTER_UPDATED, value).apply()
+        }
+
+    var desktopDomains: Set<String>
+        get() = prefs.getStringSet("desktop_domains", emptySet()) ?: emptySet()
+        set(value) {
+            prefs.edit().putStringSet("desktop_domains", value).apply()
         }
 
     var targetTranslateLanguage: String
@@ -240,6 +243,12 @@ class BrowserPreferences private constructor(context: Context) {
                 saveShortcuts(defaults)
                 defaults
             } else {
+                if (!prefs.getBoolean("migrated_unified_shortcuts_v1", false)) {
+                    val defaults = ShortcutItem.getDefaultShortcuts().filter { it.id.startsWith("sys_") }
+                    list.addAll(0, defaults) // Add to top
+                    saveShortcuts(list)
+                    prefs.edit().putBoolean("migrated_unified_shortcuts_v1", true).apply()
+                }
                 list
             }
         } catch (_: Exception) {
@@ -281,7 +290,6 @@ class BrowserPreferences private constructor(context: Context) {
         }
     }
 
-    fun getQuickActionOrder(): List<String> {
         val raw = prefs.getString(KEY_QUICK_ACTION_ORDER, null)
         if (raw.isNullOrBlank()) {
             return QuickActionItem.DEFAULT_ORDER
@@ -294,13 +302,6 @@ class BrowserPreferences private constructor(context: Context) {
         }
     }
 
-    fun saveQuickActionOrder(order: List<String>) {
-        val serialized = order.joinToString(",")
-        prefs.edit().putString(KEY_QUICK_ACTION_ORDER, serialized).apply()
-        _quickActionsFlow.value = order
-    }
-
-    companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
         const val THEME_SYSTEM = 0

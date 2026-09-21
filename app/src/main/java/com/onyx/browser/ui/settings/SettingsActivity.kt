@@ -110,11 +110,30 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupDownloadPreferences() {
-        binding.switchAskBeforeDownload.isChecked = preferences.askBeforeDownload
-        binding.settingAskBeforeDownloadRow.setOnClickListener {
-            val newState = !binding.switchAskBeforeDownload.isChecked
-            binding.switchAskBeforeDownload.isChecked = newState
-            preferences.askBeforeDownload = newState
+        val options = arrayOf(
+            "Ask before download",
+            "Internal downloader",
+            "External download manager"
+        )
+        
+        fun updateLabel() {
+            val idx = preferences.downloadManagerBehavior.coerceIn(0, 2)
+            binding.tvCurrentDownloadManager.text = options[idx]
+        }
+        
+        updateLabel()
+
+        binding.settingDownloadManagerRow.setOnClickListener {
+            val currentIndex = preferences.downloadManagerBehavior.coerceIn(0, 2)
+            AlertDialog.Builder(this)
+                .setTitle("Download Manager")
+                .setSingleChoiceItems(options, currentIndex) { dialog, which ->
+                    preferences.downloadManagerBehavior = which
+                    updateLabel()
+                    dialog.dismiss()
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
         }
     }
 }

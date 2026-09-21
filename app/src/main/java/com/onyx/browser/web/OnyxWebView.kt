@@ -31,14 +31,7 @@ class OnyxWebView @JvmOverloads constructor(
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
         "(KHTML, like Gecko) Chrome/131.0.6778.135 Safari/537.36"
 
-    /**
-     * Per-tab set of registered hostnames (eTLD+1 level) where the user has
-     * requested desktop mode, matching Chrome/Firefox behaviour:
-     *   - Desktop mode applies to the *domain* (and its subdomains), not globally.
-     *   - Other domains in the same tab are unaffected.
-     *   - Switching tabs always reflects the new tab's domain state.
-     */
-    private val desktopDomains = mutableSetOf<String>()
+    // Desktop domains are now persisted globally in BrowserPreferences
 
     init {
         configureSettings()
@@ -118,7 +111,8 @@ class OnyxWebView @JvmOverloads constructor(
      */
     fun isDesktopModeEnabledForCurrentPage(): Boolean {
         val key = hostKey(url ?: "") ?: return false
-        return desktopDomains.any { key == it || key.endsWith(".$it") }
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        return prefs.desktopDomains.any { key == it || key.endsWith(".$it") }
     }
 
     /**
@@ -127,14 +121,18 @@ class OnyxWebView @JvmOverloads constructor(
      */
     fun toggleDesktopModeForPage(pageUrl: String) {
         val key = hostKey(pageUrl) ?: return
-        if (desktopDomains.any { key == it || key.endsWith(".$it") }) {
-            desktopDomains.removeAll { key == it || key.endsWith(".$it") || it.endsWith(".$key") }
-            // Remove exact stored key too
-            desktopDomains.remove(key)
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        val currentDomains = prefs.desktopDomains.toMutableSet()
+        
+        if (currentDomains.any { key == it || key.endsWith(".$it") }) {
+            currentDomains.removeAll { key == it || key.endsWith(".$it") || it.endsWith(".$key") }
+            currentDomains.remove(key)
         } else {
-            desktopDomains.add(key)
+            currentDomains.add(key)
         }
-        applyUserAgentForUrl(pageUrl, reload = true)
+        prefs.desktopDomains = currentDomains
+        
+        applyUserAgentForUrl(pageUrl, forceRefreshLayout = true)
     }
 
     /**
@@ -145,16 +143,28 @@ class OnyxWebView @JvmOverloads constructor(
      * We do NOT reload here because this fires as navigation begins; changing the
      * UA before the page loads is sufficient for the server to serve the right version.
      */
-    fun applyUserAgentForUrl(urlString: String, reload: Boolean = false) {
+    fun applyUserAgentForUrl(urlString: String, forceRefreshLayout: Boolean = false) {
         val key = hostKey(urlString)
-        val wantsDesktop = key != null && desktopDomains.any { key == it || key.endsWith(".$it") }
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        val wantsDesktop = key != null && prefs.desktopDomains.any { key == it || key.endsWith(".$it") }
         val currentIsDesktop = settings.userAgentString == desktopUserAgent
+        
         if (wantsDesktop == currentIsDesktop) {
-            if (reload) this.reload()
+            if (forceRefreshLayout) {
+                // If it's the same but we forced a refresh, just reload normally
+                this.reload()
+            }
             return
         }
+        
         settings.userAgentString = if (wantsDesktop) desktopUserAgent else mobileUserAgent
-        if (reload) this.reload()
+        
+        if (forceRefreshLayout) {
+            // Clearing cache fixes the "zoom state" issue by forcing a fresh layout viewport calculation
+            this.clearCache(true)
+            // loadUrl is safer than reload() for enforcing a completely new viewport state
+            this.loadUrl(this.url ?: urlString)
+        }
     }
 
     // ── Legacy compat (used by setDesktopMode call-sites that haven't been updated yet) ──

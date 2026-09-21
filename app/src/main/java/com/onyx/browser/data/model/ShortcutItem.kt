@@ -26,6 +26,11 @@ data class ShortcutItem(
         const val ICON_WIKIPEDIA = "wikipedia"
         const val ICON_FACEBOOK = "facebook"
         const val ICON_REDDIT = "reddit"
+        
+        const val ICON_BOOKMARKS = "bookmarks"
+        const val ICON_HISTORY = "history"
+        const val ICON_DOWNLOADS = "downloads"
+        const val ICON_QR_SCAN = "qr_scan"
 
         fun fromJson(json: JSONObject): ShortcutItem {
             val url = json.optString("url", "")
@@ -42,6 +47,10 @@ data class ShortcutItem(
         fun inferIconType(url: String): String {
             val lower = url.lowercase()
             return when {
+                lower.startsWith("onyx://bookmarks") -> ICON_BOOKMARKS
+                lower.startsWith("onyx://history") -> ICON_HISTORY
+                lower.startsWith("onyx://downloads") -> ICON_DOWNLOADS
+                lower.startsWith("onyx://qr") -> ICON_QR_SCAN
                 lower.contains("youtube.com") || lower.contains("youtu.be") -> ICON_YOUTUBE
                 lower.contains("github.com") -> ICON_GITHUB
                 lower.contains("wikipedia.org") -> ICON_WIKIPEDIA
@@ -54,6 +63,30 @@ data class ShortcutItem(
 
         fun getDefaultShortcuts(): List<ShortcutItem> {
             return listOf(
+                ShortcutItem(
+                    id = "sys_bookmarks",
+                    title = "Bookmarks",
+                    url = "onyx://bookmarks",
+                    iconType = ICON_BOOKMARKS
+                ),
+                ShortcutItem(
+                    id = "sys_history",
+                    title = "History",
+                    url = "onyx://history",
+                    iconType = ICON_HISTORY
+                ),
+                ShortcutItem(
+                    id = "sys_downloads",
+                    title = "Downloads",
+                    url = "onyx://downloads",
+                    iconType = ICON_DOWNLOADS
+                ),
+                ShortcutItem(
+                    id = "sys_qr",
+                    title = "QR Scan",
+                    url = "onyx://qr",
+                    iconType = ICON_QR_SCAN
+                ),
                 ShortcutItem(
                     id = "default_google",
                     title = "Google",
@@ -77,18 +110,6 @@ data class ShortcutItem(
                     title = "Wikipedia",
                     url = "https://www.wikipedia.org",
                     iconType = ICON_WIKIPEDIA
-                ),
-                ShortcutItem(
-                    id = "default_facebook",
-                    title = "Facebook",
-                    url = "https://www.facebook.com",
-                    iconType = ICON_FACEBOOK
-                ),
-                ShortcutItem(
-                    id = "default_reddit",
-                    title = "Reddit",
-                    url = "https://www.reddit.com",
-                    iconType = ICON_REDDIT
                 )
             )
         }

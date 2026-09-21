@@ -43,7 +43,10 @@ object DownloadHandler {
         }
 
         val preferences = BrowserPreferences.getInstance(activity)
-        if (preferences.askBeforeDownload) {
+        val behavior = preferences.downloadManagerBehavior
+
+        if (behavior == 0) {
+            // Ask before download
             if (activity is FragmentActivity) {
                 val sheet = DownloadPromptBottomSheet.newInstance(
                     url = url,
@@ -67,7 +70,8 @@ object DownloadHandler {
                 }
                 activity.startActivity(intent)
             }
-        } else {
+        } else if (behavior == 1) {
+            // Internal download
             val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
             startSystemDownload(
                 context = activity,
@@ -77,6 +81,18 @@ object DownloadHandler {
                 fileName = fileName,
                 mimeType = mimeType,
                 contentLength = contentLength,
+                cookies = resolvedCookies,
+                referer = referer
+            )
+        } else {
+            // External download manager
+            val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            dispatchToExternalDownloader(
+                context = activity,
+                url = url,
+                mimeType = mimeType,
+                userAgent = userAgent,
+                fileName = fileName,
                 cookies = resolvedCookies,
                 referer = referer
             )

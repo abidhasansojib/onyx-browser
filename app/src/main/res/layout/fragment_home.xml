@@ -23,8 +23,8 @@
         <!-- ── Normal Mode: Onyx Logo ─────────────────────────────────────── -->
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/ivBrandLogo"
-            android:layout_width="148dp"
-            android:layout_height="48dp"
+            android:layout_width="180dp"
+            android:layout_height="58dp"
             android:contentDescription="Onyx Browser"
             app:srcCompat="@drawable/ic_logo_onyx"
             app:tint="?attr/colorControlNormal"
@@ -33,7 +33,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_chainStyle="packed"
-            app:layout_constraintVertical_bias="0.42" />
+            app:layout_constraintVertical_bias="0.75" />
 
         <!-- ── Tagline ────────────────────────────────────────────────────── -->
         <TextView
@@ -103,59 +103,13 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- ── Quick Action Row (Circular, Reorderable) ───────────────────── -->
-        <!-- Wrapped in a surface card for visual grouping -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/cardQuickActions"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            app:cardBackgroundColor="?attr/colorSurface"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutline"
-            app:strokeWidth="1dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/guideCenter"
-            app:layout_constraintWidth_max="480dp">
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvQuickActions"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false"
-                android:overScrollMode="never"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp" />
-        </androidx.cardview.widget.CardView>
-
-        <!-- ── "Top Sites" section label ──────────────────────────────────── -->
-        <TextView
-            android:id="@+id/tvShortcutsLabel"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:paddingStart="4dp"
-            android:text="Top Sites"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="11sp"
-            android:textAllCaps="true"
-            android:letterSpacing="0.1"
-            android:fontFamily="sans-serif-medium"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/cardQuickActions"
-            app:layout_constraintWidth_max="480dp" />
-
-        <!-- ── Top Sites Shortcut Grid ────────────────────────────────────── -->
+        <!-- ── Unified Grid ────────────────────────────────────── -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvShortcuts"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="20dp"
             android:layout_marginBottom="36dp"
-            android:background="@drawable/bg_material_box"
             android:elevation="0dp"
             android:nestedScrollingEnabled="false"
             android:overScrollMode="never"
@@ -163,7 +117,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvShortcutsLabel"
+            app:layout_constraintTop_toBottomOf="@id/guideCenter"
             app:layout_constraintVertical_bias="0.0"
             app:layout_constraintWidth_max="480dp" />
 

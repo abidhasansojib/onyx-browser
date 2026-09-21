@@ -33,8 +33,6 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.core.view.ViewCompat
 import android.content.ClipData
 import android.content.ClipboardManager
-import com.onyx.browser.data.model.QuickActionItem
-import com.onyx.browser.ui.home.QuickActionsAdapter
 import com.onyx.browser.ui.home.AdjustQuickActionsBottomSheet
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -83,7 +81,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var suggestionRepository: SearchSuggestionRepository
     private lateinit var suggestionsAdapter: SuggestionsAdapter
     private lateinit var shortcutsAdapter: ShortcutsAdapter
-    private lateinit var quickActionsAdapter: QuickActionsAdapter
     private var suggestionJob: Job? = null
 
     private var isSearchMode = false
@@ -270,6 +267,10 @@ class MainActivity : AppCompatActivity() {
         
         binding.swipeRefreshLayout.setOnRefreshListener { 
             tabManager.getActiveWebView()?.reload() 
+        }
+        binding.swipeRefreshLayout.setOnChildScrollUpCallback { _, _ ->
+            val webView = tabManager.getActiveWebView()
+            webView != null && webView.scrollY > 0
         }
 
         val database = AppDatabase.getInstance(this)
@@ -486,71 +487,6 @@ class MainActivity : AppCompatActivity() {
         val home = binding.homeLayout
 
         // Dynamic Quick Actions (Clean Non-Box Circular UI, Reorderable via Drag or Dialog, Add in 4th)
-        quickActionsAdapter = QuickActionsAdapter(
-            onActionClick = { item ->
-                when (item.id) {
-                    QuickActionItem.ID_BOOKMARKS -> startActivity(Intent(this, BookmarksActivity::class.java))
-                    QuickActionItem.ID_HISTORY -> historyLauncher.launch(Intent(this, HistoryActivity::class.java))
-                    QuickActionItem.ID_DOWNLOADS -> startActivity(Intent(this, DownloadsActivity::class.java))
-                    QuickActionItem.ID_ADD -> {
-                        val sheet = ManageShortcutsBottomSheet()
-                        sheet.show(supportFragmentManager, ManageShortcutsBottomSheet.TAG)
-                    }
-                }
-            },
-            onActionLongClick = { _ ->
-                val sheet = AdjustQuickActionsBottomSheet()
-                sheet.show(supportFragmentManager, AdjustQuickActionsBottomSheet.TAG)
-            }
-        )
-
-        home.rvQuickActions.layoutManager = GridLayoutManager(this, 4)
-        home.rvQuickActions.adapter = quickActionsAdapter
-
-        // Drag-and-drop with ItemTouchHelper for quick action buttons
-        val quickActionTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
-            ItemTouchHelper.START or ItemTouchHelper.END,
-            0
-        ) {
-            override fun onMove(
-                recyclerView: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder,
-                target: RecyclerView.ViewHolder
-            ): Boolean {
-                val fromPos = viewHolder.bindingAdapterPosition
-                val toPos = target.bindingAdapterPosition
-                return quickActionsAdapter.onItemMove(fromPos, toPos)
-            }
-
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
-
-            override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
-                super.onSelectedChanged(viewHolder, actionState)
-                if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
-                    viewHolder?.itemView?.animate()?.scaleX(1.12f)?.scaleY(1.12f)?.setDuration(150)?.start()
-                }
-            }
-
-            override fun clearView(
-                recyclerView: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder
-            ) {
-                super.clearView(recyclerView, viewHolder)
-                viewHolder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                val newOrder = quickActionsAdapter.getItems().map { it.id }
-                preferences.saveQuickActionOrder(newOrder)
-            }
-        })
-        quickActionTouchHelper.attachToRecyclerView(home.rvQuickActions)
-
-        // Observe quick actions order flow
-        lifecycleScope.launch {
-            preferences.quickActionsFlow.collectLatest { order ->
-                val items = QuickActionItem.getOrderedItems(order)
-                quickActionsAdapter.submitList(items)
-            }
-        }
-
         // Dynamic Shortcuts RecyclerView
         shortcutsAdapter = ShortcutsAdapter(
             onShortcutClick = { shortcut ->
@@ -598,7 +534,7 @@ class MainActivity : AppCompatActivity() {
                 preferences.saveShortcuts(shortcutsAdapter.getItems())
             }
         })
-        touchHelper.attachToRecyclerView(home.rvShortcuts)
+        // touchHelper.attachToRecyclerView(home.rvShortcuts)
 
         // Observe shortcuts flow
         lifecycleScope.launch {
@@ -803,11 +739,20 @@ class MainActivity : AppCompatActivity() {
                 if (resultMsg != null) {
                     val newTab = tabManager.createNewTab()
                     val newWebView = tabManager.getOrCreateWebView(newTab)
+                    
+                    // Pre-setup the clients before passing it back, so it instantly has download listeners
+                    setupWebViewClients(newWebView)
+                    
                     val transport = resultMsg.obj as? WebView.WebViewTransport
                     if (transport != null) {
                         transport.webView = newWebView
                         resultMsg.sendToTarget()
-                        displayTab(newTab)
+                        
+                        // Force show the WebView regardless of the URL being blank
+                        currentDisplayedTabId = newTab.id
+                        updateTabBadgeCount()
+                        showWebView(newTab)
+                        
                         true
                     } else {
                         false
@@ -887,6 +832,23 @@ class MainActivity : AppCompatActivity() {
     private fun performSearchOrLoad(input: String) {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return
+
+        if (trimmed == "onyx://bookmarks") {
+            startActivity(Intent(this, BookmarksActivity::class.java))
+            return
+        }
+        if (trimmed == "onyx://history") {
+            historyLauncher.launch(Intent(this, HistoryActivity::class.java))
+            return
+        }
+        if (trimmed == "onyx://downloads") {
+            startActivity(Intent(this, DownloadsActivity::class.java))
+            return
+        }
+        if (trimmed == "onyx://qr") {
+            qrScannerLauncher.launch(Intent(this, com.onyx.browser.ui.qr.QrScannerActivity::class.java))
+            return
+        }
 
         val url = when {
             trimmed.startsWith("http://", ignoreCase = true) ||

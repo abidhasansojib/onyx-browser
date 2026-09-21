@@ -250,9 +250,9 @@
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
-            <!-- Ask Before Download Toggle -->
+            <!-- Download Manager Selection -->
             <LinearLayout
-                android:id="@+id/settingAskBeforeDownloadRow"
+                android:id="@+id/settingDownloadManagerRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="?attr/selectableItemBackground"
@@ -266,8 +266,8 @@
                 android:paddingBottom="12dp">
 
                 <androidx.appcompat.widget.AppCompatImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
                     app:srcCompat="@drawable/ic_download"
                     app:tint="?attr/colorControlNormal" />
 
@@ -282,24 +282,19 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/ask_before_download"
+                        android:text="Download Manager"
                         android:textColor="?android:attr/textColorPrimary"
                         android:textSize="15sp" />
 
                     <TextView
+                        android:id="@+id/tvCurrentDownloadManager"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="@string/ask_before_download_desc"
+                        android:text="Ask before download"
                         android:textColor="?android:attr/textColorSecondary"
                         android:textSize="12sp" />
                 </LinearLayout>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/switchAskBeforeDownload"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="false" />
             </LinearLayout>
 
         </LinearLayout>

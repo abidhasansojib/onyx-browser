@@ -100,6 +100,30 @@ class ShortcutsAdapter(
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_brand_reddit)
                 }
+                ShortcutItem.ICON_BOOKMARKS -> {
+                    binding.ivShortcutIcon.visibility = View.VISIBLE
+                    binding.tvLetterBadge.visibility = View.GONE
+                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_bookmark)
+                    binding.ivShortcutIcon.setColorFilter(android.graphics.Color.parseColor("#808080"))
+                }
+                ShortcutItem.ICON_HISTORY -> {
+                    binding.ivShortcutIcon.visibility = View.VISIBLE
+                    binding.tvLetterBadge.visibility = View.GONE
+                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_history)
+                    binding.ivShortcutIcon.setColorFilter(android.graphics.Color.parseColor("#808080"))
+                }
+                ShortcutItem.ICON_DOWNLOADS -> {
+                    binding.ivShortcutIcon.visibility = View.VISIBLE
+                    binding.tvLetterBadge.visibility = View.GONE
+                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_download)
+                    binding.ivShortcutIcon.setColorFilter(android.graphics.Color.parseColor("#808080"))
+                }
+                ShortcutItem.ICON_QR_SCAN -> {
+                    binding.ivShortcutIcon.visibility = View.VISIBLE
+                    binding.tvLetterBadge.visibility = View.GONE
+                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_qr_code)
+                    binding.ivShortcutIcon.setColorFilter(android.graphics.Color.parseColor("#808080"))
+                }
                 else -> {
                     val letter = item.title.trim().firstOrNull()?.uppercase()
                         ?: item.url.removePrefix("https://").removePrefix("http://").removePrefix("www.").firstOrNull()?.uppercase()
@@ -115,11 +139,11 @@ class ShortcutsAdapter(
                 }
             }
 
-            binding.root.setOnClickListener {
+            itemView.setOnClickListener {
                 onShortcutClick(item)
             }
 
-            binding.root.setOnLongClickListener {
+            itemView.setOnLongClickListener {
                 onShortcutLongClick(item)
                 true
             }
