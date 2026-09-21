@@ -15,155 +15,124 @@ import java.nio.charset.StandardCharsets
 
 class SearchSuggestionRepository(private val historyDao: HistoryDao) {
 
+    // In-memory result cache keyed by (trimmed_query|engine_id).
+    // Prevents flicker when the user repositions the cursor without changing text.
+    @Volatile private var cacheKey: String = ""
+    @Volatile private var cacheResult: List<SearchSuggestion> = emptyList()
+
     suspend fun getSuggestions(
         query: String,
         engine: SearchEngine
     ): List<SearchSuggestion> = withContext(Dispatchers.IO) {
         val trimmed = query.trim()
-        if (trimmed.isEmpty()) return@withContext emptyList()
+
+        // Require at least 2 characters before any network traffic
+        if (trimmed.length < 2) return@withContext emptyList()
+
+        val key = "${trimmed}|${engine.id}"
+        if (key == cacheKey) return@withContext cacheResult
 
         val results = mutableListOf<SearchSuggestion>()
+        val seenKeys = mutableSetOf<String>()
 
-        // 1. Fetch matching local history items (max 2)
+        // 1. Local history first (max 3 items, deduplicated by domain)
         try {
-            val historyMatches = historyDao.searchHistory(trimmed, limit = 2)
+            val historyMatches = historyDao.searchHistory(trimmed, limit = 5)
             for (item in historyMatches) {
-                results.add(
-                    SearchSuggestion(
-                        title = item.title.ifBlank { item.url },
-                        queryOrUrl = item.url,
-                        isHistory = true
+                val norm = normalizeUrl(item.url)
+                if (seenKeys.add(norm)) {
+                    results.add(
+                        SearchSuggestion(
+                            title = item.title.ifBlank { item.url },
+                            queryOrUrl = item.url,
+                            isHistory = true
+                        )
                     )
-                )
+                    if (results.size >= 3) break
+                }
             }
-        } catch (_: Exception) {
+        } catch (_: Exception) {}
+
+        // 2. Remote suggestions to fill up to 10 total
+        val remoteNeeded = 10 - results.size
+        if (remoteNeeded > 0) {
+            val remote = fetchRemoteSuggestions(trimmed, engine)
+            for (item in remote) {
+                val norm = item.lowercase().trim()
+                if (seenKeys.add(norm)) {
+                    results.add(
+                        SearchSuggestion(
+                            title = item,
+                            queryOrUrl = item,
+                            isHistory = false
+                        )
+                    )
+                    if (results.size >= 10) break
+                }
+            }
         }
 
-        // 2. Fetch remote search suggestions from active search engine
-        val remoteSuggestions = fetchRemoteSuggestions(trimmed, engine)
-        for (item in remoteSuggestions) {
-            // Avoid duplicate entries
-            if (results.none { it.queryOrUrl.equals(item, ignoreCase = true) }) {
-                results.add(
-                    SearchSuggestion(
-                        title = item,
-                        queryOrUrl = item,
-                        isHistory = false
-                    )
-                )
-            }
-        }
-
-        results.take(10)
+        val final = results.take(10)
+        cacheKey = key
+        cacheResult = final
+        final
     }
+
+    private fun normalizeUrl(url: String): String = try {
+        val u = java.net.URI(url)
+        (u.host ?: url).lowercase().removePrefix("www.")
+    } catch (_: Exception) { url.lowercase() }
 
     private fun fetchRemoteSuggestions(query: String, engine: SearchEngine): List<String> {
         return try {
-            val encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
+            val q = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
             when (engine.id) {
-                SearchEngine.BRAVE.id -> fetchOpenSearchSuggestions(
-                    "https://search.brave.com/api/suggest?q=$encodedQuery"
-                )
-                SearchEngine.GOOGLE.id -> fetchOpenSearchSuggestions(
-                    "https://suggestqueries.google.com/complete/search?client=firefox&hl=en&q=$encodedQuery"
-                )
-                SearchEngine.DUCKDUCKGO.id -> fetchDuckDuckGoSuggestions(
-                    "https://duckduckgo.com/ac/?q=$encodedQuery"
-                )
-                SearchEngine.BING.id -> fetchOpenSearchSuggestions(
-                    "https://api.bing.com/osjson.aspx?query=$encodedQuery"
-                )
-                SearchEngine.STARTPAGE.id -> {
-                    val startpage = fetchOpenSearchSuggestions(
-                        "https://www.startpage.com/do/suggest?query=$encodedQuery&format=json"
-                    )
-                    if (startpage.isNotEmpty()) startpage else fetchDuckDuckGoSuggestions(
-                        "https://duckduckgo.com/ac/?q=$encodedQuery"
-                    )
+                SearchEngine.BRAVE.id -> fetchOpenSearch("https://search.brave.com/api/suggest?q=$q")
+                SearchEngine.GOOGLE.id -> fetchOpenSearch("https://suggestqueries.google.com/complete/search?client=firefox&hl=en&q=$q")
+                SearchEngine.DUCKDUCKGO.id -> fetchDuckDuckGo("https://duckduckgo.com/ac/?q=$q")
+                SearchEngine.BING.id -> fetchOpenSearch("https://api.bing.com/osjson.aspx?query=$q")
+                SearchEngine.STARTPAGE.id -> fetchOpenSearch("https://www.startpage.com/do/suggest?query=$q&format=json").ifEmpty {
+                    fetchDuckDuckGo("https://duckduckgo.com/ac/?q=$q")
                 }
-                SearchEngine.YAHOO.id -> fetchOpenSearchSuggestions(
-                    "https://search.yahoo.com/sugg/ff?output=fxjson&command=$encodedQuery"
-                )
-                else -> fetchOpenSearchSuggestions(
-                    "https://suggestqueries.google.com/complete/search?client=firefox&hl=en&q=$encodedQuery"
-                )
+                SearchEngine.YAHOO.id -> fetchOpenSearch("https://search.yahoo.com/sugg/ff?output=fxjson&command=$q")
+                else -> fetchOpenSearch("https://suggestqueries.google.com/complete/search?client=firefox&hl=en&q=$q")
             }
-        } catch (_: Exception) {
-            emptyList()
-        }
+        } catch (_: Exception) { emptyList() }
     }
 
-    /**
-     * Standard OpenSearch format: ["query", ["sugg1", "sugg2", ...]]
-     * Used by Google, Brave, Bing, Yahoo, Startpage.
-     */
-    private fun fetchOpenSearchSuggestions(urlString: String): List<String> {
-        val jsonString = httpGet(urlString) ?: return emptyList()
-        val suggestions = mutableListOf<String>()
-        try {
-            val root = JSONArray(jsonString)
+    private fun fetchOpenSearch(urlString: String): List<String> {
+        val json = httpGet(urlString) ?: return emptyList()
+        return try {
+            val root = JSONArray(json)
             if (root.length() > 1) {
-                val array = root.optJSONArray(1)
-                if (array != null) {
-                    for (i in 0 until array.length()) {
-                        val text = array.optString(i)
-                        if (!text.isNullOrBlank()) {
-                            suggestions.add(text)
-                        }
-                    }
-                }
-            }
-        } catch (_: Exception) {
-        }
-        return suggestions
+                val arr = root.optJSONArray(1) ?: return emptyList()
+                (0 until arr.length()).mapNotNull { arr.optString(it).takeIf { s -> s.isNotBlank() } }
+            } else emptyList()
+        } catch (_: Exception) { emptyList() }
     }
 
-    /**
-     * DuckDuckGo format: [{"phrase": "suggestion1"}, {"phrase": "suggestion2"}]
-     */
-    private fun fetchDuckDuckGoSuggestions(urlString: String): List<String> {
-        val jsonString = httpGet(urlString) ?: return emptyList()
-        val suggestions = mutableListOf<String>()
-        try {
-            val root = JSONArray(jsonString)
-            for (i in 0 until root.length()) {
-                val obj = root.optJSONObject(i)
-                val phrase = obj?.optString("phrase")
-                if (!phrase.isNullOrBlank()) {
-                    suggestions.add(phrase)
-                }
-            }
-        } catch (_: Exception) {
-        }
-        return suggestions
+    private fun fetchDuckDuckGo(urlString: String): List<String> {
+        val json = httpGet(urlString) ?: return emptyList()
+        return try {
+            val root = JSONArray(json)
+            (0 until root.length()).mapNotNull { root.optJSONObject(it)?.optString("phrase")?.takeIf { s -> s.isNotBlank() } }
+        } catch (_: Exception) { emptyList() }
     }
 
     private fun httpGet(urlString: String): String? {
-        var connection: HttpURLConnection? = null
+        var conn: HttpURLConnection? = null
         return try {
-            val url = URL(urlString)
-            connection = (url.openConnection() as HttpURLConnection).apply {
+            conn = (URL(urlString).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 2500
                 readTimeout = 2500
                 requestMethod = "GET"
-                setRequestProperty(
-                    "User-Agent",
-                    "Mozilla/5.0 (Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0"
-                )
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0")
                 setRequestProperty("Accept", "application/json, text/javascript, */*")
             }
-
-            if (connection.responseCode in 200..299) {
-                BufferedReader(InputStreamReader(connection.inputStream, StandardCharsets.UTF_8)).use { reader ->
-                    reader.readText()
-                }
-            } else {
-                null
-            }
-        } catch (_: Exception) {
-            null
-        } finally {
-            connection?.disconnect()
-        }
+            if (conn.responseCode in 200..299)
+                BufferedReader(InputStreamReader(conn.inputStream, StandardCharsets.UTF_8)).use { it.readText() }
+            else null
+        } catch (_: Exception) { null }
+        finally { conn?.disconnect() }
     }
 }

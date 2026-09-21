@@ -81,6 +81,11 @@ dependencies {
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
 
+    // Encrypted Database (SQLCipher + AndroidX Security)
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    implementation("androidx.sqlite:sqlite-ktx:2.4.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
     // AndroidX WebKit
     implementation("androidx.webkit:webkit:1.12.1")
 

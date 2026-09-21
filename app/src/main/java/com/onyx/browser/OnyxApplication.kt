@@ -24,6 +24,15 @@ class OnyxApplication : Application() {
         prefs.applyTheme()
 
         // Initialize Room Database
+        // Remove legacy unencrypted database file (migration to SQLCipher encrypted DB)
+        try {
+            val oldDb = getDatabasePath("onyx_browser.db")
+            if (oldDb.exists()) {
+                oldDb.delete()
+                getDatabasePath("onyx_browser.db-wal").delete()
+                getDatabasePath("onyx_browser.db-shm").delete()
+            }
+        } catch (_: Exception) {}
         AppDatabase.getInstance(this)
 
         // Initialize AdBlockEngine in background thread with pre-compiled filters

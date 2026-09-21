@@ -1051,8 +1051,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun fetchSearchSuggestions(query: String) {
         suggestionJob?.cancel()
+        // Require at least 2 chars — single char gives irrelevant results and
+        // wastes network bandwidth. Repository enforces the same guard.
+        if (query.length < 2) {
+            suggestionsAdapter.submitList(emptyList())
+            return
+        }
         suggestionJob = lifecycleScope.launch {
-            delay(150)
+            // 300ms debounce: waits for user to briefly pause typing
+            // before firing the network request and DB query.
+            delay(300)
             val suggestions = suggestionRepository.getSuggestions(query, preferences.searchEngine)
             if (isSearchMode) {
                 suggestionsAdapter.submitList(suggestions)
