@@ -323,4 +323,7 @@
     <string name="download_internal_desc">Always use the built-in Onyx Downloader</string>
     <string name="download_external">External download manager</string>
     <string name="download_external_desc">Always hand off downloads to a third-party app (1DM, ADM, FDM…)</string>
+
+    <!-- QR Scanner -->
+    <string name="qr_scan">Scan QR code</string>
 </resources>
