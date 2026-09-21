@@ -28,18 +28,29 @@ android {
 
     signingConfigs {
         create("release") {
+            val keystorePath = System.getenv("KEYSTORE_PATH")
             val keystoreBase64 = System.getenv("KEYSTORE_BASE64")
-            if (keystoreBase64 != null) {
-                // CI path: decode keystore from base64 env var into a temp file
-                val keystoreFile = File(buildDir, "release.keystore")
-                keystoreFile.parentFile.mkdirs()
-                keystoreFile.writeBytes(android.util.Base64.decode(keystoreBase64, android.util.Base64.DEFAULT))
-                storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
+            val defaultKeystore = rootProject.file("keystore/release.keystore")
+
+            if (!keystorePath.isNullOrBlank() && file(keystorePath).exists()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            } else if (defaultKeystore.exists()) {
+                storeFile = defaultKeystore
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            } else if (!keystoreBase64.isNullOrBlank()) {
+                val destFile = rootProject.file("keystore/release.keystore")
+                destFile.parentFile.mkdirs()
+                destFile.writeBytes(java.util.Base64.getDecoder().decode(keystoreBase64.trim()))
+                storeFile = destFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
                 keyPassword = System.getenv("KEY_PASSWORD")
             } else {
-                // Local path: fall back to debug signing so local builds still work
                 val debugConfig = signingConfigs.getByName("debug")
                 storeFile = debugConfig.storeFile
                 storePassword = debugConfig.storePassword

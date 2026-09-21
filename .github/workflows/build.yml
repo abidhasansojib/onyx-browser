@@ -82,16 +82,21 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
+          mkdir -p keystore
           if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "Release signing keystore detected — release build will use it."
+            echo "$KEYSTORE_BASE64" | base64 -d > keystore/release.keystore
+            echo "KEYSTORE_PATH=${{ github.workspace }}/keystore/release.keystore" >> $GITHUB_ENV
+            echo "Release signing keystore decoded to keystore/release.keystore"
           else
             echo "WARNING: KEYSTORE_BASE64 secret not set. Release APK will fall back to debug signing."
           fi
 
       - name: Build Release and Debug APKs
         env:
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || secrets.STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease assembleDebug --stacktrace
