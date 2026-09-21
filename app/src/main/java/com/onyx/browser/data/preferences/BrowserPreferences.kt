@@ -48,10 +48,23 @@ class BrowserPreferences private constructor(context: Context) {
             prefs.edit().putInt(KEY_THEME_MODE, value).apply()
         }
 
+    // ── Ad & Tracker Blocking ────────────────────────────────────────────────
+
     var isAdBlockEnabled: Boolean
         get() = prefs.getBoolean(KEY_ADBLOCK_ENABLED, true)
         set(value) {
             prefs.edit().putBoolean(KEY_ADBLOCK_ENABLED, value).apply()
+        }
+
+    /**
+     * Blocking aggressiveness level:
+     *   BLOCKING_STANDARD (0)   — blocks third-party ads & trackers (default, Brave Standard)
+     *   BLOCKING_AGGRESSIVE (1) — blocks all ads & trackers incl. first-party (Brave Aggressive)
+     */
+    var blockingLevel: Int
+        get() = prefs.getInt(KEY_BLOCKING_LEVEL, BLOCKING_STANDARD)
+        set(value) {
+            prefs.edit().putInt(KEY_BLOCKING_LEVEL, value).apply()
         }
 
     var isCosmeticFilteringEnabled: Boolean
@@ -59,6 +72,50 @@ class BrowserPreferences private constructor(context: Context) {
         set(value) {
             prefs.edit().putBoolean(KEY_COSMETIC_FILTERING, value).apply()
         }
+
+    // ── Fingerprint Protection ───────────────────────────────────────────────
+
+    /**
+     * When enabled, injects a JS snippet that overrides Canvas, AudioContext, WebGL,
+     * hardwareConcurrency, deviceMemory, and screen dimension APIs with slightly-randomised
+     * values to frustrate cross-site fingerprinting — similar to Brave's approach.
+     */
+    var isFingerprintProtectionEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FINGERPRINT_PROTECTION, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_FINGERPRINT_PROTECTION, value).apply()
+        }
+
+    // ── HTTPS Upgrade ────────────────────────────────────────────────────────
+
+    /**
+     * When enabled, http:// main-frame navigations are automatically upgraded to https://.
+     * Implemented in OnyxWebViewClient.shouldOverrideUrlLoading.
+     */
+    var isHttpsUpgradeEnabled: Boolean
+        get() = prefs.getBoolean(KEY_HTTPS_UPGRADE, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_HTTPS_UPGRADE, value).apply()
+        }
+
+    // ── Per-domain Script Blocking ───────────────────────────────────────────
+
+    fun isScriptBlockingEnabledForDomain(domainOrUrl: String): Boolean {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return false
+        val set = prefs.getStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, emptySet()) ?: emptySet()
+        return set.contains(domain)
+    }
+
+    fun setScriptBlockingForDomain(domainOrUrl: String, block: Boolean) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val current = prefs.getStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (block) current.add(domain) else current.remove(domain)
+        prefs.edit().putStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, current).apply()
+    }
+
+    // ── Misc ─────────────────────────────────────────────────────────────────
 
     var askBeforeDownload: Boolean
         get() = prefs.getBoolean(KEY_ASK_BEFORE_DOWNLOAD, true)
@@ -241,12 +298,20 @@ class BrowserPreferences private constructor(context: Context) {
         const val THEME_SYSTEM = 0
         const val THEME_DARK = 1
         const val THEME_LIGHT = 2
-        const val THEME_DYNAMIC = 0 // Legacy alias to THEME_SYSTEM (Dynamic Material)
+        const val THEME_DYNAMIC = 0 // Legacy alias to THEME_SYSTEM
+
+        /** Blocking level constants (used with KEY_BLOCKING_LEVEL) */
+        const val BLOCKING_STANDARD = 0   // third-party ads & trackers only
+        const val BLOCKING_AGGRESSIVE = 1 // all ads & trackers incl. first-party
 
         const val KEY_SEARCH_ENGINE = "pref_search_engine"
         const val KEY_THEME_MODE = "pref_theme_mode"
         const val KEY_ADBLOCK_ENABLED = "pref_adblock_enabled"
+        const val KEY_BLOCKING_LEVEL = "pref_blocking_level"
         const val KEY_COSMETIC_FILTERING = "pref_cosmetic_filtering"
+        const val KEY_FINGERPRINT_PROTECTION = "pref_fingerprint_protection"
+        const val KEY_HTTPS_UPGRADE = "pref_https_upgrade"
+        const val KEY_SCRIPT_BLOCKING_DOMAINS = "pref_script_blocking_domains"
         const val KEY_ASK_BEFORE_DOWNLOAD = "pref_ask_before_download"
         const val KEY_DESKTOP_MODE = "pref_desktop_mode"
         const val KEY_JAVASCRIPT_ENABLED = "pref_javascript_enabled"

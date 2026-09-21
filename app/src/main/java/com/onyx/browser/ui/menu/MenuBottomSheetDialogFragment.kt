@@ -107,10 +107,10 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
         // 1st: Box-Type UI Card
         binding.tvWebsiteDomain.text = cleanDomain.ifBlank { "Webpage" }
 
-        // Shield with lock icon button: opens per-site adblock controls
+        // Shield with lock icon button: opens per-site adblock controls (Brave Shields panel)
         binding.btnSiteShield.setOnClickListener {
-            val dialog = SiteShieldBottomSheetDialog(cleanDomain) { whitelisted ->
-                onSiteShieldWhitelistChanged?.invoke(whitelisted)
+            val dialog = SiteShieldBottomSheetDialog(currentUrl) {
+                onSiteShieldWhitelistChanged?.invoke(true)
             }
             dialog.show(childFragmentManager, SiteShieldBottomSheetDialog.TAG)
         }

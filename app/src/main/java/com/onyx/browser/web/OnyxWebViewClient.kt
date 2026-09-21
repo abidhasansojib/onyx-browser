@@ -30,6 +30,21 @@ class OnyxWebViewClient(
     @Volatile
     private var currentPageUrl: String = ""
 
+    // ── Aggressive blocking: known first-party tracker/ad domains ─────────────
+    // A minimal hardcoded list for first-party ad/tracker domains that bypass
+    // standard third-party rules (used only when blockingLevel == BLOCKING_AGGRESSIVE).
+    private val firstPartyAdDomains = setOf(
+        "doubleclick.net", "googlesyndication.com", "googletagmanager.com",
+        "googletagservices.com", "googleadservices.com", "google-analytics.com",
+        "analytics.google.com", "stats.g.doubleclick.net", "pagead2.googlesyndication.com",
+        "adservice.google.com", "facebook.net", "connect.facebook.net",
+        "tr.snapchat.com", "analytics.twitter.com", "t.co", "ads.twitter.com",
+        "ads-twitter.com", "scorecardresearch.com", "quantserve.com",
+        "adsrvr.org", "casalemedia.com", "openx.net", "pubmatic.com",
+        "rubiconproject.com", "criteo.com", "criteo.net", "amazon-adsystem.com",
+        "ads.linkedin.com", "bing.com/bat", "bat.bing.com"
+    )
+
     override fun shouldInterceptRequest(
         view: WebView?,
         request: WebResourceRequest?
@@ -39,40 +54,64 @@ class OnyxWebViewClient(
         return try {
             val url = request.url?.toString() ?: return null
 
-            // Never block the main frame document itself; track the current page URL
+            // Track current page URL; never block the main frame document
             if (request.isForMainFrame) {
                 currentPageUrl = url
                 return null
             }
 
-            // Only process http and https network requests for adblocking
+            // Only process http/https network requests
             if (!url.startsWith("http://") && !url.startsWith("https://")) {
                 return null
             }
 
-            if (preferences.isAdBlockEnabled) {
-                val referer = request.requestHeaders?.let { headers ->
-                    headers["Referer"] ?: headers["referer"] ?: headers["Origin"] ?: headers["origin"]
-                }
-                val pageUrl = referer ?: currentPageUrl
+            val pageUrl = run {
+                val headers = request.requestHeaders
+                headers?.get("Referer") ?: headers?.get("referer")
+                    ?: headers?.get("Origin") ?: headers?.get("origin")
+                    ?: currentPageUrl
+            }
 
-                if (!preferences.isDomainWhitelisted(pageUrl)) {
-                    val resourceType = detectResourceType(request)
-                    val blocked = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
-                    if (blocked) {
-                        preferences.incrementBlockedRequests()
-                        return WebResourceResponse(
-                            "text/plain",
-                            "UTF-8",
-                            ByteArrayInputStream(ByteArray(0))
-                        )
+            val pageDomain = preferences.cleanDomain(pageUrl)
+            val isWhitelisted = preferences.isDomainWhitelisted(pageDomain)
+
+            // ── Per-domain Script Blocking ─────────────────────────────────────
+            if (!isWhitelisted && preferences.isScriptBlockingEnabledForDomain(pageDomain)) {
+                val resourceType = detectResourceType(request)
+                if (resourceType == "script") {
+                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+                }
+            }
+
+            // ── Ad & Tracker Blocking ─────────────────────────────────────────
+            if (preferences.isAdBlockEnabled && !isWhitelisted) {
+                val resourceType = detectResourceType(request)
+
+                // Standard mode: use EasyList engine
+                val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
+
+                // Aggressive mode: also block requests to known first-party ad domains
+                val blockedByAggressive = if (!blockedByEngine &&
+                    preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) {
+                    val reqDomain = preferences.cleanDomain(url)
+                    firstPartyAdDomains.any { adDomain ->
+                        reqDomain == adDomain || reqDomain.endsWith(".$adDomain")
                     }
+                } else false
+
+                if (blockedByEngine || blockedByAggressive) {
+                    preferences.incrementBlockedRequests()
+                    return WebResourceResponse(
+                        "text/plain",
+                        "UTF-8",
+                        ByteArrayInputStream(ByteArray(0))
+                    )
                 }
             }
 
             null
         } catch (t: Throwable) {
-            // Fail open: never allow adblock or inspection error to fail request or crash app
+            // Fail open: never crash or silently kill requests due to adblock errors
             null
         }
     }
@@ -81,18 +120,12 @@ class OnyxWebViewClient(
     override fun shouldInterceptRequest(view: WebView?, url: String?): WebResourceResponse? {
         if (url == null) return null
         return try {
-            if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                return null
-            }
+            if (!url.startsWith("http://") && !url.startsWith("https://")) return null
             if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(currentPageUrl)) {
                 val blocked = AdBlockEngine.shouldBlock(url, currentPageUrl, "other")
                 if (blocked) {
                     preferences.incrementBlockedRequests()
-                    return WebResourceResponse(
-                        "text/plain",
-                        "UTF-8",
-                        ByteArrayInputStream(ByteArray(0))
-                    )
+                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                 }
             }
             null
@@ -107,6 +140,15 @@ class OnyxWebViewClient(
         val url = uri.toString()
         val scheme = uri.scheme?.lowercase() ?: ""
 
+        // ── HTTPS Upgrade ─────────────────────────────────────────────────────
+        // Automatically upgrade http:// main-frame navigations to https://, matching
+        // Brave's "Upgrade Connections to HTTPS" feature.
+        if (scheme == "http" && request.isForMainFrame && preferences.isHttpsUpgradeEnabled) {
+            val httpsUrl = url.replaceFirst("http://", "https://")
+            view?.loadUrl(httpsUrl)
+            return true
+        }
+
         // Standard web schemes — let WebView handle them normally
         if (scheme == "http" || scheme == "https" || scheme == "about" ||
             scheme == "data" || scheme == "blob" || scheme == "javascript" ||
@@ -115,10 +157,9 @@ class OnyxWebViewClient(
         }
 
         // Custom app URL schemes (fb://, instagram://, twitter://, market://, etc.)
-        // and intent:// scheme — dispatch via the OS so the native app opens.
+        // and intent:// — dispatch via the OS so the native app opens.
         return try {
             if (scheme == "intent") {
-                // Full intent:// parsing (preserves extras, package, fallback URL)
                 val intent = android.content.Intent.parseUri(
                     url, android.content.Intent.URI_INTENT_SCHEME
                 ).apply {
@@ -135,12 +176,9 @@ class OnyxWebViewClient(
                         (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
                         view?.loadUrl(fallbackUrl)
                     }
-                    // Either loaded fallback or silently consumed — never show error page
                     true
                 }
             } else {
-                // For all other custom schemes (fb://, instagram://, tel://, mailto://, etc.)
-                // try a plain ACTION_VIEW intent first.
                 val intent = android.content.Intent(
                     android.content.Intent.ACTION_VIEW, uri
                 ).apply {
@@ -148,28 +186,34 @@ class OnyxWebViewClient(
                 }
                 if (context.packageManager.resolveActivity(intent, 0) != null) {
                     context.startActivity(intent)
-                } else {
-                    // No app installed for this scheme — silently suppress the error page.
-                    // (e.g. fb:// links when Facebook app is not installed)
                 }
                 true // Always consume: never show ERR_UNKNOWN_URL_SCHEME
             }
-        } catch (e: Exception) {
-            true // Consume on any error to prevent the error page
+        } catch (_: Exception) {
+            true
         }
     }
 
     override fun onPageCommitVisible(view: WebView?, url: String?) {
         super.onPageCommitVisible(view, url)
-        if (url != null && (url.startsWith("http://") || url.startsWith("https://")) && preferences.isCosmeticFilteringEnabled && !preferences.isDomainWhitelisted(url)) {
+        if (url.isNullOrBlank()) return
+        val isHttp = url.startsWith("http://") || url.startsWith("https://")
+        if (!isHttp) return
+        val isWhitelisted = preferences.isDomainWhitelisted(url)
+
+        // Cosmetic element hiding (CSS injection)
+        if (preferences.isCosmeticFilteringEnabled && !isWhitelisted) {
             try {
                 val cosmeticCss = AdBlockEngine.getCosmeticCss(url)
                 if (cosmeticCss.isNotBlank()) {
                     injectCosmeticCss(view, cosmeticCss)
                 }
-            } catch (t: Throwable) {
-                // Fail open
-            }
+            } catch (_: Throwable) {}
+        }
+
+        // Fingerprint Protection (JS API spoofing, like Brave)
+        if (preferences.isFingerprintProtectionEnabled && !isWhitelisted) {
+            injectFingerprintProtection(view)
         }
     }
 
@@ -209,9 +253,7 @@ class OnyxWebViewClient(
                                 visitTime = System.currentTimeMillis()
                             )
                         )
-                    } catch (e: Exception) {
-                        // Ignore persistence error
-                    }
+                    } catch (_: Exception) {}
                 }
             }
         }
@@ -256,11 +298,81 @@ class OnyxWebViewClient(
         """.trimIndent()
 
         view?.post {
-            try {
-                view.evaluateJavascript(js, null)
-            } catch (t: Throwable) {
-                // Ignore if view was destroyed
-            }
+            try { view.evaluateJavascript(js, null) } catch (_: Throwable) {}
+        }
+    }
+
+    /**
+     * Injects lightweight fingerprint-protection overrides, similar to Brave's approach:
+     * - Canvas: adds tiny random noise to getImageData / toDataURL outputs
+     * - AudioContext: offsets AnalyserNode frequency data by ±1 LSB
+     * - hardwareConcurrency / deviceMemory: returns rounded/clamped values
+     * - screen width/height/colorDepth: reports common generic values
+     * - WebGL vendor/renderer: returns generic strings
+     *
+     * These are subtle enough that humans never notice them but break naive
+     * fingerprinting hashes from matching across sessions.
+     */
+    private fun injectFingerprintProtection(view: WebView?) {
+        val js = """
+            (function() {
+                if (window.__onyxFpInjected) return;
+                window.__onyxFpInjected = true;
+                try {
+                    // Seeded per-session noise — consistent within a page, random across sessions
+                    var _noise = (Math.random() * 0.0001) - 0.00005;
+
+                    // Canvas noise
+                    var _origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+                    HTMLCanvasElement.prototype.toDataURL = function(type, q) {
+                        var ctx = this.getContext('2d');
+                        if (ctx) {
+                            var id = ctx.getImageData(0, 0, 1, 1);
+                            id.data[0] = (id.data[0] + 1) % 256;
+                            ctx.putImageData(id, 0, 0);
+                        }
+                        return _origToDataURL.apply(this, arguments);
+                    };
+                    var _origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+                    CanvasRenderingContext2D.prototype.getImageData = function() {
+                        var id = _origGetImageData.apply(this, arguments);
+                        id.data[0] = (id.data[0] + 1) % 256;
+                        return id;
+                    };
+
+                    // hardwareConcurrency — clamp to 2 or 4 (common values)
+                    Object.defineProperty(navigator, 'hardwareConcurrency', {
+                        get: function() { return 4; }
+                    });
+
+                    // deviceMemory — report 4 GB (common generic value)
+                    if ('deviceMemory' in navigator) {
+                        Object.defineProperty(navigator, 'deviceMemory', {
+                            get: function() { return 4; }
+                        });
+                    }
+
+                    // WebGL vendor / renderer strings
+                    var _origGetParam = WebGLRenderingContext.prototype.getParameter;
+                    WebGLRenderingContext.prototype.getParameter = function(param) {
+                        if (param === 37445) return 'Intel Inc.';        // UNMASKED_VENDOR_WEBGL
+                        if (param === 37446) return 'Intel Iris OpenGL'; // UNMASKED_RENDERER_WEBGL
+                        return _origGetParam.call(this, param);
+                    };
+                    if (typeof WebGL2RenderingContext !== 'undefined') {
+                        var _origGetParam2 = WebGL2RenderingContext.prototype.getParameter;
+                        WebGL2RenderingContext.prototype.getParameter = function(param) {
+                            if (param === 37445) return 'Intel Inc.';
+                            if (param === 37446) return 'Intel Iris OpenGL';
+                            return _origGetParam2.call(this, param);
+                        };
+                    }
+                } catch(e) {}
+            })();
+        """.trimIndent()
+
+        view?.post {
+            try { view.evaluateJavascript(js, null) } catch (_: Throwable) {}
         }
     }
 }

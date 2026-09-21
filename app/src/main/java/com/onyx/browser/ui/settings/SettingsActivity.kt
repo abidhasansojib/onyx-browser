@@ -120,6 +120,45 @@ class SettingsActivity : AppCompatActivity() {
             preferences.isCosmeticFilteringEnabled = newState
         }
 
+        // Blocking Level (Standard / Aggressive) — alert dialog picker
+        fun updateBlockingLevelDisplay() {
+            binding.tvBlockingLevelValue.text = if (preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE)
+                getString(R.string.blocking_aggressive) else getString(R.string.blocking_standard)
+        }
+        updateBlockingLevelDisplay()
+        binding.settingBlockingLevelRow.setOnClickListener {
+            val levels = arrayOf(
+                getString(R.string.blocking_standard),
+                getString(R.string.blocking_aggressive)
+            )
+            val current = preferences.blockingLevel
+            AlertDialog.Builder(this)
+                .setTitle(R.string.pref_blocking_level_title)
+                .setSingleChoiceItems(levels, current) { dialog, which ->
+                    preferences.blockingLevel = which
+                    updateBlockingLevelDisplay()
+                    dialog.dismiss()
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
+
+        // Fingerprint Protection Toggle
+        binding.switchFingerprintProtection.isChecked = preferences.isFingerprintProtectionEnabled
+        binding.settingFingerprintRow.setOnClickListener {
+            val newState = !binding.switchFingerprintProtection.isChecked
+            binding.switchFingerprintProtection.isChecked = newState
+            preferences.isFingerprintProtectionEnabled = newState
+        }
+
+        // HTTPS Upgrade Toggle
+        binding.switchHttpsUpgrade.isChecked = preferences.isHttpsUpgradeEnabled
+        binding.settingHttpsUpgradeRow.setOnClickListener {
+            val newState = !binding.switchHttpsUpgrade.isChecked
+            binding.switchHttpsUpgrade.isChecked = newState
+            preferences.isHttpsUpgradeEnabled = newState
+        }
+
         // Live Blocked Counter
         lifecycleScope.launch {
             preferences.blockedRequestsFlow.collectLatest { count ->

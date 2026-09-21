@@ -115,6 +115,32 @@
     <string name="disable_adblock_for_this_site">Disable adblocker for this site only</string>
     <string name="disable_adblock_desc">Allow ads, trackers, and unblock network requests on this domain</string>
     <string name="site_shield_settings_button">Global Adblocker Settings</string>
+
+    <!-- Brave-style Shields Panel -->
+    <string name="shields_up">Shields UP</string>
+    <string name="shields_up_desc">Blocking ads, trackers, and other threats</string>
+    <string name="shields_down">Shields DOWN</string>
+    <string name="shields_down_desc">Protection paused for this site</string>
+    <string name="trackers_blocked_label">TRACKERS &amp; ADS BLOCKED</string>
+    <string name="blocked_all_time">all time</string>
+    <string name="blocking_level_title">Ad &amp; Tracker Blocking</string>
+    <string name="blocking_level_desc">Standard blocks 3rd-party · Aggressive blocks all</string>
+    <string name="blocking_standard">Standard</string>
+    <string name="blocking_aggressive">Aggressive</string>
+    <string name="fingerprint_protection_title">Fingerprint Protection</string>
+    <string name="fingerprint_protection_desc">Randomise browser APIs to prevent cross-site tracking</string>
+    <string name="https_upgrade_title">Upgrade Connections to HTTPS</string>
+    <string name="https_upgrade_desc">Auto-upgrade insecure http:// links to https://</string>
+    <string name="script_blocking_title">Block Scripts</string>
+    <string name="script_blocking_desc">Block JavaScript on this site (may break pages)</string>
+
+    <!-- Settings: new rows -->
+    <string name="pref_blocking_level_title">Blocking Level</string>
+    <string name="pref_blocking_level_desc">Standard (3rd-party) or Aggressive (all ads)</string>
+    <string name="pref_fingerprint_title">Fingerprint Protection</string>
+    <string name="pref_fingerprint_desc">Randomise Canvas, WebGL and other fingerprint APIs</string>
+    <string name="pref_https_upgrade_title">Upgrade to HTTPS</string>
+    <string name="pref_https_upgrade_desc">Automatically upgrade HTTP connections to HTTPS</string>
     <string name="find_in_page_hint">Find in page…</string>
     <string name="no_matches">0/0</string>
     <string name="matches_count">%1$d/%2$d</string>
