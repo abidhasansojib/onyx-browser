@@ -304,5 +304,13 @@
     <string name="search_filters_hint">Search filters…</string>
     <string name="updating_filters">Updating filter lists…</string>
     <string name="filters_updated">Content filters updated successfully (%1$d rules active)</string>
-
+    <string name="filter_auto_update_title">Auto-update filter lists</string>
+    <string name="filter_auto_update_desc">Automatically download and update filter lists every 24 hours</string>
+    <string name="filter_last_updated">Last updated: %1$s</string>
+    <string name="filter_category_all">All</string>
+    <string name="filter_category_core">Core</string>
+    <string name="filter_category_privacy">Privacy</string>
+    <string name="filter_category_annoyance">Annoyances</string>
+    <string name="filter_category_social">Social</string>
+    <string name="filter_category_regional">Regional</string>
 </resources>

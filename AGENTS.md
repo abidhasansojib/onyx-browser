@@ -345,5 +345,18 @@ onyx-browser/
     - **WebView & ServiceWorker Hardening**:
       - Updated `OnyxWebViewClient.kt` and `AdBlockServiceWorkerHelper.kt` to return `WebResourceResponse` with HTTP 403 Forbidden, `reasonPhrase = "Blocked by Onyx Shields"`, and CORS headers (`Access-Control-Allow-Origin: *`).
       - Added `OnyxWebView.updateShieldsLevel(level)` and synchronized shield settings dynamically on page load.
-
-
+  - [x] Brave-Style Updatable Filter Lists, 16 Core Community Lists & Content Filters Categorization:
+    - **16 Core & Famous Community Filter Lists**:
+      - Preceded the 54 Brave lists with 16 renowned core filter lists: EasyList, EasyPrivacy, uBlock Origin Filters (Base, Privacy, Badware, Quick Fixes, Unbreak), Brave Shields Filters (Default, First Party), AdGuard Filters (Base, Mobile Ads, Tracking Protection, Annoyances), Peter Lowe's Blocklist, Fanboy's Annoyance List, and Fanboy's Anti-Social List.
+      - Enabled essential core lists by default in `BrowserPreferences` (`easylist`, `easyprivacy`, `ublock_filters`, `brave_default`).
+    - **Brave-Style Auto-Update Engine (`FilterListManager.kt`)**:
+      - Added `checkAndAutoUpdateFilters(context, force)` checking user auto-update preference and interval (default 24 hours).
+      - Asynchronously downloads updated filter lists from upstream repositories in background IO coroutines.
+      - Merges upstream rules with base bundled assets (`easylist_rules.txt`) and user custom rules.
+      - Compiles rules into binary bytecode (`onyx_filters.bin`) and updates the active, running Rust NDK adblock engine in memory via `AdBlockEngine.initEngine(compiledBytes)` without requiring an application restart.
+      - Startup integration in `MainActivity.kt` performing non-blocking 24-hour interval freshness checks.
+    - **Content Filters Screen UI Overhaul (`ContentFiltersActivity` & `activity_content_filters.xml`)**:
+      - Auto-update toggle switch with dynamic last-updated status ("Last updated: Just now", "X hours ago", "Yesterday", "Never").
+      - Horizontal category filter chips: All, Core, Privacy, Annoyances, Social, Regional.
+      - Real-time combined filtering matching selected category and text search query.
+      - Real-time update progress indicator with active download status.

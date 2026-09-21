@@ -142,8 +142,17 @@ class BrowserPreferences private constructor(context: Context) {
 
     // ── Filter List Subscriptions (comma-separated keys) ─────────────────────
     var enabledFilterLists: Set<String>
-        get() = prefs.getStringSet(KEY_ENABLED_FILTER_LISTS, setOf("easylist", "easyprivacy")) ?: setOf("easylist", "easyprivacy")
+        get() = prefs.getStringSet(KEY_ENABLED_FILTER_LISTS, setOf("easylist", "easyprivacy", "ublock_filters", "brave_default")) ?: setOf("easylist", "easyprivacy", "ublock_filters", "brave_default")
         set(value) = prefs.edit().putStringSet(KEY_ENABLED_FILTER_LISTS, value).apply()
+
+    // ── Filter List Auto-Update ────────────────────────────────────────────────
+    var isFilterAutoUpdateEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FILTER_AUTO_UPDATE, true)
+        set(value) = prefs.edit().putBoolean(KEY_FILTER_AUTO_UPDATE, value).apply()
+
+    var filterAutoUpdateIntervalHours: Int
+        get() = prefs.getInt(KEY_FILTER_UPDATE_INTERVAL, 24)
+        set(value) = prefs.edit().putInt(KEY_FILTER_UPDATE_INTERVAL, value).apply()
 
     // ── Element Blocking in Private Windows ──────────────────────────────────
     var isElementBlockingInPrivateEnabled: Boolean
@@ -529,6 +538,8 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_AUTOFILL_ENABLED = "pref_autofill_enabled"
         const val KEY_SAVE_PASSWORDS_PROMPT = "pref_save_passwords_prompt"
         const val KEY_PASSKEYS_ENABLED = "pref_passkeys_enabled"
+        const val KEY_FILTER_AUTO_UPDATE = "pref_filter_auto_update"
+        const val KEY_FILTER_UPDATE_INTERVAL = "pref_filter_update_interval"
 
         @Volatile
         private var INSTANCE: BrowserPreferences? = null

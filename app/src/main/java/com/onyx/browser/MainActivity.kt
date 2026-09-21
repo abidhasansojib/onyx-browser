@@ -68,6 +68,8 @@ import com.onyx.browser.web.DownloadHandler
 import com.onyx.browser.web.OnyxWebChromeClient
 import com.onyx.browser.web.OnyxWebView
 import com.onyx.browser.web.OnyxWebViewClient
+import com.onyx.browser.data.filter.FilterListManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -295,6 +297,11 @@ class MainActivity : AppCompatActivity() {
             if (savedInstanceState == null || intentToHandle != intent) {
                 handleIncomingIntent(intentToHandle)
             }
+        }
+
+        // Check and auto-update filter lists in background (every 24h by default)
+        lifecycleScope.launch(Dispatchers.IO) {
+            FilterListManager.checkAndAutoUpdateFilters(applicationContext)
         }
     }
 

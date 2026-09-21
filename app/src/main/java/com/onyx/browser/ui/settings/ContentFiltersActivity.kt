@@ -15,6 +15,7 @@ import com.onyx.browser.data.filter.FilterListEntry
 import com.onyx.browser.data.filter.FilterListManager
 import com.onyx.browser.databinding.ActivityContentFiltersBinding
 import com.onyx.browser.databinding.ItemContentFilterBinding
+import com.onyx.browser.data.preferences.BrowserPreferences
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -23,8 +24,10 @@ class ContentFiltersActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityContentFiltersBinding
     private lateinit var adapter: ContentFilterAdapter
+    private lateinit var preferences: BrowserPreferences
     private var allLists: List<FilterListEntry> = emptyList()
     private var filteredLists: MutableList<FilterListEntry> = mutableListOf()
+    private var selectedCategory: String = "all"
     private var recompileJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,6 +35,7 @@ class ContentFiltersActivity : AppCompatActivity() {
         binding = ActivityContentFiltersBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        preferences = BrowserPreferences.getInstance(this)
         binding.toolbar.setNavigationOnClickListener { finish() }
 
         allLists = FilterListManager.ALL_FILTER_LISTS
@@ -41,25 +45,61 @@ class ContentFiltersActivity : AppCompatActivity() {
         binding.rvContentFilters.layoutManager = LinearLayoutManager(this)
         binding.rvContentFilters.adapter = adapter
 
+        setupAutoUpdateCard()
+        setupCategoryChips()
+
         binding.btnUpdateFilters.setOnClickListener {
             performUpdateFilters()
         }
 
-        binding.etSearchFilter.doAfterTextChanged { text ->
-            filterList(text?.toString()?.trim() ?: "")
+        binding.etSearchFilter.doAfterTextChanged {
+            applyFilter()
         }
     }
 
-    private fun filterList(query: String) {
+    private fun setupAutoUpdateCard() {
+        binding.switchAutoUpdate.isChecked = preferences.isFilterAutoUpdateEnabled
+        updateLastUpdatedDisplay()
+
+        binding.cardAutoUpdate.setOnClickListener {
+            val newState = !binding.switchAutoUpdate.isChecked
+            binding.switchAutoUpdate.isChecked = newState
+            preferences.isFilterAutoUpdateEnabled = newState
+        }
+    }
+
+    private fun updateLastUpdatedDisplay() {
+        val lastUpdated = FilterListManager.getLastUpdatedFormatted(this)
+        binding.tvLastUpdated.text = getString(R.string.filter_last_updated, lastUpdated)
+    }
+
+    private fun setupCategoryChips() {
+        binding.chipGroupCategories.setOnCheckedStateChangeListener { _, checkedIds ->
+            selectedCategory = when {
+                checkedIds.contains(R.id.chipCore) -> "core"
+                checkedIds.contains(R.id.chipPrivacy) -> "privacy"
+                checkedIds.contains(R.id.chipAnnoyance) -> "annoyance"
+                checkedIds.contains(R.id.chipSocial) -> "social"
+                checkedIds.contains(R.id.chipRegional) -> "regional"
+                else -> "all"
+            }
+            applyFilter()
+        }
+    }
+
+    private fun applyFilter() {
+        val query = binding.etSearchFilter.text?.toString()?.trim()?.lowercase() ?: ""
         filteredLists.clear()
-        if (query.isBlank()) {
-            filteredLists.addAll(allLists)
-        } else {
-            val lower = query.lowercase()
-            for (entry in allLists) {
-                if (entry.title.lowercase().contains(lower) || entry.subtitle.lowercase().contains(lower)) {
-                    filteredLists.add(entry)
-                }
+
+        for (entry in allLists) {
+            val matchesCategory = selectedCategory == "all" ||
+                    entry.category.equals(selectedCategory, ignoreCase = true)
+            val matchesQuery = query.isEmpty() ||
+                    entry.title.lowercase().contains(query) ||
+                    entry.subtitle.lowercase().contains(query)
+
+            if (matchesCategory && matchesQuery) {
+                filteredLists.add(entry)
             }
         }
         adapter.notifyDataSetChanged()
@@ -79,6 +119,7 @@ class ContentFiltersActivity : AppCompatActivity() {
             binding.btnUpdateFilters.isEnabled = true
             binding.progressUpdate.visibility = View.GONE
             binding.tvUpdateStatus.visibility = View.GONE
+            updateLastUpdatedDisplay()
 
             if (result.isSuccess) {
                 val rulesCount = result.getOrNull() ?: 0

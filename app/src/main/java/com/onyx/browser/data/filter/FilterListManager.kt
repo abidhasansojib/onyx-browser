@@ -32,12 +32,143 @@ object FilterListManager {
      * (matching user screenshots 1.jpg through 5.jpg).
      */
     val ALL_FILTER_LISTS: List<FilterListEntry> = listOf(
+        // ── Core & Famous Filter Lists (Essential Ad & Tracker Blocking) ─────
+        FilterListEntry(
+            id = "easylist",
+            title = "EasyList",
+            subtitle = "Primary ad-blocking filter list worldwide",
+            url = "https://easylist.to/easylist/easylist.txt",
+            category = "core",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
+            id = "easyprivacy",
+            title = "EasyPrivacy",
+            subtitle = "Primary tracking, telemetry, and analytics protection",
+            url = "https://easylist.to/easylist/easyprivacy.txt",
+            category = "core",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
+            id = "ublock_filters",
+            title = "uBlock Origin – Base Filters",
+            subtitle = "Core ad and content filtering rules by Raymond Hill (gorhill)",
+            url = "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",
+            category = "core",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
+            id = "ublock_privacy",
+            title = "uBlock Origin – Privacy",
+            subtitle = "Tracking servers, web beacons, and mobile telemetry",
+            url = "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy.txt",
+            category = "core",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
+            id = "ublock_badware",
+            title = "uBlock Origin – Badware Risks",
+            subtitle = "Malicious websites, fake download traps, and popunder networks",
+            url = "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/badware.txt",
+            category = "core",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
+            id = "ublock_quick_fixes",
+            title = "uBlock Origin – Quick Fixes",
+            subtitle = "Real-time anti-adblock defusers and urgent site patches",
+            url = "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt",
+            category = "core",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
+            id = "ublock_unbreak",
+            title = "uBlock Origin – Unbreak",
+            subtitle = "Fixes legitimate website breakage caused by filter rules",
+            url = "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt",
+            category = "core",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
+            id = "brave_default",
+            title = "Brave Shields – Default Filters",
+            subtitle = "Brave's curated ad and cosmetic blocking rules",
+            url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-default.txt",
+            category = "core",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
+            id = "brave_firstparty",
+            title = "Brave Shields – First Party Filters",
+            subtitle = "Blocks first-party tracking scripts and ad injection",
+            url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-firstparty.txt",
+            category = "core",
+            defaultEnabled = false
+        ),
+        FilterListEntry(
+            id = "adguard_base",
+            title = "AdGuard – Base Filter",
+            subtitle = "Comprehensive ad blocking list by the AdGuard team",
+            url = "https://filters.adtidy.org/extension/ublock/filters/2.txt",
+            category = "core",
+            defaultEnabled = false
+        ),
+        FilterListEntry(
+            id = "adguard_mobile",
+            title = "AdGuard – Mobile Ads",
+            subtitle = "Optimized ad blocking specifically tuned for mobile browsers",
+            url = "https://filters.adtidy.org/extension/ublock/filters/11.txt",
+            category = "core",
+            defaultEnabled = false
+        ),
+        FilterListEntry(
+            id = "adguard_tracking",
+            title = "AdGuard – Tracking Protection",
+            subtitle = "Blocks web trackers, analytics, and telemetry systems",
+            url = "https://filters.adtidy.org/extension/ublock/filters/3.txt",
+            category = "core",
+            defaultEnabled = false
+        ),
+        FilterListEntry(
+            id = "adguard_annoyances",
+            title = "AdGuard – Annoyances Filter",
+            subtitle = "Blocks cookie notices, widgets, popups, and app banners",
+            url = "https://filters.adtidy.org/extension/ublock/filters/14.txt",
+            category = "annoyance",
+            defaultEnabled = false
+        ),
+        FilterListEntry(
+            id = "peter_lowes",
+            title = "Peter Lowe's Blocklist",
+            subtitle = "Ad and tracking server list curated by Peter Lowe since 2001",
+            url = "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext",
+            category = "core",
+            defaultEnabled = false
+        ),
+        FilterListEntry(
+            id = "fanboy_annoyance",
+            title = "Fanboy's Annoyance List",
+            subtitle = "In-page popups, newsletter overlays, and floating notices",
+            url = "https://secure.fanboy.co.nz/fanboy-annoyance.txt",
+            category = "annoyance",
+            defaultEnabled = false
+        ),
+        FilterListEntry(
+            id = "fanboy_social",
+            title = "Fanboy's Anti-Social List",
+            subtitle = "Social media share buttons, tracking widgets, and scripts",
+            url = "https://secure.fanboy.co.nz/fanboy-antifacebook.txt",
+            category = "social",
+            defaultEnabled = false
+        ),
+
         // ── Screenshot 1.jpg ──────────────────────────────────────────────────
         FilterListEntry(
             id = "cookie_notice",
             title = "Cookie notice blocker",
             subtitle = "EasyList Cookie",
             url = "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -45,6 +176,7 @@ object FilterListManager {
             title = "Annoying distractions blocker",
             subtitle = "Fanboy's Annoyances + uBO Annoyances",
             url = "https://secure.fanboy.co.nz/fanboy-annoyance.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -52,6 +184,7 @@ object FilterListManager {
             title = "AI suggestions blocker",
             subtitle = "Anti-AI suggestions Filters",
             url = "https://raw.githubusercontent.com/laylavish/uBlockOrigin-HUGE-AI-Blocklist/main/list.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -59,6 +192,7 @@ object FilterListManager {
             title = "Newsletter popup blocker",
             subtitle = "Fanboy's Anti-Newsletter",
             url = "https://secure.fanboy.co.nz/fanboy-newsletter.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -66,6 +200,7 @@ object FilterListManager {
             title = "Mobile app promo blocker",
             subtitle = "Fanboy's Mobile Notifications",
             url = "https://secure.fanboy.co.nz/fanboy-notifications.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -73,6 +208,7 @@ object FilterListManager {
             title = "Social media blocker",
             subtitle = "Fanboy's Social",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-social.txt",
+            category = "social",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -80,6 +216,7 @@ object FilterListManager {
             title = "YouTube Shorts blocker",
             subtitle = "YouTube Anti-Shorts",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-shorts.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -87,6 +224,7 @@ object FilterListManager {
             title = "YouTube Playables blocker",
             subtitle = "Remove Youtube Playables",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-distracting.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -94,6 +232,7 @@ object FilterListManager {
             title = "YouTube recommendations blocker (mobile-only)",
             subtitle = "YouTube Mobile Recommendations",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-recommended.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -101,6 +240,7 @@ object FilterListManager {
             title = "YouTube autodubbed videos blocker",
             subtitle = "Remove Youtube Autodubbed videos",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-distracting.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -108,6 +248,7 @@ object FilterListManager {
             title = "YouTube end video elements blocker",
             subtitle = "YouTube End Video Elements",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-distracting.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
 
@@ -117,6 +258,7 @@ object FilterListManager {
             title = "YouTube members-only video blocker",
             subtitle = "Remove Youtube Members video advertisements",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-distracting.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -124,6 +266,7 @@ object FilterListManager {
             title = "YouTube distractions elements blocker (mobile-only)",
             subtitle = "YouTube Mobile Distractions",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-distracting.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -131,6 +274,7 @@ object FilterListManager {
             title = "YouTube thumbnail image blocker",
             subtitle = "Remove Youtube thumbnail images",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-distracting.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -138,6 +282,7 @@ object FilterListManager {
             title = "Tracking URL blocker",
             subtitle = "AdGuard URL Tracking Protection Filters",
             url = "https://filters.adtidy.org/extension/ublock/filters/17.txt",
+            category = "privacy",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -145,6 +290,7 @@ object FilterListManager {
             title = "Chat app blocker",
             subtitle = "Fanboy's Anti-chat Apps",
             url = "https://secure.fanboy.co.nz/fanboy-antichat.txt",
+            category = "social",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -152,6 +298,7 @@ object FilterListManager {
             title = "Paywall blocker",
             subtitle = "Bypass Paywalls Clean Filters",
             url = "https://raw.githubusercontent.com/bpc-clone/bpc_updates/master/filters.txt",
+            category = "annoyance",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -159,6 +306,7 @@ object FilterListManager {
             title = "Porn blocker",
             subtitle = "Blocklists Anti-Porn",
             url = "https://raw.githubusercontent.com/Sinfonietta/hostfiles/master/porn-hosts",
+            category = "other",
             defaultEnabled = false
         ),
         FilterListEntry(
@@ -519,7 +667,9 @@ object FilterListManager {
             if (compiledBytes != null && compiledBytes.isNotEmpty()) {
                 val cacheFile = File(context.filesDir, BINARY_CACHE_FILE)
                 FileOutputStream(cacheFile).use { it.write(compiledBytes) }
-                Log.i(TAG, "Successfully compiled filter database with ${compiledBytes.size} bytes cache")
+                // Immediately apply new rules to the active in-memory Rust engine!
+                AdBlockEngine.initEngine(compiledBytes)
+                Log.i(TAG, "Successfully compiled filter database with ${compiledBytes.size} bytes cache and reinitialized engine")
 
                 // Count active rules
                 val ruleCount = mergedRules.lineSequence().count {
@@ -531,6 +681,46 @@ object FilterListManager {
             Log.e(TAG, "Error in compileFilters", e)
         }
         return 0
+    }
+
+    /**
+     * Checks if auto-update is due (every 24h by default) and updates/compiles filter lists in background.
+     */
+    suspend fun checkAndAutoUpdateFilters(context: Context, force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+        val prefs = BrowserPreferences.getInstance(context)
+        if (!force && !prefs.isFilterAutoUpdateEnabled) {
+            return@withContext false
+        }
+        val lastUpdated = prefs.filterLastUpdatedTime
+        val intervalMillis = prefs.filterAutoUpdateIntervalHours * 3600_000L
+        val now = System.currentTimeMillis()
+        if (!force && (now - lastUpdated < intervalMillis)) {
+            Log.d(TAG, "Filter lists are up to date (last updated ${((now - lastUpdated) / 3600000)}h ago)")
+            return@withContext false
+        }
+
+        Log.i(TAG, "Starting filter lists auto-update in background...")
+        val result = updateAllFilters(context) { current, total, name ->
+            Log.d(TAG, "Auto-updating filter ($current/$total): $name")
+        }
+        return@withContext result.isSuccess
+    }
+
+    fun getLastUpdatedFormatted(context: Context): String {
+        val prefs = BrowserPreferences.getInstance(context)
+        val lastUpdated = prefs.filterLastUpdatedTime
+        if (lastUpdated <= 0) return "Never"
+        val diff = System.currentTimeMillis() - lastUpdated
+        val hours = diff / (3600 * 1000)
+        val days = hours / 24
+        return when {
+            days > 1 -> "$days days ago"
+            days == 1L -> "Yesterday"
+            hours > 1 -> "$hours hours ago"
+            hours == 1L -> "1 hour ago"
+            diff > 60_000 -> "${diff / 60_000} mins ago"
+            else -> "Just now"
+        }
     }
 
     private fun downloadFilterList(sourceUrl: String, targetFile: File) {
