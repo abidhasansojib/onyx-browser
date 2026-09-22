@@ -190,7 +190,7 @@
                 <data android:scheme="https" />
             </intent-filter>
 
-            <!-- Local HTML/File Viewer Handler -->
+            <!-- Local HTML/Markdown Document Viewer Handler (by MIME type) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -198,8 +198,28 @@
                 <data android:scheme="file" />
                 <data android:scheme="content" />
                 <data android:mimeType="text/html" />
-                <data android:mimeType="text/plain" />
                 <data android:mimeType="application/xhtml+xml" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="text/x-markdown" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <!-- Local HTML/Markdown Document Viewer Handler (by file extension) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.html" />
+                <data android:pathPattern=".*\\.htm" />
+                <data android:pathPattern=".*\\.md" />
+                <data android:pathPattern=".*\\.markdown" />
+                <data android:pathPattern=".*\\..*\\.html" />
+                <data android:pathPattern=".*\\..*\\.htm" />
+                <data android:pathPattern=".*\\..*\\.md" />
+                <data android:pathPattern=".*\\..*\\.markdown" />
             </intent-filter>
 
             <!-- Web Search Filters -->

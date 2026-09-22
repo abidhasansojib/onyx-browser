@@ -17,6 +17,7 @@ import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.nativebridge.AdBlockEngine
+import com.onyx.browser.web.error.WebErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -244,6 +245,15 @@ class OnyxWebViewClient(
         if (scheme == "http" || scheme == "https" || scheme == "about" ||
             scheme == "data" || scheme == "blob" || scheme == "javascript" ||
             scheme == "file" || scheme == "content") {
+            if (isForMainFrame && (scheme == "file" || scheme == "content")) {
+                val path = uri.path?.lowercase() ?: ""
+                if (path.endsWith(".md") || path.endsWith(".markdown")) {
+                    (view as? OnyxWebView)?.let { wv ->
+                        LocalFileLoader.loadLocalFile(context, wv, url)
+                        return true
+                    }
+                }
+            }
             // If "Open links in app" is enabled, check if there's a specialized app for this HTTP link
             if (isForMainFrame && preferences.isOpenLinksInAppEnabled && (scheme == "http" || scheme == "https")) {
                 if (tryOpenAppForHttpLink(uri)) {
@@ -811,21 +821,33 @@ class OnyxWebViewClient(
             try { view?.stopLoading() } catch (_: Throwable) {}
 
             val errorDesc = error?.description?.toString() ?: ""
-            val errCodeString = when {
-                !isNetworkConnected() -> "ERR_INTERNET_DISCONNECTED"
-                errorDesc.contains("INTERNET_DISCONNECTED", ignoreCase = true) -> "ERR_INTERNET_DISCONNECTED"
-                error?.errorCode == WebViewClient.ERROR_HOST_LOOKUP || errorDesc.contains("NAME_NOT_RESOLVED", ignoreCase = true) -> "ERR_NAME_NOT_RESOLVED"
-                error?.errorCode == WebViewClient.ERROR_CONNECT || errorDesc.contains("CONNECTION_REFUSED", ignoreCase = true) -> "ERR_CONNECTION_REFUSED"
-                error?.errorCode == WebViewClient.ERROR_TIMEOUT || errorDesc.contains("TIMED_OUT", ignoreCase = true) -> "ERR_TIMED_OUT"
-                errorDesc.startsWith("net::") -> errorDesc.removePrefix("net::")
-                errorDesc.isNotBlank() -> errorDesc
-                else -> "ERR_CONNECTION_FAILED"
-            }
+            val errCode = error?.errorCode ?: WebViewClient.ERROR_UNKNOWN
+            val onyxError = WebErrorHandler.resolveNetworkError(url, errCode, errorDesc, isNetworkConnected())
 
-            loadCustomErrorPage(view, url, errCodeString, errorDesc)
+            loadCustomErrorPage(view, onyxError)
             return // DO NOT call super.onReceivedError() to prevent the old error page from flashing!
         }
         super.onReceivedError(view, request, error)
+    }
+
+    override fun onReceivedHttpError(
+        view: WebView?,
+        request: WebResourceRequest?,
+        errorResponse: WebResourceResponse?
+    ) {
+        if (request?.isForMainFrame == true) {
+            val url = request.url.toString()
+            if (url.startsWith("file:///android_asset/")) return
+
+            val statusCode = errorResponse?.statusCode ?: 0
+            if (statusCode >= 400) {
+                val reason = errorResponse?.reasonPhrase
+                val onyxError = WebErrorHandler.resolveHttpError(url, statusCode, reason)
+                loadCustomErrorPage(view, onyxError)
+                return
+            }
+        }
+        super.onReceivedHttpError(view, request, errorResponse)
     }
 
     @Deprecated("Deprecated in Java")
@@ -839,14 +861,8 @@ class OnyxWebViewClient(
             val url = failingUrl ?: view?.url ?: return
             if (url.startsWith("file:///android_asset/")) return
             try { view?.stopLoading() } catch (_: Throwable) {}
-            val errCodeString = when {
-                !isNetworkConnected() -> "ERR_INTERNET_DISCONNECTED"
-                errorCode == WebViewClient.ERROR_HOST_LOOKUP -> "ERR_NAME_NOT_RESOLVED"
-                errorCode == WebViewClient.ERROR_CONNECT -> "ERR_CONNECTION_REFUSED"
-                errorCode == WebViewClient.ERROR_TIMEOUT -> "ERR_TIMED_OUT"
-                else -> description ?: "ERR_CONNECTION_FAILED"
-            }
-            loadCustomErrorPage(view, url, errCodeString, description ?: "")
+            val onyxError = WebErrorHandler.resolveNetworkError(url, errorCode, description, isNetworkConnected())
+            loadCustomErrorPage(view, onyxError)
             return
         }
         super.onReceivedError(view, errorCode, description, failingUrl)
@@ -857,19 +873,20 @@ class OnyxWebViewClient(
         handler: android.webkit.SslErrorHandler?,
         error: android.net.http.SslError?
     ) {
-        val url = view?.url ?: ""
+        val url = view?.url ?: error?.url ?: ""
         val fallbackUrl = url.replaceFirst("https://", "http://")
-        if (preferences.httpsUpgradeMode == BrowserPreferences.HTTPS_MODE_STRICT) {
-            // Strict: never fall back to HTTP, cancel and show error
-            handler?.cancel()
-            try { view?.stopLoading() } catch (_: Throwable) {}
-            loadCustomErrorPage(view, url, "ERR_SSL_PROTOCOL_ERROR", "The site's security certificate is invalid or untrusted.")
-        } else if (upgradedUrls.contains(fallbackUrl)) {
+        if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT && upgradedUrls.contains(fallbackUrl)) {
             handler?.cancel()
             view?.loadUrl(fallbackUrl)
-        } else {
-            super.onReceivedSslError(view, handler, error)
+            return
         }
+
+        // Store handler in OnyxWebView so OnyxErrorBridge.proceedSsl() can bypass if user clicks it
+        (view as? OnyxWebView)?.pendingSslHandler = handler
+
+        try { view?.stopLoading() } catch (_: Throwable) {}
+        val onyxError = WebErrorHandler.resolveSslError(url, error)
+        loadCustomErrorPage(view, onyxError)
     }
 
     private fun isNetworkConnected(): Boolean {
@@ -888,7 +905,7 @@ class OnyxWebViewClient(
         }
     }
 
-    private fun loadCustomErrorPage(view: WebView?, failingUrl: String, errorCode: String, errorDesc: String) {
+    private fun loadCustomErrorPage(view: WebView?, error: WebErrorHandler.OnyxWebError) {
         val renderAction = Runnable {
             try {
                 var template = cachedErrorPageTemplate
@@ -896,21 +913,19 @@ class OnyxWebViewClient(
                     template = context.assets.open("error_page.html").bufferedReader().use { it.readText() }
                     cachedErrorPageTemplate = template
                 }
-                val populatedHtml = template
-                    .replace("{{URL}}", failingUrl)
-                    .replace("{{ERROR_CODE}}", errorCode)
-                    .replace("{{ERROR_DESC}}", errorDesc)
+                val errorJson = error.toJson()
+                val populatedHtml = template.replace("{{ERROR_JSON}}", errorJson)
                 view?.loadDataWithBaseURL(
-                    failingUrl,
+                    error.failingUrl,
                     populatedHtml,
                     "text/html",
                     "UTF-8",
-                    failingUrl
+                    error.failingUrl
                 )
             } catch (_: Throwable) {
-                val encodedUrl = Uri.encode(failingUrl)
-                val encodedErr = Uri.encode(errorCode)
-                val encodedDesc = Uri.encode(errorDesc)
+                val encodedUrl = Uri.encode(error.failingUrl)
+                val encodedErr = Uri.encode(error.errorCodeString)
+                val encodedDesc = Uri.encode(error.description)
                 view?.loadUrl("file:///android_asset/error_page.html?url=$encodedUrl&error=$encodedErr&desc=$encodedDesc")
             }
         }

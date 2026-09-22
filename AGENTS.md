@@ -545,4 +545,33 @@ onyx-browser/
     - Called `updatePipParams()` in `MainActivity.onResume()`: when the user turns off PiP in Settings and returns to the browser, the OS is immediately notified with `setAutoEnterEnabled(false)`, completely eliminating unwanted PiP triggers on swipe-to-home.
     - Added guard in `enterPipMode()` and `onUserLeaveHint()`: immediately exits if `!preferences.isPipEnabled`.
     - Added `MediaPlaybackService.stop(this)` call in [`SettingsActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/SettingsActivity.kt) when background play is toggled off.
+- [x] **Universal Modular Web Error Handling Subsystem**:
+  - Centralized, strongly-typed classification engine in [`WebErrorHandler.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/error/WebErrorHandler.kt) resolving all Chromium `WebResourceError` codes, HTTP status codes (400, 401, 403, 404, 429, 500, 502, 503, 504), SSL certificate errors, and local file failures into structured `OnyxWebError` objects with contextual titles, descriptions, diagnostic pills, troubleshooting checklists, and primary/secondary button actions.
+  - Universal Error Page Asset in [`error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html):
+    - Category-tailored SVG vector icons (WiFi disconnected for Offline, Globe with search for DNS lookup failures, Server rack with broken plug for connection refused/reset, Clock for timeouts, Danger shield for SSL certificate errors, Folder alert for file errors, and Onyx Shields emblem for privacy blocks).
+    - Authentic Google Dark (`#121212` / `#1E1E1E`) and Google Light (`#F8F9FA` / `#FFFFFF`) theme matching.
+    - Contextual troubleshooting checklist card with bullets tailored to the exact failure category.
+    - SSL Certificate Security details drawer with "Advanced" toggle and optional "Proceed to this site (unsafe)" bypass link.
+  - Native JavaScript Bridge in [`OnyxErrorBridge.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/error/OnyxErrorBridge.kt) bridging error page button interactions (`reload`, `goBack`, `goHome`, `search`, `openSettings`, `openShields`, `openDownloads`, `proceedSsl`) to native Android browser methods.
+  - Interception Integration in [`OnyxWebViewClient.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebViewClient.kt):
+    - `onReceivedError`: intercepts main-frame network errors, suppresses Chromium's default error page flashing, and loads the tailored error page via `loadDataWithBaseURL`.
+    - `onReceivedHttpError`: intercepts 4xx and 5xx responses for main-frame requests and displays custom error pages.
+    - `onReceivedSslError`: suppresses abrupt aborts, stores `pendingSslHandler` on `OnyxWebView`, and renders the SSL warning page with proceed/back options.
+- [x] **Local HTML & Markdown Document Viewer & Previewer**:
+  - Enabled `settings.allowFileAccess = true` and `settings.allowContentAccess = true` in [`OnyxWebView.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebView.kt) while preserving origin isolation (`allowFileAccessFromFileURLs = false` and `allowUniversalAccessFromFileURLs = false`).
+  - High-performance local file resolver in [`LocalFileLoader.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/LocalFileLoader.kt):
+    - Handles reading documents from `file://`, `content://`, or absolute paths (`/storage/...`, `/sdcard/...`) via `ContentResolver` and direct streams.
+    - For HTML (`.html`, `.htm`, `.xhtml`): reads content, computes parent directory base URL (`file://.../`) so relative stylesheets, scripts, and images resolve correctly, and loads via `loadDataWithBaseURL`.
+    - For Markdown (`.md`, `.markdown`): reads raw markdown, encodes UTF-8 Base64, injects into [`markdown_previewer.html`](file:///root/onyx-browser/app/src/main/assets/markdown_previewer.html), and renders GitHub-flavored Markdown.
+    - For missing or unreadable files: automatically presents the tailored `FILE_NOT_FOUND` error page.
+  - Offline GitHub-Flavored Markdown Previewer in [`markdown_previewer.html`](file:///root/onyx-browser/app/src/main/assets/markdown_previewer.html):
+    - Zero-dependency client-side parser supporting headings `#` to `######`, bold, italics, strikethrough, blockquotes, lists, task checkboxes (`- [ ]`, `- [x]`), tables with responsive cell styling, inline code, and fenced code blocks.
+    - Code blocks feature syntax highlighting, language badge, and a one-tap **Copy Code** button with feedback.
+    - Top sticky navigation bar with Markdown badge, file name, word count stats, Raw / Rendered toggle, and Copy All button.
+    - Automatic theme synchronization with Google Dark (`#202124`) and Google Light (`#FFFFFF`).
+  - Routing & System Intent Integration in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) & [`AndroidManifest.xml`](file:///root/onyx-browser/app/src/main/AndroidManifest.xml):
+    - Address bar smart routing in `performSearchOrLoad(input)`: automatically detects local file paths and URIs, bypassing search engines and routing to `LocalFileLoader`.
+    - Pull-to-refresh (`swipeRefreshLayout`) reloads local documents via `LocalFileLoader`.
+    - Address bar title formatting displays clean file display names for local documents.
+    - Registered complete `ACTION_VIEW` intent filters for `file` and `content` schemes across MIME types (`text/html`, `application/xhtml+xml`, `text/markdown`, `text/x-markdown`, `text/plain`) and file extensions (`.*\\.html`, `.*\\.htm`, `.*\\.md`, `.*\\.markdown`), enabling opening files directly from any Android file manager.
 

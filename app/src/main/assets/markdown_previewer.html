@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Markdown Preview</title>
+  <style>
+    :root {
+      --bg: #FFFFFF;
+      --surface: #F8F9FA;
+      --surface-variant: #F1F3F4;
+      --border: #DFE1E5;
+      --text-main: #202124;
+      --text-sub: #5F6368;
+      --primary: #1A73E8;
+      --primary-hover: #1557B0;
+      --primary-tint: #E8F0FE;
+      --code-bg: #F6F8FA;
+      --code-border: #D0D7DE;
+      --code-text: #24292F;
+      --quote-border: #D0D7DE;
+      --table-stripe: #F6F8FA;
+      --link: #0969DA;
+      --tag-bg: #E1E4E8;
+      --tag-text: #24292F;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #202124;
+        --surface: #303134;
+        --surface-variant: #35363A;
+        --border: #3C4043;
+        --text-main: #E8EAED;
+        --text-sub: #9AA0A6;
+        --primary: #8AB4F8;
+        --primary-hover: #AECBFA;
+        --primary-tint: #1E2B42;
+        --code-bg: #161B22;
+        --code-border: #30363D;
+        --code-text: #C9D1D9;
+        --quote-border: #3C4043;
+        --table-stripe: #28292A;
+        --link: #58A6FF;
+        --tag-bg: #30363D;
+        --tag-text: #C9D1D9;
+        --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+      word-wrap: break-word;
+      padding-bottom: 60px;
+    }
+
+    /* Top Metadata Bar */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background-color: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .md-badge {
+      background-color: var(--primary-tint);
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .file-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .stats-pill {
+      font-size: 11.5px;
+      color: var(--text-sub);
+      background-color: var(--surface-variant);
+      padding: 3px 8px;
+      border-radius: 12px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-action {
+      background-color: var(--surface-variant);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background-color 0.15s;
+    }
+
+    .btn-action:active {
+      background-color: var(--border);
+    }
+
+    /* Content Container */
+    .markdown-body {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 20px 18px;
+    }
+
+    /* Typography */
+    h1, h2, h3, h4, h5, h6 {
+      color: var(--text-main);
+      font-weight: 600;
+      line-height: 1.3;
+      margin-top: 24px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      margin-top: 10px;
+    }
+
+    h2 {
+      font-size: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+
+    h3 { font-size: 17px; }
+    h4 { font-size: 15px; }
+    h5 { font-size: 14px; }
+    h6 { font-size: 13px; color: var(--text-sub); }
+
+    p {
+      margin-bottom: 14px;
+    }
+
+    strong {
+      font-weight: 600;
+    }
+
+    em {
+      font-style: italic;
+    }
+
+    del {
+      text-decoration: line-through;
+      color: var(--text-sub);
+    }
+
+    mark {
+      background-color: #FFF275;
+      color: #202124;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    /* Links */
+    a {
+      color: var(--link);
+      text-decoration: none;
+      word-break: break-all;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Blockquotes */
+    blockquote {
+      margin: 14px 0;
+      padding: 8px 16px;
+      color: var(--text-sub);
+      border-left: 4px solid var(--quote-border);
+      background-color: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+
+    blockquote > :last-child {
+      margin-bottom: 0;
+    }
+
+    /* Lists */
+    ul, ol {
+      margin-bottom: 14px;
+      padding-left: 24px;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    li > ul, li > ol {
+      margin-top: 4px;
+      margin-bottom: 0;
+    }
+
+    /* Task Lists */
+    .task-list-item {
+      list-style-type: none;
+      margin-left: -20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .task-list-item input[type="checkbox"] {
+      margin-top: 4px;
+      accent-color: var(--primary);
+    }
+
+    /* Tables */
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      margin: 16px 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+    }
+
+    th {
+      background-color: var(--surface);
+      font-weight: 600;
+    }
+
+    tr:nth-child(even) td {
+      background-color: var(--table-stripe);
+    }
+
+    /* Code */
+    code {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 13.5px;
+      background-color: var(--surface-variant);
+      color: var(--primary);
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+
+    .code-block-container {
+      margin: 16px 0;
+      border: 1px solid var(--code-border);
+      border-radius: 8px;
+      overflow: hidden;
+      background-color: var(--code-bg);
+      box-shadow: var(--shadow);
+    }
+
+    .code-header {
+      background-color: var(--surface);
+      border-bottom: 1px solid var(--code-border);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .code-lang {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-size: 11px;
+    }
+
+    .btn-copy-code {
+      background: none;
+      border: none;
+      color: var(--text-sub);
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.15s, background-color 0.15s;
+    }
+
+    .btn-copy-code:hover {
+      color: var(--text-main);
+      background-color: var(--surface-variant);
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--code-text);
+      background-color: transparent;
+    }
+
+    pre code {
+      background-color: transparent !important;
+      color: inherit !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+      font-size: inherit !important;
+      white-space: pre;
+    }
+
+    /* Images */
+    img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin: 12px 0;
+      box-shadow: var(--shadow);
+    }
+
+    /* Horizontal Rules */
+    hr {
+      height: 1px;
+      background-color: var(--border);
+      border: none;
+      margin: 24px 0;
+    }
+
+    /* Raw Content View (hidden by default) */
+    #rawView {
+      display: none;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      padding: 16px;
+      background-color: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin: 16px 0;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background-color: var(--surface);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      z-index: 999;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation / Metadata Bar -->
+  <div class="top-bar">
+    <div class="file-info">
+      <span class="md-badge">MD</span>
+      <span class="file-name" id="docTitle">document.md</span>
+    </div>
+    <div class="top-actions">
+      <span class="stats-pill" id="statsPill">0 words</span>
+      <button class="btn-action" id="btnToggleRaw">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+        </svg>
+        <span id="btnRawLabel">Raw</span>
+      </button>
+      <button class="btn-action" id="btnCopyAll">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Markdown Render Target -->
+  <div class="markdown-body" id="renderTarget"></div>
+
+  <!-- Raw Text Target -->
+  <div class="markdown-body">
+    <div id="rawView"></div>
+  </div>
+
+  <!-- Copied Toast -->
+  <div class="toast" id="toast">Copied to clipboard</div>
+
+  <script>
+    // Embedded or Injected Markdown Source via Base64 UTF-8
+    const B64_SOURCE = `{{MARKDOWN_B64}}`;
+    const FILE_NAME = `{{FILE_NAME}}`;
+
+    let markdownText = "";
+    if (!B64_SOURCE.startsWith("{{") && B64_SOURCE.trim().length > 0) {
+      try {
+        const binary = atob(B64_SOURCE.trim());
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        markdownText = new TextDecoder("utf-8").decode(bytes);
+      } catch (e) {
+        markdownText = "# Error Decoding Markdown\n\nCould not decode file content.";
+      }
+    } else {
+      markdownText = "# Welcome to Onyx Markdown Viewer\n\nNo markdown content provided.";
+    }
+
+    const titleEl = document.getElementById("docTitle");
+    if (!FILE_NAME.startsWith("{{") && FILE_NAME.trim().length > 0) {
+      titleEl.innerText = FILE_NAME;
+      document.title = FILE_NAME + " - Onyx Browser";
+    }
+
+    // Update word count stats
+    const words = markdownText.trim().split(/\s+/).filter(Boolean).length;
+    document.getElementById("statsPill").innerText = words.toLocaleString() + " words";
+
+    // Lightweight, fast, robust Markdown parser
+    function parseMarkdown(md) {
+      let text = md.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+      // 1. Extract and protect code blocks
+      const codeBlocks = [];
+      text = text.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+        const id = `___CODE_BLOCK_${codeBlocks.length}___`;
+        codeBlocks.push({ lang: lang || "text", code: code });
+        return id;
+      });
+
+      // 2. Extract and protect inline code
+      const inlineCodes = [];
+      text = text.replace(/`([^`\n]+)`/g, (match, code) => {
+        const id = `___INLINE_CODE_${inlineCodes.length}___`;
+        inlineCodes.push(code);
+        return id;
+      });
+
+      // Escape raw HTML characters to prevent XSS
+      text = text.replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;");
+
+      // 3. Horizontal Rules
+      text = text.replace(/^(?:---|\*\*\*|___)\s*$/gm, "<hr>");
+
+      // 4. Headers
+      text = text.replace(/^######\s+(.*)$/gm, "<h6>$1</h6>");
+      text = text.replace(/^#####\s+(.*)$/gm, "<h5>$1</h5>");
+      text = text.replace(/^####\s+(.*)$/gm, "<h4>$1</h4>");
+      text = text.replace(/^###\s+(.*)$/gm, "<h3>$1</h3>");
+      text = text.replace(/^##\s+(.*)$/gm, "<h2>$1</h2>");
+      text = text.replace(/^#\s+(.*)$/gm, "<h1>$1</h1>");
+
+      // 5. Blockquotes (handling nested quotes)
+      text = text.replace(/^&gt;\s+(.*)$/gm, "<blockquote>$1</blockquote>");
+      // Merge adjacent blockquotes
+      text = text.replace(/<\/blockquote>\n<blockquote>/g, "<br>");
+
+      // 6. Tables
+      text = text.replace(/((?:\|[^\n]+\|\n?)+)/g, (match) => {
+        const lines = match.trim().split("\n").filter(Boolean);
+        if (lines.length < 2) return match;
+        
+        let html = '<div class="table-wrapper"><table>';
+        let isHeader = true;
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (line.match(/^\|(?:\s*:?-+:?\s*\|)+$/)) {
+            // separator line
+            isHeader = false;
+            continue;
+          }
+          const cells = line.split("|").slice(1, -1);
+          const tag = isHeader ? "th" : "td";
+          html += "<tr>";
+          for (let cell of cells) {
+            html += `<${tag}>${cell.trim()}</${tag}>`;
+          }
+          html += "</tr>";
+        }
+        html += "</table></div>";
+        return html;
+      });
+
+      // 7. Task Lists & Unordered Lists
+      text = text.replace(/^[-*+]\s+\[ \]\s+(.*)$/gm, '<li class="task-list-item"><input type="checkbox" disabled> <span>$1</span></li>');
+      text = text.replace(/^[-*+]\s+\[[xX]\]\s+(.*)$/gm, '<li class="task-list-item"><input type="checkbox" checked disabled> <span>$1</span></li>');
+      text = text.replace(/^[-*+]\s+(.*)$/gm, "<li>$1</li>");
+
+      // Wrap consecutive <li> into <ul>
+      text = text.replace(/(<li.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`);
+
+      // 8. Ordered Lists
+      text = text.replace(/^\d+\.\s+(.*)$/gm, '<li class="ordered-item">$1</li>');
+      text = text.replace(/(<li class="ordered-item">.*<\/li>\n?)+/g, (match) => `<ol>${match}</ol>`);
+
+      // 9. Formatting: Bold, Italic, Strikethrough, Mark
+      text = text.replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>");
+      text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+      text = text.replace(/__(.*?)__/g, "<strong>$1</strong>");
+      text = text.replace(/\*(.*?)\*/g, "<em>$1</em>");
+      text = text.replace(/_(.*?)_/g, "<em>$1</em>");
+      text = text.replace(/~~(.*?)~~/g, "<del>$1</del>");
+      text = text.replace(/==(.*?)==/g, "<mark>$1</mark>");
+
+      // 10. Images & Links
+      text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">');
+      text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+      // 11. Paragraphs (lines not wrapped by tags)
+      const blocks = text.split(/\n\n+/);
+      text = blocks.map(block => {
+        block = block.trim();
+        if (!block) return "";
+        if (block.startsWith("<h") || block.startsWith("<ul") || block.startsWith("<ol") ||
+            block.startsWith("<blockquote") || block.startsWith("<div") || block.startsWith("<hr") ||
+            block.startsWith("___CODE_BLOCK_")) {
+          return block;
+        }
+        return `<p>${block.replace(/\n/g, "<br>")}</p>`;
+      }).join("\n");
+
+      // 12. Restore inline code
+      inlineCodes.forEach((code, idx) => {
+        const escaped = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        text = text.replace(`___INLINE_CODE_${idx}___`, `<code>${escaped}</code>`);
+      });
+
+      // 13. Restore code blocks with Header + Copy Button
+      codeBlocks.forEach((block, idx) => {
+        const escapedCode = block.code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const blockHtml = `
+          <div class="code-block-container">
+            <div class="code-header">
+              <span class="code-lang">${block.lang}</span>
+              <button class="btn-copy-code" onclick="copyCode(this, ${idx})">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                Copy
+              </button>
+            </div>
+            <pre><code id="code-snippet-${idx}">${escapedCode}</code></pre>
+          </div>
+        `;
+        text = text.replace(`___CODE_BLOCK_${idx}___`, blockHtml);
+      });
+
+      return text;
+    }
+
+    // Render parsed HTML into document
+    const renderTarget = document.getElementById("renderTarget");
+    renderTarget.innerHTML = parseMarkdown(markdownText);
+
+    // Setup raw view
+    const rawView = document.getElementById("rawView");
+    rawView.innerText = markdownText;
+
+    // Toggle Raw / Rendered
+    let isShowingRaw = false;
+    const btnToggleRaw = document.getElementById("btnToggleRaw");
+    const btnRawLabel = document.getElementById("btnRawLabel");
+
+    btnToggleRaw.addEventListener("click", () => {
+      isShowingRaw = !isShowingRaw;
+      if (isShowingRaw) {
+        renderTarget.style.display = "none";
+        rawView.style.display = "block";
+        btnRawLabel.innerText = "Rendered";
+      } else {
+        renderTarget.style.display = "block";
+        rawView.style.display = "none";
+        btnRawLabel.innerText = "Raw";
+      }
+    });
+
+    // Copy All Markdown
+    document.getElementById("btnCopyAll").addEventListener("click", () => {
+      copyToClipboard(markdownText, "Full Markdown copied!");
+    });
+
+    // Copy Single Code Block
+    window.copyCode = function(btn, index) {
+      const codeEl = document.getElementById(`code-snippet-${index}`);
+      if (codeEl) {
+        copyToClipboard(codeEl.innerText, "Code block copied!");
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34A853" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+        }, 2000);
+      }
+    };
+
+    function copyToClipboard(text, msg) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast(msg)).catch(() => fallbackCopy(text, msg));
+      } else {
+        fallbackCopy(text, msg);
+      }
+    }
+
+    function fallbackCopy(text, msg) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        showToast(msg);
+      } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.innerText = msg;
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

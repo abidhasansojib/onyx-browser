@@ -14,11 +14,16 @@
       --primary: #1A73E8;
       --primary-hover: #1557B0;
       --primary-text: #FFFFFF;
+      --secondary-bg: #FFFFFF;
+      --secondary-border: #DADCE0;
+      --secondary-text: #1A73E8;
       --chip-bg: #F1F3F4;
       --pill-bg: #E8F0FE;
       --pill-text: #1967D2;
       --danger-bg: #FCE8E6;
       --danger-text: #D93025;
+      --warning-bg: #FEF7E0;
+      --warning-text: #B06000;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -31,11 +36,16 @@
         --primary: #8AB4F8;
         --primary-hover: #AECBFA;
         --primary-text: #202124;
+        --secondary-bg: #28292A;
+        --secondary-border: #3C4043;
+        --secondary-text: #8AB4F8;
         --chip-bg: #28292A;
         --pill-bg: #1E2B42;
         --pill-text: #8AB4F8;
         --danger-bg: #3C1E1E;
         --danger-text: #F28B82;
+        --warning-bg: #3B2E1E;
+        --warning-text: #FDD663;
       }
     }
 
@@ -77,6 +87,7 @@
       justify-content: center;
       margin-bottom: 20px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      transition: transform 0.2s ease;
     }
 
     .icon-wrapper svg {
@@ -92,9 +103,15 @@
     .icon-wrapper.danger {
       background-color: var(--danger-bg);
     }
-
     .icon-wrapper.danger svg {
       stroke: var(--danger-text);
+    }
+
+    .icon-wrapper.warning {
+      background-color: var(--warning-bg);
+    }
+    .icon-wrapper.warning svg {
+      stroke: var(--warning-text);
     }
 
     h1 {
@@ -106,13 +123,17 @@
 
     .error-pill {
       font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--text-sub);
       background-color: var(--chip-bg);
-      padding: 3px 10px;
+      padding: 4px 12px;
       border-radius: 12px;
       margin-bottom: 16px;
       display: inline-block;
+      max-width: 90%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .description {
@@ -120,7 +141,7 @@
       color: var(--text-sub);
       line-height: 1.5;
       margin-bottom: 24px;
-      max-width: 360px;
+      max-width: 380px;
     }
 
     /* Checklist Card */
@@ -148,9 +169,9 @@
       display: flex;
       align-items: flex-start;
       gap: 10px;
+      margin-bottom: 10px;
       font-size: 13px;
       color: var(--text-main);
-      margin-bottom: 10px;
       line-height: 1.4;
     }
 
@@ -158,7 +179,7 @@
       margin-bottom: 0;
     }
 
-    .dot {
+    .checklist-item .dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
@@ -167,27 +188,71 @@
       flex-shrink: 0;
     }
 
-    /* Actions Row */
+    /* SSL Advanced Details Drawer */
+    .advanced-drawer {
+      width: 100%;
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px;
+      text-align: left;
+      margin-bottom: 20px;
+      display: none;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .advanced-drawer h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .advanced-drawer p {
+      font-size: 12px;
+      color: var(--text-sub);
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
+    .proceed-link {
+      font-size: 12.5px;
+      color: var(--danger-text);
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 500;
+      display: inline-block;
+    }
+
+    /* Action Buttons */
     .actions-row {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       width: 100%;
-      margin-bottom: 16px;
+      max-width: 380px;
     }
 
     .btn {
       flex: 1;
       height: 44px;
-      border-radius: 12px;
+      border-radius: 22px;
       border: none;
       font-size: 14px;
       font-weight: 600;
-      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      transition: background-color 0.15s, transform 0.1s;
+      cursor: pointer;
+      transition: background-color 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
     }
 
     .btn-primary {
@@ -195,141 +260,247 @@
       color: var(--primary-text);
     }
 
-    .btn-primary:active {
-      transform: scale(0.98);
+    .btn-primary:hover {
       background-color: var(--primary-hover);
     }
 
     .btn-secondary {
-      background-color: var(--card-bg);
-      color: var(--text-main);
-      border: 1px solid var(--card-border);
-    }
-
-    .btn-secondary:active {
-      background-color: var(--chip-bg);
-      transform: scale(0.98);
+      background-color: var(--secondary-bg);
+      color: var(--secondary-text);
+      border: 1px solid var(--secondary-border);
     }
   </style>
 </head>
 <body>
+
   <div class="container">
-    
-    <!-- Dynamic Icon -->
-    <div id="iconWrapper" class="icon-wrapper">
-      <!-- Default Wi-Fi Disconnected SVG -->
-      <svg id="iconSvg" viewBox="0 0 24 24">
-        <line x1="1" y1="1" x2="23" y2="23"></line>
-        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
-        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
-        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
-        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
-        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-        <line x1="12" y1="20" x2="12.01" y2="20"></line>
-      </svg>
+
+    <!-- Error Icon -->
+    <div class="icon-wrapper" id="iconWrapper">
+      <svg id="iconSvg" viewBox="0 0 24 24"></svg>
     </div>
 
-    <!-- Title & Code -->
-    <h1 id="errorTitle">No Internet Connection</h1>
-    <div id="errorCode" class="error-pill">net::ERR_INTERNET_DISCONNECTED</div>
+    <!-- Error Title & Diagnostic Code -->
+    <h1 id="errorTitle">This site can't be reached</h1>
+    <span class="error-pill" id="errorCode">net::ERR_NAME_NOT_RESOLVED</span>
 
-    <!-- Description -->
-    <p id="errorDesc" class="description">
-      Your device is offline. Check your network connection and tap reload to try again.
-    </p>
+    <!-- Tailored Description -->
+    <p class="description" id="errorDesc">The server IP address could not be found.</p>
 
-    <!-- Checklist -->
-    <div class="checklist-card">
-      <div class="checklist-title">Troubleshooting</div>
-      <div class="checklist-item">
-        <span class="dot"></span>
-        <span id="check1">Check your Wi-Fi or Mobile Data connection</span>
-      </div>
-      <div class="checklist-item">
-        <span class="dot"></span>
-        <span id="check2">Check if Airplane mode is turned off</span>
-      </div>
-      <div class="checklist-item">
-        <span class="dot"></span>
-        <span id="check3">Verify DNS settings in Onyx Shields &amp; Privacy</span>
-      </div>
+    <!-- Checklist Card -->
+    <div class="checklist-card" id="checklistCard">
+      <div class="checklist-title">Troubleshooting Steps</div>
+      <div id="checklistItems"></div>
     </div>
 
-    <!-- Action Buttons -->
+    <!-- SSL Advanced Details Drawer -->
+    <div class="advanced-drawer" id="advancedDrawer">
+      <h4>Certificate Security Details</h4>
+      <p id="sslDetailsText"></p>
+      <div class="proceed-link" id="btnProceedSsl">Proceed to this site (unsafe)</div>
+    </div>
+
+    <!-- Dynamic Actions Row -->
     <div class="actions-row">
-      <button class="btn btn-primary" onclick="reloadPage()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <button class="btn btn-primary" id="btnPrimary">
+        <svg id="btnPrimaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
         </svg>
-        <span>Try Again</span>
+        <span id="btnPrimaryText">Try Again</span>
       </button>
-      <button class="btn btn-secondary" onclick="searchWeb()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button class="btn btn-secondary" id="btnSecondary">
+        <svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <span>Search</span>
+        <span id="btnSecondaryText">Search Web</span>
       </button>
     </div>
 
   </div>
 
   <script>
-    // Extract parameters or template vars
-    const params = new URLSearchParams(window.location.search);
-    let urlParam = '{{URL}}';
-    let errParam = '{{ERROR_CODE}}';
-    let descParam = '{{ERROR_DESC}}';
+    // SVGs for every category
+    const ICONS = {
+      WIFI_OFF: `<line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>`,
+      GLOBE_SEARCH: `<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>`,
+      SERVER_OFF: `<rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line>`,
+      CLOCK: `<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>`,
+      SHIELD_DANGER: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>`,
+      SHIELD_CHECK: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path>`,
+      FILE_ALERT: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12.01" y2="18"></line><line x1="12" y1="12" x2="12" y2="15"></line>`,
+      ALERT_CIRCLE: `<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>`
+    };
 
-    if (urlParam === '{{' + 'URL}}') {
-      urlParam = params.get('url') || window.location.href;
-    }
-    if (errParam === '{{' + 'ERROR_CODE}}') {
-      errParam = params.get('error') || 'ERR_INTERNET_DISCONNECTED';
-    }
-    if (descParam === '{{' + 'ERROR_DESC}}') {
-      descParam = params.get('desc') || '';
-    }
+    // Parse Error Payload
+    let errorData = null;
+    const rawJson = `{{ERROR_JSON}}`;
 
-    // Adapt content based on error
-    const isOffline = errParam.includes('DISCONNECTED') || errParam.includes('NETWORK') || errParam.includes('IO');
-    const isNotFound = errParam.includes('NAME_NOT_RESOLVED') || errParam.includes('HOST_LOOKUP');
-
-    if (isNotFound) {
-      document.getElementById('iconWrapper').classList.add('danger');
-      document.getElementById('iconSvg').innerHTML = `
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      `;
-      document.getElementById('errorTitle').innerText = "This site can't be reached";
-      document.getElementById('errorCode').innerText = errParam.startsWith('net::') ? errParam : `net::${errParam}`;
-      document.getElementById('errorDesc').innerText = `The server IP address could not be found for ${urlParam}.`;
-      document.getElementById('check1').innerText = "Check if there is a typo in the URL";
-      document.getElementById('check2').innerText = "Test searching for the website name";
-      document.getElementById('check3').innerText = "Change DNS provider in Settings > Shields & Privacy";
-    } else if (!isOffline && errParam !== '{{ERROR_CODE}}') {
-      document.getElementById('errorTitle').innerText = "Web Page Not Available";
-      document.getElementById('errorCode').innerText = errParam.startsWith('net::') ? errParam : `net::${errParam}`;
-      document.getElementById('errorDesc').innerText = `Could not load page at ${urlParam}.`;
+    if (!rawJson.startsWith('{{')) {
+      try {
+        errorData = JSON.parse(rawJson);
+      } catch (e) {}
     }
 
-    function reloadPage() {
-      if (urlParam && !urlParam.startsWith('{{')) {
-        window.location.href = urlParam;
-      } else {
-        window.location.reload();
+    if (!errorData) {
+      // Fallback query parameter parsing
+      const params = new URLSearchParams(window.location.search);
+      const url = params.get('url') || window.location.href;
+      const code = params.get('error') || 'net::ERR_CONNECTION_FAILED';
+      const desc = params.get('desc') || 'Could not load page.';
+      errorData = {
+        category: 'GENERIC',
+        errorCode: code,
+        title: 'Web Page Not Available',
+        description: desc,
+        url: url,
+        domain: url,
+        checklist: ['Check network connection', 'Try reloading the page'],
+        primaryButtonText: 'Try Again',
+        primaryButtonAction: 'reload',
+        secondaryButtonText: 'Search Web',
+        secondaryButtonAction: 'search',
+        isDanger: false,
+        sslDetails: ''
+      };
+    }
+
+    // Populate UI Elements
+    document.getElementById('errorTitle').innerText = errorData.title;
+    document.getElementById('errorCode').innerText = errorData.errorCode;
+    document.getElementById('errorDesc').innerText = errorData.description;
+
+    const iconWrapper = document.getElementById('iconWrapper');
+    const iconSvg = document.getElementById('iconSvg');
+
+    if (errorData.isDanger) {
+      iconWrapper.classList.add('danger');
+    }
+
+    // Assign appropriate SVG by category
+    switch (errorData.category) {
+      case 'OFFLINE':
+        iconSvg.innerHTML = ICONS.WIFI_OFF;
+        break;
+      case 'DNS_NOT_FOUND':
+        iconSvg.innerHTML = ICONS.GLOBE_SEARCH;
+        break;
+      case 'CONNECTION_REFUSED':
+      case 'CONNECTION_RESET':
+      case 'HTTP_SERVER_ERROR':
+        iconSvg.innerHTML = ICONS.SERVER_OFF;
+        break;
+      case 'TIMED_OUT':
+        iconSvg.innerHTML = ICONS.CLOCK;
+        break;
+      case 'SSL_SECURITY':
+        iconSvg.innerHTML = ICONS.SHIELD_DANGER;
+        break;
+      case 'BLOCKED_BY_SHIELDS':
+        iconSvg.innerHTML = ICONS.SHIELD_CHECK;
+        break;
+      case 'FILE_ERROR':
+        iconSvg.innerHTML = ICONS.FILE_ALERT;
+        break;
+      default:
+        iconSvg.innerHTML = ICONS.ALERT_CIRCLE;
+        break;
+    }
+
+    // Populate Checklist Items
+    const checklistContainer = document.getElementById('checklistItems');
+    checklistContainer.innerHTML = '';
+    if (errorData.checklist && errorData.checklist.length > 0) {
+      errorData.checklist.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'checklist-item';
+        div.innerHTML = `<span class="dot"></span><span>${item}</span>`;
+        checklistContainer.appendChild(div);
+      });
+    } else {
+      document.getElementById('checklistCard').style.display = 'none';
+    }
+
+    // SSL Advanced Details
+    if (errorData.sslDetails && errorData.sslDetails.length > 0) {
+      document.getElementById('sslDetailsText').innerText = errorData.sslDetails;
+    }
+
+    // Configure Buttons
+    document.getElementById('btnPrimaryText').innerText = errorData.primaryButtonText;
+    document.getElementById('btnSecondaryText').innerText = errorData.secondaryButtonText;
+
+    // Button Action Handlers
+    function executeAction(action) {
+      switch (action) {
+        case 'reload':
+          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.reload === 'function') {
+            window.OnyxErrorBridge.reload();
+          } else if (errorData.url && !errorData.url.startsWith('file:///android_asset')) {
+            window.location.href = errorData.url;
+          } else {
+            window.location.reload();
+          }
+          break;
+        case 'search':
+          const query = errorData.domain || errorData.url;
+          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.search === 'function') {
+            window.OnyxErrorBridge.search(query);
+          } else {
+            window.location.href = `https://search.brave.com/search?q=${encodeURIComponent(query)}`;
+          }
+          break;
+        case 'back':
+          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.goBack === 'function') {
+            window.OnyxErrorBridge.goBack();
+          } else if (window.history.length > 1) {
+            window.history.back();
+          } else {
+            executeAction('home');
+          }
+          break;
+        case 'home':
+          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.goHome === 'function') {
+            window.OnyxErrorBridge.goHome();
+          } else {
+            window.location.href = 'about:blank';
+          }
+          break;
+        case 'settings':
+          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openSettings === 'function') {
+            window.OnyxErrorBridge.openSettings();
+          }
+          break;
+        case 'shields':
+          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openShields === 'function') {
+            window.OnyxErrorBridge.openShields();
+          }
+          break;
+        case 'downloads':
+          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openDownloads === 'function') {
+            window.OnyxErrorBridge.openDownloads();
+          }
+          break;
+        case 'advanced_ssl':
+          const drawer = document.getElementById('advancedDrawer');
+          drawer.style.display = drawer.style.display === 'block' ? 'none' : 'block';
+          break;
       }
     }
 
-    function searchWeb() {
-      let query = urlParam;
-      try {
-        const u = new URL(urlParam);
-        query = u.hostname.replace('www.', '');
-      } catch (_) {}
-      window.location.href = `https://search.brave.com/search?q=${encodeURIComponent(query)}`;
-    }
+    document.getElementById('btnPrimary').addEventListener('click', () => {
+      executeAction(errorData.primaryButtonAction);
+    });
+
+    document.getElementById('btnSecondary').addEventListener('click', () => {
+      executeAction(errorData.secondaryButtonAction);
+    });
+
+    document.getElementById('btnProceedSsl').addEventListener('click', () => {
+      if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.proceedSsl === 'function') {
+        window.OnyxErrorBridge.proceedSsl();
+      }
+    });
   </script>
 </body>
 </html>

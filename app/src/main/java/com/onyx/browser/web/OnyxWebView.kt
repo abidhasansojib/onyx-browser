@@ -25,6 +25,7 @@ class OnyxWebView @JvmOverloads constructor(
 
     var tabId: String = ""
     var isIncognito: Boolean = false
+    var pendingSslHandler: android.webkit.SslErrorHandler? = null
 
     // The standard Chrome-on-Android mobile UA (used for all normal browsing).
     private val mobileUserAgent =
@@ -44,8 +45,9 @@ class OnyxWebView @JvmOverloads constructor(
         configureSettings()
     }
 
+    @SuppressLint("SetJavaScriptEnabled")
     private fun configureSettings() {
-        settings.apply {
+        with(settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
@@ -63,9 +65,11 @@ class OnyxWebView @JvmOverloads constructor(
             useWideViewPort = true
             loadWithOverviewMode = true
 
-            // Security & Privacy hardening
-            allowFileAccess = false
-            allowContentAccess = false
+            // Local File & Content Access for HTML / Markdown Previews
+            allowFileAccess = true
+            allowContentAccess = true
+            allowFileAccessFromFileURLs = false
+            allowUniversalAccessFromFileURLs = false
 
             // Media & Streaming Support (YouTube, Twitch, Video players)
             mediaPlaybackRequiresUserGesture = false
@@ -122,6 +126,14 @@ class OnyxWebView @JvmOverloads constructor(
             addJavascriptInterface(
                 com.onyx.browser.media.MediaPlaybackBridge(context.applicationContext),
                 "OnyxMediaBridge"
+            )
+        } catch (_: Exception) {}
+
+        // Universal Error Page Bridge
+        try {
+            addJavascriptInterface(
+                com.onyx.browser.web.error.OnyxErrorBridge(this, activity),
+                "OnyxErrorBridge"
             )
         } catch (_: Exception) {}
 

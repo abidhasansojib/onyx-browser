@@ -70,6 +70,7 @@ import com.onyx.browser.ui.menu.ContextMenuBottomSheet
 import com.onyx.browser.ui.search.SuggestionsAdapter
 import com.onyx.browser.ui.tabs.TabSwitcherBottomSheet
 import com.onyx.browser.web.DownloadHandler
+import com.onyx.browser.web.LocalFileLoader
 import com.onyx.browser.web.OnyxWebChromeClient
 import com.onyx.browser.web.OnyxWebView
 import com.onyx.browser.web.OnyxWebViewClient
@@ -277,7 +278,14 @@ class MainActivity : AppCompatActivity() {
         tabManager = TabManager(this, lifecycleScope)
         
         binding.swipeRefreshLayout.setOnRefreshListener { 
-            tabManager.getActiveWebView()?.reload() 
+            val activeTab = tabManager.activeTab.value
+            val wv = tabManager.getActiveWebView()
+            if (activeTab != null && wv != null && LocalFileLoader.isLocalFile(activeTab.url)) {
+                LocalFileLoader.loadLocalFile(this, wv, activeTab.url)
+                binding.swipeRefreshLayout.isRefreshing = false
+            } else {
+                wv?.reload() 
+            }
         }
         binding.swipeRefreshLayout.setOnChildScrollUpCallback { _, _ ->
             // Block pull-to-refresh on homepage and when webview can't scroll up
@@ -710,14 +718,20 @@ class MainActivity : AppCompatActivity() {
         if (targetUrl.isNotBlank()) {
             if (forceUrl != null || reloadIfChanged || webView.url.isNullOrBlank() || webView.url == "about:blank") {
                 try {
-                    webView.loadUrl(targetUrl)
+                    if (LocalFileLoader.isLocalFile(targetUrl)) {
+                        LocalFileLoader.loadLocalFile(this, webView, targetUrl) { title ->
+                            tabManager.updateActiveTab(targetUrl, title)
+                        }
+                    } else {
+                        webView.loadUrl(targetUrl)
+                    }
                 } catch (t: Throwable) {
                     Toast.makeText(this, "Failed to load URL: ${t.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
 
-        updateAddressBarDisplay(webView.url ?: targetUrl)
+        updateAddressBarDisplay(if (LocalFileLoader.isLocalFile(targetUrl)) targetUrl else (webView.url ?: targetUrl))
     }
 
     private fun attachWebViewToContainer(webView: OnyxWebView) {
@@ -912,6 +926,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         val url = when {
+            LocalFileLoader.isLocalFile(trimmed) -> trimmed
+
             trimmed.startsWith("http://", ignoreCase = true) ||
             trimmed.startsWith("https://", ignoreCase = true) ||
             trimmed.startsWith("file://", ignoreCase = true) ||
@@ -1121,10 +1137,15 @@ class MainActivity : AppCompatActivity() {
         val isHttps = url.startsWith("https://")
         binding.ivSslLock.visibility = if (isHttps) View.VISIBLE else View.GONE
 
-        val host = try {
-            Uri.parse(url).host ?: url
-        } catch (e: Exception) {
-            url
+        val host = when {
+            LocalFileLoader.isLocalFile(url) -> {
+                LocalFileLoader.getDisplayName(this, LocalFileLoader.parseUri(url))
+            }
+            else -> try {
+                Uri.parse(url).host ?: url
+            } catch (e: Exception) {
+                url
+            }
         }
 
         if (!isSearchMode) {
@@ -1732,7 +1753,7 @@ class MainActivity : AppCompatActivity() {
 
         when (action) {
             Intent.ACTION_VIEW -> {
-                val dataUri = intent.data
+                val dataUri = intent.data ?: intent.clipData?.let { if (it.itemCount > 0) it.getItemAt(0).uri else null }
                 if (dataUri != null) {
                     val uriStr = dataUri.toString().trim()
                     if (uriStr.isNotBlank()) {
@@ -1767,9 +1788,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun parseUrlOrExtract(text: String): String {
         val trimmed = text.trim()
-        if (trimmed.startsWith("http://", ignoreCase = true) ||
+        if (LocalFileLoader.isLocalFile(trimmed) ||
+            trimmed.startsWith("http://", ignoreCase = true) ||
             trimmed.startsWith("https://", ignoreCase = true) ||
             trimmed.startsWith("file://", ignoreCase = true) ||
+            trimmed.startsWith("content://", ignoreCase = true) ||
             trimmed.startsWith("about:", ignoreCase = true)
         ) {
             return trimmed
