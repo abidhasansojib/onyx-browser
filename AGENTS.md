@@ -530,4 +530,19 @@ onyx-browser/
     - Implemented `onSeekTo(pos)` callback for notification scrub bar and Bluetooth devices.
     - Implemented asynchronous artwork downloading from video poster / metadata URLs on `Dispatchers.IO`.
     - Held CPU `WakeLock` during active background playback to prevent OS sleep.
+- [x] **Android System WebView Background Playback & Video-Only PiP Isolation Hardening**:
+  - **Android System WebView Background Keep-Alive**:
+    - Overrode `onWindowVisibilityChanged`, `dispatchWindowVisibilityChanged`, and `onWindowFocusChanged` in [`OnyxWebView.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebView.kt) to pass `View.VISIBLE` and `true` when `preferences.isBackgroundPlayEnabled` is enabled. This prevents Chromium's underlying `AwContents` C++ engine from freezing the video decoder and audio rendering pipeline when the Activity window is minimized or hidden.
+    - Updated `MainActivity.onPause()` and `onStop()`: only calls `webView.onPause()` if background playback is disabled in Settings (`!preferences.isBackgroundPlayEnabled`), ensuring media is never suspended during app minimization or screen lock.
+    - Enhanced [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt) `backgroundPlaybackScript`: added capture-phase propagation-stopping listeners on `visibilitychange`, `webkitvisibilitychange`, `blur`, `focusout`, and `pagehide`, and guarded `HTMLMediaElement.prototype.pause` against auto-pause when backgrounded or losing focus.
+    - Added immediate detection of already-playing media upon script injection to ensure `OnyxMediaBridge` and the mini player notification synchronize without requiring user pause/play churn.
+  - **True DOM Video Isolation for Picture-in-Picture (PiP)**:
+    - Resolved issue where PiP displayed the entire webpage UI (search bar, header, comments, sidebars).
+    - Overhauled `isolateVideoForPipScript` in [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt): tags the target video and its ancestor chain up to `<html>`, applies `display: none !important` to all non-ancestor body elements and sibling nodes, neutralizes ancestor CSS containment/transforms/overflow traps, fixes the `<video>` element to `100vw x 100vh` at `z-index: 2147483647` with `object-fit: contain !important; background: #000000 !important;`, and hides all YouTube overlay controls and headers.
+    - Guaranteed execution in `MainActivity.onPictureInPictureModeChanged(true)` and `enterPipMode()` before entering PiP, ensuring the isolation style is applied immediately regardless of whether PiP was entered via system gesture or UI action.
+  - **Settings PiP & Background Play Toggle Fixes**:
+    - Centralized `updatePipParams()` in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt): automatically synchronizes `setAutoEnterEnabled(shouldEnableAutoPip)` on Android 12+, where `shouldEnableAutoPip` requires `preferences.isPipEnabled && (customVideoView != null || isVideoPlaying)`.
+    - Called `updatePipParams()` in `MainActivity.onResume()`: when the user turns off PiP in Settings and returns to the browser, the OS is immediately notified with `setAutoEnterEnabled(false)`, completely eliminating unwanted PiP triggers on swipe-to-home.
+    - Added guard in `enterPipMode()` and `onUserLeaveHint()`: immediately exits if `!preferences.isPipEnabled`.
+    - Added `MediaPlaybackService.stop(this)` call in [`SettingsActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/SettingsActivity.kt) when background play is toggled off.
 

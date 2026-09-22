@@ -305,4 +305,32 @@ class OnyxWebView @JvmOverloads constructor(
         }
         super.loadUrl(url, additionalHttpHeaders)
     }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        if (prefs.isBackgroundPlayEnabled) {
+            super.onWindowVisibilityChanged(View.VISIBLE)
+        } else {
+            super.onWindowVisibilityChanged(visibility)
+        }
+    }
+
+    override fun dispatchWindowVisibilityChanged(visibility: Int) {
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        if (prefs.isBackgroundPlayEnabled) {
+            super.dispatchWindowVisibilityChanged(View.VISIBLE)
+        } else {
+            super.dispatchWindowVisibilityChanged(visibility)
+        }
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        if (prefs.isBackgroundPlayEnabled) {
+            super.onWindowFocusChanged(true)
+        } else {
+            super.onWindowFocusChanged(hasWindowFocus)
+        }
+    }
 }
+

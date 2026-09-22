@@ -122,6 +122,9 @@ class SettingsActivity : AppCompatActivity() {
         }
         binding.settingBackgroundPlaySwitch.setOnCheckedChangeListener { _, isChecked ->
             preferences.isBackgroundPlayEnabled = isChecked
+            if (!isChecked) {
+                com.onyx.browser.media.MediaPlaybackService.stop(this)
+            }
         }
 
         binding.settingPipSwitch.isChecked = preferences.isPipEnabled
