@@ -124,7 +124,7 @@
             app:boxCornerRadiusTopStart="14dp"
             app:endIconMode="clear_text"
             app:helperText="https://example.com"
-            app:helperTextColor="?android:attr/textColorSecondary"
+            app:helperTextTextColor="?android:attr/textColorSecondary"
             app:startIconDrawable="@drawable/ic_link"
             app:startIconTint="?android:attr/textColorSecondary">
 
