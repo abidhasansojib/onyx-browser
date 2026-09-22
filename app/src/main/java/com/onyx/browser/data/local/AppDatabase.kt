@@ -1,6 +1,7 @@
 package com.onyx.browser.data.local
 
 import android.content.Context
+import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -23,35 +24,55 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun downloadDao(): DownloadDao
 
     companion object {
+        private const val TAG = "AppDatabase"
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                // Load SQLCipher native libraries
-                SQLiteDatabase.loadLibs(context.applicationContext)
-
-                // Retrieve or generate the KeyStore-backed AES-256 passphrase
-                val passphrase = SecureDatabaseKeyProvider.getOrCreatePassphrase(
-                    context.applicationContext
-                )
-                val factory = SupportFactory(passphrase)
-
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "onyx_browser_secure.db"
-                )
-                    .openHelperFactory(factory)
-                    .fallbackToDestructiveMigration()
-                    .build()
-
-                // Zero out passphrase from memory immediately after DB is opened
-                passphrase.fill(0)
-
-                INSTANCE = instance
-                instance
+                INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
             }
+        }
+
+        private fun buildDatabase(context: Context): AppDatabase {
+            val appContext = context.applicationContext
+            return try {
+                buildEncryptedDatabase(appContext)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize encrypted database, attempting recovery reset", e)
+                try {
+                    appContext.deleteDatabase("onyx_browser_secure.db")
+                    buildEncryptedDatabase(appContext)
+                } catch (fallbackEx: Exception) {
+                    Log.e(TAG, "Encrypted database recovery failed, falling back to clean fallback database", fallbackEx)
+                    Room.databaseBuilder(
+                        appContext,
+                        AppDatabase::class.java,
+                        "onyx_browser_fallback.db"
+                    )
+                        .fallbackToDestructiveMigration()
+                        .build()
+                }
+            }
+        }
+
+        private fun buildEncryptedDatabase(context: Context): AppDatabase {
+            // Load SQLCipher native libraries safely
+            SQLiteDatabase.loadLibs(context)
+
+            // Retrieve or generate KeyStore-backed AES-256 passphrase
+            val passphrase = SecureDatabaseKeyProvider.getOrCreatePassphrase(context)
+            val factory = SupportFactory(passphrase)
+
+            return Room.databaseBuilder(
+                context,
+                AppDatabase::class.java,
+                "onyx_browser_secure.db"
+            )
+                .openHelperFactory(factory)
+                .fallbackToDestructiveMigration()
+                .build()
         }
     }
 }

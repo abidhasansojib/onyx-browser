@@ -482,7 +482,18 @@ onyx-browser/
   - **Eliminated Stock Error Flash**: Removed `super.onReceivedError()` delegation on main-frame errors and called `view?.stopLoading()` immediately so Chromium never renders its default stock error page.
   - **Zero-Latency Template Caching**: Cached `error_page.html` in memory (`cachedErrorPageTemplate`) and execute `loadDataWithBaseURL` synchronously on the main thread, completely eliminating the 1-second delay.
   - **Removed Mini-Game**: Stripped the offline runner game and canvas from [`app/src/main/assets/error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html) and [`error_pages_widget.html`](file:///root/.gemini/antigravity-cli/brain/57371cad-7a74-4301-ab0c-1cc01cd1e821/error_pages_widget.html), keeping the error screen clean, modern, and focused on troubleshooting and diagnostics.
-
-
-
-
+- [x] **Resolved Instant App Crash on Launch in Release Builds**:
+  - **Identified Root Causes**:
+    1. **Fatal `-repackageclasses 'com.onyx.browser.obf'` in `proguard-rules.pro`**: Repackaging classes caused Android's `ActivityThread` to fail locating `OnyxApplication` and `MainActivity`, throwing immediate fatal `ClassNotFoundException` at launch.
+    2. **Wrong SQLCipher Package in Proguard**: `proguard-rules.pro` kept `net.zetetic.**`, but SQLCipher's actual runtime package is `net.sqlcipher.**`. R8 stripped `SQLiteDatabase.loadLibs`, throwing `NoClassDefFoundError` upon startup.
+    3. **Missing Google Tink Cryptographic Provider Rules**: `androidx.security.crypto` relies on Google Tink (`com.google.crypto.tink.**`) which requires reflection rules for KeyStore cipher suites; without them, `EncryptedSharedPreferences.create()` threw security exceptions.
+    4. **Room Database Implementation Obfuscation**: Room reflects on `AppDatabase_Impl`. Repackaging broke database instantiation.
+    5. **Aggressive Resource Shrinking**: `isShrinkResources = true` stripped XML drawables and layouts referenced dynamically, risking `Resources.NotFoundException`.
+    6. **Premature `passphrase.fill(0)` in Database Provider**: Wiping passphrase before Room opened the database caused potential corrupted database states.
+  - **Comprehensive Fixes Applied**:
+    - Removed `-repackageclasses` and `-allowaccessmodification` from [`app/proguard-rules.pro`](file:///root/onyx-browser/app/proguard-rules.pro).
+    - Added explicit keep rules for Android manifest components (`Activity`, `Application`, `Service`, `BroadcastReceiver`, `ViewBinding`, `com.onyx.browser.OnyxApplication`, `com.onyx.browser.MainActivity`, `com.onyx.browser.ui.**`).
+    - Added comprehensive keep rules for `net.sqlcipher.**`, `com.google.crypto.tink.**`, `androidx.security.crypto.**`, and Room `*_Impl` classes.
+    - Set `isShrinkResources = false` in [`app/build.gradle.kts`](file:///root/onyx-browser/app/build.gradle.kts) for release builds.
+    - Added self-healing recovery and robust fallbacks to [`SecureDatabaseKeyProvider.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/local/SecureDatabaseKeyProvider.kt) and [`AppDatabase.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/local/AppDatabase.kt).
+    - Hardened [`OnyxApplication.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/OnyxApplication.kt) startup lifecycle with safe exception catching and logging.
