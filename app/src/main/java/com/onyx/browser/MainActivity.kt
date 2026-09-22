@@ -88,6 +88,7 @@ import com.onyx.browser.data.filter.FilterListManager
 import com.onyx.browser.media.MediaPlaybackBridge
 import com.onyx.browser.media.MediaPlaybackService
 import com.onyx.browser.web.MediaPlaybackManager
+import com.onyx.browser.web.translate.PageTranslateManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -341,6 +342,7 @@ class MainActivity : AppCompatActivity() {
         setupTopToolbar()
         setupSearchOverlay()
         setupFindInPage()
+        setupTranslateBar()
         setupHomepageInteractions()
         setupBackNavigation()
         setupMediaPlaybackListener()
@@ -694,6 +696,7 @@ class MainActivity : AppCompatActivity() {
         binding.ivSslLock.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
         binding.swipeRefreshLayout.isEnabled = false
+        hideTranslateBar(restoreOriginal = false)
 
         val isIncognito = tabManager.activeTab.value?.isIncognito == true
         updateIncognitoUI(isIncognito)
@@ -1670,21 +1673,93 @@ class MainActivity : AppCompatActivity() {
         binding.etFindQuery.setText("")
     }
 
+    private var currentTranslateTargetCode: String = "en"
+
+    private fun setupTranslateBar() {
+        binding.toggleTranslateMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            val wv = tabManager.getActiveWebView() ?: return@addOnButtonCheckedListener
+            when (checkedId) {
+                R.id.btnTranslateOriginal -> {
+                    wv.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
+                }
+                R.id.btnTranslateTarget -> {
+                    binding.pbTranslateLoading.visibility = View.VISIBLE
+                    wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(currentTranslateTargetCode)) {
+                        binding.pbTranslateLoading.visibility = View.GONE
+                    }
+                }
+            }
+        }
+
+        binding.btnChangeTranslateLanguage.setOnClickListener {
+            val dialog = LanguageSelectionDialog { code, name ->
+                currentTranslateTargetCode = code
+                preferences.targetTranslateLanguage = code
+                preferences.targetTranslateLanguageName = name
+                binding.btnTranslateTarget.text = name
+                binding.toggleTranslateMode.check(R.id.btnTranslateTarget)
+                val wv = tabManager.getActiveWebView() ?: return@LanguageSelectionDialog
+                val activeTab = tabManager.activeTab.value
+                if (activeTab != null && activeTab.url.isNotBlank()) {
+                    PageTranslateManager.setupCookies(activeTab.url, code)
+                }
+                binding.pbTranslateLoading.visibility = View.VISIBLE
+                wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(code)) {
+                    binding.pbTranslateLoading.visibility = View.GONE
+                }
+            }
+            dialog.show(supportFragmentManager, "LanguageSelectionDialog")
+        }
+
+        binding.btnCloseTranslate.setOnClickListener {
+            hideTranslateBar(restoreOriginal = true)
+        }
+    }
+
+    private fun showTranslateBar(targetCode: String, targetName: String) {
+        currentTranslateTargetCode = targetCode
+        binding.btnTranslateTarget.text = targetName
+        binding.toggleTranslateMode.check(R.id.btnTranslateTarget)
+        binding.translateBar.visibility = View.VISIBLE
+    }
+
+    private fun hideTranslateBar(restoreOriginal: Boolean = false) {
+        binding.translateBar.visibility = View.GONE
+        binding.pbTranslateLoading.visibility = View.GONE
+        if (restoreOriginal) {
+            val activeTab = tabManager.activeTab.value
+            if (activeTab != null && activeTab.url.isNotBlank()) {
+                PageTranslateManager.clearCookies(activeTab.url)
+            }
+            tabManager.getActiveWebView()?.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
+        }
+    }
+
     private fun translateCurrentPage(langCode: String) {
         val activeTab = tabManager.activeTab.value ?: return
         val currentUrl = activeTab.url
-        if (currentUrl.isBlank() || currentUrl.startsWith("onyx://") || currentUrl.startsWith("about:")) {
+        if (currentUrl.isBlank() || currentUrl.startsWith("onyx://") || currentUrl.startsWith("about:") || LocalFileLoader.isLocalFile(currentUrl)) {
             Toast.makeText(this, "Cannot translate internal page", Toast.LENGTH_SHORT).show()
             return
         }
-        val encodedUrl = try {
-            java.net.URLEncoder.encode(currentUrl, "UTF-8")
-        } catch (_: Exception) {
-            currentUrl
+
+        val targetCode = if (langCode.isNotBlank()) langCode else preferences.targetTranslateLanguage
+        val targetName = preferences.targetTranslateLanguageName
+
+        val webView = tabManager.getActiveWebView()
+        if (webView == null) {
+            Toast.makeText(this, "No active webpage to translate", Toast.LENGTH_SHORT).show()
+            return
         }
-        val targetCode = if (langCode.startsWith("zh", ignoreCase = true)) langCode else langCode.take(2)
-        val translateUrl = "https://translate.google.com/translate?sl=auto&tl=$targetCode&u=$encodedUrl"
-        performSearchOrLoad(translateUrl)
+
+        showTranslateBar(targetCode, targetName)
+        binding.pbTranslateLoading.visibility = View.VISIBLE
+
+        PageTranslateManager.setupCookies(currentUrl, targetCode)
+        webView.evaluateJavascript(PageTranslateManager.getTranslateScript(targetCode)) { _ ->
+            binding.pbTranslateLoading.visibility = View.GONE
+        }
     }
 
     private fun addCurrentPageToHomeScreen() {
@@ -1784,6 +1859,11 @@ class MainActivity : AppCompatActivity() {
 
                 if (binding.findInPageBar.visibility == View.VISIBLE) {
                     hideFindInPage()
+                    return
+                }
+
+                if (binding.translateBar.visibility == View.VISIBLE) {
+                    hideTranslateBar(restoreOriginal = true)
                     return
                 }
 

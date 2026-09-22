@@ -109,6 +109,11 @@ class OnyxWebViewClient(
                 return null
             }
 
+            // Never block in-page translation resources
+            if (url.contains("translate.google.com") || url.contains("translate.googleapis.com")) {
+                return null
+            }
+
             val pageUrl = run {
                 val headers = request.requestHeaders
                 headers?.get("Referer") ?: headers?.get("referer")

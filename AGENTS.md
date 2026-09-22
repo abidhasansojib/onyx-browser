@@ -647,4 +647,14 @@ onyx-browser/
   - **Background Play Sound Restoration**: Eliminated `requestAudioFocus()` and `abandonAudioFocus()` collisions in [`MediaPlaybackService.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackService.kt) that caused Chromium's internal `AudioTrack` to silence audio in background playback.
   - **In-PiP Window Media Controls (RemoteActions)**: Built Android `RemoteAction` controls (Rewind 10s `ic_fast_rewind`, Play/Pause toggle `ic_pause`/`ic_play_arrow`, and Fast Forward 10s `ic_fast_forward`) registered with `PictureInPictureParams.Builder.setActions()` and bound to a dynamic `BroadcastReceiver` in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt).
   - **Video-Only Minimization & Strict UI Isolation**: Gated OS `setAutoEnterEnabled` strictly to `customVideoView != null` to eliminate whole-page capture on swipe-to-home, routed portrait minimization in `onUserLeaveHint()` to `requestInPageVideoPip()`, traversed shadow roots in `requestVideoFullscreenScript` for direct `webkitRequestFullscreen()`, and hidden topBar and browser chrome prior to PiP transition.
+- [x] **Brave-Style In-Page Webpage Translation & Elimination of 429 Rate Limits**:
+  - **Eliminated Web Proxy Gateway**: Replaced old `translate.google.com/translate?u=...` navigation in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) that triggered HTTP `429 - Rate Limit Exceeded` blocks and broke sessions/logins.
+  - **In-Page DOM Translation Engine**: Created [`PageTranslateManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/translate/PageTranslateManager.kt) injecting Google Translate Element client library and styles directly into the active DOM context without altering URL, session, or cookies.
+  - **Brave-Style In-Page Translation Bar**: Designed interactive toolbar (`translateBar`) in [`activity_main.xml`](file:///root/onyx-browser/app/src/main/res/layout/activity_main.xml) with:
+    - Language status and toggle between Original and Translated.
+    - Quick target language switcher (`LanguageSelectionDialog` supporting 20 languages).
+    - Progress loading indicator and dismiss button with back press handling.
+  - **CSS Styling & Layout Preservation**: Injected styles into pages to hide Google banner frames (`.goog-te-banner-frame`), balloon tooltips, and prevent body margin shifts (`body { top: 0px !important; }`).
+  - **Adblock & Security Whitelisting**: Whitelisted `translate.google.com` and `translate.googleapis.com` in [`OnyxWebViewClient.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebViewClient.kt) so translation resources are never blocked by shield lists.
+
 

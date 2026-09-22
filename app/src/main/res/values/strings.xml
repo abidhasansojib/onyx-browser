@@ -115,6 +115,10 @@
 
     <!-- Webpage Menu & Toolset -->
     <string name="translate_to">Translate to %s</string>
+    <string name="translate_original">Original</string>
+    <string name="translate_translated">Translated</string>
+    <string name="translating">Translating…</string>
+    <string name="translation_failed">Translation failed</string>
     <string name="select_translation_language">Select Translation Language</string>
     <string name="add_to_home_screen">Add to Home screen</string>
     <string name="added_to_home_screen">Added to Home screen</string>
