@@ -432,3 +432,12 @@ onyx-browser/
   - Designed modern frosted fullscreen video overlay controls pill with direct PiP button (`btnFullscreenPip`) and close button (`btnFullscreenClose`).
   - Added "Picture-in-Picture" action in webpage 3-dot bottom sheet menu (`MenuBottomSheetDialogFragment`).
   - Added PiP switch and "Display over other apps" system settings launcher in `SettingsActivity.kt`.
+- [x] **Shields & Privacy Modernization & Rebranding**:
+  - Replaced "Brave Shields & Privacy" title with "Shields & Privacy" in `strings.xml` (`shields_title`).
+  - Replaced all 4 legacy `AlertDialog` popups in `ShieldsActivity.kt` with modern Material 3 bottom sheets:
+    - **Ad & Tracker Blocking** ([`BlockingLevelPickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/BlockingLevelPickerSheet.kt) & [`bottom_sheet_blocking_level_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_blocking_level_picker.xml)): Standard vs. Aggressive cards with shield icons and descriptive subtitles.
+    - **Upgrade Connection to HTTPS** ([`HttpsModePickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/HttpsModePickerSheet.kt) & [`bottom_sheet_https_mode_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_https_mode_picker.xml)): Disabled vs. When possible (Recommended) vs. Strict (HTTPS-Only).
+    - **Cookie Blocking** ([`CookieModePickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/CookieModePickerSheet.kt) & [`bottom_sheet_cookie_mode_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_cookie_mode_picker.xml)): Allow all vs. Block third-party (Recommended) vs. Block all.
+    - **Secure DNS Provider** ([`DnsProviderPickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/DnsProviderPickerSheet.kt) & [`bottom_sheet_dns_provider_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_dns_provider_picker.xml)): Cloudflare 1.1.1.1, Google 8.8.8.8, NextDNS, and Custom URL with inline Material 3 `TextInputLayout` and Save button.
+  - Consistent Material 3 bottom sheet design language: Drag handle, 16dp rounded card containers, 44dp squircle icon backgrounds, active 2dp accent stroke, dynamic checkmark indicators, and cancel buttons.
+

@@ -200,7 +200,7 @@
     <string name="reset_order">Reset Default</string>
 
     <!-- Shields Activity -->
-    <string name="shields_title">Brave Shields &amp; Privacy</string>
+    <string name="shields_title">Shields &amp; Privacy</string>
     <string name="section_trackers_ads">Trackers &amp; Ads</string>
     <string name="section_connections">Connections</string>
     <string name="section_scripts">Scripts</string>

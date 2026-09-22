@@ -2,9 +2,6 @@ package com.onyx.browser.ui.settings
 
 import android.content.Intent
 import android.os.Bundle
-import android.text.InputType
-import android.widget.EditText
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
@@ -52,20 +49,11 @@ class ShieldsActivity : AppCompatActivity() {
 
         updateBlockingLevelDisplay()
         binding.rowBlockingLevel.setOnClickListener {
-            val options = arrayOf(
-                getString(R.string.blocking_standard),
-                getString(R.string.blocking_aggressive)
-            )
-            val current = prefs.blockingLevel.coerceIn(0, 1)
-            AlertDialog.Builder(this)
-                .setTitle(R.string.blocking_level_title)
-                .setSingleChoiceItems(options, current) { dialog, which ->
-                    prefs.blockingLevel = which
-                    updateBlockingLevelDisplay()
-                    dialog.dismiss()
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
+            val sheet = BlockingLevelPickerSheet(prefs.blockingLevel) { selectedLevel ->
+                prefs.blockingLevel = selectedLevel
+                updateBlockingLevelDisplay()
+            }
+            sheet.show(supportFragmentManager, BlockingLevelPickerSheet.TAG)
         }
     }
 
@@ -93,21 +81,11 @@ class ShieldsActivity : AppCompatActivity() {
 
         updateHttpsModeDisplay()
         binding.rowHttpsMode.setOnClickListener {
-            val options = arrayOf(
-                getString(R.string.https_mode_disabled),
-                getString(R.string.https_mode_when_possible),
-                getString(R.string.https_mode_strict)
-            )
-            val current = prefs.httpsUpgradeMode.coerceIn(0, 2)
-            AlertDialog.Builder(this)
-                .setTitle(R.string.https_mode_title)
-                .setSingleChoiceItems(options, current) { dialog, which ->
-                    prefs.httpsUpgradeMode = which
-                    updateHttpsModeDisplay()
-                    dialog.dismiss()
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
+            val sheet = HttpsModePickerSheet(prefs.httpsUpgradeMode) { selectedMode ->
+                prefs.httpsUpgradeMode = selectedMode
+                updateHttpsModeDisplay()
+            }
+            sheet.show(supportFragmentManager, HttpsModePickerSheet.TAG)
         }
     }
 
@@ -134,21 +112,11 @@ class ShieldsActivity : AppCompatActivity() {
     private fun setupCookies() {
         updateCookieModeDisplay()
         binding.rowCookieMode.setOnClickListener {
-            val options = arrayOf(
-                getString(R.string.cookie_allow_all),
-                getString(R.string.cookie_block_third_party),
-                getString(R.string.cookie_block_all)
-            )
-            val current = prefs.cookieBlockingMode.coerceIn(0, 2)
-            AlertDialog.Builder(this)
-                .setTitle(R.string.cookie_blocking_title)
-                .setSingleChoiceItems(options, current) { dialog, which ->
-                    prefs.cookieBlockingMode = which
-                    updateCookieModeDisplay()
-                    dialog.dismiss()
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
+            val sheet = CookieModePickerSheet(prefs.cookieBlockingMode) { selectedMode ->
+                prefs.cookieBlockingMode = selectedMode
+                updateCookieModeDisplay()
+            }
+            sheet.show(supportFragmentManager, CookieModePickerSheet.TAG)
         }
     }
 
@@ -268,48 +236,12 @@ class ShieldsActivity : AppCompatActivity() {
 
         updateDnsProviderDisplay()
         binding.rowDnsProvider.setOnClickListener {
-            val keys = dnsProviders.keys.toList()
-            val labels = dnsProviders.values.toTypedArray()
-            val currentUrl = prefs.secureDnsProvider
-            val currentIndex = keys.indexOfFirst { it == currentUrl }.takeIf { it >= 0 }
-                ?: (keys.size - 1) // default to custom
-
-            AlertDialog.Builder(this)
-                .setTitle(R.string.secure_dns_provider_title)
-                .setSingleChoiceItems(labels, currentIndex) { dialog, which ->
-                    val selectedKey = keys[which]
-                    if (selectedKey == "__custom__") {
-                        dialog.dismiss()
-                        showCustomDnsDialog()
-                    } else {
-                        prefs.secureDnsProvider = selectedKey
-                        updateDnsProviderDisplay()
-                        dialog.dismiss()
-                    }
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
-        }
-    }
-
-    private fun showCustomDnsDialog() {
-        val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-            setText(prefs.secureDnsProvider)
-            hint = "https://your-doh-provider.com/dns-query"
-        }
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dns_provider_custom))
-            .setView(input)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val url = input.text?.toString()?.trim() ?: ""
-                if (url.startsWith("https://")) {
-                    prefs.secureDnsProvider = url
-                    updateDnsProviderDisplay()
-                }
+            val sheet = DnsProviderPickerSheet(prefs.secureDnsProvider) { selectedProvider ->
+                prefs.secureDnsProvider = selectedProvider
+                updateDnsProviderDisplay()
             }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
+            sheet.show(supportFragmentManager, DnsProviderPickerSheet.TAG)
+        }
     }
 
     private fun updateDnsProviderDisplay() {
