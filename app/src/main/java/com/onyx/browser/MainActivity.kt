@@ -675,7 +675,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showHomeScreen() {
+    fun showHomeScreen() {
         binding.homeLayout.root.visibility = View.VISIBLE
         binding.webViewContainer.visibility = View.GONE
         binding.etUrl.setText("")
@@ -904,7 +904,7 @@ class MainActivity : AppCompatActivity() {
         qrScannerLauncher.launch(Intent(this, com.onyx.browser.ui.qr.QrScannerActivity::class.java))
     }
 
-    private fun performSearchOrLoad(input: String) {
+    fun performSearchOrLoad(input: String) {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return
 

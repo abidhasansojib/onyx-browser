@@ -46,7 +46,8 @@ class OnyxErrorBridge(
             val q = query?.trim() ?: ""
             if (q.isNotEmpty()) {
                 (activity as? MainActivity)?.let { mainAct ->
-                    val url = mainAct.preferences.searchEngine.buildSearchUrl(q)
+                    val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(mainAct)
+                    val url = prefs.searchEngine.buildSearchUrl(q)
                     mainAct.performSearchOrLoad(url)
                 }
             }
