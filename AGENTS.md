@@ -458,6 +458,15 @@ onyx-browser/
     - **Contact Developer**: Launches official Telegram account [`t.me/abidhasansojib`](https://t.me/abidhasansojib).
     - **Report Bug**: Opens official GitHub Issues tracker [`github.com/abidhasansojib/onyx-browser/issues`](https://github.com/abidhasansojib/onyx-browser/issues).
   - Edge-to-edge transparent system bars integration with `WindowCompat` and dynamic cutout insets.
+- [x] **Modern WWW Globe Launcher Icon**:
+  - Processed and extracted the circular "WWW" globe emblem from `/storage/emulated/0/logo.png`.
+  - Rebuilt all density mipmap assets (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`):
+    - `ic_launcher_foreground.png`: Crisp white vector globe on transparent background, centered in the 72dp safe zone of the 108dp canvas to prevent clipping on any launcher mask.
+    - `ic_launcher.png`: Pure black (`#000000`) AMOLED background with centered white globe emblem.
+    - `ic_launcher_round.png`: Circular masked pure black icon with centered globe.
+  - Configured adaptive background to AMOLED Pure Black `#000000` in [`ic_launcher_background.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_launcher_background.xml).
+  - Updated Android 13+ Material You monochrome themed icon layer in [`ic_launcher.xml`](file:///root/onyx-browser/app/src/main/res/mipmap/ic_launcher.xml) and [`ic_launcher_round.xml`](file:///root/onyx-browser/app/src/main/res/mipmap/ic_launcher_round.xml).
+
 
 
 
