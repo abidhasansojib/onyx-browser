@@ -127,7 +127,8 @@ class OnyxWebView @JvmOverloads constructor(
 
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
         try {
-            val currentBlockingLevel = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).blockingLevel
+            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+            val currentBlockingLevel = prefs.blockingLevel
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
