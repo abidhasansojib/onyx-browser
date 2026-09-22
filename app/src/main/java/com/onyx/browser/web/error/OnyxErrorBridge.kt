@@ -2,13 +2,16 @@ package com.onyx.browser.web.error
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.webkit.JavascriptInterface
 import com.onyx.browser.MainActivity
 import com.onyx.browser.web.OnyxWebView
 
 /**
- * JavaScript interface that bridges error page actions (reload, search, go back,
- * SSL bypass, settings, downloads) to native Android methods.
+ * JavaScript interface that bridges synthetic error page actions (reload, network settings,
+ * search, go back, SSL session bypass, Wayback Machine archive lookups, shields bypass)
+ * directly to native Android browser methods.
  */
 class OnyxErrorBridge(
     private val webView: OnyxWebView,
@@ -18,13 +21,20 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun reload() {
         webView.post {
-            webView.reload()
+            val target = webView.currentSyntheticState?.failingUrl
+            webView.clearSyntheticState()
+            if (!target.isNullOrBlank()) {
+                webView.loadUrl(target)
+            } else {
+                webView.reload()
+            }
         }
     }
 
     @JavascriptInterface
     fun goBack() {
         webView.post {
+            webView.clearSyntheticState()
             if (webView.canGoBack()) {
                 webView.goBack()
             } else {
@@ -36,6 +46,7 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun goHome() {
         webView.post {
+            webView.clearSyntheticState()
             (activity as? MainActivity)?.showHomeScreen()
         }
     }
@@ -43,6 +54,7 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun search(query: String?) {
         webView.post {
+            webView.clearSyntheticState()
             val q = query?.trim() ?: ""
             if (q.isNotEmpty()) {
                 (activity as? MainActivity)?.let { mainAct ->
@@ -62,9 +74,52 @@ class OnyxErrorBridge(
     }
 
     @JavascriptInterface
+    fun openNetworkSettings() {
+        activity?.let { act ->
+            try {
+                act.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
+            } catch (_: Exception) {
+                try {
+                    act.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+                } catch (_: Exception) {
+                    act.startActivity(Intent(Settings.ACTION_SETTINGS))
+                }
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun checkWaybackMachine(url: String?) {
+        webView.post {
+            val target = if (!url.isNullOrBlank()) url else webView.currentSyntheticState?.failingUrl ?: webView.url ?: ""
+            if (target.isNotBlank()) {
+                webView.clearSyntheticState()
+                val waybackUrl = "https://web.archive.org/web/*/$target"
+                (activity as? MainActivity)?.performSearchOrLoad(waybackUrl)
+            }
+        }
+    }
+
+    @JavascriptInterface
     fun openShields() {
         activity?.let {
             it.startActivity(Intent(it, com.onyx.browser.ui.settings.ShieldsActivity::class.java))
+        }
+    }
+
+    @JavascriptInterface
+    fun allowSiteShield(domain: String?) {
+        webView.post {
+            val d = if (!domain.isNullOrBlank()) domain else webView.currentSyntheticState?.domain ?: ""
+            if (d.isNotBlank()) {
+                (activity as? MainActivity)?.let { mainAct ->
+                    val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(mainAct)
+                    prefs.addWhitelistedDomain(d)
+                    val target = webView.currentSyntheticState?.failingUrl ?: "https://$d"
+                    webView.clearSyntheticState()
+                    webView.loadUrl(target)
+                }
+            }
         }
     }
 
@@ -78,8 +133,18 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun proceedSsl() {
         webView.post {
+            val currentUrl = webView.currentSyntheticState?.failingUrl ?: webView.url ?: ""
+            val host = try { Uri.parse(currentUrl).host } catch (_: Exception) { null }
+            if (!host.isNullOrBlank()) {
+                webView.sessionSslBypasses.add(host)
+            }
             webView.pendingSslHandler?.proceed()
-            webView.pendingSslHandler = null
+            webView.clearSyntheticState()
+            if (currentUrl.isNotBlank()) {
+                webView.loadUrl(currentUrl)
+            } else {
+                webView.reload()
+            }
         }
     }
 }

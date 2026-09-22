@@ -17,6 +17,7 @@ import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.nativebridge.AdBlockEngine
+import com.onyx.browser.web.error.SyntheticNavigationState
 import com.onyx.browser.web.error.WebErrorHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -627,6 +628,7 @@ class OnyxWebViewClient(
         super.onPageStarted(view, url, favicon)
         if (!url.isNullOrBlank()) {
             currentPageUrl = url
+            (view as? OnyxWebView)?.clearSyntheticState()
             (view as? OnyxWebView)?.applyUserAgentForUrl(url)
             onUrlChanged(url)
             if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)) {
@@ -661,8 +663,9 @@ class OnyxWebViewClient(
             if (preferences.isBackgroundPlayEnabled) {
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
             }
+            val isSyntheticError = (view as? OnyxWebView)?.currentSyntheticState != null
             val isIncognito = (view as? OnyxWebView)?.isIncognito ?: false
-            if (!isIncognito && url.startsWith("http")) {
+            if (!isIncognito && !isSyntheticError && url.startsWith("http")) {
                 val title = view?.title ?: url
                 coroutineScope.launch(Dispatchers.IO) {
                     try {
@@ -806,28 +809,29 @@ class OnyxWebViewClient(
         request: WebResourceRequest?,
         error: android.webkit.WebResourceError?
     ) {
-        if (request?.isForMainFrame == true) {
-            val url = request.url.toString()
-            if (url.startsWith("file:///android_asset/")) return
-
-            val fallbackUrl = url.replaceFirst("https://", "http://")
-            // In STRICT mode, do NOT fall back to HTTP — block the page
-            if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT && upgradedUrls.contains(fallbackUrl)) {
-                view?.loadUrl(fallbackUrl)
-                return
-            }
-
-            // Immediately stop loading to prevent Chromium's default error page from flashing
-            try { view?.stopLoading() } catch (_: Throwable) {}
-
-            val errorDesc = error?.description?.toString() ?: ""
-            val errCode = error?.errorCode ?: WebViewClient.ERROR_UNKNOWN
-            val onyxError = WebErrorHandler.resolveNetworkError(url, errCode, errorDesc, isNetworkConnected())
-
-            loadCustomErrorPage(view, onyxError)
-            return // DO NOT call super.onReceivedError() to prevent the old error page from flashing!
+        // Phase 1: Disambiguate sub-resource / adblock drops. Only main-frame failures show error page.
+        if (request?.isForMainFrame != true) {
+            return
         }
-        super.onReceivedError(view, request, error)
+
+        val url = request.url.toString()
+        if (url.startsWith("file:///android_asset/")) return
+
+        val fallbackUrl = url.replaceFirst("https://", "http://")
+        // In STRICT mode, do NOT fall back to HTTP — block the page
+        if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT && upgradedUrls.contains(fallbackUrl)) {
+            view?.loadUrl(fallbackUrl)
+            return
+        }
+
+        // Immediately stop loading to prevent Chromium's default error page from flashing
+        try { view?.stopLoading() } catch (_: Throwable) {}
+
+        val errorDesc = error?.description?.toString() ?: ""
+        val errCode = error?.errorCode ?: WebViewClient.ERROR_UNKNOWN
+        val onyxError = WebErrorHandler.resolveNetworkError(url, errCode, errorDesc, isNetworkConnected())
+
+        loadCustomErrorPage(view, onyxError)
     }
 
     override fun onReceivedHttpError(
@@ -835,19 +839,20 @@ class OnyxWebViewClient(
         request: WebResourceRequest?,
         errorResponse: WebResourceResponse?
     ) {
-        if (request?.isForMainFrame == true) {
-            val url = request.url.toString()
-            if (url.startsWith("file:///android_asset/")) return
-
-            val statusCode = errorResponse?.statusCode ?: 0
-            if (statusCode >= 400) {
-                val reason = errorResponse?.reasonPhrase
-                val onyxError = WebErrorHandler.resolveHttpError(url, statusCode, reason)
-                loadCustomErrorPage(view, onyxError)
-                return
-            }
+        // Only top-level document HTTP 4xx/5xx responses trigger synthetic error state
+        if (request?.isForMainFrame != true) {
+            return
         }
-        super.onReceivedHttpError(view, request, errorResponse)
+
+        val url = request.url.toString()
+        if (url.startsWith("file:///android_asset/")) return
+
+        val statusCode = errorResponse?.statusCode ?: 0
+        if (statusCode >= 400) {
+            val reason = errorResponse?.reasonPhrase
+            val onyxError = WebErrorHandler.resolveHttpError(url, statusCode, reason)
+            loadCustomErrorPage(view, onyxError)
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -863,9 +868,7 @@ class OnyxWebViewClient(
             try { view?.stopLoading() } catch (_: Throwable) {}
             val onyxError = WebErrorHandler.resolveNetworkError(url, errorCode, description, isNetworkConnected())
             loadCustomErrorPage(view, onyxError)
-            return
         }
-        super.onReceivedError(view, errorCode, description, failingUrl)
     }
 
     override fun onReceivedSslError(
@@ -874,6 +877,14 @@ class OnyxWebViewClient(
         error: android.net.http.SslError?
     ) {
         val url = view?.url ?: error?.url ?: ""
+        val host = try { Uri.parse(url).host } catch (_: Exception) { null }
+
+        // Phase 5: Check session-scoped SSL bypass
+        if (!host.isNullOrBlank() && (view as? OnyxWebView)?.sessionSslBypasses?.contains(host) == true) {
+            handler?.proceed()
+            return
+        }
+
         val fallbackUrl = url.replaceFirst("https://", "http://")
         if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT && upgradedUrls.contains(fallbackUrl)) {
             handler?.cancel()
@@ -885,7 +896,8 @@ class OnyxWebViewClient(
         (view as? OnyxWebView)?.pendingSslHandler = handler
 
         try { view?.stopLoading() } catch (_: Throwable) {}
-        val onyxError = WebErrorHandler.resolveSslError(url, error)
+        val isHsts = preferences.httpsUpgradeMode == BrowserPreferences.HTTPS_MODE_STRICT
+        val onyxError = WebErrorHandler.resolveSslError(url, error, isHstsEnforced = isHsts)
         loadCustomErrorPage(view, onyxError)
     }
 
@@ -905,7 +917,8 @@ class OnyxWebViewClient(
         }
     }
 
-    private fun loadCustomErrorPage(view: WebView?, error: WebErrorHandler.OnyxWebError) {
+    private fun loadCustomErrorPage(view: WebView?, error: SyntheticNavigationState) {
+        (view as? OnyxWebView)?.currentSyntheticState = error
         val renderAction = Runnable {
             try {
                 var template = cachedErrorPageTemplate

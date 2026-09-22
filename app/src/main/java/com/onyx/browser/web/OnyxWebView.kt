@@ -13,6 +13,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import com.onyx.browser.web.error.SyntheticNavigationState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 
@@ -26,6 +27,13 @@ class OnyxWebView @JvmOverloads constructor(
     var tabId: String = ""
     var isIncognito: Boolean = false
     var pendingSslHandler: android.webkit.SslErrorHandler? = null
+    var currentSyntheticState: SyntheticNavigationState? = null
+    val sessionSslBypasses: MutableSet<String> = mutableSetOf()
+
+    fun clearSyntheticState() {
+        currentSyntheticState = null
+        pendingSslHandler = null
+    }
 
     // The standard Chrome-on-Android mobile UA (used for all normal browsing).
     private val mobileUserAgent =

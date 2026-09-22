@@ -574,4 +574,22 @@ onyx-browser/
     - Pull-to-refresh (`swipeRefreshLayout`) reloads local documents via `LocalFileLoader`.
     - Address bar title formatting displays clean file display names for local documents.
     - Registered complete `ACTION_VIEW` intent filters for `file` and `content` schemes across MIME types (`text/html`, `application/xhtml+xml`, `text/markdown`, `text/x-markdown`, `text/plain`) and file extensions (`.*\\.html`, `.*\\.htm`, `.*\\.md`, `.*\\.markdown`), enabling opening files directly from any Android file manager.
+- [x] **Chromium/Brave/Safari-Grade Synthetic Navigation Error Pipeline & Closed-Loop Recovery**:
+  - Implemented strongly-typed `SyntheticNavigationState` (`OFFLINE`, `SECURITY`, `SERVER_DOWN`, `SHIELDS_BLOCKED`, `FILE_ERROR`, `GENERIC`) treating error states as in-memory synthetic navigation states rather than file redirects.
+  - **Base URL Virtualization & History Isolation**:
+    - Synthetic error templates are injected into the WebView with `loadDataWithBaseURL` bound to the original destination URL, completely eliminating the "Back-Button Trap" and address bar path corruption.
+    - Excluded synthetic error states from being written into user browsing history (`HistoryDao`) in `onPageFinished`.
+    - Automatically cleared synthetic state on fresh navigations in `onPageStarted`.
+  - **Adblock & Frame Disambiguation**:
+    - Strictly suppressed all sub-resource, tracking script, and adblock drop failures (`if (request?.isForMainFrame != true) return`).
+  - **Closed-Loop Network Auto-Recovery**:
+    - Registered a lifecycle-aware Android `ConnectivityManager.NetworkCallback` with `NetworkCapabilities.NET_CAPABILITY_INTERNET`.
+    - In `onAvailable()`, if the active tab is displaying an `OFFLINE` synthetic error, automatically triggers active-tab reload to seamlessly recover the webpage as soon as Wi-Fi or cellular data reconnects.
+  - **Session-Scoped SSL Bypass & HSTS Guard**:
+    - In non-strict mode, user proceed actions store the host in an in-memory `sessionSslBypasses` set on `OnyxWebView`, automatically passing subsequent certificate checks during that tab session without persisting to disk.
+    - When "Strict HTTPS" mode is active, the bypass action is completely disabled and replaced with an HSTS security notice.
+  - **Universal Template Capabilities**:
+    - Integrated public web archive lookups via the **Wayback Machine** (`https://web.archive.org/web/*/{failingUrl}`) for HTTP 404 / 5xx responses.
+    - Integrated direct OS wireless settings dispatch (`Settings.ACTION_WIRELESS_SETTINGS`).
+    - Embedded zero-dependency HTML5 canvas **Offline Runner Mini-Game** with score, high score, obstacle collision detection, and tap/spacebar controls.
 

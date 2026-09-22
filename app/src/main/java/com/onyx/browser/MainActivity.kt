@@ -11,6 +11,10 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -1626,8 +1630,54 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
+    private fun registerNetworkRecoveryCallback() {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                runOnUiThread {
+                    val wv = tabManager.getActiveWebView() ?: return@runOnUiThread
+                    val state = wv.currentSyntheticState
+                    if (state?.category == com.onyx.browser.web.error.SyntheticNavigationState.ErrorCategory.OFFLINE) {
+                        val url = state.failingUrl
+                        wv.clearSyntheticState()
+                        if (url.isNotBlank() && !LocalFileLoader.isLocalFile(url)) {
+                            wv.loadUrl(url)
+                        } else {
+                            wv.reload()
+                        }
+                    }
+                }
+            }
+        }
+        try {
+            cm.registerNetworkCallback(request, networkCallback!!)
+        } catch (_: Exception) {}
+    }
+
+    private fun unregisterNetworkRecoveryCallback() {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        networkCallback?.let {
+            try {
+                cm.unregisterNetworkCallback(it)
+            } catch (_: Exception) {}
+        }
+        networkCallback = null
+    }
+
+    override fun onStart() {
+        super.onStart()
+        registerNetworkRecoveryCallback()
+    }
+
     override fun onStop() {
         super.onStop()
+        unregisterNetworkRecoveryCallback()
         val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
         if (!isPip && !preferences.isBackgroundPlayEnabled) {
             tabManager.getActiveWebView()?.onPause()

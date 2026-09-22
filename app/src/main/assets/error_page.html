@@ -24,6 +24,8 @@
       --danger-text: #D93025;
       --warning-bg: #FEF7E0;
       --warning-text: #B06000;
+      --game-bg: #E8EAED;
+      --game-text: #202124;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -46,6 +48,8 @@
         --danger-text: #F28B82;
         --warning-bg: #3B2E1E;
         --warning-text: #FDD663;
+        --game-bg: #28292A;
+        --game-text: #E8EAED;
       }
     }
 
@@ -85,9 +89,14 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.05);
       transition: transform 0.2s ease;
+      cursor: pointer;
+    }
+
+    .icon-wrapper:active {
+      transform: scale(0.95);
     }
 
     .icon-wrapper svg {
@@ -112,6 +121,38 @@
     }
     .icon-wrapper.warning svg {
       stroke: var(--warning-text);
+    }
+
+    /* Mini Game Tip Badge */
+    .game-badge {
+      display: none;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--primary);
+      background-color: var(--pill-bg);
+      padding: 4px 10px;
+      border-radius: 12px;
+      margin-bottom: 14px;
+      cursor: pointer;
+    }
+
+    /* Embedded Canvas Mini Game */
+    .game-container {
+      display: none;
+      width: 100%;
+      max-width: 400px;
+      background-color: var(--game-bg);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      border: 1px solid var(--card-border);
+      position: relative;
+    }
+
+    #runnerCanvas {
+      display: block;
+      width: 100%;
+      height: 140px;
     }
 
     h1 {
@@ -219,6 +260,17 @@
       margin-bottom: 14px;
     }
 
+    .hsts-notice {
+      font-size: 12px;
+      color: var(--danger-text);
+      font-weight: 500;
+      line-height: 1.4;
+      display: none;
+      background-color: var(--danger-bg);
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+
     .proceed-link {
       font-size: 12.5px;
       color: var(--danger-text);
@@ -280,6 +332,14 @@
       <svg id="iconSvg" viewBox="0 0 24 24"></svg>
     </div>
 
+    <!-- Mini Game Tip Badge (Offline only) -->
+    <div class="game-badge" id="gameBadge">🎮 Tap to Play Offline Runner</div>
+
+    <!-- Embedded Canvas Mini-Game (Hidden until tapped) -->
+    <div class="game-container" id="gameContainer">
+      <canvas id="runnerCanvas" width="400" height="140"></canvas>
+    </div>
+
     <!-- Error Title & Diagnostic Code -->
     <h1 id="errorTitle">This site can't be reached</h1>
     <span class="error-pill" id="errorCode">net::ERR_NAME_NOT_RESOLVED</span>
@@ -297,6 +357,7 @@
     <div class="advanced-drawer" id="advancedDrawer">
       <h4>Certificate Security Details</h4>
       <p id="sslDetailsText"></p>
+      <div class="hsts-notice" id="hstsNotice">This site enforces strict transport security (HSTS) and cannot be bypassed.</div>
       <div class="proceed-link" id="btnProceedSsl">Proceed to this site (unsafe)</div>
     </div>
 
@@ -329,6 +390,8 @@
       SHIELD_DANGER: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>`,
       SHIELD_CHECK: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path>`,
       FILE_ALERT: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12.01" y2="18"></line><line x1="12" y1="12" x2="12" y2="15"></line>`,
+      ARCHIVE: `<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>`,
+      SETTINGS: `<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>`,
       ALERT_CIRCLE: `<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>`
     };
 
@@ -343,7 +406,6 @@
     }
 
     if (!errorData) {
-      // Fallback query parameter parsing
       const params = new URLSearchParams(window.location.search);
       const url = params.get('url') || window.location.href;
       const code = params.get('error') || 'net::ERR_CONNECTION_FAILED';
@@ -361,7 +423,10 @@
         secondaryButtonText: 'Search Web',
         secondaryButtonAction: 'search',
         isDanger: false,
-        sslDetails: ''
+        technicalDetails: '',
+        isHstsEnforced: false,
+        canCheckWayback: false,
+        hasOfflineGame: false
       };
     }
 
@@ -377,26 +442,19 @@
       iconWrapper.classList.add('danger');
     }
 
-    // Assign appropriate SVG by category
+    // Category SVGs
     switch (errorData.category) {
       case 'OFFLINE':
         iconSvg.innerHTML = ICONS.WIFI_OFF;
+        document.getElementById('gameBadge').style.display = 'inline-block';
         break;
-      case 'DNS_NOT_FOUND':
-        iconSvg.innerHTML = ICONS.GLOBE_SEARCH;
-        break;
-      case 'CONNECTION_REFUSED':
-      case 'CONNECTION_RESET':
-      case 'HTTP_SERVER_ERROR':
+      case 'SERVER_DOWN':
         iconSvg.innerHTML = ICONS.SERVER_OFF;
         break;
-      case 'TIMED_OUT':
-        iconSvg.innerHTML = ICONS.CLOCK;
-        break;
-      case 'SSL_SECURITY':
+      case 'SECURITY':
         iconSvg.innerHTML = ICONS.SHIELD_DANGER;
         break;
-      case 'BLOCKED_BY_SHIELDS':
+      case 'SHIELDS_BLOCKED':
         iconSvg.innerHTML = ICONS.SHIELD_CHECK;
         break;
       case 'FILE_ERROR':
@@ -421,14 +479,26 @@
       document.getElementById('checklistCard').style.display = 'none';
     }
 
-    // SSL Advanced Details
-    if (errorData.sslDetails && errorData.sslDetails.length > 0) {
-      document.getElementById('sslDetailsText').innerText = errorData.sslDetails;
+    // SSL Security Details & HSTS Rules
+    if (errorData.technicalDetails && errorData.technicalDetails.length > 0) {
+      document.getElementById('sslDetailsText').innerText = errorData.technicalDetails;
+    }
+    if (errorData.isHstsEnforced) {
+      document.getElementById('hstsNotice').style.display = 'block';
+      document.getElementById('btnProceedSsl').style.display = 'none';
     }
 
-    // Configure Buttons
+    // Action Buttons
     document.getElementById('btnPrimaryText').innerText = errorData.primaryButtonText;
     document.getElementById('btnSecondaryText').innerText = errorData.secondaryButtonText;
+
+    // Adjust Secondary Button Icon based on action
+    const secIcon = document.getElementById('btnSecondaryIcon');
+    if (errorData.secondaryButtonAction === 'wayback_machine') {
+      secIcon.outerHTML = `<svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.ARCHIVE}</svg>`;
+    } else if (errorData.secondaryButtonAction === 'network_settings' || errorData.secondaryButtonAction === 'shields' || errorData.secondaryButtonAction === 'settings') {
+      secIcon.outerHTML = `<svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.SETTINGS}</svg>`;
+    }
 
     // Button Action Handlers
     function executeAction(action) {
@@ -448,6 +518,20 @@
             window.OnyxErrorBridge.search(query);
           } else {
             window.location.href = `https://search.brave.com/search?q=${encodeURIComponent(query)}`;
+          }
+          break;
+        case 'network_settings':
+          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openNetworkSettings === 'function') {
+            window.OnyxErrorBridge.openNetworkSettings();
+          } else {
+            executeAction('settings');
+          }
+          break;
+        case 'wayback_machine':
+          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.checkWaybackMachine === 'function') {
+            window.OnyxErrorBridge.checkWaybackMachine(errorData.url);
+          } else {
+            window.location.href = `https://web.archive.org/web/*/${encodeURIComponent(errorData.url)}`;
           }
           break;
         case 'back':
@@ -501,6 +585,180 @@
         window.OnyxErrorBridge.proceedSsl();
       }
     });
+
+    // ── Offline Runner Mini-Game Engine ───────────────────────────────────────
+    let gameStarted = false;
+    let gameOver = false;
+    let score = 0;
+    let highScore = 0;
+    let animId = null;
+
+    const gameContainer = document.getElementById('gameContainer');
+    const gameBadge = document.getElementById('gameBadge');
+    const canvas = document.getElementById('runnerCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const player = {
+      x: 35,
+      y: 100,
+      width: 18,
+      height: 24,
+      vy: 0,
+      gravity: 0.7,
+      jumpForce: -10,
+      groundY: 100,
+      isGrounded: true
+    };
+
+    let obstacles = [];
+    let spawnTimer = 0;
+
+    function initGame() {
+      gameContainer.style.display = 'block';
+      gameBadge.style.display = 'none';
+      obstacles = [];
+      score = 0;
+      gameOver = false;
+      gameStarted = true;
+      player.y = player.groundY;
+      player.vy = 0;
+      player.isGrounded = true;
+      if (animId) cancelAnimationFrame(animId);
+      gameLoop();
+    }
+
+    function jump() {
+      if (!gameStarted) {
+        initGame();
+        return;
+      }
+      if (gameOver) {
+        initGame();
+        return;
+      }
+      if (player.isGrounded) {
+        player.vy = player.jumpForce;
+        player.isGrounded = false;
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      if (!gameOver) {
+        animId = requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function update() {
+      // Player physics
+      player.vy += player.gravity;
+      player.y += player.vy;
+      if (player.y >= player.groundY) {
+        player.y = player.groundY;
+        player.vy = 0;
+        player.isGrounded = true;
+      }
+
+      // Obstacles
+      spawnTimer++;
+      if (spawnTimer > 75 + Math.random() * 40) {
+        spawnTimer = 0;
+        obstacles.push({
+          x: canvas.width,
+          y: player.groundY + 4,
+          width: 12 + Math.random() * 8,
+          height: 20 + Math.random() * 10
+        });
+      }
+
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.x -= 4.2;
+
+        // Collision Check (AABB)
+        if (
+          player.x < obs.x + obs.width &&
+          player.x + player.width > obs.x &&
+          player.y < obs.y &&
+          player.y + player.height > obs.y - obs.height + 4
+        ) {
+          gameOver = true;
+          if (score > highScore) highScore = score;
+        }
+
+        if (obs.x + obs.width < 0) {
+          obstacles.splice(i, 1);
+          score += 10;
+        }
+      }
+    }
+
+    function draw() {
+      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Floor line
+      ctx.strokeStyle = isDark ? '#3C4043' : '#DADCE0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, player.groundY + player.height);
+      ctx.lineTo(canvas.width, player.groundY + player.height);
+      ctx.stroke();
+
+      // Player character (Geometric Runner)
+      ctx.fillStyle = isDark ? '#8AB4F8' : '#1A73E8';
+      ctx.beginPath();
+      ctx.roundRect(player.x, player.y, player.width, player.height, 4);
+      ctx.fill();
+
+      // Eye
+      ctx.fillStyle = isDark ? '#202124' : '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(player.x + player.width - 5, player.y + 6, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Obstacles
+      ctx.fillStyle = isDark ? '#F28B82' : '#D93025';
+      obstacles.forEach(obs => {
+        ctx.beginPath();
+        ctx.roundRect(obs.x, obs.y - obs.height + 4, obs.width, obs.height, 3);
+        ctx.fill();
+      });
+
+      // Score
+      ctx.fillStyle = isDark ? '#9AA0A6' : '#5F6368';
+      ctx.font = '11px monospace';
+      ctx.fillText(`HI ${highScore.toString().padStart(4, '0')}  ${score.toString().padStart(4, '0')}`, canvas.width - 95, 18);
+
+      // Game Over Overlay
+      if (gameOver) {
+        ctx.fillStyle = isDark ? '#E8EAED' : '#202124';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER - Tap to Play Again', canvas.width / 2, 65);
+        ctx.textAlign = 'left';
+      }
+    }
+
+    if (errorData.category === 'OFFLINE') {
+      gameBadge.addEventListener('click', () => {
+        initGame();
+      });
+      iconWrapper.addEventListener('click', () => {
+        if (!gameStarted) initGame(); else jump();
+      });
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        jump();
+      });
+      canvas.addEventListener('mousedown', jump);
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'ArrowUp') {
+          jump();
+        }
+      });
+    }
   </script>
 </body>
 </html>
