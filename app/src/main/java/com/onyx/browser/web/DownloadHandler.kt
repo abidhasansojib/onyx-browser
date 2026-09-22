@@ -191,7 +191,7 @@ object DownloadHandler {
         mimeType: String
     ) {
         val mainAct = activity as? MainActivity
-        val webView = mainAct?.tabManager?.getActiveWebView()
+        val webView = mainAct?.getActiveWebView()
         if (webView == null) {
             Toast.makeText(activity, "Cannot download blob without active webpage", Toast.LENGTH_SHORT).show()
             return

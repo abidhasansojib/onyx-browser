@@ -91,8 +91,10 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var tabManager: TabManager
+    lateinit var tabManager: TabManager
     private lateinit var preferences: BrowserPreferences
+
+    fun getActiveWebView(): OnyxWebView? = if (::tabManager.isInitialized) tabManager.getActiveWebView() else null
     private lateinit var suggestionRepository: SearchSuggestionRepository
     private lateinit var suggestionsAdapter: SuggestionsAdapter
     private lateinit var shortcutsAdapter: ShortcutsAdapter
