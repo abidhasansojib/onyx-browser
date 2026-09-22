@@ -440,4 +440,11 @@ onyx-browser/
     - **Cookie Blocking** ([`CookieModePickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/CookieModePickerSheet.kt) & [`bottom_sheet_cookie_mode_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_cookie_mode_picker.xml)): Allow all vs. Block third-party (Recommended) vs. Block all.
     - **Secure DNS Provider** ([`DnsProviderPickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/DnsProviderPickerSheet.kt) & [`bottom_sheet_dns_provider_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_dns_provider_picker.xml)): Cloudflare 1.1.1.1, Google 8.8.8.8, NextDNS, and Custom URL with inline Material 3 `TextInputLayout` and Save button.
   - Consistent Material 3 bottom sheet design language: Drag handle, 16dp rounded card containers, 44dp squircle icon backgrounds, active 2dp accent stroke, dynamic checkmark indicators, and cancel buttons.
+- [x] **Content Filters Status Bar Collision Fix**:
+  - Resolved status bar, camera hole cutout, and navigation bar collision in [`ContentFiltersActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/ContentFiltersActivity.kt) and [`activity_content_filters.xml`](file:///root/onyx-browser/app/src/main/res/layout/activity_content_filters.xml).
+  - Configured edge-to-edge transparent system bars with `WindowCompat.setDecorFitsSystemWindows(window, false)` and dynamic `ViewCompat.setOnApplyWindowInsetsListener`.
+  - Applied `statusBarInsets.top` padding to `AppBarLayout` so the back navigation button, "Content filters" title, and "UPDATE" action button sit cleanly below the status bar on all devices.
+  - Added navigation bar inset bottom padding to `rvContentFilters` to prevent list items from being cut off by navigation gesture bars.
+  - Upgraded toolbar to Material 3 `MaterialToolbar` with `app:navigationIconTint="?attr/colorControlNormal"` and vertically centered title and update button.
+
 

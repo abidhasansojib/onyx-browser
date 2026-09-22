@@ -1,11 +1,17 @@
 package com.onyx.browser.ui.settings
 
+import android.content.res.Configuration
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -32,8 +38,32 @@ class ContentFiltersActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Enable edge-to-edge transparent system bars
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        insetsController.isAppearanceLightStatusBars = !isNightMode
+        insetsController.isAppearanceLightNavigationBars = !isNightMode
+
         binding = ActivityContentFiltersBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Apply WindowInsets to avoid collision with status bar, camera hole, and navigation bar
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val statusBarInsets = insets.getInsets(
+                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+
+            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
+            val defaultBottomPadding = (24 * resources.displayMetrics.density).toInt()
+            binding.rvContentFilters.updatePadding(bottom = navBarInsets.bottom + defaultBottomPadding)
+            insets
+        }
 
         preferences = BrowserPreferences.getInstance(this)
         binding.toolbar.setNavigationOnClickListener { finish() }
