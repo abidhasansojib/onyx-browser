@@ -1647,7 +1647,6 @@ class MainActivity : AppCompatActivity() {
             // Video-Only PiP: Strip all browser UI and chrome
             binding.topBar.visibility = View.GONE
             binding.topBarDivider.visibility = View.GONE
-            binding.bottomBar.visibility = View.GONE
             binding.homeLayout.root.visibility = View.GONE
             binding.fullscreenControlsOverlay.visibility = View.GONE
             binding.progressBar.visibility = View.GONE
@@ -1666,7 +1665,6 @@ class MainActivity : AppCompatActivity() {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             binding.topBar.visibility = View.VISIBLE
             binding.topBarDivider.visibility = View.VISIBLE
-            binding.bottomBar.visibility = View.VISIBLE
 
             if (customVideoView != null) {
                 binding.fullscreenControlsOverlay.visibility = View.VISIBLE
