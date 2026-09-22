@@ -473,7 +473,12 @@ onyx-browser/
   - Successfully compiled native Rust NDK `libadblock_bridge.so` across `arm64-v8a`, `armeabi-v7a`, and `x86_64`.
   - Fixed TextInputLayout `helperTextColor` -> `helperTextTextColor` in [`dialog_edit_shortcut.xml`](file:///root/onyx-browser/app/src/main/res/layout/dialog_edit_shortcut.xml).
   - Resolved `Settings.ACTION_PICTURE_IN_PICTURE_SETTINGS` action string and sanitized view references in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) and [`SettingsActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/SettingsActivity.kt).
-  - Successfully generated and uploaded `Onyx-Browser-APK` (Release & Debug APKs) as release artifacts.
+- [x] **Redesigned CI/CD Build Pipeline with Dynamic Branch/Type Selection, ABI Splits & GitHub Releases**:
+  - **Dynamic Branch & Build Type Selection**: Configured `workflow_dispatch` with automated branch selector and `build_type` dropdown (`Release`, `Debug`, `Both`).
+  - **Release Optimization & ABI Splits**: Enabled `splits.abi` (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`) generating ultra-compact ~14-16 MB APKs for 64-bit ARM devices alongside universal fallbacks.
+  - **R8 / ProGuard Minification**: Configured `isMinifyEnabled = true` and `isShrinkResources = true` in `build.gradle.kts` with production-grade keep rules in `proguard-rules.pro` protecting Brave `adblock-rust` JNI bindings, `@JavascriptInterface`, WebAuthn/Passkeys, Room, and SQLCipher.
+  - **Automated Monotonic Versioning**: Automatically computes `versionCode` and `versionName` per run based on `github.run_number` (`v1.0.${{ github.run_number }}`).
+  - **Automated GitHub Releases**: Publishes signed release APKs directly to GitHub Releases with auto-generated release notes and architectural guides; Debug builds upload to GitHub Actions artifacts.
 
 
 

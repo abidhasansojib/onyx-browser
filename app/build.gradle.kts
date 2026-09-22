@@ -8,12 +8,16 @@ android {
     namespace = "com.onyx.browser"
     compileSdk = 35
 
+    val propVersionCode = project.findProperty("versionCode")?.toString()?.toIntOrNull()
+    val propVersionName = project.findProperty("versionName")?.toString()
+    val envRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+
     defaultConfig {
         applicationId = "com.onyx.browser"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = propVersionCode ?: (if (envRunNumber != null) 1000 + envRunNumber else 1)
+        versionName = propVersionName ?: (if (envRunNumber != null) "1.0.$envRunNumber" else "1.0.0")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -23,6 +27,17 @@ android {
 
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    val enableSplits = project.findProperty("enableAbiSplits")?.toString()?.toBoolean() ?: false
+
+    splits {
+        abi {
+            isEnable = enableSplits
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
         }
     }
 
@@ -57,7 +72,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -67,6 +83,8 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 
