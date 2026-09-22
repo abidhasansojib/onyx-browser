@@ -1261,11 +1261,12 @@ class MainActivity : AppCompatActivity() {
                 }
                 if (isPipAllowed == false) {
                     Toast.makeText(this, "Please enable Picture-in-Picture permission in Android Settings", Toast.LENGTH_LONG).show()
-                    val intent = Intent(
-                        android.provider.Settings.ACTION_PICTURE_IN_PICTURE_SETTINGS,
-                        Uri.parse("package:$packageName")
-                    )
-                    startActivity(intent)
+                    val intent = Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS", Uri.parse("package:$packageName"))
+                    try {
+                        startActivity(intent)
+                    } catch (_: Exception) {
+                        startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                    }
                     return
                 }
 
@@ -1524,11 +1525,10 @@ class MainActivity : AppCompatActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         if (isInPictureInPictureMode) {
             binding.topBar.visibility = View.GONE
-            binding.bottomBar.visibility = View.GONE
             binding.fullscreenControlsOverlay.visibility = View.GONE
             binding.progressBar.visibility = View.GONE
-            binding.findInPageContainer.visibility = View.GONE
-            binding.layoutSuggestionsContainer.visibility = View.GONE
+            binding.findInPageBar.visibility = View.GONE
+            binding.searchOverlay.visibility = View.GONE
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -1536,14 +1536,10 @@ class MainActivity : AppCompatActivity() {
                 binding.fullscreenControlsOverlay.visibility = View.VISIBLE
                 binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
             } else {
+                binding.topBar.visibility = View.VISIBLE
                 val isHome = binding.homeLayout.root.visibility == View.VISIBLE
                 if (!isHome) {
-                    binding.topBar.visibility = View.VISIBLE
-                    binding.bottomBar.visibility = View.VISIBLE
                     binding.webViewContainer.visibility = View.VISIBLE
-                } else {
-                    binding.topBar.visibility = View.VISIBLE
-                    binding.bottomBar.visibility = View.VISIBLE
                 }
             }
         }

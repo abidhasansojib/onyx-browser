@@ -144,7 +144,7 @@ class SettingsActivity : AppCompatActivity() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             try {
                 val pipIntent = android.content.Intent(
-                    android.provider.Settings.ACTION_PICTURE_IN_PICTURE_SETTINGS,
+                    "android.settings.PICTURE_IN_PICTURE_SETTINGS",
                     android.net.Uri.parse("package:$packageName")
                 )
                 if (pipIntent.resolveActivity(pm) != null) {
