@@ -469,7 +469,11 @@ onyx-browser/
 - [x] **Modern Custom Offline & Web Page Not Available Pages**:
   - **Generative UI Design**: Created an interactive, responsive Generative UI preview widget ([`error_pages_widget.html`](file:///root/.gemini/antigravity-cli/brain/57371cad-7a74-4301-ab0c-1cc01cd1e821/error_pages_widget.html)) demonstrating both `net::ERR_INTERNET_DISCONNECTED` and `net::ERR_NAME_NOT_RESOLVED` error states with live tab switching, troubleshooting checklists, and an embedded offline runner arcade game.
   - **Zero-Dependency Android Asset**: Created [`app/src/main/assets/error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html) supporting automatic Light/Dark mode via `@media (prefers-color-scheme: dark)`, dynamic error parameters and template replacement (`url`, `error`, `desc`), diagnostics panel, and an HTML5 canvas endless runner game playable offline.
-  - **Native WebView Integration**: Updated [`OnyxWebViewClient.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebViewClient.kt) `onReceivedError()` and `onReceivedSslError()` to intercept main-frame errors and populate the custom error template with `loadDataWithBaseURL` preserving the original target URL in the browser URL bar.
+- [x] **Verified CI/CD Remote Build Run #35701023270**:
+  - Successfully compiled native Rust NDK `libadblock_bridge.so` across `arm64-v8a`, `armeabi-v7a`, and `x86_64`.
+  - Fixed TextInputLayout `helperTextColor` -> `helperTextTextColor` in [`dialog_edit_shortcut.xml`](file:///root/onyx-browser/app/src/main/res/layout/dialog_edit_shortcut.xml).
+  - Resolved `Settings.ACTION_PICTURE_IN_PICTURE_SETTINGS` action string and sanitized view references in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) and [`SettingsActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/SettingsActivity.kt).
+  - Successfully generated and uploaded `Onyx-Browser-APK` (Release & Debug APKs) as release artifacts.
 
 
 
