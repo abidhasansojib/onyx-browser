@@ -466,6 +466,10 @@ onyx-browser/
     - `ic_launcher_round.png`: Circular masked pure black icon with centered globe.
   - Configured adaptive background to AMOLED Pure Black `#000000` in [`ic_launcher_background.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_launcher_background.xml).
   - Updated Android 13+ Material You monochrome themed icon layer in [`ic_launcher.xml`](file:///root/onyx-browser/app/src/main/res/mipmap/ic_launcher.xml) and [`ic_launcher_round.xml`](file:///root/onyx-browser/app/src/main/res/mipmap/ic_launcher_round.xml).
+- [x] **Modern Custom Offline & Web Page Not Available Pages**:
+  - **Generative UI Design**: Created an interactive, responsive Generative UI preview widget ([`error_pages_widget.html`](file:///root/.gemini/antigravity-cli/brain/57371cad-7a74-4301-ab0c-1cc01cd1e821/error_pages_widget.html)) demonstrating both `net::ERR_INTERNET_DISCONNECTED` and `net::ERR_NAME_NOT_RESOLVED` error states with live tab switching, troubleshooting checklists, and an embedded offline runner arcade game.
+  - **Zero-Dependency Android Asset**: Created [`app/src/main/assets/error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html) supporting automatic Light/Dark mode via `@media (prefers-color-scheme: dark)`, dynamic error parameters and template replacement (`url`, `error`, `desc`), diagnostics panel, and an HTML5 canvas endless runner game playable offline.
+  - **Native WebView Integration**: Updated [`OnyxWebViewClient.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebViewClient.kt) `onReceivedError()` and `onReceivedSslError()` to intercept main-frame errors and populate the custom error template with `loadDataWithBaseURL` preserving the original target URL in the browser URL bar.
 
 
 

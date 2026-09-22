@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Page Not Available</title>
+  <style>
+    :root {
+      --bg: #F8F9FA;
+      --card-bg: #FFFFFF;
+      --card-border: #E8EAED;
+      --text-main: #202124;
+      --text-sub: #5F6368;
+      --primary: #1A73E8;
+      --primary-hover: #1557B0;
+      --primary-text: #FFFFFF;
+      --chip-bg: #F1F3F4;
+      --pill-bg: #E8F0FE;
+      --pill-text: #1967D2;
+      --danger-bg: #FCE8E6;
+      --danger-text: #D93025;
+      --game-ground: #DADCE0;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121212;
+        --card-bg: #1E1E1E;
+        --card-border: #2D2D2D;
+        --text-main: #E8EAED;
+        --text-sub: #9AA0A6;
+        --primary: #8AB4F8;
+        --primary-hover: #AECBFA;
+        --primary-text: #202124;
+        --chip-bg: #28292A;
+        --pill-bg: #1E2B42;
+        --pill-text: #8AB4F8;
+        --danger-bg: #3C1E1E;
+        --danger-text: #F28B82;
+        --game-ground: #3C4043;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+      text-align: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .icon-wrapper {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      background-color: var(--pill-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .icon-wrapper svg {
+      width: 36px;
+      height: 36px;
+      stroke: var(--pill-text);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .icon-wrapper.danger {
+      background-color: var(--danger-bg);
+    }
+
+    .icon-wrapper.danger svg {
+      stroke: var(--danger-text);
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.2px;
+    }
+
+    .error-pill {
+      display: inline-block;
+      font-family: monospace;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background-color: var(--chip-bg);
+      color: var(--text-sub);
+      margin-bottom: 14px;
+      word-break: break-all;
+    }
+
+    p.description {
+      font-size: 13px;
+      color: var(--text-sub);
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    .checklist-card {
+      width: 100%;
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .checklist-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-sub);
+      margin-bottom: 8px;
+    }
+
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 13px;
+      color: var(--text-main);
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: var(--primary-text);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+      background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-secondary:active {
+      background-color: var(--chip-bg);
+      transform: scale(0.98);
+    }
+
+    /* Mini-Game Box */
+    .game-box {
+      width: 100%;
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 12px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .game-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-bottom: 8px;
+    }
+
+    .game-canvas-wrap {
+      position: relative;
+      width: 100%;
+      height: 120px;
+      border-radius: 10px;
+      overflow: hidden;
+      background-color: var(--chip-bg);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .game-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Dynamic Icon -->
+    <div id="iconWrapper" class="icon-wrapper">
+      <!-- Default Wi-Fi Disconnected SVG -->
+      <svg id="iconSvg" viewBox="0 0 24 24">
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+      </svg>
+    </div>
+
+    <!-- Title & Code -->
+    <h1 id="errorTitle">No Internet Connection</h1>
+    <div id="errorCode" class="error-pill">net::ERR_INTERNET_DISCONNECTED</div>
+
+    <!-- Description -->
+    <p id="errorDesc" class="description">
+      Your device is offline. Check your network connection and tap reload to try again.
+    </p>
+
+    <!-- Checklist -->
+    <div class="checklist-card">
+      <div class="checklist-title">Troubleshooting</div>
+      <div class="checklist-item">
+        <span class="dot"></span>
+        <span id="check1">Check your Wi-Fi or Mobile Data connection</span>
+      </div>
+      <div class="checklist-item">
+        <span class="dot"></span>
+        <span id="check2">Check if Airplane mode is turned off</span>
+      </div>
+      <div class="checklist-item">
+        <span class="dot"></span>
+        <span id="check3">Verify DNS settings in Onyx Shields &amp; Privacy</span>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="actions-row">
+      <button class="btn btn-primary" onclick="reloadPage()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+        <span>Try Again</span>
+      </button>
+      <button class="btn btn-secondary" onclick="searchWeb()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <span>Search</span>
+      </button>
+    </div>
+
+    <!-- Offline Runner Mini-Game -->
+    <div id="gameSection" class="game-box">
+      <div class="game-header">
+        <span>Tap canvas to jump</span>
+        <span>Score: <b id="scoreLabel">0</b> | Best: <b id="bestScoreLabel">0</b></span>
+      </div>
+      <div class="game-canvas-wrap" onclick="handleJump()">
+        <canvas id="gameCanvas" width="380" height="120"></canvas>
+        <div id="gameOverlay" class="game-overlay">
+          <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px;">GAME OVER</div>
+          <button class="btn btn-primary" style="padding: 6px 14px; font-size: 12px;" onclick="event.stopPropagation(); restartMiniGame();">Play Again</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Extract parameters or template vars
+    const params = new URLSearchParams(window.location.search);
+    let urlParam = '{{URL}}';
+    let errParam = '{{ERROR_CODE}}';
+    let descParam = '{{ERROR_DESC}}';
+
+    if (urlParam === '{{' + 'URL}}') {
+      urlParam = params.get('url') || window.location.href;
+    }
+    if (errParam === '{{' + 'ERROR_CODE}}') {
+      errParam = params.get('error') || 'ERR_INTERNET_DISCONNECTED';
+    }
+    if (descParam === '{{' + 'ERROR_DESC}}') {
+      descParam = params.get('desc') || '';
+    }
+
+    // Adapt content based on error
+    const isOffline = errParam.includes('DISCONNECTED') || errParam.includes('NETWORK') || errParam.includes('IO');
+    const isNotFound = errParam.includes('NAME_NOT_RESOLVED') || errParam.includes('HOST_LOOKUP');
+
+    if (isNotFound) {
+      document.getElementById('iconWrapper').classList.add('danger');
+      document.getElementById('iconSvg').innerHTML = `
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      `;
+      document.getElementById('errorTitle').innerText = "This site can't be reached";
+      document.getElementById('errorCode').innerText = errParam.startsWith('net::') ? errParam : `net::${errParam}`;
+      document.getElementById('errorDesc').innerText = `The server IP address could not be found for ${urlParam}.`;
+      document.getElementById('check1').innerText = "Check if there is a typo in the URL";
+      document.getElementById('check2').innerText = "Test searching for the website name";
+      document.getElementById('check3').innerText = "Change DNS provider in Settings > Shields & Privacy";
+      document.getElementById('gameSection').style.display = 'none';
+    } else if (!isOffline && errParam !== '{{ERROR_CODE}}') {
+      document.getElementById('errorTitle').innerText = "Web Page Not Available";
+      document.getElementById('errorCode').innerText = errParam.startsWith('net::') ? errParam : `net::${errParam}`;
+      document.getElementById('errorDesc').innerText = `Could not load page at ${urlParam}.`;
+    }
+
+    function reloadPage() {
+      if (urlParam && !urlParam.startsWith('{{')) {
+        window.location.href = urlParam;
+      } else {
+        window.location.reload();
+      }
+    }
+
+    function searchWeb() {
+      let query = urlParam;
+      try {
+        const u = new URL(urlParam);
+        query = u.hostname.replace('www.', '');
+      } catch (_) {}
+      window.location.href = `https://search.brave.com/search?q=${encodeURIComponent(query)}`;
+    }
+
+    // Mini-Game Logic
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let gameActive = true;
+    let animId = null;
+    let score = 0;
+    let bestScore = 0;
+    let p = { x: 30, y: 80, dy: 0, jump: -6, gravity: 0.35, grounded: true, size: 14 };
+    let obstacles = [];
+    let frame = 0;
+
+    function restartMiniGame() {
+      document.getElementById('gameOverlay').style.display = 'none';
+      score = 0;
+      frame = 0;
+      obstacles = [];
+      p.y = 80;
+      p.dy = 0;
+      p.grounded = true;
+      gameActive = true;
+      if (animId) cancelAnimationFrame(animId);
+      loop();
+    }
+
+    function handleJump() {
+      if (!gameActive) return;
+      if (p.grounded) {
+        p.dy = p.jump;
+        p.grounded = false;
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleJump();
+      }
+    });
+
+    function loop() {
+      if (!gameActive) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Ground
+      ctx.strokeStyle = '#88888844';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 100);
+      ctx.lineTo(canvas.width, 100);
+      ctx.stroke();
+
+      // Physics
+      p.dy += p.gravity;
+      p.y += p.dy;
+      if (p.y >= 86) {
+        p.y = 86;
+        p.dy = 0;
+        p.grounded = true;
+      }
+
+      // Draw Player (Onyx Orb)
+      ctx.fillStyle = '#3B82F6';
+      ctx.beginPath();
+      ctx.arc(p.x + 7, p.y + 7, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Spawn Obstacles
+      if (frame % 75 === 0 && Math.random() > 0.25) {
+        obstacles.push({ x: canvas.width, w: 10, h: 14 + Math.random() * 8 });
+      }
+
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.x -= 3.2;
+
+        ctx.fillStyle = '#EF4444';
+        ctx.fillRect(obs.x, 100 - obs.h, obs.w, obs.h);
+
+        // Collision
+        if (p.x + 14 > obs.x && p.x < obs.x + obs.w && p.y + 14 > 100 - obs.h) {
+          gameActive = false;
+          document.getElementById('gameOverlay').style.display = 'flex';
+          if (score > bestScore) {
+            bestScore = score;
+            document.getElementById('bestScoreLabel').innerText = bestScore;
+          }
+          return;
+        }
+
+        if (obs.x + obs.w < 0) {
+          obstacles.splice(i, 1);
+          score++;
+          document.getElementById('scoreLabel').innerText = score;
+        }
+      }
+
+      frame++;
+      animId = requestAnimationFrame(loop);
+    }
+
+    restartMiniGame();
+  </script>
+</body>
+</html>

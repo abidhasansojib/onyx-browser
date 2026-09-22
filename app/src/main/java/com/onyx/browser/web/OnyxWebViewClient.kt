@@ -4,6 +4,8 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.util.Base64
 import android.widget.Toast
@@ -791,14 +793,50 @@ class OnyxWebViewClient(
         super.onReceivedError(view, request, error)
         if (request?.isForMainFrame == true) {
             val url = request.url.toString()
+            if (url.startsWith("file:///android_asset/")) return
+
             val fallbackUrl = url.replaceFirst("https://", "http://")
             // In STRICT mode, do NOT fall back to HTTP — block the page
-            if (preferences.httpsUpgradeMode == BrowserPreferences.HTTPS_MODE_STRICT) {
-                return // Leave the error page visible
-            }
-            if (upgradedUrls.contains(fallbackUrl)) {
+            if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT && upgradedUrls.contains(fallbackUrl)) {
                 view?.loadUrl(fallbackUrl)
+                return
             }
+
+            val errorDesc = error?.description?.toString() ?: ""
+            val errCodeString = when {
+                !isNetworkConnected() -> "ERR_INTERNET_DISCONNECTED"
+                errorDesc.contains("INTERNET_DISCONNECTED", ignoreCase = true) -> "ERR_INTERNET_DISCONNECTED"
+                error?.errorCode == WebViewClient.ERROR_HOST_LOOKUP || errorDesc.contains("NAME_NOT_RESOLVED", ignoreCase = true) -> "ERR_NAME_NOT_RESOLVED"
+                error?.errorCode == WebViewClient.ERROR_CONNECT || errorDesc.contains("CONNECTION_REFUSED", ignoreCase = true) -> "ERR_CONNECTION_REFUSED"
+                error?.errorCode == WebViewClient.ERROR_TIMEOUT || errorDesc.contains("TIMED_OUT", ignoreCase = true) -> "ERR_TIMED_OUT"
+                errorDesc.startsWith("net::") -> errorDesc.removePrefix("net::")
+                errorDesc.isNotBlank() -> errorDesc
+                else -> "ERR_CONNECTION_FAILED"
+            }
+
+            loadCustomErrorPage(view, url, errCodeString, errorDesc)
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onReceivedError(
+        view: WebView?,
+        errorCode: Int,
+        description: String?,
+        failingUrl: String?
+    ) {
+        super.onReceivedError(view, errorCode, description, failingUrl)
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) {
+            val url = failingUrl ?: view?.url ?: return
+            if (url.startsWith("file:///android_asset/")) return
+            val errCodeString = when {
+                !isNetworkConnected() -> "ERR_INTERNET_DISCONNECTED"
+                errorCode == WebViewClient.ERROR_HOST_LOOKUP -> "ERR_NAME_NOT_RESOLVED"
+                errorCode == WebViewClient.ERROR_CONNECT -> "ERR_CONNECTION_REFUSED"
+                errorCode == WebViewClient.ERROR_TIMEOUT -> "ERR_TIMED_OUT"
+                else -> description ?: "ERR_CONNECTION_FAILED"
+            }
+            loadCustomErrorPage(view, url, errCodeString, description ?: "")
         }
     }
 
@@ -812,11 +850,52 @@ class OnyxWebViewClient(
         if (preferences.httpsUpgradeMode == BrowserPreferences.HTTPS_MODE_STRICT) {
             // Strict: never fall back to HTTP, cancel and show error
             handler?.cancel()
+            loadCustomErrorPage(view, url, "ERR_SSL_PROTOCOL_ERROR", "The site's security certificate is invalid or untrusted.")
         } else if (upgradedUrls.contains(fallbackUrl)) {
             handler?.cancel()
             view?.loadUrl(fallbackUrl)
         } else {
             super.onReceivedSslError(view, handler, error)
+        }
+    }
+
+    private fun isNetworkConnected(): Boolean {
+        return try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                val network = cm?.activeNetwork ?: return false
+                val caps = cm.getNetworkCapabilities(network) ?: return false
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            } else {
+                @Suppress("DEPRECATION")
+                cm?.activeNetworkInfo?.isConnected == true
+            }
+        } catch (_: Throwable) {
+            true
+        }
+    }
+
+    private fun loadCustomErrorPage(view: WebView?, failingUrl: String, errorCode: String, errorDesc: String) {
+        view?.post {
+            try {
+                val template = context.assets.open("error_page.html").bufferedReader().use { it.readText() }
+                val populatedHtml = template
+                    .replace("{{URL}}", failingUrl)
+                    .replace("{{ERROR_CODE}}", errorCode)
+                    .replace("{{ERROR_DESC}}", errorDesc)
+                view.loadDataWithBaseURL(
+                    failingUrl,
+                    populatedHtml,
+                    "text/html",
+                    "UTF-8",
+                    failingUrl
+                )
+            } catch (_: Throwable) {
+                val encodedUrl = Uri.encode(failingUrl)
+                val encodedErr = Uri.encode(errorCode)
+                val encodedDesc = Uri.encode(errorDesc)
+                view.loadUrl("file:///android_asset/error_page.html?url=$encodedUrl&error=$encodedErr&desc=$encodedDesc")
+            }
         }
     }
 }
