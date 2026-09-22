@@ -522,16 +522,37 @@ class MainActivity : AppCompatActivity() {
         home.rvShortcuts.layoutManager = GridLayoutManager(this, shortcutSpanCount)
         home.rvShortcuts.adapter = shortcutsAdapter
 
+        var hasDragged = false
+        var draggedShortcut: ShortcutItem? = null
+
         // Drag-and-drop reordering with ItemTouchHelper
         val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
             ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.START or ItemTouchHelper.END,
             0
         ) {
+            override fun getDragDirs(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
+                val pos = viewHolder.bindingAdapterPosition
+                if (pos == RecyclerView.NO_POSITION || pos >= shortcutsAdapter.getItems().size) {
+                    return 0
+                }
+                return super.getDragDirs(recyclerView, viewHolder)
+            }
+
+            override fun canDropOver(
+                recyclerView: RecyclerView,
+                current: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val targetPos = target.bindingAdapterPosition
+                return targetPos != RecyclerView.NO_POSITION && targetPos < shortcutsAdapter.getItems().size
+            }
+
             override fun onMove(
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder,
                 target: RecyclerView.ViewHolder
             ): Boolean {
+                hasDragged = true
                 val fromPos = viewHolder.bindingAdapterPosition
                 val toPos = target.bindingAdapterPosition
                 return shortcutsAdapter.onItemMove(fromPos, toPos)
@@ -542,7 +563,14 @@ class MainActivity : AppCompatActivity() {
             override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
                 super.onSelectedChanged(viewHolder, actionState)
                 if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
-                    viewHolder?.itemView?.animate()?.scaleX(1.08f)?.scaleY(1.08f)?.setDuration(150)?.start()
+                    hasDragged = false
+                    val pos = viewHolder?.bindingAdapterPosition ?: RecyclerView.NO_POSITION
+                    draggedShortcut = if (pos != RecyclerView.NO_POSITION && pos < shortcutsAdapter.getItems().size) {
+                        shortcutsAdapter.getItems()[pos]
+                    } else null
+
+                    viewHolder?.itemView?.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                    viewHolder?.itemView?.animate()?.scaleX(1.10f)?.scaleY(1.10f)?.setDuration(150)?.start()
                 }
             }
 
@@ -552,10 +580,18 @@ class MainActivity : AppCompatActivity() {
             ) {
                 super.clearView(recyclerView, viewHolder)
                 viewHolder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                preferences.saveShortcuts(shortcutsAdapter.getItems())
+                if (hasDragged) {
+                    preferences.saveShortcuts(shortcutsAdapter.getItems())
+                } else {
+                    draggedShortcut?.let { shortcut ->
+                        showShortcutDeleteOption(shortcut)
+                    }
+                }
+                draggedShortcut = null
+                hasDragged = false
             }
         })
-        // touchHelper.attachToRecyclerView(home.rvShortcuts)
+        touchHelper.attachToRecyclerView(home.rvShortcuts)
 
         // Observe shortcuts flow
         lifecycleScope.launch {

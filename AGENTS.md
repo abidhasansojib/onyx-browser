@@ -402,5 +402,17 @@ onyx-browser/
     - Header with live-preview squircle tile that dynamically updates the website brand icon or capitalized letter badge in real time as the user edits title and URL.
     - Material 3 outlined `TextInputLayout` widgets with floating labels, clear-text buttons, start icons (`ic_edit`, `ic_link`), and URL validation.
     - Rounded action buttons (`btnCancelEdit`, `btnSaveEdit` with `ic_check` icon).
+- [x] **Homepage Shortcuts Drag-to-Reorder & Persistent Order Memory**:
+  - Enabled `ItemTouchHelper` on `home.rvShortcuts` with 4-way drag support (`UP | DOWN | START | END`).
+  - Anchored the trailing `Add` shortcut tile so it cannot be dragged or dropped over (`getDragDirs`, `canDropOver`).
+  - Added haptic feedback (`HapticFeedbackConstants.LONG_PRESS`) and interactive 1.1x scaling when dragging starts.
+  - Automatic persistent order saving via `preferences.saveShortcuts()` on drag completion (`clearView`).
+  - Seamless dual-gesture coexistence: Holding and dragging reorders and saves positions; holding and releasing without moving opens the Delete shortcut dialog.
+- [x] **Modern QR Code Scanner Overhaul & Status Bar Collision Fix**:
+  - **Status Bar Collision Fix**: Applied edge-to-edge `WindowCompat.setDecorFitsSystemWindows(window, false)` and `ViewCompat.setOnApplyWindowInsetsListener` to dynamically pad `topBarContainer` with `systemBars.top`, cleanly moving the close button (`btnQrClose`) below status bar icons, notches, and camera holes on all devices.
+  - **Modern Scanner Reticle & Laser**: Redesigned viewfinder (`viewfinderBox`) with rounded Google Blue frame (`bg_qr_frame.xml`) and smooth animated laser scanning beam (`bg_qr_laser.xml`) moving vertically.
+  - **Camera Controls**: Added frosted circular flashlight/torch toggle button (`btnToggleTorch`, `ic_flash_on` / `ic_flash_off`), tap-to-focus metering, and haptic feedback upon successful scan.
+  - **Scan from Gallery**: Added "Scan from Image" button (`btnScanFromGallery`) allowing users to pick screenshots or photos from their gallery to decode QR codes via ML Kit directly.
+
 
 

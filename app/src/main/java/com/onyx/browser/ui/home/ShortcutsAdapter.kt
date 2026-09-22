@@ -20,9 +20,13 @@ class ShortcutsAdapter(
     private val items = mutableListOf<ShortcutItem>()
 
     fun submitList(newItems: List<ShortcutItem>) {
+        val filtered = newItems.filter { it.id != ShortcutItem.ID_ADD_SHORTCUT && it.url != ShortcutItem.URL_ADD_SHORTCUT }
+        if (getItems() == filtered) {
+            return
+        }
         items.clear()
         // Add normal shortcuts excluding any existing add sentinel
-        items.addAll(newItems.filter { it.id != ShortcutItem.ID_ADD_SHORTCUT && it.url != ShortcutItem.URL_ADD_SHORTCUT })
+        items.addAll(filtered)
         // Append the Add shortcut tile beside normal shortcuts
         items.add(
             ShortcutItem(
@@ -177,15 +181,6 @@ class ShortcutsAdapter(
 
             itemView.setOnClickListener {
                 onShortcutClick(item)
-            }
-
-            itemView.setOnLongClickListener {
-                if (!isAdd) {
-                    onShortcutLongClick(item)
-                    true
-                } else {
-                    false
-                }
             }
         }
     }

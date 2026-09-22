@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/qrScannerRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000">
 
+    <!-- Camera Preview -->
     <androidx.camera.view.PreviewView
         android:id="@+id/previewView"
         android:layout_width="0dp"
@@ -14,43 +16,149 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Viewfinder overlay -->
-    <View
+    <!-- Viewfinder Box -->
+    <FrameLayout
+        android:id="@+id/viewfinderBox"
         android:layout_width="260dp"
         android:layout_height="260dp"
-        android:background="@drawable/bg_qr_viewfinder"
+        android:background="@drawable/bg_qr_frame"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.4" />
+        app:layout_constraintVertical_bias="0.42">
 
-    <!-- Label -->
-    <TextView
+        <!-- Laser scanning line -->
+        <View
+            android:id="@+id/viewLaserLine"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp"
+            android:background="@drawable/bg_qr_laser" />
+
+    </FrameLayout>
+
+    <!-- Guidance text chip -->
+    <LinearLayout
+        android:id="@+id/llGuidanceChip"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:alpha="0.85"
-        android:text="Point camera at a QR code"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/bg_pill_frosted"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.62" />
+        app:layout_constraintTop_toBottomOf="@id/viewfinderBox">
 
-    <!-- Close button -->
-    <androidx.appcompat.widget.AppCompatImageButton
-        android:id="@+id/btnQrClose"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_margin="12dp"
-        android:background="#66000000"
-        android:contentDescription="Close"
-        android:padding="10dp"
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginEnd="8dp"
+            app:srcCompat="@drawable/ic_qr_code"
+            app:tint="#8AB4F8" />
+
+        <TextView
+            android:id="@+id/tvGuidance"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Align QR code within the frame"
+            android:textColor="#FFFFFF"
+            android:textSize="13.5sp" />
+    </LinearLayout>
+
+    <!-- Top Bar Container (Window insets handled in Activity) -->
+    <LinearLayout
+        android:id="@+id/topBarContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_close"
-        app:tint="#FFFFFF" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnQrClose"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_circle_frosted"
+            android:contentDescription="Close"
+            android:padding="10dp"
+            app:srcCompat="@drawable/ic_close"
+            app:tint="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/tvScannerTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:shadowColor="#80000000"
+            android:shadowDx="0"
+            android:shadowDy="2"
+            android:shadowRadius="4"
+            android:text="Scan QR Code"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnToggleTorch"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_circle_frosted"
+            android:contentDescription="Toggle Flashlight"
+            android:padding="10dp"
+            app:srcCompat="@drawable/ic_flash_off"
+            app:tint="#FFFFFF" />
+
+    </LinearLayout>
+
+    <!-- Bottom Controls Container (Window insets handled in Activity) -->
+    <LinearLayout
+        android:id="@+id/bottomControlsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingStart="24dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="28dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnScanFromGallery"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:backgroundTint="#59000000"
+            android:text="Scan from Image"
+            android:textColor="#FFFFFF"
+            android:textSize="13.5sp"
+            app:cornerRadius="24dp"
+            app:icon="@drawable/ic_image"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:iconSize="18dp"
+            app:iconTint="#8AB4F8"
+            app:strokeColor="#33FFFFFF"
+            app:strokeWidth="1dp" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
