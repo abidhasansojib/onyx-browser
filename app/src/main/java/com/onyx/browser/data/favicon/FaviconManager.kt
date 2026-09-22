@@ -91,7 +91,7 @@ object FaviconManager {
         context: Context,
         imageView: ImageView,
         urlOrHost: String,
-        fallbackLetterView: TextView? = null,
+        fallbackLetterView: View? = null,
         isCircular: Boolean = false
     ) {
         val trimmed = urlOrHost.trim()

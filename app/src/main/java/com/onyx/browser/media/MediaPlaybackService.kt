@@ -513,20 +513,12 @@ class MediaPlaybackService : Service() {
         super.onDestroy()
         artworkJob?.cancel()
         releaseWakeLock()
-        isMediaPlaying = false
-        mediaSession.isActive = false
-        mediaSession.release()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        releaseWakeLock()
         abandonAudioFocus()
+        isMediaPlaying = false
         try {
             mediaSession.isActive = false
             mediaSession.release()
         } catch (_: Exception) {}
-        artworkJob?.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
