@@ -48,13 +48,76 @@ class MediaPlaybackService : Service() {
     private lateinit var mediaSession: MediaSessionCompat
     private lateinit var notificationManager: NotificationManager
     private var wakeLock: PowerManager.WakeLock? = null
+    private var audioManager: android.media.AudioManager? = null
+    private var audioFocusRequest: android.media.AudioFocusRequest? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var artworkJob: Job? = null
     private var currentArtworkBitmap: Bitmap? = null
 
+    private val audioFocusChangeListener = android.media.AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            android.media.AudioManager.AUDIOFOCUS_LOSS,
+            android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                isMediaPlaying = false
+                releaseWakeLock()
+                updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
+                mediaActionListener?.onPauseMedia()
+                updateNotification()
+            }
+            android.media.AudioManager.AUDIOFOCUS_GAIN -> {
+                if (isMediaPlaying) {
+                    acquireWakeLock()
+                    updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
+                    mediaActionListener?.onPlayMedia()
+                    updateNotification()
+                }
+            }
+        }
+    }
+
+    private fun requestAudioFocus(): Boolean {
+        val am = audioManager ?: return true
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val req = audioFocusRequest ?: android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(
+                        android.media.AudioAttributes.Builder()
+                            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                    .build().also { audioFocusRequest = it }
+                am.requestAudioFocus(req) == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            } else {
+                @Suppress("DEPRECATION")
+                am.requestAudioFocus(
+                    audioFocusChangeListener,
+                    android.media.AudioManager.STREAM_MUSIC,
+                    android.media.AudioManager.AUDIOFOCUS_GAIN
+                ) == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            }
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        val am = audioManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                am.abandonAudioFocus(audioFocusChangeListener)
+            }
+        } catch (_: Exception) {}
+    }
+
     override fun onCreate() {
         super.onCreate()
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
         val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
         wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OnyxBrowser:MediaWakeLock")
         createNotificationChannel()
@@ -86,6 +149,7 @@ class MediaPlaybackService : Service() {
                 override fun onPlay() {
                     isMediaPlaying = true
                     acquireWakeLock()
+                    requestAudioFocus()
                     updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
                     mediaActionListener?.onPlayMedia()
                     updateNotification()
@@ -94,6 +158,7 @@ class MediaPlaybackService : Service() {
                 override fun onPause() {
                     isMediaPlaying = false
                     releaseWakeLock()
+                    abandonAudioFocus()
                     updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
                     mediaActionListener?.onPauseMedia()
                     updateNotification()
@@ -127,6 +192,7 @@ class MediaPlaybackService : Service() {
                 override fun onStop() {
                     isMediaPlaying = false
                     releaseWakeLock()
+                    abandonAudioFocus()
                     mediaActionListener?.onStopMedia()
                     stopForegroundCompat()
                     stopSelf()
@@ -159,6 +225,7 @@ class MediaPlaybackService : Service() {
             ACTION_PLAY -> {
                 isMediaPlaying = true
                 acquireWakeLock()
+                requestAudioFocus()
                 updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
                 mediaActionListener?.onPlayMedia()
                 updateNotification()
@@ -166,6 +233,7 @@ class MediaPlaybackService : Service() {
             ACTION_PAUSE -> {
                 isMediaPlaying = false
                 releaseWakeLock()
+                abandonAudioFocus()
                 updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
                 mediaActionListener?.onPauseMedia()
                 updateNotification()
@@ -179,6 +247,7 @@ class MediaPlaybackService : Service() {
             ACTION_STOP -> {
                 isMediaPlaying = false
                 releaseWakeLock()
+                abandonAudioFocus()
                 mediaActionListener?.onStopMedia()
                 stopForegroundCompat()
                 stopSelf()
@@ -187,7 +256,13 @@ class MediaPlaybackService : Service() {
             ACTION_UPDATE_STATE -> {
                 val playing = intent.getBooleanExtra(EXTRA_IS_PLAYING, true)
                 isMediaPlaying = playing
-                if (playing) acquireWakeLock() else releaseWakeLock()
+                if (playing) {
+                    acquireWakeLock()
+                    requestAudioFocus()
+                } else {
+                    releaseWakeLock()
+                    abandonAudioFocus()
+                }
                 updatePlaybackState(
                     if (playing) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
                 )
@@ -200,7 +275,13 @@ class MediaPlaybackService : Service() {
             }
             else -> {
                 // Initial start
-                if (isMediaPlaying) acquireWakeLock() else releaseWakeLock()
+                if (isMediaPlaying) {
+                    acquireWakeLock()
+                    requestAudioFocus()
+                } else {
+                    releaseWakeLock()
+                    abandonAudioFocus()
+                }
                 updatePlaybackState(
                     if (isMediaPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
                 )
@@ -435,6 +516,17 @@ class MediaPlaybackService : Service() {
         isMediaPlaying = false
         mediaSession.isActive = false
         mediaSession.release()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        releaseWakeLock()
+        abandonAudioFocus()
+        try {
+            mediaSession.isActive = false
+            mediaSession.release()
+        } catch (_: Exception) {}
+        artworkJob?.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

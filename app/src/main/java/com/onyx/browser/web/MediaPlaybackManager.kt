@@ -159,10 +159,21 @@ object MediaPlaybackManager {
                     if (window.__onyx_allow_explicit_pause) {
                         return origPause.apply(this, arguments);
                     }
-                    // Block automatic pause ONLY if the browser is explicitly reported to be in background
-                    if (window.__onyx_in_background) {
+                    // Block automatic pause if the browser is reported in background or document hidden
+                    if (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden') {
                         return;
                     }
+                    try {
+                        var err = new Error();
+                        if (err.stack && (
+                            err.stack.indexOf('visibilitychange') !== -1 ||
+                            err.stack.indexOf('onblur') !== -1 ||
+                            err.stack.indexOf('onHidden') !== -1 ||
+                            err.stack.indexOf('pagehide') !== -1
+                        )) {
+                            return;
+                        }
+                    } catch (_) {}
                     return origPause.apply(this, arguments);
                 };
 
@@ -200,6 +211,15 @@ object MediaPlaybackManager {
 
                 var lastReportedTime = 0;
 
+                function reportVideoBounds(elem) {
+                    try {
+                        if (elem instanceof HTMLVideoElement && window.OnyxMediaBridge && typeof window.OnyxMediaBridge.onVideoBoundsChanged === 'function') {
+                            var r = elem.getBoundingClientRect();
+                            window.OnyxMediaBridge.onVideoBoundsChanged(r.left, r.top, r.right, r.bottom);
+                        }
+                    } catch (_) {}
+                }
+
                 function reportMediaPlaying(elem) {
                     if (!window.OnyxMediaBridge) return;
                     var isVid = (elem instanceof HTMLVideoElement);
@@ -218,6 +238,7 @@ object MediaPlaybackManager {
                         w,
                         h
                     );
+                    if (isVid) reportVideoBounds(elem);
                 }
 
                 function reportMediaProgress(elem) {
@@ -228,6 +249,7 @@ object MediaPlaybackManager {
                     var dur = (elem.duration && !isNaN(elem.duration)) ? elem.duration : 0;
                     var pos = (elem.currentTime && !isNaN(elem.currentTime)) ? elem.currentTime : 0;
                     window.OnyxMediaBridge.onMediaProgress(pos, dur);
+                    if (elem instanceof HTMLVideoElement) reportVideoBounds(elem);
                 }
 
                 function reportMediaPaused() {

@@ -26,7 +26,18 @@ class MediaPlaybackBridge(private val context: Context) {
         @Volatile var currentArtist: String = "Onyx Browser"
         @Volatile var currentArtworkUrl: String? = null
 
+        @Volatile var lastVideoBounds: android.graphics.RectF? = null
+
         var onMediaStateListener: ((isPlaying: Boolean, isVideo: Boolean, width: Int, height: Int) -> Unit)? = null
+        var onVideoBoundsListener: ((left: Float, top: Float, right: Float, bottom: Float) -> Unit)? = null
+    }
+
+    @JavascriptInterface
+    fun onVideoBoundsChanged(left: Float, top: Float, right: Float, bottom: Float) {
+        lastVideoBounds = android.graphics.RectF(left, top, right, bottom)
+        mainHandler.post {
+            onVideoBoundsListener?.invoke(left, top, right, bottom)
+        }
     }
 
     @JavascriptInterface

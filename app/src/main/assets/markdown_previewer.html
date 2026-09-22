@@ -458,6 +458,7 @@
   <!-- Copied Toast -->
   <div class="toast" id="toast">Copied to clipboard</div>
 
+  <script src="marked.min.js"></script>
   <script>
     // Embedded or Injected Markdown Source via Base64 UTF-8
     const B64_SOURCE = `{{MARKDOWN_B64}}`;
@@ -489,145 +490,43 @@
     const words = markdownText.trim().split(/\s+/).filter(Boolean).length;
     document.getElementById("statsPill").innerText = words.toLocaleString() + " words";
 
-    // Lightweight, fast, robust Markdown parser
-    function parseMarkdown(md) {
-      let text = md.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const renderTarget = document.getElementById("renderTarget");
 
-      // 1. Extract and protect code blocks
-      const codeBlocks = [];
-      text = text.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-        const id = `___CODE_BLOCK_${codeBlocks.length}___`;
-        codeBlocks.push({ lang: lang || "text", code: code });
-        return id;
-      });
-
-      // 2. Extract and protect inline code
-      const inlineCodes = [];
-      text = text.replace(/`([^`\n]+)`/g, (match, code) => {
-        const id = `___INLINE_CODE_${inlineCodes.length}___`;
-        inlineCodes.push(code);
-        return id;
-      });
-
-      // Escape raw HTML characters to prevent XSS
-      text = text.replace(/&/g, "&amp;")
-                 .replace(/</g, "&lt;")
-                 .replace(/>/g, "&gt;");
-
-      // 3. Horizontal Rules
-      text = text.replace(/^(?:---|\*\*\*|___)\s*$/gm, "<hr>");
-
-      // 4. Headers
-      text = text.replace(/^######\s+(.*)$/gm, "<h6>$1</h6>");
-      text = text.replace(/^#####\s+(.*)$/gm, "<h5>$1</h5>");
-      text = text.replace(/^####\s+(.*)$/gm, "<h4>$1</h4>");
-      text = text.replace(/^###\s+(.*)$/gm, "<h3>$1</h3>");
-      text = text.replace(/^##\s+(.*)$/gm, "<h2>$1</h2>");
-      text = text.replace(/^#\s+(.*)$/gm, "<h1>$1</h1>");
-
-      // 5. Blockquotes (handling nested quotes)
-      text = text.replace(/^&gt;\s+(.*)$/gm, "<blockquote>$1</blockquote>");
-      // Merge adjacent blockquotes
-      text = text.replace(/<\/blockquote>\n<blockquote>/g, "<br>");
-
-      // 6. Tables
-      text = text.replace(/((?:\|[^\n]+\|\n?)+)/g, (match) => {
-        const lines = match.trim().split("\n").filter(Boolean);
-        if (lines.length < 2) return match;
-        
-        let html = '<div class="table-wrapper"><table>';
-        let isHeader = true;
-
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (line.match(/^\|(?:\s*:?-+:?\s*\|)+$/)) {
-            // separator line
-            isHeader = false;
-            continue;
-          }
-          const cells = line.split("|").slice(1, -1);
-          const tag = isHeader ? "th" : "td";
-          html += "<tr>";
-          for (let cell of cells) {
-            html += `<${tag}>${cell.trim()}</${tag}>`;
-          }
-          html += "</tr>";
+    function renderMarkdownContent(source) {
+      if (typeof marked !== "undefined" && typeof marked.parse === "function") {
+        try {
+          marked.setOptions({
+            gfm: true,
+            breaks: true
+          });
+          renderTarget.innerHTML = marked.parse(source);
+        } catch (_) {
+          renderFallback(source);
         }
-        html += "</table></div>";
-        return html;
+      } else {
+        renderFallback(source);
+      }
+
+      // Add code headers and copy buttons to pre blocks
+      renderTarget.querySelectorAll("pre").forEach((pre, idx) => {
+        const code = pre.querySelector("code");
+        if (!code) return;
+        const header = document.createElement("div");
+        header.className = "code-header";
+        const langClass = Array.from(code.classList).find(c => c.startsWith("language-"));
+        const lang = langClass ? langClass.replace("language-", "") : "code";
+        header.innerHTML = `<span>${lang}</span><button class="btn-copy" onclick="copyCode(this, ${idx})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy</button>`;
+        pre.parentNode.insertBefore(header, pre);
+        code.id = `code-snippet-${idx}`;
       });
-
-      // 7. Task Lists & Unordered Lists
-      text = text.replace(/^[-*+]\s+\[ \]\s+(.*)$/gm, '<li class="task-list-item"><input type="checkbox" disabled> <span>$1</span></li>');
-      text = text.replace(/^[-*+]\s+\[[xX]\]\s+(.*)$/gm, '<li class="task-list-item"><input type="checkbox" checked disabled> <span>$1</span></li>');
-      text = text.replace(/^[-*+]\s+(.*)$/gm, "<li>$1</li>");
-
-      // Wrap consecutive <li> into <ul>
-      text = text.replace(/(<li.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`);
-
-      // 8. Ordered Lists
-      text = text.replace(/^\d+\.\s+(.*)$/gm, '<li class="ordered-item">$1</li>');
-      text = text.replace(/(<li class="ordered-item">.*<\/li>\n?)+/g, (match) => `<ol>${match}</ol>`);
-
-      // 9. Formatting: Bold, Italic, Strikethrough, Mark
-      text = text.replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>");
-      text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-      text = text.replace(/__(.*?)__/g, "<strong>$1</strong>");
-      text = text.replace(/\*(.*?)\*/g, "<em>$1</em>");
-      text = text.replace(/_(.*?)_/g, "<em>$1</em>");
-      text = text.replace(/~~(.*?)~~/g, "<del>$1</del>");
-      text = text.replace(/==(.*?)==/g, "<mark>$1</mark>");
-
-      // 10. Images & Links
-      text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">');
-      text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
-
-      // 11. Paragraphs (lines not wrapped by tags)
-      const blocks = text.split(/\n\n+/);
-      text = blocks.map(block => {
-        block = block.trim();
-        if (!block) return "";
-        if (block.startsWith("<h") || block.startsWith("<ul") || block.startsWith("<ol") ||
-            block.startsWith("<blockquote") || block.startsWith("<div") || block.startsWith("<hr") ||
-            block.startsWith("___CODE_BLOCK_")) {
-          return block;
-        }
-        return `<p>${block.replace(/\n/g, "<br>")}</p>`;
-      }).join("\n");
-
-      // 12. Restore inline code
-      inlineCodes.forEach((code, idx) => {
-        const escaped = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        text = text.replace(`___INLINE_CODE_${idx}___`, `<code>${escaped}</code>`);
-      });
-
-      // 13. Restore code blocks with Header + Copy Button
-      codeBlocks.forEach((block, idx) => {
-        const escapedCode = block.code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const blockHtml = `
-          <div class="code-block-container">
-            <div class="code-header">
-              <span class="code-lang">${block.lang}</span>
-              <button class="btn-copy-code" onclick="copyCode(this, ${idx})">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-                Copy
-              </button>
-            </div>
-            <pre><code id="code-snippet-${idx}">${escapedCode}</code></pre>
-          </div>
-        `;
-        text = text.replace(`___CODE_BLOCK_${idx}___`, blockHtml);
-      });
-
-      return text;
     }
 
-    // Render parsed HTML into document
-    const renderTarget = document.getElementById("renderTarget");
-    renderTarget.innerHTML = parseMarkdown(markdownText);
+    function renderFallback(source) {
+      const escaped = source.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      renderTarget.innerHTML = `<pre style="white-space:pre-wrap;padding:16px;">${escaped}</pre>`;
+    }
+
+    renderMarkdownContent(markdownText);
 
     // Setup raw view
     const rawView = document.getElementById("rawView");

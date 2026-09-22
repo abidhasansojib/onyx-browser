@@ -6,9 +6,10 @@
   <title>Page Not Available</title>
   <style>
     :root {
-      --bg: #F8F9FA;
-      --card-bg: #FFFFFF;
-      --card-border: #E8EAED;
+      --bg: #FFFFFF;
+      --surface: #F8F9FA;
+      --surface-variant: #F1F3F4;
+      --border: #DFE1E5;
       --text-main: #202124;
       --text-sub: #5F6368;
       --primary: #1A73E8;
@@ -17,39 +18,42 @@
       --secondary-bg: #FFFFFF;
       --secondary-border: #DADCE0;
       --secondary-text: #1A73E8;
-      --chip-bg: #F1F3F4;
-      --pill-bg: #E8F0FE;
-      --pill-text: #1967D2;
+      --badge-bg: #E8F0FE;
+      --badge-text: #1967D2;
       --danger-bg: #FCE8E6;
       --danger-text: #D93025;
+      --danger-pill: #D93025;
       --warning-bg: #FEF7E0;
       --warning-text: #B06000;
-      --game-bg: #E8EAED;
-      --game-text: #202124;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 14px rgba(0,0,0,0.08);
+      --glow-color: rgba(26, 115, 232, 0.12);
     }
 
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #121212;
-        --card-bg: #1E1E1E;
-        --card-border: #2D2D2D;
+        --bg: #202124;
+        --surface: #303134;
+        --surface-variant: #35363A;
+        --border: #3C4043;
         --text-main: #E8EAED;
         --text-sub: #9AA0A6;
         --primary: #8AB4F8;
         --primary-hover: #AECBFA;
         --primary-text: #202124;
-        --secondary-bg: #28292A;
+        --secondary-bg: #303134;
         --secondary-border: #3C4043;
         --secondary-text: #8AB4F8;
-        --chip-bg: #28292A;
-        --pill-bg: #1E2B42;
-        --pill-text: #8AB4F8;
+        --badge-bg: #1E2B42;
+        --badge-text: #8AB4F8;
         --danger-bg: #3C1E1E;
         --danger-text: #F28B82;
+        --danger-pill: #F28B82;
         --warning-bg: #3B2E1E;
         --warning-text: #FDD663;
-        --game-bg: #28292A;
-        --game-text: #E8EAED;
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);
+        --shadow-md: 0 4px 16px rgba(0,0,0,0.35);
+        --glow-color: rgba(138, 180, 248, 0.12);
       }
     }
 
@@ -58,7 +62,7 @@
       margin: 0;
       padding: 0;
       -webkit-tap-highlight-color: transparent;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Helvetica, Arial, sans-serif;
     }
 
     body {
@@ -69,48 +73,66 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      padding: 24px 16px;
+      padding: 32px 20px;
       text-align: center;
     }
 
     .container {
       width: 100%;
-      max-width: 440px;
+      max-width: 460px;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
 
-    .icon-wrapper {
-      width: 72px;
-      height: 72px;
-      border-radius: 20px;
-      background-color: var(--pill-bg);
+    /* Status Glow & Icon Container */
+    .hero-visual {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      transition: transform 0.2s ease;
-      cursor: pointer;
+      margin-bottom: 20px;
     }
 
-    .icon-wrapper:active {
-      transform: scale(0.95);
+    .pulse-glow {
+      position: absolute;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: var(--glow-color);
+      filter: blur(14px);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .icon-wrapper {
+      position: relative;
+      z-index: 2;
+      width: 76px;
+      height: 76px;
+      border-radius: 22px;
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s ease;
     }
 
     .icon-wrapper svg {
-      width: 36px;
-      height: 36px;
-      stroke: var(--pill-text);
+      width: 38px;
+      height: 38px;
+      stroke: var(--primary);
       fill: none;
-      stroke-width: 2;
+      stroke-width: 2.2;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
 
     .icon-wrapper.danger {
       background-color: var(--danger-bg);
+      border-color: transparent;
     }
     .icon-wrapper.danger svg {
       stroke: var(--danger-text);
@@ -118,201 +140,142 @@
 
     .icon-wrapper.warning {
       background-color: var(--warning-bg);
+      border-color: transparent;
     }
     .icon-wrapper.warning svg {
       stroke: var(--warning-text);
     }
 
-    /* Mini Game Tip Badge */
-    .game-badge {
-      display: none;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--primary);
-      background-color: var(--pill-bg);
-      padding: 4px 10px;
-      border-radius: 12px;
-      margin-bottom: 14px;
-      cursor: pointer;
-    }
-
-    /* Embedded Canvas Mini Game */
-    .game-container {
-      display: none;
-      width: 100%;
-      max-width: 400px;
-      background-color: var(--game-bg);
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 20px;
-      border: 1px solid var(--card-border);
-      position: relative;
-    }
-
-    #runnerCanvas {
-      display: block;
-      width: 100%;
-      height: 140px;
-    }
-
-    h1 {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 6px;
-      letter-spacing: -0.2px;
-    }
-
-    .error-pill {
-      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-      font-size: 11.5px;
-      color: var(--text-sub);
-      background-color: var(--chip-bg);
+    /* Diagnostics Category Pill */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       padding: 4px 12px;
-      border-radius: 12px;
-      margin-bottom: 16px;
-      display: inline-block;
-      max-width: 90%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      border-radius: 20px;
+      background-color: var(--badge-bg);
+      color: var(--badge-text);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
     }
 
-    .description {
-      font-size: 13.5px;
+    .status-badge .indicator-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+
+    /* Typography */
+    h1.title {
+      font-size: 21px;
+      font-weight: 700;
+      line-height: 1.35;
+      margin-bottom: 8px;
+      color: var(--text-main);
+    }
+
+    p.description {
+      font-size: 14px;
+      line-height: 1.55;
       color: var(--text-sub);
-      line-height: 1.5;
       margin-bottom: 24px;
       max-width: 380px;
     }
 
-    /* Checklist Card */
+    /* Troubleshooting Card */
     .checklist-card {
       width: 100%;
-      background-color: var(--card-bg);
-      border: 1px solid var(--card-border);
+      background-color: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 16px;
+      padding: 16px 18px;
       text-align: left;
       margin-bottom: 24px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+      box-shadow: var(--shadow-sm);
     }
 
-    .checklist-title {
+    .checklist-card-header {
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: var(--text-sub);
       margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .checklist-card-header svg {
+      width: 15px;
+      height: 15px;
+      stroke: var(--text-sub);
     }
 
     .checklist-item {
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      margin-bottom: 10px;
       font-size: 13px;
+      line-height: 1.5;
       color: var(--text-main);
-      line-height: 1.4;
+      margin-bottom: 10px;
     }
 
     .checklist-item:last-child {
       margin-bottom: 0;
     }
 
-    .checklist-item .dot {
+    .checklist-bullet {
       width: 6px;
       height: 6px;
       border-radius: 50%;
       background-color: var(--primary);
-      margin-top: 6px;
+      margin-top: 7px;
       flex-shrink: 0;
     }
 
-    /* SSL Advanced Details Drawer */
-    .advanced-drawer {
+    /* Primary & Secondary Action Buttons */
+    .action-group {
       width: 100%;
-      background-color: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 16px;
-      padding: 16px;
-      text-align: left;
-      margin-bottom: 20px;
-      display: none;
-      animation: fadeIn 0.25s ease-out;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .advanced-drawer h4 {
-      font-size: 13px;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .advanced-drawer p {
-      font-size: 12px;
-      color: var(--text-sub);
-      line-height: 1.5;
-      margin-bottom: 14px;
-    }
-
-    .hsts-notice {
-      font-size: 12px;
-      color: var(--danger-text);
-      font-weight: 500;
-      line-height: 1.4;
-      display: none;
-      background-color: var(--danger-bg);
-      padding: 8px 12px;
-      border-radius: 8px;
-    }
-
-    .proceed-link {
-      font-size: 12.5px;
-      color: var(--danger-text);
-      text-decoration: underline;
-      cursor: pointer;
-      font-weight: 500;
-      display: inline-block;
-    }
-
-    /* Action Buttons */
-    .actions-row {
       display: flex;
-      gap: 12px;
-      width: 100%;
-      max-width: 380px;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
     }
 
     .btn {
-      flex: 1;
-      height: 44px;
-      border-radius: 22px;
-      border: none;
+      width: 100%;
+      height: 46px;
+      border-radius: 23px;
       font-size: 14px;
       font-weight: 600;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
       cursor: pointer;
+      border: none;
+      outline: none;
       transition: background-color 0.15s ease, transform 0.1s ease;
+      user-select: none;
     }
 
     .btn:active {
-      transform: scale(0.97);
+      transform: scale(0.98);
     }
 
     .btn-primary {
       background-color: var(--primary);
       color: var(--primary-text);
+      box-shadow: var(--shadow-sm);
     }
 
-    .btn-primary:hover {
+    .btn-primary:active {
       background-color: var(--primary-hover);
     }
 
@@ -321,81 +284,266 @@
       color: var(--secondary-text);
       border: 1px solid var(--secondary-border);
     }
+
+    .btn-secondary:active {
+      background-color: var(--surface-variant);
+    }
+
+    /* Technical Diagnostics Accordion */
+    .technical-drawer {
+      width: 100%;
+      margin-top: 6px;
+    }
+
+    .accordion-toggle {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 12px;
+    }
+
+    .accordion-toggle:active {
+      background-color: var(--surface-variant);
+    }
+
+    .accordion-toggle svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      transition: transform 0.2s ease;
+    }
+
+    .accordion-toggle.expanded svg {
+      transform: rotate(180deg);
+    }
+
+    .technical-content {
+      display: none;
+      width: 100%;
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-top: 10px;
+      text-align: left;
+      font-size: 12px;
+      line-height: 1.5;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .technical-content.show {
+      display: block;
+    }
+
+    .tech-row {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 8px;
+    }
+
+    .tech-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .tech-label {
+      color: var(--text-sub);
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .tech-val {
+      color: var(--text-main);
+      word-break: break-all;
+    }
+
+    .btn-copy-tech {
+      margin-top: 8px;
+      background: var(--surface-variant);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-copy-tech:active {
+      background: var(--border);
+    }
+
+    /* SSL Advanced Controls */
+    .ssl-advanced-box {
+      display: none;
+      width: 100%;
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-top: 12px;
+      text-align: left;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .ssl-proceed-link {
+      color: var(--danger-pill);
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 600;
+      display: inline-block;
+      margin-top: 8px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background-color: var(--surface);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      z-index: 999;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
 
   <div class="container">
-
-    <!-- Error Icon -->
-    <div class="icon-wrapper" id="iconWrapper">
-      <svg id="iconSvg" viewBox="0 0 24 24"></svg>
+    <!-- Visual Indicator & Glowing Aura -->
+    <div class="hero-visual">
+      <div class="pulse-glow" id="pulseGlow"></div>
+      <div class="icon-wrapper" id="iconWrapper">
+        <svg id="iconSvg" viewBox="0 0 24 24"></svg>
+      </div>
     </div>
 
-    <!-- Mini Game Tip Badge (Offline only) -->
-    <div class="game-badge" id="gameBadge">🎮 Tap to Play Offline Runner</div>
-
-    <!-- Embedded Canvas Mini-Game (Hidden until tapped) -->
-    <div class="game-container" id="gameContainer">
-      <canvas id="runnerCanvas" width="400" height="140"></canvas>
+    <!-- Category Pill Badge -->
+    <div class="status-badge" id="statusBadge">
+      <span class="indicator-dot"></span>
+      <span id="statusCategoryText">NETWORK OFFLINE</span>
     </div>
 
-    <!-- Error Title & Diagnostic Code -->
-    <h1 id="errorTitle">This site can't be reached</h1>
-    <span class="error-pill" id="errorCode">net::ERR_NAME_NOT_RESOLVED</span>
+    <!-- Title & Description -->
+    <h1 class="title" id="errorTitle">Page Not Available</h1>
+    <p class="description" id="errorDesc">Could not establish a connection to the server.</p>
 
-    <!-- Tailored Description -->
-    <p class="description" id="errorDesc">The server IP address could not be found.</p>
-
-    <!-- Checklist Card -->
+    <!-- Troubleshooting Checklist Card -->
     <div class="checklist-card" id="checklistCard">
-      <div class="checklist-title">Troubleshooting Steps</div>
+      <div class="checklist-card-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>Troubleshooting Steps</span>
+      </div>
       <div id="checklistItems"></div>
     </div>
 
-    <!-- SSL Advanced Details Drawer -->
-    <div class="advanced-drawer" id="advancedDrawer">
-      <h4>Certificate Security Details</h4>
-      <p id="sslDetailsText"></p>
-      <div class="hsts-notice" id="hstsNotice">This site enforces strict transport security (HSTS) and cannot be bypassed.</div>
-      <div class="proceed-link" id="btnProceedSsl">Proceed to this site (unsafe)</div>
-    </div>
-
-    <!-- Dynamic Actions Row -->
-    <div class="actions-row">
+    <!-- Action Buttons -->
+    <div class="action-group">
       <button class="btn btn-primary" id="btnPrimary">
-        <svg id="btnPrimaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        <svg id="btnPrimaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
         </svg>
         <span id="btnPrimaryText">Try Again</span>
       </button>
+
       <button class="btn btn-secondary" id="btnSecondary">
-        <svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        <svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
-        <span id="btnSecondaryText">Search Web</span>
+        <span id="btnSecondaryText">Network Settings</span>
       </button>
     </div>
 
+    <!-- SSL Advanced Disclosure -->
+    <div class="ssl-advanced-box" id="sslAdvancedBox">
+      <div style="font-weight:700;margin-bottom:4px;color:var(--danger-text);">Security Warning</div>
+      <div id="sslDetailsMsg" style="margin-bottom:8px;color:var(--text-sub);">An invalid security certificate was presented by the remote server.</div>
+      <div id="hstsLockMessage" style="display:none;color:var(--danger-text);font-weight:600;margin-bottom:6px;">This website enforces HTTP Strict Transport Security (HSTS). You cannot bypass this security warning.</div>
+      <span class="ssl-proceed-link" id="btnProceedSsl">Proceed to destination (unsafe)</span>
+    </div>
+
+    <!-- Technical Details Accordion -->
+    <div class="technical-drawer">
+      <button class="accordion-toggle" id="btnToggleAccordion">
+        <span>Technical Details</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+
+      <div class="technical-content" id="technicalContent">
+        <div class="tech-row">
+          <span class="tech-label">Error Code</span>
+          <span class="tech-val" id="techErrorCode">net::ERR_INTERNET_DISCONNECTED</span>
+        </div>
+        <div class="tech-row">
+          <span class="tech-label">Requested URL</span>
+          <span class="tech-val" id="techUrl">https://example.com</span>
+        </div>
+        <div class="tech-row">
+          <span class="tech-label">Diagnostic Timestamp</span>
+          <span class="tech-val" id="techTime">--</span>
+        </div>
+        <div class="tech-row" id="techDetailsRow" style="display:none;">
+          <span class="tech-label">Details</span>
+          <span class="tech-val" id="techExtraDetails">--</span>
+        </div>
+        <button class="btn-copy-tech" id="btnCopyDiagnostics">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copy Diagnostics
+        </button>
+      </div>
+    </div>
   </div>
 
+  <div class="toast" id="toast">Copied to clipboard</div>
+
   <script>
-    // SVGs for every category
     const ICONS = {
-      WIFI_OFF: `<line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>`,
-      GLOBE_SEARCH: `<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>`,
-      SERVER_OFF: `<rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line>`,
-      CLOCK: `<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>`,
-      SHIELD_DANGER: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>`,
-      SHIELD_CHECK: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path>`,
-      FILE_ALERT: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12.01" y2="18"></line><line x1="12" y1="12" x2="12" y2="15"></line>`,
-      ARCHIVE: `<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>`,
-      SETTINGS: `<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>`,
-      ALERT_CIRCLE: `<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>`
+      WIFI_OFF: '<line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>',
+      SHIELD_DANGER: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>',
+      SERVER_OFF: '<rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line><line x1="1" y1="1" x2="23" y2="23"></line>',
+      SHIELD_CHECK: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline>',
+      FILE_ALERT: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="12" y1="9" x2="12.01" y2="9"></line>',
+      ALERT_CIRCLE: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>',
+      ARCHIVE: '<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>',
+      SETTINGS: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>'
     };
 
-    // Parse Error Payload
     let errorData = null;
     const rawBase64 = '{{ERROR_JSON_B64}}';
 
@@ -426,82 +574,88 @@
         isDanger: false,
         technicalDetails: '',
         isHstsEnforced: false,
-        canCheckWayback: false,
-        hasOfflineGame: false
+        canCheckWayback: false
       };
     }
 
-    // Populate UI Elements
+    // Set UI Content
     document.getElementById('errorTitle').innerText = errorData.title;
-    document.getElementById('errorCode').innerText = errorData.errorCode;
     document.getElementById('errorDesc').innerText = errorData.description;
+    document.getElementById('techErrorCode').innerText = errorData.errorCode;
+    document.getElementById('techUrl').innerText = errorData.url;
+    document.getElementById('techTime').innerText = new Date().toLocaleString();
+
+    if (errorData.technicalDetails && errorData.technicalDetails.length > 0) {
+      document.getElementById('techExtraDetails').innerText = errorData.technicalDetails;
+      document.getElementById('techDetailsRow').style.display = 'flex';
+      document.getElementById('sslDetailsMsg').innerText = errorData.technicalDetails;
+    }
 
     const iconWrapper = document.getElementById('iconWrapper');
     const iconSvg = document.getElementById('iconSvg');
+    const statusText = document.getElementById('statusCategoryText');
 
-    if (errorData.isDanger) {
-      iconWrapper.classList.add('danger');
-    }
-
-    // Category SVGs
     switch (errorData.category) {
       case 'OFFLINE':
         iconSvg.innerHTML = ICONS.WIFI_OFF;
-        document.getElementById('gameBadge').style.display = 'inline-block';
-        break;
-      case 'SERVER_DOWN':
-        iconSvg.innerHTML = ICONS.SERVER_OFF;
+        statusText.innerText = 'NO INTERNET CONNECTION';
         break;
       case 'SECURITY':
+        iconWrapper.classList.add('danger');
         iconSvg.innerHTML = ICONS.SHIELD_DANGER;
+        statusText.innerText = 'SECURITY INTERSTITIAL';
+        break;
+      case 'SERVER_DOWN':
+        iconWrapper.classList.add('warning');
+        iconSvg.innerHTML = ICONS.SERVER_OFF;
+        statusText.innerText = 'SERVER UNREACHABLE';
         break;
       case 'SHIELDS_BLOCKED':
         iconSvg.innerHTML = ICONS.SHIELD_CHECK;
+        statusText.innerText = 'BLOCKED BY ONYX SHIELDS';
         break;
       case 'FILE_ERROR':
         iconSvg.innerHTML = ICONS.FILE_ALERT;
+        statusText.innerText = 'LOCAL FILE ERROR';
         break;
       default:
         iconSvg.innerHTML = ICONS.ALERT_CIRCLE;
+        statusText.innerText = 'NAVIGATION FAILURE';
         break;
     }
 
-    // Populate Checklist Items
+    // Checklist
     const checklistContainer = document.getElementById('checklistItems');
-    checklistContainer.innerHTML = '';
     if (errorData.checklist && errorData.checklist.length > 0) {
+      checklistContainer.innerHTML = '';
       errorData.checklist.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'checklist-item';
-        div.innerHTML = `<span class="dot"></span><span>${item}</span>`;
-        checklistContainer.appendChild(div);
+        const row = document.createElement('div');
+        row.className = 'checklist-item';
+        row.innerHTML = `<span class="checklist-bullet"></span><span>${item}</span>`;
+        checklistContainer.appendChild(row);
       });
     } else {
       document.getElementById('checklistCard').style.display = 'none';
     }
 
-    // SSL Security Details & HSTS Rules
-    if (errorData.technicalDetails && errorData.technicalDetails.length > 0) {
-      document.getElementById('sslDetailsText').innerText = errorData.technicalDetails;
-    }
-    if (errorData.isHstsEnforced) {
-      document.getElementById('hstsNotice').style.display = 'block';
-      document.getElementById('btnProceedSsl').style.display = 'none';
-    }
-
-    // Action Buttons
+    // Buttons Text & Actions
     document.getElementById('btnPrimaryText').innerText = errorData.primaryButtonText;
     document.getElementById('btnSecondaryText').innerText = errorData.secondaryButtonText;
 
-    // Adjust Secondary Button Icon based on action
     const secIcon = document.getElementById('btnSecondaryIcon');
     if (errorData.secondaryButtonAction === 'wayback_machine') {
-      secIcon.outerHTML = `<svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.ARCHIVE}</svg>`;
+      secIcon.outerHTML = `<svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS.ARCHIVE}</svg>`;
     } else if (errorData.secondaryButtonAction === 'network_settings' || errorData.secondaryButtonAction === 'shields' || errorData.secondaryButtonAction === 'settings') {
-      secIcon.outerHTML = `<svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.SETTINGS}</svg>`;
+      secIcon.outerHTML = `<svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS.SETTINGS}</svg>`;
     }
 
-    // Button Action Handlers
+    // HSTS Notice
+    if (errorData.isHstsEnforced) {
+      document.getElementById('hstsLockMessage').style.display = 'block';
+      document.getElementById('btnProceedSsl').style.display = 'none';
+    }
+
+    // Action Execution
     function executeAction(action) {
       switch (action) {
         case 'reload':
@@ -513,19 +667,9 @@
             window.location.reload();
           }
           break;
-        case 'search':
-          const query = errorData.domain || errorData.url;
-          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.search === 'function') {
-            window.OnyxErrorBridge.search(query);
-          } else {
-            window.location.href = `https://search.brave.com/search?q=${encodeURIComponent(query)}`;
-          }
-          break;
         case 'network_settings':
           if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openNetworkSettings === 'function') {
             window.OnyxErrorBridge.openNetworkSettings();
-          } else {
-            executeAction('settings');
           }
           break;
         case 'wayback_machine':
@@ -533,6 +677,14 @@
             window.OnyxErrorBridge.checkWaybackMachine(errorData.url);
           } else {
             window.location.href = `https://web.archive.org/web/*/${encodeURIComponent(errorData.url)}`;
+          }
+          break;
+        case 'search':
+          const query = errorData.domain || errorData.url;
+          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.search === 'function') {
+            window.OnyxErrorBridge.search(query);
+          } else {
+            window.location.href = `https://search.brave.com/search?q=${encodeURIComponent(query)}`;
           }
           break;
         case 'back':
@@ -551,10 +703,9 @@
             window.location.href = 'about:blank';
           }
           break;
-        case 'settings':
-          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openSettings === 'function') {
-            window.OnyxErrorBridge.openSettings();
-          }
+        case 'advanced_ssl':
+          const sslBox = document.getElementById('sslAdvancedBox');
+          sslBox.style.display = (sslBox.style.display === 'block') ? 'none' : 'block';
           break;
         case 'shields':
           if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openShields === 'function') {
@@ -565,10 +716,6 @@
           if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openDownloads === 'function') {
             window.OnyxErrorBridge.openDownloads();
           }
-          break;
-        case 'advanced_ssl':
-          const drawer = document.getElementById('advancedDrawer');
-          drawer.style.display = drawer.style.display === 'block' ? 'none' : 'block';
           break;
       }
     }
@@ -587,178 +734,30 @@
       }
     });
 
-    // ── Offline Runner Mini-Game Engine ───────────────────────────────────────
-    let gameStarted = false;
-    let gameOver = false;
-    let score = 0;
-    let highScore = 0;
-    let animId = null;
+    // Technical Details Accordion
+    const btnToggle = document.getElementById('btnToggleAccordion');
+    const techContent = document.getElementById('technicalContent');
+    btnToggle.addEventListener('click', () => {
+      const isExpanded = techContent.classList.toggle('show');
+      btnToggle.classList.toggle('expanded', isExpanded);
+    });
 
-    const gameContainer = document.getElementById('gameContainer');
-    const gameBadge = document.getElementById('gameBadge');
-    const canvas = document.getElementById('runnerCanvas');
-    const ctx = canvas.getContext('2d');
-
-    const player = {
-      x: 35,
-      y: 100,
-      width: 18,
-      height: 24,
-      vy: 0,
-      gravity: 0.7,
-      jumpForce: -10,
-      groundY: 100,
-      isGrounded: true
-    };
-
-    let obstacles = [];
-    let spawnTimer = 0;
-
-    function initGame() {
-      gameContainer.style.display = 'block';
-      gameBadge.style.display = 'none';
-      obstacles = [];
-      score = 0;
-      gameOver = false;
-      gameStarted = true;
-      player.y = player.groundY;
-      player.vy = 0;
-      player.isGrounded = true;
-      if (animId) cancelAnimationFrame(animId);
-      gameLoop();
-    }
-
-    function jump() {
-      if (!gameStarted) {
-        initGame();
-        return;
+    // Copy Diagnostics
+    document.getElementById('btnCopyDiagnostics').addEventListener('click', () => {
+      const diag = `Onyx Browser Diagnostic Report\nError: ${errorData.errorCode}\nURL: ${errorData.url}\nCategory: ${errorData.category}\nTimestamp: ${new Date().toISOString()}`;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(diag).then(() => showToast("Diagnostics copied!"));
+      } else if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.copyDiagnostics === 'function') {
+        window.OnyxErrorBridge.copyDiagnostics(diag);
+        showToast("Diagnostics copied!");
       }
-      if (gameOver) {
-        initGame();
-        return;
-      }
-      if (player.isGrounded) {
-        player.vy = player.jumpForce;
-        player.isGrounded = false;
-      }
-    }
+    });
 
-    function gameLoop() {
-      update();
-      draw();
-      if (!gameOver) {
-        animId = requestAnimationFrame(gameLoop);
-      }
-    }
-
-    function update() {
-      // Player physics
-      player.vy += player.gravity;
-      player.y += player.vy;
-      if (player.y >= player.groundY) {
-        player.y = player.groundY;
-        player.vy = 0;
-        player.isGrounded = true;
-      }
-
-      // Obstacles
-      spawnTimer++;
-      if (spawnTimer > 75 + Math.random() * 40) {
-        spawnTimer = 0;
-        obstacles.push({
-          x: canvas.width,
-          y: player.groundY + 4,
-          width: 12 + Math.random() * 8,
-          height: 20 + Math.random() * 10
-        });
-      }
-
-      for (let i = obstacles.length - 1; i >= 0; i--) {
-        const obs = obstacles[i];
-        obs.x -= 4.2;
-
-        // Collision Check (AABB)
-        if (
-          player.x < obs.x + obs.width &&
-          player.x + player.width > obs.x &&
-          player.y < obs.y &&
-          player.y + player.height > obs.y - obs.height + 4
-        ) {
-          gameOver = true;
-          if (score > highScore) highScore = score;
-        }
-
-        if (obs.x + obs.width < 0) {
-          obstacles.splice(i, 1);
-          score += 10;
-        }
-      }
-    }
-
-    function draw() {
-      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Floor line
-      ctx.strokeStyle = isDark ? '#3C4043' : '#DADCE0';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, player.groundY + player.height);
-      ctx.lineTo(canvas.width, player.groundY + player.height);
-      ctx.stroke();
-
-      // Player character (Geometric Runner)
-      ctx.fillStyle = isDark ? '#8AB4F8' : '#1A73E8';
-      ctx.beginPath();
-      ctx.roundRect(player.x, player.y, player.width, player.height, 4);
-      ctx.fill();
-
-      // Eye
-      ctx.fillStyle = isDark ? '#202124' : '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(player.x + player.width - 5, player.y + 6, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Obstacles
-      ctx.fillStyle = isDark ? '#F28B82' : '#D93025';
-      obstacles.forEach(obs => {
-        ctx.beginPath();
-        ctx.roundRect(obs.x, obs.y - obs.height + 4, obs.width, obs.height, 3);
-        ctx.fill();
-      });
-
-      // Score
-      ctx.fillStyle = isDark ? '#9AA0A6' : '#5F6368';
-      ctx.font = '11px monospace';
-      ctx.fillText(`HI ${highScore.toString().padStart(4, '0')}  ${score.toString().padStart(4, '0')}`, canvas.width - 95, 18);
-
-      // Game Over Overlay
-      if (gameOver) {
-        ctx.fillStyle = isDark ? '#E8EAED' : '#202124';
-        ctx.font = 'bold 13px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER - Tap to Play Again', canvas.width / 2, 65);
-        ctx.textAlign = 'left';
-      }
-    }
-
-    if (errorData.category === 'OFFLINE') {
-      gameBadge.addEventListener('click', () => {
-        initGame();
-      });
-      iconWrapper.addEventListener('click', () => {
-        if (!gameStarted) initGame(); else jump();
-      });
-      canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        jump();
-      });
-      canvas.addEventListener('mousedown', jump);
-      window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' || e.code === 'ArrowUp') {
-          jump();
-        }
-      });
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.innerText = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2000);
     }
   </script>
 </body>

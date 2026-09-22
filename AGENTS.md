@@ -610,7 +610,34 @@ onyx-browser/
   - [x] **Concurrency & Clean Architecture**:
     - Fixed concurrent flow collection race condition in [`HistoryActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/history/HistoryActivity.kt) by cancelling `historyJob` before collecting new search queries.
     - Migrated [`TabManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/browser/TabManager.kt) from `GlobalScope` to injected constructor `coroutineScope` and removed `@DelicateCoroutinesApi`.
-
-
-
-
+- [x] **PiP Video Bounds, Background Play Resilience, Local Files, Generative UI & Tab Snapshots**:
+  - [x] **Video-Only Picture-in-Picture (PiP) & Resilient Background Play**:
+    - **Element-Isolated PiP**: Injected `reportVideoBounds()` in [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt) calling `getBoundingClientRect()` on active HTML `<video>` elements and reporting coordinate dimensions to native Android via [`MediaPlaybackBridge.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackBridge.kt).
+    - **`setSourceRectHint` Integration**: In [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt), dynamically scaled and offset video bounds are passed to `PictureInPictureParams.Builder.setSourceRectHint()`, animating and cropping directly to the video element and eliminating full-browser toolbars/decorations in PiP.
+    - **Full-Screen PiP Fallback**: `requestInPageVideoPip()` requests WebKit fullscreen on the active video element before launching PiP to ensure proper aspect ratio and hardware overlay scaling.
+    - **Background Play Hardening**: Intercepted `HTMLMediaElement.prototype.pause` to reject automated pause invocations originating from `visibilitychange`, `pagehide`, `blur`, and `document.hidden` events.
+    - **Audio Focus & WakeLock Lifecycle**: [`MediaPlaybackService.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackService.kt) manages Android `AudioManager` focus requests (`AUDIOFOCUS_GAIN`) and `abandonAudioFocus()`, while holding a `PARTIAL_WAKE_LOCK` across lock screen and minimized states.
+  - [x] **Local HTML & Markdown Viewer Parity**:
+    - **File URL Permissions**: Configured `allowFileAccessFromFileURLs = true` and `allowUniversalAccessFromFileURLs = true` in [`OnyxWebView.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebView.kt).
+    - **Native Chromium HTML Loading**: In [`LocalFileLoader.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/LocalFileLoader.kt), readable local `file://` HTML files are loaded directly via `webView.loadUrl(uri.toString())`, allowing relative stylesheets, scripts, fonts, and images to resolve naturally.
+    - **Offline Marked.js Engine**: Bundled offline [`marked.min.js`](file:///root/onyx-browser/app/src/main/assets/marked.min.js) (35KB) in assets. Injected into [`markdown_previewer.html`](file:///root/onyx-browser/app/src/main/assets/markdown_previewer.html) with syntax highlighted code blocks, copy-code buttons, word counters, and raw/rendered view toggle.
+  - [x] **Generative UI Error Page (Mini-Game Removed)**:
+    - **Modern Generative UI**: Replaced [`error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html) with a card-based layout featuring category-tailored pulsing SVG glyphs, contextual diagnostics checklists, error badge tags, and expandable technical details drawer with one-tap copy button.
+    - **Game Elimination**: Completely purged the offline canvas runner mini-game per user request (`hasOfflineGame = false` in [`SyntheticNavigationState.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/error/SyntheticNavigationState.kt)).
+  - [x] **Shortcut Long-Click Streamlining**:
+    - Removed long-click delete prompt in [`ShortcutsAdapter.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/home/ShortcutsAdapter.kt) and [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) since smooth drag-and-drop position reordering is active and management is centralized in the plus (`+`) menu.
+  - [x] **Universal Favicon & Logo Fetching Engine (`FaviconManager`)**:
+    - Created [`FaviconManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/favicon/FaviconManager.kt) featuring a 3-tier architecture: In-memory `LruCache` (120 items), persistent disk cache (`cacheDir/favicons/{md5}.png`), and asynchronous 128px Google S2 CDN + `/favicon.ico` fetchers.
+    - Integrated across all browser UI surfaces:
+      - Homepage shortcut tiles (`ShortcutsAdapter`)
+      - Search overlay current webpage card (`MainActivity`)
+      - Long-press context menu link preview card (`ContextMenuBottomSheet`)
+      - Tab switcher tab cards (`TabsAdapter`)
+  - [x] **Reliable Proactive Tab Switcher Snapshotting**:
+    - Implemented `captureTabSnapshot(tabId, webView)` in [`TabManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/browser/TabManager.kt) using hardware `PixelCopy` with synchronous `Canvas.draw` fallback and lossy WebP persistent compression (`cacheDir/tab_thumbnails/{tabId}.webp`).
+    - Proactive snapshot hooks:
+      - Tab detachment / tab switching in `displayTab(tab)`
+      - Tab switcher button tap in `MainActivity`
+      - Page commit visible (`onPageCommitVisibleCallback`) & page finish (`onPageFinishedCallback`)
+      - Browser backgrounding (`onPause()`)
+    - Added disk thumbnail cleanup on tab closure in `TabManager.closeTab()`.

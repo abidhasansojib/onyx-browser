@@ -28,7 +28,8 @@ class OnyxWebViewClient(
     private val context: Context,
     private val coroutineScope: CoroutineScope,
     private val onUrlChanged: (String) -> Unit,
-    private val onPageFinishedCallback: (String) -> Unit
+    private val onPageFinishedCallback: (String) -> Unit,
+    private val onPageCommitVisibleCallback: ((WebView, String) -> Unit)? = null
 ) : WebViewClient() {
 
     private val upgradedUrls = mutableSetOf<String>()
@@ -513,6 +514,9 @@ class OnyxWebViewClient(
 
     override fun onPageCommitVisible(view: WebView?, url: String?) {
         super.onPageCommitVisible(view, url)
+        if (view != null && !url.isNullOrBlank()) {
+            onPageCommitVisibleCallback?.invoke(view, url)
+        }
         if (url.isNullOrBlank()) return
         val isHttp = url.startsWith("http://") || url.startsWith("https://")
         if (!isHttp) return

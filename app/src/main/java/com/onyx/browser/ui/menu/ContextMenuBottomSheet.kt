@@ -218,38 +218,23 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
         binding.tvContextTitle.text = displayTitle
         binding.tvContextUrl.text = rawUrl
 
-        val faviconHost = try {
-            Uri.parse(rawUrl).host ?: ""
-        } catch (_: Exception) {
-            ""
-        }
-
-        if (faviconHost.isNotBlank()) {
-            val faviconUrl = "https://www.google.com/s2/favicons?domain=$faviconHost&sz=64"
-            loadImageAsync(faviconUrl, maxWidth = 128, maxHeight = 128) { bmp ->
-                if (_binding != null) {
-                    if (bmp != null) {
-                        val circular = getCircularBitmap(bmp)
-                        binding.ivFavicon.setImageBitmap(circular)
-                        binding.ivFavicon.visibility = View.VISIBLE
-                        binding.flFaviconFallback.visibility = View.GONE
-                    } else {
-                        showLetterFallback(displayTitle)
-                    }
-                }
-            }
-        } else {
-            showLetterFallback(displayTitle)
-        }
-    }
-
-    private fun showLetterFallback(title: String) {
-        val letter = title.trim().firstOrNull()?.uppercase()
+        val letter = displayTitle.trim().firstOrNull()?.uppercase()
         if (letter != null && letter.matches(Regex("[A-Za-z0-9]"))) {
             binding.tvFaviconLetter.text = letter
             binding.tvFaviconLetter.visibility = View.VISIBLE
             binding.ivFaviconFallback.visibility = View.GONE
+        } else {
+            binding.tvFaviconLetter.visibility = View.GONE
+            binding.ivFaviconFallback.visibility = View.VISIBLE
         }
+
+        com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
+            context = requireContext(),
+            imageView = binding.ivFavicon,
+            urlOrHost = rawUrl,
+            fallbackLetterView = binding.flFaviconFallback,
+            isCircular = true
+        )
     }
 
     private fun loadThumbnail(imageUrl: String) {

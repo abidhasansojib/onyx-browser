@@ -1,6 +1,15 @@
 package com.onyx.browser.ui.browser
 
+import android.app.Activity
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Rect
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.view.PixelCopy
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.web.OnyxWebView
@@ -11,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 import java.util.UUID
 
 class TabManager(
@@ -30,11 +41,126 @@ class TabManager(
 
     private val webViewPool = mutableMapOf<String, OnyxWebView>()
     
-    val snapshotCache = object : android.util.LruCache<String, android.graphics.Bitmap>(20) {
-        override fun entryRemoved(evicted: Boolean, key: String?, oldValue: android.graphics.Bitmap?, newValue: android.graphics.Bitmap?) {
-            if (evicted && oldValue != null && oldValue != newValue) {
-                oldValue.recycle()
+    val snapshotCache = object : android.util.LruCache<String, Bitmap>(30) {
+        override fun entryRemoved(evicted: Boolean, key: String?, oldValue: Bitmap?, newValue: Bitmap?) {
+            // Let GC reclaim memory smoothly
+        }
+    }
+
+    private fun getThumbnailDir(): File {
+        val dir = File(context.cacheDir, "tab_thumbnails")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    private fun getThumbnailFile(tabId: String): File =
+        File(getThumbnailDir(), "$tabId.webp")
+
+    /**
+     * Retrieves the tab snapshot from memory cache or persistent disk cache.
+     */
+    fun getSnapshot(tabId: String): Bitmap? {
+        val mem = snapshotCache.get(tabId)
+        if (mem != null) return mem
+
+        try {
+            val file = getThumbnailFile(tabId)
+            if (file.exists() && file.length() > 0) {
+                val diskBmp = BitmapFactory.decodeFile(file.absolutePath)
+                if (diskBmp != null) {
+                    snapshotCache.put(tabId, diskBmp)
+                    return diskBmp
+                }
             }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    /**
+     * Proactively captures a crisp, memory-optimized thumbnail of the given WebView.
+     * Uses hardware PixelCopy with synchronous Canvas fallback.
+     */
+    fun captureTabSnapshot(tabId: String, webView: OnyxWebView?, onCaptured: ((Bitmap) -> Unit)? = null) {
+        if (webView == null || webView.width <= 0 || webView.height <= 0) return
+        val w = webView.width
+        val h = webView.height
+        val scale = (360f / w).coerceAtMost(0.5f)
+        val targetW = (w * scale).toInt().coerceAtLeast(1)
+        val targetH = (h * scale).toInt().coerceAtLeast(1)
+
+        val activity = (context as? Activity)
+        val window = activity?.window
+        var pixelCopySuccess = false
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && window != null) {
+            try {
+                val bitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
+                val location = IntArray(2)
+                webView.getLocationInWindow(location)
+                val rect = Rect(
+                    location[0],
+                    location[1],
+                    location[0] + w,
+                    location[1] + h
+                )
+                PixelCopy.request(
+                    window,
+                    rect,
+                    bitmap,
+                    { copyResult ->
+                        if (copyResult == PixelCopy.SUCCESS) {
+                            saveSnapshot(tabId, bitmap)
+                            onCaptured?.invoke(bitmap)
+                        } else {
+                            fallbackCanvasCapture(tabId, webView, targetW, targetH, scale, onCaptured)
+                        }
+                    },
+                    Handler(Looper.getMainLooper())
+                )
+                pixelCopySuccess = true
+            } catch (_: Exception) {
+                pixelCopySuccess = false
+            }
+        }
+
+        if (!pixelCopySuccess) {
+            fallbackCanvasCapture(tabId, webView, targetW, targetH, scale, onCaptured)
+        }
+    }
+
+    private fun fallbackCanvasCapture(
+        tabId: String,
+        webView: OnyxWebView,
+        targetW: Int,
+        targetH: Int,
+        scale: Float,
+        onCaptured: ((Bitmap) -> Unit)?
+    ) {
+        try {
+            val bitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.RGB_565)
+            val canvas = Canvas(bitmap)
+            canvas.scale(scale, scale)
+            webView.draw(canvas)
+            saveSnapshot(tabId, bitmap)
+            onCaptured?.invoke(bitmap)
+        } catch (_: Exception) {}
+    }
+
+    private fun saveSnapshot(tabId: String, bitmap: Bitmap) {
+        snapshotCache.put(tabId, bitmap)
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val file = getThumbnailFile(tabId)
+                FileOutputStream(file).use { out ->
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 85, out)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        bitmap.compress(Bitmap.CompressFormat.WEBP, 85, out)
+                    }
+                    out.flush()
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -76,6 +202,8 @@ class TabManager(
         return webViewPool[current.id]
     }
 
+    fun getWebView(tabId: String): OnyxWebView? = webViewPool[tabId]
+
     fun createNewTab(url: String = "", isIncognito: Boolean = false): TabItem {
         val newTab = TabItem(
             id = UUID.randomUUID().toString(),
@@ -106,6 +234,10 @@ class TabManager(
         // Safe destruction of associated WebView
         val webView = webViewPool.remove(tab.id)
         webView?.destroySafely()
+        snapshotCache.remove(tab.id)
+        coroutineScope.launch(Dispatchers.IO) {
+            try { getThumbnailFile(tab.id).delete() } catch (_: Exception) {}
+        }
 
         if (tab.isIncognito) {
             val updated = _incognitoTabs.value.filter { it.id != tab.id }

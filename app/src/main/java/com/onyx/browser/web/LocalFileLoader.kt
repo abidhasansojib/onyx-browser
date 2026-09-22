@@ -58,22 +58,38 @@ object LocalFileLoader {
         onTitleResolved: ((String) -> Unit)? = null
     ): Boolean {
         val uri = parseUri(rawUriOrPath)
+        val mimeType = try { context.contentResolver.getType(uri)?.lowercase() } catch (_: Exception) { null }
         val fileName = getDisplayName(context, uri)
         val lowerName = fileName.lowercase()
 
-        val isMarkdown = lowerName.endsWith(".md") || lowerName.endsWith(".markdown")
-        val isHtml = lowerName.endsWith(".html") || lowerName.endsWith(".htm") || lowerName.endsWith(".xhtml")
+        val isMarkdown = lowerName.endsWith(".md") || lowerName.endsWith(".markdown") ||
+                mimeType == "text/markdown" || mimeType == "text/x-markdown"
+        val isHtml = lowerName.endsWith(".html") || lowerName.endsWith(".htm") || lowerName.endsWith(".xhtml") ||
+                mimeType == "text/html" || mimeType == "application/xhtml+xml"
+
+        // If it's a file:// HTML document that is readable on disk, let Chromium load it directly
+        // so relative CSS, JS, fonts, and images are resolved natively without restrictions
+        if (uri.scheme == "file" && isHtml && uri.path != null) {
+            val localFile = File(uri.path!!)
+            if (localFile.exists() && localFile.canRead()) {
+                onTitleResolved?.invoke(fileName)
+                webView.post {
+                    webView.loadUrl(uri.toString())
+                }
+                return true
+            }
+        }
 
         val inputStream: InputStream? = try {
             if (uri.scheme == "file") {
                 val path = uri.path
                 if (path != null) {
                     val file = File(path)
-                    if (!file.exists() || !file.canRead()) {
-                        showFileNotFoundError(context, webView, rawUriOrPath)
-                        return true
+                    if (file.exists() && file.canRead()) {
+                        file.inputStream()
+                    } else {
+                        context.contentResolver.openInputStream(uri)
                     }
-                    file.inputStream()
                 } else {
                     context.contentResolver.openInputStream(uri)
                 }
@@ -103,7 +119,7 @@ object LocalFileLoader {
                     val parent = File(uri.path!!).parentFile
                     if (parent != null) "file://${parent.absolutePath}/" else "file:///"
                 } else {
-                    uri.toString()
+                    "file:///android_asset/"
                 }
                 webView.post {
                     webView.loadDataWithBaseURL(

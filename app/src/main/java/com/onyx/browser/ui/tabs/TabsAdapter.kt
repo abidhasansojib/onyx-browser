@@ -60,6 +60,14 @@ class TabsAdapter(
             } else {
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_web)
                 binding.ivTabFavicon.clearColorFilter()
+                if (item.url.isNotBlank()) {
+                    com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
+                        context = context,
+                        imageView = binding.ivTabFavicon,
+                        urlOrHost = item.url,
+                        isCircular = true
+                    )
+                }
             }
             
             val snapshot = getSnapshot(item.id)

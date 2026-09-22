@@ -398,6 +398,13 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     if (hasCurrentUrl) {
                         binding.cardCurrentPage.visibility = View.VISIBLE
+                        val curUrl = currentTab?.url ?: ""
+                        com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
+                            context = this@MainActivity,
+                            imageView = binding.ivCurrentPageFavicon,
+                            urlOrHost = curUrl,
+                            isCircular = true
+                        )
                     }
                     suggestionJob?.cancel()
                     suggestionsAdapter.submitList(emptyList())
@@ -437,35 +444,8 @@ class MainActivity : AppCompatActivity() {
         binding.btnTabSwitcher.setOnClickListener {
             val activeTabId = tabManager.activeTab.value?.id
             val activeWebView = tabManager.getActiveWebView()
-            if (activeTabId != null && activeWebView != null && activeWebView.width > 0 && activeWebView.height > 0) {
-                try {
-                    val bitmap = android.graphics.Bitmap.createBitmap(
-                        activeWebView.width / 2, 
-                        activeWebView.height / 2, 
-                        android.graphics.Bitmap.Config.ARGB_8888
-                    )
-                    val location = IntArray(2)
-                    activeWebView.getLocationInWindow(location)
-                    val rect = android.graphics.Rect(
-                        location[0], 
-                        location[1], 
-                        location[0] + activeWebView.width, 
-                        location[1] + activeWebView.height
-                    )
-                    android.view.PixelCopy.request(
-                        window,
-                        rect,
-                        bitmap,
-                        { copyResult ->
-                            if (copyResult == android.view.PixelCopy.SUCCESS) {
-                                tabManager.snapshotCache.put(activeTabId, bitmap)
-                            }
-                        },
-                        android.os.Handler(android.os.Looper.getMainLooper())
-                    )
-                } catch (e: Exception) {
-                    // Ignore snapshot failure
-                }
+            if (activeTabId != null && activeWebView != null) {
+                tabManager.captureTabSnapshot(activeTabId, activeWebView)
             }
 
             val sheet = TabSwitcherBottomSheet(
@@ -537,11 +517,6 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     performSearchOrLoad(shortcut.url)
                 }
-            },
-            onShortcutLongClick = { shortcut ->
-                if (shortcut.id != ShortcutItem.ID_ADD_SHORTCUT && shortcut.url != ShortcutItem.URL_ADD_SHORTCUT) {
-                    showShortcutDeleteOption(shortcut)
-                }
             }
         )
 
@@ -579,10 +554,13 @@ class MainActivity : AppCompatActivity() {
                 viewHolder: RecyclerView.ViewHolder,
                 target: RecyclerView.ViewHolder
             ): Boolean {
-                hasDragged = true
-                val fromPos = viewHolder.bindingAdapterPosition
-                val toPos = target.bindingAdapterPosition
-                return shortcutsAdapter.onItemMove(fromPos, toPos)
+                val from = viewHolder.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                if (from != RecyclerView.NO_POSITION && to != RecyclerView.NO_POSITION) {
+                    hasDragged = true
+                    return shortcutsAdapter.onItemMove(from, to)
+                }
+                return false
             }
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
@@ -590,13 +568,10 @@ class MainActivity : AppCompatActivity() {
             override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
                 super.onSelectedChanged(viewHolder, actionState)
                 if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
-                    hasDragged = false
                     val pos = viewHolder?.bindingAdapterPosition ?: RecyclerView.NO_POSITION
-                    draggedShortcut = if (pos != RecyclerView.NO_POSITION && pos < shortcutsAdapter.getItems().size) {
-                        shortcutsAdapter.getItems()[pos]
-                    } else null
-
-                    viewHolder?.itemView?.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                    if (pos != RecyclerView.NO_POSITION && pos < shortcutsAdapter.getItems().size) {
+                        draggedShortcut = shortcutsAdapter.getItems()[pos]
+                    }
                     viewHolder?.itemView?.animate()?.scaleX(1.10f)?.scaleY(1.10f)?.setDuration(150)?.start()
                 }
             }
@@ -609,10 +584,6 @@ class MainActivity : AppCompatActivity() {
                 viewHolder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                 if (hasDragged) {
                     preferences.saveShortcuts(shortcutsAdapter.getItems())
-                } else {
-                    draggedShortcut?.let { shortcut ->
-                        showShortcutDeleteOption(shortcut)
-                    }
                 }
                 draggedShortcut = null
                 hasDragged = false
@@ -626,24 +597,6 @@ class MainActivity : AppCompatActivity() {
                 shortcutsAdapter.submitList(shortcuts)
             }
         }
-    }
-
-    private fun showShortcutDeleteOption(shortcut: ShortcutItem) {
-        val title = shortcut.title.ifBlank { shortcut.url }
-        val options = arrayOf(
-            getString(R.string.delete_shortcut)
-        )
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle(title)
-            .setItems(options) { _, which ->
-                if (which == 0) {
-                    preferences.deleteShortcut(shortcut.id)
-                    Toast.makeText(this, R.string.shortcut_deleted, Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
     }
 
     private fun observeTabs() {
@@ -671,7 +624,14 @@ class MainActivity : AppCompatActivity() {
     private fun displayTab(tab: TabItem) {
         updateTabBadgeCount()
 
-        val tabChanged = (currentDisplayedTabId != tab.id)
+        val previousTabId = currentDisplayedTabId
+        val tabChanged = (previousTabId != tab.id)
+        if (tabChanged && previousTabId != null) {
+            val outgoingWebView = tabManager.getWebView(previousTabId)
+            if (outgoingWebView != null) {
+                tabManager.captureTabSnapshot(previousTabId, outgoingWebView)
+            }
+        }
         currentDisplayedTabId = tab.id
 
         if (tab.url.isBlank()) {
@@ -774,6 +734,20 @@ class MainActivity : AppCompatActivity() {
                 tabManager.updateActiveTab(finishedUrl, webView.title ?: finishedUrl)
                 updateAddressBarDisplay(finishedUrl)
                 binding.progressBar.visibility = View.GONE
+                val activeTab = tabManager.activeTab.value
+                if (activeTab != null && webView.url == finishedUrl) {
+                    webView.postDelayed({
+                        tabManager.captureTabSnapshot(activeTab.id, webView)
+                    }, 400)
+                }
+            },
+            onPageCommitVisibleCallback = { view, _ ->
+                val activeTab = tabManager.activeTab.value
+                if (activeTab != null && view is OnyxWebView) {
+                    view.postDelayed({
+                        tabManager.captureTabSnapshot(activeTab.id, view)
+                    }, 300)
+                }
             }
         )
 
@@ -1064,8 +1038,15 @@ class MainActivity : AppCompatActivity() {
 
         if (hasCurrentUrl) {
             binding.cardCurrentPage.visibility = View.VISIBLE
-            binding.tvCurrentPageTitle.text = currentTab?.title?.ifBlank { currentTab.url } ?: ""
-            binding.tvCurrentPageUrl.text = currentTab?.url ?: ""
+            val curUrl = currentTab?.url ?: ""
+            binding.tvCurrentPageTitle.text = currentTab?.title?.ifBlank { curUrl } ?: ""
+            binding.tvCurrentPageUrl.text = curUrl
+            com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
+                context = this,
+                imageView = binding.ivCurrentPageFavicon,
+                urlOrHost = curUrl,
+                isCircular = true
+            )
         } else {
             binding.cardCurrentPage.visibility = View.GONE
         }
@@ -1293,6 +1274,37 @@ class MainActivity : AppCompatActivity() {
                     .coerceIn(Rational(1, 2), Rational(2, 1))
                 val builder = PictureInPictureParams.Builder()
                     .setAspectRatio(rational)
+
+                // Video-only PiP: crop strictly to the video viewport using sourceRectHint
+                if (customVideoView != null) {
+                    val rect = Rect()
+                    customVideoView?.getGlobalVisibleRect(rect)
+                    if (!rect.isEmpty) {
+                        builder.setSourceRectHint(rect)
+                    }
+                } else {
+                    val bounds = MediaPlaybackBridge.lastVideoBounds
+                    val activeWv = tabManager.getActiveWebView()
+                    if (bounds != null && activeWv != null && isVideoPlaying) {
+                        val location = IntArray(2)
+                        activeWv.getLocationInWindow(location)
+                        val density = resources.displayMetrics.density
+                        val left = (location[0] + bounds.left * density).toInt()
+                        val top = (location[1] + bounds.top * density).toInt()
+                        val right = (location[0] + bounds.right * density).toInt()
+                        val bottom = (location[1] + bounds.bottom * density).toInt()
+                        val rect = Rect(
+                            left.coerceAtLeast(0),
+                            top.coerceAtLeast(0),
+                            right.coerceAtMost(resources.displayMetrics.widthPixels),
+                            bottom.coerceAtMost(resources.displayMetrics.heightPixels)
+                        )
+                        if (rect.width() > 20 && rect.height() > 20) {
+                            builder.setSourceRectHint(rect)
+                        }
+                    }
+                }
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     builder.setAutoEnterEnabled(shouldEnableAutoPip)
                 }
@@ -1312,7 +1324,14 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "No active webpage to extract video", Toast.LENGTH_SHORT).show()
             return
         }
-        enterPipMode()
+        // Try driving active video into native fullscreen first for hardware-isolated PiP
+        activeWv.evaluateJavascript(MediaPlaybackManager.requestVideoFullscreenScript) { res ->
+            if (res?.contains("fullscreen_triggered") == true) {
+                activeWv.postDelayed({ enterPipMode() }, 200)
+            } else {
+                enterPipMode()
+            }
+        }
     }
 
     fun enterPipMode() {
@@ -1344,12 +1363,38 @@ class MainActivity : AppCompatActivity() {
                 val paramsBuilder = PictureInPictureParams.Builder()
                     .setAspectRatio(rational)
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    paramsBuilder.setAutoEnterEnabled(true)
+                if (customVideoView != null) {
+                    val rect = Rect()
+                    customVideoView?.getGlobalVisibleRect(rect)
+                    if (!rect.isEmpty) {
+                        paramsBuilder.setSourceRectHint(rect)
+                    }
+                } else {
+                    val bounds = MediaPlaybackBridge.lastVideoBounds
+                    val activeWv = tabManager.getActiveWebView()
+                    if (bounds != null && activeWv != null) {
+                        val location = IntArray(2)
+                        activeWv.getLocationInWindow(location)
+                        val density = resources.displayMetrics.density
+                        val left = (location[0] + bounds.left * density).toInt()
+                        val top = (location[1] + bounds.top * density).toInt()
+                        val right = (location[0] + bounds.right * density).toInt()
+                        val bottom = (location[1] + bounds.bottom * density).toInt()
+                        val rect = Rect(
+                            left.coerceAtLeast(0),
+                            top.coerceAtLeast(0),
+                            right.coerceAtMost(resources.displayMetrics.widthPixels),
+                            bottom.coerceAtMost(resources.displayMetrics.heightPixels)
+                        )
+                        if (rect.width() > 20 && rect.height() > 20) {
+                            paramsBuilder.setSourceRectHint(rect)
+                        }
+                    }
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript, null)
                 }
 
-                if (customVideoView == null) {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript, null)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    paramsBuilder.setAutoEnterEnabled(true)
                 }
 
                 enterPictureInPictureMode(paramsBuilder.build())
@@ -1398,6 +1443,14 @@ class MainActivity : AppCompatActivity() {
         MediaPlaybackBridge.onMediaStateListener = { isPlaying, isVideo, width, height ->
             runOnUiThread {
                 updatePipParams(isVideo && isPlaying, width, height)
+            }
+        }
+
+        MediaPlaybackBridge.onVideoBoundsListener = { _, _, _, _ ->
+            runOnUiThread {
+                if (MediaPlaybackBridge.isVideoPlaying) {
+                    updatePipParams()
+                }
             }
         }
     }
@@ -1620,6 +1673,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        val activeTabId = tabManager.activeTab.value?.id
+        val activeWebView = tabManager.getActiveWebView()
+        if (activeTabId != null && activeWebView != null) {
+            tabManager.captureTabSnapshot(activeTabId, activeWebView)
+        }
         if (!preferences.isPipEnabled) {
             updatePipParams(isVideoPlaying = false)
         }

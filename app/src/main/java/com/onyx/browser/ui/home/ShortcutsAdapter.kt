@@ -13,8 +13,7 @@ import com.onyx.browser.databinding.ItemHomeShortcutBinding
 import java.util.Collections
 
 class ShortcutsAdapter(
-    private val onShortcutClick: (ShortcutItem) -> Unit,
-    private val onShortcutLongClick: (ShortcutItem) -> Unit
+    private val onShortcutClick: (ShortcutItem) -> Unit
 ) : RecyclerView.Adapter<ShortcutsAdapter.ShortcutViewHolder>() {
 
     private val items = mutableListOf<ShortcutItem>()
@@ -166,16 +165,21 @@ class ShortcutsAdapter(
                     val letter = item.title.trim().firstOrNull()?.uppercase()
                         ?: item.url.removePrefix("https://").removePrefix("http://").removePrefix("www.").firstOrNull()?.uppercase()
                     if (letter != null && letter.matches(Regex("[A-Za-z0-9]"))) {
-                        binding.ivShortcutIcon.visibility = View.GONE
-                        binding.tvLetterBadge.visibility = View.VISIBLE
                         binding.tvLetterBadge.text = letter
                         binding.tvLetterBadge.setTextColor(textColorPrimary)
                     } else {
-                        binding.ivShortcutIcon.visibility = View.VISIBLE
-                        binding.tvLetterBadge.visibility = View.GONE
-                        binding.ivShortcutIcon.setImageResource(R.drawable.ic_web)
-                        binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
+                        binding.tvLetterBadge.text = "•"
+                        binding.tvLetterBadge.setTextColor(textColorPrimary)
                     }
+
+                    // Dynamically fetch and display real website favicon / logo
+                    com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
+                        context = binding.root.context,
+                        imageView = binding.ivShortcutIcon,
+                        urlOrHost = item.url,
+                        fallbackLetterView = binding.tvLetterBadge,
+                        isCircular = true
+                    )
                 }
             }
 
