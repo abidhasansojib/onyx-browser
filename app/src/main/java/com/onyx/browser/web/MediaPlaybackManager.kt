@@ -220,6 +220,88 @@ object MediaPlaybackManager {
                     } catch (_) {}
                 }
 
+                // Prevent website scripts from muting media while browser is in background
+                try {
+                    var origMutedDesc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'muted');
+                    if (origMutedDesc && origMutedDesc.set) {
+                        Object.defineProperty(HTMLMediaElement.prototype, 'muted', {
+                            get: function() {
+                                return origMutedDesc.get.call(this);
+                            },
+                            set: function(val) {
+                                if (val && (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden')) {
+                                    return;
+                                }
+                                return origMutedDesc.set.call(this, val);
+                            },
+                            configurable: true
+                        });
+                    }
+                } catch (_) {}
+
+                // W3C Picture-in-Picture Web API Polyfill for web video players
+                try {
+                    var currentPipElem = null;
+
+                    if (!document.pictureInPictureEnabled) {
+                        Object.defineProperty(document, 'pictureInPictureEnabled', {
+                            get: function() { return true; },
+                            configurable: true
+                        });
+                    }
+
+                    Object.defineProperty(document, 'pictureInPictureElement', {
+                        get: function() { return currentPipElem; },
+                        configurable: true
+                    });
+
+                    document.exitPictureInPicture = function() {
+                        return new Promise(function(resolve, reject) {
+                            if (!currentPipElem) {
+                                reject(new DOMException("No active Picture-in-Picture element", "InvalidStateError"));
+                                return;
+                            }
+                            var old = currentPipElem;
+                            currentPipElem = null;
+                            if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.exitVideoPip === 'function') {
+                                window.OnyxMediaBridge.exitVideoPip();
+                            }
+                            try {
+                                old.dispatchEvent(new Event('leavepictureinpicture', { bubbles: true }));
+                            } catch (_) {}
+                            resolve();
+                        });
+                    };
+
+                    if (typeof HTMLVideoElement !== 'undefined' && HTMLVideoElement.prototype) {
+                        HTMLVideoElement.prototype.requestPictureInPicture = function() {
+                            var self = this;
+                            return new Promise(function(resolve, reject) {
+                                if (self.readyState === 0) {
+                                    reject(new DOMException("Video is not ready", "InvalidStateError"));
+                                    return;
+                                }
+                                currentPipElem = self;
+                                reportVideoBounds(self);
+
+                                if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.requestVideoPip === 'function') {
+                                    window.OnyxMediaBridge.requestVideoPip();
+                                }
+
+                                try {
+                                    self.dispatchEvent(new Event('enterpictureinpicture', { bubbles: true }));
+                                } catch (_) {}
+
+                                resolve({
+                                    width: self.videoWidth || self.clientWidth || 320,
+                                    height: self.videoHeight || self.clientHeight || 180,
+                                    onresize: null
+                                });
+                            });
+                        };
+                    }
+                } catch (_) {}
+
                 function reportMediaPlaying(elem) {
                     if (!window.OnyxMediaBridge) return;
                     var isVid = (elem instanceof HTMLVideoElement);
@@ -375,11 +457,35 @@ object MediaPlaybackManager {
      */
     val requestVideoFullscreenScript: String = """
         (function() {
-            var vids = Array.from(document.querySelectorAll('video'));
-            var playing = vids.find(function(v) { return !v.paused && !v.ended && v.readyState > 1; });
-            if (!playing && vids.length > 0) playing = vids[0];
+            function getAllVideos(root) {
+                var res = [];
+                try {
+                    var vids = root.querySelectorAll('video');
+                    res = res.concat(Array.from(vids));
+                    var all = root.querySelectorAll('*');
+                    for (var i = 0; i < all.length; i++) {
+                        if (all[i].shadowRoot) {
+                            res = res.concat(getAllVideos(all[i].shadowRoot));
+                        }
+                    }
+                } catch (_) {}
+                return res;
+            }
 
-            // 1. YouTube mobile fullscreen button
+            var vids = getAllVideos(document);
+            document.querySelectorAll('iframe').forEach(function(f) {
+                try {
+                    if (f.contentDocument) {
+                        vids = vids.concat(getAllVideos(f.contentDocument));
+                    }
+                } catch (_) {}
+            });
+
+            var playing = vids.find(function(v) { return !v.paused && !v.ended && v.readyState > 1; })
+                || vids.find(function(v) { return !v.paused; })
+                || (vids.length > 0 ? vids[0] : null);
+
+            // 1. YouTube mobile / web fullscreen button
             var ytBtn = document.querySelector('button.fullscreen-icon, button.ytp-fullscreen-button, .ytp-fullscreen-button');
             if (ytBtn) {
                 try {
@@ -398,17 +504,33 @@ object MediaPlaybackManager {
                 } catch (e) {}
             }
 
-            // 3. Native Element requestFullscreen
-            var target = ytPlayer || document.querySelector('#player-container-id, ytm-player, #player') || playing;
-            if (target && target.requestFullscreen) {
+            // 3. Direct video webkitRequestFullscreen (standard for WebChromeClient.onShowCustomView in WebView)
+            if (playing) {
                 try {
-                    target.requestFullscreen();
-                    return 'fullscreen_triggered';
+                    if (typeof playing.webkitRequestFullscreen === 'function') {
+                        playing.webkitRequestFullscreen();
+                        return 'fullscreen_triggered';
+                    } else if (typeof playing.requestFullscreen === 'function') {
+                        playing.requestFullscreen();
+                        return 'fullscreen_triggered';
+                    } else if (typeof playing.webkitEnterFullscreen === 'function') {
+                        playing.webkitEnterFullscreen();
+                        return 'fullscreen_triggered';
+                    }
                 } catch (e) {}
-            } else if (target && target.webkitRequestFullscreen) {
+            }
+
+            // 4. Native Element requestFullscreen on player container
+            var target = ytPlayer || document.querySelector('#player-container-id, ytm-player, #player');
+            if (target) {
                 try {
-                    target.webkitRequestFullscreen();
-                    return 'fullscreen_triggered';
+                    if (typeof target.webkitRequestFullscreen === 'function') {
+                        target.webkitRequestFullscreen();
+                        return 'fullscreen_triggered';
+                    } else if (typeof target.requestFullscreen === 'function') {
+                        target.requestFullscreen();
+                        return 'fullscreen_triggered';
+                    }
                 } catch (e) {}
             }
 
@@ -430,13 +552,27 @@ object MediaPlaybackManager {
     val isolateVideoForPipScript: String = """
         (function() {
             try {
-                var vids = Array.from(document.querySelectorAll('video'));
+                function getAllVideos(root) {
+                    var res = [];
+                    try {
+                        var vids = root.querySelectorAll('video');
+                        res = res.concat(Array.from(vids));
+                        var all = root.querySelectorAll('*');
+                        for (var i = 0; i < all.length; i++) {
+                            if (all[i].shadowRoot) {
+                                res = res.concat(getAllVideos(all[i].shadowRoot));
+                            }
+                        }
+                    } catch (_) {}
+                    return res;
+                }
+
+                var vids = getAllVideos(document);
                 // Also scan accessible same-origin iframes
                 document.querySelectorAll('iframe').forEach(function(f) {
                     try {
                         if (f.contentDocument) {
-                            var inner = Array.from(f.contentDocument.querySelectorAll('video'));
-                            vids = vids.concat(inner);
+                            vids = vids.concat(getAllVideos(f.contentDocument));
                         }
                     } catch (_) {}
                 });

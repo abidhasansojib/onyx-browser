@@ -3,10 +3,15 @@ package com.onyx.browser
 import android.Manifest
 import android.app.Activity
 import android.app.AppOpsManager
+import android.app.PendingIntent
 import android.app.PictureInPictureParams
+import android.app.RemoteAction
 import android.app.SearchManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.drawable.Icon
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -108,6 +113,35 @@ class MainActivity : AppCompatActivity() {
     private var currentDisplayedTabId: String? = null
     private var isTabsRestored = false
     private var pendingIntent: Intent? = null
+
+    companion object {
+        const val ACTION_PIP_PLAY_PAUSE = "com.onyx.browser.action.PIP_PLAY_PAUSE"
+        const val ACTION_PIP_REWIND = "com.onyx.browser.action.PIP_REWIND"
+        const val ACTION_PIP_FORWARD = "com.onyx.browser.action.PIP_FORWARD"
+    }
+
+    private val pipReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                ACTION_PIP_PLAY_PAUSE -> {
+                    if (MediaPlaybackBridge.isMediaPlaying) {
+                        tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                        MediaPlaybackBridge.isMediaPlaying = false
+                    } else {
+                        tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
+                        MediaPlaybackBridge.isMediaPlaying = true
+                    }
+                    updatePipParams()
+                }
+                ACTION_PIP_REWIND -> {
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(-10), null)
+                }
+                ACTION_PIP_FORWARD -> {
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(10), null)
+                }
+            }
+        }
+    }
 
     // Permission Launchers
     private var pendingStorageAction: (() -> Unit)? = null
@@ -310,6 +344,17 @@ class MainActivity : AppCompatActivity() {
         setupHomepageInteractions()
         setupBackNavigation()
         setupMediaPlaybackListener()
+
+        val pipFilter = IntentFilter().apply {
+            addAction(ACTION_PIP_PLAY_PAUSE)
+            addAction(ACTION_PIP_REWIND)
+            addAction(ACTION_PIP_FORWARD)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(pipReceiver, pipFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(pipReceiver, pipFilter)
+        }
 
         checkNotificationPermissionForDownloads()
 
@@ -1263,6 +1308,63 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun buildPipActions(): List<RemoteAction> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return emptyList()
+
+        val actions = mutableListOf<RemoteAction>()
+
+        // 1. Rewind 10s
+        val rewindIntent = PendingIntent.getBroadcast(
+            this,
+            101,
+            Intent(ACTION_PIP_REWIND).setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        actions.add(
+            RemoteAction(
+                Icon.createWithResource(this, R.drawable.ic_fast_rewind),
+                "Rewind 10s",
+                "Rewind 10 seconds",
+                rewindIntent
+            )
+        )
+
+        // 2. Play / Pause
+        val isPlaying = MediaPlaybackBridge.isMediaPlaying
+        val playPauseIntent = PendingIntent.getBroadcast(
+            this,
+            102,
+            Intent(ACTION_PIP_PLAY_PAUSE).setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        actions.add(
+            RemoteAction(
+                Icon.createWithResource(this, if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow),
+                if (isPlaying) "Pause" else "Play",
+                if (isPlaying) "Pause video" else "Play video",
+                playPauseIntent
+            )
+        )
+
+        // 3. Fast Forward 10s
+        val forwardIntent = PendingIntent.getBroadcast(
+            this,
+            103,
+            Intent(ACTION_PIP_FORWARD).setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        actions.add(
+            RemoteAction(
+                Icon.createWithResource(this, R.drawable.ic_fast_forward),
+                "Forward 10s",
+                "Fast forward 10 seconds",
+                forwardIntent
+            )
+        )
+
+        return actions
+    }
+
     fun updatePipParams(
         isVideoPlaying: Boolean = MediaPlaybackBridge.isVideoPlaying,
         width: Int = MediaPlaybackBridge.lastVideoWidth,
@@ -1270,11 +1372,14 @@ class MainActivity : AppCompatActivity() {
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
-                val shouldEnableAutoPip = preferences.isPipEnabled && (customVideoView != null || isVideoPlaying)
+                // Only enable OS autoEnterEnabled when a dedicated custom fullscreen video view is active.
+                // For in-page videos, PiP is initiated cleanly on onUserLeaveHint or PiP button tap.
+                val shouldEnableAutoPip = preferences.isPipEnabled && (customVideoView != null)
                 val rational = Rational(width.coerceAtLeast(1), height.coerceAtLeast(1))
                     .coerceIn(Rational(1, 2), Rational(2, 1))
                 val builder = PictureInPictureParams.Builder()
                     .setAspectRatio(rational)
+                    .setActions(buildPipActions())
 
                 // Video-only PiP: crop strictly to the video viewport using sourceRectHint
                 if (customVideoView != null) {
@@ -1325,12 +1430,25 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "No active webpage to extract video", Toast.LENGTH_SHORT).show()
             return
         }
+        shouldAutoEnterPipOnCustomView = true
         // Try driving active video into native fullscreen first for hardware-isolated PiP
         activeWv.evaluateJavascript(MediaPlaybackManager.requestVideoFullscreenScript) { res ->
             if (res?.contains("fullscreen_triggered") == true) {
-                activeWv.postDelayed({ enterPipMode() }, 200)
+                // onShowCustomView will handle entering PiP when customVideoView attaches.
+                // Add fallback in case onShowCustomView does not fire:
+                activeWv.postDelayed({
+                    if (customVideoView == null && shouldAutoEnterPipOnCustomView) {
+                        shouldAutoEnterPipOnCustomView = false
+                        activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) {
+                            enterPipMode()
+                        }
+                    }
+                }, 350)
             } else {
-                enterPipMode()
+                shouldAutoEnterPipOnCustomView = false
+                activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) {
+                    enterPipMode()
+                }
             }
         }
     }
@@ -1363,6 +1481,7 @@ class MainActivity : AppCompatActivity() {
 
                 val paramsBuilder = PictureInPictureParams.Builder()
                     .setAspectRatio(rational)
+                    .setActions(buildPipActions())
 
                 if (customVideoView != null) {
                     val rect = Rect()
@@ -1371,6 +1490,14 @@ class MainActivity : AppCompatActivity() {
                         paramsBuilder.setSourceRectHint(rect)
                     }
                 } else {
+                    // Hide browser UI before transition so only the isolated video is captured
+                    binding.topBar.visibility = View.GONE
+                    binding.topBarDivider.visibility = View.GONE
+                    binding.fullscreenControlsOverlay.visibility = View.GONE
+                    binding.progressBar.visibility = View.GONE
+                    binding.findInPageBar.visibility = View.GONE
+                    binding.searchOverlay.visibility = View.GONE
+
                     val bounds = MediaPlaybackBridge.lastVideoBounds
                     val activeWv = tabManager.getActiveWebView()
                     if (bounds != null && activeWv != null) {
@@ -1391,11 +1518,10 @@ class MainActivity : AppCompatActivity() {
                             paramsBuilder.setSourceRectHint(rect)
                         }
                     }
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript, null)
                 }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    paramsBuilder.setAutoEnterEnabled(true)
+                    paramsBuilder.setAutoEnterEnabled(customVideoView != null)
                 }
 
                 enterPictureInPictureMode(paramsBuilder.build())
@@ -1451,6 +1577,20 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 if (MediaPlaybackBridge.isVideoPlaying) {
                     updatePipParams()
+                }
+            }
+        }
+
+        MediaPlaybackBridge.onPipRequestedListener = {
+            runOnUiThread {
+                requestInPageVideoPip()
+            }
+        }
+
+        MediaPlaybackBridge.onPipExitListener = {
+            runOnUiThread {
+                if (customVideoView != null) {
+                    hideCustomFullscreenVideo()
                 }
             }
         }
@@ -1754,7 +1894,7 @@ class MainActivity : AppCompatActivity() {
         if (customVideoView != null) {
             enterPipMode()
         } else if (MediaPlaybackBridge.isVideoPlaying) {
-            enterPipMode()
+            requestInPageVideoPip()
         }
     }
 
@@ -1926,6 +2066,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try {
+            unregisterReceiver(pipReceiver)
+        } catch (_: Exception) {}
         MediaPlaybackService.mediaActionListener = null
         tabManager.clearAllWebViews()
     }

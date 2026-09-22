@@ -18,6 +18,11 @@ class MediaPlaybackBridge(private val context: Context) {
     companion object {
         @Volatile var isVideoPlaying: Boolean = false
         @Volatile var isAudioOrVideoPlaying: Boolean = false
+        var isMediaPlaying: Boolean
+            get() = isAudioOrVideoPlaying
+            set(value) {
+                isAudioOrVideoPlaying = value
+            }
         @Volatile var lastVideoWidth: Int = 16
         @Volatile var lastVideoHeight: Int = 9
         @Volatile var currentPositionMs: Long = 0L
@@ -30,6 +35,22 @@ class MediaPlaybackBridge(private val context: Context) {
 
         var onMediaStateListener: ((isPlaying: Boolean, isVideo: Boolean, width: Int, height: Int) -> Unit)? = null
         var onVideoBoundsListener: ((left: Float, top: Float, right: Float, bottom: Float) -> Unit)? = null
+        var onPipRequestedListener: (() -> Unit)? = null
+        var onPipExitListener: (() -> Unit)? = null
+    }
+
+    @JavascriptInterface
+    fun requestVideoPip() {
+        mainHandler.post {
+            onPipRequestedListener?.invoke()
+        }
+    }
+
+    @JavascriptInterface
+    fun exitVideoPip() {
+        mainHandler.post {
+            onPipExitListener?.invoke()
+        }
     }
 
     @JavascriptInterface
