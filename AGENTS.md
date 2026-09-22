@@ -515,3 +515,7 @@ onyx-browser/
     - Processed 1024x1024 high-resolution source logo from `/storage/emulated/0/logo.png`.
     - Resized with Lanczos resampling across all mipmap densities (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) for `ic_launcher.png`, circular masked `ic_launcher_round.png`, and adaptive `ic_launcher_foreground.png`.
     - Set adaptive background to `#080C14` in [`ic_launcher_background.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_launcher_background.xml) to match the dark aesthetic of the logo perfectly.
+- [x] **Verified CI/CD Remote Build Run #35721761011 (`v1.0.82`)**:
+  - Successfully compiled Rust NDK `libadblock_bridge.so`, R8 ProGuard minified DEX, and packaged release APKs across all CPU architectures.
+  - Published GitHub Release [`v1.0.82`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.82) containing `Onyx-Browser-v1.0.82-arm64-v8a-release.apk` (19.6 MB), `Onyx-Browser-v1.0.82-universal-release.apk` (40.4 MB), `Onyx-Browser-v1.0.82-armeabi-v7a-release.apk` (15.6 MB), and `Onyx-Browser-v1.0.82-x86_64-release.apk` (21.1 MB).
+
