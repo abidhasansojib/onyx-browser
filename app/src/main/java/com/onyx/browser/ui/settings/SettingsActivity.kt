@@ -32,6 +32,7 @@ class SettingsActivity : AppCompatActivity() {
         setupAutofillSettings()
         setupDownloadPreferences()
         setupMediaPreferences()
+        setupAboutPreference()
     }
 
     override fun onResume() {
@@ -163,6 +164,12 @@ class SettingsActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Toast.makeText(this, "Could not open system settings", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun setupAboutPreference() {
+        binding.settingAboutRow.setOnClickListener {
+            startActivity(android.content.Intent(this, AboutActivity::class.java))
         }
     }
 }

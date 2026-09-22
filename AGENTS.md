@@ -446,5 +446,18 @@ onyx-browser/
   - Applied `statusBarInsets.top` padding to `AppBarLayout` so the back navigation button, "Content filters" title, and "UPDATE" action button sit cleanly below the status bar on all devices.
   - Added navigation bar inset bottom padding to `rvContentFilters` to prevent list items from being cut off by navigation gesture bars.
   - Upgraded toolbar to Material 3 `MaterialToolbar` with `app:navigationIconTint="?attr/colorControlNormal"` and vertically centered title and update button.
+- [x] **About Screen & Developer Support**:
+  - Designed and implemented dedicated Material 3 [`AboutActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/AboutActivity.kt) and [`activity_about.xml`](file:///root/onyx-browser/app/src/main/res/layout/activity_about.xml).
+  - Added "About & Support" category and navigation row in [`activity_settings.xml`](file:///root/onyx-browser/app/src/main/res/layout/activity_settings.xml) and [`SettingsActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/SettingsActivity.kt).
+  - Displays comprehensive application details with one-tap clipboard copy:
+    - **App Version**: Version name, build code, release type, and ABI architecture.
+    - **Package Name**: `com.onyx.browser`.
+    - **Operating System**: Android release version, API level, manufacturer, model, and hardware details.
+    - **WebView Engine**: Current WebView package provider (`com.google.android.webview` / Chrome) and version number.
+  - Direct community & developer contact actions:
+    - **Contact Developer**: Launches official Telegram account [`t.me/abidhasansojib`](https://t.me/abidhasansojib).
+    - **Report Bug**: Opens official GitHub Issues tracker [`github.com/abidhasansojib/onyx-browser/issues`](https://github.com/abidhasansojib/onyx-browser/issues).
+  - Edge-to-edge transparent system bars integration with `WindowCompat` and dynamic cutout insets.
+
 
 

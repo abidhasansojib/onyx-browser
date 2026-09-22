@@ -338,4 +338,23 @@
 
     <!-- QR Scanner -->
     <string name="qr_scan">Scan QR code</string>
+
+    <!-- About Screen -->
+    <string name="about_title">About</string>
+    <string name="about_category">About &amp; Support</string>
+    <string name="about_desc">Version info, system details &amp; developer contact</string>
+    <string name="about_app_name">Onyx Browser</string>
+    <string name="about_app_desc">Fast, Private &amp; Modern Web Browser</string>
+    <string name="about_section_info">Application &amp; System</string>
+    <string name="about_section_support">Support &amp; Community</string>
+    <string name="about_app_version">App Version</string>
+    <string name="about_package_name">Package Name</string>
+    <string name="about_os_version">Operating System</string>
+    <string name="about_webview_version">WebView Engine</string>
+    <string name="about_contact_dev">Contact Developer</string>
+    <string name="about_contact_dev_desc">@abidhasansojib on Telegram</string>
+    <string name="about_report_bug">Report Bug</string>
+    <string name="about_report_bug_desc">Open an issue on GitHub</string>
+    <string name="copied_to_clipboard">%1$s copied to clipboard</string>
 </resources>
+
