@@ -592,4 +592,8 @@ onyx-browser/
     - Integrated public web archive lookups via the **Wayback Machine** (`https://web.archive.org/web/*/{failingUrl}`) for HTTP 404 / 5xx responses.
     - Integrated direct OS wireless settings dispatch (`Settings.ACTION_WIRELESS_SETTINGS`).
     - Embedded zero-dependency HTML5 canvas **Offline Runner Mini-Game** with score, high score, obstacle collision detection, and tap/spacebar controls.
+  - **Compilation Hardening**:
+    - Fixed top-level `typealias` declarations in [`WebErrorHandler.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/error/WebErrorHandler.kt).
+    - Added `addWhitelistedDomain` & `removeWhitelistedDomain` convenience delegates in [`BrowserPreferences.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/preferences/BrowserPreferences.kt).
+
 

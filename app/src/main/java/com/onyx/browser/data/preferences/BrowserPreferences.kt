@@ -300,6 +300,14 @@ class BrowserPreferences private constructor(context: Context) {
         prefs.edit().putStringSet(KEY_ADBLOCK_WHITELIST, currentSet).apply()
     }
 
+    fun addWhitelistedDomain(domainOrUrl: String) {
+        setDomainWhitelisted(domainOrUrl, true)
+    }
+
+    fun removeWhitelistedDomain(domainOrUrl: String) {
+        setDomainWhitelisted(domainOrUrl, false)
+    }
+
     fun getBlockedRequestsCount(): Long {
         return prefs.getLong(KEY_BLOCKED_REQUESTS_COUNT, 0L)
     }

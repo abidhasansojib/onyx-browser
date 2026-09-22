@@ -4,15 +4,15 @@ import android.net.Uri
 import android.net.http.SslError
 import android.webkit.WebViewClient
 
+typealias ErrorCategory = SyntheticNavigationState.ErrorCategory
+typealias OnyxWebError = SyntheticNavigationState
+
 /**
  * Universal error classification and resolution engine for Onyx Browser.
  * Converts Chromium WebResourceErrors, HTTP status codes, SSL exceptions,
  * and local file failures into strongly-typed SyntheticNavigationState objects.
  */
 object WebErrorHandler {
-
-    typealias ErrorCategory = SyntheticNavigationState.ErrorCategory
-    typealias OnyxWebError = SyntheticNavigationState
 
     /**
      * Resolves a Chromium WebResourceError or legacy errorCode into a SyntheticNavigationState.
