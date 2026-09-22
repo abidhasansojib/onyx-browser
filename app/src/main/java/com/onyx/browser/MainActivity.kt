@@ -77,6 +77,7 @@ import com.onyx.browser.ui.home.ManageShortcutsBottomSheet
 import com.onyx.browser.ui.home.ShortcutsAdapter
 import com.onyx.browser.ui.menu.MenuBottomSheetDialogFragment
 import com.onyx.browser.ui.menu.ContextMenuBottomSheet
+import com.onyx.browser.ui.menu.LanguageSelectionDialog
 import com.onyx.browser.ui.search.SuggestionsAdapter
 import com.onyx.browser.ui.tabs.TabSwitcherBottomSheet
 import com.onyx.browser.web.DownloadHandler
