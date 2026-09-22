@@ -515,7 +515,19 @@ onyx-browser/
     - Processed 1024x1024 high-resolution source logo from `/storage/emulated/0/logo.png`.
     - Resized with Lanczos resampling across all mipmap densities (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) for `ic_launcher.png`, circular masked `ic_launcher_round.png`, and adaptive `ic_launcher_foreground.png`.
     - Set adaptive background to `#080C14` in [`ic_launcher_background.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_launcher_background.xml) to match the dark aesthetic of the logo perfectly.
-- [x] **Verified CI/CD Remote Build Run #35721761011 (`v1.0.82`)**:
-  - Successfully compiled Rust NDK `libadblock_bridge.so`, R8 ProGuard minified DEX, and packaged release APKs across all CPU architectures.
-  - Published GitHub Release [`v1.0.82`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.82) containing `Onyx-Browser-v1.0.82-arm64-v8a-release.apk` (19.6 MB), `Onyx-Browser-v1.0.82-universal-release.apk` (40.4 MB), `Onyx-Browser-v1.0.82-armeabi-v7a-release.apk` (15.6 MB), and `Onyx-Browser-v1.0.82-x86_64-release.apk` (21.1 MB).
+- [x] **Brave-Core Media Architecture Integration (Video-Only PiP, Background Play & Mini Music Player)**:
+  - Researched and extracted architectural techniques from `/root/brave-core`:
+    - Fullscreen Driver (`kYoutubeFullscreen` from `youtube_script_injector_tab_helper.cc`): triggers YouTube/HTML5 player fullscreen to isolate video into native custom view.
+    - YouTube `ytcfg` unblocking: overrides `html5_picture_in_picture_blocking_* = false` experiment flags.
+    - Page Visibility & IntersectionObserver: overrides `document.visibilityState`, `document.hidden`, `document.hasFocus()`, and `IntersectionObserver` so backgrounded/minimized video elements never pause.
+    - Media Suspension Bypass: avoids calling `webView.onPause()` on active media tabs when background playback is active.
+  - Video-Only PiP Mode:
+    - Implemented dynamic aspect ratio calculation from video dimensions (`Rational(w, h).coerceIn(Rational(1, 2), Rational(2, 1))`).
+    - Configured `setAutoEnterEnabled(true)` on Android 12+ for seamless gesture-to-PiP transitions.
+    - Completely stripped all browser chrome (`topBar`, `bottomBar`, search bar, overlays) during PiP mode, displaying strictly the video surface or fixed 100vw/100vh isolated video.
+  - Modern Lockscreen Mini Music Player Notification:
+    - Updated [`MediaPlaybackService.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackService.kt) with real-time `PlaybackStateCompat` reporting playback position and duration for Android SystemUI's native interactive seekbar.
+    - Implemented `onSeekTo(pos)` callback for notification scrub bar and Bluetooth devices.
+    - Implemented asynchronous artwork downloading from video poster / metadata URLs on `Dispatchers.IO`.
+    - Held CPU `WakeLock` during active background playback to prevent OS sleep.
 
