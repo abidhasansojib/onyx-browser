@@ -145,6 +145,16 @@ class OnyxWebView @JvmOverloads constructor(
             )
         } catch (_: Exception) {}
 
+        // Blob Downloads Bridge
+        try {
+            val bridgeScope = (activity as? LifecycleOwner)?.lifecycleScope
+                ?: CoroutineScope(Dispatchers.Main)
+            addJavascriptInterface(
+                OnyxBlobBridge(context.applicationContext, bridgeScope),
+                "OnyxBlobBridge"
+            )
+        } catch (_: Exception) {}
+
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
         try {
             val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)

@@ -159,8 +159,8 @@ object MediaPlaybackManager {
                     if (window.__onyx_allow_explicit_pause) {
                         return origPause.apply(this, arguments);
                     }
-                    // If the app is in background or window is not focused: block auto-pause
-                    if (window.__onyx_in_background || document.hidden || !document.hasFocus()) {
+                    // Block automatic pause ONLY if the browser is explicitly reported to be in background
+                    if (window.__onyx_in_background) {
                         return;
                     }
                     return origPause.apply(this, arguments);
@@ -409,6 +409,16 @@ object MediaPlaybackManager {
         (function() {
             try {
                 var vids = Array.from(document.querySelectorAll('video'));
+                // Also scan accessible same-origin iframes
+                document.querySelectorAll('iframe').forEach(function(f) {
+                    try {
+                        if (f.contentDocument) {
+                            var inner = Array.from(f.contentDocument.querySelectorAll('video'));
+                            vids = vids.concat(inner);
+                        }
+                    } catch (_) {}
+                });
+
                 var activeVid = vids.find(function(v) { return !v.paused && !v.ended && v.readyState > 1; }) 
                     || vids.find(function(v) { return !v.paused; }) 
                     || vids[0];
@@ -436,8 +446,8 @@ object MediaPlaybackManager {
                         background: #000000 !important;
                         margin: 0 !important;
                         padding: 0 !important;
-                        width: 100vw !important;
-                        height: 100vh !important;
+                        width: 100% !important;
+                        height: 100% !important;
                     }
                     /* Hide everything in the body that is not in the ancestor path to the video */
                     body > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-target]) {
@@ -448,19 +458,13 @@ object MediaPlaybackManager {
                     }
                     /* Eliminate containing blocks, transforms, clipping, and overflow on ancestors */
                     [data-onyx-pip-ancestor] {
-                        position: static !important;
                         transform: none !important;
                         contain: none !important;
                         filter: none !important;
                         clip-path: none !important;
+                        perspective: none !important;
                         overflow: visible !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        width: 100vw !important;
-                        height: 100vh !important;
-                        max-width: none !important;
-                        max-height: none !important;
-                        background: #000000 !important;
+                        background: transparent !important;
                     }
                     /* Make the video element fill 100% of the PiP viewport with black letterboxing */
                     video[data-onyx-pip-target] {
@@ -477,13 +481,17 @@ object MediaPlaybackManager {
                         object-fit: contain !important;
                         margin: 0 !important;
                         padding: 0 !important;
+                        border: none !important;
+                        box-shadow: none !important;
                     }
-                    /* Hide YouTube & other video player overlays */
+                    /* Hide website navigation, overlays, player chrome, and watermarks */
                     ytm-mobile-topbar-renderer, ytm-pivot-bar-renderer, #header-bar,
                     .ytp-chrome-top, .ytp-chrome-bottom, .ytp-gradient-top, .ytp-gradient-bottom,
                     .ytp-watermark, .ytp-pause-overlay, ytm-player-control-overlay,
                     .ytm-player-control-overlay, ytm-player-overlay-renderer,
-                    .video-annotations, .ytp-ce-element, .ytp-title {
+                    .video-annotations, .ytp-ce-element, .ytp-title,
+                    .vjs-control-bar, .jw-controls, .plyr__controls,
+                    header, nav, footer, aside, .header, .navbar {
                         display: none !important;
                     }
                 `;
@@ -510,6 +518,20 @@ object MediaPlaybackManager {
                 });
                 document.querySelectorAll('[data-onyx-pip-ancestor]').forEach(function(el) {
                     el.removeAttribute('data-onyx-pip-ancestor');
+                });
+                document.querySelectorAll('iframe').forEach(function(f) {
+                    try {
+                        if (f.contentDocument) {
+                            var innerStyle = f.contentDocument.getElementById('__onyx_pip_style');
+                            if (innerStyle) innerStyle.remove();
+                            f.contentDocument.querySelectorAll('[data-onyx-pip-target]').forEach(function(el) {
+                                el.removeAttribute('data-onyx-pip-target');
+                            });
+                            f.contentDocument.querySelectorAll('[data-onyx-pip-ancestor]').forEach(function(el) {
+                                el.removeAttribute('data-onyx-pip-ancestor');
+                            });
+                        }
+                    } catch (_) {}
                 });
             } catch (e) {}
         })();

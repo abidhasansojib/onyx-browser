@@ -926,8 +926,8 @@ class OnyxWebViewClient(
                     template = context.assets.open("error_page.html").bufferedReader().use { it.readText() }
                     cachedErrorPageTemplate = template
                 }
-                val errorJson = error.toJson()
-                val populatedHtml = template.replace("{{ERROR_JSON}}", errorJson)
+                val errorJsonB64 = error.toBase64Json()
+                val populatedHtml = template.replace("{{ERROR_JSON_B64}}", errorJsonB64)
                 view?.loadDataWithBaseURL(
                     error.failingUrl,
                     populatedHtml,

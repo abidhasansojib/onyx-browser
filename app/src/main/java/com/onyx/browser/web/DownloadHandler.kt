@@ -21,7 +21,18 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+import android.util.Base64
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.net.URLDecoder
+
 object DownloadHandler {
+
+    fun sanitizeFileName(name: String): String {
+        val clean = name.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
+        return if (clean.isBlank()) "download_${System.currentTimeMillis()}" else clean
+    }
 
     fun handleDownload(
         activity: Activity,
@@ -34,6 +45,16 @@ object DownloadHandler {
         cookies: String = "",
         referer: String = ""
     ) {
+        if (url.startsWith("data:", ignoreCase = true)) {
+            handleDataUriDownload(activity, coroutineScope, url, contentDisposition, mimeType)
+            return
+        }
+
+        if (url.startsWith("blob:", ignoreCase = true)) {
+            handleBlobUriDownload(activity, coroutineScope, url, contentDisposition, mimeType)
+            return
+        }
+
         val resolvedCookies = if (cookies.isNotBlank()) cookies else {
             try {
                 CookieManager.getInstance().getCookie(url) ?: ""
@@ -72,7 +93,8 @@ object DownloadHandler {
             }
         } else if (behavior == 1) {
             // Internal download
-            val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            val rawFileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            val fileName = sanitizeFileName(rawFileName)
             startSystemDownload(
                 context = activity,
                 coroutineScope = coroutineScope,
@@ -86,7 +108,8 @@ object DownloadHandler {
             )
         } else {
             // External download manager
-            val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            val rawFileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            val fileName = sanitizeFileName(rawFileName)
             dispatchToExternalDownloader(
                 context = activity,
                 url = url,
@@ -97,6 +120,107 @@ object DownloadHandler {
                 referer = referer
             )
         }
+    }
+
+    fun handleDataUriDownload(
+        context: Context,
+        coroutineScope: CoroutineScope,
+        dataUri: String,
+        contentDisposition: String = "",
+        mimeType: String = "",
+        suggestedFileName: String? = null
+    ) {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val commaIndex = dataUri.indexOf(',')
+                if (commaIndex == -1) throw IllegalArgumentException("Invalid data URI")
+
+                val header = dataUri.substring(5, commaIndex)
+                val isBase64 = header.contains(";base64", ignoreCase = true)
+                val detectedMime = header.substringBefore(';').ifBlank { mimeType.ifBlank { "application/octet-stream" } }
+
+                val rawData = dataUri.substring(commaIndex + 1)
+                val bytes = if (isBase64) {
+                    Base64.decode(rawData, Base64.DEFAULT)
+                } else {
+                    URLDecoder.decode(rawData, "UTF-8").toByteArray()
+                }
+
+                val ext = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(detectedMime) ?: "bin"
+                val resolvedName = if (!suggestedFileName.isNullOrBlank()) {
+                    suggestedFileName
+                } else {
+                    val guessed = URLUtil.guessFileName(dataUri, contentDisposition, detectedMime)
+                    if (guessed.isNotBlank() && !guessed.endsWith(".bin")) guessed else "download_${System.currentTimeMillis()}.$ext"
+                }
+                val fileName = sanitizeFileName(resolvedName)
+
+                val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (!dir.exists()) dir.mkdirs()
+                val targetFile = File(dir, fileName)
+                FileOutputStream(targetFile).use { it.write(bytes) }
+
+                val database = AppDatabase.getInstance(context)
+                database.downloadDao().insertDownload(
+                    DownloadItem(
+                        url = "data:$detectedMime;base64,...",
+                        fileName = fileName,
+                        filePath = targetFile.absolutePath,
+                        mimeType = detectedMime,
+                        fileSize = bytes.size.toLong(),
+                        status = DownloadItem.STATUS_COMPLETED
+                    )
+                )
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Download complete: $fileName", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Data download failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    fun handleBlobUriDownload(
+        activity: Activity,
+        coroutineScope: CoroutineScope,
+        blobUrl: String,
+        contentDisposition: String,
+        mimeType: String
+    ) {
+        val mainAct = activity as? MainActivity
+        val webView = mainAct?.tabManager?.getActiveWebView()
+        if (webView == null) {
+            Toast.makeText(activity, "Cannot download blob without active webpage", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val rawFileName = URLUtil.guessFileName(blobUrl, contentDisposition, mimeType)
+        val fileName = sanitizeFileName(rawFileName)
+
+        val script = """
+            (function() {
+                try {
+                    fetch('$blobUrl').then(function(r) { return r.blob(); }).then(function(blob) {
+                        var reader = new FileReader();
+                        reader.onloadend = function() {
+                            if (window.OnyxBlobBridge) {
+                                window.OnyxBlobBridge.onBlobDownloaded(reader.result, '$fileName', '$mimeType');
+                            }
+                        };
+                        reader.readAsDataURL(blob);
+                    }).catch(function(err) {
+                        if (window.OnyxBlobBridge) window.OnyxBlobBridge.onBlobFailed(err.toString());
+                    });
+                } catch(e) {
+                    if (window.OnyxBlobBridge) window.OnyxBlobBridge.onBlobFailed(e.toString());
+                }
+            })();
+        """.trimIndent()
+
+        webView.evaluateJavascript(script, null)
     }
 
     fun startSystemDownload(
@@ -111,6 +235,7 @@ object DownloadHandler {
         referer: String = ""
     ) {
         try {
+            val cleanFileName = sanitizeFileName(fileName)
             val resolvedCookies = if (cookies.isNotBlank()) cookies else {
                 try {
                     CookieManager.getInstance().getCookie(url) ?: ""
@@ -130,24 +255,25 @@ object DownloadHandler {
                 if (referer.isNotBlank()) {
                     addRequestHeader("Referer", referer)
                 }
-                setDescription("Downloading $fileName")
-                setTitle(fileName)
+                setDescription("Downloading $cleanFileName")
+                setTitle(cleanFileName)
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, cleanFileName)
             }
 
             val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            downloadManager.enqueue(request)
+            val downloadId = downloadManager.enqueue(request)
 
-            Toast.makeText(context, "Download started: $fileName", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Download started: $cleanFileName", Toast.LENGTH_SHORT).show()
 
             coroutineScope.launch(Dispatchers.IO) {
                 val database = AppDatabase.getInstance(context)
-                val path = "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/$fileName"
+                val path = "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/$cleanFileName"
                 database.downloadDao().insertDownload(
                     DownloadItem(
+                        downloadId = downloadId,
                         url = url,
-                        fileName = fileName,
+                        fileName = cleanFileName,
                         filePath = path,
                         mimeType = mimeType,
                         fileSize = contentLength,

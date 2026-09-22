@@ -14,6 +14,7 @@ import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.databinding.ActivityHistoryBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -23,6 +24,7 @@ class HistoryActivity : AppCompatActivity() {
     private lateinit var adapter: HistoryAdapter
     private lateinit var database: AppDatabase
 
+    private var historyJob: Job? = null
     private var currentQuery: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,7 +88,8 @@ class HistoryActivity : AppCompatActivity() {
     }
 
     private fun loadHistory() {
-        lifecycleScope.launch {
+        historyJob?.cancel()
+        historyJob = lifecycleScope.launch {
             val flow = if (currentQuery.isBlank()) {
                 database.historyDao().getAllHistoryFlow()
             } else {

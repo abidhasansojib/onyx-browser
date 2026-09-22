@@ -23,6 +23,15 @@ interface DownloadDao {
     @Delete
     suspend fun deleteDownload(item: DownloadItem)
 
+    @Query("SELECT * FROM downloads WHERE downloadId = :downloadId LIMIT 1")
+    suspend fun getDownloadByDownloadId(downloadId: Long): DownloadItem?
+
+    @Query("UPDATE downloads SET status = :status, filePath = :filePath, fileSize = :fileSize WHERE downloadId = :downloadId")
+    suspend fun updateDownloadStatusByDownloadId(downloadId: Long, status: Int, filePath: String, fileSize: Long)
+
+    @Query("UPDATE downloads SET status = :status WHERE downloadId = :downloadId")
+    suspend fun updateStatus(downloadId: Long, status: Int)
+
     @Query("DELETE FROM downloads WHERE id = :id")
     suspend fun deleteById(id: Long)
 

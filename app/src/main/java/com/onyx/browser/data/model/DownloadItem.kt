@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class DownloadItem(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val downloadId: Long = -1L,
     val url: String,
     val fileName: String,
     val filePath: String,

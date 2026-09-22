@@ -12,9 +12,12 @@ import com.onyx.browser.data.model.TabItem
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
 
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+
 @Database(
     entities = [TabItem::class, HistoryItem::class, BookmarkItem::class, DownloadItem::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,6 +28,12 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         private const val TAG = "AppDatabase"
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE downloads ADD COLUMN downloadId INTEGER NOT NULL DEFAULT -1")
+            }
+        }
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -51,6 +60,7 @@ abstract class AppDatabase : RoomDatabase() {
                         AppDatabase::class.java,
                         "onyx_browser_fallback.db"
                     )
+                        .addMigrations(MIGRATION_2_3)
                         .fallbackToDestructiveMigration()
                         .build()
                 }
@@ -71,6 +81,7 @@ abstract class AppDatabase : RoomDatabase() {
                 "onyx_browser_secure.db"
             )
                 .openHelperFactory(factory)
+                .addMigrations(MIGRATION_2_3)
                 .fallbackToDestructiveMigration()
                 .build()
         }

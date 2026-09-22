@@ -318,6 +318,15 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
+        <!-- Download Complete Broadcast Receiver -->
+        <receiver
+            android:name=".web.DownloadCompleteReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

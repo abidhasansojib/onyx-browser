@@ -397,11 +397,12 @@
 
     // Parse Error Payload
     let errorData = null;
-    const rawJson = `{{ERROR_JSON}}`;
+    const rawBase64 = '{{ERROR_JSON_B64}}';
 
-    if (!rawJson.startsWith('{{')) {
+    if (!rawBase64.startsWith('{{') && rawBase64.length > 0) {
       try {
-        errorData = JSON.parse(rawJson);
+        const decoded = decodeURIComponent(escape(atob(rawBase64)));
+        errorData = JSON.parse(decoded);
       } catch (e) {}
     }
 

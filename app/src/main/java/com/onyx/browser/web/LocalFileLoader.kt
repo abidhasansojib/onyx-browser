@@ -193,10 +193,11 @@ object LocalFileLoader {
             description = "net::ERR_FILE_NOT_FOUND",
             isNetworkConnected = true
         )
+        webView.currentSyntheticState = onyxError
         webView.post {
             try {
                 val template = context.assets.open("error_page.html").bufferedReader().use { it.readText() }
-                val populated = template.replace("{{ERROR_JSON}}", onyxError.toJson())
+                val populated = template.replace("{{ERROR_JSON_B64}}", onyxError.toBase64Json())
                 webView.loadDataWithBaseURL(url, populated, "text/html", "UTF-8", url)
             } catch (_: Exception) {
                 webView.loadUrl(url)

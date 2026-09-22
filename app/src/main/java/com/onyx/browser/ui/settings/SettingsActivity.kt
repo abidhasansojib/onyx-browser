@@ -118,7 +118,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupMediaPreferences() {
         binding.settingBackgroundPlaySwitch.isChecked = preferences.isBackgroundPlayEnabled
         binding.settingBackgroundPlayRow.setOnClickListener {
-            binding.settingBackgroundPlaySwitch.toggle()
+            binding.settingBackgroundPlaySwitch.isChecked = !binding.settingBackgroundPlaySwitch.isChecked
         }
         binding.settingBackgroundPlaySwitch.setOnCheckedChangeListener { _, isChecked ->
             preferences.isBackgroundPlayEnabled = isChecked
@@ -129,10 +129,13 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.settingPipSwitch.isChecked = preferences.isPipEnabled
         binding.settingPipRow.setOnClickListener {
-            binding.settingPipSwitch.toggle()
+            binding.settingPipSwitch.isChecked = !binding.settingPipSwitch.isChecked
         }
         binding.settingPipSwitch.setOnCheckedChangeListener { _, isChecked ->
             preferences.isPipEnabled = isChecked
+            if (!isChecked) {
+                com.onyx.browser.media.MediaPlaybackBridge.isVideoPlaying = false
+            }
         }
 
         binding.settingDisplayOverOtherAppsRow.setOnClickListener {

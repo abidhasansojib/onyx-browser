@@ -83,6 +83,13 @@ sealed class SyntheticNavigationState(
             .replace("\r", "")
             .replace("\t", "\\t")
 
+    fun toBase64Json(): String {
+        return android.util.Base64.encodeToString(
+            toJson().toByteArray(Charsets.UTF_8),
+            android.util.Base64.NO_WRAP
+        )
+    }
+
     class Offline(
         failingUrl: String,
         errorCode: String = "net::ERR_INTERNET_DISCONNECTED",

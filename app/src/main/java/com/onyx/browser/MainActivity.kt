@@ -1618,6 +1618,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        if (!preferences.isPipEnabled) {
+            updatePipParams(isVideoPlaying = false)
+        }
         val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
         if (preferences.isBackgroundPlayEnabled) {
             tabManager.getActiveWebView()?.evaluateJavascript(
@@ -1713,6 +1716,7 @@ class MainActivity : AppCompatActivity() {
             } else {
                 binding.fullscreenCustomViewContainer.visibility = View.GONE
                 binding.webViewContainer.visibility = View.VISIBLE
+                binding.webViewContainer.setBackgroundColor(android.graphics.Color.BLACK)
                 // Isolate video DOM so only the video displays in PiP without any webpage UI
                 activeWv?.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript, null)
             }
@@ -1721,6 +1725,7 @@ class MainActivity : AppCompatActivity() {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             binding.topBar.visibility = View.VISIBLE
             binding.topBarDivider.visibility = View.VISIBLE
+            binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
 
             if (customVideoView != null) {
                 binding.fullscreenControlsOverlay.visibility = View.VISIBLE
