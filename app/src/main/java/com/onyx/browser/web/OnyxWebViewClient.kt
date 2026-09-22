@@ -785,12 +785,14 @@ class OnyxWebViewClient(
         }
     }
 
+    @Volatile
+    private var cachedErrorPageTemplate: String? = null
+
     override fun onReceivedError(
         view: WebView?,
         request: WebResourceRequest?,
         error: android.webkit.WebResourceError?
     ) {
-        super.onReceivedError(view, request, error)
         if (request?.isForMainFrame == true) {
             val url = request.url.toString()
             if (url.startsWith("file:///android_asset/")) return
@@ -801,6 +803,9 @@ class OnyxWebViewClient(
                 view?.loadUrl(fallbackUrl)
                 return
             }
+
+            // Immediately stop loading to prevent Chromium's default error page from flashing
+            try { view?.stopLoading() } catch (_: Throwable) {}
 
             val errorDesc = error?.description?.toString() ?: ""
             val errCodeString = when {
@@ -815,7 +820,9 @@ class OnyxWebViewClient(
             }
 
             loadCustomErrorPage(view, url, errCodeString, errorDesc)
+            return // DO NOT call super.onReceivedError() to prevent the old error page from flashing!
         }
+        super.onReceivedError(view, request, error)
     }
 
     @Deprecated("Deprecated in Java")
@@ -825,10 +832,10 @@ class OnyxWebViewClient(
         description: String?,
         failingUrl: String?
     ) {
-        super.onReceivedError(view, errorCode, description, failingUrl)
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) {
             val url = failingUrl ?: view?.url ?: return
             if (url.startsWith("file:///android_asset/")) return
+            try { view?.stopLoading() } catch (_: Throwable) {}
             val errCodeString = when {
                 !isNetworkConnected() -> "ERR_INTERNET_DISCONNECTED"
                 errorCode == WebViewClient.ERROR_HOST_LOOKUP -> "ERR_NAME_NOT_RESOLVED"
@@ -837,7 +844,9 @@ class OnyxWebViewClient(
                 else -> description ?: "ERR_CONNECTION_FAILED"
             }
             loadCustomErrorPage(view, url, errCodeString, description ?: "")
+            return
         }
+        super.onReceivedError(view, errorCode, description, failingUrl)
     }
 
     override fun onReceivedSslError(
@@ -850,6 +859,7 @@ class OnyxWebViewClient(
         if (preferences.httpsUpgradeMode == BrowserPreferences.HTTPS_MODE_STRICT) {
             // Strict: never fall back to HTTP, cancel and show error
             handler?.cancel()
+            try { view?.stopLoading() } catch (_: Throwable) {}
             loadCustomErrorPage(view, url, "ERR_SSL_PROTOCOL_ERROR", "The site's security certificate is invalid or untrusted.")
         } else if (upgradedUrls.contains(fallbackUrl)) {
             handler?.cancel()
@@ -876,14 +886,18 @@ class OnyxWebViewClient(
     }
 
     private fun loadCustomErrorPage(view: WebView?, failingUrl: String, errorCode: String, errorDesc: String) {
-        view?.post {
+        val renderAction = Runnable {
             try {
-                val template = context.assets.open("error_page.html").bufferedReader().use { it.readText() }
+                var template = cachedErrorPageTemplate
+                if (template == null) {
+                    template = context.assets.open("error_page.html").bufferedReader().use { it.readText() }
+                    cachedErrorPageTemplate = template
+                }
                 val populatedHtml = template
                     .replace("{{URL}}", failingUrl)
                     .replace("{{ERROR_CODE}}", errorCode)
                     .replace("{{ERROR_DESC}}", errorDesc)
-                view.loadDataWithBaseURL(
+                view?.loadDataWithBaseURL(
                     failingUrl,
                     populatedHtml,
                     "text/html",
@@ -894,8 +908,14 @@ class OnyxWebViewClient(
                 val encodedUrl = Uri.encode(failingUrl)
                 val encodedErr = Uri.encode(errorCode)
                 val encodedDesc = Uri.encode(errorDesc)
-                view.loadUrl("file:///android_asset/error_page.html?url=$encodedUrl&error=$encodedErr&desc=$encodedDesc")
+                view?.loadUrl("file:///android_asset/error_page.html?url=$encodedUrl&error=$encodedErr&desc=$encodedDesc")
             }
+        }
+
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            renderAction.run()
+        } else {
+            view?.post(renderAction)
         }
     }
 }

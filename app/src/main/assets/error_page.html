@@ -19,7 +19,6 @@
       --pill-text: #1967D2;
       --danger-bg: #FCE8E6;
       --danger-text: #D93025;
-      --game-ground: #DADCE0;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -37,7 +36,6 @@
         --pill-text: #8AB4F8;
         --danger-bg: #3C1E1E;
         --danger-text: #F28B82;
-        --game-ground: #3C4043;
       }
     }
 
@@ -102,55 +100,62 @@
     h1 {
       font-size: 20px;
       font-weight: 700;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       letter-spacing: -0.2px;
     }
 
     .error-pill {
-      display: inline-block;
-      font-family: monospace;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
       font-size: 11px;
-      padding: 4px 10px;
-      border-radius: 20px;
-      background-color: var(--chip-bg);
       color: var(--text-sub);
-      margin-bottom: 14px;
-      word-break: break-all;
+      background-color: var(--chip-bg);
+      padding: 3px 10px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      display: inline-block;
     }
 
-    p.description {
-      font-size: 13px;
+    .description {
+      font-size: 13.5px;
       color: var(--text-sub);
       line-height: 1.5;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
+      max-width: 360px;
     }
 
+    /* Checklist Card */
     .checklist-card {
       width: 100%;
       background-color: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 16px;
-      padding: 14px 16px;
-      margin-bottom: 20px;
+      padding: 16px;
       text-align: left;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
     }
 
     .checklist-title {
-      font-size: 11px;
-      font-weight: 700;
+      font-size: 12px;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: var(--text-sub);
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
 
     .checklist-item {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 10px;
-      padding: 6px 0;
       font-size: 13px;
       color: var(--text-main);
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    .checklist-item:last-child {
+      margin-bottom: 0;
     }
 
     .dot {
@@ -158,30 +163,31 @@
       height: 6px;
       border-radius: 50%;
       background-color: var(--primary);
+      margin-top: 6px;
       flex-shrink: 0;
     }
 
+    /* Actions Row */
     .actions-row {
       display: flex;
       gap: 10px;
       width: 100%;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     .btn {
       flex: 1;
+      height: 44px;
+      border-radius: 12px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 12px 18px;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s ease;
-      text-decoration: none;
+      transition: background-color 0.15s, transform 0.1s;
     }
 
     .btn-primary {
@@ -203,55 +209,6 @@
     .btn-secondary:active {
       background-color: var(--chip-bg);
       transform: scale(0.98);
-    }
-
-    /* Mini-Game Box */
-    .game-box {
-      width: 100%;
-      background-color: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 16px;
-      padding: 12px;
-      margin-top: 4px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .game-header {
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: var(--text-sub);
-      margin-bottom: 8px;
-    }
-
-    .game-canvas-wrap {
-      position: relative;
-      width: 100%;
-      height: 120px;
-      border-radius: 10px;
-      overflow: hidden;
-      background-color: var(--chip-bg);
-    }
-
-    canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    .game-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #FFFFFF;
     }
   </style>
 </head>
@@ -315,21 +272,6 @@
       </button>
     </div>
 
-    <!-- Offline Runner Mini-Game -->
-    <div id="gameSection" class="game-box">
-      <div class="game-header">
-        <span>Tap canvas to jump</span>
-        <span>Score: <b id="scoreLabel">0</b> | Best: <b id="bestScoreLabel">0</b></span>
-      </div>
-      <div class="game-canvas-wrap" onclick="handleJump()">
-        <canvas id="gameCanvas" width="380" height="120"></canvas>
-        <div id="gameOverlay" class="game-overlay">
-          <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px;">GAME OVER</div>
-          <button class="btn btn-primary" style="padding: 6px 14px; font-size: 12px;" onclick="event.stopPropagation(); restartMiniGame();">Play Again</button>
-        </div>
-      </div>
-    </div>
-
   </div>
 
   <script>
@@ -366,7 +308,6 @@
       document.getElementById('check1').innerText = "Check if there is a typo in the URL";
       document.getElementById('check2').innerText = "Test searching for the website name";
       document.getElementById('check3').innerText = "Change DNS provider in Settings > Shields & Privacy";
-      document.getElementById('gameSection').style.display = 'none';
     } else if (!isOffline && errParam !== '{{ERROR_CODE}}') {
       document.getElementById('errorTitle').innerText = "Web Page Not Available";
       document.getElementById('errorCode').innerText = errParam.startsWith('net::') ? errParam : `net::${errParam}`;
@@ -389,108 +330,6 @@
       } catch (_) {}
       window.location.href = `https://search.brave.com/search?q=${encodeURIComponent(query)}`;
     }
-
-    // Mini-Game Logic
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    let gameActive = true;
-    let animId = null;
-    let score = 0;
-    let bestScore = 0;
-    let p = { x: 30, y: 80, dy: 0, jump: -6, gravity: 0.35, grounded: true, size: 14 };
-    let obstacles = [];
-    let frame = 0;
-
-    function restartMiniGame() {
-      document.getElementById('gameOverlay').style.display = 'none';
-      score = 0;
-      frame = 0;
-      obstacles = [];
-      p.y = 80;
-      p.dy = 0;
-      p.grounded = true;
-      gameActive = true;
-      if (animId) cancelAnimationFrame(animId);
-      loop();
-    }
-
-    function handleJump() {
-      if (!gameActive) return;
-      if (p.grounded) {
-        p.dy = p.jump;
-        p.grounded = false;
-      }
-    }
-
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        handleJump();
-      }
-    });
-
-    function loop() {
-      if (!gameActive) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Ground
-      ctx.strokeStyle = '#88888844';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, 100);
-      ctx.lineTo(canvas.width, 100);
-      ctx.stroke();
-
-      // Physics
-      p.dy += p.gravity;
-      p.y += p.dy;
-      if (p.y >= 86) {
-        p.y = 86;
-        p.dy = 0;
-        p.grounded = true;
-      }
-
-      // Draw Player (Onyx Orb)
-      ctx.fillStyle = '#3B82F6';
-      ctx.beginPath();
-      ctx.arc(p.x + 7, p.y + 7, 7, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Spawn Obstacles
-      if (frame % 75 === 0 && Math.random() > 0.25) {
-        obstacles.push({ x: canvas.width, w: 10, h: 14 + Math.random() * 8 });
-      }
-
-      for (let i = obstacles.length - 1; i >= 0; i--) {
-        const obs = obstacles[i];
-        obs.x -= 3.2;
-
-        ctx.fillStyle = '#EF4444';
-        ctx.fillRect(obs.x, 100 - obs.h, obs.w, obs.h);
-
-        // Collision
-        if (p.x + 14 > obs.x && p.x < obs.x + obs.w && p.y + 14 > 100 - obs.h) {
-          gameActive = false;
-          document.getElementById('gameOverlay').style.display = 'flex';
-          if (score > bestScore) {
-            bestScore = score;
-            document.getElementById('bestScoreLabel').innerText = bestScore;
-          }
-          return;
-        }
-
-        if (obs.x + obs.w < 0) {
-          obstacles.splice(i, 1);
-          score++;
-          document.getElementById('scoreLabel').innerText = score;
-        }
-      }
-
-      frame++;
-      animId = requestAnimationFrame(loop);
-    }
-
-    restartMiniGame();
   </script>
 </body>
 </html>

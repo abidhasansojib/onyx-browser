@@ -478,7 +478,10 @@ onyx-browser/
   - **Release Optimization & ABI Splits**: Enabled `splits.abi` (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`) generating ultra-compact ~14-16 MB APKs for 64-bit ARM devices alongside universal fallbacks.
   - **R8 / ProGuard Minification**: Configured `isMinifyEnabled = true` and `isShrinkResources = true` in `build.gradle.kts` with production-grade keep rules in `proguard-rules.pro` protecting Brave `adblock-rust` JNI bindings, `@JavascriptInterface`, WebAuthn/Passkeys, Room, and SQLCipher.
   - **Automated Monotonic Versioning**: Automatically computes `versionCode` and `versionName` per run based on `github.run_number` (`v1.0.${{ github.run_number }}`).
-  - **Automated GitHub Releases**: Publishes signed release APKs directly to GitHub Releases with auto-generated release notes and architectural guides; Debug builds upload to GitHub Actions artifacts.
+- [x] **Eliminated Error Page Delay & Streamlined Error Screen**:
+  - **Eliminated Stock Error Flash**: Removed `super.onReceivedError()` delegation on main-frame errors and called `view?.stopLoading()` immediately so Chromium never renders its default stock error page.
+  - **Zero-Latency Template Caching**: Cached `error_page.html` in memory (`cachedErrorPageTemplate`) and execute `loadDataWithBaseURL` synchronously on the main thread, completely eliminating the 1-second delay.
+  - **Removed Mini-Game**: Stripped the offline runner game and canvas from [`app/src/main/assets/error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html) and [`error_pages_widget.html`](file:///root/.gemini/antigravity-cli/brain/57371cad-7a74-4301-ab0c-1cc01cd1e821/error_pages_widget.html), keeping the error screen clean, modern, and focused on troubleshooting and diagnostics.
 
 
 
