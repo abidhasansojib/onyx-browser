@@ -117,6 +117,21 @@ class ManageShortcutsAdapter(
                     binding.tvManageLetter.visibility = View.GONE
                     binding.ivManageIcon.setImageResource(R.drawable.ic_brand_reddit)
                 }
+                ShortcutItem.ICON_BOOKMARKS -> {
+                    binding.ivManageIcon.visibility = View.VISIBLE
+                    binding.tvManageLetter.visibility = View.GONE
+                    binding.ivManageIcon.setImageResource(R.drawable.ic_bookmark)
+                }
+                ShortcutItem.ICON_HISTORY -> {
+                    binding.ivManageIcon.visibility = View.VISIBLE
+                    binding.tvManageLetter.visibility = View.GONE
+                    binding.ivManageIcon.setImageResource(R.drawable.ic_history)
+                }
+                ShortcutItem.ICON_DOWNLOADS -> {
+                    binding.ivManageIcon.visibility = View.VISIBLE
+                    binding.tvManageLetter.visibility = View.GONE
+                    binding.ivManageIcon.setImageResource(R.drawable.ic_download)
+                }
                 else -> {
                     val letter = item.title.trim().firstOrNull()?.uppercase()
                         ?: item.url.removePrefix("https://").removePrefix("http://").removePrefix("www.").firstOrNull()?.uppercase()

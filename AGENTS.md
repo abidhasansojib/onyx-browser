@@ -394,4 +394,13 @@ onyx-browser/
   - Added `btnQrScanner` (`ic_qr_code`) inside `searchBarContainer` beside the voice search microphone icon matching the Brave layout in screenshot `/storage/emulated/0/1.png`.
   - Configured visibility lifecycle: normally hidden (`GONE`) during idle web browsing or home view; immediately revealed (`VISIBLE`) when user taps search bar to enter text or search.
   - Tapping `btnQrScanner` launches `QrScannerActivity` directly for camera barcode and QR scanning.
+- [x] **Homepage Add Shortcut Tile & Modernized Edit UI**:
+  - **Grid-Integrated Add Tile**: Removed the standalone plus button header (`shortcutsSectionHeader`) located above shortcuts in `fragment_home.xml`. Placed a dedicated "Add" shortcut tile (`ICON_ADD`) directly inside the shortcuts grid beside normal shortcuts, matching screenshot `/storage/emulated/0/2.png` with squircle shape (`bg_box_tile.xml`), centered white `ic_add` icon, and "Add" label. Tapping it opens `ManageShortcutsBottomSheet`.
+  - **Simplified Long-Press Menu (Delete Only)**: Streamlined shortcut long-press in `MainActivity.kt` to remove "Open in new tab", "Edit shortcut", and "Share link", leaving exclusively the "Delete shortcut" action dialog as requested.
+  - **Material 3 Edit Shortcut Dialog Redesign**: Completely overhauled `EditShortcutDialog` (`dialog_edit_shortcut.xml`) with a modern Material 3 `MaterialCardView` layout:
+    - Responsive 90% dialog width (max 420dp) with transparent backdrop, completely eliminating the cramped "tiny window".
+    - Header with live-preview squircle tile that dynamically updates the website brand icon or capitalized letter badge in real time as the user edits title and URL.
+    - Material 3 outlined `TextInputLayout` widgets with floating labels, clear-text buttons, start icons (`ic_edit`, `ic_link`), and URL validation.
+    - Rounded action buttons (`btnCancelEdit`, `btnSaveEdit` with `ic_check` icon).
+
 

@@ -103,39 +103,12 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- ── Shortcuts Section Header with Add button ──────────────────── -->
-        <LinearLayout
-            android:id="@+id/shortcutsSectionHeader"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:gravity="end"
-            android:orientation="horizontal"
-            android:paddingStart="2dp"
-            android:paddingEnd="2dp"
-            android:paddingTop="4dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/guideCenter"
-            app:layout_constraintWidth_max="480dp">
-
-            <androidx.appcompat.widget.AppCompatImageButton
-                android:id="@+id/btnManageShortcuts"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/manage_shortcuts"
-                android:padding="4dp"
-                app:srcCompat="@drawable/ic_add"
-                app:tint="?android:attr/textColorSecondary" />
-
-        </LinearLayout>
-
-        <!-- ── Unified Grid ────────────────────────────────────── -->
+        <!-- ── Unified Shortcuts Grid ────────────────────────────────────── -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvShortcuts"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="12dp"
             android:layout_marginBottom="36dp"
             android:elevation="0dp"
             android:nestedScrollingEnabled="false"
@@ -144,7 +117,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/shortcutsSectionHeader"
+            app:layout_constraintTop_toBottomOf="@id/guideCenter"
             app:layout_constraintVertical_bias="0.0"
             app:layout_constraintWidth_max="480dp" />
 

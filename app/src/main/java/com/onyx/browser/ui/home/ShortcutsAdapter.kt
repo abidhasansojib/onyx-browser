@@ -1,9 +1,12 @@
 package com.onyx.browser.ui.home
 
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.color.MaterialColors
 import com.onyx.browser.R
 import com.onyx.browser.data.model.ShortcutItem
 import com.onyx.browser.databinding.ItemHomeShortcutBinding
@@ -18,14 +21,26 @@ class ShortcutsAdapter(
 
     fun submitList(newItems: List<ShortcutItem>) {
         items.clear()
-        items.addAll(newItems)
+        // Add normal shortcuts excluding any existing add sentinel
+        items.addAll(newItems.filter { it.id != ShortcutItem.ID_ADD_SHORTCUT && it.url != ShortcutItem.URL_ADD_SHORTCUT })
+        // Append the Add shortcut tile beside normal shortcuts
+        items.add(
+            ShortcutItem(
+                id = ShortcutItem.ID_ADD_SHORTCUT,
+                title = "Add",
+                url = ShortcutItem.URL_ADD_SHORTCUT,
+                iconType = ShortcutItem.ICON_ADD
+            )
+        )
         notifyDataSetChanged()
     }
 
-    fun getItems(): List<ShortcutItem> = items.toList()
+    fun getItems(): List<ShortcutItem> =
+        items.filter { it.id != ShortcutItem.ID_ADD_SHORTCUT && it.url != ShortcutItem.URL_ADD_SHORTCUT }
 
     fun onItemMove(fromPosition: Int, toPosition: Int): Boolean {
-        if (fromPosition < 0 || toPosition < 0 || fromPosition >= items.size || toPosition >= items.size) {
+        val lastIdx = items.lastIndex
+        if (fromPosition < 0 || toPosition < 0 || fromPosition >= lastIdx || toPosition >= lastIdx) {
             return false
         }
         if (fromPosition < toPosition) {
@@ -61,15 +76,34 @@ class ShortcutsAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: ShortcutItem) {
-            binding.tvShortcutTitle.text = item.title.ifBlank {
-                try {
-                    java.net.URI(item.url).host?.removePrefix("www.") ?: item.url
-                } catch (_: Exception) {
-                    item.url
+            val isAdd = item.id == ShortcutItem.ID_ADD_SHORTCUT || item.iconType == ShortcutItem.ICON_ADD || item.url == ShortcutItem.URL_ADD_SHORTCUT
+
+            binding.tvShortcutTitle.text = if (isAdd) {
+                item.title.ifBlank { "Add" }
+            } else {
+                item.title.ifBlank {
+                    try {
+                        java.net.URI(item.url).host?.removePrefix("www.") ?: item.url
+                    } catch (_: Exception) {
+                        item.url
+                    }
                 }
             }
 
+            // Reset tint & color filters to prevent recycled view tint bleed
+            binding.ivShortcutIcon.clearColorFilter()
+            binding.ivShortcutIcon.imageTintList = null
+
+            val textColorPrimary = MaterialColors.getColor(binding.root, android.R.attr.textColorPrimary, Color.WHITE)
+            val textColorSecondary = MaterialColors.getColor(binding.root, android.R.attr.textColorSecondary, Color.LTGRAY)
+
             when (item.iconType) {
+                ShortcutItem.ICON_ADD -> {
+                    binding.ivShortcutIcon.visibility = View.VISIBLE
+                    binding.tvLetterBadge.visibility = View.GONE
+                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_add)
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorPrimary)
+                }
                 ShortcutItem.ICON_GOOGLE -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
@@ -104,25 +138,25 @@ class ShortcutsAdapter(
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_bookmark)
-                    binding.ivShortcutIcon.setColorFilter(android.graphics.Color.parseColor("#808080"))
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 ShortcutItem.ICON_HISTORY -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_history)
-                    binding.ivShortcutIcon.setColorFilter(android.graphics.Color.parseColor("#808080"))
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 ShortcutItem.ICON_DOWNLOADS -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_download)
-                    binding.ivShortcutIcon.setColorFilter(android.graphics.Color.parseColor("#808080"))
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 ShortcutItem.ICON_QR_SCAN -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_qr_code)
-                    binding.ivShortcutIcon.setColorFilter(android.graphics.Color.parseColor("#808080"))
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 else -> {
                     val letter = item.title.trim().firstOrNull()?.uppercase()
@@ -131,10 +165,12 @@ class ShortcutsAdapter(
                         binding.ivShortcutIcon.visibility = View.GONE
                         binding.tvLetterBadge.visibility = View.VISIBLE
                         binding.tvLetterBadge.text = letter
+                        binding.tvLetterBadge.setTextColor(textColorPrimary)
                     } else {
                         binding.ivShortcutIcon.visibility = View.VISIBLE
                         binding.tvLetterBadge.visibility = View.GONE
                         binding.ivShortcutIcon.setImageResource(R.drawable.ic_web)
+                        binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                     }
                 }
             }
@@ -144,8 +180,12 @@ class ShortcutsAdapter(
             }
 
             itemView.setOnLongClickListener {
-                onShortcutLongClick(item)
-                true
+                if (!isAdd) {
+                    onShortcutLongClick(item)
+                    true
+                } else {
+                    false
+                }
             }
         }
     }

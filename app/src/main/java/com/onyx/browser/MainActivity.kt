@@ -504,10 +504,17 @@ class MainActivity : AppCompatActivity() {
         // Dynamic Shortcuts RecyclerView
         shortcutsAdapter = ShortcutsAdapter(
             onShortcutClick = { shortcut ->
-                performSearchOrLoad(shortcut.url)
+                if (shortcut.id == ShortcutItem.ID_ADD_SHORTCUT || shortcut.url == ShortcutItem.URL_ADD_SHORTCUT) {
+                    val sheet = ManageShortcutsBottomSheet()
+                    sheet.show(supportFragmentManager, ManageShortcutsBottomSheet.TAG)
+                } else {
+                    performSearchOrLoad(shortcut.url)
+                }
             },
             onShortcutLongClick = { shortcut ->
-                showShortcutOptionsMenu(shortcut)
+                if (shortcut.id != ShortcutItem.ID_ADD_SHORTCUT && shortcut.url != ShortcutItem.URL_ADD_SHORTCUT) {
+                    showShortcutDeleteOption(shortcut)
+                }
             }
         )
 
@@ -550,12 +557,6 @@ class MainActivity : AppCompatActivity() {
         })
         // touchHelper.attachToRecyclerView(home.rvShortcuts)
 
-        // Manage Shortcuts button (pencil icon in the section header)
-        home.btnManageShortcuts.setOnClickListener {
-            val sheet = ManageShortcutsBottomSheet()
-            sheet.show(supportFragmentManager, ManageShortcutsBottomSheet.TAG)
-        }
-
         // Observe shortcuts flow
         lifecycleScope.launch {
             preferences.shortcutsFlow.collectLatest { shortcuts ->
@@ -564,46 +565,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showShortcutOptionsMenu(shortcut: ShortcutItem) {
+    private fun showShortcutDeleteOption(shortcut: ShortcutItem) {
+        val title = shortcut.title.ifBlank { shortcut.url }
         val options = arrayOf(
-            getString(R.string.open_in_new_tab),
-            getString(R.string.edit_shortcut),
-            getString(R.string.delete_shortcut),
-            getString(R.string.share)
+            getString(R.string.delete_shortcut)
         )
 
         MaterialAlertDialogBuilder(this)
-            .setTitle(shortcut.title.ifBlank { shortcut.url })
+            .setTitle(title)
             .setItems(options) { _, which ->
-                when (which) {
-                    0 -> {
-                        // Open in new tab
-                        val newTab = tabManager.createNewTab(url = shortcut.url)
-                        displayTab(newTab)
-                    }
-                    1 -> {
-                        // Edit shortcut
-                        val dialog = EditShortcutDialog(shortcut) { updated ->
-                            preferences.updateShortcut(updated)
-                            Toast.makeText(this, R.string.shortcut_updated, Toast.LENGTH_SHORT).show()
-                        }
-                        dialog.show(supportFragmentManager, EditShortcutDialog.TAG)
-                    }
-                    2 -> {
-                        // Delete shortcut
-                        preferences.deleteShortcut(shortcut.id)
-                        Toast.makeText(this, R.string.shortcut_deleted, Toast.LENGTH_SHORT).show()
-                    }
-                    3 -> {
-                        // Share
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, shortcut.url)
-                        }
-                        startActivity(Intent.createChooser(shareIntent, getString(R.string.share)))
-                    }
+                if (which == 0) {
+                    preferences.deleteShortcut(shortcut.id)
+                    Toast.makeText(this, R.string.shortcut_deleted, Toast.LENGTH_SHORT).show()
                 }
             }
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 

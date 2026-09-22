@@ -31,6 +31,10 @@ data class ShortcutItem(
         const val ICON_HISTORY = "history"
         const val ICON_DOWNLOADS = "downloads"
         const val ICON_QR_SCAN = "qr_scan"
+        const val ICON_ADD = "add"
+
+        const val ID_ADD_SHORTCUT = "action_add_shortcut"
+        const val URL_ADD_SHORTCUT = "onyx://add"
 
         fun fromJson(json: JSONObject): ShortcutItem {
             val url = json.optString("url", "")
@@ -47,6 +51,7 @@ data class ShortcutItem(
         fun inferIconType(url: String): String {
             val lower = url.lowercase()
             return when {
+                lower.startsWith("onyx://add") -> ICON_ADD
                 lower.startsWith("onyx://bookmarks") -> ICON_BOOKMARKS
                 lower.startsWith("onyx://history") -> ICON_HISTORY
                 lower.startsWith("onyx://downloads") -> ICON_DOWNLOADS
