@@ -74,6 +74,9 @@ import com.onyx.browser.web.OnyxWebChromeClient
 import com.onyx.browser.web.OnyxWebView
 import com.onyx.browser.web.OnyxWebViewClient
 import com.onyx.browser.data.filter.FilterListManager
+import com.onyx.browser.media.MediaPlaybackBridge
+import com.onyx.browser.media.MediaPlaybackService
+import com.onyx.browser.web.MediaPlaybackManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -93,6 +96,7 @@ class MainActivity : AppCompatActivity() {
     private var isSearchMode = false
     private var customVideoView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var shouldAutoEnterPipOnCustomView: Boolean = false
     private var currentDisplayedTabId: String? = null
     private var isTabsRestored = false
     private var pendingIntent: Intent? = null
@@ -290,6 +294,7 @@ class MainActivity : AppCompatActivity() {
         setupFindInPage()
         setupHomepageInteractions()
         setupBackNavigation()
+        setupMediaPlaybackListener()
 
         checkNotificationPermissionForDownloads()
 
@@ -1222,6 +1227,13 @@ class MainActivity : AppCompatActivity() {
                 )
             } catch (_: Exception) {}
         }
+
+        if (shouldAutoEnterPipOnCustomView) {
+            shouldAutoEnterPipOnCustomView = false
+            binding.root.post {
+                enterPipMode()
+            }
+        }
     }
 
     private fun hideCustomFullscreenVideo() {
@@ -1249,6 +1261,29 @@ class MainActivity : AppCompatActivity() {
         WindowCompat.getInsetsController(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
     }
 
+    fun requestInPageVideoPip() {
+        if (customVideoView != null) {
+            enterPipMode()
+            return
+        }
+        val activeWv = tabManager.getActiveWebView()
+        if (activeWv == null) {
+            Toast.makeText(this, "No active webpage to extract video", Toast.LENGTH_SHORT).show()
+            return
+        }
+        shouldAutoEnterPipOnCustomView = true
+        activeWv.evaluateJavascript(MediaPlaybackManager.requestVideoFullscreenScript) { result ->
+            if (result != "true") {
+                shouldAutoEnterPipOnCustomView = false
+                if (customVideoView != null) {
+                    enterPipMode()
+                } else {
+                    Toast.makeText(this, "No active video found on page to enter PiP", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     fun enterPipMode() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
@@ -1270,6 +1305,12 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
 
+                // If video is not in fullscreen container yet, extract it first so ONLY video is in PiP
+                if (customVideoView == null) {
+                    requestInPageVideoPip()
+                    return
+                }
+
                 val paramsBuilder = PictureInPictureParams.Builder()
                     .setAspectRatio(Rational(16, 9))
 
@@ -1283,6 +1324,34 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             Toast.makeText(this, "Picture-in-Picture requires Android 8.0+", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun setupMediaPlaybackListener() {
+        MediaPlaybackService.mediaActionListener = object : MediaPlaybackService.MediaActionListener {
+            override fun onPlayMedia() {
+                runOnUiThread {
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
+                }
+            }
+
+            override fun onPauseMedia() {
+                runOnUiThread {
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                }
+            }
+
+            override fun onSeekMedia(deltaSeconds: Int) {
+                runOnUiThread {
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(deltaSeconds), null)
+                }
+            }
+
+            override fun onStopMedia() {
+                runOnUiThread {
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                }
+            }
         }
     }
 
@@ -1505,6 +1574,12 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
+        if (preferences.isBackgroundPlayEnabled) {
+            tabManager.getActiveWebView()?.evaluateJavascript(
+                MediaPlaybackManager.getSetBackgroundStateScript(true),
+                null
+            )
+        }
         if (!isPip && !preferences.isBackgroundPlayEnabled) {
             tabManager.getActiveWebView()?.onPause()
         }
@@ -1513,10 +1588,10 @@ class MainActivity : AppCompatActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (preferences.isPipEnabled) {
-            val isWebActive = binding.webViewContainer.visibility == View.VISIBLE && binding.homeLayout.root.visibility != View.VISIBLE
-            val hasActiveVideoOrPage = customVideoView != null || isWebActive
-            if (hasActiveVideoOrPage) {
+            if (customVideoView != null) {
                 enterPipMode()
+            } else if (MediaPlaybackBridge.isVideoPlaying) {
+                requestInPageVideoPip()
             }
         }
     }
@@ -1525,19 +1600,26 @@ class MainActivity : AppCompatActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         if (isInPictureInPictureMode) {
             binding.topBar.visibility = View.GONE
+            binding.contentContainer.visibility = View.GONE
+            binding.webViewContainer.visibility = View.GONE
+            binding.homeLayout.root.visibility = View.GONE
             binding.fullscreenControlsOverlay.visibility = View.GONE
             binding.progressBar.visibility = View.GONE
             binding.findInPageBar.visibility = View.GONE
             binding.searchOverlay.visibility = View.GONE
+            binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            binding.contentContainer.visibility = View.VISIBLE
             if (customVideoView != null) {
                 binding.fullscreenControlsOverlay.visibility = View.VISIBLE
                 binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
+                binding.webViewContainer.visibility = View.GONE
             } else {
-                binding.topBar.visibility = View.VISIBLE
+                binding.fullscreenCustomViewContainer.visibility = View.GONE
                 val isHome = binding.homeLayout.root.visibility == View.VISIBLE
+                binding.topBar.visibility = View.VISIBLE
                 if (!isHome) {
                     binding.webViewContainer.visibility = View.VISIBLE
                 }
@@ -1554,6 +1636,10 @@ class MainActivity : AppCompatActivity() {
             wv?.resumeTimers()
             wv?.requestFocus()
         }
+        wv?.evaluateJavascript(
+            MediaPlaybackManager.getSetBackgroundStateScript(false),
+            null
+        )
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -1656,6 +1742,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        MediaPlaybackService.mediaActionListener = null
         tabManager.clearAllWebViews()
     }
 }

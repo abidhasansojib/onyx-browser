@@ -155,3 +155,14 @@
 -keep class com.google.android.material.** { *; }
 -dontwarn com.google.android.material.**
 -dontwarn androidx.appcompat.widget.**
+
+# ------------------------------------------------------------------------------
+# 11. Media Playback & Foreground Service
+# ------------------------------------------------------------------------------
+-keep class com.onyx.browser.media.** { *; }
+-keepclassmembers class com.onyx.browser.media.** { *; }
+-keep class androidx.media.** { *; }
+-dontwarn androidx.media.**
+-keep class android.support.v4.media.** { *; }
+-dontwarn android.support.v4.media.**
+

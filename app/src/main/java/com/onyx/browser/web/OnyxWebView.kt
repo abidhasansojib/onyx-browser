@@ -117,7 +117,15 @@ class OnyxWebView @JvmOverloads constructor(
             } catch (_: Exception) {}
         }
 
-        // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill
+        // Media Playback Bridge (for background audio/video and lockscreen mini player)
+        try {
+            addJavascriptInterface(
+                com.onyx.browser.media.MediaPlaybackBridge(context.applicationContext),
+                "OnyxMediaBridge"
+            )
+        } catch (_: Exception) {}
+
+        // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
         try {
             val currentBlockingLevel = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).blockingLevel
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -131,6 +139,13 @@ class OnyxWebView @JvmOverloads constructor(
                     PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(),
                     setOf("*")
                 )
+                if (prefs.isBackgroundPlayEnabled) {
+                    androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                        this,
+                        MediaPlaybackManager.backgroundPlaybackScript,
+                        setOf("*")
+                    )
+                }
             }
         } catch (_: Exception) {}
 

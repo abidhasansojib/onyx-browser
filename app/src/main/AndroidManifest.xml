@@ -29,6 +29,10 @@
     <!-- Overlay / Display Over Other Apps Permission (Floating Video & PiP fallback) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- Foreground Service permissions for persistent background audio/video playback (Mini Player) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
     <!-- Optional Hardware Features -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
@@ -287,6 +291,12 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.OnyxBrowser" />
+
+        <!-- Media Playback Foreground Service for Background Audio & Lockscreen Mini Player -->
+        <service
+            android:name=".media.MediaPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
     </application>
 

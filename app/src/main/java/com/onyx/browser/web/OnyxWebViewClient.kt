@@ -637,6 +637,9 @@ class OnyxWebViewClient(
         super.doUpdateVisitedHistory(view, url, isReload)
         if (!url.isNullOrBlank()) {
             currentPageUrl = url
+            if (preferences.isBackgroundPlayEnabled) {
+                view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
+            }
         }
     }
 

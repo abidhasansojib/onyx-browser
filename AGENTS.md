@@ -497,3 +497,21 @@ onyx-browser/
     - Set `isShrinkResources = false` in [`app/build.gradle.kts`](file:///root/onyx-browser/app/build.gradle.kts) for release builds.
     - Added self-healing recovery and robust fallbacks to [`SecureDatabaseKeyProvider.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/local/SecureDatabaseKeyProvider.kt) and [`AppDatabase.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/local/AppDatabase.kt).
     - Hardened [`OnyxApplication.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/OnyxApplication.kt) startup lifecycle with safe exception catching and logging.
+- [x] **Picture-in-Picture (PiP) Video Isolation, Background Play & Mini Player Notification**:
+  - **Pure PiP Video Isolation**:
+    - Extracted native `<video>` elements to fullscreen container before entering PiP, ensuring the PiP window displays **strictly the playing video** with 16:9 aspect ratio and ZERO browser UI, URL bars, or web page sidebars.
+    - Updated `onPictureInPictureModeChanged`: In PiP mode, completely hides `topBar`, `contentContainer`, `webViewContainer`, `homeLayout`, and overlay controls, leaving only `fullscreenCustomViewContainer` visible.
+    - Restrained `onUserLeaveHint`: Only enters PiP if a video is actively playing (`customVideoView != null` or active HTML5 video element), eliminating the bug where minimizing any regular website shrunk the entire browser page into PiP.
+  - **Uninterrupted Background Audio & Video Playback**:
+    - Enhanced [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt) to spoof Page Visibility (`document.hidden = false`, `document.visibilityState = 'visible'`) and intercept `visibilitychange`, `blur`, and `pagehide` listeners.
+    - Implemented `HTMLMediaElement.prototype.pause` interception when the app is in the background, preventing streaming sites (YouTube, SoundCloud, Spotify Web, Twitch) from auto-pausing audio when minimized or screen locked.
+    - Added `getSetBackgroundStateScript(inBackground)` to inform web players dynamically.
+  - **Foreground Media Service & Lockscreen Mini Player Notification**:
+    - Created [`MediaPlaybackService.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackService.kt) running as a Foreground Service with `foregroundServiceType="mediaPlayback"`.
+    - Integrated `MediaSessionCompat` and `NotificationCompat.MediaStyle` providing track/video title, website domain, rewind 10s (`ic_fast_rewind.xml`), play/pause toggle (`ic_play_arrow.xml` / `ic_pause.xml`), forward 10s (`ic_fast_forward.xml`), close button, and tap-to-relaunch intent.
+    - Created [`MediaPlaybackBridge.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackBridge.kt) registered via `addJavascriptInterface` across all tabs and `WebViewCompat.addDocumentStartJavaScript` to hook HTML5 media events and update the notification in real time.
+    - Configured ProGuard keep rules for `com.onyx.browser.media.**` and `androidx.media.**`.
+  - **Official App Logo Acquisition & Generation from `/storage/emulated/0/logo.png`**:
+    - Processed 1024x1024 high-resolution source logo from `/storage/emulated/0/logo.png`.
+    - Resized with Lanczos resampling across all mipmap densities (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) for `ic_launcher.png`, circular masked `ic_launcher_round.png`, and adaptive `ic_launcher_foreground.png`.
+    - Set adaptive background to `#080C14` in [`ic_launcher_background.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_launcher_background.xml) to match the dark aesthetic of the logo perfectly.
