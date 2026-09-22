@@ -595,5 +595,21 @@ onyx-browser/
   - **Compilation Hardening**:
     - Fixed top-level `typealias` declarations in [`WebErrorHandler.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/error/WebErrorHandler.kt).
     - Added `addWhitelistedDomain` & `removeWhitelistedDomain` convenience delegates in [`BrowserPreferences.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/preferences/BrowserPreferences.kt).
+- [ ] **Codebase Bug Remediation & Subsystem Hardening**:
+  - [ ] **PiP & Background Playback Stabilization**:
+    - Fix PiP DOM isolation script in [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt) to use direct viewport-fixed styling rather than ancestor cascaded sizing, preventing UI leakage on complex single-page apps (YouTube, Twitch, etc.).
+    - Fix system auto-PiP disengagement in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) by explicitly dispatching `setAutoEnterEnabled(false)` when PiP is toggled off in settings.
+    - Remove `!document.hasFocus()` pause blocking from [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt) so users can legitimately pause video on-screen.
+    - Prevent `ForegroundServiceStartNotAllowedException` in [`MediaPlaybackBridge.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackBridge.kt).
+  - [ ] **Download Subsystem Modernization**:
+    - Handle `blob:` and `data:` URIs in [`DownloadHandler.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/DownloadHandler.kt) to prevent `IllegalArgumentException` crashes on PDF exports and canvas downloads.
+    - Implement `DownloadCompleteReceiver` and track system `downloadId` in [`DownloadItem.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/model/DownloadItem.kt) to resolve permanent `STATUS_RUNNING` state.
+  - [ ] **Error Pipeline & Local File Hardening**:
+    - Protect [`error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html) from backtick / `${}` JavaScript syntax breakage via Base64 JSON payload transport.
+    - Set `currentSyntheticState` in [`LocalFileLoader.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/LocalFileLoader.kt) upon file-not-found errors.
+  - [ ] **Concurrency & Clean Architecture**:
+    - Fix concurrent flow collection race condition in [`HistoryActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/history/HistoryActivity.kt).
+    - Migrate [`TabManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/browser/TabManager.kt) from `GlobalScope` to injected constructor `coroutineScope`.
+
 
 
