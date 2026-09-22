@@ -413,6 +413,11 @@ onyx-browser/
   - **Modern Scanner Reticle & Laser**: Redesigned viewfinder (`viewfinderBox`) with rounded Google Blue frame (`bg_qr_frame.xml`) and smooth animated laser scanning beam (`bg_qr_laser.xml`) moving vertically.
   - **Camera Controls**: Added frosted circular flashlight/torch toggle button (`btnToggleTorch`, `ic_flash_on` / `ic_flash_off`), tap-to-focus metering, and haptic feedback upon successful scan.
   - **Scan from Gallery**: Added "Scan from Image" button (`btnScanFromGallery`) allowing users to pick screenshots or photos from their gallery to decode QR codes via ML Kit directly.
+- [x] **Modern Theme Picker Bottom Sheet**:
+  - Replaced the legacy `AlertDialog` single-choice radio popup with a modern Material 3 `ThemePickerSheet` bottom sheet ([`bottom_sheet_theme_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_theme_picker.xml) and [`ThemePickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/ThemePickerSheet.kt)).
+  - Interactive Material 3 cards for each mode: System Default ([`ic_theme_system.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_theme_system.xml)), Dark ([`ic_theme_dark.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_theme_dark.xml)), and Light ([`ic_theme_light.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_theme_light.xml)) with descriptions and dynamic checkmark indicators.
+  - Active selection highlighting with 2dp primary color stroke and instant theme application.
+
 
 
 

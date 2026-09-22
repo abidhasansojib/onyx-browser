@@ -2,7 +2,6 @@ package com.onyx.browser.ui.settings
 
 import android.os.Bundle
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.R
@@ -63,34 +62,15 @@ class SettingsActivity : AppCompatActivity() {
         updateThemeDisplay()
 
         binding.settingThemeRow.setOnClickListener {
-            val themes = arrayOf(
-                getString(R.string.theme_system),
-                getString(R.string.theme_dark),
-                getString(R.string.theme_light)
-            )
-
-            val currentIndex = when (preferences.themeMode) {
-                BrowserPreferences.THEME_DARK -> 1
-                BrowserPreferences.THEME_LIGHT -> 2
-                else -> 0
-            }
-
-            AlertDialog.Builder(this)
-                .setTitle(R.string.pref_category_appearance)
-                .setSingleChoiceItems(themes, currentIndex) { dialog, which ->
-                    val selectedMode = when (which) {
-                        1 -> BrowserPreferences.THEME_DARK
-                        2 -> BrowserPreferences.THEME_LIGHT
-                        else -> BrowserPreferences.THEME_SYSTEM
-                    }
+            val sheet = ThemePickerSheet(preferences.themeMode) { selectedMode ->
+                if (preferences.themeMode != selectedMode) {
                     preferences.themeMode = selectedMode
                     preferences.applyTheme()
                     updateThemeDisplay()
-                    dialog.dismiss()
                     recreate()
                 }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
+            }
+            sheet.show(supportFragmentManager, ThemePickerSheet.TAG)
         }
     }
 
