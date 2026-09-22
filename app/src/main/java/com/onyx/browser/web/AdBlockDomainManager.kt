@@ -34,7 +34,7 @@ object AdBlockDomainManager {
         "htlbid.com", "fls-na.amazon.com", "advertising.com", "bidswitch.net",
         "moatads.com", "smartadserver.com", "adsafeprotected.com", "doubleverify.com",
         "connatix.com", "innovid.com", "tremorhub.com", "crwdcntrl.net", "fwmrm.net",
-        "jwpltx.com", "jwpsrv.com", "rlcdn.com", "impactradius-event.com", "shareasale.com",
+        "jwpltx.com", "rlcdn.com", "impactradius-event.com", "shareasale.com",
         "awin1.com", "partnerstack.com", "refersion.com", "fingerprintjs.com", "fpjs.io",
         "adlog.vivo.com", "ads-api.vivo.com", "click.oneplus.cn", "open.oneplus.net",
         "a.lenovo.com", "ad.mail.ru", "top-fwz1.mail.ru", "ads.vk.com", "pangleglobal.com",
@@ -42,7 +42,7 @@ object AdBlockDomainManager {
         "stats.wp.com", "driftt.com", "intercom.io", "wzrkt.com", "zenaps.com",
         "statdynamic.com", "datadoghq.com", "omtrdc.net", "stickyadstv.com", "3lift.com",
         "sonobi.com", "gumgum.com", "teads.tv", "kargo.com", "metrics.adobe.com",
-        "lr-ingest.com", "brightcove.com"
+        "lr-ingest.com"
     )
 
     /**
@@ -56,13 +56,13 @@ object AdBlockDomainManager {
      */
     val aggressiveRootDomains: Set<String> = setOf(
         "2o7.net", "ad.gt", "adjust.com", "adobe.io", "ads-twitter.com", "adsrvr.org",
-        "anrdoezrs.net", "appspot.com", "bluekai.com", "bnc.lt", "braze.com", "brightcove.com",
+        "anrdoezrs.net", "appspot.com", "bluekai.com", "bnc.lt", "braze.com",
         "browser-intake-datadoghq.com", "byteoversea.com", "clickadu.com", "cloudflareinsights.com",
         "coinimp.com", "consensu.org", "contextweb.com", "cookiebot.com", "cookielaw.org",
         "customer.io", "dpbolvw.net", "dynamicyield.com", "everesttech.net", "exoclick.com",
-        "facebook.net", "fyber.com", "getsentry.com", "googleanalytics.com", "googlevideo.com",
+        "facebook.net", "fyber.com", "getsentry.com", "googleanalytics.com",
         "hotjar.io", "hubspot.com", "icloud.com", "id5-sync.com", "indexexchange.com",
-        "insightexpressai.com", "juicyads.com", "jwpcdn.com", "jwpsrv.com", "klaviyo.com",
+        "insightexpressai.com", "juicyads.com", "klaviyo.com",
         "kochava.com", "launchdarkly.com", "lgappstv.com", "lge.com", "lgsmartad.com",
         "linkedin.com", "linksynergy.com", "list-manage.com", "mailchimp.com", "marketo.net",
         "mathtag.com", "mineralt.io", "minero.cc", "monerominer.rocks", "mzstatic.com",

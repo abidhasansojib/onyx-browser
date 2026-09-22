@@ -58,6 +58,13 @@
     <string name="pref_category_appearance">Appearance</string>
     <string name="pref_category_adblock">Adblocker Settings</string>
     <string name="pref_category_download">Download Settings</string>
+    <string name="pref_category_media">Media &amp; Playback</string>
+    <string name="background_play">Background Play</string>
+    <string name="background_play_desc">Keep audio and video streams playing when app is in background or screen is off</string>
+    <string name="picture_in_picture">Picture-in-Picture (PiP)</string>
+    <string name="picture_in_picture_desc">Automatically display video in a floating window over other apps</string>
+    <string name="display_over_apps">Display over other apps</string>
+    <string name="display_over_apps_desc">System floating window &amp; Picture-in-Picture permissions</string>
 
     <string name="theme_title">Theme</string>
     <string name="theme_subtitle">Choose how Onyx Browser looks to you</string>

@@ -417,7 +417,18 @@ onyx-browser/
   - Replaced the legacy `AlertDialog` single-choice radio popup with a modern Material 3 `ThemePickerSheet` bottom sheet ([`bottom_sheet_theme_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_theme_picker.xml) and [`ThemePickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/ThemePickerSheet.kt)).
   - Interactive Material 3 cards for each mode: System Default ([`ic_theme_system.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_theme_system.xml)), Dark ([`ic_theme_dark.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_theme_dark.xml)), and Light ([`ic_theme_light.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_theme_light.xml)) with descriptions and dynamic checkmark indicators.
   - Active selection highlighting with 2dp primary color stroke and instant theme application.
-
-
-
-
+- [x] **Web Video Playback Fix (YouTube & Streaming Sites)**:
+  - Fixed video playback on YouTube and streaming sites by removing `googlevideo.com`, `brightcove.com`, `jwpcdn.com`, and `jwpsrv.com` from `AdBlockDomainManager.kt` and `AdBlockDocumentStart.kt`.
+  - Enabled `mediaPlaybackRequiresUserGesture = false` in `OnyxWebView.configureSettings()` for seamless HTML5 video loading and playback across single-page applications.
+  - Enabled `mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE` to support mixed HTTP/HTTPS video segments, HLS (`.m3u8`), and DASH CDN streams.
+- [x] **Background Video & Audio Playback with Settings Toggle**:
+  - Implemented `MediaPlaybackManager.kt` providing lightweight JavaScript injection to spoof `document.hidden = false`, `document.visibilityState = 'visible'`, and intercept `visibilitychange` listeners so web players cannot detect when the browser is backgrounded.
+  - Injected background playback hooks at `onPageStarted` and `onPageFinished` in `OnyxWebViewClient.kt`.
+  - Gated `getActiveWebView()?.onPause()` in `MainActivity.kt` so media keeps playing in background or locked screen when `isBackgroundPlayEnabled` is enabled.
+  - Added `isBackgroundPlayEnabled` preference in `BrowserPreferences.kt` with modern Material 3 switch row in Settings under "Media & Playback".
+- [x] **Display Over Other Apps & Picture-in-Picture (PiP)**:
+  - Enabled `android:supportsPictureInPicture="true"` and `SYSTEM_ALERT_WINDOW` in `AndroidManifest.xml`.
+  - Implemented `enterPipMode()`, `onUserLeaveHint()`, and `onPictureInPictureModeChanged()` in `MainActivity.kt` with 16:9 aspect ratio and `setAutoEnterEnabled` for Android 12+.
+  - Designed modern frosted fullscreen video overlay controls pill with direct PiP button (`btnFullscreenPip`) and close button (`btnFullscreenClose`).
+  - Added "Picture-in-Picture" action in webpage 3-dot bottom sheet menu (`MenuBottomSheetDialogFragment`).
+  - Added PiP switch and "Display over other apps" system settings launcher in `SettingsActivity.kt`.

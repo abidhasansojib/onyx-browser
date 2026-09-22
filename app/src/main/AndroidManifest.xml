@@ -26,6 +26,9 @@
     <!-- Credential Manager Passkey Origin Permission for Browsers (Android 14+ / API 34+) -->
     <uses-permission android:name="android.permission.CREDENTIAL_MANAGER_SET_ORIGIN" />
 
+    <!-- Overlay / Display Over Other Apps Permission (Floating Video & PiP fallback) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <!-- Optional Hardware Features -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
@@ -162,6 +165,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode|keyboard|keyboardHidden"
             android:exported="true"
             android:launchMode="singleTask"

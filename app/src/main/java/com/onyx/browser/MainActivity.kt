@@ -2,19 +2,24 @@ package com.onyx.browser
 
 import android.Manifest
 import android.app.Activity
+import android.app.AppOpsManager
+import android.app.PictureInPictureParams
 import android.app.SearchManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.util.Rational
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.GeolocationPermissions
@@ -491,6 +496,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 onSiteShieldWhitelistChanged = { _ ->
                     activeWebView?.reload()
+                }
+                onPipClicked = {
+                    enterPipMode()
                 }
             }
             sheet.show(supportFragmentManager, MenuBottomSheetDialogFragment.TAG)
@@ -1179,33 +1187,102 @@ class MainActivity : AppCompatActivity() {
         customVideoView = view
         customViewCallback = callback
 
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         WindowCompat.getInsetsController(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
 
+        // Insert at index 0 so fullscreenControlsOverlay stays on top
         binding.fullscreenCustomViewContainer.addView(
             view,
+            0,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
         binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
+        binding.fullscreenControlsOverlay.visibility = View.VISIBLE
+
+        binding.btnFullscreenPip.setOnClickListener {
+            enterPipMode()
+        }
+        binding.btnFullscreenClose.setOnClickListener {
+            hideCustomFullscreenVideo()
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                setPictureInPictureParams(
+                    PictureInPictureParams.Builder()
+                        .setAspectRatio(Rational(16, 9))
+                        .setAutoEnterEnabled(preferences.isPipEnabled)
+                        .build()
+                )
+            } catch (_: Exception) {}
+        }
     }
 
     private fun hideCustomFullscreenVideo() {
         if (customVideoView == null) return
 
+        binding.fullscreenControlsOverlay.visibility = View.GONE
         binding.fullscreenCustomViewContainer.removeView(customVideoView)
         binding.fullscreenCustomViewContainer.visibility = View.GONE
         customVideoView = null
         customViewCallback?.onCustomViewHidden()
         customViewCallback = null
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                setPictureInPictureParams(
+                    PictureInPictureParams.Builder()
+                        .setAspectRatio(Rational(16, 9))
+                        .setAutoEnterEnabled(false)
+                        .build()
+                )
+            } catch (_: Exception) {}
+        }
+
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         WindowCompat.getInsetsController(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
+    }
+
+    fun enterPipMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
+                val isPipAllowed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    appOps?.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, android.os.Process.myUid(), packageName) == AppOpsManager.MODE_ALLOWED
+                } else {
+                    @Suppress("DEPRECATION")
+                    appOps?.checkOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, android.os.Process.myUid(), packageName) == AppOpsManager.MODE_ALLOWED
+                }
+                if (isPipAllowed == false) {
+                    Toast.makeText(this, "Please enable Picture-in-Picture permission in Android Settings", Toast.LENGTH_LONG).show()
+                    val intent = Intent(
+                        android.provider.Settings.ACTION_PICTURE_IN_PICTURE_SETTINGS,
+                        Uri.parse("package:$packageName")
+                    )
+                    startActivity(intent)
+                    return
+                }
+
+                val paramsBuilder = PictureInPictureParams.Builder()
+                    .setAspectRatio(Rational(16, 9))
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    paramsBuilder.setAutoEnterEnabled(preferences.isPipEnabled)
+                }
+
+                enterPictureInPictureMode(paramsBuilder.build())
+            } catch (e: Exception) {
+                Toast.makeText(this, "Unable to enter Picture-in-Picture: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(this, "Picture-in-Picture requires Android 8.0+", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun showSoftKeyboard() {
@@ -1426,7 +1503,50 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        tabManager.getActiveWebView()?.onPause()
+        val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
+        if (!isPip && !preferences.isBackgroundPlayEnabled) {
+            tabManager.getActiveWebView()?.onPause()
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (preferences.isPipEnabled) {
+            val isWebActive = binding.webViewContainer.visibility == View.VISIBLE && binding.homeLayout.root.visibility != View.VISIBLE
+            val hasActiveVideoOrPage = customVideoView != null || isWebActive
+            if (hasActiveVideoOrPage) {
+                enterPipMode()
+            }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (isInPictureInPictureMode) {
+            binding.topBar.visibility = View.GONE
+            binding.bottomBar.visibility = View.GONE
+            binding.fullscreenControlsOverlay.visibility = View.GONE
+            binding.progressBar.visibility = View.GONE
+            binding.findInPageContainer.visibility = View.GONE
+            binding.layoutSuggestionsContainer.visibility = View.GONE
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            if (customVideoView != null) {
+                binding.fullscreenControlsOverlay.visibility = View.VISIBLE
+                binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
+            } else {
+                val isHome = binding.homeLayout.root.visibility == View.VISIBLE
+                if (!isHome) {
+                    binding.topBar.visibility = View.VISIBLE
+                    binding.bottomBar.visibility = View.VISIBLE
+                    binding.webViewContainer.visibility = View.VISIBLE
+                } else {
+                    binding.topBar.visibility = View.VISIBLE
+                    binding.bottomBar.visibility = View.VISIBLE
+                }
+            }
+        }
     }
 
     override fun onResume() {

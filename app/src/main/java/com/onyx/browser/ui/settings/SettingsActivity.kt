@@ -31,6 +31,7 @@ class SettingsActivity : AppCompatActivity() {
         setupPrivacySettings()
         setupAutofillSettings()
         setupDownloadPreferences()
+        setupMediaPreferences()
     }
 
     override fun onResume() {
@@ -112,4 +113,57 @@ class SettingsActivity : AppCompatActivity() {
             sheet.show(supportFragmentManager, DownloadManagerPickerSheet.TAG)
         }
     }
+
+    private fun setupMediaPreferences() {
+        binding.settingBackgroundPlaySwitch.isChecked = preferences.isBackgroundPlayEnabled
+        binding.settingBackgroundPlayRow.setOnClickListener {
+            binding.settingBackgroundPlaySwitch.toggle()
+        }
+        binding.settingBackgroundPlaySwitch.setOnCheckedChangeListener { _, isChecked ->
+            preferences.isBackgroundPlayEnabled = isChecked
+        }
+
+        binding.settingPipSwitch.isChecked = preferences.isPipEnabled
+        binding.settingPipRow.setOnClickListener {
+            binding.settingPipSwitch.toggle()
+        }
+        binding.settingPipSwitch.setOnCheckedChangeListener { _, isChecked ->
+            preferences.isPipEnabled = isChecked
+        }
+
+        binding.settingDisplayOverOtherAppsRow.setOnClickListener {
+            openDisplayOverOtherAppsSettings()
+        }
+    }
+
+    private fun openDisplayOverOtherAppsSettings() {
+        val pm = packageManager
+        var launched = false
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val pipIntent = android.content.Intent(
+                    android.provider.Settings.ACTION_PICTURE_IN_PICTURE_SETTINGS,
+                    android.net.Uri.parse("package:$packageName")
+                )
+                if (pipIntent.resolveActivity(pm) != null) {
+                    startActivity(pipIntent)
+                    launched = true
+                }
+            } catch (_: Exception) {}
+        }
+
+        if (!launched) {
+            try {
+                val appDetailsIntent = android.content.Intent(
+                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.parse("package:$packageName")
+                )
+                startActivity(appDetailsIntent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Could not open system settings", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 }
+

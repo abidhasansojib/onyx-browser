@@ -604,6 +604,11 @@ class OnyxWebViewClient(
         if (preferences.isPasskeysEnabled) {
             view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
         }
+
+        // Background Playback Support (Media keep-alive & visibility spoofing)
+        if (preferences.isBackgroundPlayEnabled) {
+            view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
+        }
     }
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -620,6 +625,9 @@ class OnyxWebViewClient(
             if (preferences.isPasskeysEnabled) {
                 view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
             }
+            if (preferences.isBackgroundPlayEnabled) {
+                view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
+            }
         }
     }
 
@@ -635,6 +643,9 @@ class OnyxWebViewClient(
         if (!url.isNullOrBlank()) {
             currentPageUrl = url
             onPageFinishedCallback(url)
+            if (preferences.isBackgroundPlayEnabled) {
+                view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
+            }
             val isIncognito = (view as? OnyxWebView)?.isIncognito ?: false
             if (!isIncognito && url.startsWith("http")) {
                 val title = view?.title ?: url

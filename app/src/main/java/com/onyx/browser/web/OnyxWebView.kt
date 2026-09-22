@@ -66,7 +66,10 @@ class OnyxWebView @JvmOverloads constructor(
             // Security & Privacy hardening
             allowFileAccess = false
             allowContentAccess = false
-            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+
+            // Media & Streaming Support (YouTube, Twitch, Video players)
+            mediaPlaybackRequiresUserGesture = false
+            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
 
         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
