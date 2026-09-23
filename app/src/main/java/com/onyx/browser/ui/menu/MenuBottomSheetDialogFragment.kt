@@ -95,11 +95,7 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
         // Default Browser Banner (under shortcuts, shown only if not default)
         setupDefaultBrowserBanner()
 
-        // Add Search Widget Button
-        binding.menuItemAddSearchWidget.setOnClickListener {
-            com.onyx.browser.ui.widget.SearchWidgetManager.requestPinSearchWidget(requireContext())
-            dismiss()
-        }
+
 
         // Settings Button (under default browser banner)
         binding.menuItemHomeSettings.setOnClickListener {
@@ -187,11 +183,7 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
             dismiss()
         }
 
-        // Add Search Widget
-        binding.menuItemWebAddSearchWidget.setOnClickListener {
-            com.onyx.browser.ui.widget.SearchWidgetManager.requestPinSearchWidget(requireContext())
-            dismiss()
-        }
+
 
         // 6th: Developer Tools (Eruda Console)
         binding.menuItemDeveloperTools.setOnClickListener {

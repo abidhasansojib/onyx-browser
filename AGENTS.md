@@ -782,6 +782,10 @@ onyx-browser/
       - **Left Button ("Stay In Onyx")**: Tonal button dismissing the prompt, canceling external app launch, and executing web fallback (e.g. `browser_fallback_url` or direct `http`/`https` intent data) to keep browsing within Onyx.
       - **Right Button ("Open in app")**: Primary filled button launching the external intent (e.g. Telegram, WhatsApp, YouTube, Reddit, Twitter, etc.).
     - **Target App Badge**: Dynamically resolves and displays the application name (e.g. "Telegram", "WhatsApp", "YouTube") using `PackageManager.resolveActivity`.
-  - **Verified CI/CD Execution**: GitHub Actions workflow run `#35900939920` completed successfully in 6m15s, publishing release [`v1.0.142`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.142) with optimized APKs: `Onyx-Browser-v1.0.142-arm64-v8a-release.apk` (19MB), `universal` (39MB), `armeabi-v7a` (16MB), and `x86_64` (21MB).
+- [x] **Search Widget Placement Consolidation**:
+  - Removed "Add Search Widget" button from 3-dot menu in homepage mode (above Settings).
+  - Removed "Add Search Widget" button from 3-dot menu in webpage mode (under Add to Home screen).
+  - Kept in Settings under Search Engine (`SettingsActivity` under Search Engine category and in `SearchEngineSettingsActivity`).
+
 
 
