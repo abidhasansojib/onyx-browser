@@ -836,12 +836,29 @@ class MainActivity : AppCompatActivity() {
 
         webView.webChromeClient = OnyxWebChromeClient(
             onProgressChangedCallback = { progress ->
-                if (progress < 100) {
-                    binding.progressBar.visibility = View.VISIBLE
-                    binding.progressBar.progress = progress
-                } else {
-                    binding.progressBar.visibility = View.GONE
+                if (binding.progressBar.visibility != android.view.View.VISIBLE && progress < 100) {
+                    binding.progressBar.visibility = android.view.View.VISIBLE
+                    binding.progressBar.alpha = 1f
+                    binding.progressBar.progress = 0
+                }
+                
+                val animator = android.animation.ObjectAnimator.ofInt(binding.progressBar, "progress", binding.progressBar.progress, progress)
+                animator.duration = 200
+                animator.interpolator = android.view.animation.DecelerateInterpolator()
+                animator.start()
+                
+                if (progress >= 100) {
                     binding.swipeRefreshLayout.isRefreshing = false
+                    binding.progressBar.animate()
+                        .alpha(0f)
+                        .setStartDelay(200)
+                        .setDuration(200)
+                        .withEndAction {
+                            binding.progressBar.visibility = android.view.View.GONE
+                            binding.progressBar.progress = 0
+                            binding.progressBar.alpha = 1f
+                        }
+                        .start()
                 }
             },
             onTitleReceivedCallback = { title ->

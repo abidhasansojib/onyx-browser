@@ -7,6 +7,26 @@
     android:layout_height="match_parent"
     android:background="?android:attr/windowBackground">
 
+    <!-- Network Status Banner -->
+    <TextView
+        android:id="@+id/tvNetworkStatus"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="#EA4335"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:visibility="gone"
+        tools:visibility="visible"
+        tools:text="No Internet Connection"
+        tools:background="#EA4335"
+        app:layout_constraintTop_toBottomOf="@id/progressBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Pinned Top Navigation Bar -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/topBar"
@@ -21,7 +41,7 @@
         android:paddingBottom="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/tvNetworkStatus">
 
         <!-- Left Navigation Action Container: Home (Browsing mode) / Back Arrow (Search mode) -->
         <FrameLayout
@@ -212,16 +232,17 @@
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="0dp"
-        android:layout_height="2.5dp"
+        android:layout_height="2dp"
         android:elevation="6dp"
         android:indeterminate="false"
         android:max="100"
-        android:progressDrawable="@drawable/bg_search_bar"
+        android:progressDrawable="@android:drawable/progress_horizontal"
         android:progressTint="@color/primary"
+        android:progressBackgroundTint="@android:color/transparent"
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/topBarDivider"
+        app:layout_constraintTop_toTopOf="parent"
         tools:progress="50"
         tools:visibility="visible" />
 
