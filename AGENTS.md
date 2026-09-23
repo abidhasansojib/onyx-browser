@@ -993,6 +993,18 @@ onyx-browser/
     - Persistent notification displaying real-time speed (KB/s, MB/s), progress bar, ETA, and interactive "Pause", "Resume", and "Cancel" action buttons.
     - Upgraded `DownloadsAdapter` and `DownloadsActivity` to display live progress bars, speed, and pause/resume buttons.
     - Added long-press download details dialog in `DownloadsActivity` with one-tap hash copying (SHA-256 / MD5) and a real-time Checksum Verification input field.
+- [x] **Downloader Pipeline Comprehensive Bug Audit & Hardening**:
+  - **Segment Overrun Protection (`DownloadEngine.kt`)**: Enforced strict `remainingInChunk = (chunk.endByte - chunk.currentByte + 1).coerceAtLeast(0L)` and capped socket buffer writes so workers never write past their designated chunk boundaries if a server ignores range bounds.
+  - **Range 200 Fallback & RangeNotSupportedException (`DownloadEngine.kt`)**: Added detection for servers that advertise range support on HEAD but return HTTP 200 (full file) on range chunk requests (`chunk.startByte > 0L`), gracefully catching `RangeNotSupportedException` and falling back to single-stream download with reset offsets.
+  - **Deterministic File Naming (`OnyxDownloadManager.kt`)**: Swapped unpredictable timestamp-based temp filenames for deterministic `task_${id}.part`, eliminating orphaned cache clutter and allowing partial files to be cleanly resumed.
+  - **Seamless Resume from DB Across Restarts (`OnyxDownloadManager.kt`, `DownloadsActivity.kt`)**: Implemented `resumeExistingDownload(context, item)` so clicking Resume on paused or interrupted tasks in `DownloadsActivity` reuses the existing task ID and database entry rather than creating duplicates.
+  - **Notification ID Overflow & Collision Prevention (`DownloadTask.kt`, `DownloadNotificationHelper.kt`, `OnyxDownloadService.kt`, `OnyxDownloadManager.kt`)**: Guaranteed positive 32-bit notification IDs via `val notificationId: Int get() = (id.hashCode() and 0x3FFFFFFF)` and segmented PendingIntent request codes (`notificationId * 4 + N`), eliminating integer overflows and collisions.
+  - **Universal Content & File URI Handling (`DownloadNotificationHelper.kt`)**: Added direct support for `content://` MediaStore URIs in completed download notifications and expanded `file_paths.xml` with `external_root`, `files_root`, and `cache_root` to eliminate `FileProvider` exceptions across all Android versions.
+  - **Foreground Service Start Race Elimination (`OnyxDownloadService.kt`)**: Invoked `ensureForeground()` in `onCreate()` to eliminate timing races before `onStartCommand()`, preventing `ForegroundServiceDidNotStartInTimeException` on Android 12–16.
+  - **Token Bucket Initialization (`TokenBucketLimiter.kt`)**: Initialized `availableTokens = bytesPerSecond.toDouble()` to eliminate initial transfer stalls when rate-limiting is active.
+  - **Accurate Size for Indeterminate Downloads (`DownloadEngine.kt`)**: Updated `task.totalBytes = tempFile.length()` upon completion when remote `Content-Length` was unknown.
+  - **Snapshot Flow State Consistency (`OnyxDownloadManager.kt`)**: Fixed `onTaskCompleted` to remove tasks from active memory before emitting the final snapshot, preventing completed tasks from lingering indefinitely in active memory flows.
+
 
 
 

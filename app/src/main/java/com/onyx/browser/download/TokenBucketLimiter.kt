@@ -9,9 +9,13 @@ import kotlinx.coroutines.delay
 class TokenBucketLimiter(
     @Volatile private var bytesPerSecond: Long = 0L // 0 = unlimited
 ) {
-    private var availableTokens: Double = 0.0
+    private var availableTokens: Double = bytesPerSecond.toDouble()
     private var lastRefillTime: Long = System.nanoTime()
     private val lock = Any()
+
+    init {
+        availableTokens = bytesPerSecond.toDouble()
+    }
 
     fun setLimit(limitBytesPerSec: Long) {
         synchronized(lock) {

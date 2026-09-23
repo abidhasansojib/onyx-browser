@@ -101,15 +101,8 @@ class DownloadsActivity : AppCompatActivity() {
             }
         } else {
             // Task not currently in memory; check DB status
-            if (item.status == DownloadItem.STATUS_PAUSED) {
-                com.onyx.browser.download.OnyxDownloadManager.enqueueDownload(
-                    context = this,
-                    url = item.url,
-                    fileName = item.fileName,
-                    mimeType = item.mimeType,
-                    userAgent = "",
-                    contentLength = item.fileSize
-                )
+            if (item.status == DownloadItem.STATUS_PAUSED || item.status == DownloadItem.STATUS_FAILED || item.status == DownloadItem.STATUS_RUNNING) {
+                com.onyx.browser.download.OnyxDownloadManager.resumeExistingDownload(this, item)
             }
         }
     }

@@ -77,14 +77,14 @@ object DownloadNotificationHelper {
 
         val openDownloadsIntent = PendingIntent.getActivity(
             context,
-            task.id.toInt(),
+            task.notificationId * 4,
             Intent(context, DownloadsActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val pauseIntent = PendingIntent.getService(
             context,
-            (task.id * 10 + 1).toInt(),
+            task.notificationId * 4 + 1,
             Intent(context, OnyxDownloadService::class.java).apply {
                 action = ACTION_PAUSE
                 putExtra(EXTRA_TASK_ID, task.id)
@@ -94,7 +94,7 @@ object DownloadNotificationHelper {
 
         val cancelIntent = PendingIntent.getService(
             context,
-            (task.id * 10 + 2).toInt(),
+            task.notificationId * 4 + 2,
             Intent(context, OnyxDownloadService::class.java).apply {
                 action = ACTION_CANCEL
                 putExtra(EXTRA_TASK_ID, task.id)
@@ -130,14 +130,14 @@ object DownloadNotificationHelper {
 
         val openDownloadsIntent = PendingIntent.getActivity(
             context,
-            task.id.toInt(),
+            task.notificationId * 4,
             Intent(context, DownloadsActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val resumeIntent = PendingIntent.getService(
             context,
-            (task.id * 10 + 3).toInt(),
+            task.notificationId * 4 + 3,
             Intent(context, OnyxDownloadService::class.java).apply {
                 action = ACTION_RESUME
                 putExtra(EXTRA_TASK_ID, task.id)
@@ -147,7 +147,7 @@ object DownloadNotificationHelper {
 
         val cancelIntent = PendingIntent.getService(
             context,
-            (task.id * 10 + 2).toInt(),
+            task.notificationId * 4 + 2,
             Intent(context, OnyxDownloadService::class.java).apply {
                 action = ACTION_CANCEL
                 putExtra(EXTRA_TASK_ID, task.id)
@@ -172,9 +172,14 @@ object DownloadNotificationHelper {
         val sizeStr = if (task.totalBytes > 0L) Formatter.formatFileSize(context, task.totalBytes) else ""
         val contentText = if (sizeStr.isNotBlank()) "Download complete • $sizeStr" else "Download complete"
 
-        val file = File(task.finalFilePath)
         val openIntent = try {
-            val contentUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val finalPath = task.finalFilePath
+            val contentUri = if (finalPath.startsWith("content://", ignoreCase = true)) {
+                Uri.parse(finalPath)
+            } else {
+                val file = File(finalPath)
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            }
             Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(contentUri, task.mimeType.ifBlank { "*/*" })
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -186,7 +191,7 @@ object DownloadNotificationHelper {
 
         val pendingOpen = PendingIntent.getActivity(
             context,
-            task.id.toInt(),
+            task.notificationId * 4,
             openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -204,14 +209,14 @@ object DownloadNotificationHelper {
         val err = task.errorMessage ?: "Network error"
         val openDownloadsIntent = PendingIntent.getActivity(
             context,
-            task.id.toInt(),
+            task.notificationId * 4,
             Intent(context, DownloadsActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val retryIntent = PendingIntent.getService(
             context,
-            (task.id * 10 + 4).toInt(),
+            task.notificationId * 4 + 3,
             Intent(context, OnyxDownloadService::class.java).apply {
                 action = ACTION_RETRY
                 putExtra(EXTRA_TASK_ID, task.id)

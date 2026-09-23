@@ -72,12 +72,12 @@ object OnyxDownloadManager {
         val app = context.applicationContext
         val cleanFileName = sanitizeFileName(fileName)
 
+        val assignedId = System.currentTimeMillis()
         val tempDir = File(app.cacheDir, "onyx_downloads").apply { mkdirs() }
-        val tempFile = File(tempDir, "temp_${System.currentTimeMillis()}_$cleanFileName")
+        val tempFile = File(tempDir, "task_${assignedId}.part")
         val finalPath = "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/$cleanFileName"
 
         // Insert into database initially
-        val assignedId = System.currentTimeMillis()
 
         managerScope.launch {
             try {
@@ -189,6 +189,47 @@ object OnyxDownloadManager {
         startTaskExecution(task)
     }
 
+    fun resumeExistingDownload(context: Context, item: DownloadItem) {
+        init(context)
+        val app = context.applicationContext
+        val existingTask = activeTasks[item.id]
+        if (existingTask != null) {
+            resumeDownload(item.id)
+            return
+        }
+
+        val tempDir = File(app.cacheDir, "onyx_downloads").apply { mkdirs() }
+        val tempFile = File(tempDir, "task_${item.id}.part")
+
+        val task = DownloadTask(
+            id = item.id,
+            url = item.url,
+            fileName = item.fileName,
+            mimeType = item.mimeType,
+            userAgent = "",
+            cookies = "",
+            referer = "",
+            tempFilePath = tempFile.absolutePath,
+            finalFilePath = item.filePath,
+            totalBytes = item.fileSize,
+            status = DownloadTask.STATUS_PENDING
+        )
+
+        if (tempFile.exists() && tempFile.length() > 0L) {
+            task.downloadedBytes.set(tempFile.length())
+        } else if (item.downloadedBytes > 0L) {
+            task.downloadedBytes.set(item.downloadedBytes)
+        }
+
+        activeTasks[item.id] = task
+        emitSnapshot()
+
+        val serviceIntent = Intent(app, OnyxDownloadService::class.java)
+        ContextCompat.startForegroundService(app, serviceIntent)
+
+        startTaskExecution(task)
+    }
+
     fun cancelDownload(taskId: Long) {
         val task = activeTasks.remove(taskId)
         task?.job?.cancel()
@@ -202,7 +243,8 @@ object OnyxDownloadManager {
 
         appContext?.let { ctx ->
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-            nm?.cancel(taskId.toInt())
+            val notifId = (taskId.hashCode() and 0x3FFFFFFF)
+            nm?.cancel(notifId)
 
             managerScope.launch {
                 val db = AppDatabase.getInstance(ctx)
@@ -232,21 +274,21 @@ object OnyxDownloadManager {
     private fun onTaskCompleted(task: DownloadTask) {
         appContext?.let { ctx ->
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-            nm?.cancel(task.id.toInt())
+            nm?.cancel(task.notificationId)
             val completedNotif = DownloadNotificationHelper.buildCompletedNotification(ctx, task)
-            nm?.notify(task.id.toInt(), completedNotif)
+            nm?.notify(task.notificationId, completedNotif)
         }
 
-        emitSnapshot()
         activeTasks.remove(task.id)
+        emitSnapshot()
     }
 
     private fun onTaskFailed(task: DownloadTask, error: String) {
         appContext?.let { ctx ->
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-            nm?.cancel(task.id.toInt())
+            nm?.cancel(task.notificationId)
             val failedNotif = DownloadNotificationHelper.buildFailedNotification(ctx, task)
-            nm?.notify(task.id.toInt(), failedNotif)
+            nm?.notify(task.notificationId, failedNotif)
         }
 
         emitSnapshot()

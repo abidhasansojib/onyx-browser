@@ -39,6 +39,9 @@ data class DownloadTask(
     val isIndeterminate: Boolean
         get() = totalBytes <= 0L
 
+    val notificationId: Int
+        get() = (id.hashCode() and 0x3FFFFFFF)
+
     companion object {
         const val STATUS_PENDING = 0
         const val STATUS_RUNNING = 1

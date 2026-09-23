@@ -26,6 +26,7 @@ class OnyxDownloadService : Service() {
         super.onCreate()
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         DownloadNotificationHelper.initChannels(this)
+        ensureForeground()
         observeDownloadTasks()
     }
 
@@ -107,8 +108,8 @@ class OnyxDownloadService : Service() {
                         } else {
                             DownloadNotificationHelper.buildRunningNotification(this@OnyxDownloadService, fullTask)
                         }
-                        // Use task ID for notification id so each download has its own clean entry
-                        notificationManager.notify(fullTask.id.toInt(), notification)
+                        // Use task notificationId so each download has its own clean entry without integer overflow
+                        notificationManager.notify(fullTask.notificationId, notification)
                     }
                 }
             }

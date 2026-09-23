@@ -81,13 +81,26 @@ class DownloadEngine(
 
             // Step 4: Run download (Parallel or Single stream)
             if (task.isRangeSupported && task.chunks.size > 1) {
-                runParallelDownload(task, tempFile)
+                try {
+                    runParallelDownload(task, tempFile)
+                } catch (rns: RangeNotSupportedException) {
+                    // Server lied about Range support (e.g., returned 200 for a range slice)
+                    task.isRangeSupported = false
+                    task.chunks.clear()
+                    task.downloadedBytes.set(0L)
+                    allocateChunks(task)
+                    runSingleStreamDownload(task, tempFile)
+                }
             } else {
                 runSingleStreamDownload(task, tempFile)
             }
 
             if (!isActive || task.status == DownloadTask.STATUS_PAUSED || task.status == DownloadTask.STATUS_CANCELLED) {
                 return@withContext
+            }
+
+            if (task.totalBytes <= 0L && tempFile.exists()) {
+                task.totalBytes = tempFile.length()
             }
 
             // Step 5: Check integrity (calculate SHA-256 and MD5)
@@ -328,6 +341,9 @@ class DownloadEngine(
             if (response.code == 412) {
                 throw FileChangedException("Remote file changed (HTTP 412 Precondition Failed)")
             }
+            if (response.code == 200 && chunk.startByte > 0L) {
+                throw RangeNotSupportedException("Server returned 200 OK for range chunk")
+            }
             if (response.code != 206 && response.code != 200) {
                 throw IllegalStateException("Unexpected HTTP code ${response.code}")
             }
@@ -345,10 +361,18 @@ class DownloadEngine(
                     if (task.status != DownloadTask.STATUS_RUNNING) {
                         break
                     }
-                    limiter.acquire(bytesRead)
-                    raf.write(buffer, 0, bytesRead)
-                    chunk.currentByte += bytesRead
-                    task.downloadedBytes.addAndGet(bytesRead.toLong())
+                    val remainingInChunk = (chunk.endByte - chunk.currentByte + 1).coerceAtLeast(0L)
+                    if (remainingInChunk <= 0L) {
+                        break
+                    }
+                    val toWrite = if (bytesRead.toLong() > remainingInChunk) remainingInChunk.toInt() else bytesRead
+                    limiter.acquire(toWrite)
+                    raf.write(buffer, 0, toWrite)
+                    chunk.currentByte += toWrite
+                    task.downloadedBytes.addAndGet(toWrite.toLong())
+                    if (toWrite < bytesRead || chunk.currentByte > chunk.endByte) {
+                        break
+                    }
                 }
             } finally {
                 try { raf.close() } catch (_: Exception) {}
@@ -389,6 +413,7 @@ class DownloadEngine(
                 if (append) {
                     raf.seek(chunk.currentByte)
                 } else {
+                    raf.setLength(0L)
                     raf.seek(0L)
                     chunk.currentByte = 0L
                     task.downloadedBytes.set(0L)
@@ -424,6 +449,10 @@ class DownloadEngine(
                 }
             } finally {
                 try { raf.close() } catch (_: Exception) {}
+            }
+
+            if (task.totalBytes <= 0L && tempFile.exists()) {
+                task.totalBytes = tempFile.length()
             }
         }
     }
@@ -482,11 +511,32 @@ class DownloadEngine(
                 resolver.update(uri, contentValues, null, null)
 
                 tempFile.delete()
+
+                // Try to resolve the actual filesystem path from MediaStore, or fall back to public path / URI
+                var resolvedPath: String? = null
+                try {
+                    val cursor = resolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val idx = it.getColumnIndex(MediaStore.MediaColumns.DATA)
+                            if (idx != -1) resolvedPath = it.getString(idx)
+                        }
+                    }
+                } catch (_: Exception) {}
+
+                if (!resolvedPath.isNullOrBlank() && File(resolvedPath!!).exists()) {
+                    return resolvedPath!!
+                }
+
                 val publicFile = File(
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                     finalFileName
                 )
-                return publicFile.absolutePath
+                if (publicFile.exists()) {
+                    return publicFile.absolutePath
+                }
+
+                return uri.toString()
             }
         }
 
@@ -578,4 +628,5 @@ class DownloadEngine(
     }
 
     class FileChangedException(message: String) : Exception(message)
+    class RangeNotSupportedException(message: String) : Exception(message)
 }
