@@ -771,6 +771,21 @@
         </LinearLayout>
     </FrameLayout>
 
+    <!-- Scroll-to-Top Floating Action Button -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabScrollToTop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="72dp"
+        android:contentDescription="@string/scroll_to_top_title"
+        android:visibility="gone"
+        app:fabSize="mini"
+        app:srcCompat="@drawable/ic_keyboard_arrow_up"
+        app:tint="@android:color/white"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Incognito Locked Overlay -->
     <LinearLayout
         android:id="@+id/incognitoLockedOverlay"

@@ -2374,6 +2374,71 @@ class MainActivity : AppCompatActivity() {
         return preferences.searchEngine.buildSearchUrl(trimmed)
     }
 
+    private fun enforceHighRefreshRate() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            try {
+                val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    display
+                } else {
+                    @Suppress("DEPRECATION")
+                    windowManager.defaultDisplay
+                }
+                val modes = display?.supportedModes
+                val highestMode = modes?.maxByOrNull { it.refreshRate }
+                if (highestMode != null) {
+                    val params = window.attributes
+                    params.preferredDisplayModeId = highestMode.modeId
+                    window.attributes = params
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun showSavePageDialog() {
+        val activeWebView = tabManager.getActiveWebView() ?: return
+        val currentTab = tabManager.activeTab.value ?: return
+        val options = arrayOf("Save as Offline Web Archive (.mhtml)", "Save as PDF (.pdf)")
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Save Page")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> saveCurrentPageAsMhtml(activeWebView, currentTab.title)
+                    1 -> saveCurrentPageAsPdf(activeWebView, currentTab.title)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun saveCurrentPageAsMhtml(webView: OnyxWebView, title: String) {
+        try {
+            val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
+            val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadDir.exists()) downloadDir.mkdirs()
+            val file = java.io.File(downloadDir, "${cleanTitle}_${System.currentTimeMillis()}.mhtml")
+            webView.saveWebArchive(file.absolutePath)
+            android.widget.Toast.makeText(this, "Saved to Downloads/${file.name}", android.widget.Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "Failed to save page: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun saveCurrentPageAsPdf(webView: OnyxWebView, title: String) {
+        try {
+            val printManager = getSystemService(android.content.Context.PRINT_SERVICE) as? android.print.PrintManager
+            val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
+            val printAdapter = webView.createPrintDocumentAdapter(cleanTitle)
+            val printAttributes = android.print.PrintAttributes.Builder()
+                .setMediaSize(android.print.PrintAttributes.MediaSize.ISO_A4)
+                .setResolution(android.print.PrintAttributes.Resolution("pdf", "pdf", 600, 600))
+                .setMinMargins(android.print.PrintAttributes.Margins.NO_MARGINS)
+                .build()
+            printManager?.print(cleanTitle, printAdapter, printAttributes)
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "Failed to export PDF: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         try {
