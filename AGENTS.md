@@ -62,6 +62,7 @@ onyx-browser/
 ### Environment & Capability Constraints
 - **Local Building Strictly Forbidden**: The local host environment is NOT permitted or capable of building Android Gradle projects, compiling NDK/Rust binaries, or running heavy compilation pipelines.
 - **Remote CI/CD Execution**: All compilation of Rust native libraries (`libadblock_bridge.so`) and Android APK builds (`./gradlew assembleDebug` / `assembleRelease`) MUST be executed remotely via GitHub Actions.
+- **Explicit User Build Gate**: Strictly **DO NOT** trigger CI/CD build workflows, compile, or build applications until the user explicitly commands **"build app now"**. Work on code, architecture, layouts, assets, and documentation until explicitly told to build.
 - **Code Quality**:
   - Null-safe, idiomatic Kotlin code with lifecycle-aware ViewBinding binding inflation and clearing.
   - Strict WebView memory leak prevention: Detach WebViews from parent layout, destroy properly in `onDestroyView()` / tab closure, remove callbacks.
