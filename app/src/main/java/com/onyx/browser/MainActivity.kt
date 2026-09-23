@@ -1662,18 +1662,31 @@ class MainActivity : AppCompatActivity() {
         imm?.hideSoftInputFromWindow(binding.etUrl.windowToken, 0)
     }
 
+    private var isRegexFindEnabled = false
+
     private fun setupFindInPage() {
         binding.btnCloseFind.setOnClickListener {
             hideFindInPage()
+        }
+
+        binding.btnRegexToggle.setOnClickListener {
+            isRegexFindEnabled = !isRegexFindEnabled
+            binding.btnRegexToggle.setTextColor(if (isRegexFindEnabled) getColor(R.color.primary) else android.graphics.Color.GRAY)
+            val webView = tabManager.getActiveWebView()
+            webView?.regexFindBridge?.setRegexMode(isRegexFindEnabled)
+            val query = binding.etFindQuery.text?.toString()?.trim() ?: ""
+            if (query.isNotEmpty()) {
+                webView?.regexFindBridge?.find(query)
+            }
         }
 
         binding.etFindQuery.doAfterTextChanged { text ->
             val query = text?.toString()?.trim() ?: ""
             val webView = tabManager.getActiveWebView()
             if (query.isNotEmpty()) {
-                webView?.findAllAsync(query)
+                webView?.regexFindBridge?.find(query)
             } else {
-                webView?.clearMatches()
+                webView?.regexFindBridge?.clearMatches()
                 binding.tvFindMatches.text = getString(R.string.no_matches)
             }
         }
@@ -1682,7 +1695,7 @@ class MainActivity : AppCompatActivity() {
             if (actionId == EditorInfo.IME_ACTION_SEARCH ||
                 (event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
             ) {
-                tabManager.getActiveWebView()?.findNext(true)
+                tabManager.getActiveWebView()?.regexFindBridge?.findNext(true)
                 true
             } else {
                 false
@@ -1690,11 +1703,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnFindPrev.setOnClickListener {
-            tabManager.getActiveWebView()?.findNext(false)
+            tabManager.getActiveWebView()?.regexFindBridge?.findNext(false)
         }
 
         binding.btnFindNext.setOnClickListener {
-            tabManager.getActiveWebView()?.findNext(true)
+            tabManager.getActiveWebView()?.regexFindBridge?.findNext(true)
         }
     }
 
@@ -1718,7 +1731,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideFindInPage() {
         binding.findInPageBar.visibility = View.GONE
-        tabManager.getActiveWebView()?.clearMatches()
+        tabManager.getActiveWebView()?.regexFindBridge?.clearMatches()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(binding.etFindQuery.windowToken, 0)
         binding.etFindQuery.setText("")

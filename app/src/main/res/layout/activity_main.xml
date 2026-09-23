@@ -272,8 +272,25 @@
             android:textColorHint="?android:attr/textColorSecondary"
             android:textSize="14sp"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/tvFindMatches"
+            app:layout_constraintEnd_toStartOf="@id/btnRegexToggle"
             app:layout_constraintStart_toEndOf="@id/btnCloseFind"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Regex Toggle -->
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btnRegexToggle"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text=".*"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:layout_marginEnd="8dp"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/tvFindMatches"
             app:layout_constraintTop_toTopOf="parent" />
 
         <!-- Matches Counter (e.g. 1/5) -->

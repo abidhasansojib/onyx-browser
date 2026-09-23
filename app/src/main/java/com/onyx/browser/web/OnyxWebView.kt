@@ -28,6 +28,16 @@ class OnyxWebView @JvmOverloads constructor(
     var isIncognito: Boolean = false
     var pendingSslHandler: android.webkit.SslErrorHandler? = null
     var currentSyntheticState: SyntheticNavigationState? = null
+    
+    val regexFindBridge = RegexFindBridge(this) { activeIndex, matchCount ->
+        findListener?.invoke(activeIndex, matchCount)
+    }
+
+    private var findListener: ((Int, Int) -> Unit)? = null
+
+    fun setRegexFindListener(listener: (Int, Int) -> Unit) {
+        findListener = listener
+    }
     val sessionSslBypasses: MutableSet<String> = mutableSetOf()
 
     fun clearSyntheticState() {
