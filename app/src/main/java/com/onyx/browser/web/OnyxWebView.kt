@@ -33,6 +33,13 @@ class OnyxWebView @JvmOverloads constructor(
         findListener?.invoke(activeIndex, matchCount)
     }
 
+    var onScrollChangedCallback: ((Int, Int, Int, Int) -> Unit)? = null
+
+    override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
+        super.onScrollChanged(l, t, oldl, oldt)
+        onScrollChangedCallback?.invoke(l, t, oldl, oldt)
+    }
+
     private var findListener: ((Int, Int) -> Unit)? = null
 
     fun setRegexFindListener(listener: (Int, Int) -> Unit) {

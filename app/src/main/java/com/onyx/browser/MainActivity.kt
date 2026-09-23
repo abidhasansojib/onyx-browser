@@ -294,6 +294,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Handle Scroll to Top FAB
+        binding.fabScrollToTop.setOnClickListener {
+            val wv = tabManager.getActiveWebView()
+            wv?.scrollTo(0, 0)
+            binding.fabScrollToTop.visibility = android.view.View.GONE
+        }
+        
         // Handle edge-to-edge system bars (Status Bar & Gesture Nav Bar)
         ViewCompat.setOnApplyWindowInsetsListener(binding.mainRoot) { _, windowInsets ->
             val statusBarInsets = windowInsets.getInsets(
@@ -789,6 +796,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupWebViewClients(webView: OnyxWebView) {
+        webView.onScrollChangedCallback = { _, t, _, oldt ->
+            if (preferences.isScrollToTopEnabled && currentDisplayedTabId == tabManager.activeTab.value?.id) {
+                if (t > 500 && t > oldt) {
+                    binding.fabScrollToTop.visibility = android.view.View.VISIBLE
+                } else if (t < 10) {
+                    binding.fabScrollToTop.visibility = android.view.View.GONE
+                }
+            }
+        }
+
         webView.webViewClient = OnyxWebViewClient(
             context = this,
             coroutineScope = lifecycleScope,

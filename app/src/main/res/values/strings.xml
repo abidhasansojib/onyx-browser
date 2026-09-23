@@ -368,5 +368,10 @@
     <string name="shortcut_search_long">Search Web</string>
     <string name="shortcut_qr_short">Scan QR</string>
     <string name="shortcut_qr_long">Scan QR Code</string>
+
+    <!-- Accessibility -->
+    <string name="accessibility_category">Accessibility</string>
+    <string name="scroll_to_top_title">Scroll to Top Button</string>
+    <string name="scroll_to_top_desc">Show a floating button when scrolling down to instantly jump to the top</string>
 </resources>
 

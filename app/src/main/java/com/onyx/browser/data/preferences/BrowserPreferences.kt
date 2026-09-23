@@ -502,6 +502,10 @@ class BrowserPreferences private constructor(context: Context) {
         get() = prefs.getBoolean(KEY_PASSKEYS_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_PASSKEYS_ENABLED, value).apply()
 
+    var isScrollToTopEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SCROLL_TO_TOP, false)
+        set(value) = prefs.edit().putBoolean(KEY_SCROLL_TO_TOP, value).apply()
+
     companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
@@ -571,6 +575,8 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_PASSKEYS_ENABLED = "pref_passkeys_enabled"
         const val KEY_FILTER_AUTO_UPDATE = "pref_filter_auto_update"
         const val KEY_FILTER_UPDATE_INTERVAL = "pref_filter_update_interval"
+        const val KEY_SCROLL_TO_TOP = "pref_scroll_to_top"
+
 
         @Volatile
         private var INSTANCE: BrowserPreferences? = null
