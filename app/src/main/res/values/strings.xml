@@ -393,7 +393,6 @@
     <string name="open_in_app_action">Open in app</string>
 
     <!-- Context Menu -->
-    <string name="open_in_new_tab">Open in new tab</string>
     <string name="open_in_incognito_tab">Open in incognito tab</string>
     <string name="copy_link_address">Copy link address</string>
     <string name="copy_link_text">Copy link text</string>
