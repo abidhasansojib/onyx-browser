@@ -989,20 +989,9 @@ class OnyxWebViewClient(
         request: WebResourceRequest?,
         errorResponse: WebResourceResponse?
     ) {
-        // Only top-level document HTTP 4xx/5xx responses trigger synthetic error state
-        if (request?.isForMainFrame != true) {
-            return
-        }
-
-        val url = request.url.toString()
-        if (url.startsWith("file:///android_asset/")) return
-
-        val statusCode = errorResponse?.statusCode ?: 0
-        if (statusCode >= 400) {
-            val reason = errorResponse?.reasonPhrase
-            val onyxError = WebErrorHandler.resolveHttpError(url, statusCode, reason)
-            loadCustomErrorPage(view, onyxError)
-        }
+        // Do NOT override server-returned HTTP error pages (e.g. 403 Forbidden, 404 Not Found, 500).
+        // Websites and servers provide their own HTML responses (e.g. biology-school.com 403 Forbidden).
+        // Only actual network-level failures (onReceivedError) and SSL errors (onReceivedSslError) show synthetic error pages.
     }
 
     @Deprecated("Deprecated in Java")

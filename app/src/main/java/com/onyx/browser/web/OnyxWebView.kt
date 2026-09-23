@@ -76,6 +76,7 @@ class OnyxWebView @JvmOverloads constructor(
         val failing = currentSyntheticState?.failingUrl ?: lastFailingUrl
         if (!failing.isNullOrBlank()) {
             clearSyntheticState()
+            stopLoading()
             loadUrl(failing)
             return
         }

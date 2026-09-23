@@ -15,7 +15,7 @@
       --primary-btn-bg: #1A73E8;
       --primary-btn-text: #FFFFFF;
       --primary-btn-active: #1557B0;
-      --secondary-btn-bg: #FFFFFF;
+      --secondary-btn-bg: transparent;
       --secondary-btn-text: #1A73E8;
       --secondary-btn-border: #DADCE0;
       --secondary-btn-active: #F1F3F4;
@@ -23,8 +23,6 @@
       --card-border: #DADCE0;
       --danger-color: #D93025;
       --icon-color: #5F6368;
-      --dino-color: #535353;
-      --ground-color: #D0D0D0;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -37,7 +35,7 @@
         --primary-btn-bg: #8AB4F8;
         --primary-btn-text: #202124;
         --primary-btn-active: #ADC8FF;
-        --secondary-btn-bg: #202124;
+        --secondary-btn-bg: transparent;
         --secondary-btn-text: #8AB4F8;
         --secondary-btn-border: #5F6368;
         --secondary-btn-active: #303134;
@@ -45,8 +43,6 @@
         --card-border: #3C4043;
         --danger-color: #F28B82;
         --icon-color: #9AA0A6;
-        --dino-color: #E8EAED;
-        --ground-color: #4A4D51;
       }
     }
 
@@ -70,8 +66,8 @@
 
     .interstitial-wrapper {
       box-sizing: border-box;
-      margin: 6vh auto 0;
-      max-width: 600px;
+      margin: 8vh auto 0;
+      max-width: 580px;
       padding: 0 24px 60px;
       text-align: left;
     }
@@ -90,34 +86,6 @@
 
     .icon-danger {
       color: var(--danger-color);
-    }
-
-    /* Dino Runner Canvas Area */
-    #runner-container {
-      display: none;
-      position: relative;
-      margin-bottom: 24px;
-      width: 100%;
-      max-width: 560px;
-      overflow: hidden;
-      user-select: none;
-      -webkit-user-select: none;
-      touch-action: manipulation;
-    }
-
-    #runner-canvas {
-      display: block;
-      width: 100%;
-      height: 140px;
-      cursor: pointer;
-    }
-
-    .runner-hint {
-      font-size: 11px;
-      color: var(--error-code-color);
-      margin-top: 4px;
-      text-align: right;
-      letter-spacing: 0.02em;
     }
 
     /* Headings & Text */
@@ -252,7 +220,7 @@
       font-weight: 500;
       outline: none;
       padding: 9px 22px;
-      transition: background 0.15s;
+      transition: background 0.15s, opacity 0.15s;
       user-select: none;
       -webkit-user-select: none;
     }
@@ -311,7 +279,7 @@
 
     @media (max-width: 480px) {
       .interstitial-wrapper {
-        margin-top: 4vh;
+        margin-top: 5vh;
         padding: 0 20px 48px;
       }
       h1 {
@@ -324,18 +292,22 @@
 
   <div class="interstitial-wrapper">
 
-    <!-- Offline Dino Runner -->
-    <div id="runner-container">
-      <canvas id="runner-canvas" width="560" height="140"></canvas>
-      <div class="runner-hint">Press Space or tap to play</div>
-    </div>
-
-    <!-- Standard Icon Container -->
+    <!-- Icon Container -->
     <div id="icon-container" class="icon-container">
       <!-- Sad Tab / Network generic icon (Chromium standard) -->
       <svg id="iconSadTab" class="icon-svg" viewBox="0 0 48 48" fill="none">
         <path stroke="currentColor" stroke-width="3" stroke-linecap="square" d="M1.5 8.5 v34 h45 v-28 m-3-3 h-10 v-3 m-3-3 h-10 m15 6 h-18 v-3 m-3-3 h-10"/>
         <path stroke="currentColor" stroke-width="2" stroke-linecap="square" d="M12 35 h2 m2-2 h12 m2 2 h3 m2 2 h3 M11 21 l0 0 m0 4 h0 m4 0 h0 m0-4 h0 m-2 2 h0 M33 21 l0 0 m0 4 h0 m4 0 h0 m0-4 h0 m-2 2 h0"/>
+      </svg>
+      <!-- Offline / Disconnected icon -->
+      <svg id="iconOffline" class="icon-svg" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <line x1="12" y1="20" x2="12.01" y2="20"/>
       </svg>
       <!-- Security / Warning Triangle -->
       <svg id="iconSecurity" class="icon-svg icon-danger" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -410,23 +382,44 @@
 
   <script>
     // ── Parse Error Payload ──────────────────────────────────────────────────
-    let data = null;
-    const b64 = '{{ERROR_JSON_B64}}';
-    if (!b64.startsWith('{{') && b64.length > 0) {
-      try {
-        data = JSON.parse(decodeURIComponent(escape(atob(b64))));
-      } catch (e) {}
+    function decodeErrorPayload() {
+      const b64 = '{{ERROR_JSON_B64}}';
+      if (!b64.startsWith('{{') && b64.length > 0) {
+        try {
+          const binString = atob(b64);
+          const bytes = Uint8Array.from(binString, c => c.charCodeAt(0));
+          return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+        } catch (e) {
+          try {
+            return JSON.parse(decodeURIComponent(escape(atob(b64))));
+          } catch (e2) {
+            try {
+              return JSON.parse(atob(b64));
+            } catch (e3) {}
+          }
+        }
+      }
+      return null;
     }
+
+    let data = decodeErrorPayload();
 
     if (!data) {
       const p = new URLSearchParams(window.location.search);
-      const host = p.get('url') ? (new URL(p.get('url'))).hostname : 'this site';
+      let host = 'this site';
+      const rawUrl = p.get('url') || window.location.href;
+      try {
+        if (rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
+          host = new URL(rawUrl).hostname;
+        }
+      } catch (e) {}
+
       data = {
         category: 'GENERIC',
         errorCode: p.get('error') || 'ERR_CONNECTION_FAILED',
         title: 'This site can’t be reached',
         description: '<strong>' + host + '</strong> refused to connect.',
-        url: p.get('url') || window.location.href,
+        url: rawUrl,
         domain: host,
         checklist: [
           'Checking the connection',
@@ -439,15 +432,14 @@
         isDanger: false,
         technicalDetails: p.get('desc') || '',
         isHstsEnforced: false,
-        canCheckWayback: false,
-        hasOfflineGame: false
+        canCheckWayback: false
       };
     }
 
     // ── DOM References ───────────────────────────────────────────────────────
-    const runnerContainer = document.getElementById('runner-container');
     const iconContainer = document.getElementById('icon-container');
     const iconSadTab = document.getElementById('iconSadTab');
+    const iconOffline = document.getElementById('iconOffline');
     const iconSecurity = document.getElementById('iconSecurity');
     const iconShields = document.getElementById('iconShields');
     const titleText = document.getElementById('titleText');
@@ -494,24 +486,24 @@
       suggestions.style.display = 'none';
     }
 
-    // Wayback Machine card for 404, 5xx, or server down
+    // Wayback Machine card for 404, 5xx, or missing snapshot
     if (data.canCheckWayback) {
       waybackCard.style.display = 'block';
     } else {
       waybackCard.style.display = 'none';
     }
 
-    // ── Category-Specific Icons & Layout ────────────────────────────────────
-    if (data.category === 'OFFLINE' || data.hasOfflineGame) {
-      // Show Dino Runner Game, hide static icon
-      iconContainer.style.display = 'none';
-      runnerContainer.style.display = 'block';
-      initDinoGame();
+    // ── Category-Specific Icons & Layout (Simple & Authentic like Brave) ────
+    iconContainer.style.display = 'block';
+    iconSadTab.style.display = 'none';
+    iconOffline.style.display = 'none';
+    iconSecurity.style.display = 'none';
+    iconShields.style.display = 'none';
+
+    if (data.category === 'OFFLINE') {
+      iconOffline.style.display = 'block';
     } else if (data.category === 'SECURITY') {
-      iconContainer.style.display = 'block';
-      iconSadTab.style.display = 'none';
       iconSecurity.style.display = 'block';
-      iconShields.style.display = 'none';
       sslSection.style.display = 'block';
 
       if (data.isHstsEnforced) {
@@ -519,17 +511,11 @@
         proceedWrapper.style.display = 'none';
       }
     } else if (data.category === 'SHIELDS_BLOCKED') {
-      iconContainer.style.display = 'block';
-      iconSadTab.style.display = 'none';
-      iconSecurity.style.display = 'none';
       iconShields.style.display = 'block';
       shieldsSection.style.display = 'block';
     } else {
       // Default: sad tab network icon
-      iconContainer.style.display = 'block';
       iconSadTab.style.display = 'block';
-      iconSecurity.style.display = 'none';
-      iconShields.style.display = 'none';
     }
 
     // ── Actions & Native Bridge ──────────────────────────────────────────────
@@ -540,10 +526,14 @@
           try {
             if (primaryButton && data.primaryButtonAction === 'reload') {
               primaryButton.textContent = 'Reloading…';
-              primaryButton.disabled = true;
+              setTimeout(() => {
+                if (primaryButton) {
+                  primaryButton.textContent = data.primaryButtonText || 'Reload';
+                }
+              }, 3000);
             }
           } catch(e) {}
-          if (bridge && bridge.reload) {
+          if (bridge && typeof bridge.reload === 'function') {
             try {
               bridge.reload(data.url);
             } catch(e) {
@@ -556,12 +546,12 @@
           }
           break;
         case 'back':
-          if (bridge && bridge.goBack) bridge.goBack();
+          if (bridge && typeof bridge.goBack === 'function') bridge.goBack();
           else if (window.history.length > 1) window.history.back();
           else window.location.href = 'about:blank';
           break;
         case 'home':
-          if (bridge && bridge.goHome) bridge.goHome();
+          if (bridge && typeof bridge.goHome === 'function') bridge.goHome();
           else window.location.href = 'about:blank';
           break;
         case 'details':
@@ -569,17 +559,17 @@
           detailsSection.classList.toggle('hidden');
           break;
         case 'shields':
-          if (bridge && bridge.openShields) bridge.openShields();
+          if (bridge && typeof bridge.openShields === 'function') bridge.openShields();
           break;
         case 'downloads':
-          if (bridge && bridge.openDownloads) bridge.openDownloads();
+          if (bridge && typeof bridge.openDownloads === 'function') bridge.openDownloads();
           break;
         case 'wayback_machine':
-          if (bridge && bridge.checkWaybackMachine) bridge.checkWaybackMachine(data.url);
+          if (bridge && typeof bridge.checkWaybackMachine === 'function') bridge.checkWaybackMachine(data.url);
           else window.open('https://web.archive.org/web/*/' + encodeURIComponent(data.url));
           break;
         case 'search':
-          if (bridge && bridge.search) bridge.search(data.domain || data.url);
+          if (bridge && typeof bridge.search === 'function') bridge.search(data.domain || data.url);
           else window.location.href = 'https://search.brave.com/search?q=' + encodeURIComponent(data.domain || '');
           break;
       }
@@ -605,245 +595,6 @@
         window.OnyxErrorBridge.allowSiteShield(data.domain);
       }
     });
-
-    // ── Offline 8-Bit Dino Runner Game (Chromium / Brave Authentic) ─────────
-    function initDinoGame() {
-      const canvas = document.getElementById('runner-canvas');
-      const ctx = canvas.getContext('2d');
-      const groundY = 120;
-      let isPlaying = false;
-      let isGameOver = false;
-      let score = 0;
-      let hiScore = parseInt(localStorage.getItem('onyx_dino_hi') || '0', 10);
-      let animId = null;
-
-      // Dino physics
-      const dino = {
-        x: 40,
-        y: groundY - 36,
-        w: 32,
-        h: 36,
-        vy: 0,
-        jumpForce: -9.5,
-        gravity: 0.52,
-        isJumping: false,
-        legFrame: 0
-      };
-
-      // Obstacles
-      let obstacles = [];
-      let spawnTimer = 0;
-      let speed = 4.5;
-
-      function getColors() {
-        const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        return {
-          dino: isDark ? '#E8EAED' : '#535353',
-          ground: isDark ? '#5F6368' : '#737373',
-          score: isDark ? '#9AA0A6' : '#737373'
-        };
-      }
-
-      function drawDino(x, y, legFrame, dead) {
-        const colors = getColors();
-        ctx.fillStyle = colors.dino;
-
-        // Pixel dino silhouette
-        ctx.fillRect(x + 14, y, 14, 12);     // Head
-        ctx.fillRect(x + 10, y + 10, 10, 14); // Body
-        ctx.fillRect(x + 4, y + 14, 8, 10);   // Tail
-        ctx.fillRect(x + 22, y + 12, 4, 4);   // Arm
-
-        // Eye
-        ctx.fillStyle = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#202124' : '#FFFFFF';
-        if (dead) {
-          // X eye
-          ctx.fillRect(x + 18, y + 3, 3, 3);
-        } else {
-          ctx.fillRect(x + 18, y + 3, 3, 3);
-        }
-
-        ctx.fillStyle = colors.dino;
-        // Legs
-        if (dead || dino.isJumping) {
-          ctx.fillRect(x + 12, y + 24, 4, 10);
-          ctx.fillRect(x + 18, y + 24, 4, 8);
-        } else {
-          if (legFrame === 0) {
-            ctx.fillRect(x + 12, y + 24, 4, 10);
-            ctx.fillRect(x + 18, y + 24, 4, 6);
-          } else {
-            ctx.fillRect(x + 12, y + 24, 4, 6);
-            ctx.fillRect(x + 18, y + 24, 4, 10);
-          }
-        }
-      }
-
-      function drawCactus(x, h) {
-        const colors = getColors();
-        ctx.fillStyle = colors.dino;
-        ctx.fillRect(x + 4, groundY - h, 6, h);
-        ctx.fillRect(x, groundY - h + 8, 4, 10);
-        ctx.fillRect(x + 10, groundY - h + 12, 4, 10);
-      }
-
-      function drawGround() {
-        const colors = getColors();
-        ctx.strokeStyle = colors.ground;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, groundY);
-        ctx.lineTo(canvas.width, groundY);
-        ctx.stroke();
-
-        // Little ground pebbles
-        ctx.fillStyle = colors.ground;
-        const offset = (score * 2) % 40;
-        for (let i = 0; i < canvas.width; i += 40) {
-          ctx.fillRect(i - offset, groundY + 4, 3, 1);
-        }
-      }
-
-      function drawScore() {
-        const colors = getColors();
-        ctx.fillStyle = colors.score;
-        ctx.font = '11px monospace';
-        const sStr = String(Math.floor(score)).padStart(5, '0');
-        const hiStr = String(hiScore).padStart(5, '0');
-        ctx.fillText('HI ' + hiStr + '  ' + sStr, canvas.width - 120, 20);
-      }
-
-      function renderIdle() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawGround();
-        drawDino(dino.x, dino.y, 0, false);
-        drawScore();
-      }
-
-      function jump() {
-        if (!isPlaying) {
-          isPlaying = true;
-          isGameOver = false;
-          score = 0;
-          speed = 4.5;
-          obstacles = [];
-          dino.y = groundY - dino.h;
-          dino.vy = dino.jumpForce;
-          dino.isJumping = true;
-          loop();
-          return;
-        }
-
-        if (isGameOver) {
-          isGameOver = false;
-          isPlaying = true;
-          score = 0;
-          speed = 4.5;
-          obstacles = [];
-          dino.y = groundY - dino.h;
-          dino.vy = dino.jumpForce;
-          dino.isJumping = true;
-          loop();
-          return;
-        }
-
-        if (!dino.isJumping) {
-          dino.vy = dino.jumpForce;
-          dino.isJumping = true;
-        }
-      }
-
-      function loop() {
-        if (!isPlaying) return;
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Update Dino
-        dino.y += dino.vy;
-        dino.vy += dino.gravity;
-
-        if (dino.y >= groundY - dino.h) {
-          dino.y = groundY - dino.h;
-          dino.vy = 0;
-          dino.isJumping = false;
-        }
-
-        dino.legFrame = (Math.floor(score / 5)) % 2;
-
-        // Spawn obstacles
-        spawnTimer++;
-        if (spawnTimer > 75 + Math.random() * 50) {
-          spawnTimer = 0;
-          const h = 24 + Math.floor(Math.random() * 16);
-          obstacles.push({ x: canvas.width, h: h, w: 14 });
-        }
-
-        // Update obstacles & collision
-        for (let i = obstacles.length - 1; i >= 0; i--) {
-          const obs = obstacles[i];
-          obs.x -= speed;
-
-          drawCactus(obs.x, obs.h);
-
-          // AABB collision check
-          if (
-            dino.x + 4 < obs.x + obs.w &&
-            dino.x + dino.w - 4 > obs.x &&
-            dino.y + dino.h > groundY - obs.h
-          ) {
-            isGameOver = true;
-            isPlaying = false;
-          }
-
-          if (obs.x < -20) {
-            obstacles.splice(i, 1);
-          }
-        }
-
-        drawGround();
-        drawDino(dino.x, dino.y, dino.legFrame, isGameOver);
-
-        score += 0.15;
-        speed += 0.0008;
-
-        if (score > hiScore) {
-          hiScore = Math.floor(score);
-          localStorage.setItem('onyx_dino_hi', hiScore);
-        }
-
-        drawScore();
-
-        if (isGameOver) {
-          const colors = getColors();
-          ctx.fillStyle = colors.dino;
-          ctx.font = 'bold 13px monospace';
-          ctx.fillText('G A M E  O V E R', canvas.width / 2 - 58, 60);
-
-          // Retry icon
-          ctx.font = '10px monospace';
-          ctx.fillText('TAP TO PLAY AGAIN', canvas.width / 2 - 54, 82);
-          return;
-        }
-
-        animId = requestAnimationFrame(loop);
-      }
-
-      // Event listeners for jump
-      canvas.addEventListener('click', jump);
-      canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        jump();
-      }, { passive: false });
-
-      document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' || e.code === 'ArrowUp') {
-          e.preventDefault();
-          jump();
-        }
-      });
-
-      renderIdle();
-    }
   </script>
 </body>
 </html>

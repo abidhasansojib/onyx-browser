@@ -931,6 +931,20 @@ onyx-browser/
     - Replaced all synchronous `view?.loadUrl(...)` calls in `shouldOverrideUrlLoading`, `handleUrlLoading`, `handleIntentScheme`, `handleAppNotFoundFallback`, `onReceivedError`, and `onReceivedSslError` with asynchronous message posting: `view?.post { view.loadUrl(...) }`.
     - This allows `shouldOverrideUrlLoading()` to return `true` immediately to Chromium, cleanly aborting and unwinding the previous navigation stack before the new URL is loaded on the next looper turn.
     - Wrapped `handleUrlLoading` in an outer `try-catch` to ensure no uncaught exceptions escape into Chromium's native bridge.
+- [x] **Preserve Server HTTP Error Pages & Redesign Error UI Like Brave Without Games (`OnyxWebViewClient.kt`, `error_page.html`, `MainActivity.kt`, `OnyxWebView.kt`, `SyntheticNavigationState.kt`)**:
+  - **Preserve Server-Returned HTTP Error Pages (e.g. 403 Forbidden, 404 Not Found)**:
+    - Removed `loadCustomErrorPage` invocation from `onReceivedHttpError` in `OnyxWebViewClient.kt`.
+    - Standard browsers (Brave, Chrome) never overwrite HTTP 4xx/5xx responses because servers provide their own HTML error pages (e.g., `https://biology-school.com/assets/` 403 Forbidden, custom website 404s, Cloudflare gateway pages). Android WebView now naturally renders the server's own HTML payload.
+    - Synthetic error pages are strictly restricted to actual network stack failures (`onReceivedError`: offline, DNS resolution failure, connection refused, timed out) and cryptographic certificate issues (`onReceivedSslError`).
+  - **Brave-Style Minimal Error Page (No Games)**:
+    - Stripped the 8-bit Dino canvas runner game completely from `error_page.html` (removed `#runner-container`, canvas, 250+ lines of game loops, touch listeners, and localStorage hi-score tracking).
+    - Designed authentic, clean Brave error layout with crisp SVG vectors for Sad Tab (`iconSadTab`), Disconnected Offline (`iconOffline`), SSL Security (`iconSecurity`), and Shields Blocked (`iconShields`).
+    - Standardized typography, explanatory description with highlighted domain, checklist suggestions, subtle uppercase error code, and signature collapsible Wayback Machine card.
+    - Collapsible Details/Advanced section with technical diagnostics, SSL bypass link, HSTS warnings, and Shields temporary allow link.
+  - **Rock-Solid Error Page Reload Button**:
+    - Replaced buggy UTF-8 decoding in `error_page.html` with modern `TextDecoder` and `Uint8Array` base64 parsing plus fail-open fallbacks.
+    - Fixed reload button feedback: displays "Reloading…" and automatically restores text after 3 seconds instead of permanently disabling the button with `disabled = true`.
+    - Invoked `webView.stopLoading()` in `MainActivity.showWebView()` and `OnyxWebView.reload()` before re-loading the failing URL, preventing Chromium from hanging on cached synthetic base-URL data.
 
 
 

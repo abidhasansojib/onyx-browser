@@ -113,7 +113,7 @@ sealed class SyntheticNavigationState(
         secondaryButtonText = "Details",
         secondaryButtonAction = "details",
         technicalDetails = technicalDetails,
-        hasOfflineGame = true
+        hasOfflineGame = false
     )
 
     class Security(

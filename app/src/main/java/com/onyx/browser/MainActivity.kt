@@ -786,6 +786,7 @@ class MainActivity : AppCompatActivity() {
                             tabManager.updateActiveTab(targetUrl, title)
                         }
                     } else {
+                        webView.stopLoading()
                         webView.loadUrl(targetUrl)
                     }
                 } catch (t: Throwable) {
