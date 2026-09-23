@@ -36,6 +36,44 @@ class OnyxWebViewClient(
     private val preferences = BrowserPreferences.getInstance(context)
     private val database = AppDatabase.getInstance(context)
 
+    var onOpenInAppPrompt: ((intent: Intent, appName: String?, fallback: (() -> Unit)?) -> Unit)? = null
+
+    private fun getAppNameForIntent(intent: Intent, fallbackName: String? = null): String? {
+        try {
+            val pm = context.packageManager
+            val resolveInfo = pm.resolveActivity(intent, 0)
+            if (resolveInfo != null) {
+                val label = resolveInfo.loadLabel(pm).toString()
+                if (label.isNotBlank()) return label
+            }
+        } catch (_: Exception) {}
+        return fallbackName
+    }
+
+    private fun promptOrLaunchApp(
+        intent: Intent,
+        appName: String? = null,
+        fallback: (() -> Unit)? = null
+    ): Boolean {
+        val resolvedName = getAppNameForIntent(intent, appName)
+        val prompt = onOpenInAppPrompt
+        if (prompt != null) {
+            prompt(intent, resolvedName, fallback)
+            return true
+        } else {
+            return try {
+                context.startActivity(intent)
+                true
+            } catch (_: ActivityNotFoundException) {
+                fallback?.invoke()
+                false
+            } catch (_: Exception) {
+                fallback?.invoke()
+                false
+            }
+        }
+    }
+
     @Volatile
     private var currentPageUrl: String = ""
 
@@ -298,10 +336,10 @@ class OnyxWebViewClient(
             return handleIntentScheme(view, url)
         }
 
-        // Essential communication schemes always open external apps
+        // Essential communication schemes always open external apps directly
         val isEssentialScheme = scheme == "tel" || scheme == "mailto" ||
                 scheme == "sms" || scheme == "smsto" || scheme == "mms" ||
-                scheme == "geo" || scheme == "market"
+                scheme == "geo"
 
         // If user explicitly disabled "Open links in app" and this is not essential communication
         if (!preferences.isOpenLinksInAppEnabled && !isEssentialScheme) {
@@ -312,15 +350,32 @@ class OnyxWebViewClient(
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
-        return try {
-            context.startActivity(intent)
-            true
-        } catch (_: ActivityNotFoundException) {
-            handleAppNotFoundFallback(view, scheme, uri)
-            true
-        } catch (_: Exception) {
-            true
+        if (isEssentialScheme) {
+            return try {
+                context.startActivity(intent)
+                true
+            } catch (_: ActivityNotFoundException) {
+                handleAppNotFoundFallback(view, scheme, uri)
+                true
+            } catch (_: Exception) {
+                true
+            }
         }
+
+        val appName = when (scheme) {
+            "tg", "telegram" -> "Telegram"
+            "whatsapp" -> "WhatsApp"
+            "twitter", "x" -> "X (Twitter)"
+            "instagram" -> "Instagram"
+            "fb" -> "Facebook"
+            "fb-messenger" -> "Messenger"
+            "discord" -> "Discord"
+            "spotify" -> "Spotify"
+            "market" -> "Google Play"
+            else -> null
+        }
+
+        return promptOrLaunchApp(intent, appName, fallback = null)
     }
 
     private fun handleIntentScheme(view: WebView?, url: String): Boolean {
@@ -332,12 +387,27 @@ class OnyxWebViewClient(
             }
 
             if (preferences.isOpenLinksInAppEnabled) {
-                try {
-                    context.startActivity(intent)
-                    return true
-                } catch (_: ActivityNotFoundException) {
-                    // Fall back to URL or store
+                val fallbackAction: () -> Unit = {
+                    val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                    if (!fallbackUrl.isNullOrBlank() &&
+                        (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
+                        view?.loadUrl(fallbackUrl)
+                    } else {
+                        val dataUri = intent.data
+                        if (dataUri != null) {
+                            val dataScheme = dataUri.scheme?.lowercase()
+                            if (dataScheme == "http" || dataScheme == "https") {
+                                view?.loadUrl(dataUri.toString())
+                            }
+                        }
+                    }
                 }
+
+                return promptOrLaunchApp(
+                    intent = intent,
+                    appName = intent.getPackage(),
+                    fallback = fallbackAction
+                )
             }
 
             // 1st Fallback: browser_fallback_url extra
@@ -422,12 +492,7 @@ class OnyxWebViewClient(
                 val intent = Intent(Intent.ACTION_VIEW, tgUri).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                return try {
-                    context.startActivity(intent)
-                    true
-                } catch (_: Exception) {
-                    false
-                }
+                return promptOrLaunchApp(intent, "Telegram", fallback = null)
             }
         } else if (host == "wa.me") {
             val phone = uri.path?.removePrefix("/") ?: ""
@@ -441,12 +506,7 @@ class OnyxWebViewClient(
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                return try {
-                    context.startActivity(intent)
-                    true
-                } catch (_: Exception) {
-                    false
-                }
+                return promptOrLaunchApp(intent, "WhatsApp", fallback = null)
             }
         } else if (host.contains("youtube.com") || host == "youtu.be" || host.contains("reddit.com")) {
             val intent = Intent(Intent.ACTION_VIEW, uri).apply {
@@ -460,12 +520,8 @@ class OnyxWebViewClient(
             
             if (externalApp != null) {
                 intent.setPackage(externalApp.activityInfo.packageName)
-                return try {
-                    context.startActivity(intent)
-                    true
-                } catch (_: Exception) {
-                    false
-                }
+                val appLabel = externalApp.loadLabel(pm).toString()
+                return promptOrLaunchApp(intent, appLabel, fallback = null)
             }
         }
         return false
@@ -728,6 +784,7 @@ class OnyxWebViewClient(
             if (preferences.isBackgroundPlayEnabled) {
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
             }
+            view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
         }
     }
 
@@ -757,6 +814,7 @@ class OnyxWebViewClient(
             if (preferences.isBackgroundPlayEnabled) {
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
             }
+            view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
             val isSyntheticError = (view as? OnyxWebView)?.currentSyntheticState != null
             val isIncognito = (view as? OnyxWebView)?.isIncognito ?: false
             if (!isIncognito && !isSyntheticError && !isSyntheticData && url.startsWith("http")) {

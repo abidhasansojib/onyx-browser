@@ -54,14 +54,24 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
 
     private var onOpenInNewTab: ((String) -> Unit)? = null
+    private var onOpenInIncognitoTab: ((String) -> Unit)? = null
     private var onEditUrl: ((String) -> Unit)? = null
+    private var onDownloadUrl: ((String) -> Unit)? = null
 
     fun setOnOpenInNewTab(cb: (String) -> Unit) {
         onOpenInNewTab = cb
     }
 
+    fun setOnOpenInIncognitoTab(cb: (String) -> Unit) {
+        onOpenInIncognitoTab = cb
+    }
+
     fun setOnEditUrl(cb: (String) -> Unit) {
         onEditUrl = cb
+    }
+
+    fun setOnDownloadUrl(cb: (String) -> Unit) {
+        onDownloadUrl = cb
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,17 +93,19 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
 
         val url = arguments?.getString(ARG_URL)
         val imageUrl = arguments?.getString(ARG_IMAGE_URL)
+        val videoUrl = arguments?.getString(ARG_VIDEO_URL)
         val linkText = arguments?.getString(ARG_LINK_TEXT)
         val isImage = !imageUrl.isNullOrBlank()
-        val isLink = !url.isNullOrBlank()
+        val isVideo = !videoUrl.isNullOrBlank()
+        val isLink = !url.isNullOrBlank() && !isVideo
 
-        val displayUrl = url ?: imageUrl ?: ""
+        val displayUrl = url ?: imageUrl ?: videoUrl ?: ""
 
         // ── 1. Compact Header Card (Favicon + Title + URL + Share/Copy/Edit) ──
-        setupHeaderCard(displayUrl, linkText, isImage)
+        setupHeaderCard(displayUrl, linkText, isImage, isVideo)
 
         // Action buttons inside the compact card
-        val targetForActions = url ?: imageUrl ?: ""
+        val targetForActions = url ?: imageUrl ?: videoUrl ?: ""
         binding.btnShare.setOnClickListener {
             if (targetForActions.isNotBlank()) {
                 shareUrl(targetForActions)
@@ -103,7 +115,14 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
 
         binding.btnCopyUrl.setOnClickListener {
             if (targetForActions.isNotBlank()) {
-                copyToClipboard(if (isImage) "Image URL" else "Link", targetForActions)
+                copyToClipboard(
+                    when {
+                        isImage -> "Image URL"
+                        isVideo -> "Video URL"
+                        else -> "Link"
+                    },
+                    targetForActions
+                )
             }
             dismiss()
         }
@@ -117,17 +136,46 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
 
         // ── 2. Link Actions ──────────────────────────────────────────────────
         if (isLink) {
+            val link = url!!
             binding.itemOpenNewTab.visibility = View.VISIBLE
             binding.itemOpenNewTab.setOnClickListener {
-                onOpenInNewTab?.invoke(url!!)
+                onOpenInNewTab?.invoke(link)
                 dismiss()
             }
-        }
 
-        if (!linkText.isNullOrBlank()) {
-            binding.itemCopyLinkText.visibility = View.VISIBLE
-            binding.itemCopyLinkText.setOnClickListener {
-                copyToClipboard("Link text", linkText)
+            binding.itemOpenIncognitoTab.visibility = View.VISIBLE
+            binding.itemOpenIncognitoTab.setOnClickListener {
+                onOpenInIncognitoTab?.invoke(link)
+                dismiss()
+            }
+
+            binding.itemCopyLinkAddress.visibility = View.VISIBLE
+            binding.itemCopyLinkAddress.setOnClickListener {
+                copyToClipboard("Link address", link)
+                dismiss()
+            }
+
+            if (!linkText.isNullOrBlank()) {
+                binding.itemCopyLinkText.visibility = View.VISIBLE
+                binding.itemCopyLinkText.setOnClickListener {
+                    copyToClipboard("Link text", linkText)
+                    dismiss()
+                }
+            }
+
+            binding.itemDownloadLink.visibility = View.VISIBLE
+            binding.itemDownloadLink.setOnClickListener {
+                if (onDownloadUrl != null) {
+                    onDownloadUrl?.invoke(link)
+                } else {
+                    downloadMedia(link, "download")
+                }
+                dismiss()
+            }
+
+            binding.itemShareLink.visibility = View.VISIBLE
+            binding.itemShareLink.setOnClickListener {
+                shareUrl(link)
                 dismiss()
             }
         }
@@ -184,24 +232,44 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
             }
         }
 
-        // ── 4. Video Save ────────────────────────────────────────────────────
-        val isVideoUrl = url?.let { u ->
+        // ── 4. Video Actions ─────────────────────────────────────────────────
+        val effectiveVideoUrl = videoUrl ?: if (url?.let { u ->
             u.contains(".mp4", ignoreCase = true) ||
             u.contains(".webm", ignoreCase = true) ||
             u.contains(".m3u8", ignoreCase = true) ||
             u.contains("video", ignoreCase = true)
-        } == true
+        } == true) url else null
 
-        if (isVideoUrl) {
+        if (!effectiveVideoUrl.isNullOrBlank()) {
+            val vUrl = effectiveVideoUrl
+
+            binding.itemOpenVideoNewTab.visibility = View.VISIBLE
+            binding.itemOpenVideoNewTab.setOnClickListener {
+                onOpenInNewTab?.invoke(vUrl)
+                dismiss()
+            }
+
             binding.itemSaveVideo.visibility = View.VISIBLE
             binding.itemSaveVideo.setOnClickListener {
-                downloadMedia(url!!, "video")
+                downloadMedia(vUrl, "video")
+                dismiss()
+            }
+
+            binding.itemCopyVideoUrl.visibility = View.VISIBLE
+            binding.itemCopyVideoUrl.setOnClickListener {
+                copyToClipboard("Video link", vUrl)
+                dismiss()
+            }
+
+            binding.itemShareVideo.visibility = View.VISIBLE
+            binding.itemShareVideo.setOnClickListener {
+                shareUrl(vUrl)
                 dismiss()
             }
         }
     }
 
-    private fun setupHeaderCard(rawUrl: String, linkText: String?, isImage: Boolean) {
+    private fun setupHeaderCard(rawUrl: String, linkText: String?, isImage: Boolean, isVideo: Boolean = false) {
         val host = try {
             Uri.parse(rawUrl).host?.removePrefix("www.") ?: rawUrl
         } catch (_: Exception) {
@@ -211,6 +279,7 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
         val displayTitle = when {
             !linkText.isNullOrBlank() -> linkText
             isImage -> "Image"
+            isVideo -> "Video"
             host.isNotBlank() -> host.replaceFirstChar { it.uppercase() }
             else -> rawUrl
         }
@@ -394,6 +463,7 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
         const val TAG = "ContextMenuBottomSheet"
         private const val ARG_URL = "url"
         private const val ARG_IMAGE_URL = "image_url"
+        private const val ARG_VIDEO_URL = "video_url"
         private const val ARG_LINK_TEXT = "link_text"
 
         fun forLink(url: String, linkText: String? = null) =
@@ -412,6 +482,14 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
                     ARG_URL to url,
                     ARG_IMAGE_URL to imageUrl,
                     ARG_LINK_TEXT to linkText
+                )
+            }
+
+        fun forVideo(videoUrl: String) =
+            ContextMenuBottomSheet().apply {
+                arguments = bundleOf(
+                    ARG_URL to videoUrl,
+                    ARG_VIDEO_URL to videoUrl
                 )
             }
     }

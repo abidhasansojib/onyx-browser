@@ -822,7 +822,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.webViewClient = OnyxWebViewClient(
+        val client = OnyxWebViewClient(
             context = this,
             coroutineScope = lifecycleScope,
             onUrlChanged = { newUrl ->
@@ -863,6 +863,18 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
+        client.onOpenInAppPrompt = { intent, appName, fallback ->
+            if (!isFinishing && !isDestroyed) {
+                val promptDialog = com.onyx.browser.ui.dialog.OpenInAppPromptDialog.newInstance(
+                    intent = intent,
+                    appName = appName,
+                    onStayInOnyx = { fallback?.invoke() },
+                    onOpenInApp = null
+                )
+                promptDialog.show(supportFragmentManager, com.onyx.browser.ui.dialog.OpenInAppPromptDialog.TAG)
+            }
+        }
+        webView.webViewClient = client
 
         webView.webChromeClient = OnyxWebChromeClient(
             onProgressChangedCallback = { progress ->
@@ -963,36 +975,199 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        // Long-press context menu for links and images
+        fun showContextMenuForElement(
+            linkUrl: String? = null,
+            imageUrl: String? = null,
+            videoUrl: String? = null,
+            linkText: String? = null
+        ) {
+            val cleanLink = linkUrl?.takeIf { it.isNotBlank() }
+            val cleanImg = imageUrl?.takeIf { it.isNotBlank() }
+            val cleanVid = videoUrl?.takeIf { it.isNotBlank() }
+            val cleanText = linkText?.takeIf { it.isNotBlank() }
+
+            val sheet = when {
+                cleanLink != null && cleanImg != null ->
+                    ContextMenuBottomSheet.forImageLink(cleanLink, cleanImg, cleanText)
+                cleanVid != null ->
+                    ContextMenuBottomSheet.forVideo(cleanVid)
+                cleanImg != null ->
+                    ContextMenuBottomSheet.forImage(cleanImg)
+                cleanLink != null ->
+                    ContextMenuBottomSheet.forLink(cleanLink, cleanText)
+                else -> return
+            }
+
+            sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
+            sheet.setOnOpenInIncognitoTab { u -> openUrlInIncognitoTab(u) }
+            sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
+            sheet.setOnDownloadUrl { u ->
+                val cookies = android.webkit.CookieManager.getInstance().getCookie(u) ?: ""
+                val userAgent = webView.settings.userAgentString ?: ""
+                DownloadHandler.handleDownload(
+                    activity = this,
+                    coroutineScope = lifecycleScope,
+                    url = u,
+                    userAgent = userAgent,
+                    contentDisposition = "",
+                    mimeType = "",
+                    contentLength = -1L,
+                    cookies = cookies,
+                    referer = webView.url ?: ""
+                )
+            }
+            sheet.show(supportFragmentManager, ContextMenuBottomSheet.TAG)
+        }
+
+        // Long-press context menu for links, images, image links, videos, and media
         webView.setOnLongClickListener {
+            val touched = webView.touchBridge.lastTouchedElement
             val hit = webView.hitTestResult
-            val fm = supportFragmentManager
-            when (hit.type) {
-                android.webkit.WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
-                    val url = hit.extra ?: return@setOnLongClickListener false
-                    val sheet = ContextMenuBottomSheet.forLink(url)
-                    sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
-                    sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
-                    sheet.show(fm, ContextMenuBottomSheet.TAG)
-                    true
+            val hitType = hit.type
+            val hitExtra = hit.extra
+
+            // 1. Tier 1: Real-time touch bridge pre-computed element
+            if (touched.hasContent) {
+                val linkUrl = touched.linkUrl.ifBlank {
+                    if (hitType == android.webkit.WebView.HitTestResult.SRC_ANCHOR_TYPE) hitExtra ?: "" else ""
+                }
+                val imgUrl = touched.imageUrl.ifBlank {
+                    if (hitType == android.webkit.WebView.HitTestResult.IMAGE_TYPE ||
+                        hitType == android.webkit.WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) hitExtra ?: "" else ""
+                }
+                showContextMenuForElement(
+                    linkUrl = linkUrl,
+                    imageUrl = imgUrl,
+                    videoUrl = touched.videoUrl,
+                    linkText = touched.linkText
+                )
+                return@setOnLongClickListener true
+            }
+
+            // 2. Tier 2: HitTestResult matching
+            when (hitType) {
+                android.webkit.WebView.HitTestResult.SRC_ANCHOR_TYPE,
+                android.webkit.WebView.HitTestResult.ANCHOR_TYPE -> {
+                    val url = hitExtra ?: return@setOnLongClickListener false
+                    showContextMenuForElement(linkUrl = url)
+                    return@setOnLongClickListener true
                 }
                 android.webkit.WebView.HitTestResult.IMAGE_TYPE -> {
-                    val imgUrl = hit.extra ?: return@setOnLongClickListener false
-                    val sheet = ContextMenuBottomSheet.forImage(imgUrl)
-                    sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
-                    sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
-                    sheet.show(fm, ContextMenuBottomSheet.TAG)
-                    true
+                    val imgUrl = hitExtra ?: return@setOnLongClickListener false
+                    showContextMenuForElement(imageUrl = imgUrl)
+                    return@setOnLongClickListener true
                 }
                 android.webkit.WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
-                    val imgUrl = hit.extra ?: return@setOnLongClickListener false
-                    val sheet = ContextMenuBottomSheet.forImageLink(imgUrl, imgUrl)
-                    sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
-                    sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
-                    sheet.show(fm, ContextMenuBottomSheet.TAG)
-                    true
+                    val imgUrl = hitExtra ?: ""
+                    // requestFocusNodeHref to retrieve the real anchor link URL!
+                    val msg = android.os.Handler(android.os.Looper.getMainLooper()) { m ->
+                        val linkUrl = m.data.getString("url")
+                        val title = m.data.getString("title")
+                        val src = m.data.getString("src") ?: imgUrl
+                        showContextMenuForElement(
+                            linkUrl = linkUrl,
+                            imageUrl = src,
+                            linkText = title
+                        )
+                        true
+                    }.obtainMessage()
+                    webView.requestFocusNodeHref(msg)
+                    return@setOnLongClickListener true
                 }
-                else -> false
+                android.webkit.WebView.HitTestResult.EMAIL_TYPE -> {
+                    val mail = hitExtra ?: return@setOnLongClickListener false
+                    val mailto = if (mail.startsWith("mailto:", ignoreCase = true)) mail else "mailto:$mail"
+                    showContextMenuForElement(linkUrl = mailto, linkText = mail)
+                    return@setOnLongClickListener true
+                }
+                android.webkit.WebView.HitTestResult.PHONE_TYPE -> {
+                    val phone = hitExtra ?: return@setOnLongClickListener false
+                    val tel = if (phone.startsWith("tel:", ignoreCase = true)) phone else "tel:$phone"
+                    showContextMenuForElement(linkUrl = tel, linkText = phone)
+                    return@setOnLongClickListener true
+                }
+                android.webkit.WebView.HitTestResult.GEO_TYPE -> {
+                    val geo = hitExtra ?: return@setOnLongClickListener false
+                    val geoUri = if (geo.startsWith("geo:", ignoreCase = true)) geo else "geo:0,0?q=$geo"
+                    showContextMenuForElement(linkUrl = geoUri, linkText = geo)
+                    return@setOnLongClickListener true
+                }
+                android.webkit.WebView.HitTestResult.EDIT_TEXT_TYPE -> {
+                    // Let Android native text editing handles work
+                    return@setOnLongClickListener false
+                }
+                else -> {
+                    // Tier 3: UNKNOWN_TYPE fallback via elementFromPoint and requestFocusNodeHref
+                    val density = resources.displayMetrics.density
+                    val cssX = (webView.lastTouchX / density).toInt()
+                    val cssY = (webView.lastTouchY / density).toInt()
+                    val jsCheck = """
+                        (function(x, y) {
+                            try {
+                                var el = document.elementFromPoint(x, y);
+                                if (!el) return null;
+                                var a = el.closest('a');
+                                var img = el.closest('img') || (el.tagName === 'IMG' ? el : el.querySelector('img'));
+                                var video = el.closest('video') || (el.tagName === 'VIDEO' ? el : el.querySelector('video'));
+                                if (!video) {
+                                    var s = el.querySelector('source');
+                                    if (s && s.parentElement && s.parentElement.tagName === 'VIDEO') video = s.parentElement;
+                                }
+                                if (!a && !img && !video) return null;
+                                var linkUrl = a ? (a.href || a.getAttribute('href') || '') : '';
+                                var linkText = a ? (a.innerText || a.textContent || '').trim().substring(0, 150) : '';
+                                var imageUrl = img ? (img.currentSrc || img.src || '') : '';
+                                var videoUrl = video ? (video.currentSrc || video.src || '') : '';
+                                return JSON.stringify({
+                                    linkUrl: linkUrl,
+                                    linkText: linkText,
+                                    imageUrl: imageUrl,
+                                    videoUrl: videoUrl
+                                });
+                            } catch(e) { return null; }
+                        })($cssX, $cssY);
+                    """.trimIndent()
+
+                    webView.evaluateJavascript(jsCheck) { jsonResult ->
+                        if (!jsonResult.isNullOrBlank() && jsonResult != "null") {
+                            try {
+                                val cleanJson = if (jsonResult.startsWith("\"") && jsonResult.endsWith("\"")) {
+                                    org.json.JSONTokener(jsonResult).nextValue().toString()
+                                } else jsonResult
+                                val obj = org.json.JSONObject(cleanJson)
+                                val lUrl = obj.optString("linkUrl").takeIf { it.isNotBlank() }
+                                val lText = obj.optString("linkText").takeIf { it.isNotBlank() }
+                                val iUrl = obj.optString("imageUrl").takeIf { it.isNotBlank() }
+                                val vUrl = obj.optString("videoUrl").takeIf { it.isNotBlank() }
+                                if (lUrl != null || iUrl != null || vUrl != null) {
+                                    showContextMenuForElement(
+                                        linkUrl = lUrl,
+                                        imageUrl = iUrl,
+                                        videoUrl = vUrl,
+                                        linkText = lText
+                                    )
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    }
+
+                    val msg = android.os.Handler(android.os.Looper.getMainLooper()) { m ->
+                        val linkUrl = m.data.getString("url")
+                        val title = m.data.getString("title")
+                        val src = m.data.getString("src")
+                        if (!linkUrl.isNullOrBlank() || !src.isNullOrBlank()) {
+                            showContextMenuForElement(
+                                linkUrl = linkUrl,
+                                imageUrl = src,
+                                linkText = title
+                            )
+                        }
+                        true
+                    }.obtainMessage()
+                    webView.requestFocusNodeHref(msg)
+
+                    return@setOnLongClickListener false
+                }
             }
         }
     }
@@ -1009,6 +1184,14 @@ class MainActivity : AppCompatActivity() {
         val newTab = tabManager.createNewTab(url = url, isIncognito = false)
         // Explicitly set as active tab and navigate to it, ensuring currentDisplayedTabId
         // is updated before the StateFlow observer fires to avoid a no-op reload.
+        tabManager.selectTab(newTab)
+        currentDisplayedTabId = newTab.id
+        updateTabBadgeCount()
+        showWebView(newTab, forceUrl = url, reloadIfChanged = true)
+    }
+
+    private fun openUrlInIncognitoTab(url: String) {
+        val newTab = tabManager.createNewTab(url = url, isIncognito = true)
         tabManager.selectTab(newTab)
         currentDisplayedTabId = newTab.id
         updateTabBadgeCount()

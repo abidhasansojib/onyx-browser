@@ -753,7 +753,6 @@ onyx-browser/
     - Programmatic home screen pinning via `AppWidgetManager.requestPinAppWidget` (Android 8.0+ / API 26+) accessible from:
       - 3-Dot Menu (`MenuBottomSheetDialogFragment` on homepage and webpage).
       - Settings (`SettingsActivity` under Search Engine category).
-    - Graceful fallback guidance for OEM launchers without direct pinning support.
 - [x] **Desktop Mode Viewport Auto-Fit & Overview Scaling Fix** (`OnyxWebViewClient.kt`, `OnyxWebView.kt`):
   - **Root Cause**: Previously, when desktop mode was active, `OnyxWebViewClient` injected `<meta name="viewport" content="width=1024, initial-scale=1">`. The hardcoded `initial-scale=1` locked the zoom to 100% on a 1024px canvas, forcing mobile devices (typically 360px–412px wide) into an awkward zoomed-in top-left crop where the user had to manually zoom out and horizontally scroll.
   - **Dynamic Fitting Viewport Injection (`injectDesktopViewportAdjustment`)**:
@@ -763,5 +762,24 @@ onyx-browser/
   - **Zoom Scale Reset & Overview Mode**:
     - Invokes `setInitialScale(0)` on desktop toggle to clear retained zoom levels in Android WebView.
     - Removed redundant `clearCache(true)` to preserve network cache and prevent reload stutter.
+- [x] **Universal Link & Media Detection on Long-Press ("Open in new tab")** (`OnyxTouchBridge.kt`, `OnyxWebView.kt`, `ContextMenuBottomSheet.kt`, `bottom_sheet_context_menu.xml`, `MainActivity.kt`):
+  - **Root Cause Resolved**: Previously, long-pressing only worked for raw `<img>` tags (`IMAGE_TYPE`). On modern websites (Google Search, Wikipedia, Reddit, Twitter, YouTube), hyperlinks wrap nested elements (`<a href="..."><span><h3>Text</h3></span></a>` or `<a><div>...</div></a>`), which caused `hitTestResult` to return `UNKNOWN_TYPE` or null extra. Additionally, on `SRC_IMAGE_ANCHOR_TYPE`, `hit.extra` contained only the image URL, mistakenly opening the image URL instead of the anchor link in new tabs.
+  - **Multi-Tier Detection Architecture**:
+    - **Tier 1 (Synchronous Touch Bridge - `OnyxTouchBridge.kt`)**: Pre-computes and caches element hierarchy (links, nested anchor spans, images, videos) on `touchstart` using a passive, high-performance DOM traversal script (`closest('a, img, video, audio')`). When `onLongClickListener` triggers at 500ms, all link and media metadata is already synchronously available in Kotlin memory with zero latency!
+    - **Tier 2 (Native Android HitTestResult)**: Handles direct anchors (`SRC_ANCHOR_TYPE`, `ANCHOR_TYPE`), images (`IMAGE_TYPE`), image links (`SRC_IMAGE_ANCHOR_TYPE` with `requestFocusNodeHref` to resolve the real anchor href), emails, phones, and geo links.
+    - **Tier 3 (DOM Fallback via `document.elementFromPoint`)**: Asynchronous fallback querying client viewport coordinates and `requestFocusNodeHref` to ensure 100% detection coverage on dynamic web frameworks.
+  - **Comprehensive Context Menu Options**:
+    - **Links**: Open in new tab, Open in incognito tab, Copy link address, Copy link text, Download link, Share link.
+    - **Image Links**: Dual presentation offering both Link actions and Image actions (Preview image, Open image in new tab, Save image, Search by image, Copy image link, Share image).
+    - **Videos (`<video>`)**: Open video in new tab, Save video, Copy video link, Share video.
+- [x] **"Open in App" Confirmation Prompt Dialog** (`OpenInAppPromptDialog.kt`, `dialog_open_in_app_prompt.xml`, `OnyxWebViewClient.kt`, `MainActivity.kt`):
+  - **User-Centric Redirection Gate**: Instead of abruptly launching external apps without notice when "Open links in app" is enabled, displays a clean Material 3 confirmation dialog before redirecting.
+  - **Dialog Specifications**:
+    - **Title**: "Open this page in App?" (`open_in_app_prompt_title`).
+    - **Description**: "The site is trying to redirect to its associated app. You can disable this permanently in settings." (`open_in_app_prompt_desc`).
+    - **Action Buttons**:
+      - **Left Button ("Stay In Onyx")**: Tonal button dismissing the prompt, canceling external app launch, and executing web fallback (e.g. `browser_fallback_url` or direct `http`/`https` intent data) to keep browsing within Onyx.
+      - **Right Button ("Open in app")**: Primary filled button launching the external intent (e.g. Telegram, WhatsApp, YouTube, Reddit, Twitter, etc.).
+    - **Target App Badge**: Dynamically resolves and displays the application name (e.g. "Telegram", "WhatsApp", "YouTube") using `PackageManager.resolveActivity`.
 
 

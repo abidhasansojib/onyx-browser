@@ -385,6 +385,24 @@
     <string name="search_widget_pinned_success">Search widget added to home screen</string>
     <string name="search_widget_pin_failed">Could not pin widget automatically</string>
     <string name="search_widget_manual_add_guide">Touch &amp; hold an empty area on your home screen, tap Widgets, and add Onyx Search Bar.</string>
+
+    <!-- Open in App Confirmation Prompt -->
+    <string name="open_in_app_prompt_title">Open this page in App?</string>
+    <string name="open_in_app_prompt_desc">The site is trying to redirect to its associated app. You can disable this permanently in settings.</string>
+    <string name="stay_in_onyx">Stay In Onyx</string>
+    <string name="open_in_app_action">Open in app</string>
+
+    <!-- Context Menu -->
+    <string name="open_in_new_tab">Open in new tab</string>
+    <string name="open_in_incognito_tab">Open in incognito tab</string>
+    <string name="copy_link_address">Copy link address</string>
+    <string name="copy_link_text">Copy link text</string>
+    <string name="download_link">Download link</string>
+    <string name="share_link">Share link</string>
+    <string name="open_video_new_tab">Open video in new tab</string>
+    <string name="save_video">Save video</string>
+    <string name="copy_video_link">Copy video link</string>
+    <string name="share_video">Share video</string>
 </resources>
 
 

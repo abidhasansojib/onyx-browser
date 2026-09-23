@@ -252,7 +252,67 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
-            android:text="Open in new tab"
+            android:text="@string/open_in_new_tab"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- Open in incognito tab (shown for links) -->
+    <LinearLayout
+        android:id="@+id/itemOpenIncognitoTab"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_incognito"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/open_in_incognito_tab"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- Copy link address -->
+    <LinearLayout
+        android:id="@+id/itemCopyLinkAddress"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_copy"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/copy_link_address"
             android:textColor="?android:attr/textColorPrimary"
             android:textSize="15sp" />
     </LinearLayout>
@@ -282,7 +342,67 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
-            android:text="Copy link text"
+            android:text="@string/copy_link_text"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- Download link -->
+    <LinearLayout
+        android:id="@+id/itemDownloadLink"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_download"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/download_link"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- Share link -->
+    <LinearLayout
+        android:id="@+id/itemShareLink"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_share"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/share_link"
             android:textColor="?android:attr/textColorPrimary"
             android:textSize="15sp" />
     </LinearLayout>
@@ -490,6 +610,36 @@
             android:textSize="15sp" />
     </LinearLayout>
 
+    <!-- Open video in new tab -->
+    <LinearLayout
+        android:id="@+id/itemOpenVideoNewTab"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_tabs"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/open_video_new_tab"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
     <!-- Save video (for video URLs) -->
     <LinearLayout
         android:id="@+id/itemSaveVideo"
@@ -515,9 +665,68 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
-            android:text="Save video"
+            android:text="@string/save_video"
             android:textColor="?android:attr/textColorPrimary"
             android:textSize="15sp" />
     </LinearLayout>
 
+    <!-- Copy video URL -->
+    <LinearLayout
+        android:id="@+id/itemCopyVideoUrl"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_copy"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/copy_video_link"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- Share video -->
+    <LinearLayout
+        android:id="@+id/itemShareVideo"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:alpha="0.8"
+            app:srcCompat="@drawable/ic_share"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/share_video"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
 </LinearLayout>

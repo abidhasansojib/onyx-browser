@@ -6,6 +6,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.util.AttributeSet
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -29,6 +30,23 @@ class OnyxWebView @JvmOverloads constructor(
     var pendingSslHandler: android.webkit.SslErrorHandler? = null
     var currentSyntheticState: SyntheticNavigationState? = null
     
+    val touchBridge = OnyxTouchBridge()
+    var lastTouchX: Float = 0f
+        private set
+    var lastTouchY: Float = 0f
+        private set
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN,
+            MotionEvent.ACTION_MOVE -> {
+                lastTouchX = event.x
+                lastTouchY = event.y
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+
     val regexFindBridge = RegexFindBridge(this) { activeIndex, matchCount ->
         findListener?.invoke(activeIndex, matchCount)
     }
@@ -208,6 +226,11 @@ class OnyxWebView @JvmOverloads constructor(
             )
         } catch (_: Exception) {}
 
+        // Interactive Elements Touch Bridge (instant context menu detection for links, media, and images)
+        try {
+            addJavascriptInterface(touchBridge, OnyxTouchBridge.INTERFACE_NAME)
+        } catch (_: Exception) {}
+
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
         try {
             val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
@@ -221,6 +244,11 @@ class OnyxWebView @JvmOverloads constructor(
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
                     PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(),
+                    setOf("*")
+                )
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    OnyxTouchBridge.TOUCH_LISTENER_JS,
                     setOf("*")
                 )
                 if (prefs.isBackgroundPlayEnabled) {
