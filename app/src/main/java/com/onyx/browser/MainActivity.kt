@@ -1596,13 +1596,13 @@ class MainActivity : AppCompatActivity() {
 
         MediaPlaybackBridge.onMediaPlaybackStartedListener = { playingWebView ->
             runOnUiThread {
-                tabManager.getNormalTabs().forEach { tab ->
+                tabManager.normalTabs.value.forEach { tab ->
                     val wv = tabManager.getWebView(tab.id)
                     if (wv != null && wv != playingWebView) {
                         wv.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
                     }
                 }
-                tabManager.getIncognitoTabs().forEach { tab ->
+                tabManager.incognitoTabs.value.forEach { tab ->
                     val wv = tabManager.getWebView(tab.id)
                     if (wv != null && wv != playingWebView) {
                         wv.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
