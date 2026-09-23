@@ -834,6 +834,15 @@ onyx-browser/
     - "Details" / "Advanced" button smoothly toggles technical network and certificate diagnostic information.
     - SSL section with HSTS enforcement warning and "Proceed to site (unsafe)" link.
     - Shields section with "Temporarily allow domain" bypass action.
+- [x] **Verified CI/CD Build & GitHub Release v1.0.144 (Run #35909601782)**:
+  - Verified full remote CI/CD execution compiling Rust NDK shared libraries (`libadblock_bridge.so`) across `arm64-v8a`, `armeabi-v7a`, `x86_64`.
+  - Built, signed, R8-minified, and verified production APKs:
+    - [`Onyx-Browser-v1.0.144-arm64-v8a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.144-arm64-v8a-release.apk) (18.92 MB)
+    - [`Onyx-Browser-v1.0.144-armeabi-v7a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.144-armeabi-v7a-release.apk) (15.10 MB)
+    - [`Onyx-Browser-v1.0.144-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.144-universal-release.apk) (38.79 MB)
+    - [`Onyx-Browser-v1.0.144-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.144-x86_64-release.apk) (20.37 MB)
+  - GitHub Release published: [Onyx Browser v1.0.144](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.144).
+
 
 
 
