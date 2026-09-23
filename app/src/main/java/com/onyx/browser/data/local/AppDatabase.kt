@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [TabItem::class, HistoryItem::class, BookmarkItem::class, DownloadItem::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -32,6 +32,13 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE downloads ADD COLUMN downloadId INTEGER NOT NULL DEFAULT -1")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tabs ADD COLUMN lastAccessedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tabs ADD COLUMN isHibernated INTEGER NOT NULL DEFAULT 0")
             }
         }
 
@@ -60,7 +67,7 @@ abstract class AppDatabase : RoomDatabase() {
                         AppDatabase::class.java,
                         "onyx_browser_fallback.db"
                     )
-                        .addMigrations(MIGRATION_2_3)
+                        .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                         .fallbackToDestructiveMigration()
                         .build()
                 }
@@ -81,7 +88,7 @@ abstract class AppDatabase : RoomDatabase() {
                 "onyx_browser_secure.db"
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_2_3)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                 .fallbackToDestructiveMigration()
                 .build()
         }

@@ -227,7 +227,56 @@ class TabManager(
     }
 
     fun selectTab(tab: TabItem) {
-        _activeTab.value = tab
+        val updatedTab = tab.copy(lastAccessedAt = System.currentTimeMillis(), isHibernated = false)
+        if (!updatedTab.isIncognito) {
+            coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                database.tabDao().updateTab(updatedTab)
+            }
+            val newList = _normalTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
+            _normalTabs.value = newList
+        } else {
+            val newList = _incognitoTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
+            _incognitoTabs.value = newList
+        }
+        _activeTab.value = updatedTab
+    }
+
+    fun hibernateIdleTabs() {
+        val cutoff = System.currentTimeMillis() - (24 * 60 * 60 * 1000L) // 24 hours
+        
+        var hasNormalChanges = false
+        val updatedNormal = _normalTabs.value.map { tab ->
+            if (tab.id != _activeTab.value?.id && !tab.isHibernated && tab.lastAccessedAt < cutoff) {
+                val webView = webViewPool.remove(tab.id)
+                webView?.destroySafely()
+                hasNormalChanges = true
+                val hibernatedTab = tab.copy(isHibernated = true)
+                coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                    database.tabDao().updateTab(hibernatedTab)
+                }
+                hibernatedTab
+            } else {
+                tab
+            }
+        }
+        if (hasNormalChanges) {
+            _normalTabs.value = updatedNormal
+        }
+        
+        var hasIncognitoChanges = false
+        val updatedIncognito = _incognitoTabs.value.map { tab ->
+            if (tab.id != _activeTab.value?.id && !tab.isHibernated && tab.lastAccessedAt < cutoff) {
+                val webView = webViewPool.remove(tab.id)
+                webView?.destroySafely()
+                hasIncognitoChanges = true
+                tab.copy(isHibernated = true)
+            } else {
+                tab
+            }
+        }
+        if (hasIncognitoChanges) {
+            _incognitoTabs.value = updatedIncognito
+        }
     }
 
     fun closeTab(tab: TabItem) {
@@ -314,7 +363,7 @@ class TabManager(
 
     fun updateActiveTab(url: String, title: String) {
         val current = _activeTab.value ?: return
-        val updatedTab = current.copy(url = url, title = title.ifBlank { url })
+        val updatedTab = current.copy(url = url, title = title.ifBlank { url }, lastAccessedAt = System.currentTimeMillis(), isHibernated = false)
         _activeTab.value = updatedTab
 
         if (updatedTab.isIncognito) {

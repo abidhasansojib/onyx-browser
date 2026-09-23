@@ -12,5 +12,7 @@ data class TabItem(
     var title: String = "New Tab",
     var isIncognito: Boolean = false,
     var position: Int = 0,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    var lastAccessedAt: Long = System.currentTimeMillis(),
+    var isHibernated: Boolean = false
 )
