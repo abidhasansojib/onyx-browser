@@ -2274,8 +2274,8 @@ class MainActivity : AppCompatActivity() {
         if (intent == null) return false
         when (intent.action) {
             "com.onyx.browser.action.NEW_INCOGNITO_TAB" -> {
-                tabManager.addNewTab(url = "", isIncognito = true)
-                binding.tabModeToggle.check(R.id.btnIncognitoTabs)
+                val newTab = tabManager.createNewTab(url = "", isIncognito = true)
+                displayTab(newTab)
                 return true
             }
             "com.onyx.browser.action.SEARCH" -> {

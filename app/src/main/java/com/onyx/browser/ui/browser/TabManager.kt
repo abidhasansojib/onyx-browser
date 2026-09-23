@@ -40,6 +40,7 @@ class TabManager(
     val activeTab: StateFlow<TabItem?> = _activeTab.asStateFlow()
 
     private val webViewPool = mutableMapOf<String, OnyxWebView>()
+    var isIncognitoUnlocked: Boolean = false
     
     val snapshotCache = object : android.util.LruCache<String, Bitmap>(30) {
         override fun entryRemoved(evicted: Boolean, key: String?, oldValue: Bitmap?, newValue: Bitmap?) {

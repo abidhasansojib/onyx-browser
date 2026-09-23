@@ -136,6 +136,7 @@ dependencies {
     // AndroidX WebKit & Media Playback
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("androidx.media:media:1.7.0")
+    implementation("androidx.biometric:biometric:1.1.0")
 
     // Preferences
     implementation("androidx.preference:preference-ktx:1.2.1")
