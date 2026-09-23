@@ -105,12 +105,6 @@ class OnyxWebView @JvmOverloads constructor(
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                 offscreenPreRaster = true
             }
-        }
-        
-        // GPU Acceleration & Smooth Scrolling
-        isVerticalFadingEdgeEnabled = false
-        isHorizontalFadingEdgeEnabled = false
-        isScrollbarFadingEnabled = true
 
             // Local File & Content Access for HTML / Markdown Previews
             allowFileAccess = true
@@ -122,6 +116,12 @@ class OnyxWebView @JvmOverloads constructor(
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
+
+        // GPU Acceleration & Smooth Scrolling
+        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+        isVerticalFadingEdgeEnabled = false
+        isHorizontalFadingEdgeEnabled = false
+        isScrollbarFadingEnabled = true
 
 
         // Apply UA Spoofer if configured
