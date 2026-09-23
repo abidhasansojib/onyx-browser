@@ -465,7 +465,8 @@ class MainActivity : AppCompatActivity() {
                         )
                     }
                     suggestionJob?.cancel()
-                    suggestionsAdapter.submitList(emptyList())
+                    val clipboardOpt = getClipboardSuggestion()
+                    suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
                 }
             }
         }
@@ -1169,8 +1170,9 @@ class MainActivity : AppCompatActivity() {
         binding.etUrl.requestFocus()
         showSoftKeyboard()
 
-        // 5. Reset suggestions list
-        suggestionsAdapter.submitList(emptyList())
+        // 5. Inject clipboard suggestion if available
+        val clipboardOpt = getClipboardSuggestion()
+        suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
     }
 
     private fun exitSearchMode() {
@@ -1207,7 +1209,8 @@ class MainActivity : AppCompatActivity() {
         // Require at least 2 chars — single char gives irrelevant results and
         // wastes network bandwidth. Repository enforces the same guard.
         if (query.length < 2) {
-            suggestionsAdapter.submitList(emptyList())
+            val clipboardOpt = getClipboardSuggestion()
+            suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
             return
         }
         suggestionJob = lifecycleScope.launch {
@@ -1216,9 +1219,37 @@ class MainActivity : AppCompatActivity() {
             delay(300)
             val suggestions = suggestionRepository.getSuggestions(query, preferences.searchEngine)
             if (isSearchMode) {
-                suggestionsAdapter.submitList(suggestions)
+                val clipboardOpt = getClipboardSuggestion()
+                val finalList = if (clipboardOpt != null) {
+                    val list = suggestions.toMutableList()
+                    list.add(0, clipboardOpt)
+                    list
+                } else {
+                    suggestions
+                }
+                suggestionsAdapter.submitList(finalList)
             }
         }
+    }
+
+    private fun getClipboardSuggestion(): com.onyx.browser.data.model.SearchSuggestion? {
+        try {
+            val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            if (clipboard.hasPrimaryClip()) {
+                val clipData = clipboard.primaryClip
+                if (clipData != null && clipData.itemCount > 0) {
+                    val text = clipData.getItemAt(0).text?.toString()?.trim()
+                    if (!text.isNullOrBlank() && (android.util.Patterns.WEB_URL.matcher(text).matches() || text.startsWith("http"))) {
+                        return com.onyx.browser.data.model.SearchSuggestion(
+                            title = "Link from clipboard",
+                            queryOrUrl = text,
+                            isClipboard = true
+                        )
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return null
     }
 
     private fun updateAddressBarDisplay(url: String) {

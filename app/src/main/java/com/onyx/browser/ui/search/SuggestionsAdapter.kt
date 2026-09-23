@@ -19,6 +19,7 @@ class SuggestionsAdapter(
     companion object {
         private const val VIEW_TYPE_NORMAL = 0
         private const val VIEW_TYPE_DOMAIN = 1
+        private const val VIEW_TYPE_CLIPBOARD = 2
 
         val DiffCallback = object : DiffUtil.ItemCallback<SearchSuggestion>() {
             override fun areItemsTheSame(oldItem: SearchSuggestion, newItem: SearchSuggestion): Boolean {
@@ -32,24 +33,26 @@ class SuggestionsAdapter(
 
     override fun getItemViewType(position: Int): Int {
         val item = getItem(position)
-        return if (item.isDomain || item.isUrl) VIEW_TYPE_DOMAIN else VIEW_TYPE_NORMAL
+        return if (item.isClipboard) VIEW_TYPE_CLIPBOARD
+        else if (item.isDomain || item.isUrl) VIEW_TYPE_DOMAIN
+        else VIEW_TYPE_NORMAL
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
-        return if (viewType == VIEW_TYPE_DOMAIN) {
-            DomainViewHolder(ItemSearchDomainSuggestionBinding.inflate(inflater, parent, false))
-        } else {
-            NormalViewHolder(ItemSearchSuggestionBinding.inflate(inflater, parent, false))
+        return when (viewType) {
+            VIEW_TYPE_CLIPBOARD -> ClipboardViewHolder(com.onyx.browser.databinding.ItemSearchClipboardSuggestionBinding.inflate(inflater, parent, false))
+            VIEW_TYPE_DOMAIN -> DomainViewHolder(ItemSearchDomainSuggestionBinding.inflate(inflater, parent, false))
+            else -> NormalViewHolder(ItemSearchSuggestionBinding.inflate(inflater, parent, false))
         }
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val item = getItem(position)
-        if (holder is DomainViewHolder) {
-            holder.bind(item)
-        } else if (holder is NormalViewHolder) {
-            holder.bind(item)
+        when (holder) {
+            is DomainViewHolder -> holder.bind(item)
+            is NormalViewHolder -> holder.bind(item)
+            is ClipboardViewHolder -> holder.bind(item)
         }
     }
 
@@ -99,6 +102,17 @@ class SuggestionsAdapter(
             // The subtext "Go to site" is statically set in the layout, but we can override it if we want.
             
             // Assuming clicking the layout (which has clickable="true") triggers this
+            binding.root.setOnClickListener {
+                onSuggestionClicked(item)
+            }
+        }
+    }
+
+    inner class ClipboardViewHolder(private val binding: com.onyx.browser.databinding.ItemSearchClipboardSuggestionBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+        fun bind(item: SearchSuggestion) {
+            binding.tvClipboardText.text = item.title
+            binding.tvClipboardUrl.text = item.queryOrUrl
             binding.root.setOnClickListener {
                 onSuggestionClicked(item)
             }
