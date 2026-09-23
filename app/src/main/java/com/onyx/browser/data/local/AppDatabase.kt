@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [TabItem::class, HistoryItem::class, BookmarkItem::class, DownloadItem::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -39,6 +39,16 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tabs ADD COLUMN lastAccessedAt INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE tabs ADD COLUMN isHibernated INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE downloads ADD COLUMN downloadedBytes INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE downloads ADD COLUMN etag TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE downloads ADD COLUMN lastModified TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE downloads ADD COLUMN sha256 TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE downloads ADD COLUMN md5 TEXT NOT NULL DEFAULT ''")
             }
         }
 
@@ -67,7 +77,7 @@ abstract class AppDatabase : RoomDatabase() {
                         AppDatabase::class.java,
                         "onyx_browser_fallback.db"
                     )
-                        .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                        .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                         .fallbackToDestructiveMigration()
                         .build()
                 }
@@ -88,7 +98,7 @@ abstract class AppDatabase : RoomDatabase() {
                 "onyx_browser_secure.db"
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .fallbackToDestructiveMigration()
                 .build()
         }

@@ -29,9 +29,10 @@
     <!-- Overlay / Display Over Other Apps Permission (Floating Video & PiP fallback) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
-    <!-- Foreground Service permissions for persistent background audio/video playback (Mini Player) -->
+    <!-- Foreground Service permissions for persistent background audio/video playback and internal multi-threaded downloader -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- Optional Hardware Features -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -348,6 +349,12 @@
             android:name=".media.MediaPlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Onyx Multi-Threaded Internal Download Foreground Service -->
+        <service
+            android:name=".download.OnyxDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <!-- Download Complete Broadcast Receiver -->
         <receiver

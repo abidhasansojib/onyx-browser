@@ -141,8 +141,9 @@ dependencies {
     // Preferences
     implementation("androidx.preference:preference-ktx:1.2.1")
 
-    // Coroutines
+    // Coroutines & Networking (Internal Multi-Threaded Downloader)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // CameraX
     implementation("androidx.camera:camera-core:1.3.4")

@@ -295,6 +295,7 @@ class MainActivity : AppCompatActivity() {
         
         preferences = BrowserPreferences.getInstance(this)
         preferences.applyTheme()
+        com.onyx.browser.download.OnyxDownloadManager.init(this)
         tabManager = TabManager(this, lifecycleScope)
 
         binding = ActivityMainBinding.inflate(layoutInflater)

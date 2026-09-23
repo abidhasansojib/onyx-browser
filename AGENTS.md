@@ -967,6 +967,32 @@ onyx-browser/
     - Tracks `pendingPipEnable` across activity lifecycle and automatically synchronizes switch state in `onResume()`.
     - Automatically syncs switch state if system PiP permission is revoked in system settings.
     - Added long-press listener on `settingPipRow` to allow quick access to system PiP settings anytime without toggling the switch.
+- [x] **Lightweight Browser Internal Multi-Threaded Download Manager (`com.onyx.browser.download`)**:
+  - **Replaced Android System Downloader**: Built an in-house, multi-threaded internal downloader engine (`OnyxDownloadManager`, `DownloadEngine`, `OnyxDownloadService`) to replace Android's system `DownloadManager` for all normal/internal downloads while preserving external download managers (1DM, ADM, etc.) and download prompt dialogs.
+  - **Multi-Threaded Parallel Chunking & Single Pre-Allocated File**:
+    - Probes target server with `HEAD` (and `Range: bytes=0-0` fallback) to inspect `Accept-Ranges: bytes` and `Content-Length`.
+    - Automatically splits files into 2–6 concurrent range segments based on size (<5MB single stream; 5MB–20MB 2 chunks; 20MB–50MB 4 chunks; 50MB+ 6 chunks).
+    - Pre-allocates single destination file (`RandomAccessFile.setLength(totalBytes)`), allowing workers to seek and write directly into their designated segments without post-download concatenation overhead.
+    - Graceful single-stream fallback when servers omit `Accept-Ranges`, return `200 OK`, or use `Transfer-Encoding: chunked`.
+  - **Pause, Resume, Crash Recovery & Integrity Validation**:
+    - Tracks chunk offsets `[chunkId, startByte, currentByte, endByte, status]` and flushes state periodically to Room DB.
+    - Validates integrity on resume with `If-Match: "<etag>"` and `If-Unmodified-Since: "<lastModified>"`. If remote file changed (HTTP 412), wipes stale data and restarts automatically.
+  - **Network Resilience, Retry Policies & Wi-Fi Only Mode**:
+    - Exponential backoff retry (1s -> 2s -> 4s -> 8s) for transient network timeouts and drops, with immediate termination on fatal HTTP 4xx codes (401, 403, 404, 410).
+    - Integrated `NetworkMonitor` via `ConnectivityManager.NetworkCallback` to auto-pause on network drop and auto-resume when online.
+    - User setting "Download on Wi-Fi Only" in Settings under Downloads, automatically queueing downloads on cellular.
+  - **Bandwidth Allocation & Speed Limiter**:
+    - Implemented `TokenBucketLimiter` to throttle byte reads according to user-configured speed limits or run unthrottled when unlimited.
+  - **Security, MIME-Type, RFC 6266 & File Handling**:
+    - Mirrors active session cookies (`CookieManager.getCookie`), `User-Agent`, and `Referer` headers into all network requests.
+    - Parses RFC 6266 `Content-Disposition` (`filename*=` and `filename=`), sanitizes path traversal (`../`) and illegal characters, and automatically resolves filename collisions (`filename (1).ext`).
+    - Computes streaming SHA-256 and MD5 checksums on completion.
+    - Scoped Storage compliant: publishes completed files to `MediaStore.Downloads` on Android 10+ (`IS_PENDING = 0`) and moves to public Downloads on Android 8–9 with media scanner broadcast.
+  - **Persistent Foreground Notification & UI Integration**:
+    - Runs in foreground service (`OnyxDownloadService`, `foregroundServiceType="dataSync"`) across Android 12–16.
+    - Persistent notification displaying real-time speed (KB/s, MB/s), progress bar, ETA, and interactive "Pause", "Resume", and "Cancel" action buttons.
+    - Upgraded `DownloadsAdapter` and `DownloadsActivity` to display live progress bars, speed, and pause/resume buttons.
+    - Added long-press download details dialog in `DownloadsActivity` with one-tap hash copying (SHA-256 / MD5) and a real-time Checksum Verification input field.
 
 
 

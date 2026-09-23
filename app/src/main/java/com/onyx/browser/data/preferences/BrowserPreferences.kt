@@ -222,6 +222,18 @@ class BrowserPreferences private constructor(context: Context) {
             prefs.edit().putInt("download_manager_behavior", value).apply()
         }
 
+    var isDownloadWifiOnly: Boolean
+        get() = prefs.getBoolean("download_wifi_only", false)
+        set(value) {
+            prefs.edit().putBoolean("download_wifi_only", value).apply()
+        }
+
+    var downloadSpeedLimit: Long
+        get() = prefs.getLong("download_speed_limit", 0L) // 0 = Unlimited, or bytes/sec
+        set(value) {
+            prefs.edit().putLong("download_speed_limit", value).apply()
+        }
+
     var isBackgroundPlayEnabled: Boolean
         get() = prefs.getBoolean(KEY_BACKGROUND_PLAY, true)
         set(value) {

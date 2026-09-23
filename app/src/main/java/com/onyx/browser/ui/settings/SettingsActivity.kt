@@ -144,6 +144,13 @@ class SettingsActivity : AppCompatActivity() {
             }
             sheet.show(supportFragmentManager, DownloadManagerPickerSheet.TAG)
         }
+
+        binding.settingDownloadWifiOnlySwitch.isChecked = preferences.isDownloadWifiOnly
+        binding.settingDownloadWifiOnlyRow.setOnClickListener {
+            val newState = !binding.settingDownloadWifiOnlySwitch.isChecked
+            binding.settingDownloadWifiOnlySwitch.isChecked = newState
+            preferences.isDownloadWifiOnly = newState
+        }
     }
 
     private fun setupMediaPreferences() {

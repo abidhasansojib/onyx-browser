@@ -223,6 +223,38 @@ object DownloadHandler {
         webView.evaluateJavascript(script, null)
     }
 
+    fun startInternalDownload(
+        context: Context,
+        coroutineScope: CoroutineScope,
+        url: String,
+        userAgent: String,
+        fileName: String,
+        mimeType: String,
+        contentLength: Long,
+        cookies: String = "",
+        referer: String = ""
+    ) {
+        val cleanFileName = sanitizeFileName(fileName)
+        val resolvedCookies = if (cookies.isNotBlank()) cookies else {
+            try {
+                CookieManager.getInstance().getCookie(url) ?: ""
+            } catch (_: Exception) {
+                ""
+            }
+        }
+
+        com.onyx.browser.download.OnyxDownloadManager.enqueueDownload(
+            context = context,
+            url = url,
+            fileName = cleanFileName,
+            mimeType = mimeType,
+            userAgent = userAgent,
+            cookies = resolvedCookies,
+            referer = referer,
+            contentLength = contentLength
+        )
+    }
+
     fun startSystemDownload(
         context: Context,
         coroutineScope: CoroutineScope,
@@ -234,56 +266,17 @@ object DownloadHandler {
         cookies: String = "",
         referer: String = ""
     ) {
-        try {
-            val cleanFileName = sanitizeFileName(fileName)
-            val resolvedCookies = if (cookies.isNotBlank()) cookies else {
-                try {
-                    CookieManager.getInstance().getCookie(url) ?: ""
-                } catch (_: Exception) {
-                    ""
-                }
-            }
-
-            val request = DownloadManager.Request(Uri.parse(url)).apply {
-                setMimeType(mimeType.ifBlank { "*/*" })
-                if (resolvedCookies.isNotBlank()) {
-                    addRequestHeader("Cookie", resolvedCookies)
-                }
-                if (userAgent.isNotBlank()) {
-                    addRequestHeader("User-Agent", userAgent)
-                }
-                if (referer.isNotBlank()) {
-                    addRequestHeader("Referer", referer)
-                }
-                setDescription("Downloading $cleanFileName")
-                setTitle(cleanFileName)
-                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, cleanFileName)
-            }
-
-            val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            val downloadId = downloadManager.enqueue(request)
-
-            Toast.makeText(context, "Download started: $cleanFileName", Toast.LENGTH_SHORT).show()
-
-            coroutineScope.launch(Dispatchers.IO) {
-                val database = AppDatabase.getInstance(context)
-                val path = "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/$cleanFileName"
-                database.downloadDao().insertDownload(
-                    DownloadItem(
-                        downloadId = downloadId,
-                        url = url,
-                        fileName = cleanFileName,
-                        filePath = path,
-                        mimeType = mimeType,
-                        fileSize = contentLength,
-                        status = DownloadItem.STATUS_RUNNING
-                    )
-                )
-            }
-        } catch (e: Exception) {
-            Toast.makeText(context, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        startInternalDownload(
+            context = context,
+            coroutineScope = coroutineScope,
+            url = url,
+            userAgent = userAgent,
+            fileName = fileName,
+            mimeType = mimeType,
+            contentLength = contentLength,
+            cookies = cookies,
+            referer = referer
+        )
     }
 
     fun dispatchToExternalDownloader(
