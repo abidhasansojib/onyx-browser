@@ -561,9 +561,7 @@ class MainActivity : AppCompatActivity() {
                 onSiteShieldWhitelistChanged = { _ ->
                     activeWebView?.reload()
                 }
-                onPipClicked = {
-                    enterPipMode()
-                }
+
             }
             sheet.show(supportFragmentManager, MenuBottomSheetDialogFragment.TAG)
         }

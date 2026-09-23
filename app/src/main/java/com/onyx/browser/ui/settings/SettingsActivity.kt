@@ -136,6 +136,15 @@ class SettingsActivity : AppCompatActivity() {
             if (!isChecked) {
                 com.onyx.browser.media.MediaPlaybackBridge.isVideoPlaying = false
             }
+            try {
+                val intent = android.content.Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS", android.net.Uri.parse("package:$packageName"))
+                startActivity(intent)
+            } catch (e: Exception) {
+                try {
+                    val intent = android.content.Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS")
+                    startActivity(intent)
+                } catch (e2: Exception) {}
+            }
         }
 
         binding.settingDisplayOverOtherAppsRow.setOnClickListener {

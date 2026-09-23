@@ -36,7 +36,7 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
     var onAddToHomeScreenClicked: (() -> Unit)? = null
     var onDeveloperToolsClicked: (() -> Unit)? = null
     var onSiteShieldWhitelistChanged: ((Boolean) -> Unit)? = null
-    var onPipClicked: (() -> Unit)? = null
+    
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -166,11 +166,7 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
             dismiss()
         }
 
-        // Picture-in-Picture
-        binding.menuItemPip.setOnClickListener {
-            onPipClicked?.invoke()
-            dismiss()
-        }
+
 
         // 5th: Add to Home screen
         binding.menuItemAddToHomeScreen.setOnClickListener {

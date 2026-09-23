@@ -441,33 +441,7 @@
                 android:clickable="false" />
         </LinearLayout>
 
-        <!-- Picture-in-Picture (Display Over Other Apps) Row -->
-        <LinearLayout
-            android:id="@+id/menuItemPip"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp">
 
-            <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                app:srcCompat="@drawable/ic_picture_in_picture"
-                app:tint="?attr/colorControlNormal" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_weight="1"
-                android:text="@string/picture_in_picture"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
-        </LinearLayout>
 
         <!-- 5th: Add to Home Screen Row -->
         <LinearLayout
