@@ -502,6 +502,10 @@ class BrowserPreferences private constructor(context: Context) {
         get() = prefs.getBoolean(KEY_PASSKEYS_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_PASSKEYS_ENABLED, value).apply()
 
+    var isCookieAutoclearOnCloseEnabled: Boolean
+        get() = prefs.getBoolean(KEY_COOKIE_AUTOCLEAR, false)
+        set(value) = prefs.edit().putBoolean(KEY_COOKIE_AUTOCLEAR, value).apply()
+
     var isBiometricIncognitoEnabled: Boolean
         get() = prefs.getBoolean(KEY_BIOMETRIC_INCOGNITO, false)
         set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC_INCOGNITO, value).apply()
@@ -583,6 +587,7 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_PASSKEYS_ENABLED = "pref_passkeys_enabled"
         const val KEY_FILTER_AUTO_UPDATE = "pref_filter_auto_update"
         const val KEY_FILTER_UPDATE_INTERVAL = "pref_filter_update_interval"
+        const val KEY_COOKIE_AUTOCLEAR = "pref_cookie_autoclear"
         const val KEY_BIOMETRIC_INCOGNITO = "pref_biometric_incognito"
         const val KEY_UA_SPOOF = "pref_ua_spoof"
         const val KEY_SCROLL_TO_TOP = "pref_scroll_to_top"

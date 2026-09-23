@@ -279,7 +279,38 @@ class TabManager(
         }
     }
 
+    private fun autoclearTabData(tab: TabItem) {
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        if (prefs.isCookieAutoclearOnCloseEnabled && tab.url.isNotBlank() && !tab.url.startsWith("file://") && !tab.url.startsWith("content://")) {
+            try {
+                val uri = android.net.Uri.parse(tab.url)
+                val domain = uri.host
+                if (!domain.isNullOrBlank()) {
+                    android.webkit.WebStorage.getInstance().deleteOrigin("${uri.scheme}://$domain")
+                    
+                    val cookieManager = android.webkit.CookieManager.getInstance()
+                    val cookies = cookieManager.getCookie(domain)
+                    if (cookies != null) {
+                        val splitCookies = cookies.split(";")
+                        for (cookie in splitCookies) {
+                            val cookieParts = cookie.split("=")
+                            if (cookieParts.isNotEmpty()) {
+                                val cookieName = cookieParts[0].trim()
+                                cookieManager.setCookie(domain, "$cookieName=; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                            }
+                        }
+                        cookieManager.flush()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun closeTab(tab: TabItem) {
+        autoclearTabData(tab)
+
         // Safe destruction of associated WebView
         val webView = webViewPool.remove(tab.id)
         webView?.destroySafely()
@@ -314,6 +345,7 @@ class TabManager(
     fun closeAllTabs(incognitoOnly: Boolean) {
         if (incognitoOnly) {
             _incognitoTabs.value.forEach { tab ->
+                autoclearTabData(tab)
                 webViewPool.remove(tab.id)?.destroySafely()
             }
             _incognitoTabs.value = emptyList()
@@ -322,6 +354,7 @@ class TabManager(
             }
         } else {
             _normalTabs.value.forEach { tab ->
+                autoclearTabData(tab)
                 webViewPool.remove(tab.id)?.destroySafely()
             }
             _normalTabs.value = emptyList()
