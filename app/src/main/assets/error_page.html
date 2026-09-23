@@ -537,8 +537,23 @@
       const bridge = window.OnyxErrorBridge;
       switch (action) {
         case 'reload':
-          if (bridge && bridge.reload) bridge.reload();
-          else window.location.reload();
+          try {
+            if (primaryButton && data.primaryButtonAction === 'reload') {
+              primaryButton.textContent = 'Reloading…';
+              primaryButton.disabled = true;
+            }
+          } catch(e) {}
+          if (bridge && bridge.reload) {
+            try {
+              bridge.reload(data.url);
+            } catch(e) {
+              bridge.reload();
+            }
+          } else if (data.url && (data.url.startsWith('http://') || data.url.startsWith('https://'))) {
+            window.location.href = data.url;
+          } else {
+            window.location.reload();
+          }
           break;
         case 'back':
           if (bridge && bridge.goBack) bridge.goBack();

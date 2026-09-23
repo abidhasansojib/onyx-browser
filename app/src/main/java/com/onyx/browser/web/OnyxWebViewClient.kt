@@ -756,22 +756,28 @@ class OnyxWebViewClient(
     }
 
     private fun isSyntheticOrDataUrl(url: String?): Boolean {
-        if (url.isNullOrBlank()) return true
-        return url.startsWith("data:") ||
-                url.startsWith("file:///android_asset/error_page") ||
-                url == "about:blank"
+        return OnyxWebView.isSyntheticOrDataUrl(url)
     }
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
+        val onyxWv = view as? OnyxWebView
+        if (onyxWv?.isLoadingSyntheticPage == true) {
+            // This onPageStarted event was triggered by loading the synthetic error page.
+            // Reset the flag but preserve currentSyntheticState and lastFailingUrl.
+            // Do not run adblock/DOM scripts or clear error state.
+            onyxWv.isLoadingSyntheticPage = false
+            return
+        }
+
         if (!url.isNullOrBlank()) {
             if (isSyntheticOrDataUrl(url)) {
                 // Do not let data: or asset error pages overwrite the active URL or clear synthetic error state!
                 return
             }
             currentPageUrl = url
-            (view as? OnyxWebView)?.clearSyntheticState()
-            (view as? OnyxWebView)?.applyUserAgentForUrl(url)
+            onyxWv?.clearSyntheticState()
+            onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)
             if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)) {
                 val lvl = preferences.blockingLevel
@@ -800,10 +806,12 @@ class OnyxWebViewClient(
 
     override fun onPageFinished(view: WebView?, url: String?) {
         super.onPageFinished(view, url)
+        val onyxWv = view as? OnyxWebView
         if (!url.isNullOrBlank()) {
+            val isSyntheticError = onyxWv?.currentSyntheticState != null
             val isSyntheticData = isSyntheticOrDataUrl(url)
-            val effectiveUrl = if (isSyntheticData) {
-                (view as? OnyxWebView)?.currentSyntheticState?.failingUrl ?: currentPageUrl
+            val effectiveUrl = if (isSyntheticData || isSyntheticError) {
+                onyxWv?.currentSyntheticState?.failingUrl ?: onyxWv?.lastFailingUrl ?: currentPageUrl
             } else {
                 currentPageUrl = url
                 url
@@ -811,12 +819,11 @@ class OnyxWebViewClient(
             if (effectiveUrl.isNotBlank() && !isSyntheticOrDataUrl(effectiveUrl)) {
                 onPageFinishedCallback(effectiveUrl)
             }
-            if (preferences.isBackgroundPlayEnabled) {
+            if (preferences.isBackgroundPlayEnabled && !isSyntheticError) {
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
             }
             view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
-            val isSyntheticError = (view as? OnyxWebView)?.currentSyntheticState != null
-            val isIncognito = (view as? OnyxWebView)?.isIncognito ?: false
+            val isIncognito = onyxWv?.isIncognito ?: false
             if (!isIncognito && !isSyntheticError && !isSyntheticData && url.startsWith("http")) {
                 val title = view?.title ?: url
                 coroutineScope.launch(Dispatchers.IO) {
@@ -830,6 +837,9 @@ class OnyxWebViewClient(
                         )
                     } catch (_: Exception) {}
                 }
+            }
+            if (!isSyntheticError && !isSyntheticData && (url.startsWith("http://") || url.startsWith("https://"))) {
+                onyxWv?.lastFailingUrl = null
             }
         }
     }
@@ -1070,7 +1080,10 @@ class OnyxWebViewClient(
     }
 
     private fun loadCustomErrorPage(view: WebView?, error: SyntheticNavigationState) {
-        (view as? OnyxWebView)?.currentSyntheticState = error
+        val onyxWv = view as? OnyxWebView
+        onyxWv?.isLoadingSyntheticPage = true
+        onyxWv?.lastFailingUrl = error.failingUrl
+        onyxWv?.currentSyntheticState = error
         if (error.failingUrl.isNotBlank()) {
             currentPageUrl = error.failingUrl
         }

@@ -335,7 +335,7 @@ class MainActivity : AppCompatActivity() {
         binding.swipeRefreshLayout.setOnRefreshListener { 
             val activeTab = tabManager.activeTab.value
             val wv = tabManager.getActiveWebView()
-            val failingUrl = wv?.currentSyntheticState?.failingUrl
+            val failingUrl = wv?.currentSyntheticState?.failingUrl ?: wv?.lastFailingUrl
             if (!failingUrl.isNullOrBlank()) {
                 wv.clearSyntheticState()
                 wv.loadUrl(failingUrl)
@@ -2297,7 +2297,7 @@ class MainActivity : AppCompatActivity() {
                     val wv = tabManager.getActiveWebView() ?: return@runOnUiThread
                     val state = wv.currentSyntheticState
                     if (state?.category == com.onyx.browser.web.error.SyntheticNavigationState.ErrorCategory.OFFLINE) {
-                        val url = state.failingUrl
+                        val url = state.failingUrl.ifBlank { wv.lastFailingUrl ?: "" }
                         wv.clearSyntheticState()
                         if (url.isNotBlank() && !LocalFileLoader.isLocalFile(url)) {
                             wv.loadUrl(url)

@@ -842,6 +842,31 @@ onyx-browser/
     - [`Onyx-Browser-v1.0.144-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.144-universal-release.apk) (38.79 MB)
     - [`Onyx-Browser-v1.0.144-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.144-x86_64-release.apk) (20.37 MB)
   - GitHub Release published: [Onyx Browser v1.0.144](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.144).
+- [x] **Error Page Reload Button Fix & Network State Retention (`OnyxWebView.kt`, `OnyxWebViewClient.kt`, `OnyxErrorBridge.kt`, `error_page.html`, `MainActivity.kt`)**:
+  - **Root Cause Resolved**:
+    - When `loadCustomErrorPage` invoked `view.loadDataWithBaseURL(baseUrl, populatedHtml, ...)`, `onPageStarted` fired with `url = baseUrl`.
+    - Because `baseUrl` is `https://...`, `isSyntheticOrDataUrl(url)` returned `false`. `onPageStarted` prematurely assumed a real navigation had started and cleared `currentSyntheticState` to `null`.
+    - When the user tapped "Reload", `bridge.reload()` found `currentSyntheticState?.failingUrl == null`, falling through to `webView.reload()`.
+    - In Android Chromium WebView, calling `super.reload()` on a page rendered with `loadDataWithBaseURL` merely re-parses the in-memory HTML buffer without creating a network request.
+  - **OnyxWebView State Retention & Target Reloading**:
+    - Added `lastFailingUrl` and `isLoadingSyntheticPage` flags to `OnyxWebView`.
+    - Centralized `isSyntheticOrDataUrl(url)` in `OnyxWebView.companion` to detect `data:`, `file:///android_asset/error_page`, and `about:blank`.
+    - Updated `OnyxWebView.reload()`: Checks `currentSyntheticState?.failingUrl ?: lastFailingUrl` and explicitly calls `loadUrl(failing)` to issue an actual HTTP GET network request.
+  - **Prevent Premature Clearing in `OnyxWebViewClient`**:
+    - In `loadCustomErrorPage()`: Sets `isLoadingSyntheticPage = true`, `lastFailingUrl = error.failingUrl`, and `currentSyntheticState = error`.
+    - In `onPageStarted()`: If `isLoadingSyntheticPage == true`, resets the flag and returns immediately, safeguarding `currentSyntheticState` from being cleared and preventing adblock/fingerprint injection into the local error template.
+    - In `onPageFinished()`: Only resets `lastFailingUrl` when a real, non-error HTTP/HTTPS page successfully finishes loading.
+  - **Bridge Overloads & MainActivity Integration (`OnyxErrorBridge.kt`)**:
+    - Added `@JavascriptInterface fun reload(targetUrl: String?)` and zero-arg `@JavascriptInterface fun reload()`.
+    - Resolves target URL through priority chain: `targetUrl` -> `currentSyntheticState?.failingUrl` -> `lastFailingUrl`.
+    - Dispatches navigation through `mainAct.performSearchOrLoad(target)` to update active tab state, address bar, and load the webpage.
+    - Similarly hardened `proceedSsl()` with `lastFailingUrl` fallback and `performSearchOrLoad`.
+  - **Instant Visual Feedback & JS Target Passing (`error_page.html`)**:
+    - When Reload is clicked, immediately changes primary button text to "Reloading…" and disables it to prevent duplicate clicks.
+    - Calls `bridge.reload(data.url)`. If bridge is absent, sets `window.location.href = data.url` rather than `window.location.reload()`.
+  - **Swipe-to-Refresh & Network Reconnection Support (`MainActivity.kt`)**:
+    - Updated `swipeRefreshLayout.setOnRefreshListener`: Pull-to-refresh on an error page falls back to `lastFailingUrl` and issues a fresh `loadUrl()`.
+    - Updated `networkCallback.onAvailable`: Auto-reloads using `lastFailingUrl` when internet connectivity is restored.
 
 
 

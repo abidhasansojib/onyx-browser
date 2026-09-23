@@ -29,6 +29,8 @@ class OnyxWebView @JvmOverloads constructor(
     var isIncognito: Boolean = false
     var pendingSslHandler: android.webkit.SslErrorHandler? = null
     var currentSyntheticState: SyntheticNavigationState? = null
+    var lastFailingUrl: String? = null
+    var isLoadingSyntheticPage: Boolean = false
     
     val touchBridge = OnyxTouchBridge()
     var lastTouchX: Float = 0f
@@ -71,17 +73,26 @@ class OnyxWebView @JvmOverloads constructor(
     }
 
     override fun reload() {
-        val failing = currentSyntheticState?.failingUrl
+        val failing = currentSyntheticState?.failingUrl ?: lastFailingUrl
         if (!failing.isNullOrBlank()) {
             clearSyntheticState()
             loadUrl(failing)
             return
         }
         val currentUrl = url
-        if (currentUrl != null && (currentUrl.startsWith("data:") || currentUrl.startsWith("file:///android_asset/error_page"))) {
+        if (currentUrl != null && isSyntheticOrDataUrl(currentUrl)) {
             return
         }
         super.reload()
+    }
+
+    companion object {
+        fun isSyntheticOrDataUrl(url: String?): Boolean {
+            if (url.isNullOrBlank()) return true
+            return url.startsWith("data:") ||
+                    url.startsWith("file:///android_asset/error_page") ||
+                    url == "about:blank"
+        }
     }
 
     private fun getBaseUserAgent(prefs: com.onyx.browser.data.preferences.BrowserPreferences): String {

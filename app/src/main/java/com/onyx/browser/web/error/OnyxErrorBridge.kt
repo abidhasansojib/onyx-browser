@@ -20,11 +20,26 @@ class OnyxErrorBridge(
 
     @JavascriptInterface
     fun reload() {
+        reload(null)
+    }
+
+    @JavascriptInterface
+    fun reload(targetUrl: String?) {
         webView.post {
-            val target = webView.currentSyntheticState?.failingUrl
+            val target = when {
+                !targetUrl.isNullOrBlank() && !OnyxWebView.isSyntheticOrDataUrl(targetUrl) -> targetUrl
+                !webView.currentSyntheticState?.failingUrl.isNullOrBlank() -> webView.currentSyntheticState?.failingUrl
+                !webView.lastFailingUrl.isNullOrBlank() -> webView.lastFailingUrl
+                else -> null
+            }
             webView.clearSyntheticState()
             if (!target.isNullOrBlank()) {
-                webView.loadUrl(target)
+                val mainAct = activity as? MainActivity
+                if (mainAct != null) {
+                    mainAct.performSearchOrLoad(target)
+                } else {
+                    webView.loadUrl(target)
+                }
             } else {
                 webView.reload()
             }
@@ -133,15 +148,20 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun proceedSsl() {
         webView.post {
-            val currentUrl = webView.currentSyntheticState?.failingUrl ?: webView.url ?: ""
+            val currentUrl = webView.currentSyntheticState?.failingUrl ?: webView.lastFailingUrl ?: webView.url ?: ""
             val host = try { Uri.parse(currentUrl).host } catch (_: Exception) { null }
             if (!host.isNullOrBlank()) {
                 webView.sessionSslBypasses.add(host)
             }
             webView.pendingSslHandler?.proceed()
             webView.clearSyntheticState()
-            if (currentUrl.isNotBlank()) {
-                webView.loadUrl(currentUrl)
+            if (currentUrl.isNotBlank() && !OnyxWebView.isSyntheticOrDataUrl(currentUrl)) {
+                val mainAct = activity as? MainActivity
+                if (mainAct != null) {
+                    mainAct.performSearchOrLoad(currentUrl)
+                } else {
+                    webView.loadUrl(currentUrl)
+                }
             } else {
                 webView.reload()
             }
