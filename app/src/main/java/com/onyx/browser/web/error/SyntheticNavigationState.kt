@@ -92,13 +92,13 @@ sealed class SyntheticNavigationState(
 
     class Offline(
         failingUrl: String,
-        errorCode: String = "net::ERR_INTERNET_DISCONNECTED",
-        title: String = "No internet connection",
-        description: String = "Onyx Browser is unable to connect to the network. Please check your data or Wi-Fi.",
+        errorCode: String = "ERR_INTERNET_DISCONNECTED",
+        title: String = "No internet",
+        description: String = "Try:",
         checklist: List<String> = listOf(
-            "Check if Wi-Fi or mobile data is turned on",
-            "Check if Airplane mode is turned off",
-            "Restart your wireless router or mobile connection"
+            "Checking the network cables, modem, and router",
+            "Reconnecting to Wi-Fi",
+            "Checking mobile network"
         ),
         technicalDetails: String? = null
     ) : SyntheticNavigationState(
@@ -108,17 +108,17 @@ sealed class SyntheticNavigationState(
         title = title,
         description = description,
         checklist = checklist,
-        primaryButtonText = "Try Again",
+        primaryButtonText = "Reload",
         primaryButtonAction = "reload",
-        secondaryButtonText = "Network Settings",
-        secondaryButtonAction = "network_settings",
+        secondaryButtonText = "Details",
+        secondaryButtonAction = "details",
         technicalDetails = technicalDetails,
-        hasOfflineGame = false
+        hasOfflineGame = true
     )
 
     class Security(
         failingUrl: String,
-        errorCode: String = "net::ERR_CERT_COMMON_NAME_INVALID",
+        errorCode: String = "NET::ERR_CERT_COMMON_NAME_INVALID",
         title: String = "Your connection is not private",
         description: String,
         technicalDetails: String,
@@ -134,7 +134,7 @@ sealed class SyntheticNavigationState(
             "Check that your device's system clock and date are set accurately"
         ),
         isDanger = true,
-        primaryButtonText = "Back to Safety",
+        primaryButtonText = "Back to safety",
         primaryButtonAction = "back",
         secondaryButtonText = "Advanced",
         secondaryButtonAction = "advanced_ssl",
@@ -158,10 +158,10 @@ sealed class SyntheticNavigationState(
         title = title,
         description = description,
         checklist = checklist,
-        primaryButtonText = "Try Again",
+        primaryButtonText = "Reload",
         primaryButtonAction = "reload",
-        secondaryButtonText = if (canCheckWayback) "Check Wayback Machine" else "Search Web",
-        secondaryButtonAction = if (canCheckWayback) "wayback_machine" else "search",
+        secondaryButtonText = "Details",
+        secondaryButtonAction = "details",
         canCheckWayback = canCheckWayback,
         technicalDetails = technicalDetails
     )
@@ -175,7 +175,7 @@ sealed class SyntheticNavigationState(
     ) : SyntheticNavigationState(
         category = ErrorCategory.SHIELDS_BLOCKED,
         failingUrl = failingUrl,
-        errorCodeString = "net::ERR_BLOCKED_BY_CLIENT",
+        errorCodeString = "ERR_BLOCKED_BY_CLIENT",
         title = title,
         description = description,
         checklist = listOf(
@@ -191,8 +191,8 @@ sealed class SyntheticNavigationState(
 
     class FileError(
         failingUrl: String,
-        errorCode: String = "net::ERR_FILE_NOT_FOUND",
-        title: String = "File not found",
+        errorCode: String = "ERR_FILE_NOT_FOUND",
+        title: String = "Your file couldn’t be accessed",
         description: String = "The local file or document could not be located at this path.",
         checklist: List<String> = listOf(
             "The file may have been moved, renamed, or deleted",
@@ -206,21 +206,21 @@ sealed class SyntheticNavigationState(
         title = title,
         description = description,
         checklist = checklist,
-        primaryButtonText = "Try Again",
+        primaryButtonText = "Reload",
         primaryButtonAction = "reload",
-        secondaryButtonText = "Open Downloads",
-        secondaryButtonAction = "downloads",
+        secondaryButtonText = "Details",
+        secondaryButtonAction = "details",
         technicalDetails = technicalDetails
     )
 
     class Generic(
         failingUrl: String,
         errorCode: String,
-        title: String = "Web Page Not Available",
+        title: String = "This site can’t be reached",
         description: String = "Could not load page.",
         checklist: List<String> = listOf(
-            "Check your internet connection and reload the page",
-            "If the problem persists, try visiting the page again later"
+            "Checking the connection",
+            "Checking the proxy, firewall, and DNS configuration"
         ),
         technicalDetails: String? = null
     ) : SyntheticNavigationState(
@@ -230,10 +230,10 @@ sealed class SyntheticNavigationState(
         title = title,
         description = description,
         checklist = checklist,
-        primaryButtonText = "Try Again",
+        primaryButtonText = "Reload",
         primaryButtonAction = "reload",
-        secondaryButtonText = "Search Web",
-        secondaryButtonAction = "search",
+        secondaryButtonText = "Details",
+        secondaryButtonAction = "details",
         technicalDetails = technicalDetails
     )
 }

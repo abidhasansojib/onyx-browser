@@ -29,66 +29,79 @@ object WebErrorHandler {
         if (!isNetworkConnected || desc.contains("INTERNET_DISCONNECTED", ignoreCase = true) || desc.contains("NETWORK_CHANGED", ignoreCase = true)) {
             return SyntheticNavigationState.Offline(
                 failingUrl = failingUrl,
-                errorCode = "net::ERR_INTERNET_DISCONNECTED",
-                title = "No internet connection",
-                description = "Onyx Browser is unable to connect to the network. Please check your data or Wi-Fi.",
+                errorCode = "ERR_INTERNET_DISCONNECTED",
+                title = "No internet",
+                description = "Try:",
                 checklist = listOf(
-                    "Check if Wi-Fi or mobile data is turned on",
-                    "Check if Airplane mode is turned off",
-                    "Restart your wireless router or mobile connection"
+                    "Checking the network cables, modem, and router",
+                    "Reconnecting to Wi-Fi",
+                    "Running Windows Network Diagnostics / Checking mobile network"
                 ),
                 technicalDetails = "Network interface unavailable or disconnected."
             )
         }
 
         if (errorCode == WebViewClient.ERROR_HOST_LOOKUP || desc.contains("NAME_NOT_RESOLVED", ignoreCase = true)) {
-            return SyntheticNavigationState.Offline(
+            return SyntheticNavigationState.Generic(
                 failingUrl = failingUrl,
-                errorCode = "net::ERR_NAME_NOT_RESOLVED",
-                title = "This site can't be reached",
-                description = "The server IP address could not be found for $domain.",
+                errorCode = "ERR_NAME_NOT_RESOLVED",
+                title = "This site can’t be reached",
+                description = "$domain’s server IP address could not be found.",
                 checklist = listOf(
-                    "Check the web address for typos (e.g. example.com)",
-                    "Test searching for the website name",
-                    "Verify DNS settings in Onyx Shields & Privacy"
+                    "Checking the connection",
+                    "Checking the proxy, firewall, and DNS configuration"
                 ),
                 technicalDetails = "DNS query failed: No IP address associated with hostname $domain."
             )
         }
 
         if (errorCode == WebViewClient.ERROR_CONNECT || desc.contains("CONNECTION_REFUSED", ignoreCase = true)) {
-            return SyntheticNavigationState.Offline(
+            return SyntheticNavigationState.Generic(
                 failingUrl = failingUrl,
-                errorCode = "net::ERR_CONNECTION_REFUSED",
-                title = "Connection refused",
-                description = "$domain refused to connect or actively rejected the connection.",
+                errorCode = "ERR_CONNECTION_REFUSED",
+                title = "This site can’t be reached",
+                description = "$domain refused to connect.",
                 checklist = listOf(
-                    "The website may be down for maintenance or experiencing an outage",
-                    "Check firewall, proxy, or VPN configuration"
+                    "Checking the connection",
+                    "Checking the proxy and the firewall"
                 ),
                 technicalDetails = "TCP SYN packet rejected by target host $domain."
             )
         }
 
         if (errorCode == WebViewClient.ERROR_TIMEOUT || desc.contains("TIMED_OUT", ignoreCase = true)) {
-            return SyntheticNavigationState.Offline(
+            return SyntheticNavigationState.Generic(
                 failingUrl = failingUrl,
-                errorCode = "net::ERR_TIMED_OUT",
-                title = "Connection timed out",
-                description = "The server at $domain took too long to respond.",
+                errorCode = "ERR_CONNECTION_TIMED_OUT",
+                title = "This site can’t be reached",
+                description = "$domain took too long to respond.",
                 checklist = listOf(
-                    "The server may be overloaded with high traffic",
-                    "Your internet connection might be experiencing slow speeds"
+                    "Checking the connection",
+                    "Checking the proxy and the firewall"
                 ),
                 technicalDetails = "TCP socket connection timed out waiting for server response."
+            )
+        }
+
+        if (desc.contains("CONNECTION_RESET", ignoreCase = true)) {
+            return SyntheticNavigationState.Generic(
+                failingUrl = failingUrl,
+                errorCode = "ERR_CONNECTION_RESET",
+                title = "This site can’t be reached",
+                description = "The connection was reset.",
+                checklist = listOf(
+                    "Checking the connection",
+                    "Checking the proxy and the firewall"
+                ),
+                technicalDetails = "TCP connection reset by peer."
             )
         }
 
         if (errorCode == WebViewClient.ERROR_FILE || errorCode == WebViewClient.ERROR_FILE_NOT_FOUND || desc.contains("FILE_NOT_FOUND", ignoreCase = true)) {
             return SyntheticNavigationState.FileError(
                 failingUrl = failingUrl,
-                errorCode = "net::ERR_FILE_NOT_FOUND",
-                title = "File not found",
+                errorCode = "ERR_FILE_NOT_FOUND",
+                title = "Your file couldn’t be accessed",
                 description = "The local file or document could not be located at this path.",
                 checklist = listOf(
                     "The file may have been moved, renamed, or deleted",
@@ -103,20 +116,20 @@ object WebErrorHandler {
                 failingUrl = failingUrl,
                 blockedDomain = domain,
                 title = "Blocked by Onyx Shields",
-                description = "This site was blocked to protect your privacy and shield you from unwanted trackers, deceptive schemes, or malware.",
+                description = "Onyx Shields blocked $domain from loading to protect your privacy and shield you from unwanted trackers, deceptive schemes, or malware.",
                 technicalDetails = "Resource matched active adblock filter rule."
             )
         }
 
-        val codeClean = if (desc.startsWith("net::")) desc else if (desc.isNotBlank()) "net::$desc" else "net::ERR_CONNECTION_FAILED"
+        val codeClean = if (desc.startsWith("net::")) desc.removePrefix("net::") else if (desc.isNotBlank()) desc else "ERR_CONNECTION_FAILED"
         return SyntheticNavigationState.Generic(
             failingUrl = failingUrl,
             errorCode = codeClean,
-            title = "Web Page Not Available",
-            description = "Could not load the page at $domain.",
+            title = "This site can’t be reached",
+            description = "The webpage at $domain might be temporarily down or it may have moved permanently to a new web address.",
             checklist = listOf(
-                "Check your internet connection and reload the page",
-                "If the problem persists, try visiting the page again later"
+                "Checking the connection",
+                "Checking the proxy, firewall, and DNS configuration"
             ),
             technicalDetails = "General Chromium network stack error ($codeClean)."
         )
@@ -270,9 +283,18 @@ object WebErrorHandler {
             else -> "The security certificate could not be verified by Android's cryptographic trust manager."
         }
 
+        val code = when (sslError?.primaryError) {
+            SslError.SSL_EXPIRED -> "NET::ERR_CERT_DATE_INVALID"
+            SslError.SSL_IDMISMATCH -> "NET::ERR_CERT_COMMON_NAME_INVALID"
+            SslError.SSL_UNTRUSTED -> "NET::ERR_CERT_AUTHORITY_INVALID"
+            SslError.SSL_NOTYETVALID -> "NET::ERR_CERT_DATE_INVALID"
+            SslError.SSL_DATE_INVALID -> "NET::ERR_CERT_DATE_INVALID"
+            else -> "NET::ERR_CERT_INVALID"
+        }
+
         return SyntheticNavigationState.Security(
             failingUrl = failingUrl,
-            errorCode = "net::ERR_CERT_COMMON_NAME_INVALID",
+            errorCode = code,
             title = "Your connection is not private",
             description = "Attackers might be trying to steal your information from $domain (for example, passwords, messages, or credit cards).",
             technicalDetails = details,

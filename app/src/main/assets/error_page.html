@@ -1,37 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Page Not Available</title>
+  <meta name="color-scheme" content="light dark">
+  <title>Error</title>
   <style>
     :root {
-      --bg: #FFFFFF;
-      --text-main: #202124;
-      --text-sub: #5F6368;
-      --primary: #1A73E8;
-      --primary-text: #FFFFFF;
-      --border: #DADCE0;
-      --surface: #F8F9FA;
-      --danger: #D93025;
+      --background-color: #FFFFFF;
+      --heading-color: #202124;
+      --text-color: #5F6368;
+      --error-code-color: #5F6368;
+      --link-color: #1A73E8;
+      --primary-btn-bg: #1A73E8;
+      --primary-btn-text: #FFFFFF;
+      --primary-btn-active: #1557B0;
+      --secondary-btn-bg: #FFFFFF;
+      --secondary-btn-text: #1A73E8;
+      --secondary-btn-border: #DADCE0;
+      --secondary-btn-active: #F1F3F4;
+      --card-bg: #F8F9FA;
+      --card-border: #DADCE0;
+      --danger-color: #D93025;
       --icon-color: #5F6368;
-      --btn-bg: #FFFFFF;
-      --btn-hover: #F1F3F4;
+      --dino-color: #535353;
+      --ground-color: #D0D0D0;
     }
 
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #202124;
-        --text-main: #E8EAED;
-        --text-sub: #9AA0A6;
-        --primary: #8AB4F8;
-        --primary-text: #202124;
-        --border: #3C4043;
-        --surface: #303134;
-        --danger: #F28B82;
+        --background-color: #202124;
+        --heading-color: #E8EAED;
+        --text-color: #9AA0A6;
+        --error-code-color: #9AA0A6;
+        --link-color: #8AB4F8;
+        --primary-btn-bg: #8AB4F8;
+        --primary-btn-text: #202124;
+        --primary-btn-active: #ADC8FF;
+        --secondary-btn-bg: #202124;
+        --secondary-btn-text: #8AB4F8;
+        --secondary-btn-border: #5F6368;
+        --secondary-btn-active: #303134;
+        --card-bg: #303134;
+        --card-border: #3C4043;
+        --danger-color: #F28B82;
         --icon-color: #9AA0A6;
-        --btn-bg: #303134;
-        --btn-hover: #3C4043;
+        --dino-color: #E8EAED;
+        --ground-color: #4A4D51;
       }
     }
 
@@ -40,166 +55,361 @@
       margin: 0;
       padding: 0;
       -webkit-tap-highlight-color: transparent;
-      font-family: -apple-system, BlinkMacSystemFont, "Google Sans", "Segoe UI", Roboto, sans-serif;
     }
 
-    body {
-      background-color: var(--bg);
-      color: var(--text-main);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+    html, body {
+      background-color: var(--background-color);
+      color: var(--text-color);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Google Sans", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.55;
       min-height: 100vh;
-      padding: 40px 24px;
-      text-align: center;
+      -webkit-font-smoothing: antialiased;
+      word-wrap: break-word;
     }
 
-    .error-icon {
-      width: 72px;
-      height: 72px;
+    .interstitial-wrapper {
+      box-sizing: border-box;
+      margin: 6vh auto 0;
+      max-width: 600px;
+      padding: 0 24px 60px;
+      text-align: left;
+    }
+
+    /* Icon Area */
+    .icon-container {
       margin-bottom: 24px;
+    }
+
+    .icon-svg {
+      width: 48px;
+      height: 48px;
       color: var(--icon-color);
+      display: block;
     }
 
-    .error-icon.danger { color: var(--danger); }
+    .icon-danger {
+      color: var(--danger-color);
+    }
 
+    /* Dino Runner Canvas Area */
+    #runner-container {
+      display: none;
+      position: relative;
+      margin-bottom: 24px;
+      width: 100%;
+      max-width: 560px;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    #runner-canvas {
+      display: block;
+      width: 100%;
+      height: 140px;
+      cursor: pointer;
+    }
+
+    .runner-hint {
+      font-size: 11px;
+      color: var(--error-code-color);
+      margin-top: 4px;
+      text-align: right;
+      letter-spacing: 0.02em;
+    }
+
+    /* Headings & Text */
     h1 {
-      font-size: 20px;
+      color: var(--heading-color);
+      font-size: 24px;
       font-weight: 500;
-      line-height: 1.4;
-      color: var(--text-main);
-      margin-bottom: 12px;
-      max-width: 320px;
+      line-height: 1.3;
+      margin: 0 0 16px;
     }
 
-    p {
-      font-size: 14px;
+    #main-message p {
+      font-size: 15px;
       line-height: 1.6;
-      color: var(--text-sub);
-      margin-bottom: 32px;
-      max-width: 320px;
+      color: var(--text-color);
+      margin: 0 0 16px;
     }
 
-    .actions {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      width: 100%;
-      max-width: 320px;
+    #main-message strong,
+    strong {
+      font-weight: 600;
+      color: var(--heading-color);
     }
 
-    .btn {
-      width: 100%;
-      height: 40px;
-      border-radius: 20px;
+    /* Suggestions Checklist */
+    .suggestions {
+      margin: 16px 0 20px;
+    }
+
+    .suggestion-header {
       font-size: 14px;
       font-weight: 500;
+      color: var(--heading-color);
+      margin-bottom: 8px;
+    }
+
+    .suggestion-list {
+      margin: 0;
+      padding-left: 20px;
+      font-size: 14px;
+      color: var(--text-color);
+      line-height: 1.7;
+    }
+
+    .suggestion-list li {
+      margin-bottom: 4px;
+    }
+
+    /* Error Code */
+    .error-code {
+      color: var(--error-code-color);
+      font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      margin: 20px 0 24px;
+      text-transform: uppercase;
+    }
+
+    /* Brave Signature Wayback Machine Card */
+    .wayback-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 20px 0 24px;
+      display: none;
+    }
+
+    .wayback-header {
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--heading-color);
+      margin-bottom: 6px;
+    }
+
+    .wayback-logo {
+      width: 18px;
+      height: 18px;
+      color: var(--link-color);
+      flex-shrink: 0;
+    }
+
+    .wayback-desc {
+      font-size: 13px;
+      color: var(--text-color);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+
+    .wayback-btn {
+      background: transparent;
+      border: 1px solid var(--link-color);
+      color: var(--link-color);
+      border-radius: 18px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
       cursor: pointer;
-      border: 1px solid var(--border);
-      outline: none;
-      background: var(--btn-bg);
-      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       transition: background 0.15s;
-      letter-spacing: 0.01em;
     }
 
-    .btn:active { background: var(--btn-hover); }
-
-    .btn-primary {
-      background: var(--primary);
-      color: var(--primary-text);
-      border-color: transparent;
+    .wayback-btn:active {
+      background: rgba(26, 115, 232, 0.12);
     }
 
-    .btn-primary:active { opacity: 0.85; }
-
-    .domain-chip {
-      display: inline-block;
-      font-size: 12px;
-      color: var(--text-sub);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 3px 10px;
-      margin-bottom: 16px;
-      word-break: break-all;
-      max-width: 300px;
+    /* Buttons / Nav */
+    .nav-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 24px;
+      flex-wrap: wrap;
     }
 
-    /* SSL advanced section */
-    .ssl-box {
-      display: none;
-      margin-top: 16px;
-      padding: 16px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface);
-      font-size: 13px;
-      color: var(--text-sub);
-      text-align: left;
-      max-width: 320px;
+    button {
+      font-family: inherit;
     }
 
-    .ssl-proceed {
-      color: var(--danger);
-      text-decoration: underline;
+    .primary-button {
+      background: var(--primary-btn-bg);
+      border: none;
+      border-radius: 20px;
+      color: var(--primary-btn-text);
       cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      outline: none;
+      padding: 9px 22px;
+      transition: background 0.15s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .primary-button:active {
+      background: var(--primary-btn-active);
+    }
+
+    .secondary-button {
+      background: var(--secondary-btn-bg);
+      border: 1px solid var(--secondary-btn-border);
+      border-radius: 20px;
+      color: var(--secondary-btn-text);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      outline: none;
+      padding: 8px 20px;
+      transition: background 0.15s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .secondary-button:active {
+      background: var(--secondary-btn-active);
+    }
+
+    /* Details Section */
+    .details-section {
+      border-top: 1px solid var(--card-border);
+      color: var(--text-color);
       font-size: 13px;
-      margin-top: 10px;
+      line-height: 1.6;
+      margin-top: 24px;
+      padding-top: 16px;
+    }
+
+    .details-section.hidden {
+      display: none;
+    }
+
+    .proceed-link {
+      color: var(--danger-color);
+      cursor: pointer;
+      font-weight: 500;
+      text-decoration: underline;
       display: inline-block;
+      margin-top: 12px;
     }
 
     .hsts-notice {
-      color: var(--danger);
+      color: var(--danger-color);
       font-weight: 500;
-      font-size: 13px;
-      margin-top: 8px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 480px) {
+      .interstitial-wrapper {
+        margin-top: 4vh;
+        padding: 0 20px 48px;
+      }
+      h1 {
+        font-size: 22px;
+      }
     }
   </style>
 </head>
 <body>
-  <svg id="errorIcon" class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Default: wifi-off icon, replaced by JS -->
-    <line x1="1" y1="1" x2="23" y2="23"/>
-    <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
-    <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
-    <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
-    <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
-    <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
-    <line x1="12" y1="20" x2="12.01" y2="20"/>
-  </svg>
 
-  <div id="domainChip" class="domain-chip" style="display:none;"></div>
-  <h1 id="errorTitle">Page not available</h1>
-  <p id="errorDesc">Couldn't connect to this site.</p>
+  <div class="interstitial-wrapper">
 
-  <div class="actions">
-    <button class="btn btn-primary" id="btnPrimary">Try again</button>
-    <button class="btn" id="btnSecondary">Network settings</button>
-  </div>
+    <!-- Offline Dino Runner -->
+    <div id="runner-container">
+      <canvas id="runner-canvas" width="560" height="140"></canvas>
+      <div class="runner-hint">Press Space or tap to play</div>
+    </div>
 
-  <div class="ssl-box" id="sslBox">
-    <div id="sslMsg"></div>
-    <div id="hstsNotice" class="hsts-notice" style="display:none;">Your network operator may be monitoring your connection. You cannot bypass this security warning.</div>
-    <span class="ssl-proceed" id="btnProceedSsl">Proceed to site (unsafe)</span>
+    <!-- Standard Icon Container -->
+    <div id="icon-container" class="icon-container">
+      <!-- Sad Tab / Network generic icon (Chromium standard) -->
+      <svg id="iconSadTab" class="icon-svg" viewBox="0 0 48 48" fill="none">
+        <path stroke="currentColor" stroke-width="3" stroke-linecap="square" d="M1.5 8.5 v34 h45 v-28 m-3-3 h-10 v-3 m-3-3 h-10 m15 6 h-18 v-3 m-3-3 h-10"/>
+        <path stroke="currentColor" stroke-width="2" stroke-linecap="square" d="M12 35 h2 m2-2 h12 m2 2 h3 m2 2 h3 M11 21 l0 0 m0 4 h0 m4 0 h0 m0-4 h0 m-2 2 h0 M33 21 l0 0 m0 4 h0 m4 0 h0 m0-4 h0 m-2 2 h0"/>
+      </svg>
+      <!-- Security / Warning Triangle -->
+      <svg id="iconSecurity" class="icon-svg icon-danger" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <!-- Shields / Blocked Icon -->
+      <svg id="iconShields" class="icon-svg" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+      </svg>
+    </div>
+
+    <!-- Title -->
+    <h1><span id="titleText">This site can’t be reached</span></h1>
+
+    <!-- Main Message / Description -->
+    <div id="main-message">
+      <p id="mainDesc"><strong>example.com</strong>’s server IP address could not be found.</p>
+    </div>
+
+    <!-- Suggestions List -->
+    <div id="suggestions" class="suggestions">
+      <p id="suggestionHeader" class="suggestion-header">Try:</p>
+      <ul id="suggestionList" class="suggestion-list">
+        <li>Checking the connection</li>
+        <li>Checking the proxy, firewall, and DNS configuration</li>
+      </ul>
+    </div>
+
+    <!-- Error Code -->
+    <div id="errorCode" class="error-code">ERR_NAME_NOT_RESOLVED</div>
+
+    <!-- Brave Wayback Machine Prompt Card -->
+    <div id="waybackCard" class="wayback-card">
+      <div class="wayback-header">
+        <svg class="wayback-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 2l10 5H2l10-5z"/>
+        </svg>
+        <span class="wayback-title">Check for saved version</span>
+      </div>
+      <p class="wayback-desc">Sorry, that page is missing. Do you want to check if a saved version is available on the Wayback Machine?</p>
+      <button type="button" class="wayback-btn" id="btnWayback">Check Wayback Machine</button>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="nav-wrapper">
+      <button type="button" class="primary-button" id="primaryButton">Reload</button>
+      <button type="button" class="secondary-button" id="secondaryButton">Details</button>
+    </div>
+
+    <!-- Collapsible Details Section -->
+    <div id="detailsSection" class="details-section hidden">
+      <p id="technicalDetails"></p>
+      <div id="sslSection" style="display: none;">
+        <p id="hstsNotice" class="hsts-notice" style="display: none;">
+          You cannot visit <strong class="domain-text"></strong> right now because the website uses HSTS. Network errors and attacks are usually temporary, so this page will probably work later.
+        </p>
+        <p id="proceedWrapper">
+          <a href="#" class="proceed-link" id="btnProceedSsl">Proceed to <span class="domain-text"></span> (unsafe)</a>
+        </p>
+      </div>
+      <div id="shieldsSection" style="display: none;">
+        <p>
+          <a href="#" class="proceed-link" id="btnAllowShields">Temporarily allow <span class="domain-text"></span></a>
+        </p>
+      </div>
+    </div>
+
   </div>
 
   <script>
-    // ── Icon paths ─────────────────────────────────────────────────────────────
-    const ICONS = {
-      wifi_off: `<line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>`,
-      shield_off: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>`,
-      cloud_off: `<path d="M18.36 14a2 2 0 0 0 .3-1.11A4 4 0 0 0 11.5 10m0 0A5 5 0 0 0 6 15H5a3 3 0 0 0 0 6h13a3 3 0 0 0 0-6h-2"/><line x1="1" y1="1" x2="23" y2="23"/>`,
-      file_x: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="10" y1="13" x2="16" y2="13"/><line x1="10" y1="17" x2="16" y2="17"/><line x1="10" y1="9" x2="12" y2="9"/>`,
-      alert_triangle: `<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`,
-      lock: `<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`
-    };
-
-    // ── Parse error data ───────────────────────────────────────────────────────
+    // ── Parse Error Payload ──────────────────────────────────────────────────
     let data = null;
     const b64 = '{{ERROR_JSON_B64}}';
     if (!b64.startsWith('{{') && b64.length > 0) {
@@ -210,89 +420,144 @@
 
     if (!data) {
       const p = new URLSearchParams(window.location.search);
+      const host = p.get('url') ? (new URL(p.get('url'))).hostname : 'this site';
       data = {
         category: 'GENERIC',
-        errorCode: p.get('error') || 'ERR_FAILED',
-        title: 'Page not available',
-        description: 'Something went wrong.',
+        errorCode: p.get('error') || 'ERR_CONNECTION_FAILED',
+        title: 'This site can’t be reached',
+        description: '<strong>' + host + '</strong> refused to connect.',
         url: p.get('url') || window.location.href,
-        domain: p.get('url') || window.location.href,
-        primaryButtonText: 'Try again',
+        domain: host,
+        checklist: [
+          'Checking the connection',
+          'Checking the proxy and the firewall'
+        ],
+        primaryButtonText: 'Reload',
         primaryButtonAction: 'reload',
-        secondaryButtonText: 'Network settings',
-        secondaryButtonAction: 'network_settings',
+        secondaryButtonText: 'Details',
+        secondaryButtonAction: 'details',
         isDanger: false,
-        technicalDetails: '',
+        technicalDetails: p.get('desc') || '',
         isHstsEnforced: false,
-        canCheckWayback: false
+        canCheckWayback: false,
+        hasOfflineGame: false
       };
     }
 
-    // ── Populate UI ────────────────────────────────────────────────────────────
-    const icon = document.getElementById('errorIcon');
-    const titleEl = document.getElementById('errorTitle');
-    const descEl = document.getElementById('errorDesc');
-    const domainChip = document.getElementById('domainChip');
-    const btnPrimary = document.getElementById('btnPrimary');
-    const btnSecondary = document.getElementById('btnSecondary');
+    // ── DOM References ───────────────────────────────────────────────────────
+    const runnerContainer = document.getElementById('runner-container');
+    const iconContainer = document.getElementById('icon-container');
+    const iconSadTab = document.getElementById('iconSadTab');
+    const iconSecurity = document.getElementById('iconSecurity');
+    const iconShields = document.getElementById('iconShields');
+    const titleText = document.getElementById('titleText');
+    const mainDesc = document.getElementById('mainDesc');
+    const suggestions = document.getElementById('suggestions');
+    const suggestionHeader = document.getElementById('suggestionHeader');
+    const suggestionList = document.getElementById('suggestionList');
+    const errorCodeEl = document.getElementById('errorCode');
+    const waybackCard = document.getElementById('waybackCard');
+    const primaryButton = document.getElementById('primaryButton');
+    const secondaryButton = document.getElementById('secondaryButton');
+    const detailsSection = document.getElementById('detailsSection');
+    const technicalDetails = document.getElementById('technicalDetails');
+    const sslSection = document.getElementById('sslSection');
+    const hstsNotice = document.getElementById('hstsNotice');
+    const proceedWrapper = document.getElementById('proceedWrapper');
+    const shieldsSection = document.getElementById('shieldsSection');
 
-    titleEl.textContent = data.title;
-    descEl.textContent = data.description;
-    btnPrimary.textContent = data.primaryButtonText;
-    btnSecondary.textContent = data.secondaryButtonText;
+    // ── Apply Populated Data ─────────────────────────────────────────────────
+    titleText.textContent = data.title;
+    mainDesc.innerHTML = data.description;
+    errorCodeEl.textContent = data.errorCode;
+    primaryButton.textContent = data.primaryButtonText;
+    secondaryButton.textContent = data.secondaryButtonText;
 
-    if (data.domain && data.domain !== data.url) {
-      domainChip.textContent = data.domain;
-      domainChip.style.display = 'inline-block';
+    // Domain placeholders
+    document.querySelectorAll('.domain-text').forEach(el => {
+      el.textContent = data.domain || data.url;
+    });
+
+    // Technical details
+    technicalDetails.textContent = data.technicalDetails || ('Error Code: ' + data.errorCode);
+
+    // Checklist suggestions
+    if (data.checklist && data.checklist.length > 0) {
+      suggestionList.innerHTML = '';
+      data.checklist.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        suggestionList.appendChild(li);
+      });
+      suggestions.style.display = 'block';
+    } else {
+      suggestions.style.display = 'none';
     }
 
-    // Set icon by category
-    switch (data.category) {
-      case 'OFFLINE':
-        icon.innerHTML = ICONS.wifi_off;
-        break;
-      case 'SECURITY':
-        icon.innerHTML = ICONS.lock;
-        icon.classList.add('danger');
-        break;
-      case 'SERVER_DOWN':
-        icon.innerHTML = ICONS.cloud_off;
-        break;
-      case 'SHIELDS_BLOCKED':
-        icon.innerHTML = ICONS.shield_off;
-        break;
-      case 'FILE_ERROR':
-        icon.innerHTML = ICONS.file_x;
-        break;
-      default:
-        icon.innerHTML = ICONS.alert_triangle;
-        break;
+    // Wayback Machine card for 404, 5xx, or server down
+    if (data.canCheckWayback) {
+      waybackCard.style.display = 'block';
+    } else {
+      waybackCard.style.display = 'none';
     }
 
-    // SSL: show advanced box
-    if (data.category === 'SECURITY') {
-      const sslBox = document.getElementById('sslBox');
-      const sslMsg = document.getElementById('sslMsg');
-      sslMsg.textContent = data.technicalDetails || 'The site\'s certificate could not be verified.';
-      sslBox.style.display = 'block';
+    // ── Category-Specific Icons & Layout ────────────────────────────────────
+    if (data.category === 'OFFLINE' || data.hasOfflineGame) {
+      // Show Dino Runner Game, hide static icon
+      iconContainer.style.display = 'none';
+      runnerContainer.style.display = 'block';
+      initDinoGame();
+    } else if (data.category === 'SECURITY') {
+      iconContainer.style.display = 'block';
+      iconSadTab.style.display = 'none';
+      iconSecurity.style.display = 'block';
+      iconShields.style.display = 'none';
+      sslSection.style.display = 'block';
+
       if (data.isHstsEnforced) {
-        document.getElementById('hstsNotice').style.display = 'block';
-        document.getElementById('btnProceedSsl').style.display = 'none';
+        hstsNotice.style.display = 'block';
+        proceedWrapper.style.display = 'none';
       }
+    } else if (data.category === 'SHIELDS_BLOCKED') {
+      iconContainer.style.display = 'block';
+      iconSadTab.style.display = 'none';
+      iconSecurity.style.display = 'none';
+      iconShields.style.display = 'block';
+      shieldsSection.style.display = 'block';
+    } else {
+      // Default: sad tab network icon
+      iconContainer.style.display = 'block';
+      iconSadTab.style.display = 'block';
+      iconSecurity.style.display = 'none';
+      iconShields.style.display = 'none';
     }
 
-    // ── Action handlers ────────────────────────────────────────────────────────
-    function exec(action) {
+    // ── Actions & Native Bridge ──────────────────────────────────────────────
+    function execAction(action) {
       const bridge = window.OnyxErrorBridge;
       switch (action) {
         case 'reload':
           if (bridge && bridge.reload) bridge.reload();
-          else if (data.url && !data.url.startsWith('file:///android_asset'))
-            window.location.href = data.url;
           else window.location.reload();
           break;
-        case 'network_settings':
-          if (bridge && bridge.openNetworkSettings) bridge.openNetworkSettings();
+        case 'back':
+          if (bridge && bridge.goBack) bridge.goBack();
+          else if (window.history.length > 1) window.history.back();
+          else window.location.href = 'about:blank';
+          break;
+        case 'home':
+          if (bridge && bridge.goHome) bridge.goHome();
+          else window.location.href = 'about:blank';
+          break;
+        case 'details':
+        case 'advanced_ssl':
+          detailsSection.classList.toggle('hidden');
+          break;
+        case 'shields':
+          if (bridge && bridge.openShields) bridge.openShields();
+          break;
+        case 'downloads':
+          if (bridge && bridge.openDownloads) bridge.openDownloads();
           break;
         case 'wayback_machine':
           if (bridge && bridge.checkWaybackMachine) bridge.checkWaybackMachine(data.url);
@@ -302,35 +567,268 @@
           if (bridge && bridge.search) bridge.search(data.domain || data.url);
           else window.location.href = 'https://search.brave.com/search?q=' + encodeURIComponent(data.domain || '');
           break;
-        case 'back':
-          if (bridge && bridge.goBack) bridge.goBack();
-          else if (window.history.length > 1) window.history.back();
-          else exec('home');
-          break;
-        case 'home':
-          if (bridge && bridge.goHome) bridge.goHome();
-          else window.location.href = 'about:blank';
-          break;
-        case 'advanced_ssl':
-          const box = document.getElementById('sslBox');
-          box.style.display = box.style.display === 'block' ? 'none' : 'block';
-          break;
-        case 'shields':
-          if (bridge && bridge.openShields) bridge.openShields();
-          break;
-        case 'downloads':
-          if (bridge && bridge.openDownloads) bridge.openDownloads();
-          break;
       }
     }
 
-    btnPrimary.addEventListener('click', () => exec(data.primaryButtonAction));
-    btnSecondary.addEventListener('click', () => exec(data.secondaryButtonAction));
+    primaryButton.addEventListener('click', () => execAction(data.primaryButtonAction));
+    secondaryButton.addEventListener('click', () => execAction(data.secondaryButtonAction));
 
-    document.getElementById('btnProceedSsl').addEventListener('click', () => {
-      if (window.OnyxErrorBridge && window.OnyxErrorBridge.proceedSsl)
-        window.OnyxErrorBridge.proceedSsl();
+    document.getElementById('btnWayback').addEventListener('click', () => {
+      execAction('wayback_machine');
     });
+
+    document.getElementById('btnProceedSsl').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (window.OnyxErrorBridge && window.OnyxErrorBridge.proceedSsl) {
+        window.OnyxErrorBridge.proceedSsl();
+      }
+    });
+
+    document.getElementById('btnAllowShields').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (window.OnyxErrorBridge && window.OnyxErrorBridge.allowSiteShield) {
+        window.OnyxErrorBridge.allowSiteShield(data.domain);
+      }
+    });
+
+    // ── Offline 8-Bit Dino Runner Game (Chromium / Brave Authentic) ─────────
+    function initDinoGame() {
+      const canvas = document.getElementById('runner-canvas');
+      const ctx = canvas.getContext('2d');
+      const groundY = 120;
+      let isPlaying = false;
+      let isGameOver = false;
+      let score = 0;
+      let hiScore = parseInt(localStorage.getItem('onyx_dino_hi') || '0', 10);
+      let animId = null;
+
+      // Dino physics
+      const dino = {
+        x: 40,
+        y: groundY - 36,
+        w: 32,
+        h: 36,
+        vy: 0,
+        jumpForce: -9.5,
+        gravity: 0.52,
+        isJumping: false,
+        legFrame: 0
+      };
+
+      // Obstacles
+      let obstacles = [];
+      let spawnTimer = 0;
+      let speed = 4.5;
+
+      function getColors() {
+        const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        return {
+          dino: isDark ? '#E8EAED' : '#535353',
+          ground: isDark ? '#5F6368' : '#737373',
+          score: isDark ? '#9AA0A6' : '#737373'
+        };
+      }
+
+      function drawDino(x, y, legFrame, dead) {
+        const colors = getColors();
+        ctx.fillStyle = colors.dino;
+
+        // Pixel dino silhouette
+        ctx.fillRect(x + 14, y, 14, 12);     // Head
+        ctx.fillRect(x + 10, y + 10, 10, 14); // Body
+        ctx.fillRect(x + 4, y + 14, 8, 10);   // Tail
+        ctx.fillRect(x + 22, y + 12, 4, 4);   // Arm
+
+        // Eye
+        ctx.fillStyle = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#202124' : '#FFFFFF';
+        if (dead) {
+          // X eye
+          ctx.fillRect(x + 18, y + 3, 3, 3);
+        } else {
+          ctx.fillRect(x + 18, y + 3, 3, 3);
+        }
+
+        ctx.fillStyle = colors.dino;
+        // Legs
+        if (dead || dino.isJumping) {
+          ctx.fillRect(x + 12, y + 24, 4, 10);
+          ctx.fillRect(x + 18, y + 24, 4, 8);
+        } else {
+          if (legFrame === 0) {
+            ctx.fillRect(x + 12, y + 24, 4, 10);
+            ctx.fillRect(x + 18, y + 24, 4, 6);
+          } else {
+            ctx.fillRect(x + 12, y + 24, 4, 6);
+            ctx.fillRect(x + 18, y + 24, 4, 10);
+          }
+        }
+      }
+
+      function drawCactus(x, h) {
+        const colors = getColors();
+        ctx.fillStyle = colors.dino;
+        ctx.fillRect(x + 4, groundY - h, 6, h);
+        ctx.fillRect(x, groundY - h + 8, 4, 10);
+        ctx.fillRect(x + 10, groundY - h + 12, 4, 10);
+      }
+
+      function drawGround() {
+        const colors = getColors();
+        ctx.strokeStyle = colors.ground;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, groundY);
+        ctx.lineTo(canvas.width, groundY);
+        ctx.stroke();
+
+        // Little ground pebbles
+        ctx.fillStyle = colors.ground;
+        const offset = (score * 2) % 40;
+        for (let i = 0; i < canvas.width; i += 40) {
+          ctx.fillRect(i - offset, groundY + 4, 3, 1);
+        }
+      }
+
+      function drawScore() {
+        const colors = getColors();
+        ctx.fillStyle = colors.score;
+        ctx.font = '11px monospace';
+        const sStr = String(Math.floor(score)).padStart(5, '0');
+        const hiStr = String(hiScore).padStart(5, '0');
+        ctx.fillText('HI ' + hiStr + '  ' + sStr, canvas.width - 120, 20);
+      }
+
+      function renderIdle() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawGround();
+        drawDino(dino.x, dino.y, 0, false);
+        drawScore();
+      }
+
+      function jump() {
+        if (!isPlaying) {
+          isPlaying = true;
+          isGameOver = false;
+          score = 0;
+          speed = 4.5;
+          obstacles = [];
+          dino.y = groundY - dino.h;
+          dino.vy = dino.jumpForce;
+          dino.isJumping = true;
+          loop();
+          return;
+        }
+
+        if (isGameOver) {
+          isGameOver = false;
+          isPlaying = true;
+          score = 0;
+          speed = 4.5;
+          obstacles = [];
+          dino.y = groundY - dino.h;
+          dino.vy = dino.jumpForce;
+          dino.isJumping = true;
+          loop();
+          return;
+        }
+
+        if (!dino.isJumping) {
+          dino.vy = dino.jumpForce;
+          dino.isJumping = true;
+        }
+      }
+
+      function loop() {
+        if (!isPlaying) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Update Dino
+        dino.y += dino.vy;
+        dino.vy += dino.gravity;
+
+        if (dino.y >= groundY - dino.h) {
+          dino.y = groundY - dino.h;
+          dino.vy = 0;
+          dino.isJumping = false;
+        }
+
+        dino.legFrame = (Math.floor(score / 5)) % 2;
+
+        // Spawn obstacles
+        spawnTimer++;
+        if (spawnTimer > 75 + Math.random() * 50) {
+          spawnTimer = 0;
+          const h = 24 + Math.floor(Math.random() * 16);
+          obstacles.push({ x: canvas.width, h: h, w: 14 });
+        }
+
+        // Update obstacles & collision
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const obs = obstacles[i];
+          obs.x -= speed;
+
+          drawCactus(obs.x, obs.h);
+
+          // AABB collision check
+          if (
+            dino.x + 4 < obs.x + obs.w &&
+            dino.x + dino.w - 4 > obs.x &&
+            dino.y + dino.h > groundY - obs.h
+          ) {
+            isGameOver = true;
+            isPlaying = false;
+          }
+
+          if (obs.x < -20) {
+            obstacles.splice(i, 1);
+          }
+        }
+
+        drawGround();
+        drawDino(dino.x, dino.y, dino.legFrame, isGameOver);
+
+        score += 0.15;
+        speed += 0.0008;
+
+        if (score > hiScore) {
+          hiScore = Math.floor(score);
+          localStorage.setItem('onyx_dino_hi', hiScore);
+        }
+
+        drawScore();
+
+        if (isGameOver) {
+          const colors = getColors();
+          ctx.fillStyle = colors.dino;
+          ctx.font = 'bold 13px monospace';
+          ctx.fillText('G A M E  O V E R', canvas.width / 2 - 58, 60);
+
+          // Retry icon
+          ctx.font = '10px monospace';
+          ctx.fillText('TAP TO PLAY AGAIN', canvas.width / 2 - 54, 82);
+          return;
+        }
+
+        animId = requestAnimationFrame(loop);
+      }
+
+      // Event listeners for jump
+      canvas.addEventListener('click', jump);
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        jump();
+      }, { passive: false });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'ArrowUp') {
+          e.preventDefault();
+          jump();
+        }
+      });
+
+      renderIdle();
+    }
   </script>
 </body>
 </html>

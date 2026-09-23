@@ -817,6 +817,24 @@ onyx-browser/
     - Custom filters (both URL-based subscriptions and manual rule sets) are displayed at the top with a distinct "CUSTOM" badge pill and delete button.
     - Deletion triggers a confirmation dialog and cleans up cached rules and preferences.
     - The search box (`etSearchFilter`) remains fully functional with instant real-time filtering across built-in and custom lists.
+- [x] **Brave-Identical Error Page Redesign (`error_page.html`, `WebErrorHandler.kt`, `SyntheticNavigationState.kt`)**:
+  - **Left-Aligned Chromium / Brave Layout**:
+    - Replaced centered modal-style error layout with authentic left-aligned Chromium architecture (max-width 600px, 24px padding, adaptive to Light and Dark system modes).
+    - Authentic typography matching Brave (`font-size: 24px; font-weight: 500` headings, bold domain names, clean 14px suggestion bullet lists).
+  - **Authentic Vector Assets**:
+    - Embedded Chromium's vector `sadtab.svg` icon for connection and DNS errors.
+    - Red danger warning triangle for SSL/TLS security certificate warnings.
+    - Custom shields icon for tracker/malware blocks.
+  - **Offline 8-Bit Dino Runner Game**:
+    - Embedded an authentic 2D Canvas Dino runner game on the offline page (`ERR_INTERNET_DISCONNECTED`).
+    - Jumping physics, obstacles, live score counter, high score persistence (`localStorage`), collision detection, and full touch / keyboard spacebar support.
+  - **Brave Signature Wayback Machine Card**:
+    - Appears on 404, 5xx, or server down errors: "Check for saved version" with Internet Archive column logo and direct Wayback Machine lookup button.
+  - **Collapsible Diagnostic Details**:
+    - "Details" / "Advanced" button smoothly toggles technical network and certificate diagnostic information.
+    - SSL section with HSTS enforcement warning and "Proceed to site (unsafe)" link.
+    - Shields section with "Temporarily allow domain" bypass action.
+
 
 
 
