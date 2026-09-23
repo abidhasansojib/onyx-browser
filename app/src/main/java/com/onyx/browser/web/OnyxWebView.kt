@@ -315,6 +315,7 @@ class OnyxWebView @JvmOverloads constructor(
         }
         prefs.desktopDomains = currentDomains
         
+        setInitialScale(0)
         applyUserAgentForUrl(pageUrl, forceRefreshLayout = true)
     }
 
@@ -337,11 +338,15 @@ class OnyxWebView @JvmOverloads constructor(
             getBaseUserAgent(prefs)
         }
         
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
+        
         val currentUaMatchesTarget = settings.userAgentString == targetUa
         
         if (currentUaMatchesTarget) {
             if (forceRefreshLayout) {
-                this.reload()
+                setInitialScale(0)
+                this.loadUrl(this.url ?: urlString)
             }
             return
         }
@@ -349,9 +354,7 @@ class OnyxWebView @JvmOverloads constructor(
         settings.userAgentString = targetUa
         
         if (forceRefreshLayout) {
-            // Clearing cache fixes the "zoom state" issue by forcing a fresh layout viewport calculation
-            this.clearCache(true)
-            // loadUrl is safer than reload() for enforcing a completely new viewport state
+            setInitialScale(0)
             this.loadUrl(this.url ?: urlString)
         }
     }

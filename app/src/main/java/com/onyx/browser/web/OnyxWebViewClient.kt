@@ -561,20 +561,7 @@ class OnyxWebViewClient(
         val isWhitelisted = preferences.isDomainWhitelisted(url)
 
         if ((view as? OnyxWebView)?.isDesktopModeEnabledForCurrentPage() == true) {
-            val js = """
-                (function() {
-                    var meta = document.querySelector('meta[name="viewport"]');
-                    if (meta) {
-                        meta.setAttribute('content', 'width=1024, initial-scale=1');
-                    } else {
-                        meta = document.createElement('meta');
-                        meta.name = 'viewport';
-                        meta.content = 'width=1024, initial-scale=1';
-                        document.head.appendChild(meta);
-                    }
-                })();
-            """.trimIndent()
-            view?.evaluateJavascript(js, null)
+            injectDesktopViewportAdjustment(view)
         }
 
         if (preferences.isAdBlockEnabled && preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE && !isWhitelisted) {
@@ -664,6 +651,52 @@ class OnyxWebViewClient(
         if (preferences.isBackgroundPlayEnabled) {
             view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
         }
+
+        // Re-adjust Desktop Viewport after full page and sub-resources load
+        if ((view as? OnyxWebView)?.isDesktopModeEnabledForCurrentPage() == true) {
+            injectDesktopViewportAdjustment(view)
+        }
+    }
+
+    private fun injectDesktopViewportAdjustment(view: WebView?) {
+        val js = """
+            (function() {
+                function adjustDesktopViewport() {
+                    try {
+                        var meta = document.querySelector('meta[name="viewport"]');
+                        if (!meta) {
+                            meta = document.createElement('meta');
+                            meta.name = 'viewport';
+                            if (document.head) {
+                                document.head.appendChild(meta);
+                            } else if (document.documentElement) {
+                                document.documentElement.appendChild(meta);
+                            }
+                        }
+                        var screenW = window.innerWidth || (window.screen ? window.screen.width : 0) || 360;
+                        var docW = Math.max(
+                            document.documentElement ? document.documentElement.scrollWidth : 0,
+                            document.body ? document.body.scrollWidth : 0,
+                            1024
+                        );
+                        var targetWidth = Math.min(Math.max(docW, 1024), 1280);
+                        var scale = Math.min(1.0, screenW / targetWidth);
+                        scale = Math.round(scale * 1000) / 1000;
+                        if (meta) {
+                            meta.setAttribute('content', 'width=' + targetWidth + ', initial-scale=' + scale + ', minimum-scale=0.1, maximum-scale=5.0, user-scalable=yes');
+                        }
+                    } catch(e) {}
+                }
+                adjustDesktopViewport();
+                if (!window.__onyxDesktopAdjustBound) {
+                    window.__onyxDesktopAdjustBound = true;
+                    window.addEventListener('orientationchange', function() {
+                        setTimeout(adjustDesktopViewport, 200);
+                    }, { passive: true });
+                }
+            })();
+        """.trimIndent()
+        view?.evaluateJavascript(js, null)
     }
 
     private fun isSyntheticOrDataUrl(url: String?): Boolean {

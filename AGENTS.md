@@ -754,4 +754,14 @@ onyx-browser/
       - 3-Dot Menu (`MenuBottomSheetDialogFragment` on homepage and webpage).
       - Settings (`SettingsActivity` under Search Engine category).
     - Graceful fallback guidance for OEM launchers without direct pinning support.
+- [x] **Desktop Mode Viewport Auto-Fit & Overview Scaling Fix** (`OnyxWebViewClient.kt`, `OnyxWebView.kt`):
+  - **Root Cause**: Previously, when desktop mode was active, `OnyxWebViewClient` injected `<meta name="viewport" content="width=1024, initial-scale=1">`. The hardcoded `initial-scale=1` locked the zoom to 100% on a 1024px canvas, forcing mobile devices (typically 360px–412px wide) into an awkward zoomed-in top-left crop where the user had to manually zoom out and horizontally scroll.
+  - **Dynamic Fitting Viewport Injection (`injectDesktopViewportAdjustment`)**:
+    - Dynamically computes the layout viewport width (`targetWidth = min(max(docWidth, 1024), 1280)`) and exact overview scale (`scale = min(1.0, screenWidth / targetWidth)`).
+    - Injects `width=<targetWidth>, initial-scale=<scale>, minimum-scale=0.1, maximum-scale=5.0, user-scalable=yes` on `onPageCommitVisible` and re-adjusts on `onPageFinished`.
+    - Handles screen rotation seamlessly via `orientationchange` listener.
+  - **Zoom Scale Reset & Overview Mode**:
+    - Invokes `setInitialScale(0)` on desktop toggle to clear retained zoom levels in Android WebView.
+    - Removed redundant `clearCache(true)` to preserve network cache and prevent reload stutter.
+
 
