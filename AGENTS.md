@@ -1004,6 +1004,14 @@ onyx-browser/
   - **Token Bucket Initialization (`TokenBucketLimiter.kt`)**: Initialized `availableTokens = bytesPerSecond.toDouble()` to eliminate initial transfer stalls when rate-limiting is active.
   - **Accurate Size for Indeterminate Downloads (`DownloadEngine.kt`)**: Updated `task.totalBytes = tempFile.length()` upon completion when remote `Content-Length` was unknown.
   - **Snapshot Flow State Consistency (`OnyxDownloadManager.kt`)**: Fixed `onTaskCompleted` to remove tasks from active memory before emitting the final snapshot, preventing completed tasks from lingering indefinitely in active memory flows.
+  - **Scoped Storage for Data URI & Blob Downloads (`DownloadHandler.kt`)**: Replaced raw `FileOutputStream` directly targeting `/storage/emulated/0/Download/` (which crashed with `EACCES Permission denied` on Android 10–16) with `MediaStore.Downloads` resolver on Android 10+ and media scanner broadcast on Android 8–9. Added completion notification dispatch so data URI / blob downloads alert the user and can be tapped to open.
+  - **Duplicate Notification Elimination (`OnyxDownloadService.kt`)**: Linked the primary active download directly to the foreground service notification (`FOREGROUND_NOTIFICATION_ID`), completely eliminating the stuck duplicate "Initializing download…" notification.
+  - **Instant Coroutine Cancellation on OkHttp Sockets (`DownloadEngine.kt`)**: Bound `invokeOnCompletion { call.cancel() }` to OkHttp calls in chunk and single-stream loops, aborting blocking socket reads immediately in < 1ms upon pause/cancel rather than hanging until the 30-second socket timeout.
+  - **Final Redirect CDN Endpoint Resolution (`DownloadEngine.kt`)**: Updated `probeServer` to capture `res.request.url.toString()`, ensuring Range chunk requests bypass multi-hop redirects and query direct storage CDN endpoints. Added fallback filename & extension deduction from the redirected URL when Content-Disposition is absent.
+  - **Accurate MIME Type Resolution (`DownloadEngine.kt`)**: Derived MIME types from file extensions using `MimeTypeMap` when remote headers provide generic `application/octet-stream` or empty strings, ensuring external viewer apps can open files from notifications.
+  - **Database Total Size Preservation on Pause (`DownloadDao.kt`, `OnyxDownloadManager.kt`)**: Added `updateProgressAndSize` so discovered `fileSize` is retained in Room DB when pausing, avoiding "Unknown size" upon app relaunch.
+  - **Visual Resume Controls for Database Paused Items (`DownloadsAdapter.kt`)**: Rendered linear progress bars and Play/Resume action buttons for items paused from previous sessions even when no active memory snapshot exists.
+
 
 
 

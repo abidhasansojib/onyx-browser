@@ -156,10 +156,11 @@ object OnyxDownloadManager {
         appContext?.let { ctx ->
             managerScope.launch {
                 val db = AppDatabase.getInstance(ctx)
-                db.downloadDao().updateProgress(
+                db.downloadDao().updateProgressAndSize(
                     id = taskId,
                     status = DownloadItem.STATUS_PAUSED,
-                    downloadedBytes = task.downloadedBytes.get()
+                    downloadedBytes = task.downloadedBytes.get(),
+                    fileSize = task.totalBytes
                 )
             }
         }

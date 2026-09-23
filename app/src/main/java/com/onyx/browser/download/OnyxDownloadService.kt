@@ -98,18 +98,40 @@ class OnyxDownloadService : Service() {
                     }
                     stopSelf()
                 } else {
-                    ensureForeground()
+                    val primaryTask = activeOrPaused.firstOrNull()?.let { OnyxDownloadManager.getTask(it.id) }
+                    if (primaryTask != null) {
+                        // Cancel any standalone notification for primary task to prevent duplicates
+                        notificationManager.cancel(primaryTask.notificationId)
 
-                    // Update notifications for active / paused downloads
-                    for (task in activeOrPaused) {
-                        val fullTask = OnyxDownloadManager.getTask(task.id) ?: continue
-                        val notification = if (fullTask.status == DownloadTask.STATUS_PAUSED) {
-                            DownloadNotificationHelper.buildPausedNotification(this@OnyxDownloadService, fullTask)
+                        val primaryNotification = if (primaryTask.status == DownloadTask.STATUS_PAUSED) {
+                            DownloadNotificationHelper.buildPausedNotification(this@OnyxDownloadService, primaryTask)
                         } else {
-                            DownloadNotificationHelper.buildRunningNotification(this@OnyxDownloadService, fullTask)
+                            DownloadNotificationHelper.buildRunningNotification(this@OnyxDownloadService, primaryTask)
                         }
-                        // Use task notificationId so each download has its own clean entry without integer overflow
-                        notificationManager.notify(fullTask.notificationId, notification)
+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            startForeground(
+                                FOREGROUND_NOTIFICATION_ID,
+                                primaryNotification,
+                                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                            )
+                        } else {
+                            startForeground(FOREGROUND_NOTIFICATION_ID, primaryNotification)
+                        }
+                        isForeground = true
+
+                        // For any additional concurrent downloads (index 1..n), post separate notifications
+                        for (i in 1 until activeOrPaused.size) {
+                            val additional = OnyxDownloadManager.getTask(activeOrPaused[i].id) ?: continue
+                            val notif = if (additional.status == DownloadTask.STATUS_PAUSED) {
+                                DownloadNotificationHelper.buildPausedNotification(this@OnyxDownloadService, additional)
+                            } else {
+                                DownloadNotificationHelper.buildRunningNotification(this@OnyxDownloadService, additional)
+                            }
+                            notificationManager.notify(additional.notificationId, notif)
+                        }
+                    } else {
+                        ensureForeground()
                     }
                 }
             }

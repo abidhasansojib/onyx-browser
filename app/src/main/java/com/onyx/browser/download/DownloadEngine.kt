@@ -16,6 +16,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionPool
@@ -183,8 +184,18 @@ class DownloadEngine(
         }
 
         response?.use { res ->
+            val finalUrl = res.request.url.toString()
+            if (finalUrl.isNotBlank() && finalUrl != task.url) {
+                task.url = finalUrl
+            }
             task.etag = res.header("ETag")?.trim('"', ' ') ?: ""
             task.lastModified = res.header("Last-Modified") ?: ""
+
+            // Inspect MIME Type
+            val detectedMime = res.header("Content-Type")?.substringBefore(';')?.trim()
+            if (!detectedMime.isNullOrBlank() && task.mimeType.isBlank()) {
+                task.mimeType = detectedMime
+            }
 
             // Inspect Content-Disposition for RFC 6266 filename
             val contentDisp = res.header("Content-Disposition")
@@ -193,12 +204,11 @@ class DownloadEngine(
                 if (parsedName.isNotBlank()) {
                     task.fileName = sanitizeFileName(parsedName)
                 }
-            }
-
-            // Inspect MIME Type
-            val detectedMime = res.header("Content-Type")?.substringBefore(';')?.trim()
-            if (!detectedMime.isNullOrBlank() && task.mimeType.isBlank()) {
-                task.mimeType = detectedMime
+            } else if (task.fileName.startsWith("download_") || !task.fileName.contains('.')) {
+                val guessed = URLUtil.guessFileName(finalUrl, null, detectedMime)
+                if (guessed.isNotBlank() && guessed.contains('.')) {
+                    task.fileName = sanitizeFileName(guessed)
+                }
             }
 
             // Range support & Content-Length
@@ -282,6 +292,8 @@ class DownloadEngine(
                         break
                     } catch (fce: FileChangedException) {
                         throw fce
+                    } catch (rns: RangeNotSupportedException) {
+                        throw rns
                     } catch (e: Exception) {
                         if (!isActive || task.status != DownloadTask.STATUS_RUNNING) break
                         retryCount++
@@ -337,46 +349,55 @@ class DownloadEngine(
         }
 
         val request = reqBuilder.build()
-        httpClient.newCall(request).execute().use { response ->
-            if (response.code == 412) {
-                throw FileChangedException("Remote file changed (HTTP 412 Precondition Failed)")
-            }
-            if (response.code == 200 && chunk.startByte > 0L) {
-                throw RangeNotSupportedException("Server returned 200 OK for range chunk")
-            }
-            if (response.code != 206 && response.code != 200) {
-                throw IllegalStateException("Unexpected HTTP code ${response.code}")
-            }
+        val call = httpClient.newCall(request)
+        val cancelSubscription = coroutineContext[Job]?.invokeOnCompletion {
+            call.cancel()
+        }
 
-            val body = response.body ?: throw IllegalStateException("Empty response body")
-            val inStream = body.byteStream()
-            val raf = RandomAccessFile(tempFile, "rw")
-
-            try {
-                raf.seek(chunk.currentByte)
-                val buffer = ByteArray(32 * 1024)
-                var bytesRead: Int
-
-                while (inStream.read(buffer).also { bytesRead = it } != -1) {
-                    if (task.status != DownloadTask.STATUS_RUNNING) {
-                        break
-                    }
-                    val remainingInChunk = (chunk.endByte - chunk.currentByte + 1).coerceAtLeast(0L)
-                    if (remainingInChunk <= 0L) {
-                        break
-                    }
-                    val toWrite = if (bytesRead.toLong() > remainingInChunk) remainingInChunk.toInt() else bytesRead
-                    limiter.acquire(toWrite)
-                    raf.write(buffer, 0, toWrite)
-                    chunk.currentByte += toWrite
-                    task.downloadedBytes.addAndGet(toWrite.toLong())
-                    if (toWrite < bytesRead || chunk.currentByte > chunk.endByte) {
-                        break
-                    }
+        try {
+            call.execute().use { response ->
+                if (response.code == 412) {
+                    throw FileChangedException("Remote file changed (HTTP 412 Precondition Failed)")
                 }
-            } finally {
-                try { raf.close() } catch (_: Exception) {}
+                if (response.code == 200 && chunk.startByte > 0L) {
+                    throw RangeNotSupportedException("Server returned 200 OK for range chunk")
+                }
+                if (response.code != 206 && response.code != 200) {
+                    throw IllegalStateException("Unexpected HTTP code ${response.code}")
+                }
+
+                val body = response.body ?: throw IllegalStateException("Empty response body")
+                val inStream = body.byteStream()
+                val raf = RandomAccessFile(tempFile, "rw")
+
+                try {
+                    raf.seek(chunk.currentByte)
+                    val buffer = ByteArray(32 * 1024)
+                    var bytesRead: Int
+
+                    while (inStream.read(buffer).also { bytesRead = it } != -1) {
+                        if (task.status != DownloadTask.STATUS_RUNNING) {
+                            break
+                        }
+                        val remainingInChunk = (chunk.endByte - chunk.currentByte + 1).coerceAtLeast(0L)
+                        if (remainingInChunk <= 0L) {
+                            break
+                        }
+                        val toWrite = if (bytesRead.toLong() > remainingInChunk) remainingInChunk.toInt() else bytesRead
+                        limiter.acquire(toWrite)
+                        raf.write(buffer, 0, toWrite)
+                        chunk.currentByte += toWrite
+                        task.downloadedBytes.addAndGet(toWrite.toLong())
+                        if (toWrite < bytesRead || chunk.currentByte > chunk.endByte) {
+                            break
+                        }
+                    }
+                } finally {
+                    try { raf.close() } catch (_: Exception) {}
+                }
             }
+        } finally {
+            cancelSubscription?.dispose()
         }
     }
 
@@ -392,68 +413,77 @@ class DownloadEngine(
             if (task.lastModified.isNotBlank()) reqBuilder.header("If-Unmodified-Since", task.lastModified)
         }
 
-        httpClient.newCall(reqBuilder.build()).execute().use { response ->
-            if (response.code == 412) {
-                throw FileChangedException("Remote file changed (HTTP 412)")
-            }
-            if (!response.isSuccessful) {
-                throw IllegalStateException("HTTP ${response.code} error")
-            }
+        val call = httpClient.newCall(reqBuilder.build())
+        val cancelSubscription = coroutineContext[Job]?.invokeOnCompletion {
+            call.cancel()
+        }
 
-            val body = response.body ?: throw IllegalStateException("Empty response body")
-            if (task.totalBytes <= 0L && body.contentLength() > 0L) {
-                task.totalBytes = body.contentLength()
-            }
-
-            val inStream = body.byteStream()
-            val raf = RandomAccessFile(tempFile, "rw")
-
-            try {
-                val append = chunk.currentByte > 0L && response.code == 206
-                if (append) {
-                    raf.seek(chunk.currentByte)
-                } else {
-                    raf.setLength(0L)
-                    raf.seek(0L)
-                    chunk.currentByte = 0L
-                    task.downloadedBytes.set(0L)
+        try {
+            call.execute().use { response ->
+                if (response.code == 412) {
+                    throw FileChangedException("Remote file changed (HTTP 412)")
+                }
+                if (!response.isSuccessful) {
+                    throw IllegalStateException("HTTP ${response.code} error")
                 }
 
-                val buffer = ByteArray(32 * 1024)
-                var bytesRead: Int
+                val body = response.body ?: throw IllegalStateException("Empty response body")
+                if (task.totalBytes <= 0L && body.contentLength() > 0L) {
+                    task.totalBytes = body.contentLength()
+                }
 
-                while (inStream.read(buffer).also { bytesRead = it } != -1) {
-                    if (task.status != DownloadTask.STATUS_RUNNING) {
-                        break
+                val inStream = body.byteStream()
+                val raf = RandomAccessFile(tempFile, "rw")
+
+                try {
+                    val append = chunk.currentByte > 0L && response.code == 206
+                    if (append) {
+                        raf.seek(chunk.currentByte)
+                    } else {
+                        raf.setLength(0L)
+                        raf.seek(0L)
+                        chunk.currentByte = 0L
+                        task.downloadedBytes.set(0L)
                     }
-                    limiter.acquire(bytesRead)
-                    raf.write(buffer, 0, bytesRead)
-                    chunk.currentByte += bytesRead
-                    task.downloadedBytes.addAndGet(bytesRead.toLong())
 
-                    val now = System.currentTimeMillis()
-                    val elapsedMs = now - lastReportTime
-                    if (elapsedMs >= 500) {
-                        val currentBytes = task.downloadedBytes.get()
-                        val deltaBytes = (currentBytes - lastReportBytes).coerceAtLeast(0L)
-                        val speed = (deltaBytes * 1000L) / elapsedMs
-                        task.speedBytesPerSec = speed
+                    val buffer = ByteArray(32 * 1024)
+                    var bytesRead: Int
 
-                        if (speed > 0 && task.totalBytes > currentBytes) {
-                            task.etaSeconds = (task.totalBytes - currentBytes) / speed
+                    while (inStream.read(buffer).also { bytesRead = it } != -1) {
+                        if (task.status != DownloadTask.STATUS_RUNNING) {
+                            break
                         }
-                        lastReportTime = now
-                        lastReportBytes = currentBytes
-                        onProgress(task)
-                    }
-                }
-            } finally {
-                try { raf.close() } catch (_: Exception) {}
-            }
+                        limiter.acquire(bytesRead)
+                        raf.write(buffer, 0, bytesRead)
+                        chunk.currentByte += bytesRead
+                        task.downloadedBytes.addAndGet(bytesRead.toLong())
 
-            if (task.totalBytes <= 0L && tempFile.exists()) {
-                task.totalBytes = tempFile.length()
+                        val now = System.currentTimeMillis()
+                        val elapsedMs = now - lastReportTime
+                        if (elapsedMs >= 500) {
+                            val currentBytes = task.downloadedBytes.get()
+                            val deltaBytes = (currentBytes - lastReportBytes).coerceAtLeast(0L)
+                            val speed = (deltaBytes * 1000L) / elapsedMs
+                            task.speedBytesPerSec = speed
+
+                            if (speed > 0 && task.totalBytes > currentBytes) {
+                                task.etaSeconds = (task.totalBytes - currentBytes) / speed
+                            }
+                            lastReportTime = now
+                            lastReportBytes = currentBytes
+                            onProgress(task)
+                        }
+                    }
+                } finally {
+                    try { raf.close() } catch (_: Exception) {}
+                }
+
+                if (task.totalBytes <= 0L && tempFile.exists()) {
+                    task.totalBytes = tempFile.length()
+                }
             }
+        } finally {
+            cancelSubscription?.dispose()
         }
     }
 
@@ -486,7 +516,15 @@ class DownloadEngine(
 
     private fun publishFile(task: DownloadTask, tempFile: File): String {
         val finalFileName = resolveUniqueFileName(task.fileName)
-        val mime = if (task.mimeType.isNotBlank()) task.mimeType else "application/octet-stream"
+        val extension = finalFileName.substringAfterLast('.', "")
+        val mime = if (task.mimeType.isNotBlank() && task.mimeType != "application/octet-stream" && task.mimeType != "*/*") {
+            task.mimeType
+        } else if (extension.isNotBlank()) {
+            MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase()) ?: "application/octet-stream"
+        } else {
+            "application/octet-stream"
+        }
+        task.mimeType = mime
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Android 10+ Scoped Storage (MediaStore.Downloads)

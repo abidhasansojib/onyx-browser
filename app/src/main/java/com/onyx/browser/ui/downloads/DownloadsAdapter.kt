@@ -60,8 +60,10 @@ class DownloadsAdapter(
             }
 
             val snapshot = activeSnapshots[item.id]
+            val isLiveActive = snapshot != null && (snapshot.status == DownloadItem.STATUS_RUNNING || snapshot.status == DownloadItem.STATUS_PAUSED || snapshot.status == DownloadItem.STATUS_PENDING)
+            val isDbPausedOrInterrupted = snapshot == null && (item.status == DownloadItem.STATUS_PAUSED || item.status == DownloadItem.STATUS_RUNNING)
 
-            if (snapshot != null && (snapshot.status == DownloadItem.STATUS_RUNNING || snapshot.status == DownloadItem.STATUS_PAUSED || snapshot.status == DownloadItem.STATUS_PENDING)) {
+            if (isLiveActive && snapshot != null) {
                 binding.progressDownload.visibility = View.VISIBLE
                 binding.btnActionDownload.visibility = View.VISIBLE
 
@@ -100,6 +102,32 @@ class DownloadsAdapter(
 
                 binding.btnActionDownload.setOnClickListener {
                     onActionClicked?.invoke(item)
+                }
+
+            } else if (isDbPausedOrInterrupted) {
+                // Interrupted or paused download from previous session
+                binding.btnActionDownload.visibility = View.VISIBLE
+                binding.btnActionDownload.setImageResource(R.drawable.ic_play_arrow)
+                binding.btnActionDownload.setOnClickListener {
+                    onActionClicked?.invoke(item)
+                }
+
+                if (item.fileSize > 0L && item.downloadedBytes > 0L) {
+                    binding.progressDownload.visibility = View.VISIBLE
+                    binding.progressDownload.isIndeterminate = false
+                    val pct = ((item.downloadedBytes * 100L) / item.fileSize).toInt().coerceIn(0, 100)
+                    binding.progressDownload.progress = pct
+                    val downloadedStr = Formatter.formatFileSize(context, item.downloadedBytes)
+                    val totalStr = Formatter.formatFileSize(context, item.fileSize)
+                    binding.tvDownloadDetails.text = "Paused • $downloadedStr / $totalStr ($pct%)"
+                } else if (item.downloadedBytes > 0L) {
+                    binding.progressDownload.visibility = View.VISIBLE
+                    binding.progressDownload.isIndeterminate = true
+                    val downloadedStr = Formatter.formatFileSize(context, item.downloadedBytes)
+                    binding.tvDownloadDetails.text = "Paused • $downloadedStr"
+                } else {
+                    binding.progressDownload.visibility = View.GONE
+                    binding.tvDownloadDetails.text = "Paused"
                 }
 
             } else {

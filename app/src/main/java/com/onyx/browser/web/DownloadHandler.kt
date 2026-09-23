@@ -21,6 +21,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+import android.app.NotificationManager
+import android.content.ContentValues
+import android.media.MediaScannerConnection
+import android.os.Build
+import android.provider.MediaStore
 import android.util.Base64
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -155,22 +160,70 @@ object DownloadHandler {
                 }
                 val fileName = sanitizeFileName(resolvedName)
 
-                val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                if (!dir.exists()) dir.mkdirs()
-                val targetFile = File(dir, fileName)
-                FileOutputStream(targetFile).use { it.write(bytes) }
+                val savedPath: String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val resolver = context.contentResolver
+                    val contentValues = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                        put(MediaStore.MediaColumns.MIME_TYPE, detectedMime)
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                    val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                        ?: throw IllegalStateException("Failed to create MediaStore entry")
+                    resolver.openOutputStream(uri)?.use { out ->
+                        out.write(bytes)
+                    }
+                    contentValues.clear()
+                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(uri, contentValues, null, null)
 
+                    val publicFile = File(
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                        fileName
+                    )
+                    if (publicFile.exists()) publicFile.absolutePath else uri.toString()
+                } else {
+                    val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    if (!dir.exists()) dir.mkdirs()
+                    val targetFile = File(dir, fileName)
+                    FileOutputStream(targetFile).use { it.write(bytes) }
+                    try {
+                        MediaScannerConnection.scanFile(context, arrayOf(targetFile.absolutePath), arrayOf(detectedMime), null)
+                    } catch (_: Exception) {}
+                    targetFile.absolutePath
+                }
+
+                val downloadId = System.currentTimeMillis()
                 val database = AppDatabase.getInstance(context)
                 database.downloadDao().insertDownload(
                     DownloadItem(
+                        id = downloadId,
                         url = "data:$detectedMime;base64,...",
                         fileName = fileName,
-                        filePath = targetFile.absolutePath,
+                        filePath = savedPath,
                         mimeType = detectedMime,
                         fileSize = bytes.size.toLong(),
+                        downloadedBytes = bytes.size.toLong(),
                         status = DownloadItem.STATUS_COMPLETED
                     )
                 )
+
+                try {
+                    val completedTask = com.onyx.browser.download.DownloadTask(
+                        id = downloadId,
+                        url = "data:$detectedMime",
+                        fileName = fileName,
+                        mimeType = detectedMime,
+                        userAgent = "",
+                        tempFilePath = "",
+                        finalFilePath = savedPath,
+                        totalBytes = bytes.size.toLong(),
+                        status = com.onyx.browser.download.DownloadTask.STATUS_COMPLETED
+                    )
+                    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                    val notif = com.onyx.browser.download.DownloadNotificationHelper.buildCompletedNotification(context, completedTask)
+                    nm?.notify(completedTask.notificationId, notif)
+                } catch (_: Exception) {}
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Download complete: $fileName", Toast.LENGTH_SHORT).show()
