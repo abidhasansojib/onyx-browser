@@ -288,6 +288,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enforceHighRefreshRate()
         preferences = BrowserPreferences.getInstance(this)
         preferences.applyTheme()
 

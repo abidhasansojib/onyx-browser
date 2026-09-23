@@ -82,13 +82,24 @@ class OnyxWebView @JvmOverloads constructor(
             // This prevents ad scripts from bypassing the callback entirely.
             javaScriptCanOpenWindowsAutomatically = false
 
-            // Performance & Rendering
+            // Performance & Rendering (Local Hardware Acceleration & 120Hz Support)
             cacheMode = WebSettings.LOAD_DEFAULT
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
             useWideViewPort = true
             loadWithOverviewMode = true
+            
+            // Advance Rendering tweaks
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                offscreenPreRaster = true
+            }
+        }
+        
+        // GPU Acceleration & Smooth Scrolling
+        isVerticalFadingEdgeEnabled = false
+        isHorizontalFadingEdgeEnabled = false
+        isScrollbarFadingEnabled = true
 
             // Local File & Content Access for HTML / Markdown Previews
             allowFileAccess = true
@@ -101,7 +112,6 @@ class OnyxWebView @JvmOverloads constructor(
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
 
-        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 
         // Authentic Chrome Mobile UA — prevents bot detection on Facebook/Google/etc.
         settings.userAgentString = mobileUserAgent
