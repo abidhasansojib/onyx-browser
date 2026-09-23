@@ -105,29 +105,16 @@ class SettingsActivity : AppCompatActivity() {
     }
     
     private fun updateUaSpooferText() {
-        val mapping = mapOf(
-            "default" to "Default (Mobile Chrome)",
-            "ipad" to "iPad Safari",
-            "windows" to "Windows PC (Chrome)",
-            "iphone" to "iPhone Safari"
+        binding.tvUaSpooferStatus.text = com.onyx.browser.web.UserAgentManager.getDisplayName(
+            preferences.userAgentSpoofTemplate,
+            preferences
         )
-        binding.tvUaSpooferStatus.text = mapping[preferences.userAgentSpoofTemplate] ?: "Default"
     }
 
     private fun showUaSpooferDialog() {
-        val options = arrayOf("Default", "iPad Safari", "Windows PC (Chrome)", "iPhone Safari")
-        val values = arrayOf("default", "ipad", "windows", "iphone")
-        val currentIndex = values.indexOf(preferences.userAgentSpoofTemplate).takeIf { it >= 0 } ?: 0
-
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setTitle("User-Agent Spoofer")
-            .setSingleChoiceItems(options, currentIndex) { dialog, which ->
-                preferences.userAgentSpoofTemplate = values[which]
-                updateUaSpooferText()
-                dialog.dismiss()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        UserAgentPickerSheet {
+            updateUaSpooferText()
+        }.show(supportFragmentManager, "UserAgentPickerSheet")
     }
 
     private fun setupDownloadPreferences() {

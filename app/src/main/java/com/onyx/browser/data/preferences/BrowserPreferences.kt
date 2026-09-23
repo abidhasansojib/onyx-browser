@@ -514,6 +514,10 @@ class BrowserPreferences private constructor(context: Context) {
         get() = prefs.getString(KEY_UA_SPOOF, "default") ?: "default"
         set(value) = prefs.edit().putString(KEY_UA_SPOOF, value).apply()
 
+    var customUserAgent: String
+        get() = prefs.getString(KEY_CUSTOM_UA, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CUSTOM_UA, value).apply()
+
     var isScrollToTopEnabled: Boolean
         get() = prefs.getBoolean(KEY_SCROLL_TO_TOP, false)
         set(value) = prefs.edit().putBoolean(KEY_SCROLL_TO_TOP, value).apply()
@@ -590,6 +594,7 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_COOKIE_AUTOCLEAR = "pref_cookie_autoclear"
         const val KEY_BIOMETRIC_INCOGNITO = "pref_biometric_incognito"
         const val KEY_UA_SPOOF = "pref_ua_spoof"
+        const val KEY_CUSTOM_UA = "pref_custom_ua"
         const val KEY_SCROLL_TO_TOP = "pref_scroll_to_top"
 
 

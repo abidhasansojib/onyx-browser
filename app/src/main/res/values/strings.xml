@@ -402,6 +402,13 @@
     <string name="save_video">Save video</string>
     <string name="copy_video_link">Copy video link</string>
     <string name="share_video">Share video</string>
+
+    <!-- User-Agent Spoofer Manager -->
+    <string name="ua_spoofer_title">User-Agent Spoofer Manager</string>
+    <string name="ua_spoofer_desc">Spoof browser identity or type custom User-Agent</string>
+    <string name="custom_user_agent">Custom User-Agent</string>
+    <string name="custom_ua_desc">Type or paste any custom User-Agent string to send to web servers:</string>
+    <string name="apply_custom_ua">Apply Custom</string>
 </resources>
 
 

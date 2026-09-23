@@ -786,6 +786,18 @@ onyx-browser/
   - Removed "Add Search Widget" button from 3-dot menu in homepage mode (above Settings).
   - Removed "Add Search Widget" button from 3-dot menu in webpage mode (under Add to Home screen).
   - Kept in Settings under Search Engine (`SettingsActivity` under Search Engine category and in `SearchEngineSettingsActivity`).
+- [x] **User-Agent Spoofer Manager Overhaul & Custom User-Agent Input Box**:
+  - **Universal Template Library (`UserAgentManager.kt`)**: Expanded preset library from 4 to 12 modern real-world user agent profiles across Mobile, Desktop, Tablet, and Crawler categories (Windows Chrome/Firefox/Edge, macOS Safari/Chrome, Linux Firefox, Chrome OS, iPhone Safari, iPad Safari, Android Chrome/Firefox, Googlebot).
+  - **Dedicated Custom User-Agent Input Box**:
+    - Material 3 card container with multiline input (`TextInputEditText`), floating label, and clear-text end button allowing user to type or paste any arbitrary User-Agent string.
+    - One-tap "Paste from Clipboard" action button.
+    - "Apply Custom" action saving custom string to `BrowserPreferences.customUserAgent` and setting template to `custom`.
+    - Real-time active status badge indicating when custom User-Agent mode is engaged.
+  - **Modern Material 3 Bottom Sheet (`UserAgentPickerSheet.kt` & `bottom_sheet_user_agent_picker.xml`)**:
+    - Replaced legacy single-choice alert dialog with responsive bottom sheet modal.
+    - Template cards with platform badges (DESKTOP, MOBILE, TABLET, BOT), device icons (`ic_desktop`, `ic_android`, `ic_phone`, `ic_tablet`, `ic_bot`), live string previews, and selection checkmarks.
+    - Real-time re-application of selected User-Agent string to active WebViews upon returning to `MainActivity`.
+
 
 
 

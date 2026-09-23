@@ -2452,6 +2452,7 @@ class MainActivity : AppCompatActivity() {
         updatePipParams()
         val wv = tabManager.getActiveWebView()
         wv?.onResume()
+        wv?.applyUserAgentForUrl(wv.url ?: "")
         binding.root.post {
             wv?.resumeTimers()
             wv?.requestFocus()

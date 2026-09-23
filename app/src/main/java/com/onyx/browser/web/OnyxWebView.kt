@@ -84,28 +84,12 @@ class OnyxWebView @JvmOverloads constructor(
         super.reload()
     }
 
-    // The standard Chrome-on-Android mobile UA (used for all normal browsing).
-    private val ipadUserAgent = "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-    private val iphoneUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-
     private fun getBaseUserAgent(prefs: com.onyx.browser.data.preferences.BrowserPreferences): String {
-        return when (prefs.userAgentSpoofTemplate) {
-            "ipad" -> ipadUserAgent
-            "windows" -> desktopUserAgent
-            "iphone" -> iphoneUserAgent
-            else -> mobileUserAgent
-        }
+        return UserAgentManager.getUserAgentForTemplate(prefs.userAgentSpoofTemplate, prefs)
     }
-    private val mobileUserAgent =
-        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36"
 
-    // Real Windows Chrome desktop UA — what actual desktop Chrome sends.
-    // Using a proper desktop UA (not a mangled mobile one) ensures sites serve
-    // full desktop layouts instead of falling back to mobile.
-    private val desktopUserAgent =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/131.0.6778.135 Safari/537.36"
+    private val mobileUserAgent = UserAgentManager.DEFAULT_MOBILE_UA
+    private val desktopUserAgent = UserAgentManager.DESKTOP_CHROME_UA
 
     // Desktop domains are now persisted globally in BrowserPreferences
 
@@ -360,8 +344,12 @@ class OnyxWebView @JvmOverloads constructor(
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         val wantsDesktop = key != null && prefs.desktopDomains.any { key == it || key.endsWith(".$it") }
         
-        val targetUa = if (wantsDesktop || prefs.userAgentSpoofTemplate == "windows") {
-            desktopUserAgent
+        val targetUa = if (wantsDesktop) {
+            if (prefs.userAgentSpoofTemplate in UserAgentManager.DESKTOP_KEYS) {
+                getBaseUserAgent(prefs)
+            } else {
+                desktopUserAgent
+            }
         } else {
             getBaseUserAgent(prefs)
         }
