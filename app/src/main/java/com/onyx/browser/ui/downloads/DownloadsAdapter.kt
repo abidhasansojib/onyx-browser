@@ -30,6 +30,22 @@ class DownloadsAdapter(
         fun bind(item: DownloadItem) {
             binding.tvDownloadFileName.text = item.fileName
 
+            val lowerName = item.fileName.lowercase()
+            when {
+                lowerName.endsWith(".mht") || lowerName.endsWith(".mhtml") ||
+                lowerName.endsWith(".html") || lowerName.endsWith(".htm") ||
+                item.mimeType.contains("html") || item.mimeType.contains("multipart") -> {
+                    binding.ivDownloadIcon.setImageResource(com.onyx.browser.R.drawable.ic_web)
+                }
+                lowerName.endsWith(".md") || lowerName.endsWith(".markdown") ||
+                lowerName.endsWith(".txt") -> {
+                    binding.ivDownloadIcon.setImageResource(com.onyx.browser.R.drawable.ic_file)
+                }
+                else -> {
+                    binding.ivDownloadIcon.setImageResource(com.onyx.browser.R.drawable.ic_download)
+                }
+            }
+
             val context = binding.root.context
             val sizeFormatted = if (item.fileSize > 0) {
                 Formatter.formatFileSize(context, item.fileSize)

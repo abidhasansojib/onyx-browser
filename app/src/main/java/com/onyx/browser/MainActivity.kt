@@ -956,6 +956,10 @@ class MainActivity : AppCompatActivity() {
         )
 
         webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+            if (LocalFileLoader.isLocalFile(url)) {
+                LocalFileLoader.loadLocalFile(this, webView, url)
+                return@setDownloadListener
+            }
             val cookies = try {
                 android.webkit.CookieManager.getInstance().getCookie(url) ?: ""
             } catch (_: Exception) {
@@ -2642,7 +2646,7 @@ class MainActivity : AppCompatActivity() {
     private fun showSavePageDialog() {
         val activeWebView = tabManager.getActiveWebView() ?: return
         val currentTab = tabManager.activeTab.value ?: return
-        val options = arrayOf("Save as Offline Web Archive (.mhtml)", "Save as PDF (.pdf)")
+        val options = arrayOf("Save as Web Archive (.mht)", "Save as PDF (.pdf)")
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setTitle("Save Page")
             .setItems(options) { _, which ->
@@ -2658,14 +2662,34 @@ class MainActivity : AppCompatActivity() {
     private fun saveCurrentPageAsMhtml(webView: OnyxWebView, title: String) {
         try {
             val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
-            val fileName = "${cleanTitle}_${System.currentTimeMillis()}.mhtml"
+            val fileName = "${cleanTitle}_${System.currentTimeMillis()}.mht"
             val tempFile = java.io.File(cacheDir, fileName)
 
             webView.saveWebArchive(tempFile.absolutePath, false) { savedPath ->
                 if (savedPath != null && tempFile.exists() && tempFile.length() > 0) {
+                    val fileSize = tempFile.length()
+                    val pageUrl = webView.url ?: "about:blank"
                     lifecycleScope.launch(Dispatchers.IO) {
                         try {
-                            val savedUri = copyTempFileToDownloads(tempFile, fileName, "message/rfc822")
+                            val mimeType = "multipart/related"
+                            val savedUri = copyTempFileToDownloads(tempFile, fileName, mimeType)
+                            val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                            val finalFile = java.io.File(downloadDir, fileName)
+                            val finalPath = if (finalFile.exists()) finalFile.absolutePath else (savedUri?.toString() ?: tempFile.absolutePath)
+
+                            val database = com.onyx.browser.data.local.AppDatabase.getInstance(this@MainActivity)
+                            database.downloadDao().insertDownload(
+                                com.onyx.browser.data.model.DownloadItem(
+                                    url = pageUrl,
+                                    fileName = fileName,
+                                    filePath = finalPath,
+                                    mimeType = mimeType,
+                                    fileSize = fileSize,
+                                    status = com.onyx.browser.data.model.DownloadItem.STATUS_COMPLETED,
+                                    downloadTime = System.currentTimeMillis()
+                                )
+                            )
+
                             kotlinx.coroutines.withContext(Dispatchers.Main) {
                                 if (savedUri != null) {
                                     Toast.makeText(this@MainActivity, "Saved to Downloads/$fileName", Toast.LENGTH_LONG).show()

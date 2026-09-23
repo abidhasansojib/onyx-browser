@@ -142,22 +142,22 @@ class OnyxWebViewClient(
                     currentPageUrl = url
                 }
                 
-                // Intercept Markdown files to render them
-                if (url.startsWith("content://") || url.startsWith("file://")) {
-                    val lower = url.lowercase()
-                    if (lower.endsWith(".md") || lower.endsWith(".markdown")) {
-                        val stream = LocalFileLoader.renderMarkdownToStream(context, url)
-                        if (stream != null) {
-                            return WebResourceResponse("text/html", "UTF-8", stream)
-                        }
+                // Intercept local files (HTML, MHTML, MHT, Markdown, Plain Text) for main frame
+                if (url.startsWith("content://", ignoreCase = true) || url.startsWith("file://", ignoreCase = true)) {
+                    val localResponse = LocalFileLoader.interceptLocalFile(context, url)
+                    if (localResponse != null) {
+                        return localResponse
                     }
                 }
                 
                 return null
             }
 
-            // Only process http/https network requests
-            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            // Only process http/https network requests for adblocking; intercept local sub-resources
+            if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
+                if (url.startsWith("file://", ignoreCase = true) || url.startsWith("content://", ignoreCase = true)) {
+                    return LocalFileLoader.interceptLocalSubResource(context, url)
+                }
                 return null
             }
 
@@ -304,15 +304,6 @@ class OnyxWebViewClient(
         if (scheme == "http" || scheme == "https" || scheme == "about" ||
             scheme == "data" || scheme == "blob" || scheme == "javascript" ||
             scheme == "file" || scheme == "content") {
-            if (isForMainFrame && (scheme == "file" || scheme == "content")) {
-                val path = uri.path?.lowercase() ?: ""
-                if (path.endsWith(".md") || path.endsWith(".markdown")) {
-                    (view as? OnyxWebView)?.let { wv ->
-                        LocalFileLoader.loadLocalFile(context, wv, url)
-                        return true
-                    }
-                }
-            }
             // If "Open links in app" is enabled, check if there's a specialized app for this HTTP link
             if (isForMainFrame && preferences.isOpenLinksInAppEnabled && (scheme == "http" || scheme == "https")) {
                 if (tryOpenAppForHttpLink(uri)) {

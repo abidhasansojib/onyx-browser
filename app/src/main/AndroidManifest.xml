@@ -204,6 +204,19 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
+            <!-- Local MHTML/MHT Web Archive Handler (by MIME type) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:mimeType="multipart/related" />
+                <data android:mimeType="message/rfc822" />
+                <data android:mimeType="application/x-mimearchive" />
+                <data android:mimeType="application/mhtml" />
+            </intent-filter>
+
             <!-- Local HTML/Markdown Document Viewer Handler (by file extension) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -220,6 +233,20 @@
                 <data android:pathPattern=".*\\..*\\.htm" />
                 <data android:pathPattern=".*\\..*\\.md" />
                 <data android:pathPattern=".*\\..*\\.markdown" />
+            </intent-filter>
+
+            <!-- Local MHTML/MHT Web Archive Handler (by file extension) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.mht" />
+                <data android:pathPattern=".*\\.mhtml" />
+                <data android:pathPattern=".*\\..*\\.mht" />
+                <data android:pathPattern=".*\\..*\\.mhtml" />
             </intent-filter>
 
             <!-- Web Search Filters -->

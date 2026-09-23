@@ -867,6 +867,32 @@ onyx-browser/
   - **Swipe-to-Refresh & Network Reconnection Support (`MainActivity.kt`)**:
     - Updated `swipeRefreshLayout.setOnRefreshListener`: Pull-to-refresh on an error page falls back to `lastFailingUrl` and issues a fresh `loadUrl()`.
     - Updated `networkCallback.onAvailable`: Auto-reloads using `lastFailingUrl` when internet connectivity is restored.
+- [x] **Local Documents, Offline MHT Web Archives & Downloads Integration (`LocalFileLoader.kt`, `OnyxWebViewClient.kt`, `MainActivity.kt`, `DownloadsActivity.kt`, `DownloadsAdapter.kt`, `AndroidManifest.xml`)**:
+  - **Root Cause Resolved**:
+    - Android 10+ (scoped storage) blocks Chromium WebView from directly accessing `/storage/` via `file://`, resulting in `net::ERR_ACCESS_DENIED`.
+    - `shouldInterceptRequest` previously only checked for `.md` URLs, ignoring `.html`, `.htm`, `.mhtml`, and `.mht`.
+    - When `content://` URIs were opened, Chromium WebView received unrecognized MIME types (`message/rfc822`, `application/octet-stream`) and triggered `DownloadListener` instead of rendering the document.
+    - `AndroidManifest.xml` lacked intent-filters for `.mht`, `.mhtml`, `multipart/related`, and `message/rfc822`.
+    - Saving a webpage generated `.mhtml` files instead of the popular `.mht` format, and failed to record an entry in the Room `downloads` database.
+  - **Universal Local File Interceptor & Renderer (`LocalFileLoader.kt`)**:
+    - Supports HTML (`.html`, `.htm`, `.xhtml`), MHTML Web Archives (`.mht`, `.mhtml`), Markdown (`.md`, `.markdown`), and Plain Text (`.txt`, `.log`).
+    - Added `detectFileType(context, uri)`: Inspects display names, ContentResolver MIME types, paths, and peeks stream header bytes (`multipart/related`, `Snapshot-Content-Location`, `<!DOCTYPE html>`).
+    - Added `openInputStream(context, uri)`: Safely bridges `content://`, `file://`, and raw filesystem paths to application-managed input streams.
+    - Added `interceptLocalFile(context, url)`: Serves MHTML as `multipart/related` directly activating Chromium's Blink `MHTMLArchive` engine; serves HTML as `text/html; charset=UTF-8`; serves Markdown as rendered HTML; serves text as `text/plain`.
+    - Added `interceptLocalSubResource(context, url)`: Intercepts local HTML assets (images, CSS, JS, fonts).
+    - Bundled and inlined `marked.min.js` directly into `markdown_previewer.html` for 100% offline, self-contained Markdown rendering.
+  - **Save Web Archive as `.mht` with Downloads Database Registration (`MainActivity.kt`)**:
+    - Updated dialog option to **"Save as Web Archive (.mht)"** matching popular Android browsers.
+    - Saves archives with `.mht` extension (e.g. `Title_1727123456.mht`) and MIME type `multipart/related`.
+    - Inserts `DownloadItem` into `AppDatabase.downloadDao().insertDownload(...)` with `STATUS_COMPLETED`, URL, file name, physical path, MIME type, and size.
+    - Guarded `webView.setDownloadListener`: Detects local files via `LocalFileLoader.isLocalFile(url)` and routes to `loadLocalFile()` rather than triggering re-download prompts.
+  - **Downloads Screen Integration & Direct Opening (`DownloadsActivity.kt`, `DownloadsAdapter.kt`)**:
+    - Added `isLocalWebDocument(item)`: Tapping `.mht`, `.mhtml`, `.html`, or `.md` in Downloads launches `MainActivity` with `ACTION_VIEW` and finishes `DownloadsActivity` to immediately open the document in a browser tab.
+    - Handled `content://` and `file://` URIs seamlessly.
+    - Added contextual icons in `DownloadsAdapter`: `ic_web` for web archives/HTML, `ic_file` for Markdown/text, and `ic_download` for general downloads.
+  - **Manifest File Associations (`AndroidManifest.xml`)**:
+    - Added `<intent-filter>` for MHTML/MHT by MIME types: `multipart/related`, `message/rfc822`, `application/x-mimearchive`, `application/mhtml`.
+    - Added `<intent-filter>` for MHTML/MHT by file extensions: `.*\\.mht`, `.*\\.mhtml`, `.*\\..*\\.mht`, `.*\\..*\\.mhtml`.
 
 
 
