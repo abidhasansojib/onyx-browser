@@ -505,6 +505,10 @@ class BrowserPreferences private constructor(context: Context) {
     var isBiometricIncognitoEnabled: Boolean
         get() = prefs.getBoolean(KEY_BIOMETRIC_INCOGNITO, false)
         set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC_INCOGNITO, value).apply()
+        
+    var userAgentSpoofTemplate: String
+        get() = prefs.getString(KEY_UA_SPOOF, "default") ?: "default"
+        set(value) = prefs.edit().putString(KEY_UA_SPOOF, value).apply()
 
     var isScrollToTopEnabled: Boolean
         get() = prefs.getBoolean(KEY_SCROLL_TO_TOP, false)
@@ -580,6 +584,7 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_FILTER_AUTO_UPDATE = "pref_filter_auto_update"
         const val KEY_FILTER_UPDATE_INTERVAL = "pref_filter_update_interval"
         const val KEY_BIOMETRIC_INCOGNITO = "pref_biometric_incognito"
+        const val KEY_UA_SPOOF = "pref_ua_spoof"
         const val KEY_SCROLL_TO_TOP = "pref_scroll_to_top"
 
 

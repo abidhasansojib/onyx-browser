@@ -53,6 +53,17 @@ class OnyxWebView @JvmOverloads constructor(
     }
 
     // The standard Chrome-on-Android mobile UA (used for all normal browsing).
+    private val ipadUserAgent = "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    private val iphoneUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+
+    private fun getBaseUserAgent(prefs: com.onyx.browser.data.preferences.BrowserPreferences): String {
+        return when (prefs.userAgentSpoofTemplate) {
+            "ipad" -> ipadUserAgent
+            "windows" -> desktopUserAgent
+            "iphone" -> iphoneUserAgent
+            else -> mobileUserAgent
+        }
+    }
     private val mobileUserAgent =
         "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
         "(KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36"
@@ -113,8 +124,9 @@ class OnyxWebView @JvmOverloads constructor(
         }
 
 
-        // Authentic Chrome Mobile UA — prevents bot detection on Facebook/Google/etc.
-        settings.userAgentString = mobileUserAgent
+        // Apply UA Spoofer if configured
+        val tempPrefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        settings.userAgentString = getBaseUserAgent(tempPrefs)
 
         try {
             val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
@@ -304,17 +316,23 @@ class OnyxWebView @JvmOverloads constructor(
         val key = hostKey(urlString)
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         val wantsDesktop = key != null && prefs.desktopDomains.any { key == it || key.endsWith(".$it") }
-        val currentIsDesktop = settings.userAgentString == desktopUserAgent
         
-        if (wantsDesktop == currentIsDesktop) {
+        val targetUa = if (wantsDesktop || prefs.userAgentSpoofTemplate == "windows") {
+            desktopUserAgent
+        } else {
+            getBaseUserAgent(prefs)
+        }
+        
+        val currentUaMatchesTarget = settings.userAgentString == targetUa
+        
+        if (currentUaMatchesTarget) {
             if (forceRefreshLayout) {
-                // If it's the same but we forced a refresh, just reload normally
                 this.reload()
             }
             return
         }
         
-        settings.userAgentString = if (wantsDesktop) desktopUserAgent else mobileUserAgent
+        settings.userAgentString = targetUa
         
         if (forceRefreshLayout) {
             // Clearing cache fixes the "zoom state" issue by forcing a fresh layout viewport calculation
