@@ -2141,7 +2141,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+    private fun handleShortcuts(intent: Intent?): Boolean {
+        if (intent == null) return false
+        when (intent.action) {
+            "com.onyx.browser.action.NEW_INCOGNITO_TAB" -> {
+                tabManager.addNewTab(url = "", isIncognito = true)
+                binding.tabModeToggle.check(R.id.btnIncognitoTabs)
+                return true
+            }
+            "com.onyx.browser.action.SEARCH" -> {
+                binding.etUrl.requestFocus()
+                val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(binding.etUrl, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                return true
+            }
+            "com.onyx.browser.action.SCAN_QR" -> {
+                startQrScanner()
+                return true
+            }
+        }
+        return false
+    }
+
     private fun handleIncomingIntent(intent: Intent?) {
+        if (handleShortcuts(intent)) return
         if (intent == null) return
         val targetUrl = extractUrlFromIntent(intent) ?: return
 

@@ -360,5 +360,13 @@
     <string name="about_report_bug">Report Bug</string>
     <string name="about_report_bug_desc">Open an issue on GitHub</string>
     <string name="copied_to_clipboard">%1$s copied to clipboard</string>
+
+    <!-- App Shortcuts -->
+    <string name="shortcut_incognito_short">Incognito</string>
+    <string name="shortcut_incognito_long">New Incognito Tab</string>
+    <string name="shortcut_search_short">Search</string>
+    <string name="shortcut_search_long">Search Web</string>
+    <string name="shortcut_qr_short">Scan QR</string>
+    <string name="shortcut_qr_long">Scan QR Code</string>
 </resources>
 
