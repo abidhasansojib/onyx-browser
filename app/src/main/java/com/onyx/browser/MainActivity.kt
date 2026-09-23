@@ -361,7 +361,7 @@ class MainActivity : AppCompatActivity() {
             val activeTab = tabManager.activeTab.value
             val wv = tabManager.getActiveWebView()
             val failingUrl = wv?.currentSyntheticState?.failingUrl ?: wv?.lastFailingUrl
-            if (!failingUrl.isNullOrBlank()) {
+            if (!failingUrl.isNullOrBlank() && wv != null) {
                 wv.clearSyntheticState()
                 wv.loadUrl(failingUrl)
                 binding.swipeRefreshLayout.isRefreshing = false
@@ -2377,10 +2377,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onStop() {
-        super.onStop()
-        tabManager.saveAllTabStates()
-    }
+
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
@@ -2476,6 +2473,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        tabManager.saveAllTabStates()
         unregisterNetworkRecoveryCallback()
         tabManager.isIncognitoUnlocked = false
         val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false

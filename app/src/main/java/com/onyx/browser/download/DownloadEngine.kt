@@ -32,6 +32,7 @@ import java.net.URLDecoder
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
+import kotlin.coroutines.coroutineContext
 
 class DownloadEngine(
     private val context: Context,
@@ -51,7 +52,7 @@ class DownloadEngine(
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    suspend fun executeDownload(task: DownloadTask) = withContext(Dispatchers.IO) {
+    suspend fun executeDownload(task: DownloadTask): Unit = withContext(Dispatchers.IO) {
         try {
             task.status = DownloadTask.STATUS_RUNNING
             task.errorMessage = null

@@ -1021,3 +1021,9 @@ onyx-browser/
   - **History & Downloads Fast Navigation**: Single tap on `webQuickHistory` or `webQuickDownloads` opens `HistoryActivity` or `DownloadsActivity` and dismisses the menu sheet.
   - **Webpage URL Share Action**: Single tap on `webQuickShare` triggers Android's system share sheet (`Intent.ACTION_SEND`, `EXTRA_TEXT = currentUrl`) for the active webpage.
   - **Activity Result Launcher Integration (`MainActivity.kt`)**: Added `bookmarksLauncher`, `openBookmarks()`, `openHistory()`, and `openDownloads()` to `MainActivity` so selecting an entry in `BookmarksActivity` or `HistoryActivity` returns `RESULT_OK` with `EXTRA_URL` and immediately navigates to that URL in the browser.
+
+- [x] **Compilation & Overload Hardening (Build Fix)**:
+  - **Null Safety in Swipe Refresh (`MainActivity.kt`)**: Added null-guard check `wv != null` alongside `!failingUrl.isNullOrBlank()` to satisfy Kotlin compiler type narrowing.
+  - **Consolidated `onStop()` Lifecycle Overload (`MainActivity.kt`)**: Merged duplicate `onStop()` definitions, combining `tabManager.saveAllTabStates()`, `unregisterNetworkRecoveryCallback()`, incognito lock reset, and background pause handling into a single override.
+  - **DownloadEngine Coroutine Context & Recursion (`DownloadEngine.kt`)**: Added `import kotlin.coroutines.coroutineContext` for OkHttp socket cancellation and specified explicit `: Unit` return type on recursive `executeDownload()`.
+  - **DownloadTask Mutability & Defaults (`DownloadTask.kt`)**: Converted `url` to mutable `var` for CDN endpoint capture and provided safe default arguments for secondary fields.
