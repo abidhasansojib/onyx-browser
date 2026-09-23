@@ -376,5 +376,15 @@
 
     <string name="biometric_incognito_title">Biometric Incognito Protection</string>
     <string name="biometric_incognito_desc">Require fingerprint/face unlock to view private tabs</string>
+
+    <!-- Search Widget -->
+    <string name="search_widget_title">Search Widget</string>
+    <string name="search_widget_desc">Search or type URL, voice search, and incognito mode</string>
+    <string name="add_search_widget">Add Search Widget</string>
+    <string name="add_search_widget_desc">Add Chrome-style search bar to your home screen</string>
+    <string name="search_widget_pinned_success">Search widget added to home screen</string>
+    <string name="search_widget_pin_failed">Could not pin widget automatically</string>
+    <string name="search_widget_manual_add_guide">Touch &amp; hold an empty area on your home screen, tap Widgets, and add Onyx Search Bar.</string>
 </resources>
+
 

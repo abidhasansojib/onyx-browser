@@ -382,7 +382,8 @@ class MainActivity : AppCompatActivity() {
             observeTabs()
             val intentToHandle = pendingIntent ?: intent
             pendingIntent = null
-            if (savedInstanceState == null || intentToHandle != intent) {
+            val isActionIntent = intentToHandle?.action?.startsWith("com.onyx.browser.action.") == true
+            if (savedInstanceState == null || intentToHandle != intent || isActionIntent) {
                 handleIncomingIntent(intentToHandle)
             }
         }
@@ -408,6 +409,7 @@ class MainActivity : AppCompatActivity() {
                 onEngineSelected = { engine ->
                     preferences.searchEngine = engine
                     updateSearchEngineIcon()
+                    com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
                     val currentQuery = binding.etUrl.text?.toString()?.trim() ?: ""
                     if (isSearchMode && currentQuery.isNotEmpty()) {
                         fetchSearchSuggestions(currentQuery)
@@ -2308,19 +2310,39 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleShortcuts(intent: Intent?): Boolean {
         if (intent == null) return false
-        when (intent.action) {
+        val action = intent.action ?: return false
+        when (action) {
+            ACTION_WIDGET_SEARCH, "com.onyx.browser.action.SEARCH" -> {
+                intent.action = null
+                binding.root.post {
+                    enterSearchMode()
+                }
+                return true
+            }
+            ACTION_WIDGET_VOICE_SEARCH -> {
+                intent.action = null
+                binding.root.post {
+                    launchVoiceSearch()
+                }
+                return true
+            }
+            ACTION_WIDGET_INCOGNITO_SEARCH -> {
+                intent.action = null
+                val newTab = tabManager.createNewTab(url = "", isIncognito = true)
+                displayTab(newTab)
+                binding.root.post {
+                    enterSearchMode()
+                }
+                return true
+            }
             "com.onyx.browser.action.NEW_INCOGNITO_TAB" -> {
+                intent.action = null
                 val newTab = tabManager.createNewTab(url = "", isIncognito = true)
                 displayTab(newTab)
                 return true
             }
-            "com.onyx.browser.action.SEARCH" -> {
-                binding.etUrl.requestFocus()
-                val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                imm.showSoftInput(binding.etUrl, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-                return true
-            }
             "com.onyx.browser.action.SCAN_QR" -> {
+                intent.action = null
                 startQrScanner()
                 return true
             }
@@ -2542,5 +2564,11 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
         MediaPlaybackService.mediaActionListener = null
         tabManager.clearAllWebViews()
+    }
+
+    companion object {
+        const val ACTION_WIDGET_SEARCH = "com.onyx.browser.action.WIDGET_SEARCH"
+        const val ACTION_WIDGET_VOICE_SEARCH = "com.onyx.browser.action.WIDGET_VOICE_SEARCH"
+        const val ACTION_WIDGET_INCOGNITO_SEARCH = "com.onyx.browser.action.WIDGET_INCOGNITO_SEARCH"
     }
 }

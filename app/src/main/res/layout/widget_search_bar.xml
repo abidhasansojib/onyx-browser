@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:paddingStart="4dp"
+    android:paddingTop="2dp"
+    android:paddingEnd="4dp"
+    android:paddingBottom="2dp">
+
+    <LinearLayout
+        android:id="@+id/widget_search_bar_container"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:background="@drawable/bg_search_widget"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingEnd="6dp">
+
+        <!-- Search Clickable Area: Engine Icon + Hint Text -->
+        <LinearLayout
+            android:id="@+id/widget_btn_search"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/widget_search_engine_icon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/search_or_type_url"
+                android:scaleType="fitCenter" />
+
+            <TextView
+                android:id="@+id/widget_search_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/search_or_type_url"
+                android:textColor="@color/widget_text"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- Voice Search Button -->
+        <ImageView
+            android:id="@+id/widget_btn_mic"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/bg_widget_action"
+            android:contentDescription="@string/voice_search"
+            android:padding="8dp"
+            android:scaleType="fitCenter" />
+
+        <!-- Incognito Search Button -->
+        <ImageView
+            android:id="@+id/widget_btn_incognito"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_marginStart="2dp"
+            android:background="@drawable/bg_widget_action"
+            android:contentDescription="@string/incognito"
+            android:padding="8dp"
+            android:scaleType="fitCenter" />
+
+    </LinearLayout>
+
+</LinearLayout>

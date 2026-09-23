@@ -41,6 +41,7 @@ class SettingsActivity : AppCompatActivity() {
         updateSearchEngineDisplay()
         binding.settingScrollToTopSwitch.isChecked = preferences.isScrollToTopEnabled
         binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
+        com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
     }
 
     private fun setupSearchEnginePreference() {
@@ -48,6 +49,10 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.settingSearchEngineRow.setOnClickListener {
             startActivity(android.content.Intent(this, SearchEngineSettingsActivity::class.java))
+        }
+
+        binding.settingSearchWidgetRow.setOnClickListener {
+            com.onyx.browser.ui.widget.SearchWidgetManager.requestPinSearchWidget(this)
         }
     }
 

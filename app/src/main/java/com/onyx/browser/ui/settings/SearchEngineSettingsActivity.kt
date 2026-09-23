@@ -70,6 +70,7 @@ class SearchEngineSettingsActivity : AppCompatActivity() {
             itemBinding.root.setOnClickListener {
                 preferences.searchEngine = engine
                 populateAllEngines()
+                com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
                 Toast.makeText(this, "Default search engine set to ${engine.displayName}", Toast.LENGTH_SHORT).show()
             }
 
@@ -117,6 +118,7 @@ class SearchEngineSettingsActivity : AppCompatActivity() {
                 itemBinding.root.setOnClickListener {
                     preferences.searchEngine = engine
                     populateAllEngines()
+                    com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
                     Toast.makeText(this, "Default search engine set to ${engine.displayName}", Toast.LENGTH_SHORT).show()
                 }
 

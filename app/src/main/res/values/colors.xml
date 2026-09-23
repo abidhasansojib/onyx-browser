@@ -29,4 +29,11 @@
     <color name="incognito_purple">#BB86FC</color>
     <color name="red_danger">#EA4335</color>
     <color name="green_success">#34A853</color>
+
+    <!-- Search Widget Colors (Google Light) -->
+    <color name="widget_background">#FFFFFF</color>
+    <color name="widget_stroke">#DFE1E5</color>
+    <color name="widget_text">#5F6368</color>
+    <color name="widget_icon">#5F6368</color>
 </resources>
+

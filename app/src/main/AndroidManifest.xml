@@ -331,6 +331,25 @@
             </intent-filter>
         </receiver>
 
+        <!-- Chrome-Style Search AppWidget Provider -->
+        <receiver
+            android:name=".ui.widget.SearchWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.onyx.browser.action.UPDATE_SEARCH_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/search_widget_info" />
+        </receiver>
+
+        <!-- Pinned Widget Confirmation Broadcast Receiver -->
+        <receiver
+            android:name=".ui.widget.SearchWidgetPinnedReceiver"
+            android:exported="false" />
+
     </application>
+
 
 </manifest>

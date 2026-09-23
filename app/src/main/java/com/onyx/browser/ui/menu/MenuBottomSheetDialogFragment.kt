@@ -95,6 +95,12 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
         // Default Browser Banner (under shortcuts, shown only if not default)
         setupDefaultBrowserBanner()
 
+        // Add Search Widget Button
+        binding.menuItemAddSearchWidget.setOnClickListener {
+            com.onyx.browser.ui.widget.SearchWidgetManager.requestPinSearchWidget(requireContext())
+            dismiss()
+        }
+
         // Settings Button (under default browser banner)
         binding.menuItemHomeSettings.setOnClickListener {
             startActivity(Intent(requireContext(), SettingsActivity::class.java))
@@ -178,6 +184,12 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
         // 5th: Add to Home screen
         binding.menuItemAddToHomeScreen.setOnClickListener {
             onAddToHomeScreenClicked?.invoke()
+            dismiss()
+        }
+
+        // Add Search Widget
+        binding.menuItemWebAddSearchWidget.setOnClickListener {
+            com.onyx.browser.ui.widget.SearchWidgetManager.requestPinSearchWidget(requireContext())
             dismiss()
         }
 

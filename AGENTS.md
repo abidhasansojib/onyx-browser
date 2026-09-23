@@ -740,3 +740,18 @@ onyx-browser/
     - Overrode `OnyxWebView.reload()` and `swipeRefreshLayout.setOnRefreshListener` to reload `failingUrl` whenever synthetic error state is active.
     - Created `getActivePageUrl()` helper in `MainActivity` to keep address bar, share, copy, and edit actions pointing to the true website URL even when displaying a custom error page.
   - **Verified CI/CD Execution**: GitHub Actions workflow run `#35891912158` completed successfully in 7m13s, publishing release [`v1.0.136`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.136) with optimized APKs: `Onyx-Browser-v1.0.136-arm64-v8a-release.apk` (19MB), `universal` (39MB), `armeabi-v7a` (16MB), and `x86_64` (21MB).
+- [x] **Chrome-Style Home Screen Search Bar Widget** (`SearchWidgetProvider.kt`, `SearchWidgetManager.kt`, `SearchWidgetPinnedReceiver.kt`, `widget_search_bar.xml`, `search_widget_info.xml`, `MainActivity.kt`, `SettingsActivity.kt`, `MenuBottomSheetDialogFragment.kt`):
+  - **4x1 Pill-Shaped Android AppWidget**: Authentic Chrome-style search bar widget featuring the active search engine logo on the left, "Search or type URL" text hint, voice search microphone button, and incognito mode (fedora & glasses) button.
+  - **Interactive Actions**:
+    - Tapping search pill or engine icon launches `MainActivity` directly into full-page search overlay mode with soft keyboard immediately focused for typing (`ACTION_WIDGET_SEARCH`).
+    - Tapping microphone launches voice search immediately (`ACTION_WIDGET_VOICE_SEARCH`).
+    - Tapping incognito button opens a new incognito tab and enters search mode (`ACTION_WIDGET_INCOGNITO_SEARCH`).
+  - **Dynamic Theme & Engine Synchronization**:
+    - Automatically adapts to launcher / system dark and light modes via `@color/widget_background`, `@color/widget_stroke`, and system-aware vector bitmap icon rendering.
+    - Synchronizes search engine logo in real-time across home screen widgets when search engine changes in `SettingsActivity`, `SearchEngineSettingsActivity`, or `MainActivity`.
+  - **One-Tap Home Screen Pinning**:
+    - Programmatic home screen pinning via `AppWidgetManager.requestPinAppWidget` (Android 8.0+ / API 26+) accessible from:
+      - 3-Dot Menu (`MenuBottomSheetDialogFragment` on homepage and webpage).
+      - Settings (`SettingsActivity` under Search Engine category).
+    - Graceful fallback guidance for OEM launchers without direct pinning support.
+
