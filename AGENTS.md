@@ -959,6 +959,15 @@ onyx-browser/
   - Removed Search Widget action row from under Search Engine in `activity_settings.xml` and from `activity_search_engine_settings.xml` / `SearchEngineSettingsActivity.kt`.
   - Moved `settingSearchWidgetRow` into the Accessibility category in `activity_settings.xml`, positioned directly above the Scroll to Top button (`settingScrollToTopRow`).
   - Wired click listener in `SettingsActivity.setupAccessibilitySettings()` to invoke `SearchWidgetManager.requestPinSearchWidget(this)`.
+- [x] **Remove Display Over Other Apps Row and Manage Permissions Directly via PiP Button (`activity_settings.xml`, `SettingsActivity.kt`)**:
+  - **Removed Redundant Setting**: Deleted `settingDisplayOverOtherAppsRow` from under Picture-in-Picture (PiP) in `activity_settings.xml`, eliminating UI clutter and consolidating system access under a single unified control.
+  - **Integrated PiP System Permission Management (`SettingsActivity.kt`)**:
+    - When user toggles Picture-in-Picture ON, checks system PiP permission (`AppOpsManager.OPSTR_PICTURE_IN_PICTURE` via `isPipPermissionAllowed()`).
+    - If system permission is not granted, prompts user with a Toast and guides them to Android's PiP settings (`android.settings.PICTURE_IN_PICTURE_SETTINGS` with overlay and application details fallback).
+    - Tracks `pendingPipEnable` across activity lifecycle and automatically synchronizes switch state in `onResume()`.
+    - Automatically syncs switch state if system PiP permission is revoked in system settings.
+    - Added long-press listener on `settingPipRow` to allow quick access to system PiP settings anytime without toggling the switch.
+
 
 
 
