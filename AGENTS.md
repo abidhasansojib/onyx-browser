@@ -797,6 +797,27 @@ onyx-browser/
     - Replaced legacy single-choice alert dialog with responsive bottom sheet modal.
     - Template cards with platform badges (DESKTOP, MOBILE, TABLET, BOT), device icons (`ic_desktop`, `ic_android`, `ic_phone`, `ic_tablet`, `ic_bot`), live string previews, and selection checkmarks.
     - Real-time re-application of selected User-Agent string to active WebViews upon returning to `MainActivity`.
+- [x] **Adblocker Filter Lists UI Redesign & Custom Filter Subscriptions (`ContentFiltersActivity.kt`, `AddFilterUrlBottomSheet.kt`, `CreateCustomFilterBottomSheet.kt`, `FilterListManager.kt`, `BrowserPreferences.kt`)**:
+  - **Removed Custom Filter Rules Button**: Completely removed redundant `rowCustomRules` entry from `Settings > Shields & Privacy` above the Ad Blocker Filter Lists.
+  - **Toolbar Logo & Auto-Update Interval Picker**:
+    - Replaced the text "UPDATE" button with an animated refresh logo icon (`ic_refresh`).
+    - **Single Tap**: Instantly triggers filter list updates (`updateAllFilters()`) across enabled lists and custom subscriptions with rotation feedback.
+    - **Click & Hold (Long Press)**: Opens a Material 3 dialog allowing selection of auto-update intervals: Every 6 hours, Every 12 hours, Every 1 day (24 hours), Every 3 days, Every 7 days (1 week).
+    - Subtitle dynamically displays the configured interval and last-updated timestamp (`Auto-update: Every 24h • Updated: Just now`).
+  - **Auto-Update & Category Simplification**:
+    - Auto-update is permanently enabled under the hood without needing a manual toggle switch.
+    - Removed horizontal category filter chips ("All", "Core", "Privacy", "Annoyances", "Social", "Regional") to eliminate visual clutter.
+  - **`+ Add filter via URL` Action**:
+    - Tonal action button launching `AddFilterUrlBottomSheet.kt` with Filter Name and Filter URL inputs, clipboard paste helper, and instant validation.
+    - Automatically downloads the external filter list, registers it in the UI list with a toggle switch and delete action, and recompiles the native adblock engine.
+  - **`Create custom filters` Action**:
+    - Tonal action button launching `CreateCustomFilterBottomSheet.kt` with Filter Name input and multiline monospace rule editor.
+    - Persists user-authored rules, registers them with a toggle switch, and enables direct tapping on the item to edit rules at any time.
+  - **Unified Custom Filter Architecture**:
+    - Custom filters (both URL-based subscriptions and manual rule sets) are displayed at the top with a distinct "CUSTOM" badge pill and delete button.
+    - Deletion triggers a confirmation dialog and cleans up cached rules and preferences.
+    - The search box (`etSearchFilter`) remains fully functional with instant real-time filtering across built-in and custom lists.
+
 
 
 

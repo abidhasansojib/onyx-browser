@@ -147,11 +147,6 @@ class ShieldsActivity : AppCompatActivity() {
     // ── CONTENT FILTERING ─────────────────────────────────────────────────────
 
     private fun setupContentFiltering() {
-        binding.rowCustomRules.setOnClickListener {
-            CustomRulesDialog.newInstance()
-                .show(supportFragmentManager, "custom_rules")
-        }
-
         binding.rowFilterLists.setOnClickListener {
             startActivity(Intent(this, ContentFiltersActivity::class.java))
         }

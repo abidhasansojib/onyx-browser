@@ -18,37 +18,47 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
+            app:contentInsetStartWithNavigation="0dp"
             app:navigationIcon="@drawable/ic_arrow_back"
-            app:navigationIconTint="?attr/colorControlNormal"
-            app:contentInsetStartWithNavigation="0dp">
+            app:navigationIconTint="?attr/colorControlNormal">
 
-            <TextView
-                android:id="@+id/tvTitle"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="start|center_vertical"
-                android:text="@string/content_filters_title"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="19sp"
-                android:textStyle="bold" />
+                android:orientation="vertical">
 
-            <TextView
+                <TextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/content_filters_title"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvSubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="11sp"
+                    tools:text="Auto-update: Every 24h • Updated: Just now" />
+            </LinearLayout>
+
+            <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/btnUpdateFilters"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:layout_gravity="end|center_vertical"
-                android:layout_marginEnd="16dp"
+                android:layout_marginEnd="12dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:clickable="true"
+                android:contentDescription="@string/action_update_filters"
                 android:focusable="true"
-                android:paddingStart="12dp"
-                android:paddingTop="8dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="8dp"
-                android:text="@string/action_update_filters"
-                android:textColor="@color/primary"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                app:srcCompat="@drawable/ic_refresh"
+                app:tint="@color/primary" />
         </com.google.android.material.appbar.MaterialToolbar>
 
         <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -71,133 +81,60 @@
             android:textColor="?android:attr/textColorSecondary"
             android:textSize="12sp"
             android:visibility="gone"
-            tools:text="Downloading list 1 of 5..." />
+            tools:text="Updating 1 of 5: EasyList" />
 
-        <!-- Auto-Update Toggle & Last Updated Header -->
+        <!-- Action Buttons: + Add filter via URL & Create custom filters -->
         <LinearLayout
-            android:id="@+id/cardAutoUpdate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
+            android:orientation="vertical"
             android:paddingStart="16dp"
-            android:paddingTop="12dp"
+            android:paddingTop="8dp"
             android:paddingEnd="16dp"
-            android:paddingBottom="12dp"
-            android:background="?attr/selectableItemBackground">
+            android:paddingBottom="4dp">
 
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="12dp"
-                android:orientation="vertical">
+            <!-- 1st Button: + Add filter via URL -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAddFilterViaUrl"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginBottom="6dp"
+                android:gravity="center_vertical|start"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="@string/action_add_filter_via_url"
+                android:textSize="13.5sp"
+                android:textStyle="bold"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/ic_link"
+                app:iconGravity="textStart"
+                app:iconPadding="10dp"
+                app:iconSize="18dp"
+                app:iconTint="@color/primary" />
 
-                <TextView
-                    android:id="@+id/tvAutoUpdateTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/filter_auto_update_title"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvAutoUpdateSubtitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="@string/filter_auto_update_desc"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:id="@+id/tvLastUpdated"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:textColor="@color/primary"
-                    android:textSize="12sp"
-                    tools:text="Last updated: Just now" />
-            </LinearLayout>
-
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/switchAutoUpdate"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:clickable="false"
-                android:focusable="false" />
+            <!-- 2nd Button: Create custom filters -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCreateCustomFilter"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginBottom="4dp"
+                android:gravity="center_vertical|start"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="@string/action_create_custom_filter"
+                android:textSize="13.5sp"
+                android:textStyle="bold"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/ic_edit"
+                app:iconGravity="textStart"
+                app:iconPadding="10dp"
+                app:iconSize="18dp"
+                app:iconTint="@color/primary" />
         </LinearLayout>
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="?attr/colorOutline"
-            android:alpha="0.15" />
-
-        <!-- Category Filter Chips -->
-        <HorizontalScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:scrollbars="none"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="4dp"
-            android:clipToPadding="false">
-
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/chipGroupCategories"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                app:singleSelection="true"
-                app:selectionRequired="true">
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipAll"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:checked="true"
-                    android:text="@string/filter_category_all" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipCore"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/filter_category_core" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipPrivacy"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/filter_category_privacy" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipAnnoyance"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/filter_category_annoyance" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipSocial"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/filter_category_social" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipRegional"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/filter_category_regional" />
-            </com.google.android.material.chip.ChipGroup>
-        </HorizontalScrollView>
-
+        <!-- Search Filters Input Box (Kept as requested) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -227,8 +164,8 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="?attr/colorOutline"
-            android:alpha="0.25" />
+            android:alpha="0.25"
+            android:background="?attr/colorOutline" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.recyclerview.widget.RecyclerView

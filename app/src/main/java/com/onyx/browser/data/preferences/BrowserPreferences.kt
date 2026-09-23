@@ -436,6 +436,52 @@ class BrowserPreferences private constructor(context: Context) {
         enabledFilterLists = current
     }
 
+    // ── Custom Filter Items (URL or Manual Rules) ───────────────────────────
+    fun getCustomFilters(): List<com.onyx.browser.data.filter.CustomFilterItem> {
+        val jsonString = prefs.getString(KEY_CUSTOM_FILTER_ITEMS, null) ?: return emptyList()
+        return try {
+            val jsonArray = JSONArray(jsonString)
+            val list = mutableListOf<com.onyx.browser.data.filter.CustomFilterItem>()
+            for (i in 0 until jsonArray.length()) {
+                list.add(com.onyx.browser.data.filter.CustomFilterItem.fromJson(jsonArray.getJSONObject(i)))
+            }
+            list
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveCustomFilters(filters: List<com.onyx.browser.data.filter.CustomFilterItem>) {
+        val jsonArray = JSONArray()
+        for (item in filters) {
+            jsonArray.put(item.toJson())
+        }
+        prefs.edit().putString(KEY_CUSTOM_FILTER_ITEMS, jsonArray.toString()).apply()
+    }
+
+    fun addCustomFilter(filter: com.onyx.browser.data.filter.CustomFilterItem) {
+        val list = getCustomFilters().toMutableList()
+        list.removeAll { it.id == filter.id }
+        list.add(0, filter)
+        saveCustomFilters(list)
+    }
+
+    fun updateCustomFilter(filter: com.onyx.browser.data.filter.CustomFilterItem) {
+        val list = getCustomFilters().toMutableList()
+        val index = list.indexOfFirst { it.id == filter.id }
+        if (index != -1) {
+            list[index] = filter
+            saveCustomFilters(list)
+        }
+    }
+
+    fun deleteCustomFilter(id: String) {
+        val list = getCustomFilters().toMutableList()
+        if (list.removeAll { it.id == id }) {
+            saveCustomFilters(list)
+        }
+    }
+
     // ── Custom Search Engines ────────────────────────────────────────────────
     fun getCustomSearchEngines(): List<SearchEngine> {
         val raw = prefs.getString(KEY_CUSTOM_SEARCH_ENGINES, null) ?: return emptyList()
@@ -591,6 +637,7 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_PASSKEYS_ENABLED = "pref_passkeys_enabled"
         const val KEY_FILTER_AUTO_UPDATE = "pref_filter_auto_update"
         const val KEY_FILTER_UPDATE_INTERVAL = "pref_filter_update_interval"
+        const val KEY_CUSTOM_FILTER_ITEMS = "pref_custom_filter_items"
         const val KEY_COOKIE_AUTOCLEAR = "pref_cookie_autoclear"
         const val KEY_BIOMETRIC_INCOGNITO = "pref_biometric_incognito"
         const val KEY_UA_SPOOF = "pref_ua_spoof"

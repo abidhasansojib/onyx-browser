@@ -16,12 +16,13 @@ import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
 import com.onyx.browser.data.filter.FilterListEntry
 import com.onyx.browser.data.filter.FilterListManager
+import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityContentFiltersBinding
 import com.onyx.browser.databinding.ItemContentFilterBinding
-import com.onyx.browser.data.preferences.BrowserPreferences
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -33,7 +34,6 @@ class ContentFiltersActivity : AppCompatActivity() {
     private lateinit var preferences: BrowserPreferences
     private var allLists: List<FilterListEntry> = emptyList()
     private var filteredLists: MutableList<FilterListEntry> = mutableListOf()
-    private var selectedCategory: String = "all"
     private var recompileJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,55 +66,95 @@ class ContentFiltersActivity : AppCompatActivity() {
         }
 
         preferences = BrowserPreferences.getInstance(this)
+        // Auto update is always enabled
+        preferences.isFilterAutoUpdateEnabled = true
+
         binding.toolbar.setNavigationOnClickListener { finish() }
 
-        allLists = FilterListManager.ALL_FILTER_LISTS
-        filteredLists = allLists.toMutableList()
-
-        adapter = ContentFilterAdapter(filteredLists)
-        binding.rvContentFilters.layoutManager = LinearLayoutManager(this)
-        binding.rvContentFilters.adapter = adapter
-
-        setupAutoUpdateCard()
-        setupCategoryChips()
-
+        // Setup update button (Logo): single tap updates, long click selects auto-update interval
         binding.btnUpdateFilters.setOnClickListener {
             performUpdateFilters()
+        }
+        binding.btnUpdateFilters.setOnLongClickListener {
+            showUpdateIntervalDialog()
+            true
+        }
+
+        // Action Buttons: + Add filter via URL & Create custom filters
+        binding.btnAddFilterViaUrl.setOnClickListener {
+            AddFilterUrlBottomSheet {
+                reloadLists()
+            }.show(supportFragmentManager, "add_filter_url")
+        }
+
+        binding.btnCreateCustomFilter.setOnClickListener {
+            CreateCustomFilterBottomSheet {
+                reloadLists()
+            }.show(supportFragmentManager, "create_custom_filter")
         }
 
         binding.etSearchFilter.doAfterTextChanged {
             applyFilter()
         }
+
+        adapter = ContentFilterAdapter(filteredLists)
+        binding.rvContentFilters.layoutManager = LinearLayoutManager(this)
+        binding.rvContentFilters.adapter = adapter
+
+        reloadLists()
     }
 
-    private fun setupAutoUpdateCard() {
-        binding.switchAutoUpdate.isChecked = preferences.isFilterAutoUpdateEnabled
-        updateLastUpdatedDisplay()
+    private fun reloadLists() {
+        allLists = FilterListManager.getAllLists(this)
+        applyFilter()
+        updateSubtitleDisplay()
+    }
 
-        binding.cardAutoUpdate.setOnClickListener {
-            val newState = !binding.switchAutoUpdate.isChecked
-            binding.switchAutoUpdate.isChecked = newState
-            preferences.isFilterAutoUpdateEnabled = newState
+    private fun updateSubtitleDisplay() {
+        val hours = preferences.filterAutoUpdateIntervalHours
+        val intervalLabel = when (hours) {
+            6 -> "Every 6h"
+            12 -> "Every 12h"
+            24 -> "Every 24h"
+            72 -> "Every 3 days"
+            168 -> "Every 7 days"
+            else -> "Every ${hours}h"
         }
-    }
-
-    private fun updateLastUpdatedDisplay() {
         val lastUpdated = FilterListManager.getLastUpdatedFormatted(this)
-        binding.tvLastUpdated.text = getString(R.string.filter_last_updated, lastUpdated)
+        binding.tvSubtitle.text = "Auto-update: $intervalLabel • Updated: $lastUpdated"
     }
 
-    private fun setupCategoryChips() {
-        binding.chipGroupCategories.setOnCheckedStateChangeListener { _, checkedIds ->
-            selectedCategory = when {
-                checkedIds.contains(R.id.chipCore) -> "core"
-                checkedIds.contains(R.id.chipPrivacy) -> "privacy"
-                checkedIds.contains(R.id.chipAnnoyance) -> "annoyance"
-                checkedIds.contains(R.id.chipSocial) -> "social"
-                checkedIds.contains(R.id.chipRegional) -> "regional"
-                else -> "all"
-            }
-            applyFilter()
+    private fun showUpdateIntervalDialog() {
+        val intervals = listOf(
+            6 to "Every 6 hours",
+            12 to "Every 12 hours",
+            24 to "Every 1 day (24 hours)",
+            72 to "Every 3 days",
+            168 to "Every 7 days (1 week)"
+        )
+        val currentHours = preferences.filterAutoUpdateIntervalHours
+        val currentIndex = intervals.indexOfFirst { it.first == currentHours }.let {
+            if (it >= 0) it else 2 // default to 24h
         }
+
+        val labels = intervals.map { it.second }.toTypedArray()
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.filter_auto_update_period_title)
+            .setSingleChoiceItems(labels, currentIndex) { dialog, which ->
+                val selectedHours = intervals[which].first
+                preferences.filterAutoUpdateIntervalHours = selectedHours
+                preferences.isFilterAutoUpdateEnabled = true
+                updateSubtitleDisplay()
+                Toast.makeText(
+                    this,
+                    "Auto-update set to ${intervals[which].second.lowercase()}",
+                    Toast.LENGTH_SHORT
+                ).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private fun applyFilter() {
@@ -122,13 +162,11 @@ class ContentFiltersActivity : AppCompatActivity() {
         filteredLists.clear()
 
         for (entry in allLists) {
-            val matchesCategory = selectedCategory == "all" ||
-                    entry.category.equals(selectedCategory, ignoreCase = true)
             val matchesQuery = query.isEmpty() ||
                     entry.title.lowercase().contains(query) ||
                     entry.subtitle.lowercase().contains(query)
 
-            if (matchesCategory && matchesQuery) {
+            if (matchesQuery) {
                 filteredLists.add(entry)
             }
         }
@@ -137,6 +175,7 @@ class ContentFiltersActivity : AppCompatActivity() {
 
     private fun performUpdateFilters() {
         binding.btnUpdateFilters.isEnabled = false
+        binding.btnUpdateFilters.animate().rotationBy(360f).setDuration(600).start()
         binding.progressUpdate.visibility = View.VISIBLE
         binding.tvUpdateStatus.visibility = View.VISIBLE
         binding.tvUpdateStatus.text = getString(R.string.updating_filters)
@@ -149,7 +188,7 @@ class ContentFiltersActivity : AppCompatActivity() {
             binding.btnUpdateFilters.isEnabled = true
             binding.progressUpdate.visibility = View.GONE
             binding.tvUpdateStatus.visibility = View.GONE
-            updateLastUpdatedDisplay()
+            updateSubtitleDisplay()
 
             if (result.isSuccess) {
                 val rulesCount = result.getOrNull() ?: 0
@@ -191,15 +230,68 @@ class ContentFiltersActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = items[position]
-            holder.itemBinding.tvFilterTitle.text = item.title
-            holder.itemBinding.tvFilterSubtitle.text = item.subtitle
+            val binding = holder.itemBinding
+
+            binding.tvFilterTitle.text = item.title
+            binding.tvFilterSubtitle.text = item.subtitle
+
+            // Custom Filter UI elements
+            if (item.isCustom) {
+                binding.tvCustomBadge.visibility = View.VISIBLE
+                binding.btnDeleteFilter.visibility = View.VISIBLE
+
+                binding.btnDeleteFilter.setOnClickListener {
+                    MaterialAlertDialogBuilder(this@ContentFiltersActivity)
+                        .setTitle(R.string.delete_custom_filter_title)
+                        .setMessage(getString(R.string.delete_custom_filter_confirm, item.title))
+                        .setPositiveButton(R.string.delete) { _, _ ->
+                            preferences.deleteCustomFilter(item.id)
+                            scheduleRecompile()
+                            reloadLists()
+                            Toast.makeText(
+                                this@ContentFiltersActivity,
+                                getString(R.string.custom_filter_deleted, item.title),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        .setNegativeButton(R.string.cancel, null)
+                        .show()
+                }
+
+                // If manual rule filter, tapping opens editor
+                if (!item.isUrlType) {
+                    binding.root.setOnClickListener {
+                        val existing = preferences.getCustomFilters().firstOrNull { it.id == item.id }
+                        CreateCustomFilterBottomSheet(existing) {
+                            reloadLists()
+                        }.show(supportFragmentManager, "edit_custom_filter")
+                    }
+                } else {
+                    binding.root.setOnClickListener {
+                        val newState = !binding.switchFilter.isChecked
+                        binding.switchFilter.isChecked = newState
+                        FilterListManager.setListEnabled(this@ContentFiltersActivity, item.id, newState)
+                        scheduleRecompile()
+                    }
+                }
+            } else {
+                binding.tvCustomBadge.visibility = View.GONE
+                binding.btnDeleteFilter.visibility = View.GONE
+
+                binding.root.setOnClickListener {
+                    val newState = !binding.switchFilter.isChecked
+                    binding.switchFilter.isChecked = newState
+                    FilterListManager.setListEnabled(this@ContentFiltersActivity, item.id, newState)
+                    scheduleRecompile()
+                }
+            }
 
             val isEnabled = FilterListManager.isListEnabled(this@ContentFiltersActivity, item.id)
-            holder.itemBinding.switchFilter.isChecked = isEnabled
+            binding.switchFilter.isChecked = isEnabled
 
-            holder.itemBinding.root.setOnClickListener {
-                val newState = !holder.itemBinding.switchFilter.isChecked
-                holder.itemBinding.switchFilter.isChecked = newState
+            // Ensure switch directly triggers toggle without triggering row click listener
+            binding.switchFilter.setOnClickListener {
+                val newState = binding.switchFilter.isChecked
                 FilterListManager.setListEnabled(this@ContentFiltersActivity, item.id, newState)
                 scheduleRecompile()
             }

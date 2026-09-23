@@ -316,7 +316,7 @@
 
     <!-- Content Filters Screen -->
     <string name="content_filters_title">Content filters</string>
-    <string name="action_update_filters">UPDATE</string>
+    <string name="action_update_filters">Update filters</string>
     <string name="search_filters_hint">Search filters…</string>
     <string name="updating_filters">Updating filter lists…</string>
     <string name="filters_updated">Content filters updated successfully (%1$d rules active)</string>
@@ -409,6 +409,36 @@
     <string name="custom_user_agent">Custom User-Agent</string>
     <string name="custom_ua_desc">Type or paste any custom User-Agent string to send to web servers:</string>
     <string name="apply_custom_ua">Apply Custom</string>
+
+    <!-- General Actions -->
+    <string name="delete">Delete</string>
+    <string name="update">Update</string>
+    <string name="paste_clipboard">Paste</string>
+
+    <!-- Content Filters & Custom Filters -->
+    <string name="action_add_filter_via_url">+ Add filter via URL</string>
+    <string name="action_create_custom_filter">Create custom filters</string>
+    <string name="filter_auto_update_period_title">Auto-update period</string>
+    <string name="add_filter_url_title">Add Filter via URL</string>
+    <string name="add_filter_url_desc">Subscribe to an external filter list via URL</string>
+    <string name="create_custom_filter_title">Create Custom Filter</string>
+    <string name="create_custom_filter_desc">Write custom Adblock/uBlock rules</string>
+    <string name="edit_custom_filter_title">Edit Custom Filter</string>
+    <string name="filter_name_hint">Filter Name</string>
+    <string name="filter_url_hint">Filter URL (https://…)</string>
+    <string name="filter_rules_hint">Enter filter rules (one per line)…</string>
+    <string name="add_filter_action">Add Filter</string>
+    <string name="save_filter_action">Save Filter</string>
+    <string name="filter_name_required">Filter name cannot be empty</string>
+    <string name="filter_url_invalid">Please enter a valid HTTP/HTTPS URL</string>
+    <string name="filter_rules_required">Rules cannot be empty</string>
+    <string name="filter_added_success">Filter \'%1$s\' added and compiled</string>
+    <string name="filter_added_download_pending">Filter \'%1$s\' added; download will retry</string>
+    <string name="custom_filter_saved">Custom filter \'%1$s\' saved</string>
+    <string name="custom_filter_deleted">Filter \'%1$s\' deleted</string>
+    <string name="delete_custom_filter_title">Delete Custom Filter</string>
+    <string name="delete_custom_filter_confirm">Are you sure you want to delete \'%1$s\'?</string>
+    <string name="filter_badge_custom">CUSTOM</string>
 </resources>
 
 

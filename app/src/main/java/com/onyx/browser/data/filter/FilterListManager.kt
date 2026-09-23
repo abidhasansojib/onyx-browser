@@ -18,7 +18,9 @@ data class FilterListEntry(
     val subtitle: String,
     val url: String,
     val category: String = "general",
-    val defaultEnabled: Boolean = false
+    val defaultEnabled: Boolean = false,
+    val isCustom: Boolean = false,
+    val isUrlType: Boolean = false
 )
 
 object FilterListManager {
@@ -569,12 +571,62 @@ object FilterListManager {
         )
     )
 
+    fun getAllLists(context: Context): List<FilterListEntry> {
+        val prefs = BrowserPreferences.getInstance(context)
+        val customEntries = prefs.getCustomFilters().map { item ->
+            val subtitle = if (item.isUrlType) {
+                item.url
+            } else {
+                val lines = item.rules.lineSequence().count { it.isNotBlank() && !it.startsWith("!") && !it.startsWith("[") }
+                "$lines custom rules"
+            }
+            FilterListEntry(
+                id = item.id,
+                title = item.name,
+                subtitle = subtitle,
+                url = item.url,
+                category = "custom",
+                defaultEnabled = item.isEnabled,
+                isCustom = true,
+                isUrlType = item.isUrlType
+            )
+        }
+        return customEntries + ALL_FILTER_LISTS
+    }
+
     fun isListEnabled(context: Context, id: String): Boolean {
-        return BrowserPreferences.getInstance(context).isFilterListEnabled(id)
+        val prefs = BrowserPreferences.getInstance(context)
+        if (id.startsWith("custom_")) {
+            return prefs.getCustomFilters().firstOrNull { it.id == id }?.isEnabled ?: false
+        }
+        return prefs.isFilterListEnabled(id)
     }
 
     fun setListEnabled(context: Context, id: String, enabled: Boolean) {
-        BrowserPreferences.getInstance(context).setFilterListEnabled(id, enabled)
+        val prefs = BrowserPreferences.getInstance(context)
+        if (id.startsWith("custom_")) {
+            val filters = prefs.getCustomFilters().toMutableList()
+            val index = filters.indexOfFirst { it.id == id }
+            if (index != -1) {
+                filters[index] = filters[index].copy(isEnabled = enabled)
+                prefs.saveCustomFilters(filters)
+            }
+        } else {
+            prefs.setFilterListEnabled(id, enabled)
+        }
+    }
+
+    suspend fun downloadCustomFilter(context: Context, item: CustomFilterItem): Boolean = withContext(Dispatchers.IO) {
+        if (!item.isUrlType || item.url.isBlank()) return@withContext true
+        try {
+            val cacheDir = getCacheDir(context)
+            val targetFile = File(cacheDir, "${item.id}.txt")
+            downloadFilterList(item.url, targetFile)
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed downloading custom filter ${item.name}: ${e.message}")
+            false
+        }
     }
 
     private fun getCacheDir(context: Context): File {
@@ -591,20 +643,35 @@ object FilterListManager {
         onProgress: (current: Int, total: Int, name: String) -> Unit
     ): Result<Int> = withContext(Dispatchers.IO) {
         val prefs = BrowserPreferences.getInstance(context)
-        val enabledLists = ALL_FILTER_LISTS.filter { prefs.isFilterListEnabled(it.id) }
+        val enabledBuiltIn = ALL_FILTER_LISTS.filter { prefs.isFilterListEnabled(it.id) }
+        val enabledCustomUrl = prefs.getCustomFilters().filter { it.isUrlType && it.isEnabled }
         val cacheDir = getCacheDir(context)
 
         var downloadedCount = 0
-        val totalToDownload = enabledLists.size
+        val totalToDownload = enabledBuiltIn.size + enabledCustomUrl.size
+        var currentIndex = 0
 
-        for ((index, entry) in enabledLists.withIndex()) {
-            onProgress(index + 1, totalToDownload, entry.title)
+        for (entry in enabledBuiltIn) {
+            currentIndex++
+            onProgress(currentIndex, totalToDownload, entry.title)
             try {
                 val targetFile = File(cacheDir, "${entry.id}.txt")
                 downloadFilterList(entry.url, targetFile)
                 downloadedCount++
             } catch (e: Exception) {
                 Log.w(TAG, "Failed downloading filter list ${entry.id}: ${e.message}")
+            }
+        }
+
+        for (custom in enabledCustomUrl) {
+            currentIndex++
+            onProgress(currentIndex, totalToDownload, custom.name)
+            try {
+                val targetFile = File(cacheDir, "${custom.id}.txt")
+                downloadFilterList(custom.url, targetFile)
+                downloadedCount++
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed downloading custom filter ${custom.name}: ${e.message}")
             }
         }
 
@@ -653,7 +720,25 @@ object FilterListManager {
                 }
             }
 
-            // 3. User custom filter rules
+            // 2b. Enabled custom filter lists (URL & Manual Rules)
+            val customFilters = prefs.getCustomFilters().filter { it.isEnabled }
+            for (custom in customFilters) {
+                if (custom.isUrlType) {
+                    val cachedFile = File(cacheDir, "${custom.id}.txt")
+                    if (cachedFile.exists() && cachedFile.length() > 0) {
+                        try {
+                            val text = cachedFile.readText()
+                            sb.append("\n! Custom URL List: ").append(custom.name).append("\n")
+                            sb.append(text).append("\n")
+                        } catch (_: Exception) {}
+                    }
+                } else if (custom.rules.isNotBlank()) {
+                    sb.append("\n! Custom Rule Set: ").append(custom.name).append("\n")
+                    sb.append(custom.rules).append("\n")
+                }
+            }
+
+            // 3. User custom filter rules (legacy)
             val customRules = prefs.customFilterRules
             if (customRules.isNotBlank()) {
                 sb.append("\n! User Custom Rules\n")
