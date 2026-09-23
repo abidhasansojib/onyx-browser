@@ -121,6 +121,9 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_PIP_PLAY_PAUSE = "com.onyx.browser.action.PIP_PLAY_PAUSE"
         const val ACTION_PIP_REWIND = "com.onyx.browser.action.PIP_REWIND"
         const val ACTION_PIP_FORWARD = "com.onyx.browser.action.PIP_FORWARD"
+        const val ACTION_WIDGET_SEARCH = "com.onyx.browser.action.WIDGET_SEARCH"
+        const val ACTION_WIDGET_VOICE_SEARCH = "com.onyx.browser.action.WIDGET_VOICE_SEARCH"
+        const val ACTION_WIDGET_INCOGNITO_SEARCH = "com.onyx.browser.action.WIDGET_INCOGNITO_SEARCH"
     }
 
     private val pipReceiver = object : BroadcastReceiver() {
@@ -2564,11 +2567,5 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
         MediaPlaybackService.mediaActionListener = null
         tabManager.clearAllWebViews()
-    }
-
-    companion object {
-        const val ACTION_WIDGET_SEARCH = "com.onyx.browser.action.WIDGET_SEARCH"
-        const val ACTION_WIDGET_VOICE_SEARCH = "com.onyx.browser.action.WIDGET_VOICE_SEARCH"
-        const val ACTION_WIDGET_INCOGNITO_SEARCH = "com.onyx.browser.action.WIDGET_INCOGNITO_SEARCH"
     }
 }
