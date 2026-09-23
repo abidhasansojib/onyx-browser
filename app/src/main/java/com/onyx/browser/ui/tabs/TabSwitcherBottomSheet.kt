@@ -186,7 +186,7 @@ class TabSwitcherBottomSheet(
         }
     }
 
-    private fun refreshTabsList() {
+    fun refreshTabsList() {
         val list = if (isViewingIncognito) {
             tabManager.incognitoTabs.value
         } else {

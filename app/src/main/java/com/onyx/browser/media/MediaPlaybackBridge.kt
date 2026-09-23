@@ -10,7 +10,7 @@ import com.onyx.browser.data.preferences.BrowserPreferences
  * JavaScript interface that bridges HTML5 video/audio events, playback positions,
  * and Web MediaSession metadata to Android's MediaPlaybackService and PiP manager.
  */
-class MediaPlaybackBridge(private val context: Context) {
+class MediaPlaybackBridge(private val context: Context, private val webView: android.webkit.WebView? = null) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val preferences = BrowserPreferences.getInstance(context)
@@ -34,6 +34,7 @@ class MediaPlaybackBridge(private val context: Context) {
         @Volatile var lastVideoBounds: android.graphics.RectF? = null
 
         var onMediaStateListener: ((isPlaying: Boolean, isVideo: Boolean, width: Int, height: Int) -> Unit)? = null
+        var onMediaPlaybackStartedListener: ((playingWebView: android.webkit.WebView) -> Unit)? = null
         var onVideoBoundsListener: ((left: Float, top: Float, right: Float, bottom: Float) -> Unit)? = null
         var onPipRequestedListener: (() -> Unit)? = null
         var onPipExitListener: (() -> Unit)? = null
@@ -92,6 +93,9 @@ class MediaPlaybackBridge(private val context: Context) {
 
         mainHandler.post {
             onMediaStateListener?.invoke(isPlaying, isVideo, lastVideoWidth, lastVideoHeight)
+            if (isPlaying && webView != null) {
+                onMediaPlaybackStartedListener?.invoke(webView)
+            }
             if (preferences.isBackgroundPlayEnabled && isPlaying) {
                 MediaPlaybackService.start(
                     context,
@@ -132,6 +136,9 @@ class MediaPlaybackBridge(private val context: Context) {
 
         mainHandler.post {
             onMediaStateListener?.invoke(true, isVideo, lastVideoWidth, lastVideoHeight)
+            if (webView != null) {
+                onMediaPlaybackStartedListener?.invoke(webView)
+            }
             if (preferences.isBackgroundPlayEnabled) {
                 MediaPlaybackService.start(
                     context,

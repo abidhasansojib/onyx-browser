@@ -657,4 +657,37 @@ onyx-browser/
   - **CSS Styling & Layout Preservation**: Injected styles into pages to hide Google banner frames (`.goog-te-banner-frame`), balloon tooltips, and prevent body margin shifts (`body { top: 0px !important; }`).
   - **Adblock & Security Whitelisting**: Whitelisted `translate.google.com` and `translate.googleapis.com` in [`OnyxWebViewClient.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebViewClient.kt) so translation resources are never blocked by shield lists.
 
+- [x] **FIX 1 — Image Reverse Search URL Fixes & New Engines** (`ImageSearchPickerSheet.kt`, `bottom_sheet_image_search.xml`):
+  - Fixed TinEye URL: added required trailing slash → `https://tineye.com/search/?url=`.
+  - Fixed Bing Visual Search URL: added required `FORM=SBIIDP` parameter.
+  - Added **SauceNAO** engine: `https://saucenao.com/search.php?url=` (anime & illustration search).
+  - Added **ASCII2D** engine: `https://ascii2d.net/search/url/` (manga & artwork search).
+  - Updated layout `bottom_sheet_image_search.xml` with SauceNAO and ASCII2D card entries.
 
+- [x] **FIX 2 — Open in New Tab switches to new tab** (`MainActivity.kt`):
+  - Rewrote `openUrlInNewTab` to explicitly call `tabManager.selectTab(newTab)`, set `currentDisplayedTabId`, and call `showWebView(newTab, forceUrl=url, reloadIfChanged=true)` — preventing a race where the StateFlow observer could fire first with a stale `currentDisplayedTabId`.
+
+- [x] **FIX 3 — Screen wake lock when video is playing** (`MainActivity.kt`):
+  - In `setupMediaPlaybackListener()`: `onMediaStateListener` now calls `window.addFlags(FLAG_KEEP_SCREEN_ON)` when `isVideo && isPlaying`, and `window.clearFlags` when `!isPlaying` (skipped if in PiP mode).
+  - In `onResume()`: Restores `FLAG_KEEP_SCREEN_ON` if `MediaPlaybackBridge.isVideoPlaying` is true when the activity resumes from background.
+
+- [x] **FIX 4 — Fullscreen stuck / webView not visible after PiP/fullscreen exit** (`MainActivity.kt`):
+  - Added `wasShowingWebViewBeforePip: Boolean` field to track WebView visibility before entering PiP.
+  - Set the field when entering PiP in `onPictureInPictureModeChanged`.
+  - On PiP exit, restores `webViewContainer` + `homeLayout` visibility based on `wasShowingWebViewBeforePip` and the active tab's URL state — replacing the stale `homeLayout.root.visibility` check that always read `GONE` (the value forced when entering PiP).
+
+- [x] **FIX 5 — Translation 'Original' button reliability** (`PageTranslateManager.kt`, `LanguageSelectionDialog.kt`):
+  - Replaced single-strategy `restoreOriginalScript` with a robust 4-step cascade:
+    1. Clears `googtrans` cookies for root and domain paths.
+    2. Tries `.goog-te-combo` combo element (set to empty / show original), with 1s verification + auto-reload.
+    3. Scans all iframes for a button whose text contains "original" or "restore" and clicks it.
+    4. Falls back to removing all injected translate elements (`onyx_translate_element`, `__onyx_translate_script`, `__onyx_translate_style`) and reloading the page.
+  - Expanded `LanguageSelectionDialog` from 20 to 44 supported languages (added Swedish, Danish, Finnish, Norwegian, Czech, Slovak, Romanian, Hungarian, Greek, Hebrew, Persian, Urdu, Malay, Filipino, Ukrainian, Bulgarian, Croatian, Serbian, Catalan, Lithuanian, Latvian, Estonian, Afrikaans, Swahili).
+
+- [x] **FIX 6 — Domain-type suggestions look different** (`SearchSuggestion.kt`, `SearchSuggestionRepository.kt`, `SuggestionsAdapter.kt`):
+  - Added `isDomain: Boolean` and `isUrl: Boolean` fields to `SearchSuggestion` data class.
+  - `SearchSuggestionRepository` marks remote suggestions containing a dot and no spaces (but not starting with http/https) as `isDomain = true`.
+  - `SuggestionsAdapter.bind()` now renders domain/URL suggestions with a globe icon (`ic_web`) and the full URL as subtext — matching Chrome's visual style.
+
+- [x] **FIX 7 — Back navigation improvements** (`MainActivity.kt`):
+  - Added PiP mode check at the top of `setupBackNavigation` callback: when `isInPictureInPictureMode` is true, the callback temporarily disables itself and re-dispatches the back press so the system handles PiP dismissal rather than the browser intercepting it.

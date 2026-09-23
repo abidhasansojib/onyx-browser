@@ -13,7 +13,12 @@ import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-class SearchSuggestionRepository(private val historyDao: HistoryDao) {
+import com.onyx.browser.data.local.BookmarkDao
+
+class SearchSuggestionRepository(
+    private val historyDao: HistoryDao,
+    private val bookmarkDao: BookmarkDao
+) {
 
     // In-memory result cache keyed by (trimmed_query|engine_id).
     // Prevents flicker when the user repositions the cursor without changing text.
@@ -35,17 +40,39 @@ class SearchSuggestionRepository(private val historyDao: HistoryDao) {
         val results = mutableListOf<SearchSuggestion>()
         val seenKeys = mutableSetOf<String>()
 
-        // 1. Local history first (max 3 items, deduplicated by domain)
+        // 1. Local bookmarks first (max 2 items)
+        try {
+            val bookmarkMatches = bookmarkDao.searchBookmarks(trimmed, limit = 2)
+            for (item in bookmarkMatches) {
+                val norm = normalizeUrl(item.url)
+                if (seenKeys.add(norm)) {
+                    val isHttpUrl = item.url.startsWith("http://") || item.url.startsWith("https://")
+                    results.add(
+                        SearchSuggestion(
+                            title = item.title.ifBlank { item.url },
+                            queryOrUrl = item.url,
+                            isBookmark = true,
+                            isUrl = isHttpUrl
+                        )
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 2. Local history (max 3 items total with bookmarks)
+
         try {
             val historyMatches = historyDao.searchHistory(trimmed, limit = 5)
             for (item in historyMatches) {
                 val norm = normalizeUrl(item.url)
                 if (seenKeys.add(norm)) {
+                    val isHttpUrl = item.url.startsWith("http://") || item.url.startsWith("https://")
                     results.add(
                         SearchSuggestion(
                             title = item.title.ifBlank { item.url },
                             queryOrUrl = item.url,
-                            isHistory = true
+                            isHistory = true,
+                            isUrl = isHttpUrl
                         )
                     )
                     if (results.size >= 3) break
@@ -53,18 +80,21 @@ class SearchSuggestionRepository(private val historyDao: HistoryDao) {
             }
         } catch (_: Exception) {}
 
-        // 2. Remote suggestions to fill up to 10 total
+        // 3. Remote suggestions to fill up to 10 total
         val remoteNeeded = 10 - results.size
         if (remoteNeeded > 0) {
             val remote = fetchRemoteSuggestions(trimmed, engine)
             for (item in remote) {
                 val norm = item.lowercase().trim()
                 if (seenKeys.add(norm)) {
+                    val looksLikeDomain = !item.contains(" ") && item.contains(".") &&
+                        !item.startsWith("http://") && !item.startsWith("https://")
                     results.add(
                         SearchSuggestion(
                             title = item,
                             queryOrUrl = item,
-                            isHistory = false
+                            isHistory = false,
+                            isDomain = looksLikeDomain
                         )
                     )
                     if (results.size >= 10) break

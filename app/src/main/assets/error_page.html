@@ -7,53 +7,31 @@
   <style>
     :root {
       --bg: #FFFFFF;
-      --surface: #F8F9FA;
-      --surface-variant: #F1F3F4;
-      --border: #DFE1E5;
       --text-main: #202124;
       --text-sub: #5F6368;
       --primary: #1A73E8;
-      --primary-hover: #1557B0;
       --primary-text: #FFFFFF;
-      --secondary-bg: #FFFFFF;
-      --secondary-border: #DADCE0;
-      --secondary-text: #1A73E8;
-      --badge-bg: #E8F0FE;
-      --badge-text: #1967D2;
-      --danger-bg: #FCE8E6;
-      --danger-text: #D93025;
-      --danger-pill: #D93025;
-      --warning-bg: #FEF7E0;
-      --warning-text: #B06000;
-      --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
-      --shadow-md: 0 4px 14px rgba(0,0,0,0.08);
-      --glow-color: rgba(26, 115, 232, 0.12);
+      --border: #DADCE0;
+      --surface: #F8F9FA;
+      --danger: #D93025;
+      --icon-color: #5F6368;
+      --btn-bg: #FFFFFF;
+      --btn-hover: #F1F3F4;
     }
 
     @media (prefers-color-scheme: dark) {
       :root {
         --bg: #202124;
-        --surface: #303134;
-        --surface-variant: #35363A;
-        --border: #3C4043;
         --text-main: #E8EAED;
         --text-sub: #9AA0A6;
         --primary: #8AB4F8;
-        --primary-hover: #AECBFA;
         --primary-text: #202124;
-        --secondary-bg: #303134;
-        --secondary-border: #3C4043;
-        --secondary-text: #8AB4F8;
-        --badge-bg: #1E2B42;
-        --badge-text: #8AB4F8;
-        --danger-bg: #3C1E1E;
-        --danger-text: #F28B82;
-        --danger-pill: #F28B82;
-        --warning-bg: #3B2E1E;
-        --warning-text: #FDD663;
-        --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);
-        --shadow-md: 0 4px 16px rgba(0,0,0,0.35);
-        --glow-color: rgba(138, 180, 248, 0.12);
+        --border: #3C4043;
+        --surface: #303134;
+        --danger: #F28B82;
+        --icon-color: #9AA0A6;
+        --btn-bg: #303134;
+        --btn-hover: #3C4043;
       }
     }
 
@@ -62,7 +40,7 @@
       margin: 0;
       padding: 0;
       -webkit-tap-highlight-color: transparent;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Google Sans", "Segoe UI", Roboto, sans-serif;
     }
 
     body {
@@ -73,504 +51,176 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      padding: 32px 20px;
+      padding: 40px 24px;
       text-align: center;
     }
 
-    .container {
-      width: 100%;
-      max-width: 460px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    .error-icon {
+      width: 72px;
+      height: 72px;
+      margin-bottom: 24px;
+      color: var(--icon-color);
     }
 
-    /* Status Glow & Icon Container */
-    .hero-visual {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
+    .error-icon.danger { color: var(--danger); }
 
-    .pulse-glow {
-      position: absolute;
-      width: 110px;
-      height: 110px;
-      border-radius: 50%;
-      background: var(--glow-color);
-      filter: blur(14px);
-      z-index: 1;
-      pointer-events: none;
-    }
-
-    .icon-wrapper {
-      position: relative;
-      z-index: 2;
-      width: 76px;
-      height: 76px;
-      border-radius: 22px;
-      background-color: var(--surface);
-      border: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: var(--shadow-sm);
-      transition: transform 0.2s ease;
-    }
-
-    .icon-wrapper svg {
-      width: 38px;
-      height: 38px;
-      stroke: var(--primary);
-      fill: none;
-      stroke-width: 2.2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    .icon-wrapper.danger {
-      background-color: var(--danger-bg);
-      border-color: transparent;
-    }
-    .icon-wrapper.danger svg {
-      stroke: var(--danger-text);
-    }
-
-    .icon-wrapper.warning {
-      background-color: var(--warning-bg);
-      border-color: transparent;
-    }
-    .icon-wrapper.warning svg {
-      stroke: var(--warning-text);
-    }
-
-    /* Diagnostics Category Pill */
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 12px;
-      border-radius: 20px;
-      background-color: var(--badge-bg);
-      color: var(--badge-text);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.6px;
-      text-transform: uppercase;
-      margin-bottom: 12px;
-    }
-
-    .status-badge .indicator-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background-color: currentColor;
-    }
-
-    /* Typography */
-    h1.title {
-      font-size: 21px;
-      font-weight: 700;
-      line-height: 1.35;
-      margin-bottom: 8px;
+    h1 {
+      font-size: 20px;
+      font-weight: 500;
+      line-height: 1.4;
       color: var(--text-main);
+      margin-bottom: 12px;
+      max-width: 320px;
     }
 
-    p.description {
+    p {
       font-size: 14px;
-      line-height: 1.55;
+      line-height: 1.6;
       color: var(--text-sub);
-      margin-bottom: 24px;
-      max-width: 380px;
+      margin-bottom: 32px;
+      max-width: 320px;
     }
 
-    /* Troubleshooting Card */
-    .checklist-card {
-      width: 100%;
-      background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px 18px;
-      text-align: left;
-      margin-bottom: 24px;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .checklist-card-header {
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-sub);
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .checklist-card-header svg {
-      width: 15px;
-      height: 15px;
-      stroke: var(--text-sub);
-    }
-
-    .checklist-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      font-size: 13px;
-      line-height: 1.5;
-      color: var(--text-main);
-      margin-bottom: 10px;
-    }
-
-    .checklist-item:last-child {
-      margin-bottom: 0;
-    }
-
-    .checklist-bullet {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background-color: var(--primary);
-      margin-top: 7px;
-      flex-shrink: 0;
-    }
-
-    /* Primary & Secondary Action Buttons */
-    .action-group {
-      width: 100%;
+    .actions {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 12px;
+      width: 100%;
+      max-width: 320px;
     }
 
     .btn {
       width: 100%;
-      height: 46px;
-      border-radius: 23px;
+      height: 40px;
+      border-radius: 20px;
       font-size: 14px;
-      font-weight: 600;
-      display: inline-flex;
+      font-weight: 500;
+      display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
       cursor: pointer;
-      border: none;
+      border: 1px solid var(--border);
       outline: none;
-      transition: background-color 0.15s ease, transform 0.1s ease;
-      user-select: none;
+      background: var(--btn-bg);
+      color: var(--primary);
+      transition: background 0.15s;
+      letter-spacing: 0.01em;
     }
 
-    .btn:active {
-      transform: scale(0.98);
-    }
+    .btn:active { background: var(--btn-hover); }
 
     .btn-primary {
-      background-color: var(--primary);
+      background: var(--primary);
       color: var(--primary-text);
-      box-shadow: var(--shadow-sm);
+      border-color: transparent;
     }
 
-    .btn-primary:active {
-      background-color: var(--primary-hover);
-    }
+    .btn-primary:active { opacity: 0.85; }
 
-    .btn-secondary {
-      background-color: var(--secondary-bg);
-      color: var(--secondary-text);
-      border: 1px solid var(--secondary-border);
-    }
-
-    .btn-secondary:active {
-      background-color: var(--surface-variant);
-    }
-
-    /* Technical Diagnostics Accordion */
-    .technical-drawer {
-      width: 100%;
-      margin-top: 6px;
-    }
-
-    .accordion-toggle {
-      background: none;
-      border: none;
-      color: var(--primary);
+    .domain-chip {
+      display: inline-block;
       font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 6px 12px;
-      border-radius: 12px;
-    }
-
-    .accordion-toggle:active {
-      background-color: var(--surface-variant);
-    }
-
-    .accordion-toggle svg {
-      width: 14px;
-      height: 14px;
-      stroke: currentColor;
-      transition: transform 0.2s ease;
-    }
-
-    .accordion-toggle.expanded svg {
-      transform: rotate(180deg);
-    }
-
-    .technical-content {
-      display: none;
-      width: 100%;
-      background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
-      margin-top: 10px;
-      text-align: left;
-      font-size: 12px;
-      line-height: 1.5;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    }
-
-    .technical-content.show {
-      display: block;
-    }
-
-    .tech-row {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin-bottom: 8px;
-    }
-
-    .tech-row:last-child {
-      margin-bottom: 0;
-    }
-
-    .tech-label {
       color: var(--text-sub);
-      font-size: 10px;
-      text-transform: uppercase;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-    }
-
-    .tech-val {
-      color: var(--text-main);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 3px 10px;
+      margin-bottom: 16px;
       word-break: break-all;
+      max-width: 300px;
     }
 
-    .btn-copy-tech {
-      margin-top: 8px;
-      background: var(--surface-variant);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-main);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .btn-copy-tech:active {
-      background: var(--border);
-    }
-
-    /* SSL Advanced Controls */
-    .ssl-advanced-box {
+    /* SSL advanced section */
+    .ssl-box {
       display: none;
-      width: 100%;
-      background-color: var(--surface);
+      margin-top: 16px;
+      padding: 16px;
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
-      margin-top: 12px;
+      border-radius: 12px;
+      background: var(--surface);
+      font-size: 13px;
+      color: var(--text-sub);
       text-align: left;
-      font-size: 12px;
-      line-height: 1.5;
+      max-width: 320px;
     }
 
-    .ssl-proceed-link {
-      color: var(--danger-pill);
+    .ssl-proceed {
+      color: var(--danger);
       text-decoration: underline;
       cursor: pointer;
-      font-weight: 600;
-      display: inline-block;
-      margin-top: 8px;
-    }
-
-    .toast {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background-color: var(--surface);
-      color: var(--text-main);
-      border: 1px solid var(--border);
-      padding: 8px 16px;
-      border-radius: 20px;
       font-size: 13px;
-      font-weight: 500;
-      box-shadow: var(--shadow-md);
-      opacity: 0;
-      transition: transform 0.25s ease, opacity 0.25s ease;
-      z-index: 999;
-      pointer-events: none;
+      margin-top: 10px;
+      display: inline-block;
     }
 
-    .toast.show {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
+    .hsts-notice {
+      color: var(--danger);
+      font-weight: 500;
+      font-size: 13px;
+      margin-top: 8px;
     }
   </style>
 </head>
 <body>
+  <svg id="errorIcon" class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Default: wifi-off icon, replaced by JS -->
+    <line x1="1" y1="1" x2="23" y2="23"/>
+    <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+    <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+    <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+    <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+    <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+    <line x1="12" y1="20" x2="12.01" y2="20"/>
+  </svg>
 
-  <div class="container">
-    <!-- Visual Indicator & Glowing Aura -->
-    <div class="hero-visual">
-      <div class="pulse-glow" id="pulseGlow"></div>
-      <div class="icon-wrapper" id="iconWrapper">
-        <svg id="iconSvg" viewBox="0 0 24 24"></svg>
-      </div>
-    </div>
+  <div id="domainChip" class="domain-chip" style="display:none;"></div>
+  <h1 id="errorTitle">Page not available</h1>
+  <p id="errorDesc">Couldn't connect to this site.</p>
 
-    <!-- Category Pill Badge -->
-    <div class="status-badge" id="statusBadge">
-      <span class="indicator-dot"></span>
-      <span id="statusCategoryText">NETWORK OFFLINE</span>
-    </div>
-
-    <!-- Title & Description -->
-    <h1 class="title" id="errorTitle">Page Not Available</h1>
-    <p class="description" id="errorDesc">Could not establish a connection to the server.</p>
-
-    <!-- Troubleshooting Checklist Card -->
-    <div class="checklist-card" id="checklistCard">
-      <div class="checklist-card-header">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="16" x2="12" y2="12"></line>
-          <line x1="12" y1="8" x2="12.01" y2="8"></line>
-        </svg>
-        <span>Troubleshooting Steps</span>
-      </div>
-      <div id="checklistItems"></div>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="action-group">
-      <button class="btn btn-primary" id="btnPrimary">
-        <svg id="btnPrimaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-        </svg>
-        <span id="btnPrimaryText">Try Again</span>
-      </button>
-
-      <button class="btn btn-secondary" id="btnSecondary">
-        <svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-        <span id="btnSecondaryText">Network Settings</span>
-      </button>
-    </div>
-
-    <!-- SSL Advanced Disclosure -->
-    <div class="ssl-advanced-box" id="sslAdvancedBox">
-      <div style="font-weight:700;margin-bottom:4px;color:var(--danger-text);">Security Warning</div>
-      <div id="sslDetailsMsg" style="margin-bottom:8px;color:var(--text-sub);">An invalid security certificate was presented by the remote server.</div>
-      <div id="hstsLockMessage" style="display:none;color:var(--danger-text);font-weight:600;margin-bottom:6px;">This website enforces HTTP Strict Transport Security (HSTS). You cannot bypass this security warning.</div>
-      <span class="ssl-proceed-link" id="btnProceedSsl">Proceed to destination (unsafe)</span>
-    </div>
-
-    <!-- Technical Details Accordion -->
-    <div class="technical-drawer">
-      <button class="accordion-toggle" id="btnToggleAccordion">
-        <span>Technical Details</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      </button>
-
-      <div class="technical-content" id="technicalContent">
-        <div class="tech-row">
-          <span class="tech-label">Error Code</span>
-          <span class="tech-val" id="techErrorCode">net::ERR_INTERNET_DISCONNECTED</span>
-        </div>
-        <div class="tech-row">
-          <span class="tech-label">Requested URL</span>
-          <span class="tech-val" id="techUrl">https://example.com</span>
-        </div>
-        <div class="tech-row">
-          <span class="tech-label">Diagnostic Timestamp</span>
-          <span class="tech-val" id="techTime">--</span>
-        </div>
-        <div class="tech-row" id="techDetailsRow" style="display:none;">
-          <span class="tech-label">Details</span>
-          <span class="tech-val" id="techExtraDetails">--</span>
-        </div>
-        <button class="btn-copy-tech" id="btnCopyDiagnostics">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-          </svg>
-          Copy Diagnostics
-        </button>
-      </div>
-    </div>
+  <div class="actions">
+    <button class="btn btn-primary" id="btnPrimary">Try again</button>
+    <button class="btn" id="btnSecondary">Network settings</button>
   </div>
 
-  <div class="toast" id="toast">Copied to clipboard</div>
+  <div class="ssl-box" id="sslBox">
+    <div id="sslMsg"></div>
+    <div id="hstsNotice" class="hsts-notice" style="display:none;">Your network operator may be monitoring your connection. You cannot bypass this security warning.</div>
+    <span class="ssl-proceed" id="btnProceedSsl">Proceed to site (unsafe)</span>
+  </div>
 
   <script>
+    // ── Icon paths ─────────────────────────────────────────────────────────────
     const ICONS = {
-      WIFI_OFF: '<line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>',
-      SHIELD_DANGER: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>',
-      SERVER_OFF: '<rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line><line x1="1" y1="1" x2="23" y2="23"></line>',
-      SHIELD_CHECK: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline>',
-      FILE_ALERT: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="12" y1="9" x2="12.01" y2="9"></line>',
-      ALERT_CIRCLE: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>',
-      ARCHIVE: '<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>',
-      SETTINGS: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>'
+      wifi_off: `<line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>`,
+      shield_off: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>`,
+      cloud_off: `<path d="M18.36 14a2 2 0 0 0 .3-1.11A4 4 0 0 0 11.5 10m0 0A5 5 0 0 0 6 15H5a3 3 0 0 0 0 6h13a3 3 0 0 0 0-6h-2"/><line x1="1" y1="1" x2="23" y2="23"/>`,
+      file_x: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="10" y1="13" x2="16" y2="13"/><line x1="10" y1="17" x2="16" y2="17"/><line x1="10" y1="9" x2="12" y2="9"/>`,
+      alert_triangle: `<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`,
+      lock: `<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`
     };
 
-    let errorData = null;
-    const rawBase64 = '{{ERROR_JSON_B64}}';
-
-    if (!rawBase64.startsWith('{{') && rawBase64.length > 0) {
+    // ── Parse error data ───────────────────────────────────────────────────────
+    let data = null;
+    const b64 = '{{ERROR_JSON_B64}}';
+    if (!b64.startsWith('{{') && b64.length > 0) {
       try {
-        const decoded = decodeURIComponent(escape(atob(rawBase64)));
-        errorData = JSON.parse(decoded);
+        data = JSON.parse(decodeURIComponent(escape(atob(b64))));
       } catch (e) {}
     }
 
-    if (!errorData) {
-      const params = new URLSearchParams(window.location.search);
-      const url = params.get('url') || window.location.href;
-      const code = params.get('error') || 'net::ERR_CONNECTION_FAILED';
-      const desc = params.get('desc') || 'Could not load page.';
-      errorData = {
+    if (!data) {
+      const p = new URLSearchParams(window.location.search);
+      data = {
         category: 'GENERIC',
-        errorCode: code,
-        title: 'Web Page Not Available',
-        description: desc,
-        url: url,
-        domain: url,
-        checklist: ['Check network connection', 'Try reloading the page'],
-        primaryButtonText: 'Try Again',
+        errorCode: p.get('error') || 'ERR_FAILED',
+        title: 'Page not available',
+        description: 'Something went wrong.',
+        url: p.get('url') || window.location.href,
+        domain: p.get('url') || window.location.href,
+        primaryButtonText: 'Try again',
         primaryButtonAction: 'reload',
-        secondaryButtonText: 'Search Web',
-        secondaryButtonAction: 'search',
+        secondaryButtonText: 'Network settings',
+        secondaryButtonAction: 'network_settings',
         isDanger: false,
         technicalDetails: '',
         isHstsEnforced: false,
@@ -578,187 +228,109 @@
       };
     }
 
-    // Set UI Content
-    document.getElementById('errorTitle').innerText = errorData.title;
-    document.getElementById('errorDesc').innerText = errorData.description;
-    document.getElementById('techErrorCode').innerText = errorData.errorCode;
-    document.getElementById('techUrl').innerText = errorData.url;
-    document.getElementById('techTime').innerText = new Date().toLocaleString();
+    // ── Populate UI ────────────────────────────────────────────────────────────
+    const icon = document.getElementById('errorIcon');
+    const titleEl = document.getElementById('errorTitle');
+    const descEl = document.getElementById('errorDesc');
+    const domainChip = document.getElementById('domainChip');
+    const btnPrimary = document.getElementById('btnPrimary');
+    const btnSecondary = document.getElementById('btnSecondary');
 
-    if (errorData.technicalDetails && errorData.technicalDetails.length > 0) {
-      document.getElementById('techExtraDetails').innerText = errorData.technicalDetails;
-      document.getElementById('techDetailsRow').style.display = 'flex';
-      document.getElementById('sslDetailsMsg').innerText = errorData.technicalDetails;
+    titleEl.textContent = data.title;
+    descEl.textContent = data.description;
+    btnPrimary.textContent = data.primaryButtonText;
+    btnSecondary.textContent = data.secondaryButtonText;
+
+    if (data.domain && data.domain !== data.url) {
+      domainChip.textContent = data.domain;
+      domainChip.style.display = 'inline-block';
     }
 
-    const iconWrapper = document.getElementById('iconWrapper');
-    const iconSvg = document.getElementById('iconSvg');
-    const statusText = document.getElementById('statusCategoryText');
-
-    switch (errorData.category) {
+    // Set icon by category
+    switch (data.category) {
       case 'OFFLINE':
-        iconSvg.innerHTML = ICONS.WIFI_OFF;
-        statusText.innerText = 'NO INTERNET CONNECTION';
+        icon.innerHTML = ICONS.wifi_off;
         break;
       case 'SECURITY':
-        iconWrapper.classList.add('danger');
-        iconSvg.innerHTML = ICONS.SHIELD_DANGER;
-        statusText.innerText = 'SECURITY INTERSTITIAL';
+        icon.innerHTML = ICONS.lock;
+        icon.classList.add('danger');
         break;
       case 'SERVER_DOWN':
-        iconWrapper.classList.add('warning');
-        iconSvg.innerHTML = ICONS.SERVER_OFF;
-        statusText.innerText = 'SERVER UNREACHABLE';
+        icon.innerHTML = ICONS.cloud_off;
         break;
       case 'SHIELDS_BLOCKED':
-        iconSvg.innerHTML = ICONS.SHIELD_CHECK;
-        statusText.innerText = 'BLOCKED BY ONYX SHIELDS';
+        icon.innerHTML = ICONS.shield_off;
         break;
       case 'FILE_ERROR':
-        iconSvg.innerHTML = ICONS.FILE_ALERT;
-        statusText.innerText = 'LOCAL FILE ERROR';
+        icon.innerHTML = ICONS.file_x;
         break;
       default:
-        iconSvg.innerHTML = ICONS.ALERT_CIRCLE;
-        statusText.innerText = 'NAVIGATION FAILURE';
+        icon.innerHTML = ICONS.alert_triangle;
         break;
     }
 
-    // Checklist
-    const checklistContainer = document.getElementById('checklistItems');
-    if (errorData.checklist && errorData.checklist.length > 0) {
-      checklistContainer.innerHTML = '';
-      errorData.checklist.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'checklist-item';
-        row.innerHTML = `<span class="checklist-bullet"></span><span>${item}</span>`;
-        checklistContainer.appendChild(row);
-      });
-    } else {
-      document.getElementById('checklistCard').style.display = 'none';
+    // SSL: show advanced box
+    if (data.category === 'SECURITY') {
+      const sslBox = document.getElementById('sslBox');
+      const sslMsg = document.getElementById('sslMsg');
+      sslMsg.textContent = data.technicalDetails || 'The site\'s certificate could not be verified.';
+      sslBox.style.display = 'block';
+      if (data.isHstsEnforced) {
+        document.getElementById('hstsNotice').style.display = 'block';
+        document.getElementById('btnProceedSsl').style.display = 'none';
+      }
     }
 
-    // Buttons Text & Actions
-    document.getElementById('btnPrimaryText').innerText = errorData.primaryButtonText;
-    document.getElementById('btnSecondaryText').innerText = errorData.secondaryButtonText;
-
-    const secIcon = document.getElementById('btnSecondaryIcon');
-    if (errorData.secondaryButtonAction === 'wayback_machine') {
-      secIcon.outerHTML = `<svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS.ARCHIVE}</svg>`;
-    } else if (errorData.secondaryButtonAction === 'network_settings' || errorData.secondaryButtonAction === 'shields' || errorData.secondaryButtonAction === 'settings') {
-      secIcon.outerHTML = `<svg id="btnSecondaryIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS.SETTINGS}</svg>`;
-    }
-
-    // HSTS Notice
-    if (errorData.isHstsEnforced) {
-      document.getElementById('hstsLockMessage').style.display = 'block';
-      document.getElementById('btnProceedSsl').style.display = 'none';
-    }
-
-    // Action Execution
-    function executeAction(action) {
+    // ── Action handlers ────────────────────────────────────────────────────────
+    function exec(action) {
+      const bridge = window.OnyxErrorBridge;
       switch (action) {
         case 'reload':
-          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.reload === 'function') {
-            window.OnyxErrorBridge.reload();
-          } else if (errorData.url && !errorData.url.startsWith('file:///android_asset')) {
-            window.location.href = errorData.url;
-          } else {
-            window.location.reload();
-          }
+          if (bridge && bridge.reload) bridge.reload();
+          else if (data.url && !data.url.startsWith('file:///android_asset'))
+            window.location.href = data.url;
+          else window.location.reload();
           break;
         case 'network_settings':
-          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openNetworkSettings === 'function') {
-            window.OnyxErrorBridge.openNetworkSettings();
-          }
+          if (bridge && bridge.openNetworkSettings) bridge.openNetworkSettings();
           break;
         case 'wayback_machine':
-          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.checkWaybackMachine === 'function') {
-            window.OnyxErrorBridge.checkWaybackMachine(errorData.url);
-          } else {
-            window.location.href = `https://web.archive.org/web/*/${encodeURIComponent(errorData.url)}`;
-          }
+          if (bridge && bridge.checkWaybackMachine) bridge.checkWaybackMachine(data.url);
+          else window.open('https://web.archive.org/web/*/' + encodeURIComponent(data.url));
           break;
         case 'search':
-          const query = errorData.domain || errorData.url;
-          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.search === 'function') {
-            window.OnyxErrorBridge.search(query);
-          } else {
-            window.location.href = `https://search.brave.com/search?q=${encodeURIComponent(query)}`;
-          }
+          if (bridge && bridge.search) bridge.search(data.domain || data.url);
+          else window.location.href = 'https://search.brave.com/search?q=' + encodeURIComponent(data.domain || '');
           break;
         case 'back':
-          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.goBack === 'function') {
-            window.OnyxErrorBridge.goBack();
-          } else if (window.history.length > 1) {
-            window.history.back();
-          } else {
-            executeAction('home');
-          }
+          if (bridge && bridge.goBack) bridge.goBack();
+          else if (window.history.length > 1) window.history.back();
+          else exec('home');
           break;
         case 'home':
-          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.goHome === 'function') {
-            window.OnyxErrorBridge.goHome();
-          } else {
-            window.location.href = 'about:blank';
-          }
+          if (bridge && bridge.goHome) bridge.goHome();
+          else window.location.href = 'about:blank';
           break;
         case 'advanced_ssl':
-          const sslBox = document.getElementById('sslAdvancedBox');
-          sslBox.style.display = (sslBox.style.display === 'block') ? 'none' : 'block';
+          const box = document.getElementById('sslBox');
+          box.style.display = box.style.display === 'block' ? 'none' : 'block';
           break;
         case 'shields':
-          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openShields === 'function') {
-            window.OnyxErrorBridge.openShields();
-          }
+          if (bridge && bridge.openShields) bridge.openShields();
           break;
         case 'downloads':
-          if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.openDownloads === 'function') {
-            window.OnyxErrorBridge.openDownloads();
-          }
+          if (bridge && bridge.openDownloads) bridge.openDownloads();
           break;
       }
     }
 
-    document.getElementById('btnPrimary').addEventListener('click', () => {
-      executeAction(errorData.primaryButtonAction);
-    });
-
-    document.getElementById('btnSecondary').addEventListener('click', () => {
-      executeAction(errorData.secondaryButtonAction);
-    });
+    btnPrimary.addEventListener('click', () => exec(data.primaryButtonAction));
+    btnSecondary.addEventListener('click', () => exec(data.secondaryButtonAction));
 
     document.getElementById('btnProceedSsl').addEventListener('click', () => {
-      if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.proceedSsl === 'function') {
+      if (window.OnyxErrorBridge && window.OnyxErrorBridge.proceedSsl)
         window.OnyxErrorBridge.proceedSsl();
-      }
     });
-
-    // Technical Details Accordion
-    const btnToggle = document.getElementById('btnToggleAccordion');
-    const techContent = document.getElementById('technicalContent');
-    btnToggle.addEventListener('click', () => {
-      const isExpanded = techContent.classList.toggle('show');
-      btnToggle.classList.toggle('expanded', isExpanded);
-    });
-
-    // Copy Diagnostics
-    document.getElementById('btnCopyDiagnostics').addEventListener('click', () => {
-      const diag = `Onyx Browser Diagnostic Report\nError: ${errorData.errorCode}\nURL: ${errorData.url}\nCategory: ${errorData.category}\nTimestamp: ${new Date().toISOString()}`;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(diag).then(() => showToast("Diagnostics copied!"));
-      } else if (window.OnyxErrorBridge && typeof window.OnyxErrorBridge.copyDiagnostics === 'function') {
-        window.OnyxErrorBridge.copyDiagnostics(diag);
-        showToast("Diagnostics copied!");
-      }
-    });
-
-    function showToast(msg) {
-      const toast = document.getElementById("toast");
-      toast.innerText = msg;
-      toast.classList.add("show");
-      setTimeout(() => toast.classList.remove("show"), 2000);
-    }
   </script>
 </body>
 </html>

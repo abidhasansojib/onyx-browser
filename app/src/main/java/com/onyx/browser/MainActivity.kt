@@ -115,6 +115,7 @@ class MainActivity : AppCompatActivity() {
     private var currentDisplayedTabId: String? = null
     private var isTabsRestored = false
     private var pendingIntent: Intent? = null
+    private var wasShowingWebViewBeforePip = false
 
     companion object {
         const val ACTION_PIP_PLAY_PAUSE = "com.onyx.browser.action.PIP_PLAY_PAUSE"
@@ -338,7 +339,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val database = AppDatabase.getInstance(this)
-        suggestionRepository = SearchSuggestionRepository(database.historyDao())
+        suggestionRepository = SearchSuggestionRepository(database.historyDao(), database.bookmarkDao())
 
         setupTopToolbar()
         setupSearchOverlay()
@@ -493,9 +494,6 @@ class MainActivity : AppCompatActivity() {
         binding.btnTabSwitcher.setOnClickListener {
             val activeTabId = tabManager.activeTab.value?.id
             val activeWebView = tabManager.getActiveWebView()
-            if (activeTabId != null && activeWebView != null) {
-                tabManager.captureTabSnapshot(activeTabId, activeWebView)
-            }
 
             val sheet = TabSwitcherBottomSheet(
                 tabManager = tabManager,
@@ -511,6 +509,17 @@ class MainActivity : AppCompatActivity() {
                     enterSearchMode()
                 }
             )
+
+            if (activeTabId != null && activeWebView != null) {
+                tabManager.captureTabSnapshot(activeTabId, activeWebView) {
+                    runOnUiThread {
+                        if (sheet.isAdded && !sheet.isHidden) {
+                            sheet.refreshTabsList()
+                        }
+                    }
+                }
+            }
+
             sheet.show(supportFragmentManager, TabSwitcherBottomSheet.TAG)
         }
 
@@ -687,6 +696,13 @@ class MainActivity : AppCompatActivity() {
             showHomeScreen()
         } else {
             showWebView(tab, reloadIfChanged = tabChanged)
+        }
+
+        // If we switch to a tab, we are no longer watching the video from the previous tab.
+        // Clear the KEEP_SCREEN_ON flag and exit search mode.
+        if (tabChanged) {
+            exitSearchMode()
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
@@ -927,7 +943,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun openUrlInNewTab(url: String) {
         val newTab = tabManager.createNewTab(url = url, isIncognito = false)
-        displayTab(newTab)
+        // Explicitly set as active tab and navigate to it, ensuring currentDisplayedTabId
+        // is updated before the StateFlow observer fires to avoid a no-op reload.
+        tabManager.selectTab(newTab)
+        currentDisplayedTabId = newTab.id
+        updateTabBadgeCount()
+        showWebView(newTab, forceUrl = url, reloadIfChanged = true)
     }
 
     private fun startQrScanner() {
@@ -1298,7 +1319,9 @@ class MainActivity : AppCompatActivity() {
         updatePipParams(false)
 
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        WindowCompat.getInsetsController(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
+        androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        binding.topBar.requestLayout()
+        binding.root.requestLayout()
     }
 
     private fun Rational.coerceIn(min: Rational, max: Rational): Rational {
@@ -1571,9 +1594,36 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        MediaPlaybackBridge.onMediaPlaybackStartedListener = { playingWebView ->
+            runOnUiThread {
+                tabManager.getNormalTabs().forEach { tab ->
+                    val wv = tabManager.getWebView(tab.id)
+                    if (wv != null && wv != playingWebView) {
+                        wv.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                    }
+                }
+                tabManager.getIncognitoTabs().forEach { tab ->
+                    val wv = tabManager.getWebView(tab.id)
+                    if (wv != null && wv != playingWebView) {
+                        wv.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                    }
+                }
+            }
+        }
+
         MediaPlaybackBridge.onMediaStateListener = { isPlaying, isVideo, width, height ->
             runOnUiThread {
                 updatePipParams(isVideo && isPlaying, width, height)
+                // Keep screen on while video is actively playing in-page
+                if (isVideo && isPlaying) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else if (!isPlaying) {
+                    // Only clear the flag if we are not currently in PiP mode
+                    val inPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode
+                    if (!inPip) {
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }
+                }
             }
         }
 
@@ -1733,6 +1783,7 @@ class MainActivity : AppCompatActivity() {
             if (activeTab != null && activeTab.url.isNotBlank()) {
                 PageTranslateManager.clearCookies(activeTab.url)
             }
+            // Try JS restore first; JS will reload on its own if needed
             tabManager.getActiveWebView()?.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
         }
     }
@@ -1853,6 +1904,14 @@ class MainActivity : AppCompatActivity() {
     private fun setupBackNavigation() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                // Don't intercept back in PiP mode — system manages PiP dismissal
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                    isEnabled = true
+                    return
+                }
+
                 if (customVideoView != null) {
                     hideCustomFullscreenVideo()
                     return
@@ -2004,7 +2063,10 @@ class MainActivity : AppCompatActivity() {
             }
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
-            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            // Exiting PiP — restore browser chrome
+            if (!MediaPlaybackBridge.isVideoPlaying) {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
             binding.topBar.visibility = View.VISIBLE
             binding.topBarDivider.visibility = View.VISIBLE
             binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -2016,14 +2078,17 @@ class MainActivity : AppCompatActivity() {
             } else {
                 binding.fullscreenCustomViewContainer.visibility = View.GONE
                 binding.fullscreenControlsOverlay.visibility = View.GONE
-                val isHome = binding.homeLayout.root.visibility == View.VISIBLE
-                if (!isHome) {
+                // Restore proper view based on active tab state (not stale visibility flags)
+                val activeTab = tabManager.activeTab.value
+                if (activeTab != null && activeTab.url.isNotBlank() &&
+                    !activeTab.url.startsWith("onyx://") && !activeTab.url.startsWith("about:")) {
+                    binding.homeLayout.root.visibility = View.GONE
                     binding.webViewContainer.visibility = View.VISIBLE
+                } else {
+                    binding.homeLayout.root.visibility = View.VISIBLE
+                    binding.webViewContainer.visibility = View.GONE
                 }
-                activeWv?.evaluateJavascript(
-                    MediaPlaybackManager.restoreVideoFromPipScript,
-                    null
-                )
+                activeWv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
             }
             updatePipParams()
         }
@@ -2043,6 +2108,18 @@ class MainActivity : AppCompatActivity() {
             MediaPlaybackManager.getSetBackgroundStateScript(false),
             null
         )
+        // Restore screen-on flag if video was still playing when we came back to the app
+        if (MediaPlaybackBridge.isVideoPlaying) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        
+        // Guarantee cleanup of custom view container if we are not in fullscreen
+        if (customVideoView == null) {
+            binding.fullscreenCustomViewContainer.visibility = View.GONE
+            binding.fullscreenControlsOverlay.visibility = View.GONE
+            androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            binding.topBar.requestLayout()
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

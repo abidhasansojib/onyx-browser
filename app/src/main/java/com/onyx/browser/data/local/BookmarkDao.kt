@@ -16,6 +16,9 @@ interface BookmarkDao {
     @Query("SELECT * FROM bookmarks WHERE url = :url LIMIT 1")
     suspend fun getBookmarkByUrl(url: String): BookmarkItem?
 
+    @Query("SELECT * FROM bookmarks WHERE title LIKE '%' || :query || '%' OR url LIKE '%' || :query || '%' LIMIT :limit")
+    suspend fun searchBookmarks(query: String, limit: Int = 5): List<BookmarkItem>
+
     @Query("SELECT EXISTS(SELECT 1 FROM bookmarks WHERE url = :url LIMIT 1)")
     suspend fun isBookmarked(url: String): Boolean
 

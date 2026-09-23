@@ -137,34 +137,67 @@ object PageTranslateManager {
 
     /**
      * Restores the page's original untranslated text directly in the DOM.
+     * Uses a 4-step cascade for maximum reliability:
+     * 1. Clears googtrans cookies.
+     * 2. Tries the .goog-te-combo element (set to empty / show original).
+     * 3. Scans iframes for a "Show original" / "Restore" button.
+     * 4. Falls back to removing all injected translate elements and reloading.
      */
     val restoreOriginalScript: String = """
         (function() {
             var host = window.location.hostname || '';
+            // 1. Clear googtrans cookies
             try {
-                document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';
                 if (host) {
-                    document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.' + host + '; path=/;';
+                    document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.' + host + '; path=/';
                 }
             } catch (_) {}
 
+            // 2. Try combo element (set to show original)
             var combo = document.querySelector('.goog-te-combo');
             if (combo) {
-                combo.selectedIndex = 0;
                 combo.value = '';
+                combo.selectedIndex = 0;
                 combo.dispatchEvent(new Event('change', { bubbles: true }));
-                return 'restored';
+                setTimeout(function() {
+                    // Verify if text is still translated and force reload if needed
+                    var cls = document.documentElement.getAttribute('class') || '';
+                    if (cls.indexOf('translated') !== -1) {
+                        window.location.reload();
+                    }
+                }, 1000);
+                return 'restored_combo';
             }
 
-            var iframe = document.querySelector('iframe.goog-te-banner-frame');
-            if (iframe && iframe.contentDocument) {
-                var restoreBtn = iframe.contentDocument.querySelector('button[id*="restore"], .goog-close-link');
-                if (restoreBtn) {
-                    restoreBtn.click();
-                    return 'restored_via_banner';
+            // 3. Try the Google Translate restore button in the banner iframe
+            try {
+                var frames = document.querySelectorAll('iframe');
+                for (var i = 0; i < frames.length; i++) {
+                    var f = frames[i];
+                    try {
+                        var doc = f.contentDocument || f.contentWindow.document;
+                        var btns = doc.querySelectorAll('button, a');
+                        for (var j = 0; j < btns.length; j++) {
+                            var txt = (btns[j].textContent || '').toLowerCase();
+                            if (txt.indexOf('original') !== -1 || txt.indexOf('restore') !== -1) {
+                                btns[j].click();
+                                return 'restored_iframe';
+                            }
+                        }
+                    } catch (_) {}
                 }
-            }
-            return 'not_found';
+            } catch (_) {}
+
+            // 4. Fallback: remove injected translate elements and reload
+            var el = document.getElementById('onyx_translate_element');
+            if (el) el.remove();
+            var script = document.getElementById('__onyx_translate_script');
+            if (script) script.remove();
+            var style = document.getElementById('__onyx_translate_style');
+            if (style) style.remove();
+            window.location.reload();
+            return 'reloading';
         })();
     """.trimIndent()
 

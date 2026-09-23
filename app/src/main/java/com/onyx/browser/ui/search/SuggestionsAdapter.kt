@@ -9,42 +9,77 @@ import androidx.recyclerview.widget.RecyclerView
 import com.onyx.browser.R
 import com.onyx.browser.data.model.SearchSuggestion
 import com.onyx.browser.databinding.ItemSearchSuggestionBinding
+import com.onyx.browser.databinding.ItemSearchDomainSuggestionBinding
 
 class SuggestionsAdapter(
     private val onSuggestionClicked: (SearchSuggestion) -> Unit,
     private val onInsertClicked: (SearchSuggestion) -> Unit
-) : ListAdapter<SearchSuggestion, SuggestionsAdapter.ViewHolder>(DiffCallback) {
+) : ListAdapter<SearchSuggestion, RecyclerView.ViewHolder>(DiffCallback) {
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val binding = ItemSearchSuggestionBinding.inflate(
-            LayoutInflater.from(parent.context),
-            parent,
-            false
-        )
-        return ViewHolder(binding)
+    companion object {
+        private const val VIEW_TYPE_NORMAL = 0
+        private const val VIEW_TYPE_DOMAIN = 1
+
+        val DiffCallback = object : DiffUtil.ItemCallback<SearchSuggestion>() {
+            override fun areItemsTheSame(oldItem: SearchSuggestion, newItem: SearchSuggestion): Boolean {
+                return oldItem.queryOrUrl == newItem.queryOrUrl && oldItem.isHistory == newItem.isHistory
+            }
+            override fun areContentsTheSame(oldItem: SearchSuggestion, newItem: SearchSuggestion): Boolean {
+                return oldItem == newItem
+            }
+        }
     }
 
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
+    override fun getItemViewType(position: Int): Int {
+        val item = getItem(position)
+        return if (item.isDomain || item.isUrl) VIEW_TYPE_DOMAIN else VIEW_TYPE_NORMAL
     }
 
-    inner class ViewHolder(private val binding: ItemSearchSuggestionBinding) :
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return if (viewType == VIEW_TYPE_DOMAIN) {
+            DomainViewHolder(ItemSearchDomainSuggestionBinding.inflate(inflater, parent, false))
+        } else {
+            NormalViewHolder(ItemSearchSuggestionBinding.inflate(inflater, parent, false))
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        val item = getItem(position)
+        if (holder is DomainViewHolder) {
+            holder.bind(item)
+        } else if (holder is NormalViewHolder) {
+            holder.bind(item)
+        }
+    }
+
+    inner class NormalViewHolder(private val binding: ItemSearchSuggestionBinding) :
         RecyclerView.ViewHolder(binding.root) {
-
         fun bind(item: SearchSuggestion) {
             binding.tvSuggestionText.text = item.title
 
-            if (item.isHistory) {
-                binding.ivSuggestionIcon.setImageResource(R.drawable.ic_history)
-                if (item.queryOrUrl != item.title) {
+            when {
+                item.isBookmark -> {
+                    binding.ivSuggestionIcon.setImageResource(R.drawable.ic_bookmark)
                     binding.tvSuggestionSubtext.visibility = View.VISIBLE
                     binding.tvSuggestionSubtext.text = item.queryOrUrl
-                } else {
-                    binding.tvSuggestionSubtext.visibility = View.GONE
+                    binding.btnInsertQuery.visibility = View.GONE
                 }
-            } else {
-                binding.ivSuggestionIcon.setImageResource(R.drawable.ic_search)
-                binding.tvSuggestionSubtext.visibility = View.GONE
+                item.isHistory -> {
+                    binding.ivSuggestionIcon.setImageResource(R.drawable.ic_history)
+                    if (item.queryOrUrl != item.title) {
+                        binding.tvSuggestionSubtext.visibility = View.VISIBLE
+                        binding.tvSuggestionSubtext.text = item.queryOrUrl
+                    } else {
+                        binding.tvSuggestionSubtext.visibility = View.GONE
+                    }
+                    binding.btnInsertQuery.visibility = View.GONE
+                }
+                else -> {
+                    binding.ivSuggestionIcon.setImageResource(R.drawable.ic_search)
+                    binding.tvSuggestionSubtext.visibility = View.GONE
+                    binding.btnInsertQuery.visibility = View.VISIBLE
+                }
             }
 
             binding.root.setOnClickListener {
@@ -57,13 +92,16 @@ class SuggestionsAdapter(
         }
     }
 
-    companion object DiffCallback : DiffUtil.ItemCallback<SearchSuggestion>() {
-        override fun areItemsTheSame(oldItem: SearchSuggestion, newItem: SearchSuggestion): Boolean {
-            return oldItem.queryOrUrl == newItem.queryOrUrl && oldItem.isHistory == newItem.isHistory
-        }
-
-        override fun areContentsTheSame(oldItem: SearchSuggestion, newItem: SearchSuggestion): Boolean {
-            return oldItem == newItem
+    inner class DomainViewHolder(private val binding: ItemSearchDomainSuggestionBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+        fun bind(item: SearchSuggestion) {
+            binding.tvSuggestionText.text = item.title
+            // The subtext "Go to site" is statically set in the layout, but we can override it if we want.
+            
+            // Assuming clicking the layout (which has clickable="true") triggers this
+            binding.root.setOnClickListener {
+                onSuggestionClicked(item)
+            }
         }
     }
 }

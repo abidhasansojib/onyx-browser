@@ -434,6 +434,25 @@ class OnyxWebViewClient(
                     false
                 }
             }
+        } else if (host.contains("youtube.com") || host == "youtu.be" || host.contains("reddit.com")) {
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            // To prevent an infinite loop where the system resolves the link back to Onyx Browser,
+            // we query for activities and filter out our own package.
+            val pm = context.packageManager
+            val resolveInfoList = pm.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            val externalApp = resolveInfoList.firstOrNull { it.activityInfo.packageName != context.packageName }
+            
+            if (externalApp != null) {
+                intent.setPackage(externalApp.activityInfo.packageName)
+                return try {
+                    context.startActivity(intent)
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+            }
         }
         return false
     }

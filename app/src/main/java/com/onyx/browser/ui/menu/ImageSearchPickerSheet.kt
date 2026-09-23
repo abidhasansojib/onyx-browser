@@ -47,7 +47,8 @@ class ImageSearchPickerSheet(
         }
 
         binding.optionTinEye.setOnClickListener {
-            val url = "https://www.tineye.com/search?url=$encoded"
+            // Trailing slash is required for TinEye's URL parameter to be accepted
+            val url = "https://tineye.com/search/?url=$encoded"
             onEngineSelected(url, "TinEye")
             dismiss()
         }
@@ -59,8 +60,21 @@ class ImageSearchPickerSheet(
         }
 
         binding.optionBing.setOnClickListener {
-            val url = "https://www.bing.com/images/search?view=detailv2&iss=sbi&q=imgurl:$encoded"
+            // FORM=SBIIDP is required for Bing Visual Search to process the image URL correctly
+            val url = "https://www.bing.com/images/search?view=detailv2&iss=sbi&FORM=SBIIDP&q=imgurl:$encoded"
             onEngineSelected(url, "Bing Visual Search")
+            dismiss()
+        }
+
+        binding.optionSauceNao.setOnClickListener {
+            val url = "https://saucenao.com/search.php?url=$encoded"
+            onEngineSelected(url, "SauceNAO")
+            dismiss()
+        }
+
+        binding.optionAscii2d.setOnClickListener {
+            val url = "https://ascii2d.net/search/url/$encoded"
+            onEngineSelected(url, "ASCII2D")
             dismiss()
         }
 

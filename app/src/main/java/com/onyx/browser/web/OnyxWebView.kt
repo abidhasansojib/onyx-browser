@@ -132,7 +132,7 @@ class OnyxWebView @JvmOverloads constructor(
         // Media Playback Bridge (for background audio/video and lockscreen mini player)
         try {
             addJavascriptInterface(
-                com.onyx.browser.media.MediaPlaybackBridge(context.applicationContext),
+                com.onyx.browser.media.MediaPlaybackBridge(context.applicationContext, this),
                 "OnyxMediaBridge"
             )
         } catch (_: Exception) {}
