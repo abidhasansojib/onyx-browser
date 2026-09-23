@@ -945,6 +945,17 @@ onyx-browser/
     - Replaced buggy UTF-8 decoding in `error_page.html` with modern `TextDecoder` and `Uint8Array` base64 parsing plus fail-open fallbacks.
     - Fixed reload button feedback: displays "Reloading…" and automatically restores text after 3 seconds instead of permanently disabling the button with `disabled = true`.
     - Invoked `webView.stopLoading()` in `MainActivity.showWebView()` and `OnyxWebView.reload()` before re-loading the failing URL, preventing Chromium from hanging on cached synthetic base-URL data.
+- [x] **Full Tab Session & Navigation Footsteps Persistence Across Restarts (`TabManager.kt`, `MainActivity.kt`, `OnyxWebViewClient.kt`)**:
+  - **Root Cause**: Previously, tabs only persisted their single active URL in the Room database (`TabItem.url`). When reopening the browser or restoring hibernated tabs, `showWebView` instantiated a blank WebView and loaded `tab.url` anew. The WebView's entire back-forward navigation history stack (`WebBackForwardList`) was empty (`canGoBack() == false`), causing the back button to immediately abandon the site and jump straight to the browser homepage instead of stepping back through visited pages (`test.com/login` -> `test.com/feature` -> `test.com`).
+  - **Native State Serialization Engine (`TabManager.kt`)**:
+    - Serializes each tab's native Chromium `WebBackForwardList` via `webView.saveState(Bundle)` into binary parcel files (`context.filesDir/tab_states/state_<tabId>.bin`).
+    - Excludes incognito tabs, preserving strict privacy guarantees.
+    - Added automated state cleanup for closed tabs (`closeTab`, `closeAllTabs`, `closeTabsCreatedSince`) and orphaned states on startup (`cleanupOrphanedTabStates`).
+  - **Seamless Stack Restoration (`MainActivity.kt` & `TabManager.kt`)**:
+    - During `showWebView()`, checks `tabManager.restoreTabState(tab.id, webView)`. When a saved state exists, restores the entire Chromium back-forward stack (`restoreState(bundle)`) with current page index, SSL states, and scroll positions intact without overwriting history via `loadUrl`.
+    - Persists state continuously during navigation (`onUrlChanged`, `onPageFinishedCallback`), SPA history mutations (`doUpdateVisitedHistory`), tab switching (`displayTab`), app backgrounding (`onPause`, `onStop`), and configuration saving (`onSaveInstanceState`, `onDestroy`).
+    - Back button navigation (`setupBackNavigation()`) now faithfully steps back through all visited pages on that tab before returning to the browser homepage.
+
 
 
 

@@ -711,6 +711,7 @@ class MainActivity : AppCompatActivity() {
             val outgoingWebView = tabManager.getWebView(previousTabId)
             if (outgoingWebView != null) {
                 tabManager.captureTabSnapshot(previousTabId, outgoingWebView)
+                tabManager.saveTabState(previousTabId, outgoingWebView)
             }
         }
         currentDisplayedTabId = tab.id
@@ -786,8 +787,14 @@ class MainActivity : AppCompatActivity() {
                             tabManager.updateActiveTab(targetUrl, title)
                         }
                     } else {
-                        webView.stopLoading()
-                        webView.loadUrl(targetUrl)
+                        var restored = false
+                        if (forceUrl == null && !tab.isIncognito && (webView.url.isNullOrBlank() || webView.url == "about:blank")) {
+                            restored = tabManager.restoreTabState(tab.id, webView)
+                        }
+                        if (!restored) {
+                            webView.stopLoading()
+                            webView.loadUrl(targetUrl)
+                        }
                     }
                 } catch (t: Throwable) {
                     Toast.makeText(this, "Failed to load URL: ${t.message}", Toast.LENGTH_SHORT).show()
@@ -843,6 +850,10 @@ class MainActivity : AppCompatActivity() {
                 if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:")) {
                     tabManager.updateActiveTab(cleanUrl, webView.title ?: cleanUrl)
                     updateAddressBarDisplay(cleanUrl)
+                    val activeTab = tabManager.activeTab.value
+                    if (activeTab != null && !activeTab.isIncognito) {
+                        tabManager.saveTabState(activeTab.id, webView)
+                    }
                 }
             },
             onPageFinishedCallback = { finishedUrl ->
@@ -857,6 +868,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 binding.progressBar.visibility = View.GONE
                 val activeTab = tabManager.activeTab.value
+                if (activeTab != null && !activeTab.isIncognito) {
+                    tabManager.saveTabState(activeTab.id, webView)
+                }
                 if (activeTab != null && (webView.url == finishedUrl || webView.currentSyntheticState != null)) {
                     webView.postDelayed({
                         tabManager.captureTabSnapshot(activeTab.id, webView)
@@ -2321,6 +2335,7 @@ class MainActivity : AppCompatActivity() {
         val activeWebView = tabManager.getActiveWebView()
         if (activeTabId != null && activeWebView != null) {
             tabManager.captureTabSnapshot(activeTabId, activeWebView)
+            tabManager.saveTabState(activeTabId, activeWebView)
         }
         if (!preferences.isPipEnabled) {
             updatePipParams(isVideoPlaying = false)
@@ -2335,6 +2350,16 @@ class MainActivity : AppCompatActivity() {
         if (!isPip && !preferences.isBackgroundPlayEnabled) {
             tabManager.getActiveWebView()?.onPause()
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        tabManager.saveAllTabStates()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        tabManager.saveAllTabStates()
     }
 
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
@@ -2832,6 +2857,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        tabManager.saveAllTabStates()
         try {
             unregisterReceiver(pipReceiver)
         } catch (_: Exception) {}

@@ -7,8 +7,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.Parcel
 import android.view.PixelCopy
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.TabItem
@@ -56,6 +58,109 @@ class TabManager(
 
     private fun getThumbnailFile(tabId: String): File =
         File(getThumbnailDir(), "$tabId.webp")
+
+    private fun getStateDir(): File {
+        val dir = File(context.filesDir, "tab_states")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    private fun getStateFile(tabId: String): File =
+        File(getStateDir(), "state_$tabId.bin")
+
+    private fun saveBundleToFile(bundle: Bundle, file: File) {
+        val parcel = Parcel.obtain()
+        try {
+            bundle.writeToParcel(parcel, 0)
+            val bytes = parcel.marshall()
+            file.writeBytes(bytes)
+        } finally {
+            parcel.recycle()
+        }
+    }
+
+    private fun loadBundleFromFile(file: File): Bundle? {
+        if (!file.exists() || file.length() == 0L) return null
+        val bytes = file.readBytes()
+        val parcel = Parcel.obtain()
+        return try {
+            parcel.unmarshall(bytes, 0, bytes.size)
+            parcel.setDataPosition(0)
+            val bundle = Bundle()
+            bundle.readFromParcel(parcel)
+            bundle
+        } catch (_: Throwable) {
+            try { file.delete() } catch (_: Throwable) {}
+            null
+        } finally {
+            parcel.recycle()
+        }
+    }
+
+    fun saveTabState(tabId: String, webView: OnyxWebView) {
+        val tab = _normalTabs.value.firstOrNull { it.id == tabId }
+        // Never persist state for incognito tabs or blank/synthetic URLs
+        if (tab == null || tab.isIncognito) return
+        val currentUrl = webView.url
+        if (currentUrl.isNullOrBlank() || OnyxWebView.isSyntheticOrDataUrl(currentUrl)) return
+
+        try {
+            val bundle = Bundle()
+            val list = webView.saveState(bundle)
+            if (list != null && list.size > 0) {
+                saveBundleToFile(bundle, getStateFile(tabId))
+            }
+        } catch (_: Throwable) {}
+    }
+
+    fun restoreTabState(tabId: String, webView: OnyxWebView): Boolean {
+        val tab = _normalTabs.value.firstOrNull { it.id == tabId }
+        if (tab == null || tab.isIncognito) return false
+        val file = getStateFile(tabId)
+        if (!file.exists() || file.length() == 0L) return false
+
+        return try {
+            val bundle = loadBundleFromFile(file) ?: return false
+            val list = webView.restoreState(bundle)
+            list != null && list.size > 0
+        } catch (_: Throwable) {
+            try { file.delete() } catch (_: Throwable) {}
+            false
+        }
+    }
+
+    fun hasSavedTabState(tabId: String): Boolean {
+        val file = getStateFile(tabId)
+        return file.exists() && file.length() > 0L
+    }
+
+    fun deleteTabState(tabId: String) {
+        try {
+            getStateFile(tabId).delete()
+        } catch (_: Throwable) {}
+    }
+
+    fun saveAllTabStates() {
+        _normalTabs.value.forEach { tab ->
+            val wv = webViewPool[tab.id]
+            if (wv != null) {
+                saveTabState(tab.id, wv)
+            }
+        }
+    }
+
+    fun cleanupOrphanedTabStates() {
+        try {
+            val dir = getStateDir()
+            val validIds = _normalTabs.value.map { it.id }.toSet()
+            dir.listFiles()?.forEach { file ->
+                val tabId = file.name.removePrefix("state_").removeSuffix(".bin")
+                if (tabId !in validIds) {
+                    file.delete()
+                }
+            }
+        } catch (_: Throwable) {}
+    }
 
     /**
      * Retrieves the tab snapshot from memory cache or persistent disk cache.
@@ -171,6 +276,7 @@ class TabManager(
             _normalTabs.value = savedTabs
             val firstTab = savedTabs.first()
             _activeTab.value = firstTab
+            cleanupOrphanedTabStates()
         } else {
             // Create default initial tab
             val defaultTab = TabItem(
@@ -249,7 +355,10 @@ class TabManager(
         val updatedNormal = _normalTabs.value.map { tab ->
             if (tab.id != _activeTab.value?.id && !tab.isHibernated && tab.lastAccessedAt < cutoff) {
                 val webView = webViewPool.remove(tab.id)
-                webView?.destroySafely()
+                if (webView != null) {
+                    saveTabState(tab.id, webView)
+                    webView.destroySafely()
+                }
                 hasNormalChanges = true
                 val hibernatedTab = tab.copy(isHibernated = true)
                 coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
@@ -318,6 +427,7 @@ class TabManager(
         snapshotCache.remove(tab.id)
         coroutineScope.launch(Dispatchers.IO) {
             try { getThumbnailFile(tab.id).delete() } catch (_: Exception) {}
+            try { deleteTabState(tab.id) } catch (_: Exception) {}
         }
 
         if (tab.isIncognito) {
@@ -357,6 +467,7 @@ class TabManager(
             _normalTabs.value.forEach { tab ->
                 autoclearTabData(tab)
                 webViewPool.remove(tab.id)?.destroySafely()
+                deleteTabState(tab.id)
             }
             _normalTabs.value = emptyList()
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
@@ -373,6 +484,7 @@ class TabManager(
 
         for (tab in normalToClose + incognitoToClose) {
             webViewPool.remove(tab.id)?.destroySafely()
+            deleteTabState(tab.id)
         }
 
         val remainingNormal = _normalTabs.value.filter { it.createdAt < sinceTime }

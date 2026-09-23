@@ -789,6 +789,7 @@ class OnyxWebViewClient(
         super.doUpdateVisitedHistory(view, url, isReload)
         if (!url.isNullOrBlank() && !isSyntheticOrDataUrl(url)) {
             currentPageUrl = url
+            onUrlChanged(url)
         }
     }
 
