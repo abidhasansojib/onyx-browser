@@ -290,9 +290,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enforceHighRefreshRate()
         
-        tabManager.hibernateIdleTabs()
         preferences = BrowserPreferences.getInstance(this)
         preferences.applyTheme()
+        tabManager = TabManager(this, lifecycleScope)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -328,8 +328,6 @@ class MainActivity : AppCompatActivity() {
             )
             windowInsets
         }
-
-        tabManager = TabManager(this, lifecycleScope)
         
         binding.swipeRefreshLayout.setOnRefreshListener { 
             val activeTab = tabManager.activeTab.value
@@ -374,6 +372,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             tabManager.restoreTabs()
+            tabManager.hibernateIdleTabs()
             isTabsRestored = true
             observeTabs()
             val intentToHandle = pendingIntent ?: intent
