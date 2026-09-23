@@ -50,10 +50,6 @@ class SettingsActivity : AppCompatActivity() {
         binding.settingSearchEngineRow.setOnClickListener {
             startActivity(android.content.Intent(this, SearchEngineSettingsActivity::class.java))
         }
-
-        binding.settingSearchWidgetRow.setOnClickListener {
-            com.onyx.browser.ui.widget.SearchWidgetManager.requestPinSearchWidget(this)
-        }
     }
 
     private fun updateSearchEngineDisplay() {
@@ -215,6 +211,11 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupAccessibilitySettings() {
+        // Search Widget (Add to Home Screen)
+        binding.settingSearchWidgetRow.setOnClickListener {
+            com.onyx.browser.ui.widget.SearchWidgetManager.requestPinSearchWidget(this)
+        }
+
         // Scroll to Top Button
         binding.settingScrollToTopSwitch.isChecked = preferences.isScrollToTopEnabled
         binding.settingScrollToTopRow.setOnClickListener {

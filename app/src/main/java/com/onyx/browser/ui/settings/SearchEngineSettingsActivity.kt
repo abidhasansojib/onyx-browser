@@ -30,10 +30,6 @@ class SearchEngineSettingsActivity : AppCompatActivity() {
             showAddSearchEngineDialog()
         }
 
-        binding.llSearchWidgetAction.setOnClickListener {
-            com.onyx.browser.ui.widget.SearchWidgetManager.requestPinSearchWidget(this)
-        }
-
         populateAllEngines()
     }
 

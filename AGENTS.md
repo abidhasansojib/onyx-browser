@@ -955,6 +955,11 @@ onyx-browser/
     - During `showWebView()`, checks `tabManager.restoreTabState(tab.id, webView)`. When a saved state exists, restores the entire Chromium back-forward stack (`restoreState(bundle)`) with current page index, SSL states, and scroll positions intact without overwriting history via `loadUrl`.
     - Persists state continuously during navigation (`onUrlChanged`, `onPageFinishedCallback`), SPA history mutations (`doUpdateVisitedHistory`), tab switching (`displayTab`), app backgrounding (`onPause`, `onStop`), and configuration saving (`onSaveInstanceState`, `onDestroy`).
     - Back button navigation (`setupBackNavigation()`) now faithfully steps back through all visited pages on that tab before returning to the browser homepage.
+- [x] **Relocate Search Widget Action to Accessibility Category Above Scroll to Top Button (`activity_settings.xml`, `SettingsActivity.kt`, `activity_search_engine_settings.xml`, `SearchEngineSettingsActivity.kt`)**:
+  - Removed Search Widget action row from under Search Engine in `activity_settings.xml` and from `activity_search_engine_settings.xml` / `SearchEngineSettingsActivity.kt`.
+  - Moved `settingSearchWidgetRow` into the Accessibility category in `activity_settings.xml`, positioned directly above the Scroll to Top button (`settingScrollToTopRow`).
+  - Wired click listener in `SettingsActivity.setupAccessibilitySettings()` to invoke `SearchWidgetManager.requestPinSearchWidget(this)`.
+
 
 
 
