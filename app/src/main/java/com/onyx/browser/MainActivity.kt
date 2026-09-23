@@ -553,6 +553,9 @@ class MainActivity : AppCompatActivity() {
                 onTranslateClicked = { langCode ->
                     translateCurrentPage(langCode)
                 }
+                onSavePageClicked = {
+                    showSavePageDialog()
+                }
                 onAddToHomeScreenClicked = {
                     addCurrentPageToHomeScreen()
                 }

@@ -35,6 +35,7 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
     var onTranslateClicked: ((String) -> Unit)? = null
     var onAddToHomeScreenClicked: (() -> Unit)? = null
     var onDeveloperToolsClicked: (() -> Unit)? = null
+    var onSavePageClicked: (() -> Unit)? = null
     var onSiteShieldWhitelistChanged: ((Boolean) -> Unit)? = null
     
 
@@ -167,6 +168,12 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
         }
 
 
+
+        // Save Page
+        binding.menuItemSavePage.setOnClickListener {
+            onSavePageClicked?.invoke()
+            dismiss()
+        }
 
         // 5th: Add to Home screen
         binding.menuItemAddToHomeScreen.setOnClickListener {
