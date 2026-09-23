@@ -893,6 +893,34 @@ onyx-browser/
   - **Manifest File Associations (`AndroidManifest.xml`)**:
     - Added `<intent-filter>` for MHTML/MHT by MIME types: `multipart/related`, `message/rfc822`, `application/x-mimearchive`, `application/mhtml`.
     - Added `<intent-filter>` for MHTML/MHT by file extensions: `.*\\.mht`, `.*\\.mhtml`, `.*\\..*\\.mht`, `.*\\..*\\.mhtml`.
+- [x] **Fix Browser Chrome Disappearance (Search Bar & 3-Dot Menu) & Fullscreen Lockout (`MainActivity.kt`)**:
+  - **Root Cause Resolved**:
+    - `enterPipMode()` previously set `binding.topBar.visibility = View.GONE` and `binding.topBarDivider.visibility = View.GONE` before invoking `enterPictureInPictureMode()`. If system rejected PiP, PiP was disabled, or an exception occurred, `onPictureInPictureModeChanged` never fired, leaving the toolbar hidden forever.
+    - In `onUserLeaveHint()`, whenever `isVideoPlaying` was true, an asynchronous JS chain was launched to isolate the video DOM and request PiP. Because Android paused the activity immediately after `onUserLeaveHint()`, the async callback ran while paused and failed with `IllegalStateException`, leaving the webpage isolated in 100vw x 100vh fullscreen with no navigation controls.
+    - `onResume()` only called `requestLayout()` on `topBar` (which does nothing when `visibility == GONE`) and failed to evaluate `restoreVideoFromPipScript`.
+    - In `hideCustomFullscreenVideo()`, an early return `if (customVideoView == null) return` prevented clearing the container if `customVideoView` was null or detached, leaving a 100dp elevation black overlay covering the screen.
+  - **Defensive Toolbar & Layout Restoration**:
+    - Hardened `enterPipMode()`: Checks `lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)`. Inspects `enterPictureInPictureMode()` return boolean. If false or on any exception, immediately restores `binding.topBar.visibility = View.VISIBLE`, `binding.topBarDivider.visibility = View.VISIBLE`, and runs `restoreVideoFromPipScript`.
+    - Enforced toolbar visibility in `onResume()` and `onWindowFocusChanged()`: If not in PiP and `customVideoView == null`, guarantees `topBar` and `topBarDivider` are `VISIBLE`, hides `fullscreenCustomViewContainer`, and evaluates `restoreVideoFromPipScript`.
+    - Safeguarded `onUserLeaveHint()`: Only invokes `enterPipMode()` if `customVideoView != null`. Removed asynchronous in-page PiP triggering during activity pause.
+    - Updated `setupBackNavigation()`: If `customVideoView != null || binding.fullscreenCustomViewContainer.visibility == View.VISIBLE`, dismisses fullscreen; if `binding.topBar.visibility != View.VISIBLE`, immediately restores toolbar and DOM layout.
+    - Updated `showHomeScreen()` and `showWebView()`: Guarantees toolbar visibility when displaying home or web tabs.
+- [x] **Eliminate UI Freezes & Thread Bottlenecks (`MediaPlaybackManager.kt`, `BrowserPreferences.kt`, `OnyxTouchBridge.kt`, `OnyxWebViewClient.kt`, `MainActivity.kt`)**:
+  - **Root Cause Resolved**:
+    - In `MediaPlaybackManager.backgroundPlaybackScript`, every `.pause()` invocation generated `new Error().stack` to inspect call traces. Modern streaming video players (YouTube MSE, Twitch, HLS) call `.pause()` dozens of times during playback, track switches, and buffering. Serializing V8 stacks halted the JS thread and triggered severe GC pauses.
+    - `reportVideoBounds()` was firing on every 1-second `timeupdate` tick, causing `MainActivity` to invoke synchronous Binder IPC `setPictureInPictureParams()` with 3 new `RemoteAction`s and `PendingIntent` allocations continuously.
+    - `BrowserPreferences.incrementBlockedRequests()` called `prefs.edit().putLong(...).apply()` and updated `_blockedRequestsFlow` on every blocked subresource, causing disk write spam and main-thread Choreographer frame drops during page loads with 50-100 blocked trackers.
+    - In `OnyxTouchBridge.kt`, non-interactive touchstarts crossed the JNI bridge with `onTouchCleared()` on every scroll gesture.
+    - In `OnyxWebViewClient.kt`, `backgroundPlaybackScript` was redundantly evaluated 4 times per page navigation (`onPageStarted`, `doUpdateVisitedHistory`, `onPageCommitVisible`, `onPageFinished`).
+    - In `MainActivity.kt`, `SwipeRefreshLayout` used `webView.scrollY > 0` rather than `webView.canScrollVertically(-1)`, conflicting with nested web page scroll containers.
+  - **Performance Optimizations**:
+    - Removed `new Error().stack` trace generation from `HTMLMediaElement.prototype.pause` in `MediaPlaybackManager.kt`.
+    - Debounced video bounds reporting in `MediaPlaybackManager.kt` so `onVideoBoundsChanged` only fires when the bounding rectangle changes by more than 4px.
+    - In `MainActivity.kt`, restricted `onVideoBoundsListener` to only invoke `updatePipParams()` when `customVideoView != null`.
+    - Debounced blocked requests persistence in `BrowserPreferences.kt` via `Handler(Looper.getMainLooper())` with a 300ms window, eliminating disk write spam.
+    - Optimized `OnyxTouchBridge.kt` to return early on non-interactive touchstart without invoking JNI.
+    - Cleaned up redundant script injections from `onPageStarted` and `doUpdateVisitedHistory` in `OnyxWebViewClient.kt`.
+    - Updated `SwipeRefreshLayout` scroll callback to `(webView.canScrollVertically(-1) || webView.scrollY > 0)`.
 
 
 

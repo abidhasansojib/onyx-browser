@@ -6,6 +6,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import com.onyx.browser.data.model.SearchEngine
 import com.onyx.browser.data.model.QuickActionItem
 import com.onyx.browser.data.model.ShortcutItem
+import android.os.Handler
+import android.os.Looper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -312,14 +314,22 @@ class BrowserPreferences private constructor(context: Context) {
         return prefs.getLong(KEY_BLOCKED_REQUESTS_COUNT, 0L)
     }
 
+    private val saveCounterHandler = Handler(Looper.getMainLooper())
+    private val saveCounterRunnable = Runnable {
+        val count = blockedCounter.get()
+        prefs.edit().putLong(KEY_BLOCKED_REQUESTS_COUNT, count).apply()
+        _blockedRequestsFlow.value = count
+    }
+
     fun incrementBlockedRequests(): Long {
         val newCount = blockedCounter.incrementAndGet()
-        prefs.edit().putLong(KEY_BLOCKED_REQUESTS_COUNT, newCount).apply()
-        _blockedRequestsFlow.value = newCount
+        saveCounterHandler.removeCallbacks(saveCounterRunnable)
+        saveCounterHandler.postDelayed(saveCounterRunnable, 300)
         return newCount
     }
 
     fun resetBlockedRequests() {
+        saveCounterHandler.removeCallbacks(saveCounterRunnable)
         blockedCounter.set(0L)
         prefs.edit().putLong(KEY_BLOCKED_REQUESTS_COUNT, 0L).apply()
         _blockedRequestsFlow.value = 0L

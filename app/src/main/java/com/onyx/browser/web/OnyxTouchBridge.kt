@@ -70,7 +70,6 @@ class OnyxTouchBridge {
                         var t = e.touches[0];
                         var el = document.elementFromPoint(t.clientX, t.clientY);
                         if (!el) {
-                            if (window.OnyxTouchBridge) window.OnyxTouchBridge.onTouchCleared();
                             return;
                         }
 
@@ -83,7 +82,6 @@ class OnyxTouchBridge {
                         }
 
                         if (!a && !img && !video) {
-                            if (window.OnyxTouchBridge) window.OnyxTouchBridge.onTouchCleared();
                             return;
                         }
 

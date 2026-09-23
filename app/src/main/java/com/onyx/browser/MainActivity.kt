@@ -351,7 +351,7 @@ class MainActivity : AppCompatActivity() {
             // Block pull-to-refresh on homepage and when webview can't scroll up
             if (binding.homeLayout.root.visibility == View.VISIBLE) return@setOnChildScrollUpCallback true
             val webView = tabManager.getActiveWebView()
-            webView != null && webView.scrollY > 0
+            webView != null && (webView.canScrollVertically(-1) || webView.scrollY > 0)
         }
 
         val database = AppDatabase.getInstance(this)
@@ -730,6 +730,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun showHomeScreen() {
+        if (customVideoView == null) {
+            binding.topBar.visibility = View.VISIBLE
+            binding.topBarDivider.visibility = View.VISIBLE
+        }
         binding.homeLayout.root.visibility = View.VISIBLE
         binding.webViewContainer.visibility = View.GONE
         binding.etUrl.setText("")
@@ -760,6 +764,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showWebView(tab: TabItem, forceUrl: String? = null, reloadIfChanged: Boolean = false) {
+        if (customVideoView == null) {
+            binding.topBar.visibility = View.VISIBLE
+            binding.topBarDivider.visibility = View.VISIBLE
+        }
         binding.homeLayout.root.visibility = View.GONE
         binding.webViewContainer.visibility = View.VISIBLE
         binding.swipeRefreshLayout.isEnabled = true
@@ -1607,14 +1615,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hideCustomFullscreenVideo() {
-        if (customVideoView == null) return
-
         binding.fullscreenControlsOverlay.visibility = View.GONE
-        binding.fullscreenCustomViewContainer.removeView(customVideoView)
+        if (customVideoView != null) {
+            binding.fullscreenCustomViewContainer.removeView(customVideoView)
+        }
+        binding.fullscreenCustomViewContainer.removeAllViews()
         binding.fullscreenCustomViewContainer.visibility = View.GONE
         customVideoView = null
-        customViewCallback?.onCustomViewHidden()
+        try {
+            customViewCallback?.onCustomViewHidden()
+        } catch (_: Exception) {}
         customViewCallback = null
+
+        // Guarantee browser chrome is visible
+        binding.topBar.visibility = View.VISIBLE
+        binding.topBarDivider.visibility = View.VISIBLE
+        tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
 
         updatePipParams(false)
 
@@ -1784,6 +1800,9 @@ class MainActivity : AppCompatActivity() {
         if (!preferences.isPipEnabled) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
+                if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+                    return
+                }
                 val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
                 val isPipAllowed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     appOps?.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, android.os.Process.myUid(), packageName) == AppOpsManager.MODE_ALLOWED
@@ -1798,6 +1817,11 @@ class MainActivity : AppCompatActivity() {
                         startActivity(intent)
                     } catch (_: Exception) {
                         startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                    }
+                    binding.topBar.visibility = View.VISIBLE
+                    binding.topBarDivider.visibility = View.VISIBLE
+                    if (customVideoView == null) {
+                        tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
                     }
                     return
                 }
@@ -1851,11 +1875,29 @@ class MainActivity : AppCompatActivity() {
                     paramsBuilder.setAutoEnterEnabled(customVideoView != null)
                 }
 
-                enterPictureInPictureMode(paramsBuilder.build())
+                val entered = enterPictureInPictureMode(paramsBuilder.build())
+                if (!entered) {
+                    // System refused PiP; immediately restore UI and video DOM
+                    binding.topBar.visibility = View.VISIBLE
+                    binding.topBarDivider.visibility = View.VISIBLE
+                    if (customVideoView == null) {
+                        tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+                    }
+                }
             } catch (e: Exception) {
+                binding.topBar.visibility = View.VISIBLE
+                binding.topBarDivider.visibility = View.VISIBLE
+                if (customVideoView == null) {
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+                }
                 Toast.makeText(this, "Unable to enter Picture-in-Picture: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         } else {
+            binding.topBar.visibility = View.VISIBLE
+            binding.topBarDivider.visibility = View.VISIBLE
+            if (customVideoView == null) {
+                tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+            }
             Toast.makeText(this, "Picture-in-Picture requires Android 8.0+", Toast.LENGTH_SHORT).show()
         }
     }
@@ -1929,7 +1971,7 @@ class MainActivity : AppCompatActivity() {
 
         MediaPlaybackBridge.onVideoBoundsListener = { _, _, _, _ ->
             runOnUiThread {
-                if (MediaPlaybackBridge.isVideoPlaying) {
+                if (MediaPlaybackBridge.isVideoPlaying && customVideoView != null) {
                     updatePipParams()
                 }
             }
@@ -2225,8 +2267,15 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
 
-                if (customVideoView != null) {
+                if (customVideoView != null || binding.fullscreenCustomViewContainer.visibility == View.VISIBLE) {
                     hideCustomFullscreenVideo()
+                    return
+                }
+
+                if (binding.topBar.visibility != View.VISIBLE) {
+                    binding.topBar.visibility = View.VISIBLE
+                    binding.topBarDivider.visibility = View.VISIBLE
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
                     return
                 }
 
@@ -2389,8 +2438,6 @@ class MainActivity : AppCompatActivity() {
         if (!preferences.isPipEnabled) return
         if (customVideoView != null) {
             enterPipMode()
-        } else if (MediaPlaybackBridge.isVideoPlaying) {
-            requestInPageVideoPip()
         }
     }
 
@@ -2470,12 +2517,20 @@ class MainActivity : AppCompatActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         
-        // Guarantee cleanup of custom view container if we are not in fullscreen
-        if (customVideoView == null) {
-            binding.fullscreenCustomViewContainer.visibility = View.GONE
-            binding.fullscreenControlsOverlay.visibility = View.GONE
-            androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            binding.topBar.requestLayout()
+        // Guarantee cleanup of custom view container and restoration of toolbar
+        val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
+        if (!isPip) {
+            if (customVideoView == null) {
+                binding.fullscreenCustomViewContainer.visibility = View.GONE
+                binding.fullscreenControlsOverlay.visibility = View.GONE
+                binding.topBar.visibility = View.VISIBLE
+                binding.topBarDivider.visibility = View.VISIBLE
+                androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                wv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+                binding.topBar.requestLayout()
+            } else {
+                binding.fullscreenControlsOverlay.visibility = View.VISIBLE
+            }
         }
     }
 
@@ -2485,6 +2540,12 @@ class MainActivity : AppCompatActivity() {
             val wv = tabManager.getActiveWebView()
             wv?.resumeTimers()
             wv?.requestFocus()
+            val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
+            if (!isPip && customVideoView == null && binding.topBar.visibility != View.VISIBLE) {
+                binding.topBar.visibility = View.VISIBLE
+                binding.topBarDivider.visibility = View.VISIBLE
+                wv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+            }
         }
     }
 

@@ -163,17 +163,6 @@ object MediaPlaybackManager {
                     if (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden') {
                         return;
                     }
-                    try {
-                        var err = new Error();
-                        if (err.stack && (
-                            err.stack.indexOf('visibilitychange') !== -1 ||
-                            err.stack.indexOf('onblur') !== -1 ||
-                            err.stack.indexOf('onHidden') !== -1 ||
-                            err.stack.indexOf('pagehide') !== -1
-                        )) {
-                            return;
-                        }
-                    } catch (_) {}
                     return origPause.apply(this, arguments);
                 };
 
@@ -210,12 +199,19 @@ object MediaPlaybackManager {
                 }
 
                 var lastReportedTime = 0;
+                var lastReportedVideoBounds = { left: 0, top: 0, right: 0, bottom: 0 };
 
                 function reportVideoBounds(elem) {
                     try {
                         if (elem instanceof HTMLVideoElement && window.OnyxMediaBridge && typeof window.OnyxMediaBridge.onVideoBoundsChanged === 'function') {
                             var r = elem.getBoundingClientRect();
-                            window.OnyxMediaBridge.onVideoBoundsChanged(r.left, r.top, r.right, r.bottom);
+                            if (Math.abs(r.left - lastReportedVideoBounds.left) > 4 ||
+                                Math.abs(r.top - lastReportedVideoBounds.top) > 4 ||
+                                Math.abs(r.right - lastReportedVideoBounds.right) > 4 ||
+                                Math.abs(r.bottom - lastReportedVideoBounds.bottom) > 4) {
+                                lastReportedVideoBounds = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+                                window.OnyxMediaBridge.onVideoBoundsChanged(r.left, r.top, r.right, r.bottom);
+                            }
                         }
                     } catch (_) {}
                 }

@@ -778,10 +778,6 @@ class OnyxWebViewClient(
             if (preferences.isPasskeysEnabled) {
                 view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
             }
-            if (preferences.isBackgroundPlayEnabled) {
-                view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
-            }
-            view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
         }
     }
 
@@ -789,9 +785,6 @@ class OnyxWebViewClient(
         super.doUpdateVisitedHistory(view, url, isReload)
         if (!url.isNullOrBlank() && !isSyntheticOrDataUrl(url)) {
             currentPageUrl = url
-            if (preferences.isBackgroundPlayEnabled) {
-                view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
-            }
         }
     }
 
