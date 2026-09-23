@@ -1012,14 +1012,12 @@ onyx-browser/
   - **Database Total Size Preservation on Pause (`DownloadDao.kt`, `OnyxDownloadManager.kt`)**: Added `updateProgressAndSize` so discovered `fileSize` is retained in Room DB when pausing, avoiding "Unknown size" upon app relaunch.
   - **Visual Resume Controls for Database Paused Items (`DownloadsAdapter.kt`)**: Rendered linear progress bars and Play/Resume action buttons for items paused from previous sessions even when no active memory snapshot exists.
 
-
-
-
-
-
-
-
-
-
-
-
+- [x] **Webpage 3-Dot Menu Top Quick Shortcuts Bar (Bookmarks, History, Downloads, Share)**:
+  - **Identical Layout Structure (`bottom_sheet_menu.xml`)**: Added `webQuickBar` directly to the top of `layoutWebpageMenu` with four equal-weighted columns (`webQuickBookmarks`, `webQuickHistory`, `webQuickDownloads`, `webQuickShare`), separated from the website header card by a subtle 1dp outline divider line, matching the homepage 3-dot menu appearance.
+  - **Interactive Bookmarks with Live State & Quick Toggling (`MenuBottomSheetDialogFragment.kt`)**:
+    - Checked `BookmarkDao.isBookmarked(currentUrl)` on menu open, automatically tinting `ivWebQuickBookmark` with `@color/primary` when the page is saved.
+    - Single tap launches `BookmarksActivity` to view and manage all bookmarks.
+    - Long tap toggles bookmark state for the current webpage with haptic feedback, updates the icon tint immediately, inserts/deletes from Room DB, and provides toast notifications ("Page bookmarked" / "Bookmark removed").
+  - **History & Downloads Fast Navigation**: Single tap on `webQuickHistory` or `webQuickDownloads` opens `HistoryActivity` or `DownloadsActivity` and dismisses the menu sheet.
+  - **Webpage URL Share Action**: Single tap on `webQuickShare` triggers Android's system share sheet (`Intent.ACTION_SEND`, `EXTRA_TEXT = currentUrl`) for the active webpage.
+  - **Activity Result Launcher Integration (`MainActivity.kt`)**: Added `bookmarksLauncher`, `openBookmarks()`, `openHistory()`, and `openDownloads()` to `MainActivity` so selecting an entry in `BookmarksActivity` or `HistoryActivity` returns `RESULT_OK` with `EXTRA_URL` and immediately navigates to that URL in the browser.

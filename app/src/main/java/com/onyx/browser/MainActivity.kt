@@ -265,6 +265,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Bookmarks URL Result Launcher
+    private val bookmarksLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val url = result.data?.getStringExtra(BookmarksActivity.EXTRA_URL)
+            if (!url.isNullOrBlank()) {
+                performSearchOrLoad(url)
+            }
+        }
+    }
+
     // History URL Result Launcher
     private val historyLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -275,6 +287,18 @@ class MainActivity : AppCompatActivity() {
                 performSearchOrLoad(url)
             }
         }
+    }
+
+    fun openBookmarks() {
+        bookmarksLauncher.launch(Intent(this, BookmarksActivity::class.java))
+    }
+
+    fun openHistory() {
+        historyLauncher.launch(Intent(this, HistoryActivity::class.java))
+    }
+
+    fun openDownloads() {
+        startActivity(Intent(this, DownloadsActivity::class.java))
     }
 
     // QR Scanner Result Launcher
@@ -1235,15 +1259,15 @@ class MainActivity : AppCompatActivity() {
         if (trimmed.isEmpty()) return
 
         if (trimmed == "onyx://bookmarks") {
-            startActivity(Intent(this, BookmarksActivity::class.java))
+            openBookmarks()
             return
         }
         if (trimmed == "onyx://history") {
-            historyLauncher.launch(Intent(this, HistoryActivity::class.java))
+            openHistory()
             return
         }
         if (trimmed == "onyx://downloads") {
-            startActivity(Intent(this, DownloadsActivity::class.java))
+            openDownloads()
             return
         }
         if (trimmed == "onyx://qr") {

@@ -51,6 +51,8 @@
     <string name="desktop_site">Desktop Site</string>
     <string name="find_in_page">Find in Page</string>
     <string name="add_bookmark">Add to Bookmarks</string>
+    <string name="bookmark_added">Page bookmarked</string>
+    <string name="bookmark_removed">Bookmark removed</string>
     <string name="settings">Settings</string>
 
     <!-- Settings -->

@@ -11,14 +11,22 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.onyx.browser.MainActivity
 import com.onyx.browser.R
+import com.onyx.browser.data.local.AppDatabase
+import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetMenuBinding
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.settings.SettingsActivity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
 
@@ -63,21 +71,35 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
     }
 
     private fun setupHomeMenu() {
+        val main = activity as? MainActivity
+
         // 1. Shortcuts: Bookmarks
         binding.homeQuickBookmarks.setOnClickListener {
-            startActivity(Intent(requireContext(), BookmarksActivity::class.java))
+            if (main != null) {
+                main.openBookmarks()
+            } else {
+                startActivity(Intent(requireContext(), BookmarksActivity::class.java))
+            }
             dismiss()
         }
 
         // 2. Shortcuts: History
         binding.homeQuickHistory.setOnClickListener {
-            startActivity(Intent(requireContext(), HistoryActivity::class.java))
+            if (main != null) {
+                main.openHistory()
+            } else {
+                startActivity(Intent(requireContext(), HistoryActivity::class.java))
+            }
             dismiss()
         }
 
         // 3. Shortcuts: Downloads
         binding.homeQuickDownloads.setOnClickListener {
-            startActivity(Intent(requireContext(), DownloadsActivity::class.java))
+            if (main != null) {
+                main.openDownloads()
+            } else {
+                startActivity(Intent(requireContext(), DownloadsActivity::class.java))
+            }
             dismiss()
         }
 
@@ -107,6 +129,103 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
     private fun setupWebpageMenu() {
         val prefs = BrowserPreferences.getInstance(requireContext())
         val cleanDomain = prefs.cleanDomain(currentUrl)
+        val main = activity as? MainActivity
+        val db = AppDatabase.getInstance(requireContext())
+
+        // Top Shortcuts Quick Bar (Bookmarks, History, Downloads, Share)
+        if (currentUrl.isNotBlank()) {
+            viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                val isBookmarked = db.bookmarkDao().isBookmarked(currentUrl)
+                withContext(Dispatchers.Main) {
+                    if (_binding != null) {
+                        if (isBookmarked) {
+                            binding.ivWebQuickBookmark.setColorFilter(
+                                ContextCompat.getColor(requireContext(), R.color.primary)
+                            )
+                        } else {
+                            binding.ivWebQuickBookmark.clearColorFilter()
+                        }
+                    }
+                }
+            }
+        }
+
+        // 1. Web Shortcuts: Bookmarks
+        binding.webQuickBookmarks.setOnClickListener {
+            if (main != null) {
+                main.openBookmarks()
+            } else {
+                startActivity(Intent(requireContext(), BookmarksActivity::class.java))
+            }
+            dismiss()
+        }
+
+        binding.webQuickBookmarks.setOnLongClickListener {
+            if (currentUrl.isNotBlank()) {
+                it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                    val isBookmarked = db.bookmarkDao().isBookmarked(currentUrl)
+                    if (isBookmarked) {
+                        db.bookmarkDao().deleteByUrl(currentUrl)
+                        withContext(Dispatchers.Main) {
+                            if (_binding != null) {
+                                binding.ivWebQuickBookmark.clearColorFilter()
+                                Toast.makeText(requireContext(), R.string.bookmark_removed, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } else {
+                        val title = currentTitle.ifBlank { currentUrl }
+                        db.bookmarkDao().insertBookmark(BookmarkItem(url = currentUrl, title = title))
+                        withContext(Dispatchers.Main) {
+                            if (_binding != null) {
+                                binding.ivWebQuickBookmark.setColorFilter(
+                                    ContextCompat.getColor(requireContext(), R.color.primary)
+                                )
+                                Toast.makeText(requireContext(), R.string.bookmark_added, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
+                true
+            } else {
+                false
+            }
+        }
+
+        // 2. Web Shortcuts: History
+        binding.webQuickHistory.setOnClickListener {
+            if (main != null) {
+                main.openHistory()
+            } else {
+                startActivity(Intent(requireContext(), HistoryActivity::class.java))
+            }
+            dismiss()
+        }
+
+        // 3. Web Shortcuts: Downloads
+        binding.webQuickDownloads.setOnClickListener {
+            if (main != null) {
+                main.openDownloads()
+            } else {
+                startActivity(Intent(requireContext(), DownloadsActivity::class.java))
+            }
+            dismiss()
+        }
+
+        // 4. Web Shortcuts: Share Webpage
+        binding.webQuickShare.setOnClickListener {
+            if (currentUrl.isNotBlank()) {
+                val sendIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, currentUrl)
+                    type = "text/plain"
+                }
+                startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
+            } else {
+                Toast.makeText(requireContext(), "No webpage to share", Toast.LENGTH_SHORT).show()
+            }
+            dismiss()
+        }
 
         // 1st: Box-Type UI Card
         binding.tvWebsiteDomain.text = cleanDomain.ifBlank { "Webpage" }
