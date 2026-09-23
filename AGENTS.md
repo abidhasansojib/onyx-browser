@@ -691,3 +691,36 @@ onyx-browser/
 
 - [x] **FIX 7 — Back navigation improvements** (`MainActivity.kt`):
   - Added PiP mode check at the top of `setupBackNavigation` callback: when `isInPictureInPictureMode` is true, the callback temporarily disables itself and re-dispatches the back press so the system handles PiP dismissal rather than the browser intercepting it.
+
+### Recent V2 Additions & Enhancements (Completed)
+- [x] **Launcher App Shortcuts** (`shortcuts.xml`, `AndroidManifest.xml`, `MainActivity.kt`):
+  - Long-pressing browser icon on Android launcher provides quick shortcuts: New Incognito Tab, Search, and Scan QR Code.
+- [x] **RegEx-Capable Find in Page** (`RegexFindBridge.kt`, `activity_main.xml`, `MainActivity.kt`):
+  - Injected JavaScript bridge supporting standard text matching and full regular expressions with real-time match count and highlighting.
+- [x] **Scroll-to-Top Floating Action Button** (`activity_main.xml`, `OnyxWebView.kt`, `SettingsActivity.kt`, `BrowserPreferences.kt`):
+  - Added optional floating action button in `Settings > Accessibility` that dynamically fades in when scrolling down and smoothly jumps to page top on click.
+- [x] **Non-Intrusive 2dp Top Progress Bar & Network Status Banner** (`activity_main.xml`, `MainActivity.kt`):
+  - Smooth 2dp accent loading line at the top with ObjectAnimator.
+  - Dynamic network banner above the search bar indicating offline / back online status.
+- [x] **Picture-in-Picture Privacy & AppOps Settings Integration** (`bottom_sheet_menu.xml`, `SettingsActivity.kt`):
+  - Removed PiP from the three-dot menu. Toggling PiP in Settings opens Android system AppOps settings for granular permission revocation.
+- [x] **Forced 120Hz / High Refresh Rate & Hardware Acceleration** (`MainActivity.kt`, `OnyxWebView.kt`):
+  - Configured `preferredDisplayModeId` to lock high refresh rate displays (90Hz/120Hz/144Hz).
+  - Configured hardware rendering flags (`LAYER_TYPE_HARDWARE`, `offscreenPreRaster`).
+- [x] **Biometric Incognito Protection** (`MainActivity.kt`, `TabSwitcherBottomSheet.kt`, `SettingsActivity.kt`, `BrowserPreferences.kt`):
+  - Setup fingerprint / biometric unlock requirement for private tabs.
+  - Obscures preview and title, blanking private tab content upon minimize/resume with `FLAG_SECURE` and auth overlay.
+- [x] **Save Page as MHTML / PDF** (`MainActivity.kt`, `MenuBottomSheetDialogFragment.kt`, `bottom_sheet_menu.xml`):
+  - Export complete web pages as offline `.mhtml` web archives or vector `.pdf` files.
+- [x] **Native Local File Handling & Markdown Interception** (`LocalFileLoader.kt`, `OnyxWebViewClient.kt`):
+  - Loads `content://` and `file://` URIs natively into WebView to preserve URL identity and support clean page reloads.
+  - Seamlessly intercepts Markdown files to compile and serve styled HTML while retaining native URI in address bar.
+- [x] **Smart Clipboard Interceptor** (`SuggestionsAdapter.kt`, `MainActivity.kt`, `item_search_clipboard_suggestion.xml`):
+  - Detects copied URLs on clipboard and offers a non-intrusive suggestion under search bar to load link in one tap.
+- [x] **User-Agent Spoofer Manager** (`SettingsActivity.kt`, `activity_settings.xml`, `OnyxWebView.kt`, `BrowserPreferences.kt`):
+  - Configurable UA templates (Default, iPad Safari, Windows PC Chrome, iPhone Safari) in Settings > Privacy & Security.
+- [x] **Auto-Archive / Sleep Idle Tabs** (`TabManager.kt`, `TabItem.kt`, `AppDatabase.kt`, `MainActivity.kt`):
+  - Database migration (version 3 -> 4) tracking `lastAccessedAt` and `isHibernated`.
+  - Hibernates background tabs inactive for 24+ hours by destroying underlying WebView instances to free RAM while keeping disk snapshots intact.
+- [x] **Cookie & Storage Autoclear on Tab Close** (`TabManager.kt`, `ShieldsActivity.kt`, `activity_shields.xml`, `BrowserPreferences.kt`):
+  - Setting in `Settings > Shields & Privacy` under Do Not Track. Cleans origin LocalStorage, IndexedDB, and invalidates session/domain cookies on individual or batch tab close.
