@@ -739,3 +739,4 @@ onyx-browser/
     - Prevented `data:text/html...` or synthetic error asset URLs from overwriting `currentPageUrl`, triggering `onUrlChanged`, or corrupting `activeTab.url` and address bar.
     - Overrode `OnyxWebView.reload()` and `swipeRefreshLayout.setOnRefreshListener` to reload `failingUrl` whenever synthetic error state is active.
     - Created `getActivePageUrl()` helper in `MainActivity` to keep address bar, share, copy, and edit actions pointing to the true website URL even when displaying a custom error page.
+  - **Verified CI/CD Execution**: GitHub Actions workflow run `#35891912158` completed successfully in 7m13s, publishing release [`v1.0.136`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.136) with optimized APKs: `Onyx-Browser-v1.0.136-arm64-v8a-release.apk` (19MB), `universal` (39MB), `armeabi-v7a` (16MB), and `x86_64` (21MB).
