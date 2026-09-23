@@ -101,6 +101,18 @@ class OnyxWebViewClient(
             // Track current page URL; never block the main frame document
             if (request.isForMainFrame) {
                 currentPageUrl = url
+                
+                // Intercept Markdown files to render them
+                if (url.startsWith("content://") || url.startsWith("file://")) {
+                    val lower = url.lowercase()
+                    if (lower.endsWith(".md") || lower.endsWith(".markdown")) {
+                        val stream = LocalFileLoader.renderMarkdownToStream(context, url)
+                        if (stream != null) {
+                            return WebResourceResponse("text/html", "UTF-8", stream)
+                        }
+                    }
+                }
+                
                 return null
             }
 

@@ -58,127 +58,42 @@ object LocalFileLoader {
         onTitleResolved: ((String) -> Unit)? = null
     ): Boolean {
         val uri = parseUri(rawUriOrPath)
-        val mimeType = try { context.contentResolver.getType(uri)?.lowercase() } catch (_: Exception) { null }
         val fileName = getDisplayName(context, uri)
-        val lowerName = fileName.lowercase()
-
-        val isMarkdown = lowerName.endsWith(".md") || lowerName.endsWith(".markdown") ||
-                mimeType == "text/markdown" || mimeType == "text/x-markdown"
-        val isHtml = lowerName.endsWith(".html") || lowerName.endsWith(".htm") || lowerName.endsWith(".xhtml") ||
-                mimeType == "text/html" || mimeType == "application/xhtml+xml"
-
-        // If it's a file:// HTML document that is readable on disk, let Chromium load it directly
-        // so relative CSS, JS, fonts, and images are resolved natively without restrictions
-        if (uri.scheme == "file" && isHtml && uri.path != null) {
-            val localFile = File(uri.path!!)
-            if (localFile.exists() && localFile.canRead()) {
-                onTitleResolved?.invoke(fileName)
-                webView.post {
-                    webView.loadUrl(uri.toString())
-                }
-                return true
-            }
+        onTitleResolved?.invoke(fileName)
+        webView.post {
+            webView.loadUrl(uri.toString())
         }
+        return true
+    }
 
-        val inputStream: InputStream? = try {
+    fun renderMarkdownToStream(context: Context, uriString: String): java.io.InputStream? {
+        val uri = Uri.parse(uriString)
+        val fileName = getDisplayName(context, uri)
+        val inputStream = try {
             if (uri.scheme == "file") {
                 val path = uri.path
                 if (path != null) {
-                    val file = File(path)
-                    if (file.exists() && file.canRead()) {
-                        file.inputStream()
-                    } else {
-                        context.contentResolver.openInputStream(uri)
-                    }
-                } else {
-                    context.contentResolver.openInputStream(uri)
-                }
-            } else {
-                context.contentResolver.openInputStream(uri)
-            }
-        } catch (_: Exception) {
-            showFileNotFoundError(context, webView, rawUriOrPath)
-            return true
-        }
+                    val file = java.io.File(path)
+                    if (file.exists() && file.canRead()) file.inputStream() else context.contentResolver.openInputStream(uri)
+                } else context.contentResolver.openInputStream(uri)
+            } else context.contentResolver.openInputStream(uri)
+        } catch (e: Exception) { null } ?: return null
 
-        if (inputStream == null) {
-            showFileNotFoundError(context, webView, rawUriOrPath)
-            return true
-        }
-
-        try {
-            val contentBytes = inputStream.use { it.readBytes() }
-            val contentString = String(contentBytes, StandardCharsets.UTF_8)
-
-            onTitleResolved?.invoke(fileName)
-
-            if (isMarkdown) {
-                renderMarkdown(context, webView, contentBytes, fileName, rawUriOrPath)
-            } else {
-                val baseUrl = if (uri.scheme == "file" && uri.path != null) {
-                    val parent = File(uri.path!!).parentFile
-                    if (parent != null) "file://${parent.absolutePath}/" else "file:///"
-                } else {
-                    "file:///android_asset/"
-                }
-                webView.post {
-                    webView.loadDataWithBaseURL(
-                        baseUrl,
-                        contentString,
-                        if (isHtml) "text/html" else "text/plain",
-                        "UTF-8",
-                        rawUriOrPath
-                    )
-                }
-            }
-            return true
-        } catch (_: Exception) {
-            showFileNotFoundError(context, webView, rawUriOrPath)
-            return true
-        }
-    }
-
-    private fun renderMarkdown(
-        context: Context,
-        webView: OnyxWebView,
-        markdownBytes: ByteArray,
-        fileName: String,
-        historyUrl: String
-    ) {
+        val bytes = inputStream.use { it.readBytes() }
+        
         val template = try {
             context.assets.open("markdown_previewer.html").bufferedReader().use { it.readText() }
-        } catch (_: Exception) {
-            null
+        } catch (_: Exception) { null }
+
+        val htmlString = if (template == null) {
+            val text = String(bytes, java.nio.charset.StandardCharsets.UTF_8)
+            "<pre style=\"padding:16px;white-space:pre-wrap;word-break:break-word;\">${escapeHtml(text)}</pre>"
+        } else {
+            val base64Content = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+            template.replace("{{MARKDOWN_B64}}", base64Content).replace("{{FILE_NAME}}", escapeHtml(fileName))
         }
 
-        if (template == null) {
-            val text = String(markdownBytes, StandardCharsets.UTF_8)
-            webView.post {
-                webView.loadDataWithBaseURL(
-                    null,
-                    "<pre style=\"padding:16px;white-space:pre-wrap;word-break:break-word;\">${escapeHtml(text)}</pre>",
-                    "text/html",
-                    "UTF-8",
-                    historyUrl
-                )
-            }
-            return
-        }
-
-        val base64Content = Base64.encodeToString(markdownBytes, Base64.NO_WRAP)
-        val populatedHtml = template
-            .replace("{{MARKDOWN_B64}}", base64Content)
-            .replace("{{FILE_NAME}}", escapeHtml(fileName))
-
-        webView.post {
-            webView.loadDataWithBaseURL(
-                "file:///android_asset/",
-                populatedHtml,
-                "text/html",
-                "UTF-8",
-                historyUrl
-            )
-        }
+        return java.io.ByteArrayInputStream(htmlString.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
     }
 
     fun getDisplayName(context: Context, uri: Uri): String {
