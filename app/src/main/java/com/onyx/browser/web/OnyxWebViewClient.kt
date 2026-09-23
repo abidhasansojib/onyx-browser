@@ -265,56 +265,60 @@ class OnyxWebViewClient(
     }
 
     private fun handleUrlLoading(view: WebView?, uri: Uri, isForMainFrame: Boolean): Boolean {
-        val url = uri.toString()
-        val scheme = uri.scheme?.lowercase() ?: ""
+        return try {
+            val url = uri.toString()
+            val scheme = uri.scheme?.lowercase() ?: ""
 
-        // ── Tracking URL Cleanup (strip tracking query params) ─────────────────
-        if (isForMainFrame && preferences.isAutoRedirectTrackingUrlsEnabled &&
-            (scheme == "http" || scheme == "https")) {
-            val cleaned = stripTrackingParams(url)
-            if (cleaned != url) {
-                view?.loadUrl(cleaned)
-                return true
-            }
-        }
-
-        // ── AMP Redirect ───────────────────────────────────────────────────────
-        if (isForMainFrame && preferences.isAutoRedirectAmpEnabled &&
-            (scheme == "http" || scheme == "https")) {
-            val canonical = resolveAmpUrl(url)
-            if (canonical != null && canonical != url) {
-                view?.loadUrl(canonical)
-                return true
-            }
-        }
-
-        // ── HTTPS Upgrade ─────────────────────────────────────────────────────
-        val httpsMode = preferences.httpsUpgradeMode
-        if (scheme == "http" && isForMainFrame &&
-            httpsMode != BrowserPreferences.HTTPS_MODE_DISABLED) {
-            if (!upgradedUrls.contains(url)) {
-                upgradedUrls.add(url)
-                val httpsUrl = url.replaceFirst("http://", "https://")
-                view?.loadUrl(httpsUrl)
-                return true
-            }
-        }
-
-        // Standard web schemes — let WebView handle them normally
-        if (scheme == "http" || scheme == "https" || scheme == "about" ||
-            scheme == "data" || scheme == "blob" || scheme == "javascript" ||
-            scheme == "file" || scheme == "content") {
-            // If "Open links in app" is enabled, check if there's a specialized app for this HTTP link
-            if (isForMainFrame && preferences.isOpenLinksInAppEnabled && (scheme == "http" || scheme == "https")) {
-                if (tryOpenAppForHttpLink(uri)) {
+            // ── Tracking URL Cleanup (strip tracking query params) ─────────────────
+            if (isForMainFrame && preferences.isAutoRedirectTrackingUrlsEnabled &&
+                (scheme == "http" || scheme == "https")) {
+                val cleaned = stripTrackingParams(url)
+                if (cleaned != url) {
+                    view?.post { view.loadUrl(cleaned) }
                     return true
                 }
             }
-            return false
-        }
 
-        // External app URL schemes (tg://, whatsapp://, tel:, mailto:, sms:, geo:, intent:, market:, etc.)
-        return dispatchExternalScheme(view, uri, url, scheme)
+            // ── AMP Redirect ───────────────────────────────────────────────────────
+            if (isForMainFrame && preferences.isAutoRedirectAmpEnabled &&
+                (scheme == "http" || scheme == "https")) {
+                val canonical = resolveAmpUrl(url)
+                if (canonical != null && canonical != url) {
+                    view?.post { view.loadUrl(canonical) }
+                    return true
+                }
+            }
+
+            // ── HTTPS Upgrade ─────────────────────────────────────────────────────
+            val httpsMode = preferences.httpsUpgradeMode
+            if (scheme == "http" && isForMainFrame &&
+                httpsMode != BrowserPreferences.HTTPS_MODE_DISABLED) {
+                if (!upgradedUrls.contains(url)) {
+                    upgradedUrls.add(url)
+                    val httpsUrl = url.replaceFirst("http://", "https://")
+                    view?.post { view.loadUrl(httpsUrl) }
+                    return true
+                }
+            }
+
+            // Standard web schemes — let WebView handle them normally
+            if (scheme == "http" || scheme == "https" || scheme == "about" ||
+                scheme == "data" || scheme == "blob" || scheme == "javascript" ||
+                scheme == "file" || scheme == "content") {
+                // If "Open links in app" is enabled, check if there's a specialized app for this HTTP link
+                if (isForMainFrame && preferences.isOpenLinksInAppEnabled && (scheme == "http" || scheme == "https")) {
+                    if (tryOpenAppForHttpLink(uri)) {
+                        return true
+                    }
+                }
+                return false
+            }
+
+            // External app URL schemes (tg://, whatsapp://, tel:, mailto:, sms:, geo:, intent:, market:, etc.)
+            dispatchExternalScheme(view, uri, url, scheme)
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     private fun dispatchExternalScheme(
@@ -382,13 +386,13 @@ class OnyxWebViewClient(
                     val fallbackUrl = intent.getStringExtra("browser_fallback_url")
                     if (!fallbackUrl.isNullOrBlank() &&
                         (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
-                        view?.loadUrl(fallbackUrl)
+                        view?.post { view.loadUrl(fallbackUrl) }
                     } else {
                         val dataUri = intent.data
                         if (dataUri != null) {
                             val dataScheme = dataUri.scheme?.lowercase()
                             if (dataScheme == "http" || dataScheme == "https") {
-                                view?.loadUrl(dataUri.toString())
+                                view?.post { view.loadUrl(dataUri.toString()) }
                             }
                         }
                     }
@@ -405,7 +409,7 @@ class OnyxWebViewClient(
             val fallbackUrl = intent.getStringExtra("browser_fallback_url")
             if (!fallbackUrl.isNullOrBlank() &&
                 (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
-                view?.loadUrl(fallbackUrl)
+                view?.post { view.loadUrl(fallbackUrl) }
                 return true
             }
 
@@ -414,7 +418,7 @@ class OnyxWebViewClient(
             if (dataUri != null) {
                 val dataScheme = dataUri.scheme?.lowercase()
                 if (dataScheme == "http" || dataScheme == "https") {
-                    view?.loadUrl(dataUri.toString())
+                    view?.post { view.loadUrl(dataUri.toString()) }
                     return true
                 }
             }
@@ -428,7 +432,7 @@ class OnyxWebViewClient(
                     }
                     context.startActivity(marketIntent)
                 } catch (_: Exception) {
-                    view?.loadUrl("https://play.google.com/store/apps/details?id=$pkg")
+                    view?.post { view.loadUrl("https://play.google.com/store/apps/details?id=$pkg") }
                 }
             }
             true
@@ -461,7 +465,7 @@ class OnyxWebViewClient(
                 }
                 context.startActivity(marketIntent)
             } catch (_: Exception) {
-                view?.loadUrl("https://play.google.com/store/apps/details?id=$appPackage")
+                view?.post { view.loadUrl("https://play.google.com/store/apps/details?id=$appPackage") }
             }
         } else {
             try {
@@ -966,7 +970,7 @@ class OnyxWebViewClient(
         val fallbackUrl = url.replaceFirst("https://", "http://")
         // In STRICT mode, do NOT fall back to HTTP — block the page
         if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT && upgradedUrls.contains(fallbackUrl)) {
-            view?.loadUrl(fallbackUrl)
+            view?.post { view.loadUrl(fallbackUrl) }
             return
         }
 
@@ -1034,7 +1038,7 @@ class OnyxWebViewClient(
         val fallbackUrl = url.replaceFirst("https://", "http://")
         if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT && upgradedUrls.contains(fallbackUrl)) {
             handler?.cancel()
-            view?.loadUrl(fallbackUrl)
+            view?.post { view.loadUrl(fallbackUrl) }
             return
         }
 
@@ -1096,7 +1100,7 @@ class OnyxWebViewClient(
                 val encodedUrl = Uri.encode(error.failingUrl)
                 val encodedErr = Uri.encode(error.errorCodeString)
                 val encodedDesc = Uri.encode(error.description)
-                view?.loadUrl("file:///android_asset/error_page.html?url=$encodedUrl&error=$encodedErr&desc=$encodedDesc")
+                view?.post { view.loadUrl("file:///android_asset/error_page.html?url=$encodedUrl&error=$encodedErr&desc=$encodedDesc") }
             }
         }
 

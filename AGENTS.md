@@ -921,6 +921,16 @@ onyx-browser/
     - Optimized `OnyxTouchBridge.kt` to return early on non-interactive touchstart without invoking JNI.
     - Cleaned up redundant script injections from `onPageStarted` and `doUpdateVisitedHistory` in `OnyxWebViewClient.kt`.
     - Updated `SwipeRefreshLayout` scroll callback to `(webView.canScrollVertically(-1) || webView.scrollY > 0)`.
+- [x] **Fix Chromium `libwebviewchromium.so` Re-entrant Navigation Crash (`OnyxWebViewClient.kt`)**:
+  - **Crash Log Analysis (`Redmi / HyperOS 3.0 / Android 16`)**:
+    - `AwContentsClientBridge.shouldOverrideUrlLoading` -> `OnyxWebViewClient.shouldOverrideUrlLoading` -> `OnyxWebViewClient.handleUrlLoading` -> `OnyxWebView.loadUrl` -> `WebViewChromium.loadUrl` -> `NavigationControllerImpl.b` -> `libwebviewchromium.so (Java_J_N_OIIIIJJJOOOOOOOOOOZZZZZZZ)` -> native abort/SIGSEGV in `libwebviewchromium.so`.
+  - **Root Cause Resolved**:
+    - In `shouldOverrideUrlLoading` / `handleUrlLoading`, when tracking parameters were stripped (`stripTrackingParams`), AMP URLs were resolved (`resolveAmpUrl`), or HTTP URLs were upgraded to HTTPS (`upgradedUrls`), `view?.loadUrl(...)` was called synchronously.
+    - Chromium's native navigation state machine (`NavigationControllerImpl`) is non-reentrant. Initiating a new `loadUrl` while the outer navigation throttle is still waiting on the Java `shouldOverrideUrlLoading` callback destroys or mutates the pending `NavigationRequest` in-place, causing a null pointer dereference or assertion failure in `libwebviewchromium.so`.
+  - **Fix Applied**:
+    - Replaced all synchronous `view?.loadUrl(...)` calls in `shouldOverrideUrlLoading`, `handleUrlLoading`, `handleIntentScheme`, `handleAppNotFoundFallback`, `onReceivedError`, and `onReceivedSslError` with asynchronous message posting: `view?.post { view.loadUrl(...) }`.
+    - This allows `shouldOverrideUrlLoading()` to return `true` immediately to Chromium, cleanly aborting and unwinding the previous navigation stack before the new URL is loaded on the next looper turn.
+    - Wrapped `handleUrlLoading` in an outer `try-catch` to ensure no uncaught exceptions escape into Chromium's native bridge.
 
 
 
