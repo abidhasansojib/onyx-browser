@@ -99,9 +99,6 @@ class TabSwitcherBottomSheet(
     }
 
     private fun setupRecyclerView() {
-        adapter = TabsAdapter(
-            onTabClicked = { tab ->
-                tabManager.selectTab(tab)
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
         adapter = TabsAdapter(
             onTabClicked = { tab ->
