@@ -128,6 +128,7 @@ object LocalFileLoader {
         webView.post {
             try {
                 val template = context.assets.open("error_page.html").bufferedReader().use { it.readText() }
+                val populated = template.replace("{{ERROR_JSON_B64}}", onyxError.toBase64Json())
                 val baseUrl = if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://") || url.startsWith("content://")) {
                     url
                 } else {
