@@ -373,5 +373,8 @@
     <string name="accessibility_category">Accessibility</string>
     <string name="scroll_to_top_title">Scroll to Top Button</string>
     <string name="scroll_to_top_desc">Show a floating button when scrolling down to instantly jump to the top</string>
+
+    <string name="biometric_incognito_title">Biometric Incognito Protection</string>
+    <string name="biometric_incognito_desc">Require fingerprint/face unlock to view private tabs</string>
 </resources>
 

@@ -2063,11 +2063,57 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         registerNetworkRecoveryCallback()
+        
+        val activeTab = tabManager.activeTab.value
+        if (activeTab?.isIncognito == true && preferences.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
+            // Show overlay to obscure the webview
+            binding.incognitoLockedOverlay.visibility = android.view.View.VISIBLE
+            
+            // Must authenticate
+            val executor = androidx.core.content.ContextCompat.getMainExecutor(this)
+            val biometricPrompt = androidx.biometric.BiometricPrompt(this, executor,
+                object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                        super.onAuthenticationSucceeded(result)
+                        tabManager.isIncognitoUnlocked = true
+                        binding.incognitoLockedOverlay.visibility = android.view.View.GONE
+                    }
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        super.onAuthenticationError(errorCode, errString)
+                        binding.incognitoLockedOverlay.visibility = android.view.View.GONE
+                        switchToNormalTabOrNew()
+                    }
+                    override fun onAuthenticationFailed() {
+                        super.onAuthenticationFailed()
+                        binding.incognitoLockedOverlay.visibility = android.view.View.GONE
+                        switchToNormalTabOrNew()
+                    }
+                })
+
+            val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Unlock Incognito Tab")
+                .setSubtitle("Confirm identity to resume browsing")
+                .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                .build()
+            biometricPrompt.authenticate(promptInfo)
+        }
+    }
+    
+    private fun switchToNormalTabOrNew() {
+        val normalTabs = tabManager.normalTabs.value
+        if (normalTabs.isNotEmpty()) {
+            tabManager.updateActiveTab(normalTabs.first().url, normalTabs.first().title ?: "")
+            showWebView(normalTabs.first())
+        } else {
+            val newTab = tabManager.createNewTab(url = "", isIncognito = false)
+            showWebView(newTab)
+        }
     }
 
     override fun onStop() {
         super.onStop()
         unregisterNetworkRecoveryCallback()
+        tabManager.isIncognitoUnlocked = false
         val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
         if (!isPip && !preferences.isBackgroundPlayEnabled) {
             tabManager.getActiveWebView()?.onPause()
