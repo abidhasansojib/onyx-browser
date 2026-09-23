@@ -52,6 +52,20 @@ class OnyxWebView @JvmOverloads constructor(
         pendingSslHandler = null
     }
 
+    override fun reload() {
+        val failing = currentSyntheticState?.failingUrl
+        if (!failing.isNullOrBlank()) {
+            clearSyntheticState()
+            loadUrl(failing)
+            return
+        }
+        val currentUrl = url
+        if (currentUrl != null && (currentUrl.startsWith("data:") || currentUrl.startsWith("file:///android_asset/error_page"))) {
+            return
+        }
+        super.reload()
+    }
+
     // The standard Chrome-on-Android mobile UA (used for all normal browsing).
     private val ipadUserAgent = "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     private val iphoneUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"

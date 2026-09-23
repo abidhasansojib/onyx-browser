@@ -32,12 +32,15 @@ class SettingsActivity : AppCompatActivity() {
         setupAutofillSettings()
         setupDownloadPreferences()
         setupMediaPreferences()
+        setupAccessibilitySettings()
         setupAboutPreference()
     }
 
     override fun onResume() {
         super.onResume()
         updateSearchEngineDisplay()
+        binding.settingScrollToTopSwitch.isChecked = preferences.isScrollToTopEnabled
+        binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
     }
 
     private fun setupSearchEnginePreference() {
@@ -216,6 +219,87 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupAboutPreference() {
         binding.settingAboutRow.setOnClickListener {
             startActivity(android.content.Intent(this, AboutActivity::class.java))
+        }
+    }
+
+    private fun setupAccessibilitySettings() {
+        // Scroll to Top Button
+        binding.settingScrollToTopSwitch.isChecked = preferences.isScrollToTopEnabled
+        binding.settingScrollToTopRow.setOnClickListener {
+            val newState = !binding.settingScrollToTopSwitch.isChecked
+            binding.settingScrollToTopSwitch.isChecked = newState
+            preferences.isScrollToTopEnabled = newState
+        }
+
+        // Biometric Incognito Protection
+        binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
+        binding.settingBiometricRow.setOnClickListener {
+            val currentlyEnabled = preferences.isBiometricIncognitoEnabled
+            val executor = androidx.core.content.ContextCompat.getMainExecutor(this)
+
+            if (!currentlyEnabled) {
+                // User wants to enable -> authenticate for setup
+                if (com.onyx.browser.ui.common.BiometricAuthHelper.canAuthenticate(this)) {
+                    val prompt = androidx.biometric.BiometricPrompt(
+                        this,
+                        executor,
+                        object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                            override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                                super.onAuthenticationSucceeded(result)
+                                preferences.isBiometricIncognitoEnabled = true
+                                binding.settingBiometricSwitch.isChecked = true
+                                Toast.makeText(this@SettingsActivity, "Biometric Incognito Protection enabled", Toast.LENGTH_SHORT).show()
+                            }
+
+                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                super.onAuthenticationError(errorCode, errString)
+                                binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
+                            }
+
+                            override fun onAuthenticationFailed() {
+                                super.onAuthenticationFailed()
+                                // Allow user retry on biometric prompt UI
+                            }
+                        }
+                    )
+                    val promptInfo = com.onyx.browser.ui.common.BiometricAuthHelper.createPromptInfo(
+                        title = "Biometric Incognito Setup",
+                        subtitle = "Confirm fingerprint or screen lock to enable"
+                    )
+                    prompt.authenticate(promptInfo)
+                } else {
+                    Toast.makeText(this, "Please set up a screen lock or fingerprint in Android Settings first", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                // User wants to disable -> authenticate first
+                val prompt = androidx.biometric.BiometricPrompt(
+                    this,
+                    executor,
+                    object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                        override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                            super.onAuthenticationSucceeded(result)
+                            preferences.isBiometricIncognitoEnabled = false
+                            binding.settingBiometricSwitch.isChecked = false
+                            Toast.makeText(this@SettingsActivity, "Biometric Incognito Protection disabled", Toast.LENGTH_SHORT).show()
+                        }
+
+                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                            super.onAuthenticationError(errorCode, errString)
+                            binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
+                        }
+
+                        override fun onAuthenticationFailed() {
+                            super.onAuthenticationFailed()
+                            // Allow user retry on biometric prompt UI
+                        }
+                    }
+                )
+                val promptInfo = com.onyx.browser.ui.common.BiometricAuthHelper.createPromptInfo(
+                    title = "Confirm Identity",
+                    subtitle = "Confirm identity to disable Biometric Incognito Protection"
+                )
+                prompt.authenticate(promptInfo)
+            }
         }
     }
 }

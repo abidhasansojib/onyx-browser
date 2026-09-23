@@ -332,7 +332,12 @@ class MainActivity : AppCompatActivity() {
         binding.swipeRefreshLayout.setOnRefreshListener { 
             val activeTab = tabManager.activeTab.value
             val wv = tabManager.getActiveWebView()
-            if (activeTab != null && wv != null && LocalFileLoader.isLocalFile(activeTab.url)) {
+            val failingUrl = wv?.currentSyntheticState?.failingUrl
+            if (!failingUrl.isNullOrBlank()) {
+                wv.clearSyntheticState()
+                wv.loadUrl(failingUrl)
+                binding.swipeRefreshLayout.isRefreshing = false
+            } else if (activeTab != null && wv != null && LocalFileLoader.isLocalFile(activeTab.url)) {
                 LocalFileLoader.loadLocalFile(this, wv, activeTab.url)
                 binding.swipeRefreshLayout.isRefreshing = false
             } else {
@@ -455,15 +460,17 @@ class MainActivity : AppCompatActivity() {
                     binding.cardCurrentPage.visibility = View.GONE
                     fetchSearchSuggestions(query)
                 } else {
-                    if (hasCurrentUrl) {
+                    val curUrl = getActivePageUrl()
+                    if (curUrl.isNotBlank()) {
                         binding.cardCurrentPage.visibility = View.VISIBLE
-                        val curUrl = currentTab?.url ?: ""
                         com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
                             context = this@MainActivity,
                             imageView = binding.ivCurrentPageFavicon,
                             urlOrHost = curUrl,
                             isCircular = true
                         )
+                    } else {
+                        binding.cardCurrentPage.visibility = View.GONE
                     }
                     suggestionJob?.cancel()
                     val clipboardOpt = getClipboardSuggestion()
@@ -814,15 +821,29 @@ class MainActivity : AppCompatActivity() {
             context = this,
             coroutineScope = lifecycleScope,
             onUrlChanged = { newUrl ->
-                tabManager.updateActiveTab(newUrl, webView.title ?: newUrl)
-                updateAddressBarDisplay(newUrl)
+                val cleanUrl = if (newUrl.startsWith("data:") || newUrl.startsWith("file:///android_asset/error_page")) {
+                    webView.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url ?: ""
+                } else {
+                    newUrl
+                }
+                if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:")) {
+                    tabManager.updateActiveTab(cleanUrl, webView.title ?: cleanUrl)
+                    updateAddressBarDisplay(cleanUrl)
+                }
             },
             onPageFinishedCallback = { finishedUrl ->
-                tabManager.updateActiveTab(finishedUrl, webView.title ?: finishedUrl)
-                updateAddressBarDisplay(finishedUrl)
+                val cleanUrl = if (finishedUrl.startsWith("data:") || finishedUrl.startsWith("file:///android_asset/error_page")) {
+                    webView.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url ?: ""
+                } else {
+                    finishedUrl
+                }
+                if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:")) {
+                    tabManager.updateActiveTab(cleanUrl, webView.title ?: cleanUrl)
+                    updateAddressBarDisplay(cleanUrl)
+                }
                 binding.progressBar.visibility = View.GONE
                 val activeTab = tabManager.activeTab.value
-                if (activeTab != null && webView.url == finishedUrl) {
+                if (activeTab != null && (webView.url == finishedUrl || webView.currentSyntheticState != null)) {
                     webView.postDelayed({
                         tabManager.captureTabSnapshot(activeTab.id, webView)
                     }, 400)
@@ -1080,8 +1101,7 @@ class MainActivity : AppCompatActivity() {
 
         // Current Webpage Card Actions: Share, Copy, Edit
         binding.btnCurrentPageShare.setOnClickListener {
-            val currentTab = tabManager.activeTab.value
-            val url = currentTab?.url ?: ""
+            val url = getActivePageUrl()
             if (url.isNotBlank()) {
                 val sendIntent = Intent().apply {
                     action = Intent.ACTION_SEND
@@ -1093,8 +1113,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnCurrentPageCopy.setOnClickListener {
-            val currentTab = tabManager.activeTab.value
-            val url = currentTab?.url ?: ""
+            val url = getActivePageUrl()
             if (url.isNotBlank()) {
                 val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                 val clip = ClipData.newPlainText("URL", url)
@@ -1105,8 +1124,7 @@ class MainActivity : AppCompatActivity() {
 
         // Edit button populates the clean search bar with this URL so user can customize it
         binding.btnCurrentPageEdit.setOnClickListener {
-            val currentTab = tabManager.activeTab.value
-            val url = currentTab?.url ?: ""
+            val url = getActivePageUrl()
             if (url.isNotBlank()) {
                 binding.etUrl.setText(url)
                 binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
@@ -1116,8 +1134,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.containerPageInfo.setOnClickListener {
-            val currentTab = tabManager.activeTab.value
-            val url = currentTab?.url ?: ""
+            val url = getActivePageUrl()
             if (url.isNotBlank()) {
                 binding.etUrl.setText(url)
                 binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
@@ -1143,12 +1160,15 @@ class MainActivity : AppCompatActivity() {
 
         // 3. Configure Current Webpage Card under search bar
         val currentTab = tabManager.activeTab.value
-        val hasCurrentUrl = !currentTab?.url.isNullOrBlank()
+        val curUrl = getActivePageUrl()
+        val hasCurrentUrl = curUrl.isNotBlank()
 
         if (hasCurrentUrl) {
             binding.cardCurrentPage.visibility = View.VISIBLE
-            val curUrl = currentTab?.url ?: ""
-            binding.tvCurrentPageTitle.text = currentTab?.title?.ifBlank { curUrl } ?: ""
+            val displayTitle = currentTab?.title?.takeIf {
+                it.isNotBlank() && !it.startsWith("data:") && !it.startsWith("net::") && it != "Page Not Available"
+            } ?: curUrl
+            binding.tvCurrentPageTitle.text = displayTitle
             binding.tvCurrentPageUrl.text = curUrl
             com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
                 context = this,
@@ -1201,8 +1221,7 @@ class MainActivity : AppCompatActivity() {
         binding.etUrl.clearFocus()
 
         // 4. Restore address bar host display
-        val currentTab = tabManager.activeTab.value
-        updateAddressBarDisplay(currentTab?.url ?: "")
+        updateAddressBarDisplay(getActivePageUrl())
     }
 
     private fun fetchSearchSuggestions(query: String) {
@@ -1253,24 +1272,45 @@ class MainActivity : AppCompatActivity() {
         return null
     }
 
+    private fun getActivePageUrl(): String {
+        val activeWv = tabManager.getActiveWebView()
+        val failingUrl = activeWv?.currentSyntheticState?.failingUrl
+        if (!failingUrl.isNullOrBlank()) {
+            return failingUrl
+        }
+        val tabUrl = tabManager.activeTab.value?.url ?: ""
+        if (tabUrl.startsWith("data:") || tabUrl.startsWith("file:///android_asset/error_page")) {
+            return ""
+        }
+        return tabUrl
+    }
+
     private fun updateAddressBarDisplay(url: String) {
-        if (url.isBlank()) {
+        val activeWv = tabManager.getActiveWebView()
+        val displayUrl = when {
+            url.isBlank() || url.startsWith("data:") || url.startsWith("file:///android_asset/error_page") -> {
+                activeWv?.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url ?: ""
+            }
+            else -> url
+        }
+
+        if (displayUrl.isBlank() || displayUrl.startsWith("data:") || displayUrl.startsWith("file:///android_asset/error_page")) {
             binding.etUrl.setText("")
             binding.ivSslLock.visibility = View.GONE
             return
         }
 
-        val isHttps = url.startsWith("https://")
+        val isHttps = displayUrl.startsWith("https://")
         binding.ivSslLock.visibility = if (isHttps) View.VISIBLE else View.GONE
 
         val host = when {
-            LocalFileLoader.isLocalFile(url) -> {
-                LocalFileLoader.getDisplayName(this, LocalFileLoader.parseUri(url))
+            LocalFileLoader.isLocalFile(displayUrl) -> {
+                LocalFileLoader.getDisplayName(this, LocalFileLoader.parseUri(displayUrl))
             }
             else -> try {
-                Uri.parse(url).host ?: url
+                Uri.parse(displayUrl).host ?: displayUrl
             } catch (e: Exception) {
-                url
+                displayUrl
             }
         }
 
@@ -2120,16 +2160,14 @@ class MainActivity : AppCompatActivity() {
                     }
                     override fun onAuthenticationFailed() {
                         super.onAuthenticationFailed()
-                        binding.incognitoLockedOverlay.visibility = android.view.View.GONE
-                        switchToNormalTabOrNew()
+                        // Allow user retry on biometric prompt UI
                     }
                 })
 
-            val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Unlock Incognito Tab")
-                .setSubtitle("Confirm identity to resume browsing")
-                .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
-                .build()
+            val promptInfo = com.onyx.browser.ui.common.BiometricAuthHelper.createPromptInfo(
+                title = "Unlock Incognito Tab",
+                subtitle = "Confirm identity to resume browsing"
+            )
             biometricPrompt.authenticate(promptInfo)
         }
     }
@@ -2137,11 +2175,10 @@ class MainActivity : AppCompatActivity() {
     private fun switchToNormalTabOrNew() {
         val normalTabs = tabManager.normalTabs.value
         if (normalTabs.isNotEmpty()) {
-            tabManager.updateActiveTab(normalTabs.first().url, normalTabs.first().title ?: "")
-            showWebView(normalTabs.first())
+            tabManager.selectTab(normalTabs.first())
         } else {
             val newTab = tabManager.createNewTab(url = "", isIncognito = false)
-            showWebView(newTab)
+            tabManager.selectTab(newTab)
         }
     }
 
@@ -2412,29 +2449,89 @@ class MainActivity : AppCompatActivity() {
     private fun saveCurrentPageAsMhtml(webView: OnyxWebView, title: String) {
         try {
             val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
-            val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-            if (!downloadDir.exists()) downloadDir.mkdirs()
-            val file = java.io.File(downloadDir, "${cleanTitle}_${System.currentTimeMillis()}.mhtml")
-            webView.saveWebArchive(file.absolutePath)
-            android.widget.Toast.makeText(this, "Saved to Downloads/${file.name}", android.widget.Toast.LENGTH_LONG).show()
+            val fileName = "${cleanTitle}_${System.currentTimeMillis()}.mhtml"
+            val tempFile = java.io.File(cacheDir, fileName)
+
+            webView.saveWebArchive(tempFile.absolutePath, false) { savedPath ->
+                if (savedPath != null && tempFile.exists() && tempFile.length() > 0) {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        try {
+                            val savedUri = copyTempFileToDownloads(tempFile, fileName, "message/rfc822")
+                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                if (savedUri != null) {
+                                    Toast.makeText(this@MainActivity, "Saved to Downloads/$fileName", Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(this@MainActivity, "Failed to export to Downloads", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        } catch (e: Exception) {
+                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                Toast.makeText(this@MainActivity, "Error saving file: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        } finally {
+                            try { tempFile.delete() } catch (_: Exception) {}
+                        }
+                    }
+                } else {
+                    Toast.makeText(this, "Failed to generate web archive", Toast.LENGTH_SHORT).show()
+                }
+            }
         } catch (e: Exception) {
-            android.widget.Toast.makeText(this, "Failed to save page: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Failed to save page: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun copyTempFileToDownloads(tempFile: java.io.File, fileName: String, mimeType: String): android.net.Uri? {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val contentValues = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+            }
+            val uri = contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+            if (uri != null) {
+                contentResolver.openOutputStream(uri)?.use { out ->
+                    tempFile.inputStream().use { input ->
+                        input.copyTo(out)
+                    }
+                }
+            }
+            uri
+        } else {
+            val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            val destFile = if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                if (!downloadDir.exists()) downloadDir.mkdirs()
+                java.io.File(downloadDir, fileName)
+            } else {
+                val appDownloads = getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS) ?: cacheDir
+                java.io.File(appDownloads, fileName)
+            }
+            tempFile.copyTo(destFile, overwrite = true)
+            android.media.MediaScannerConnection.scanFile(
+                this,
+                arrayOf(destFile.absolutePath),
+                arrayOf(mimeType),
+                null
+            )
+            android.net.Uri.fromFile(destFile)
         }
     }
 
     private fun saveCurrentPageAsPdf(webView: OnyxWebView, title: String) {
         try {
             val printManager = getSystemService(android.content.Context.PRINT_SERVICE) as? android.print.PrintManager
+            if (printManager == null) {
+                Toast.makeText(this, "Printing service unavailable on this device", Toast.LENGTH_SHORT).show()
+                return
+            }
             val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
             val printAdapter = webView.createPrintDocumentAdapter(cleanTitle)
             val printAttributes = android.print.PrintAttributes.Builder()
                 .setMediaSize(android.print.PrintAttributes.MediaSize.ISO_A4)
-                .setResolution(android.print.PrintAttributes.Resolution("pdf", "pdf", 600, 600))
-                .setMinMargins(android.print.PrintAttributes.Margins.NO_MARGINS)
                 .build()
-            printManager?.print(cleanTitle, printAdapter, printAttributes)
+            printManager.print(cleanTitle, printAdapter, printAttributes)
         } catch (e: Exception) {
-            android.widget.Toast.makeText(this, "Failed to export PDF: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Failed to export PDF: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 

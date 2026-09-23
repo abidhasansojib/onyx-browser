@@ -397,7 +397,15 @@ class TabManager(
 
     fun updateActiveTab(url: String, title: String) {
         val current = _activeTab.value ?: return
-        val updatedTab = current.copy(url = url, title = title.ifBlank { url }, lastAccessedAt = System.currentTimeMillis(), isHibernated = false)
+        if (url.startsWith("data:") || url.startsWith("file:///android_asset/error_page")) {
+            return
+        }
+        val cleanTitle = if (title.startsWith("data:") || title.startsWith("file:///android_asset/error_page")) {
+            current.title.ifBlank { url }
+        } else {
+            title.ifBlank { url }
+        }
+        val updatedTab = current.copy(url = url, title = cleanTitle, lastAccessedAt = System.currentTimeMillis(), isHibernated = false)
         _activeTab.value = updatedTab
 
         if (updatedTab.isIncognito) {

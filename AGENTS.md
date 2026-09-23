@@ -724,3 +724,18 @@ onyx-browser/
   - Hibernates background tabs inactive for 24+ hours by destroying underlying WebView instances to free RAM while keeping disk snapshots intact.
 - [x] **Cookie & Storage Autoclear on Tab Close** (`TabManager.kt`, `ShieldsActivity.kt`, `activity_shields.xml`, `BrowserPreferences.kt`):
   - Setting in `Settings > Shields & Privacy` under Do Not Track. Cleans origin LocalStorage, IndexedDB, and invalidates session/domain cookies on individual or batch tab close.
+- [x] **Bug Fixes: Loading Bar Position, Biometric Incognito Auth, Page Export (.mhtml/.pdf), and Error Page URL Preservation**:
+  - **Loading Bar Position** (`activity_main.xml`): Re-anchored the 2dp loading progress bar directly beneath `topBarDivider` (under search bar) with elevation, fixing the regression where it appeared above the search bar.
+  - **Biometric Incognito Protection Fix** (`BiometricAuthHelper.kt`, `SettingsActivity.kt`, `TabSwitcherBottomSheet.kt`, `MainActivity.kt`, `TabsAdapter.kt`):
+    - Created `BiometricAuthHelper` with backwards-compatible support for `DEVICE_CREDENTIAL` and `BIOMETRIC_STRONG` across API 26-35.
+    - Wired `setupAccessibilitySettings()` in `SettingsActivity` with biometric prompt confirmation on both enable and disable.
+    - Prevented `onAuthenticationFailed()` from aborting auth or dismissing dialog on first misread.
+    - Masked locked incognito tabs in Tab Switcher (`"Protected Tab"`, `"Locked"`, lock icon, obscured preview bitmap).
+    - Fixed `switchToNormalTabOrNew()` to properly use `tabManager.selectTab(...)` instead of updating active incognito tab URL.
+  - **Save Page as .mhtml and .pdf Fix** (`MainActivity.kt`):
+    - Fixed .mhtml web archive saving by writing initially to app cache and then streaming into `MediaStore.Downloads` on Android Q+ (API 29+) or legacy downloads with MediaScanner on pre-Q.
+    - Fixed .pdf export by removing invalid custom `Resolution` from `PrintAttributes.Builder()`.
+  - **Error Page URL Preservation & Reload Fix** (`OnyxWebViewClient.kt`, `OnyxWebView.kt`, `MainActivity.kt`, `TabManager.kt`, `LocalFileLoader.kt`):
+    - Prevented `data:text/html...` or synthetic error asset URLs from overwriting `currentPageUrl`, triggering `onUrlChanged`, or corrupting `activeTab.url` and address bar.
+    - Overrode `OnyxWebView.reload()` and `swipeRefreshLayout.setOnRefreshListener` to reload `failingUrl` whenever synthetic error state is active.
+    - Created `getActivePageUrl()` helper in `MainActivity` to keep address bar, share, copy, and edit actions pointing to the true website URL even when displaying a custom error page.

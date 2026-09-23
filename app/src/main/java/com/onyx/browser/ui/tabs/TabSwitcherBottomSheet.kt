@@ -102,14 +102,29 @@ class TabSwitcherBottomSheet(
         adapter = TabsAdapter(
             onTabClicked = { tab ->
                 tabManager.selectTab(tab)
-                onTabSelected(tab)
-                dismiss()
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
+        adapter = TabsAdapter(
+            onTabClicked = { tab ->
+                if (tab.isIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
+                    promptBiometricAuth {
+                        tabManager.selectTab(tab)
+                        onTabSelected(tab)
+                        dismiss()
+                    }
+                } else {
+                    tabManager.selectTab(tab)
+                    onTabSelected(tab)
+                    dismiss()
+                }
             },
             onTabClosed = { tab ->
                 tabManager.closeTab(tab)
             },
             getSnapshot = { tabId ->
                 tabManager.getSnapshot(tabId)
+            },
+            isTabLocked = { tab ->
+                tab.isIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked
             }
         )
 
@@ -142,17 +157,16 @@ class TabSwitcherBottomSheet(
             onSearchRequested?.invoke()
         }
 
-        // Set initial selection
-        binding.tabModeToggle.check(
-            if (isViewingIncognito) R.id.btnIncognitoTabs else R.id.btnNormalTabs
-        )
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
 
         binding.tabModeToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 if (checkedId == R.id.btnIncognitoTabs) {
-                    val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
                     if (prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
-                        promptBiometricAuth()
+                        promptBiometricAuth {
+                            isViewingIncognito = true
+                            refreshTabsList()
+                        }
                     } else {
                         isViewingIncognito = true
                         refreshTabsList()
@@ -164,36 +178,52 @@ class TabSwitcherBottomSheet(
             }
         }
 
+        if (isViewingIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
+            binding.tabModeToggle.check(R.id.btnNormalTabs)
+            promptBiometricAuth {
+                binding.tabModeToggle.check(R.id.btnIncognitoTabs)
+                isViewingIncognito = true
+                refreshTabsList()
+            }
+        } else {
+            binding.tabModeToggle.check(
+                if (isViewingIncognito) R.id.btnIncognitoTabs else R.id.btnNormalTabs
+            )
+        }
+
         binding.btnTabSwitcherOverflow.setOnClickListener { v ->
             showOverflowMenu(v)
         }
     }
 
-    private fun promptBiometricAuth() {
+    private fun promptBiometricAuth(onSuccess: (() -> Unit)? = null) {
         val executor = androidx.core.content.ContextCompat.getMainExecutor(requireContext())
         val biometricPrompt = androidx.biometric.BiometricPrompt(this, executor,
             object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
                     tabManager.isIncognitoUnlocked = true
-                    isViewingIncognito = true
-                    refreshTabsList()
+                    onSuccess?.invoke() ?: run {
+                        isViewingIncognito = true
+                        refreshTabsList()
+                    }
                 }
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
                     binding.tabModeToggle.check(R.id.btnNormalTabs)
+                    isViewingIncognito = false
+                    refreshTabsList()
                 }
                 override fun onAuthenticationFailed() {
                     super.onAuthenticationFailed()
-                    binding.tabModeToggle.check(R.id.btnNormalTabs)
+                    // Allow user retry on biometric prompt UI
                 }
             })
 
-        val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Incognito Tabs")
-            .setSubtitle("Confirm your identity to view private tabs")
-            .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
-            .build()
+        val promptInfo = com.onyx.browser.ui.common.BiometricAuthHelper.createPromptInfo(
+            title = "Unlock Incognito Tabs",
+            subtitle = "Confirm identity to access private tabs"
+        )
         biometricPrompt.authenticate(promptInfo)
     }
 

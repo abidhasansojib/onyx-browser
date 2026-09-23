@@ -100,7 +100,9 @@ class OnyxWebViewClient(
 
             // Track current page URL; never block the main frame document
             if (request.isForMainFrame) {
-                currentPageUrl = url
+                if (!isSyntheticOrDataUrl(url)) {
+                    currentPageUrl = url
+                }
                 
                 // Intercept Markdown files to render them
                 if (url.startsWith("content://") || url.startsWith("file://")) {
@@ -664,9 +666,20 @@ class OnyxWebViewClient(
         }
     }
 
+    private fun isSyntheticOrDataUrl(url: String?): Boolean {
+        if (url.isNullOrBlank()) return true
+        return url.startsWith("data:") ||
+                url.startsWith("file:///android_asset/error_page") ||
+                url == "about:blank"
+    }
+
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         if (!url.isNullOrBlank()) {
+            if (isSyntheticOrDataUrl(url)) {
+                // Do not let data: or asset error pages overwrite the active URL or clear synthetic error state!
+                return
+            }
             currentPageUrl = url
             (view as? OnyxWebView)?.clearSyntheticState()
             (view as? OnyxWebView)?.applyUserAgentForUrl(url)
@@ -687,7 +700,7 @@ class OnyxWebViewClient(
 
     override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
         super.doUpdateVisitedHistory(view, url, isReload)
-        if (!url.isNullOrBlank()) {
+        if (!url.isNullOrBlank() && !isSyntheticOrDataUrl(url)) {
             currentPageUrl = url
             if (preferences.isBackgroundPlayEnabled) {
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
@@ -698,14 +711,22 @@ class OnyxWebViewClient(
     override fun onPageFinished(view: WebView?, url: String?) {
         super.onPageFinished(view, url)
         if (!url.isNullOrBlank()) {
-            currentPageUrl = url
-            onPageFinishedCallback(url)
+            val isSyntheticData = isSyntheticOrDataUrl(url)
+            val effectiveUrl = if (isSyntheticData) {
+                (view as? OnyxWebView)?.currentSyntheticState?.failingUrl ?: currentPageUrl
+            } else {
+                currentPageUrl = url
+                url
+            }
+            if (effectiveUrl.isNotBlank() && !isSyntheticOrDataUrl(effectiveUrl)) {
+                onPageFinishedCallback(effectiveUrl)
+            }
             if (preferences.isBackgroundPlayEnabled) {
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
             }
             val isSyntheticError = (view as? OnyxWebView)?.currentSyntheticState != null
             val isIncognito = (view as? OnyxWebView)?.isIncognito ?: false
-            if (!isIncognito && !isSyntheticError && url.startsWith("http")) {
+            if (!isIncognito && !isSyntheticError && !isSyntheticData && url.startsWith("http")) {
                 val title = view?.title ?: url
                 coroutineScope.launch(Dispatchers.IO) {
                     try {
@@ -959,6 +980,9 @@ class OnyxWebViewClient(
 
     private fun loadCustomErrorPage(view: WebView?, error: SyntheticNavigationState) {
         (view as? OnyxWebView)?.currentSyntheticState = error
+        if (error.failingUrl.isNotBlank()) {
+            currentPageUrl = error.failingUrl
+        }
         val renderAction = Runnable {
             try {
                 var template = cachedErrorPageTemplate
@@ -968,12 +992,17 @@ class OnyxWebViewClient(
                 }
                 val errorJsonB64 = error.toBase64Json()
                 val populatedHtml = template.replace("{{ERROR_JSON_B64}}", errorJsonB64)
+                val baseUrl = if (error.failingUrl.startsWith("http://") || error.failingUrl.startsWith("https://")) {
+                    error.failingUrl
+                } else {
+                    "https://onyx.browser/"
+                }
                 view?.loadDataWithBaseURL(
-                    error.failingUrl,
+                    baseUrl,
                     populatedHtml,
                     "text/html",
                     "UTF-8",
-                    error.failingUrl
+                    if (error.failingUrl.isNotBlank()) error.failingUrl else null
                 )
             } catch (_: Throwable) {
                 val encodedUrl = Uri.encode(error.failingUrl)

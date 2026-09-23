@@ -14,7 +14,8 @@ import com.onyx.browser.databinding.ItemTabBinding
 class TabsAdapter(
     private val onTabClicked: (TabItem) -> Unit,
     private val onTabClosed: (TabItem) -> Unit,
-    private val getSnapshot: (String) -> android.graphics.Bitmap?
+    private val getSnapshot: (String) -> android.graphics.Bitmap?,
+    private val isTabLocked: ((TabItem) -> Boolean)? = null
 ) : ListAdapter<TabItem, TabsAdapter.TabViewHolder>(TabDiffCallback()) {
 
     var activeTabId: String? = null
@@ -32,14 +33,21 @@ class TabsAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: TabItem) {
-            binding.tvTabTitle.text = item.title.ifBlank { "New Tab" }
+            val locked = isTabLocked?.invoke(item) == true
 
-            val domain = try {
-                if (item.url.isNotBlank()) Uri.parse(item.url).host ?: item.url else "New Tab"
-            } catch (e: Exception) {
-                item.url
+            if (locked) {
+                binding.tvTabTitle.text = "Protected Tab"
+                binding.tvTabDomain.text = "Locked"
+            } else {
+                binding.tvTabTitle.text = item.title.ifBlank { "New Tab" }
+
+                val domain = try {
+                    if (item.url.isNotBlank()) Uri.parse(item.url).host ?: item.url else "New Tab"
+                } catch (e: Exception) {
+                    item.url
+                }
+                binding.tvTabDomain.text = domain
             }
-            binding.tvTabDomain.text = domain
 
             val isActive = item.id == activeTabId
             val context = binding.root.context
@@ -54,7 +62,10 @@ class TabsAdapter(
                 binding.cardTab.strokeWidth = 1
             }
 
-            if (item.isIncognito) {
+            if (locked) {
+                binding.ivTabFavicon.setImageResource(R.drawable.ic_lock)
+                binding.ivTabFavicon.setColorFilter(ContextCompat.getColor(context, R.color.primary))
+            } else if (item.isIncognito) {
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_incognito)
                 binding.ivTabFavicon.setColorFilter(ContextCompat.getColor(context, R.color.incognito_purple))
             } else {
@@ -70,7 +81,7 @@ class TabsAdapter(
                 }
             }
             
-            val snapshot = getSnapshot(item.id)
+            val snapshot = if (locked) null else getSnapshot(item.id)
             if (snapshot != null) {
                 binding.ivTabSnapshot.setImageBitmap(snapshot)
                 binding.ivTabSnapshot.visibility = android.view.View.VISIBLE
