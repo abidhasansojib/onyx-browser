@@ -306,8 +306,10 @@ class OnyxWebViewClient(
             val httpsMode = preferences.httpsUpgradeMode
             if (scheme == "http" && isForMainFrame &&
                 httpsMode != BrowserPreferences.HTTPS_MODE_DISABLED) {
-                if (!upgradedUrls.contains(url)) {
+                val normalizedUrl = url.trimEnd('/')
+                if (!upgradedUrls.contains(url) && !upgradedUrls.contains(normalizedUrl)) {
                     upgradedUrls.add(url)
+                    upgradedUrls.add(normalizedUrl)
                     val httpsUrl = url.replaceFirst("http://", "https://")
                     view?.post { view.loadUrl(httpsUrl) }
                     return true
@@ -795,6 +797,7 @@ class OnyxWebViewClient(
             if (preferences.isPasskeysEnabled) {
                 view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
             }
+            view?.evaluateJavascript(WebGLCompatibilityBridge.SCRIPT, null)
         }
     }
 
@@ -984,8 +987,10 @@ class OnyxWebViewClient(
             url.startsWith("data:", ignoreCase = true)) return
 
         val fallbackUrl = url.replaceFirst("https://", "http://")
+        val normalizedFallback = fallbackUrl.trimEnd('/')
         // In STRICT mode, do NOT fall back to HTTP — block the page
-        if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT && upgradedUrls.contains(fallbackUrl)) {
+        if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT &&
+            (upgradedUrls.contains(fallbackUrl) || upgradedUrls.contains(normalizedFallback))) {
             view?.post { view.loadUrl(fallbackUrl) }
             return
         }
@@ -1043,7 +1048,9 @@ class OnyxWebViewClient(
         }
 
         val fallbackUrl = url.replaceFirst("https://", "http://")
-        if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT && upgradedUrls.contains(fallbackUrl)) {
+        val normalizedFallback = fallbackUrl.trimEnd('/')
+        if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT &&
+            (upgradedUrls.contains(fallbackUrl) || upgradedUrls.contains(normalizedFallback))) {
             handler?.cancel()
             view?.post { view.loadUrl(fallbackUrl) }
             return
@@ -1091,11 +1098,7 @@ class OnyxWebViewClient(
                 }
                 val errorJsonB64 = error.toBase64Json()
                 val populatedHtml = template.replace("{{ERROR_JSON_B64}}", errorJsonB64)
-                val baseUrl = if (error.failingUrl.startsWith("http://") || error.failingUrl.startsWith("https://")) {
-                    error.failingUrl
-                } else {
-                    "https://onyx.browser/"
-                }
+                val baseUrl = "https://onyx.browser/"
                 view?.loadDataWithBaseURL(
                     baseUrl,
                     populatedHtml,

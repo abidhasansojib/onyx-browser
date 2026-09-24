@@ -121,6 +121,20 @@ object WebErrorHandler {
             )
         }
 
+        if (desc.contains("CLEARTEXT_NOT_PERMITTED", ignoreCase = true)) {
+            return SyntheticNavigationState.Generic(
+                failingUrl = failingUrl,
+                errorCode = "ERR_CLEARTEXT_NOT_PERMITTED",
+                title = "Cleartext HTTP traffic not permitted",
+                description = "The connection to $domain is unencrypted (HTTP) and was restricted by Android system network security policy.",
+                checklist = listOf(
+                    "Try loading the site over secure HTTPS: https://$domain",
+                    "Check if the site or local network supports secure connections"
+                ),
+                technicalDetails = "Cleartext (non-HTTPS) traffic rejected by the operating system."
+            )
+        }
+
         val codeClean = if (desc.startsWith("net::")) desc.removePrefix("net::") else if (desc.isNotBlank()) desc else "ERR_CONNECTION_FAILED"
         return SyntheticNavigationState.Generic(
             failingUrl = failingUrl,

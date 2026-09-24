@@ -1071,4 +1071,19 @@ onyx-browser/
       - [`Onyx-Browser-v1.0.148-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.148-universal-release.apk) (38.97 MB, all ABIs)
       - [`Onyx-Browser-v1.0.148-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.148-x86_64-release.apk) (20.55 MB, emulators/x86_64)
 
+- [x] **Universal WebGL Compatibility Engine & Cleartext HTTP Network Security Architecture**:
+  - **WebGL Floating-Point Textures & Extension Support (`WebGLCompatibilityBridge.kt`, `OnyxWebView.kt`, `OnyxWebViewClient.kt`)**:
+    - Discovered root cause: Modern mobile GPUs running WebGL 1.0 do not expose the optional legacy 2011 extension `OES_texture_float` (or `OES_standard_derivatives`), causing classic WebGL applications (such as Evan Wallace's WebGL Water demo at `https://madebyevan.com/webgl-water/`) to crash immediately with `Uncaught Error: This demo requires the OES_texture_float extension`.
+    - Created `WebGLCompatibilityBridge.kt`: Intercepts `HTMLCanvasElement.prototype.getContext` and `OffscreenCanvas.prototype.getContext`. When `webgl` or `experimental-webgl` is requested, transparently upgrades to a modern hardware-accelerated `webgl2` context, polyfilling legacy WebGL 1 extensions (`OES_texture_float`, `OES_texture_float_linear`, `OES_texture_half_float`, `OES_standard_derivatives`, `WEBGL_depth_texture`, `ANGLE_instanced_arrays`, `WEBGL_draw_buffers`, `OES_vertex_array_object`).
+    - Maps WebGL 1 un-sized float texture parameters (`internalformat=RGBA, type=FLOAT`) to WebGL 2 sized formats (`RGBA32F`), handles `HALF_FLOAT_OES` to `HALF_FLOAT` mapping (`RGBA16F`), strips obsolete `#extension GL_OES_standard_derivatives : enable` declarations that trigger WebGL 2 compile errors, and enables `EXT_color_buffer_float` and `OES_texture_float_linear`.
+    - Configured direct GPU acceleration: Removed `setLayerType(View.LAYER_TYPE_HARDWARE, null)` in `OnyxWebView.kt` in favor of `setLayerType(View.LAYER_TYPE_NONE, null)`, eliminating expensive offscreen texture allocations and EGL context thrashing.
+    - Set `WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED` on `MainActivity` window and `android:hardwareAccelerated="true"` in `AndroidManifest.xml`.
+  - **Cleartext Traffic Policy & Error Page Resolution (`network_security_config.xml`, `AndroidManifest.xml`, `OnyxWebViewClient.kt`, `WebErrorHandler.kt`)**:
+    - Discovered root cause of `net::ERR_CLEARTEXT_NOT_PERMITTED`: Android 9+ (API 28+) strictly blocks cleartext `http://` network traffic by default unless explicitly permitted. When a user navigated to `http://...`, the OS rejected the connection. Furthermore, when `loadCustomErrorPage` attempted to load with `baseUrl = error.failingUrl` (which started with `http://`), the cleartext block prevented the custom error page itself from rendering, resulting in a raw WebView error screen.
+    - Configured `android:usesCleartextTraffic="true"` and `android:networkSecurityConfig="@xml/network_security_config"` in `AndroidManifest.xml`, permitting general HTTP web browsing.
+    - Normalized URL trailing slashes in `OnyxWebViewClient.shouldOverrideUrlLoading`, `onReceivedError`, and `onReceivedSslError` to ensure seamless HTTPS fallback regardless of whether a trailing slash is present.
+    - Decoupled synthetic error page `baseUrl` to `"https://onyx.browser/"` so error pages always load securely and reliably without being subject to cleartext or origin restrictions.
+    - Added dedicated `ERR_CLEARTEXT_NOT_PERMITTED` classification in `WebErrorHandler.kt`.
+
+
 

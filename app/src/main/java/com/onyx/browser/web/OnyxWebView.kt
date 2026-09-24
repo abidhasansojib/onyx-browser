@@ -145,8 +145,8 @@ class OnyxWebView @JvmOverloads constructor(
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
 
-        // GPU Acceleration & Smooth Scrolling
-        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+        // GPU Acceleration & Smooth Scrolling (Direct window hardware rasterization)
+        setLayerType(android.view.View.LAYER_TYPE_NONE, null)
         isVerticalFadingEdgeEnabled = false
         isHorizontalFadingEdgeEnabled = false
         isScrollbarFadingEnabled = true
@@ -240,6 +240,11 @@ class OnyxWebView @JvmOverloads constructor(
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
                     PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(),
+                    setOf("*")
+                )
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    WebGLCompatibilityBridge.SCRIPT,
                     setOf("*")
                 )
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
