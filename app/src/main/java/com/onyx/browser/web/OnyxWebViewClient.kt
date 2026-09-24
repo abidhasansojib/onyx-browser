@@ -144,6 +144,16 @@ class OnyxWebViewClient(
                 
                 // Intercept local files (HTML, MHTML, MHT, Markdown, Plain Text) for main frame
                 if (url.startsWith("content://", ignoreCase = true) || url.startsWith("file://", ignoreCase = true)) {
+                    // Never intercept android assets or resources
+                    if (url.startsWith("file:///android_asset/", ignoreCase = true) || url.startsWith("file:///android_res/", ignoreCase = true)) {
+                        return null
+                    }
+                    val lower = url.lowercase()
+                    // CRITICAL: Chromium native Blink MHTML parser handles file:// .mht/.mhtml URLs.
+                    // Returning null allows Chromium to parse multipart/related natively without black screens!
+                    if (url.startsWith("file://", ignoreCase = true) && (lower.endsWith(".mht") || lower.endsWith(".mhtml"))) {
+                        return null
+                    }
                     val localResponse = LocalFileLoader.interceptLocalFile(context, url)
                     if (localResponse != null) {
                         return localResponse
@@ -155,6 +165,9 @@ class OnyxWebViewClient(
 
             // Only process http/https network requests for adblocking; intercept local sub-resources
             if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
+                if (url.startsWith("file:///android_asset/", ignoreCase = true) || url.startsWith("file:///android_res/", ignoreCase = true)) {
+                    return null
+                }
                 if (url.startsWith("file://", ignoreCase = true) || url.startsWith("content://", ignoreCase = true)) {
                     return LocalFileLoader.interceptLocalSubResource(context, url)
                 }
@@ -966,7 +979,9 @@ class OnyxWebViewClient(
         }
 
         val url = request.url.toString()
-        if (url.startsWith("file:///android_asset/")) return
+        if (url.startsWith("file:///android_asset/", ignoreCase = true) ||
+            url.startsWith("file:///android_res/", ignoreCase = true) ||
+            url.startsWith("data:", ignoreCase = true)) return
 
         val fallbackUrl = url.replaceFirst("https://", "http://")
         // In STRICT mode, do NOT fall back to HTTP — block the page
@@ -1004,7 +1019,9 @@ class OnyxWebViewClient(
     ) {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) {
             val url = failingUrl ?: view?.url ?: return
-            if (url.startsWith("file:///android_asset/")) return
+            if (url.startsWith("file:///android_asset/", ignoreCase = true) ||
+                url.startsWith("file:///android_res/", ignoreCase = true) ||
+                url.startsWith("data:", ignoreCase = true)) return
             try { view?.stopLoading() } catch (_: Throwable) {}
             val onyxError = WebErrorHandler.resolveNetworkError(url, errorCode, description, isNetworkConnected())
             loadCustomErrorPage(view, onyxError)

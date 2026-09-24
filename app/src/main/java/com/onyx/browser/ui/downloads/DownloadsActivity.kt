@@ -146,7 +146,8 @@ class DownloadsActivity : AppCompatActivity() {
             val intent = Intent(this, com.onyx.browser.MainActivity::class.java).apply {
                 action = Intent.ACTION_VIEW
                 data = uri
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             startActivity(intent)
             finish()

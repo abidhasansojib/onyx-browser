@@ -2674,27 +2674,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun extractUrlFromIntent(intent: Intent?): String? {
         if (intent == null) return null
+
+        // Priority 1: Direct data URI from file manager, link click, or download item
+        val dataUri = intent.data ?: intent.clipData?.let { if (it.itemCount > 0) it.getItemAt(0).uri else null }
+        if (dataUri != null) {
+            val uriStr = dataUri.toString().trim()
+            if (uriStr.isNotBlank()) {
+                return uriStr
+            }
+        }
+        val dataString = intent.dataString?.trim()
+        if (!dataString.isNullOrBlank()) {
+            return dataString
+        }
+
         val action = intent.action ?: return null
 
         when (action) {
-            Intent.ACTION_VIEW -> {
-                val dataUri = intent.data ?: intent.clipData?.let { if (it.itemCount > 0) it.getItemAt(0).uri else null }
-                if (dataUri != null) {
-                    val uriStr = dataUri.toString().trim()
-                    if (uriStr.isNotBlank()) {
-                        return uriStr
-                    }
-                }
-                val dataString = intent.dataString?.trim()
-                if (!dataString.isNullOrBlank()) {
-                    return dataString
-                }
-                val extraText = intent.getStringExtra(Intent.EXTRA_TEXT)
-                if (!extraText.isNullOrBlank()) {
-                    return parseUrlOrExtract(extraText)
-                }
-            }
-            Intent.ACTION_SEND -> {
+            Intent.ACTION_VIEW, Intent.ACTION_SEND -> {
                 val extraText = intent.getStringExtra(Intent.EXTRA_TEXT)
                 if (!extraText.isNullOrBlank()) {
                     return parseUrlOrExtract(extraText)
@@ -2785,7 +2782,7 @@ class MainActivity : AppCompatActivity() {
                             val savedUri = copyTempFileToDownloads(tempFile, fileName, mimeType)
                             val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
                             val finalFile = java.io.File(downloadDir, fileName)
-                            val finalPath = if (finalFile.exists()) finalFile.absolutePath else (savedUri?.toString() ?: tempFile.absolutePath)
+                            val finalPath = if (finalFile.exists() && finalFile.canRead()) finalFile.absolutePath else (savedUri?.toString() ?: finalFile.absolutePath)
 
                             val database = com.onyx.browser.data.local.AppDatabase.getInstance(this@MainActivity)
                             database.downloadDao().insertDownload(
