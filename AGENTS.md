@@ -1063,5 +1063,12 @@ onyx-browser/
       3. **Open original site**: Opens the original source URL directly in `MainActivity`.
       4. **Rename**: Material 3 dialog with sanitized input to safely rename the file on physical disk / MediaStore and update Room database.
       5. **Delete**: Displays Material 3 confirmation dialog: *"Delete Download? Are you sure you want to delete \"filename\"? The file will be permanently deleted from device storage and download history."* Upon confirmation, permanently deletes the physical file from disk/MediaStore, deletes temporary cache files, and removes from Room database and download history.
+  - **Verified End-to-End Build & Release (`v1.0.148`)**:
+    - Verified full end-to-end GitHub Actions build run ([#35974450751](https://github.com/abidhasansojib/onyx-browser/actions/runs/35974450751)) on commit `38496a2`.
+    - Generated, signed, and published release `v1.0.148`:
+      - [`Onyx-Browser-v1.0.148-arm64-v8a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.148-arm64-v8a-release.apk) (19.11 MB, recommended for 95%+ of modern Android devices)
+      - [`Onyx-Browser-v1.0.148-armeabi-v7a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.148-armeabi-v7a-release.apk) (15.29 MB, 32-bit ARM)
+      - [`Onyx-Browser-v1.0.148-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.148-universal-release.apk) (38.97 MB, all ABIs)
+      - [`Onyx-Browser-v1.0.148-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.148-x86_64-release.apk) (20.55 MB, emulators/x86_64)
 
 
