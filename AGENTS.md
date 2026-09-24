@@ -1045,3 +1045,23 @@ onyx-browser/
     - Updated `extractUrlFromIntent()` in `MainActivity.kt` to extract data URIs regardless of intent action.
     - Excluded system asset paths (`file:///android_asset/`, `file:///android_res/`) from being misclassified as user documents.
 
+- [x] **Download Pause/Resume Restart Fix, Ongoing Cancel Button & Completed 3-Dot Context Menu**:
+  - **Pause/Resume Restart Root Cause Resolved (`DownloadEngine.kt`, `OnyxDownloadManager.kt`)**:
+    - Discovered root cause: Sending `If-Match: $etag` and `If-Unmodified-Since` headers during resumed range requests caused servers (especially CDNs like Cloudflare, AWS, Nginx with weak ETags `W/"..."`) to respond with `HTTP 412 Precondition Failed`. `DownloadEngine` caught `FileChangedException`, wiped the partial file, and restarted from byte 0.
+    - Removed `If-Match` headers and implemented robust `.chunks` offset state serialization (`saveChunksToFile` and `loadChunksFromFile` persisting `chunkId,startByte,currentByte,endByte,status` to `${task.tempFilePath}.chunks` periodically and on pause).
+    - For single-stream downloads: `allocateChunks()` now checks `existingLen in 1 until total` to set `currentByte = existingLen`. `runSingleStreamDownload()` requests `Range: bytes=${chunk.currentByte}-` and only truncates when the server returns 200 (does not support range); for 206 Partial Content, it seeks to `currentByte` and appends.
+    - Added chunk persistence cleanup on completion and cancellation.
+  - **Ongoing Download 'X' Cross Button & Cancel Confirmation (`DownloadsAdapter.kt`, `DownloadsActivity.kt`)**:
+    - For ongoing downloads (running, pending, paused, interrupted), renders an 'X' cross icon (`ic_close`) on the right side of the download item.
+    - Tapping 'X' displays a Material 3 confirmation dialog: *"Cancel Download? Are you sure you want to cancel downloading \"filename\"? The unfinished download file will be deleted."*
+    - Upon confirmation: cancels the download task, immediately purges partial files (`task_${id}.part` and `task_${id}.part.chunks`) from storage, deletes the entry from Room database, and updates the UI.
+  - **Completed Download 3-Dot Button & Context Menu (`DownloadsAdapter.kt`, `DownloadsActivity.kt`, `bottom_sheet_download_item_menu.xml`)**:
+    - For completed downloads, renders a 3-dot menu icon (`ic_more_vert`) on the right side.
+    - Tapping opens a Material 3 bottom sheet modal context menu with file header card (type icon, filename, formatted size, relative completion time) and 5 distinct actions:
+      1. **Open in file manager**: Direct launch to system Downloads folder (`DownloadManager.ACTION_VIEW_DOWNLOADS`) with fallback file chooser.
+      2. **Share**: Shares the downloaded file across apps via `Intent.ACTION_SEND` with FileProvider content URI and read permissions.
+      3. **Open original site**: Opens the original source URL directly in `MainActivity`.
+      4. **Rename**: Material 3 dialog with sanitized input to safely rename the file on physical disk / MediaStore and update Room database.
+      5. **Delete**: Displays Material 3 confirmation dialog: *"Delete Download? Are you sure you want to delete \"filename\"? The file will be permanently deleted from device storage and download history."* Upon confirmation, permanently deletes the physical file from disk/MediaStore, deletes temporary cache files, and removes from Room database and download history.
+
+

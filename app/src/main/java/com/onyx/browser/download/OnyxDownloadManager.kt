@@ -153,6 +153,8 @@ object OnyxDownloadManager {
         task.speedBytesPerSec = 0L
         task.etaSeconds = -1L
 
+        downloadEngine.saveChunksToFile(task)
+
         appContext?.let { ctx ->
             managerScope.launch {
                 val db = AppDatabase.getInstance(ctx)
@@ -201,6 +203,7 @@ object OnyxDownloadManager {
 
         val tempDir = File(app.cacheDir, "onyx_downloads").apply { mkdirs() }
         val tempFile = File(tempDir, "task_${item.id}.part")
+        val chunksFile = File(tempDir, "task_${item.id}.part.chunks")
 
         val task = DownloadTask(
             id = item.id,
@@ -216,7 +219,18 @@ object OnyxDownloadManager {
             status = DownloadTask.STATUS_PENDING
         )
 
-        if (tempFile.exists() && tempFile.length() > 0L) {
+        if (chunksFile.exists()) {
+            val loadedChunks = downloadEngine.loadChunksFromFile(chunksFile)
+            if (loadedChunks.isNotEmpty()) {
+                task.chunks.addAll(loadedChunks)
+                task.isRangeSupported = true
+                var sum = 0L
+                for (c in loadedChunks) {
+                    sum += (c.currentByte - c.startByte).coerceAtLeast(0L)
+                }
+                task.downloadedBytes.set(sum)
+            }
+        } else if (tempFile.exists() && tempFile.length() > 0L) {
             task.downloadedBytes.set(tempFile.length())
         } else if (item.downloadedBytes > 0L) {
             task.downloadedBytes.set(item.downloadedBytes)
@@ -239,6 +253,7 @@ object OnyxDownloadManager {
         task?.let {
             try {
                 File(it.tempFilePath).delete()
+                File("${it.tempFilePath}.chunks").delete()
             } catch (_: Exception) {}
         }
 

@@ -115,6 +115,9 @@ class DownloadEngine(
             task.speedBytesPerSec = 0L
             task.etaSeconds = 0L
 
+            // Clean up chunks persistence file
+            try { File("${task.tempFilePath}.chunks").delete() } catch (_: Exception) {}
+
             // Update database
             val database = AppDatabase.getInstance(context)
             database.downloadDao().markCompleted(
@@ -131,7 +134,10 @@ class DownloadEngine(
 
         } catch (e: FileChangedException) {
             // Server file changed (HTTP 412) -> reset and restart fresh
-            File(task.tempFilePath).delete()
+            try {
+                File(task.tempFilePath).delete()
+                File("${task.tempFilePath}.chunks").delete()
+            } catch (_: Exception) {}
             task.chunks.clear()
             task.downloadedBytes.set(0L)
             task.totalBytes = 0L
@@ -236,18 +242,39 @@ class DownloadEngine(
     }
 
     private fun allocateChunks(task: DownloadTask) {
+        val chunksFile = File("${task.tempFilePath}.chunks")
+        if (chunksFile.exists()) {
+            val loadedChunks = loadChunksFromFile(chunksFile)
+            if (loadedChunks.isNotEmpty()) {
+                task.chunks.clear()
+                task.chunks.addAll(loadedChunks)
+                var totalDownloaded = 0L
+                for (c in loadedChunks) {
+                    totalDownloaded += (c.currentByte - c.startByte).coerceAtLeast(0L)
+                }
+                task.downloadedBytes.set(totalDownloaded)
+                return
+            }
+        }
+
         val total = task.totalBytes
+        val tempFile = File(task.tempFilePath)
+        val existingLen = if (tempFile.exists()) tempFile.length() else 0L
+
         if (!task.isRangeSupported || total < 5L * 1024L * 1024L) {
             // Single chunk
+            val startOffset = if (total > 0L && existingLen in 1 until total) existingLen else 0L
             task.chunks.add(
                 DownloadChunk(
                     chunkId = 0,
                     startByte = 0L,
-                    currentByte = 0L,
+                    currentByte = startOffset,
                     endByte = if (total > 0L) total - 1L else Long.MAX_VALUE,
                     status = DownloadChunk.STATUS_PENDING
                 )
             )
+            task.downloadedBytes.set(startOffset)
+            saveChunksToFile(task)
             return
         }
 
@@ -272,6 +299,7 @@ class DownloadEngine(
                 )
             )
         }
+        saveChunksToFile(task)
     }
 
     private suspend fun runParallelDownload(task: DownloadTask, tempFile: File) = coroutineScope {
@@ -312,6 +340,7 @@ class DownloadEngine(
 
         // Monitoring loop to report speed, progress and ETA
         val monitorJob = async(Dispatchers.Default) {
+            var saveCounter = 0
             while (isActive && task.status == DownloadTask.STATUS_RUNNING) {
                 delay(500)
                 val now = System.currentTimeMillis()
@@ -331,23 +360,24 @@ class DownloadEngine(
                     lastReportTime = now
                     lastReportBytes = currentBytes
                     onProgress(task)
+
+                    saveCounter++
+                    if (saveCounter % 4 == 0) {
+                        saveChunksToFile(task)
+                    }
                 }
             }
         }
 
         jobs.awaitAll()
         monitorJob.cancel()
+        saveChunksToFile(task)
     }
 
     private suspend fun downloadChunkSegment(task: DownloadTask, chunk: DownloadChunk, tempFile: File) {
         val rangeHeader = "bytes=${chunk.currentByte}-${chunk.endByte}"
         val reqBuilder = buildBaseRequest(task.url, task)
             .header("Range", rangeHeader)
-
-        if (chunk.currentByte > chunk.startByte) {
-            if (task.etag.isNotBlank()) reqBuilder.header("If-Match", task.etag)
-            if (task.lastModified.isNotBlank()) reqBuilder.header("If-Unmodified-Since", task.lastModified)
-        }
 
         val request = reqBuilder.build()
         val call = httpClient.newCall(request)
@@ -408,10 +438,8 @@ class DownloadEngine(
         var lastReportBytes = task.downloadedBytes.get()
 
         val reqBuilder = buildBaseRequest(task.url, task)
-        if (chunk.currentByte > 0L && task.isRangeSupported) {
+        if (chunk.currentByte > 0L) {
             reqBuilder.header("Range", "bytes=${chunk.currentByte}-")
-            if (task.etag.isNotBlank()) reqBuilder.header("If-Match", task.etag)
-            if (task.lastModified.isNotBlank()) reqBuilder.header("If-Unmodified-Since", task.lastModified)
         }
 
         val call = httpClient.newCall(reqBuilder.build())
@@ -430,7 +458,11 @@ class DownloadEngine(
 
                 val body = response.body ?: throw IllegalStateException("Empty response body")
                 if (task.totalBytes <= 0L && body.contentLength() > 0L) {
-                    task.totalBytes = body.contentLength()
+                    task.totalBytes = if (response.code == 206 && chunk.currentByte > 0L) {
+                        chunk.currentByte + body.contentLength()
+                    } else {
+                        body.contentLength()
+                    }
                 }
 
                 val inStream = body.byteStream()
@@ -441,6 +473,7 @@ class DownloadEngine(
                     if (append) {
                         raf.seek(chunk.currentByte)
                     } else {
+                        // Server does not support Range (code 200) -> must restart from 0
                         raf.setLength(0L)
                         raf.seek(0L)
                         chunk.currentByte = 0L
@@ -450,6 +483,7 @@ class DownloadEngine(
                     val buffer = ByteArray(32 * 1024)
                     var bytesRead: Int
 
+                    var saveCounter = 0
                     while (inStream.read(buffer).also { bytesRead = it } != -1) {
                         if (task.status != DownloadTask.STATUS_RUNNING) {
                             break
@@ -473,8 +507,14 @@ class DownloadEngine(
                             lastReportTime = now
                             lastReportBytes = currentBytes
                             onProgress(task)
+
+                            saveCounter++
+                            if (saveCounter % 4 == 0) {
+                                saveChunksToFile(task)
+                            }
                         }
                     }
+                    saveChunksToFile(task)
                 } finally {
                     try { raf.close() } catch (_: Exception) {}
                 }
@@ -664,6 +704,37 @@ class DownloadEngine(
     private fun isFatalHttpError(e: Exception): Boolean {
         val msg = e.message ?: return false
         return msg.contains("401") || msg.contains("403") || msg.contains("404") || msg.contains("410")
+    }
+
+    fun saveChunksToFile(task: DownloadTask) {
+        try {
+            if (task.chunks.isEmpty()) return
+            val chunksFile = File("${task.tempFilePath}.chunks")
+            chunksFile.bufferedWriter().use { writer ->
+                for (c in task.chunks) {
+                    writer.write("${c.chunkId},${c.startByte},${c.currentByte},${c.endByte},${c.status}\n")
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun loadChunksFromFile(file: File): List<DownloadChunk> {
+        val list = mutableListOf<DownloadChunk>()
+        try {
+            if (!file.exists()) return list
+            file.forEachLine { line ->
+                val parts = line.split(',')
+                if (parts.size >= 5) {
+                    val id = parts[0].toIntOrNull() ?: 0
+                    val start = parts[1].toLongOrNull() ?: 0L
+                    val current = parts[2].toLongOrNull() ?: start
+                    val end = parts[3].toLongOrNull() ?: Long.MAX_VALUE
+                    val status = parts[4].toIntOrNull() ?: DownloadChunk.STATUS_PENDING
+                    list.add(DownloadChunk(id, start, current, end, status))
+                }
+            }
+        } catch (_: Exception) {}
+        return list
     }
 
     class FileChangedException(message: String) : Exception(message)

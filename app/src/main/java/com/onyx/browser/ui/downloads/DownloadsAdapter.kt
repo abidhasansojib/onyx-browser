@@ -15,7 +15,8 @@ import com.onyx.browser.download.DownloadTaskSnapshot
 
 class DownloadsAdapter(
     private val onItemClicked: (DownloadItem) -> Unit,
-    private val onItemDeleted: (DownloadItem) -> Unit,
+    private val onCancelOngoingClicked: (DownloadItem) -> Unit,
+    private val onMoreOptionsClicked: (DownloadItem) -> Unit,
     private val onActionClicked: ((DownloadItem) -> Unit)? = null,
     private val onItemLongClicked: ((DownloadItem) -> Unit)? = null
 ) : ListAdapter<DownloadItem, DownloadsAdapter.DownloadViewHolder>(DownloadDiffCallback()) {
@@ -164,7 +165,16 @@ class DownloadsAdapter(
                 onItemLongClicked?.invoke(item)
                 true
             }
-            binding.btnDeleteDownloadItem.setOnClickListener { onItemDeleted(item) }
+            val isOngoing = isLiveActive || isDbPausedOrInterrupted
+            if (isOngoing) {
+                binding.btnDeleteDownloadItem.setImageResource(R.drawable.ic_close)
+                binding.btnDeleteDownloadItem.contentDescription = "Cancel download"
+                binding.btnDeleteDownloadItem.setOnClickListener { onCancelOngoingClicked(item) }
+            } else {
+                binding.btnDeleteDownloadItem.setImageResource(R.drawable.ic_more_vert)
+                binding.btnDeleteDownloadItem.contentDescription = "More options"
+                binding.btnDeleteDownloadItem.setOnClickListener { onMoreOptionsClicked(item) }
+            }
         }
     }
 
