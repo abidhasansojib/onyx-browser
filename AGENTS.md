@@ -1102,3 +1102,10 @@ onyx-browser/
     - Added Step 0 in `SearchSuggestionRepository.getSuggestions`: When the user types a domain or URL, it is immediately generated as the #1 suggestion at the top of the list, guaranteed to be a navigable URL (`queryOrUrl = fullNavUrl`).
     - Added Fast-Path in `MainActivity.fetchSearchSuggestions`: Shows the direct domain suggestion instantly upon typing without waiting for the 300ms debounce delay.
     - Enhanced URL scheme handling in `MainActivity.setupSearchOverlay.onSuggestionClicked`: Automatically prefixes `https://` if a domain is tapped, preventing fallback search queries and guaranteeing immediate WebView navigation.
+  - **Verified End-to-End Build & Release (`v1.0.149`)**:
+    - Verified full end-to-end GitHub Actions build run ([#35981141135](https://github.com/abidhasansojib/onyx-browser/actions/runs/35981141135)) on commit `907e21e`.
+    - Generated, signed, and published release `v1.0.149`:
+      - [`Onyx-Browser-v1.0.149-arm64-v8a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-arm64-v8a-release.apk) (19.11 MB, recommended for 95%+ of modern Android devices)
+      - [`Onyx-Browser-v1.0.149-armeabi-v7a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-armeabi-v7a-release.apk) (15.29 MB, 32-bit ARM)
+      - [`Onyx-Browser-v1.0.149-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-universal-release.apk) (38.97 MB, all ABIs)
+      - [`Onyx-Browser-v1.0.149-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-x86_64-release.apk) (20.55 MB, emulators/x86_64)
