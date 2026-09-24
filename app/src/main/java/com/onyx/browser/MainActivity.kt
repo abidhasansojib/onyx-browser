@@ -1319,20 +1319,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isLikelyUrl(input: String): Boolean {
-        if (input.contains(" ")) return false
-        if (input.equals("localhost", ignoreCase = true) ||
-            input.startsWith("localhost:", ignoreCase = true) ||
-            input.matches(Regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(:\\d+)?(/.*)?$"))) {
-            return true
-        }
-        val domainRegex = Regex("^[a-zA-Z0-9][-a-zA-Z0-9]*(\\.[a-zA-Z0-9][-a-zA-Z0-9]*)+(:\\d+)?(/.*)?$")
-        return domainRegex.matches(input)
+        return com.onyx.browser.data.search.SearchSuggestionRepository.isLikelyDomainOrUrl(input)
     }
 
     private fun setupSearchOverlay() {
         suggestionsAdapter = SuggestionsAdapter(
             onSuggestionClicked = { suggestion ->
-                performSearchOrLoad(suggestion.queryOrUrl)
+                val target = if (suggestion.isDomain || suggestion.isUrl) {
+                    val raw = suggestion.queryOrUrl.trim()
+                    if (raw.startsWith("http://", ignoreCase = true) ||
+                        raw.startsWith("https://", ignoreCase = true) ||
+                        raw.startsWith("file://", ignoreCase = true) ||
+                        raw.startsWith("about:", ignoreCase = true) ||
+                        raw.startsWith("data:", ignoreCase = true)
+                    ) {
+                        raw
+                    } else {
+                        "https://$raw"
+                    }
+                } else {
+                    suggestion.queryOrUrl
+                }
+                performSearchOrLoad(target)
                 hideSoftKeyboard()
             },
             onInsertClicked = { suggestion ->
@@ -1470,18 +1478,37 @@ class MainActivity : AppCompatActivity() {
 
     private fun fetchSearchSuggestions(query: String) {
         suggestionJob?.cancel()
+        val trimmed = query.trim()
         // Require at least 2 chars — single char gives irrelevant results and
         // wastes network bandwidth. Repository enforces the same guard.
-        if (query.length < 2) {
+        if (trimmed.length < 2) {
             val clipboardOpt = getClipboardSuggestion()
             suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
             return
         }
+
+        // Fast-path: When typing a domain or URL, display it immediately without waiting for debounce
+        if (com.onyx.browser.data.search.SearchSuggestionRepository.isLikelyDomainOrUrl(trimmed)) {
+            val isCompleteUrl = trimmed.startsWith("http://", ignoreCase = true) ||
+                trimmed.startsWith("https://", ignoreCase = true) ||
+                trimmed.startsWith("file://", ignoreCase = true)
+            val fullNavUrl = if (isCompleteUrl) trimmed else "https://$trimmed"
+            val instantDomain = com.onyx.browser.data.model.SearchSuggestion(
+                title = trimmed,
+                queryOrUrl = fullNavUrl,
+                isDomain = !isCompleteUrl,
+                isUrl = true
+            )
+            val clipboardOpt = getClipboardSuggestion()
+            val initialList = if (clipboardOpt != null) listOf(clipboardOpt, instantDomain) else listOf(instantDomain)
+            suggestionsAdapter.submitList(initialList)
+        }
+
         suggestionJob = lifecycleScope.launch {
             // 300ms debounce: waits for user to briefly pause typing
             // before firing the network request and DB query.
             delay(300)
-            val suggestions = suggestionRepository.getSuggestions(query, preferences.searchEngine)
+            val suggestions = suggestionRepository.getSuggestions(trimmed, preferences.searchEngine)
             if (isSearchMode) {
                 val clipboardOpt = getClipboardSuggestion()
                 val finalList = if (clipboardOpt != null) {

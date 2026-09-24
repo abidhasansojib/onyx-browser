@@ -1085,5 +1085,20 @@ onyx-browser/
     - Decoupled synthetic error page `baseUrl` to `"https://onyx.browser/"` so error pages always load securely and reliably without being subject to cleartext or origin restrictions.
     - Added dedicated `ERR_CLEARTEXT_NOT_PERMITTED` classification in `WebErrorHandler.kt`.
 
-
-
+- [x] **Minimal Domain & URL Suggestion Architecture & Touch-Event Resolution**:
+  - **Root Cause Analysis (Why Tapping Domain Suggestions Did Nothing)**:
+    - In `item_search_domain_suggestion.xml`, the outer `FrameLayout` (`binding.root`) contained a nested `MaterialCardView`, inside of which was a child `LinearLayout` with `android:clickable="true"` and `android:focusable="true"`.
+    - In Android's touch dispatch hierarchy, child views with `clickable="true"` consume `ACTION_DOWN` and `ACTION_UP` touch events. Because `binding.root.setOnClickListener` was attached to the outer `FrameLayout` while the inner child consumed the click without a listener, touches were swallowed and `onSuggestionClicked` was never triggered.
+    - Furthermore, the design was heavy and boxed (16dp rounded card with a 1dp high-contrast primary border and bold primary font), clashing with the sleek, flat Material 3 search interface.
+  - **Minimal Flat Row Redesign (`item_search_domain_suggestion.xml`, `SuggestionsAdapter.kt`)**:
+    - Replaced the bulky `MaterialCardView` hierarchy with a single, sleek `LinearLayout` row matching `item_search_suggestion.xml` (minHeight 52dp, paddingStart 16dp, paddingEnd 12dp, vertical padding 8dp, `?attr/selectableItemBackground`).
+    - Clean 36dp subtle circle container (`bg_circle_action`) with 20dp `ic_web` icon tinted `?attr/colorPrimary`.
+    - `tvSuggestionText` in `?android:attr/textColorPrimary` with `sans-serif-medium` typography.
+    - `tvSuggestionSubtext` in `?android:attr/textColorSecondary` displaying the destination URL dynamically.
+    - Added `btnInsertQuery` (`@drawable/ic_insert_query`, 36dp borderless ripple) allowing users to insert the URL into the search bar for quick editing without executing immediately.
+    - Attached `binding.root.setOnClickListener { onSuggestionClicked(item) }` and `binding.btnInsertQuery.setOnClickListener { onInsertClicked(item) }`. With no child view intercepting touches, tapping anywhere on the row immediately navigates to the target URL.
+  - **Instant Domain/URL Detection & Fast-Path Pipeline (`SearchSuggestionRepository.kt`, `MainActivity.kt`)**:
+    - Engineered `SearchSuggestionRepository.isLikelyDomainOrUrl(input)`: Parses domain names, ICANN TLDs, IPv4 addresses with ports/paths, localhost, and schemes (`http://`, `https://`, `www.`).
+    - Added Step 0 in `SearchSuggestionRepository.getSuggestions`: When the user types a domain or URL, it is immediately generated as the #1 suggestion at the top of the list, guaranteed to be a navigable URL (`queryOrUrl = fullNavUrl`).
+    - Added Fast-Path in `MainActivity.fetchSearchSuggestions`: Shows the direct domain suggestion instantly upon typing without waiting for the 300ms debounce delay.
+    - Enhanced URL scheme handling in `MainActivity.setupSearchOverlay.onSuggestionClicked`: Automatically prefixes `https://` if a domain is tapped, preventing fallback search queries and guaranteeing immediate WebView navigation.

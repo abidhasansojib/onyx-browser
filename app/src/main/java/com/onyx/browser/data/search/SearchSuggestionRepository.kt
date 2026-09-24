@@ -20,6 +20,43 @@ class SearchSuggestionRepository(
     private val bookmarkDao: BookmarkDao
 ) {
 
+    companion object {
+        /**
+         * Checks whether an input query represents a navigable domain or URL rather than a search phrase.
+         */
+        fun isLikelyDomainOrUrl(input: String): Boolean {
+            val trimmed = input.trim()
+            if (trimmed.isEmpty() || trimmed.contains(" ")) return false
+            if (trimmed.startsWith("http://", ignoreCase = true) ||
+                trimmed.startsWith("https://", ignoreCase = true) ||
+                trimmed.startsWith("file://", ignoreCase = true) ||
+                trimmed.startsWith("about:", ignoreCase = true) ||
+                trimmed.startsWith("data:", ignoreCase = true) ||
+                trimmed.startsWith("www.", ignoreCase = true) ||
+                trimmed.startsWith("localhost", ignoreCase = true)
+            ) {
+                return true
+            }
+
+            // IPv4 address check (e.g. 192.168.1.1 or 127.0.0.1:8080/path)
+            if (trimmed.matches(Regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(:\\d+)?(/.*)?$"))) {
+                return true
+            }
+
+            // Domain with valid TLD (at least 2 letters after the last dot before port/path/query)
+            // Example: "google.com", "madebyevan.com/webgl-water/", "sub.domain.co.uk:8080/path"
+            val hostPart = trimmed.substringBefore('/').substringBefore(':').substringBefore('?')
+            val lastDot = hostPart.lastIndexOf('.')
+            if (lastDot > 0 && lastDot < hostPart.length - 1) {
+                val tld = hostPart.substring(lastDot + 1)
+                if (tld.length >= 2 && tld.all { it.isLetter() }) {
+                    return true
+                }
+            }
+            return false
+        }
+    }
+
     // In-memory result cache keyed by (trimmed_query|engine_id).
     // Prevents flicker when the user repositions the cursor without changing text.
     @Volatile private var cacheKey: String = ""
@@ -39,6 +76,25 @@ class SearchSuggestionRepository(
 
         val results = mutableListOf<SearchSuggestion>()
         val seenKeys = mutableSetOf<String>()
+
+        // 0. Direct Domain / URL Suggestion: If the typed input is a domain or URL, display it first!
+        val looksLikeDirectUrl = isLikelyDomainOrUrl(trimmed)
+        if (looksLikeDirectUrl) {
+            val norm = normalizeUrl(trimmed)
+            seenKeys.add(norm)
+            val isCompleteUrl = trimmed.startsWith("http://", ignoreCase = true) ||
+                trimmed.startsWith("https://", ignoreCase = true) ||
+                trimmed.startsWith("file://", ignoreCase = true)
+            val fullNavUrl = if (isCompleteUrl) trimmed else "https://$trimmed"
+            results.add(
+                SearchSuggestion(
+                    title = trimmed,
+                    queryOrUrl = fullNavUrl,
+                    isDomain = !isCompleteUrl,
+                    isUrl = true
+                )
+            )
+        }
 
         // 1. Local bookmarks first (max 2 items)
         try {
@@ -89,12 +145,20 @@ class SearchSuggestionRepository(
                 if (seenKeys.add(norm)) {
                     val looksLikeDomain = !item.contains(" ") && item.contains(".") &&
                         !item.startsWith("http://") && !item.startsWith("https://")
+                    val isCompleteUrl = item.startsWith("http://", ignoreCase = true) ||
+                        item.startsWith("https://", ignoreCase = true)
+                    val fullNavUrl = when {
+                        isCompleteUrl -> item
+                        looksLikeDomain -> "https://$item"
+                        else -> item
+                    }
                     results.add(
                         SearchSuggestion(
                             title = item,
-                            queryOrUrl = item,
+                            queryOrUrl = fullNavUrl,
                             isHistory = false,
-                            isDomain = looksLikeDomain
+                            isDomain = looksLikeDomain,
+                            isUrl = isCompleteUrl
                         )
                     )
                     if (results.size >= 10) break
@@ -109,9 +173,13 @@ class SearchSuggestionRepository(
     }
 
     private fun normalizeUrl(url: String): String = try {
-        val u = java.net.URI(url)
-        (u.host ?: url).lowercase().removePrefix("www.")
-    } catch (_: Exception) { url.lowercase() }
+        val trimmed = url.trim()
+        val withScheme = if (!trimmed.contains("://")) "https://$trimmed" else trimmed
+        val u = java.net.URI(withScheme)
+        val host = (u.host ?: "").lowercase().removePrefix("www.")
+        val path = u.rawPath ?: ""
+        "$host$path".trimEnd('/')
+    } catch (_: Exception) { url.lowercase().trimEnd('/') }
 
     private fun fetchRemoteSuggestions(query: String, engine: SearchEngine): List<String> {
         return try {

@@ -23,7 +23,7 @@ class SuggestionsAdapter(
 
         val DiffCallback = object : DiffUtil.ItemCallback<SearchSuggestion>() {
             override fun areItemsTheSame(oldItem: SearchSuggestion, newItem: SearchSuggestion): Boolean {
-                return oldItem.queryOrUrl == newItem.queryOrUrl && oldItem.isHistory == newItem.isHistory
+                return oldItem.queryOrUrl == newItem.queryOrUrl && oldItem.isHistory == newItem.isHistory && oldItem.isDomain == newItem.isDomain
             }
             override fun areContentsTheSame(oldItem: SearchSuggestion, newItem: SearchSuggestion): Boolean {
                 return oldItem == newItem
@@ -66,7 +66,7 @@ class SuggestionsAdapter(
                     binding.ivSuggestionIcon.setImageResource(R.drawable.ic_bookmark)
                     binding.tvSuggestionSubtext.visibility = View.VISIBLE
                     binding.tvSuggestionSubtext.text = item.queryOrUrl
-                    binding.btnInsertQuery.visibility = View.GONE
+                    binding.btnInsertQuery.visibility = View.VISIBLE
                 }
                 item.isHistory -> {
                     binding.ivSuggestionIcon.setImageResource(R.drawable.ic_history)
@@ -76,7 +76,7 @@ class SuggestionsAdapter(
                     } else {
                         binding.tvSuggestionSubtext.visibility = View.GONE
                     }
-                    binding.btnInsertQuery.visibility = View.GONE
+                    binding.btnInsertQuery.visibility = View.VISIBLE
                 }
                 else -> {
                     binding.ivSuggestionIcon.setImageResource(R.drawable.ic_search)
@@ -99,11 +99,35 @@ class SuggestionsAdapter(
         RecyclerView.ViewHolder(binding.root) {
         fun bind(item: SearchSuggestion) {
             binding.tvSuggestionText.text = item.title
-            // The subtext "Go to site" is statically set in the layout, but we can override it if we want.
-            
-            // Assuming clicking the layout (which has clickable="true") triggers this
+
+            when {
+                item.isBookmark -> {
+                    binding.ivSuggestionIcon.setImageResource(R.drawable.ic_bookmark)
+                    binding.tvSuggestionSubtext.text = item.queryOrUrl
+                }
+                item.isHistory -> {
+                    binding.ivSuggestionIcon.setImageResource(R.drawable.ic_history)
+                    binding.tvSuggestionSubtext.text = item.queryOrUrl
+                }
+                else -> {
+                    binding.ivSuggestionIcon.setImageResource(R.drawable.ic_web)
+                    val fullUrl = if (item.queryOrUrl.startsWith("http://", ignoreCase = true) ||
+                        item.queryOrUrl.startsWith("https://", ignoreCase = true) ||
+                        item.queryOrUrl.startsWith("file://", ignoreCase = true)) {
+                        item.queryOrUrl
+                    } else {
+                        "https://${item.queryOrUrl}"
+                    }
+                    binding.tvSuggestionSubtext.text = fullUrl
+                }
+            }
+
             binding.root.setOnClickListener {
                 onSuggestionClicked(item)
+            }
+
+            binding.btnInsertQuery.setOnClickListener {
+                onInsertClicked(item)
             }
         }
     }
