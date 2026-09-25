@@ -373,6 +373,7 @@
     <string name="rate_limit_exceeded">GitHub API rate limit reached. Please try again later or visit GitHub directly.</string>
     <string name="view_on_github">View on GitHub</string>
     <string name="whats_new">What\'s New</string>
+    <string name="no_release_notes">No release notes provided.</string>
     <string name="later">Later</string>
 
     <string name="about_contact_dev">Contact Developer</string>

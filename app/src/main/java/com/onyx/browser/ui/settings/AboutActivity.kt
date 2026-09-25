@@ -10,7 +10,9 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.text.Html
 import android.text.format.Formatter
+import android.text.method.LinkMovementMethod
 import android.view.View
 import android.webkit.WebView
 import android.widget.Toast
@@ -254,8 +256,17 @@ class AboutActivity : AppCompatActivity() {
             updateInfo.matchingAsset.name
         }
 
-        dialogBinding.tvChangelogContent.text = updateInfo.releaseNotes.ifBlank {
-            "No release notes provided."
+        if (updateInfo.releaseNotes.isNotBlank()) {
+            val spanned = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                Html.fromHtml(updateInfo.releaseNotes, Html.FROM_HTML_MODE_LEGACY)
+            } else {
+                @Suppress("DEPRECATION")
+                Html.fromHtml(updateInfo.releaseNotes)
+            }
+            dialogBinding.tvChangelogContent.text = spanned
+            dialogBinding.tvChangelogContent.movementMethod = LinkMovementMethod.getInstance()
+        } else {
+            dialogBinding.tvChangelogContent.text = getString(R.string.no_release_notes)
         }
 
         MaterialAlertDialogBuilder(this)

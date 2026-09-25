@@ -1197,11 +1197,12 @@ onyx-browser/
   - **Location & UI Placement**:
     - Added dedicated `rowCheckUpdates` directly under `rowWebViewVersion` inside the **Application & System** section in `Settings > About`.
     - Features update icon (`ic_refresh`), title, subtitle indicating status, animated progress spinner during checks, and chevron.
-  - **GitHub Release Query & Semver Architecture (`AppUpdateManager.kt`)**:
-    - Queries unauthenticated GitHub endpoint `https://api.github.com/repos/abidhasansojib/onyx-browser/releases/latest`.
-    - Performs sequential semver comparison between remote tag (e.g. `v1.0.154`) and installed version (`BuildConfig.VERSION_NAME`).
-    - Device ABI resolution: Inspects `Build.SUPPORTED_ABIS` and automatically selects matching architecture APK (`arm64-v8a` ~19 MB, `armeabi-v7a` ~15 MB, `x86_64` ~20 MB) with fallback to the universal build (~40 MB).
-    - Rate limit protection: Detects HTTP 403 / zero quota and provides direct link to GitHub releases.
+  - **GitHub Release Query & Rate-Limit-Free Architecture (`AppUpdateManager.kt`)**:
+    - **Tier 1 (Public Atom RSS Feed)**: Queries `https://github.com/abidhasansojib/onyx-browser/releases.atom` on GitHub's Fastly CDN, which is completely free of GitHub's 60 req/hr unauthenticated REST API rate limit. Parses latest release tag, release title, and unescaped HTML changelog.
+    - **Tier 2 (Public Web Redirect)**: Executes lightweight `HEAD` request to `https://github.com/abidhasansojib/onyx-browser/releases/latest` with `.followRedirects(false)`, resolving latest release tag directly from the HTTP 302 `Location` header in <100ms.
+    - **Tier 3 (REST API Fallback)**: Queries `https://api.github.com/repos/abidhasansojib/onyx-browser/releases/latest`, gracefully falling back without surfacing 403 Rate Limited errors to the user.
+    - **Asset Resolution**: Fetches release assets from `expanded_assets/{tag}` or deterministically constructs the official release asset URLs (`Onyx-Browser-${tag}-${abi}-release.apk`), then resolves file size via a lightweight `HEAD` request.
+    - **Semver & Architecture Matching**: Performs sequential semver comparison between remote tag (e.g. `v1.0.155`) and installed version (`BuildConfig.VERSION_NAME`). Automatically matches device CPU ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`) with fallback to the universal build.
   - **Streaming Downloader with Progress (`AppUpdateDownloader.kt`)**:
     - Streams APK into private sandboxed cache (`context.cacheDir/updates/`), eliminating storage permission requirements.
     - Emits real-time progress callbacks (bytes downloaded, total bytes, transfer speed in MB/s) to update `LinearProgressIndicator`.
