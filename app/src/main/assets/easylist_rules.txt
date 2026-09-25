@@ -32277,7 +32277,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||ads.emdee.ca^
 ||ads.emirates.net.ae^
 ||ads.epi.sk^
-||ads.epltalk.com^
 ||ads.eu.msn.com^
 ||ads.fairfax.com.au^
 ||ads.fastcomgroup.it^
@@ -33268,7 +33267,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||cpx.to^
 ||cpxinteractive.com^
 ||cqcounter.com^
-||crabbychin.com^
 ||craktraffic.com^
 ||crashchance.com^
 ||crashlytics.com^
@@ -33634,6 +33632,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||go.xlirdr.com^
 ||go2affise.com^
 ||go2cloud.org^
+||godseedband.com^
 ||goingplatinum.com^
 ||goldstats.com^
 ||gondolagnome.com^
