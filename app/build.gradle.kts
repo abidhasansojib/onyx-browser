@@ -52,14 +52,14 @@ android {
 
             if (!keystorePath.isNullOrBlank() && file(keystorePath).exists()) {
                 storeFile = file(keystorePath)
-                storePassword = envStorePass ?: "onyxrelease123"
+                storePassword = envStorePass
                 keyAlias = envKeyAlias ?: "onyx-browser"
-                keyPassword = envKeyPass ?: "onyxrelease123"
+                keyPassword = envKeyPass ?: envStorePass
             } else if (defaultKeystore.exists()) {
                 storeFile = defaultKeystore
-                storePassword = envStorePass ?: "onyxrelease123"
+                storePassword = envStorePass
                 keyAlias = envKeyAlias ?: "onyx-browser"
-                keyPassword = envKeyPass ?: "onyxrelease123"
+                keyPassword = envKeyPass ?: envStorePass
             } else {
                 val debugConfig = signingConfigs.getByName("debug")
                 storeFile = debugConfig.storeFile

@@ -1210,3 +1210,10 @@ onyx-browser/
     - `dialog_update_available.xml`: Displays version transition badge (`v1.0.153 ➜ v1.0.154`), architecture & size info, and scrollable markdown changelog from GitHub release `body`.
     - `dialog_update_progress.xml`: Displays real-time progress bar, percentage, and download speed with safe cancel action.
     - Directly bridges to `ApkInstallerHelper.installApk(...)` upon download completion, ensuring Unknown Sources security checks and seamless hand-off to the Android Package Installer.
+
+- [x] **Release Signing Keystore Reconfiguration & GitHub Secrets Synchronization (`keystore/release.keystore`, `app/build.gradle.kts`, `.github/workflows/build.yml`)**:
+  - Re-encrypted the project PKCS#12 release keystore with user credentials.
+  - Preserved the exact original RSA private key and SHA-256 certificate fingerprint (`F5:47:44:9B:27:46:63:A9:...`) ensuring full backward compatibility and seamless in-place APK updates without signature mismatch errors.
+  - Configured and synchronized all 4 repository secrets in GitHub Actions via GitHub CLI: `KEYSTORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS`, and `KEYSTORE_BASE64`.
+  - Configured secure environment variable consumption in `app/build.gradle.kts` and `.github/workflows/build.yml` without storing plaintext passwords in repository code.
+
