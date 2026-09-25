@@ -33825,7 +33825,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||islandwebhelp.com^
 ||itop.cz^
 ||itrackly.com^
-||ivwbox.de^
 ||ivykiosk.com^
 ||iyfbodn.com^
 ||iyfnzgb.com^
@@ -34566,7 +34565,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||rec5.visualwebsiteoptimizer.com^
 ||recapture.io^
 ||receptivereaction.com^
-||recoco.it^
 ||record.bonniergaming.com^
 ||record.mrwin.com^
 ||redirectingat.com^
@@ -34647,7 +34645,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||rtbflairads.com^
 ||rtbplatform.net^
 ||rtbpop.com^
-||rtbpopd.com^
 ||rtxplatform.com^
 ||ru4.com^
 ||rubiconproject.com^
