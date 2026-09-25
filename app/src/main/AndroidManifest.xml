@@ -8,6 +8,9 @@
     <!-- Notification Permission (Android 13+ / API 33+) for download progress & alerts -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Package Installation Permission (Android 8.0+ / API 26+) for installing downloaded APKs -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!-- Storage Permissions (Legacy Android 8.0-9.0 / API 26-28 compatibility) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />

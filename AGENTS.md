@@ -1173,3 +1173,22 @@ onyx-browser/
     - **Active Tab Accent Styling**: Active card features a 2.5dp solid border in vibrant accent (`#DC4B64`), an accent header background (`#DC4B64`), pure white tab title, and pure white close button.
     - **Inactive Tab Subtle Contrast**: Unselected cards feature a subtle dark stroke (`#2C2D30`), sleek dark header (`#252628`), light gray title (`#E8EAED`), and subtle close button (`#9AA0A6`).
     - **Bottom Action Alignment**: FAB New Tab (`fabNewTab`) background tinted with `@color/tab_switcher_accent` (`#DC4B64`) and white plus icon for seamless visual unity.
+
+- [x] **Chrome-Style APK Installation Flow & Android 8.0+ Unknown Sources Permission Architecture (`ApkInstallerHelper.kt`, `DownloadsActivity.kt`, `DownloadsAdapter.kt`, `DownloadNotificationHelper.kt`, `DownloadEngine.kt`, `AndroidManifest.xml`, `file_paths.xml`)**:
+  - **Permission Declaration & FileProvider Path Mapping**:
+    - Declared `<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />` in `AndroidManifest.xml`, enabling Android 8.0+ (API 26+) package installer integration and user toggling in system Settings.
+    - Added `<root-path name="root" path="." />` to `app/src/main/res/xml/file_paths.xml`, ensuring absolute paths across all device storage locations (`/storage/emulated/0/...`) resolve without `IllegalArgumentException`.
+  - **Dedicated APK Installation Helper (`ApkInstallerHelper.kt`)**:
+    - `isApkFile(fileName, mimeType)`: Comprehensive APK detection via `.apk` extension, `.apk?` query strings, and `application/vnd.android.package-archive` MIME type.
+    - `installApk`: Displays Material 3 confirmation dialog ("Install application: Do you want to install [App Name]?").
+    - Android 8.0+ Unknown Sources Permission Gate: When the user confirms installation, checks `packageManager.canRequestPackageInstalls()`. If ungranted, presents security dialog ("For your security, your phone currently isn't allowed to install unknown apps from this source. You can allow this in Settings.") and redirects via `Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES` targeting `package:com.onyx.browser`.
+    - Resilient Package Installer Launcher: Generates secure `FileProvider` URIs, sets `FLAG_GRANT_READ_URI_PERMISSION`, `FLAG_ACTIVITY_NEW_TASK`, and `EXTRA_NOT_UNKNOWN_SOURCE`, and launches `Intent.ACTION_VIEW` targeting `application/vnd.android.package-archive`. Handles both direct disk files and `content://` URIs seamlessly.
+  - **Seamless Download Activity Integration (`DownloadsActivity.kt`)**:
+    - Supports incoming intent `EXTRA_INSTALL_APK_PATH` via `onCreate` and `onNewIntent`.
+    - Automatically checks `pendingApkInstallPath` in `onResume()` when the user returns from system Settings with permission granted, launching package installation immediately without asking twice.
+    - Intercepts APK taps in `openFile()` and options bottom sheet to trigger `ApkInstallerHelper.installApk`.
+  - **Download Notification & UI Enhancements (`DownloadNotificationHelper.kt`, `DownloadsAdapter.kt`)**:
+    - Completed download notifications for APKs route directly to `DownloadsActivity` with `EXTRA_INSTALL_APK_PATH`, display `ic_android` icon, and show "Download complete • Tap to install".
+    - `DownloadsAdapter` and item options menu render the Android robot badge (`ic_android`) for all APK downloads.
+  - **MIME Type Enforcement (`DownloadEngine.kt`)**:
+    - Automatically forces `application/vnd.android.package-archive` for all `.apk` downloads, preventing servers from misclassifying APKs as generic binary streams.

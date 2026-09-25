@@ -172,18 +172,26 @@ object DownloadNotificationHelper {
         val sizeStr = if (task.totalBytes > 0L) Formatter.formatFileSize(context, task.totalBytes) else ""
         val contentText = if (sizeStr.isNotBlank()) "Download complete • $sizeStr" else "Download complete"
 
+        val isApk = com.onyx.browser.ui.downloads.ApkInstallerHelper.isApkFile(task.fileName, task.mimeType)
         val openIntent = try {
             val finalPath = task.finalFilePath
-            val contentUri = if (finalPath.startsWith("content://", ignoreCase = true)) {
-                Uri.parse(finalPath)
+            if (isApk) {
+                Intent(context, DownloadsActivity::class.java).apply {
+                    putExtra(DownloadsActivity.EXTRA_INSTALL_APK_PATH, finalPath)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
             } else {
-                val file = File(finalPath)
-                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            }
-            Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(contentUri, task.mimeType.ifBlank { "*/*" })
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                val contentUri = if (finalPath.startsWith("content://", ignoreCase = true)) {
+                    Uri.parse(finalPath)
+                } else {
+                    val file = File(finalPath)
+                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                }
+                Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(contentUri, task.mimeType.ifBlank { "*/*" })
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
             }
         } catch (_: Exception) {
             Intent(context, DownloadsActivity::class.java)
@@ -196,10 +204,19 @@ object DownloadNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val smallIconRes = if (isApk) R.drawable.ic_android else R.drawable.ic_download
+        val completeDesc = if (isApk && sizeStr.isNotBlank()) {
+            "Download complete • $sizeStr • Tap to install"
+        } else if (isApk) {
+            "Download complete • Tap to install"
+        } else {
+            contentText
+        }
+
         return NotificationCompat.Builder(context, CHANNEL_DOWNLOADS_COMPLETED)
-            .setSmallIcon(R.drawable.ic_download)
+            .setSmallIcon(smallIconRes)
             .setContentTitle(task.fileName)
-            .setContentText(contentText)
+            .setContentText(completeDesc)
             .setContentIntent(pendingOpen)
             .setAutoCancel(true)
             .build()

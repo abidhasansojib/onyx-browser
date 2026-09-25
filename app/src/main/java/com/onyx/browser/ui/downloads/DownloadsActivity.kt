@@ -44,6 +44,11 @@ class DownloadsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDownloadsBinding
     private lateinit var adapter: DownloadsAdapter
     private lateinit var database: AppDatabase
+    private var pendingApkInstallPath: String? = null
+
+    companion object {
+        const val EXTRA_INSTALL_APK_PATH = "com.onyx.browser.extra.INSTALL_APK_PATH"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,6 +65,38 @@ class DownloadsActivity : AppCompatActivity() {
 
         setupRecyclerView()
         observeDownloads()
+        handleIncomingIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val pendingPath = pendingApkInstallPath
+        if (pendingPath != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && packageManager.canRequestPackageInstalls()) {
+                pendingApkInstallPath = null
+                ApkInstallerHelper.launchPackageInstaller(this, pendingPath)
+            }
+        }
+    }
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        val apkPath = intent?.getStringExtra(EXTRA_INSTALL_APK_PATH) ?: return
+        intent.removeExtra(EXTRA_INSTALL_APK_PATH)
+        if (apkPath.isNotBlank()) {
+            ApkInstallerHelper.installApk(
+                activity = this,
+                filePath = apkPath,
+                onPermissionNeeded = { pendingPath ->
+                    pendingApkInstallPath = pendingPath
+                }
+            )
+        }
     }
 
     private fun openSystemDownloadsFolder() {
@@ -149,6 +186,18 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun openFile(item: DownloadItem) {
+        if (ApkInstallerHelper.isApkFile(item.fileName, item.mimeType)) {
+            ApkInstallerHelper.installApk(
+                activity = this,
+                filePath = item.filePath,
+                fileName = item.fileName,
+                onPermissionNeeded = { pendingPath ->
+                    pendingApkInstallPath = pendingPath
+                }
+            )
+            return
+        }
+
         if (isLocalWebDocument(item)) {
             val target = item.filePath
             val uri = if (target.startsWith("content://", ignoreCase = true) || target.startsWith("file://", ignoreCase = true)) {
@@ -230,7 +279,11 @@ class DownloadsActivity : AppCompatActivity() {
         bottomSheet.setContentView(menuBinding.root)
 
         val lowerName = item.fileName.lowercase()
+        val isApk = ApkInstallerHelper.isApkFile(item.fileName, item.mimeType)
         when {
+            isApk -> {
+                menuBinding.ivMenuFileIcon.setImageResource(R.drawable.ic_android)
+            }
             lowerName.endsWith(".mht") || lowerName.endsWith(".mhtml") ||
             lowerName.endsWith(".html") || lowerName.endsWith(".htm") ||
             item.mimeType.contains("html") || item.mimeType.contains("multipart") -> {
@@ -254,7 +307,18 @@ class DownloadsActivity : AppCompatActivity() {
 
         menuBinding.menuOpenFile.setOnClickListener {
             bottomSheet.dismiss()
-            openInFileManager(item)
+            if (isApk) {
+                ApkInstallerHelper.installApk(
+                    activity = this,
+                    filePath = item.filePath,
+                    fileName = item.fileName,
+                    onPermissionNeeded = { pendingPath ->
+                        pendingApkInstallPath = pendingPath
+                    }
+                )
+            } else {
+                openInFileManager(item)
+            }
         }
 
         menuBinding.menuShareFile.setOnClickListener {

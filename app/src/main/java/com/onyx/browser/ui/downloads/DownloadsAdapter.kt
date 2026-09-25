@@ -46,6 +46,9 @@ class DownloadsAdapter(
 
             val lowerName = item.fileName.lowercase()
             when {
+                ApkInstallerHelper.isApkFile(item.fileName, item.mimeType) -> {
+                    binding.ivDownloadIcon.setImageResource(R.drawable.ic_android)
+                }
                 lowerName.endsWith(".mht") || lowerName.endsWith(".mhtml") ||
                 lowerName.endsWith(".html") || lowerName.endsWith(".htm") ||
                 item.mimeType.contains("html") || item.mimeType.contains("multipart") -> {

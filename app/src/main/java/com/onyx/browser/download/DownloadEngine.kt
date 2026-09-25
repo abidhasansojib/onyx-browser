@@ -558,7 +558,9 @@ class DownloadEngine(
     private fun publishFile(task: DownloadTask, tempFile: File): String {
         val finalFileName = resolveUniqueFileName(task.fileName)
         val extension = finalFileName.substringAfterLast('.', "")
-        val mime = if (task.mimeType.isNotBlank() && task.mimeType != "application/octet-stream" && task.mimeType != "*/*") {
+        val mime = if (extension.equals("apk", ignoreCase = true)) {
+            "application/vnd.android.package-archive"
+        } else if (task.mimeType.isNotBlank() && task.mimeType != "application/octet-stream" && task.mimeType != "*/*") {
             task.mimeType
         } else if (extension.isNotBlank()) {
             MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase()) ?: "application/octet-stream"
