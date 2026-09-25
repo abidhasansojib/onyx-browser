@@ -100,16 +100,16 @@ data class SearchEngine(
         )
 
         val BUILT_IN: List<SearchEngine> = listOf(
-            BRAVE, GOOGLE, DUCKDUCKGO, BING, STARTPAGE, YAHOO
+            GOOGLE, BRAVE, DUCKDUCKGO, BING, STARTPAGE, YAHOO
         )
 
         val entries: List<SearchEngine> get() = BUILT_IN
 
         fun fromId(id: String?, customEngines: List<SearchEngine> = emptyList()): SearchEngine {
-            if (id.isNullOrBlank()) return BRAVE
+            if (id.isNullOrBlank()) return GOOGLE
             val builtIn = BUILT_IN.firstOrNull { it.id.equals(id, ignoreCase = true) }
             if (builtIn != null) return builtIn
-            return customEngines.firstOrNull { it.id.equals(id, ignoreCase = true) } ?: BRAVE
+            return customEngines.firstOrNull { it.id.equals(id, ignoreCase = true) } ?: GOOGLE
         }
 
         fun fromJson(json: JSONObject): SearchEngine {

@@ -28,13 +28,28 @@ class BrowserPreferences private constructor(context: Context) {
 
     init {
         _shortcutsFlow.value = getShortcuts()
+        migrateDefaultSearchEngine()
+    }
+
+    private fun migrateDefaultSearchEngine() {
+        if (!prefs.getBoolean(KEY_DEFAULT_ENGINE_MIGRATED, false)) {
+            val current = prefs.getString(KEY_SEARCH_ENGINE, null)
+            if (current == null || current == "brave") {
+                prefs.edit()
+                    .putString(KEY_SEARCH_ENGINE, SearchEngine.GOOGLE.id)
+                    .putBoolean(KEY_DEFAULT_ENGINE_MIGRATED, true)
+                    .apply()
+            } else {
+                prefs.edit().putBoolean(KEY_DEFAULT_ENGINE_MIGRATED, true).apply()
+            }
+        }
     }
 
     private val blockedCounter = AtomicLong(getBlockedRequestsCount())
 
     var searchEngine: SearchEngine
         get() {
-            val id = prefs.getString(KEY_SEARCH_ENGINE, SearchEngine.BRAVE.id)
+            val id = prefs.getString(KEY_SEARCH_ENGINE, SearchEngine.GOOGLE.id)
             return SearchEngine.fromId(id, getCustomSearchEngines())
         }
         set(value) {
@@ -548,7 +563,7 @@ class BrowserPreferences private constructor(context: Context) {
         if (removed) {
             saveCustomSearchEngines(current)
             if (prefs.getString(KEY_SEARCH_ENGINE, "") == id) {
-                searchEngine = SearchEngine.BRAVE
+                searchEngine = SearchEngine.GOOGLE
             }
         }
     }
@@ -665,6 +680,8 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_UA_SPOOF = "pref_ua_spoof"
         const val KEY_CUSTOM_UA = "pref_custom_ua"
         const val KEY_SCROLL_TO_TOP = "pref_scroll_to_top"
+        const val KEY_DEFAULT_ENGINE_MIGRATED = "pref_default_engine_google_migrated"
+
 
 
         @Volatile

@@ -81,7 +81,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/switch_search_engine"
             android:padding="2dp"
-            app:srcCompat="@drawable/ic_engine_brave"
+            app:srcCompat="@drawable/ic_engine_google"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toEndOf="@id/flNavAction"
             app:layout_constraintTop_toTopOf="parent" />

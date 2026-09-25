@@ -1141,5 +1141,7 @@ onyx-browser/
     - When compilation failed, the self-healing fallback in `gl.compileShader` re-injected the polyfill, resulting in duplicate definitions on lines 28-39 (`'dFdx' : function already has a body`).
   - **Strict Preprocessor Header Detection & Idempotency Guard**:
     - Re-engineered `insertAfterHeader` to strictly advance only over `#version`, `#extension`, blank lines, and leading `//` comments. As soon as any code statement appears, it terminates scanning immediately and injects the polyfill directly before all functions and `main()`.
-    - Added `// ONYX_DERIVATIVE_POLYFILL_INSTALLED` marker and idempotency guards in both `insertAfterHeader` and `gl.compileShader`, completely preventing duplicate function injections.
-
+- [x] **Default Search Engine Migration to Google (`SearchEngine.kt`, `BrowserPreferences.kt`, `activity_main.xml`, `activity_settings.xml`)**:
+  - **Set Google as System Default**: Updated `SearchEngine.BUILT_IN` ordering to place `GOOGLE` first and set `SearchEngine.GOOGLE` as the primary fallback in `SearchEngine.fromId()` and `SearchEnginePickerDialog`.
+  - **Preference Architecture & One-Time Migration**: Updated `BrowserPreferences.searchEngine` default to `SearchEngine.GOOGLE.id`. Added `migrateDefaultSearchEngine()` to seamlessly upgrade existing user installations from the legacy default (`brave`) to `google` while preserving intentional user customizations.
+  - **UI Drawable Alignment**: Updated default toolbar and settings XML layouts to display `ic_engine_google` out of the box.

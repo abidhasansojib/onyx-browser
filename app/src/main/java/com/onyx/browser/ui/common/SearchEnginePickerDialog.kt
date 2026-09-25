@@ -17,7 +17,7 @@ class SearchEnginePickerDialog : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
 
     var onSearchEngineSelected: ((SearchEngine) -> Unit)? = null
-    private var currentEngine: SearchEngine = SearchEngine.BRAVE
+    private var currentEngine: SearchEngine = SearchEngine.GOOGLE
 
     override fun onCreateView(i: LayoutInflater, c: ViewGroup?, s: Bundle?): View {
         _binding = BottomSheetSearchEnginePickerBinding.inflate(i, c, false)
