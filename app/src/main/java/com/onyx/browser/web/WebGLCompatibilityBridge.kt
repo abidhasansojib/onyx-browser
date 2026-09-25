@@ -48,26 +48,16 @@ object WebGLCompatibilityBridge {
 
             function insertAfterHeader(source, codeToInsert) {
                 if (!source || typeof source !== 'string') return source;
+                if (source.indexOf('ONYX_DERIVATIVE_POLYFILL_INSTALLED') !== -1) return source;
+
                 var lines = source.split('\n');
                 var insertIdx = 0;
-                var inBlockComment = false;
                 for (var i = 0; i < lines.length; i++) {
-                    var line = lines[i].trim();
-                    if (inBlockComment) {
-                        insertIdx = i + 1;
-                        if (line.indexOf('*/') !== -1) inBlockComment = false;
-                        continue;
-                    }
-                    if (line.indexOf('/*') !== -1 && line.indexOf('*/') === -1) {
-                        inBlockComment = true;
-                        insertIdx = i + 1;
-                        continue;
-                    }
-                    if (line.startsWith('#version') ||
-                        line.startsWith('#extension') ||
-                        line.startsWith('//') ||
-                        line.indexOf('/*') !== -1 ||
-                        line === '') {
+                    var trimmed = lines[i].trim();
+                    if (trimmed === '' ||
+                        trimmed.startsWith('#version') ||
+                        trimmed.startsWith('#extension') ||
+                        (trimmed.startsWith('//') && insertIdx === i)) {
                         insertIdx = i + 1;
                     } else {
                         break;
@@ -254,6 +244,7 @@ object WebGLCompatibilityBridge {
                 }
 
                 var DERIVATIVE_POLYFILL = '\n' +
+                    '// ONYX_DERIVATIVE_POLYFILL_INSTALLED\n' +
                     '#ifdef GL_FRAGMENT_PRECISION_HIGH\n' +
                     'precision highp float;\n' +
                     '#else\n' +
@@ -265,7 +256,7 @@ object WebGLCompatibilityBridge {
                     'highp vec4 dFdx(highp vec4 v) { return vec4(0.001, 0.0, 0.0, 0.0); }\n' +
                     'highp float dFdy(highp float v) { return 0.001; }\n' +
                     'highp vec2 dFdy(highp vec2 v) { return vec2(0.0, 0.001); }\n' +
-                    'highp vec3 dFdy(highp vec3 v) { return vec3(0.0, 0.0, 0.001); }\n' +
+                    'highp vec3 dFdy(highp vec3 v) { return vec3(0.0, 0.001, 0.0); }\n' +
                     'highp vec4 dFdy(highp vec4 v) { return vec4(0.0, 0.0, 0.0, 0.001); }\n' +
                     'highp float fwidth(highp float v) { return abs(dFdx(v)) + abs(dFdy(v)); }\n' +
                     'highp vec2 fwidth(highp vec2 v) { return abs(dFdx(v)) + abs(dFdy(v)); }\n' +
@@ -305,11 +296,13 @@ object WebGLCompatibilityBridge {
                         var infoLog = gl.getShaderInfoLog(shader) || '';
                         var src = shader.__onyx_effective_source || shader.__onyx_source || '';
 
-                        // If compilation failed due to missing/rejected standard derivatives
-                        if (infoLog.indexOf('dFdx') !== -1 ||
-                            infoLog.indexOf('dFdy') !== -1 ||
-                            infoLog.indexOf('fwidth') !== -1 ||
-                            infoLog.indexOf('GL_OES_standard_derivatives') !== -1) {
+                        // If compilation failed due to missing/rejected standard derivatives,
+                        // and polyfill was not already injected:
+                        if ((infoLog.indexOf('dFdx') !== -1 ||
+                             infoLog.indexOf('dFdy') !== -1 ||
+                             infoLog.indexOf('fwidth') !== -1 ||
+                             infoLog.indexOf('GL_OES_standard_derivatives') !== -1) &&
+                            src.indexOf('ONYX_DERIVATIVE_POLYFILL_INSTALLED') === -1) {
 
                             var repaired = src.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives polyfill');
                             repaired = insertAfterHeader(repaired, DERIVATIVE_POLYFILL);
