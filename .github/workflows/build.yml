@@ -170,26 +170,35 @@ jobs:
         run: |
           TAG="${{ env.TAG_NAME }}"
           TITLE="Onyx Browser ${{ env.TAG_NAME }}"
+          REPO="${{ github.repository }}"
 
-          cat << 'EOF' > release_notes.md
-          ## Onyx Browser Release
+          # Fetch latest tags to determine previous release
+          git fetch --tags origin 2>/dev/null || true
+          PREV_TAG=$(git tag -l "v*" --sort=-v:refname | grep -v "^${TAG}$" | head -n 1)
 
-          ### Architecture & Download Guide
-          - **`Onyx-Browser-*-arm64-v8a-release.apk`** (**Recommended**): Ultra-compact build (~14–16 MB) optimized for 95%+ of modern Android phones and tablets (64-bit ARM).
-          - **`Onyx-Browser-*-universal-release.apk`**: Universal build containing all native architectures (~35 MB). Compatible with any Android device.
-          - **`Onyx-Browser-*-armeabi-v7a-release.apk`**: 32-bit ARM build for older Android devices.
-          - **`Onyx-Browser-*-x86_64-release.apk`**: 64-bit Intel/AMD build for Android emulators and ChromeOS.
+          echo "## What's Changed in $TAG" > release_notes.md
+          echo "" >> release_notes.md
 
-          ### Optimizations in this Release
-          - **Brave Adblock Engine**: Native Rust `libadblock_bridge.so` with network filtering and cosmetic CSS rules.
-          - **R8 / ProGuard Minified**: Dead code stripped and resource shrunk with zero impact on adblocking or passkeys.
-          - **Automatic Versioning**: Continuous build tracking (`v1.0.${{ github.run_number }}`).
-          EOF
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"* %s ([%h](https://github.com/${REPO}/commit/%H))")
+            if [ -n "$COMMITS" ]; then
+              echo "$COMMITS" >> release_notes.md
+            else
+              git log -n 1 --pretty=format:"* %s ([%h](https://github.com/${REPO}/commit/%H))" >> release_notes.md
+            fi
+            echo "" >> release_notes.md
+            echo "**Full Changelog**: https://github.com/${REPO}/compare/${PREV_TAG}...${TAG}" >> release_notes.md
+          else
+            git log -n 10 --pretty=format:"* %s ([%h](https://github.com/${REPO}/commit/%H))" >> release_notes.md
+          fi
+
+          echo "Generated Release Notes:"
+          cat release_notes.md
 
           gh release create "$TAG" release_apks/*.apk \
             --title "$TITLE" \
-            --notes-file release_notes.md \
-            --generate-notes || gh release upload "$TAG" release_apks/*.apk --clobber
+            --notes-file release_notes.md || (gh release upload "$TAG" release_apks/*.apk --clobber && gh release edit "$TAG" --notes-file release_notes.md)
+
 
       - name: Upload Release APKs to Workflow Artifacts
         if: env.BUILD_TYPE == 'Release' || env.BUILD_TYPE == 'Both'

@@ -1129,6 +1129,7 @@ onyx-browser/
       - [`Onyx-Browser-v1.0.153-armeabi-v7a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-armeabi-v7a-release.apk) (15.29 MB, 32-bit ARM)
       - [`Onyx-Browser-v1.0.153-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-universal-release.apk) (38.97 MB, all ABIs)
       - [`Onyx-Browser-v1.0.153-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-x86_64-release.apk) (20.55 MB, emulators/x86_64)
-
-
-
+- [x] **Automated Git Commit Changelog for GitHub Releases (`.github/workflows/build.yml`)**:
+  - **Removed Static Release Notes Boilerplate**: Stripped static architectural download guide, generic APK descriptions, and redundant optimization text.
+  - **Dynamic Range-Based Git Changelog Engine**: Automatically discovers the previous release git tag (`PREV_TAG`), extracts all commits between `PREV_TAG..HEAD` (`git log --pretty=format:"* %s ([%h](commit_url))"`), and appends a direct GitHub compare link (`**Full Changelog**: https://github.com/abidhasansojib/onyx-browser/compare/${PREV_TAG}...${TAG}`).
+  - **Clean GitHub Release Notes**: GitHub releases now cleanly display the exact commit history and feature changes introduced in each respective build.
