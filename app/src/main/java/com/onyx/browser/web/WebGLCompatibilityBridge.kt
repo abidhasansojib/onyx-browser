@@ -253,6 +253,25 @@ object WebGLCompatibilityBridge {
                     };
                 }
 
+                var DERIVATIVE_POLYFILL = '\n' +
+                    '#ifdef GL_FRAGMENT_PRECISION_HIGH\n' +
+                    'precision highp float;\n' +
+                    '#else\n' +
+                    'precision mediump float;\n' +
+                    '#endif\n' +
+                    'highp float dFdx(highp float v) { return 0.001; }\n' +
+                    'highp vec2 dFdx(highp vec2 v) { return vec2(0.001, 0.0); }\n' +
+                    'highp vec3 dFdx(highp vec3 v) { return vec3(0.001, 0.0, 0.0); }\n' +
+                    'highp vec4 dFdx(highp vec4 v) { return vec4(0.001, 0.0, 0.0, 0.0); }\n' +
+                    'highp float dFdy(highp float v) { return 0.001; }\n' +
+                    'highp vec2 dFdy(highp vec2 v) { return vec2(0.0, 0.001); }\n' +
+                    'highp vec3 dFdy(highp vec3 v) { return vec3(0.0, 0.0, 0.001); }\n' +
+                    'highp vec4 dFdy(highp vec4 v) { return vec4(0.0, 0.0, 0.0, 0.001); }\n' +
+                    'highp float fwidth(highp float v) { return abs(dFdx(v)) + abs(dFdy(v)); }\n' +
+                    'highp vec2 fwidth(highp vec2 v) { return abs(dFdx(v)) + abs(dFdy(v)); }\n' +
+                    'highp vec3 fwidth(highp vec3 v) { return abs(dFdx(v)) + abs(dFdy(v)); }\n' +
+                    'highp vec4 fwidth(highp vec4 v) { return abs(dFdx(v)) + abs(dFdy(v)); }\n';
+
                 // Shader Source & Standard Derivatives Handling
                 var realShaderSource = gl.shaderSource.bind(gl);
                 gl.shaderSource = function(shader, source) {
@@ -264,11 +283,11 @@ object WebGLCompatibilityBridge {
                                 source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives built-in in ESSL 3.00');
                             } else {
                                 // In GLSL 1.00 shaders on WebGL 2:
-                                // If the shader uses dFdx/dFdy/fwidth but lacks the extension directive, ensure it is enabled!
-                                var usesDerivatives = /\b(dFdx|dFdy|fwidth)\s*\(/.test(source);
-                                var hasExtensionDirective = /#extension\s+GL_OES_standard_derivatives/.test(source);
-                                if (usesDerivatives && !hasExtensionDirective) {
-                                    source = '#extension GL_OES_standard_derivatives : enable\n' + source;
+                                // Replace extension directive with comment since WebGL 2 compiler does not recognise it
+                                source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives handled by Onyx WebGL Bridge');
+                                // Proactively inject orthogonal standard derivative polyfill if functions are used
+                                if (/\b(dFdx|dFdy|fwidth)\s*\(/.test(source)) {
+                                    source = insertAfterHeader(source, DERIVATIVE_POLYFILL);
                                 }
                             }
                         }
@@ -293,21 +312,7 @@ object WebGLCompatibilityBridge {
                             infoLog.indexOf('GL_OES_standard_derivatives') !== -1) {
 
                             var repaired = src.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives polyfill');
-                            var derivativePolyfill = '\n' +
-                                'highp float dFdx(highp float v) { return 0.001; }\n' +
-                                'highp vec2 dFdx(highp vec2 v) { return vec2(0.001, 0.001); }\n' +
-                                'highp vec3 dFdx(highp vec3 v) { return vec3(0.001, 0.001, 0.001); }\n' +
-                                'highp vec4 dFdx(highp vec4 v) { return vec4(0.001, 0.001, 0.001, 0.001); }\n' +
-                                'highp float dFdy(highp float v) { return 0.001; }\n' +
-                                'highp vec2 dFdy(highp vec2 v) { return vec2(0.001, 0.001); }\n' +
-                                'highp vec3 dFdy(highp vec3 v) { return vec3(0.001, 0.001, 0.001); }\n' +
-                                'highp vec4 dFdy(highp vec4 v) { return vec4(0.001, 0.001, 0.001, 0.001); }\n' +
-                                'highp float fwidth(highp float v) { return 0.002; }\n' +
-                                'highp vec2 fwidth(highp vec2 v) { return vec2(0.002, 0.002); }\n' +
-                                'highp vec3 fwidth(highp vec3 v) { return vec3(0.002, 0.002, 0.002); }\n' +
-                                'highp vec4 fwidth(highp vec4 v) { return vec4(0.002, 0.002, 0.002, 0.002); }\n';
-
-                            repaired = insertAfterHeader(repaired, derivativePolyfill);
+                            repaired = insertAfterHeader(repaired, DERIVATIVE_POLYFILL);
                             realShaderSource(shader, repaired);
                             realCompileShader(shader);
                         }
