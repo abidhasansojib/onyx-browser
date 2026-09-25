@@ -1122,5 +1122,13 @@ onyx-browser/
     - **Proactive Orthogonal Derivative Injection**: For any GLSL ES 1.00 shader calling `dFdx`, `dFdy`, or `fwidth` on WebGL 2, Onyx proactively injects an overloaded, high-precision GLSL ES polyfill (`dFdx`, `dFdy`, `fwidth` across `float`, `vec2`, `vec3`, `vec4`) with orthogonal axes (`dFdx` along X, `dFdy` along Y), guaranteeing mathematical stability for cross products and normal normalization.
     - **Self-Healing Fallback in `gl.compileShader`**: Intercepts `gl.compileShader`. If shader compilation fails on any driver quirk, Onyx injects the polyfill dynamically and transparently recompiles the shader.
     - **Extended Framebuffer & Texture Formats**: Added `gl.texSubImage2D` mapping for `HALF_FLOAT_OES` (`0x8D61` -> `gl.HALF_FLOAT` / `0x140B`) and activated `EXT_color_buffer_float`, `EXT_color_buffer_half_float`, `WEBGL_color_buffer_float`, `OES_texture_float_linear`, and `OES_texture_half_float_linear` on WebGL 2 contexts.
+  - **Verified End-to-End Build & Release (`v1.0.153`)**:
+    - Verified full end-to-end GitHub Actions build run ([#36168663490](https://github.com/abidhasansojib/onyx-browser/actions/runs/36168663490)) on commit `21c4927`.
+    - Generated, signed, and published release `v1.0.153`:
+      - [`Onyx-Browser-v1.0.153-arm64-v8a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-arm64-v8a-release.apk) (19.11 MB, recommended for 95%+ of modern Android devices)
+      - [`Onyx-Browser-v1.0.153-armeabi-v7a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-armeabi-v7a-release.apk) (15.29 MB, 32-bit ARM)
+      - [`Onyx-Browser-v1.0.153-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-universal-release.apk) (38.97 MB, all ABIs)
+      - [`Onyx-Browser-v1.0.153-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-x86_64-release.apk) (20.55 MB, emulators/x86_64)
+
 
 
