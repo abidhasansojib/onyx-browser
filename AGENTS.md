@@ -1159,3 +1159,17 @@ onyx-browser/
     - Synchronized text color and icon tints with launcher night mode: `#F1F3F4` in dark mode, `#3C4043` in light mode.
     - High-density vector and bitmap rendering adapting directly to device display metrics (`density`).
     - Dedicated, non-interfering `PendingIntent`s for instant search mode, voice input, and incognito tab spawning.
+
+- [x] **Quetta-Inspired Tab Switcher Redesign (`bottom_sheet_tab_switcher.xml`, `item_tab.xml`, `TabsAdapter.kt`, `TabSwitcherBottomSheet.kt`, drawables, colors)**:
+  - **Reference Image Alignment (`/storage/emulated/0/x.png`)**:
+    - Transformed the Tab Switcher into an authentic, sleek dark interface (`#131314` background) with Quetta-style coral/crimson accent (`#DC4B64`).
+  - **Centered 2-Button Capsule Tab Mode Pill**:
+    - Replaced the wide text-based toggle group with a compact, centered capsule pill (`bg_tab_pill_container.xml`, 44dp height, 22dp radius).
+    - **1st Button (Normal Tabs)**: Features a tab count box (`bg_tab_count_box.xml`) displaying the live count of open normal tabs. When active, highlights with a rounded squircle accent background (`bg_tab_pill_selected.xml`, `#DC4B64`), white border, and white text.
+    - **2nd Button (Incognito Tabs)**: Features stylish sunglasses vector icon (`ic_incognito_glasses.xml`). When active, highlights with the squircle accent background (`#DC4B64`) and white sunglasses icon.
+    - **Omitted 3rd Button**: Tab groups / layers button omitted as requested.
+  - **Tab Card Sizing, Borders, and Theme (`item_tab.xml`, `TabsAdapter.kt`)**:
+    - **Elongated 3:4 Phone Portrait Sizing**: Expanded card height from 190dp to 225dp with generous 18dp corner radius and flat modern elevation (0dp).
+    - **Active Tab Accent Styling**: Active card features a 2.5dp solid border in vibrant accent (`#DC4B64`), an accent header background (`#DC4B64`), pure white tab title, and pure white close button.
+    - **Inactive Tab Subtle Contrast**: Unselected cards feature a subtle dark stroke (`#2C2D30`), sleek dark header (`#252628`), light gray title (`#E8EAED`), and subtle close button (`#9AA0A6`).
+    - **Bottom Action Alignment**: FAB New Tab (`fabNewTab`) background tinted with `@color/tab_switcher_accent` (`#DC4B64`) and white plus icon for seamless visual unity.

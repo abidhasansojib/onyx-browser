@@ -19,5 +19,16 @@
     <color name="widget_badge_bg">#26282C</color>
     <color name="widget_badge_stroke">#34363B</color>
     <color name="widget_ripple">#33FFFFFF</color>
+
+    <!-- Tab Switcher (Dark Theme: Quetta-inspired Theme) -->
+    <color name="tab_switcher_bg">#131314</color>
+    <color name="tab_switcher_accent">#DC4B64</color>
+    <color name="tab_pill_container_bg">#202022</color>
+    <color name="tab_pill_stroke">#2E3033</color>
+    <color name="tab_card_bg">#1D1E20</color>
+    <color name="tab_card_stroke">#2C2D30</color>
+    <color name="tab_card_header_bg">#252628</color>
+    <color name="tab_text_primary">#E8EAED</color>
+    <color name="tab_close_icon">#9AA0A6</color>
 </resources>
 

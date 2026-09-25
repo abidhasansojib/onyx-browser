@@ -4,15 +4,15 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface">
+    android:background="@color/tab_switcher_bg">
 
     <!-- ── Top App Bar ──────────────────────────────────────────────────────── -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/tabSwitcherTopBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:minHeight="60dp"
-        android:background="?attr/colorSurface"
+        android:minHeight="56dp"
+        android:background="@color/tab_switcher_bg"
         android:paddingStart="4dp"
         android:paddingEnd="4dp"
         app:layout_constraintEnd_toEndOf="parent"
@@ -33,48 +33,71 @@
             app:layout_constraintTop_toTopOf="parent"
             app:tint="?attr/colorControlNormal" />
 
-        <!-- Center: Normal / Incognito toggle — MaterialButtonToggleGroup
-             Replaces the old TabLayout whose sliding indicator obscured tab text. -->
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/tabModeToggle"
-            android:layout_width="0dp"
-            android:layout_height="38dp"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
+        <!-- Center: Normal / Incognito capsule pill (Quetta-style 2-button control) -->
+        <LinearLayout
+            android:id="@+id/tabModePillContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_tab_pill_container"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:padding="4dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/btnTabSwitcherOverflow"
             app:layout_constraintStart_toEndOf="@id/btnSearchTabSwitcher"
-            app:layout_constraintTop_toTopOf="parent"
-            app:singleSelection="true"
-            app:selectionRequired="true">
+            app:layout_constraintTop_toTopOf="parent">
 
-            <com.google.android.material.button.MaterialButton
+            <!-- 1st Button: Normal Tabs with Tab Count in rounded box -->
+            <FrameLayout
                 android:id="@+id/btnNormalTabs"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:text="@string/normal_tabs"
-                android:textSize="12sp"
-                app:icon="@drawable/ic_tabs"
-                app:iconSize="16dp"
-                app:iconGravity="textStart"
-                app:strokeColor="?attr/colorOutline" />
+                android:layout_width="48dp"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_tab_pill_selected"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="@string/normal_tabs">
 
-            <com.google.android.material.button.MaterialButton
+                <FrameLayout
+                    android:id="@+id/boxTabCount"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_tab_count_box">
+
+                    <TextView
+                        android:id="@+id/tvNormalTabCount"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="1"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="11sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textStyle="bold" />
+                </FrameLayout>
+            </FrameLayout>
+
+            <!-- 2nd Button: Incognito Tabs with Sunglasses Icon -->
+            <FrameLayout
                 android:id="@+id/btnIncognitoTabs"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:text="@string/incognito_tabs"
-                android:textSize="12sp"
-                app:icon="@drawable/ic_incognito"
-                app:iconSize="16dp"
-                app:iconGravity="textStart"
-                app:strokeColor="?attr/colorOutline" />
+                android:layout_width="48dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="4dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="@string/incognito_tabs">
 
-        </com.google.android.material.button.MaterialButtonToggleGroup>
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/ivIncognitoToggle"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    app:srcCompat="@drawable/ic_incognito_glasses"
+                    app:tint="#B0B3B8"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+
+        </LinearLayout>
 
         <!-- Right: 3-dot overflow -->
         <androidx.appcompat.widget.AppCompatImageButton
@@ -176,7 +199,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:minHeight="66dp"
-        android:background="?attr/colorSurface"
+        android:background="@color/tab_switcher_bg"
         android:paddingStart="20dp"
         android:paddingTop="4dp"
         android:paddingEnd="20dp"
@@ -212,7 +235,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:contentDescription="@string/new_tab"
-            app:backgroundTint="@color/primary"
+            app:backgroundTint="@color/tab_switcher_accent"
             app:elevation="4dp"
             app:fabSize="normal"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -220,7 +243,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/ic_add"
-            app:tint="@color/on_primary" />
+            app:tint="#FFFFFFFF" />
 
         <!-- Right: Close All Tabs -->
         <androidx.appcompat.widget.AppCompatImageButton

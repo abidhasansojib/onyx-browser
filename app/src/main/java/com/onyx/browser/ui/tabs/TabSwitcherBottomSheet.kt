@@ -154,42 +154,78 @@ class TabSwitcherBottomSheet(
             onSearchRequested?.invoke()
         }
 
-        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
+        binding.btnNormalTabs.setOnClickListener {
+            if (isViewingIncognito) {
+                isViewingIncognito = false
+                updateTabModePillUI()
+                refreshTabsList()
+            }
+        }
 
-        binding.tabModeToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (isChecked) {
-                if (checkedId == R.id.btnIncognitoTabs) {
-                    if (prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
-                        promptBiometricAuth {
-                            isViewingIncognito = true
-                            refreshTabsList()
-                        }
-                    } else {
+        binding.btnIncognitoTabs.setOnClickListener {
+            if (!isViewingIncognito) {
+                val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
+                if (prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
+                    promptBiometricAuth {
                         isViewingIncognito = true
+                        updateTabModePillUI()
                         refreshTabsList()
                     }
                 } else {
-                    isViewingIncognito = false
+                    isViewingIncognito = true
+                    updateTabModePillUI()
                     refreshTabsList()
                 }
             }
         }
 
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
         if (isViewingIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
-            binding.tabModeToggle.check(R.id.btnNormalTabs)
+            isViewingIncognito = false
+            updateTabModePillUI()
             promptBiometricAuth {
-                binding.tabModeToggle.check(R.id.btnIncognitoTabs)
                 isViewingIncognito = true
+                updateTabModePillUI()
                 refreshTabsList()
             }
         } else {
-            binding.tabModeToggle.check(
-                if (isViewingIncognito) R.id.btnIncognitoTabs else R.id.btnNormalTabs
-            )
+            updateTabModePillUI()
         }
 
         binding.btnTabSwitcherOverflow.setOnClickListener { v ->
             showOverflowMenu(v)
+        }
+    }
+
+    private fun updateTabModePillUI() {
+        val normalCount = tabManager.normalTabs.value.size
+        binding.tvNormalTabCount.text = if (normalCount > 99) "99+" else normalCount.toString()
+
+        val context = context ?: return
+        val normalActive = !isViewingIncognito
+
+        if (normalActive) {
+            // Normal tab button selected: vibrant accent squircle + white tab box
+            binding.btnNormalTabs.setBackgroundResource(R.drawable.bg_tab_pill_selected)
+            binding.boxTabCount.setBackgroundResource(R.drawable.bg_tab_count_box)
+            binding.tvNormalTabCount.setTextColor(android.graphics.Color.WHITE)
+
+            // Incognito tab unselected: transparent + subtle gray icon
+            binding.btnIncognitoTabs.background = null
+            binding.ivIncognitoToggle.setColorFilter(android.graphics.Color.parseColor("#B0B3B8"))
+        } else {
+            // Incognito tab button selected: vibrant accent squircle + white sunglasses
+            binding.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_selected)
+            binding.ivIncognitoToggle.setColorFilter(android.graphics.Color.WHITE)
+
+            // Normal tab unselected: transparent + subtle gray tab box
+            binding.btnNormalTabs.background = null
+            val boxDrawable = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.bg_tab_count_box)?.mutate()
+            if (boxDrawable != null) {
+                androidx.core.graphics.drawable.DrawableCompat.setTint(boxDrawable, android.graphics.Color.parseColor("#B0B3B8"))
+                binding.boxTabCount.background = boxDrawable
+            }
+            binding.tvNormalTabCount.setTextColor(android.graphics.Color.parseColor("#B0B3B8"))
         }
     }
 
@@ -202,13 +238,14 @@ class TabSwitcherBottomSheet(
                     tabManager.isIncognitoUnlocked = true
                     onSuccess?.invoke() ?: run {
                         isViewingIncognito = true
+                        updateTabModePillUI()
                         refreshTabsList()
                     }
                 }
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
-                    binding.tabModeToggle.check(R.id.btnNormalTabs)
                     isViewingIncognito = false
+                    updateTabModePillUI()
                     refreshTabsList()
                 }
                 override fun onAuthenticationFailed() {
@@ -229,6 +266,7 @@ class TabSwitcherBottomSheet(
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     tabManager.normalTabs.collectLatest { list ->
+                        updateTabModePillUI()
                         if (!isViewingIncognito) {
                             renderTabs(list)
                         }
@@ -236,6 +274,7 @@ class TabSwitcherBottomSheet(
                 }
                 launch {
                     tabManager.incognitoTabs.collectLatest { list ->
+                        updateTabModePillUI()
                         if (isViewingIncognito) {
                             renderTabs(list)
                         }
@@ -252,6 +291,7 @@ class TabSwitcherBottomSheet(
     }
 
     fun refreshTabsList() {
+        updateTabModePillUI()
         val list = if (isViewingIncognito) {
             tabManager.incognitoTabs.value
         } else {

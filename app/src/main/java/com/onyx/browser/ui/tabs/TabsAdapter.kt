@@ -51,23 +51,37 @@ class TabsAdapter(
 
             val isActive = item.id == activeTabId
             val context = binding.root.context
+            val density = context.resources.displayMetrics.density
+
             if (isActive) {
-                binding.cardTab.strokeColor = ContextCompat.getColor(context, R.color.primary)
-                binding.cardTab.strokeWidth = 3
+                val accentColor = ContextCompat.getColor(context, R.color.tab_switcher_accent)
+                binding.cardTab.strokeColor = accentColor
+                binding.cardTab.strokeWidth = (2.5f * density).toInt().coerceAtLeast(3)
+
+                binding.tabHeader.setBackgroundColor(accentColor)
+                binding.tvTabTitle.setTextColor(android.graphics.Color.WHITE)
+                binding.btnTabClose.setColorFilter(android.graphics.Color.WHITE)
             } else {
-                val typedArray = context.obtainStyledAttributes(intArrayOf(com.google.android.material.R.attr.colorOutline))
-                val outlineColor = typedArray.getColor(0, ContextCompat.getColor(context, R.color.outline_light))
-                typedArray.recycle()
-                binding.cardTab.strokeColor = outlineColor
-                binding.cardTab.strokeWidth = 1
+                val strokeColor = ContextCompat.getColor(context, R.color.tab_card_stroke)
+                binding.cardTab.strokeColor = strokeColor
+                binding.cardTab.strokeWidth = (1f * density).toInt().coerceAtLeast(1)
+
+                val headerBgColor = ContextCompat.getColor(context, R.color.tab_card_header_bg)
+                binding.tabHeader.setBackgroundColor(headerBgColor)
+
+                val textColor = ContextCompat.getColor(context, R.color.tab_text_primary)
+                binding.tvTabTitle.setTextColor(textColor)
+
+                val closeColor = ContextCompat.getColor(context, R.color.tab_close_icon)
+                binding.btnTabClose.setColorFilter(closeColor)
             }
 
             if (locked) {
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_lock)
-                binding.ivTabFavicon.setColorFilter(ContextCompat.getColor(context, R.color.primary))
+                binding.ivTabFavicon.setColorFilter(if (isActive) android.graphics.Color.WHITE else ContextCompat.getColor(context, R.color.primary))
             } else if (item.isIncognito) {
-                binding.ivTabFavicon.setImageResource(R.drawable.ic_incognito)
-                binding.ivTabFavicon.setColorFilter(ContextCompat.getColor(context, R.color.incognito_purple))
+                binding.ivTabFavicon.setImageResource(R.drawable.ic_incognito_glasses)
+                binding.ivTabFavicon.setColorFilter(if (isActive) android.graphics.Color.WHITE else ContextCompat.getColor(context, R.color.incognito_purple))
             } else {
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_web)
                 binding.ivTabFavicon.clearColorFilter()
