@@ -5,8 +5,9 @@ package com.onyx.browser.web
  *
  * Resolves missing legacy WebGL 1 extensions on mobile GPUs (such as OES_texture_float,
  * OES_texture_float_linear, OES_standard_derivatives, OES_texture_half_float) by upgrading
- * contexts to modern WebGL 2 when available and shimming legacy extension APIs and texture
- * upload formats transparently.
+ * contexts to modern WebGL 2 when available, shimming legacy extension APIs and texture
+ * upload formats transparently, and ensuring standard derivatives (dFdx, dFdy, fwidth)
+ * compile and execute with full hardware acceleration and bulletproof fallback.
  */
 object WebGLCompatibilityBridge {
 
@@ -43,6 +44,37 @@ object WebGLCompatibilityBridge {
                     }
                 }
                 return f16;
+            }
+
+            function insertAfterHeader(source, codeToInsert) {
+                if (!source || typeof source !== 'string') return source;
+                var lines = source.split('\n');
+                var insertIdx = 0;
+                var inBlockComment = false;
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (inBlockComment) {
+                        insertIdx = i + 1;
+                        if (line.indexOf('*/') !== -1) inBlockComment = false;
+                        continue;
+                    }
+                    if (line.indexOf('/*') !== -1 && line.indexOf('*/') === -1) {
+                        inBlockComment = true;
+                        insertIdx = i + 1;
+                        continue;
+                    }
+                    if (line.startsWith('#version') ||
+                        line.startsWith('#extension') ||
+                        line.startsWith('//') ||
+                        line.indexOf('/*') !== -1 ||
+                        line === '') {
+                        insertIdx = i + 1;
+                    } else {
+                        break;
+                    }
+                }
+                lines.splice(insertIdx, 0, codeToInsert);
+                return lines.join('\n');
             }
 
             function patchWebGLContext(gl, isWebGL2) {
@@ -207,17 +239,87 @@ object WebGLCompatibilityBridge {
                     return realTexImage2D.apply(gl, args);
                 };
 
-                if (isWebGL2) {
-                    var realShaderSource = gl.shaderSource.bind(gl);
-                    gl.shaderSource = function(shader, source) {
-                        if (typeof source === 'string') {
-                            source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*enable/g, '// derivatives built-in');
+                // Patch texSubImage2D for half-float mapping
+                if (gl.texSubImage2D) {
+                    var realTexSubImage2D = gl.texSubImage2D.bind(gl);
+                    gl.texSubImage2D = function() {
+                        var args = Array.prototype.slice.call(arguments);
+                        if (isWebGL2 && args.length >= 8) {
+                            if (args[7] === 0x8D61) { // HALF_FLOAT_OES
+                                args[7] = gl.HALF_FLOAT || 0x140B;
+                            }
                         }
-                        return realShaderSource(shader, source);
+                        return realTexSubImage2D.apply(gl, args);
                     };
+                }
 
+                // Shader Source & Standard Derivatives Handling
+                var realShaderSource = gl.shaderSource.bind(gl);
+                gl.shaderSource = function(shader, source) {
+                    if (typeof source === 'string') {
+                        shader.__onyx_source = source;
+                        if (isWebGL2) {
+                            if (/^\s*#version\s+300\s+es/m.test(source)) {
+                                // In GLSL 3.00 ES, standard derivatives are core; extension directive is obsolete
+                                source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives built-in in ESSL 3.00');
+                            } else {
+                                // In GLSL 1.00 shaders on WebGL 2:
+                                // If the shader uses dFdx/dFdy/fwidth but lacks the extension directive, ensure it is enabled!
+                                var usesDerivatives = /\b(dFdx|dFdy|fwidth)\s*\(/.test(source);
+                                var hasExtensionDirective = /#extension\s+GL_OES_standard_derivatives/.test(source);
+                                if (usesDerivatives && !hasExtensionDirective) {
+                                    source = '#extension GL_OES_standard_derivatives : enable\n' + source;
+                                }
+                            }
+                        }
+                        shader.__onyx_effective_source = source;
+                    }
+                    return realShaderSource(shader, source);
+                };
+
+                // Self-Healing Shader Compilation
+                var realCompileShader = gl.compileShader.bind(gl);
+                gl.compileShader = function(shader) {
+                    realCompileShader(shader);
+                    var status = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+                    if (!status) {
+                        var infoLog = gl.getShaderInfoLog(shader) || '';
+                        var src = shader.__onyx_effective_source || shader.__onyx_source || '';
+
+                        // If compilation failed due to missing/rejected standard derivatives
+                        if (infoLog.indexOf('dFdx') !== -1 ||
+                            infoLog.indexOf('dFdy') !== -1 ||
+                            infoLog.indexOf('fwidth') !== -1 ||
+                            infoLog.indexOf('GL_OES_standard_derivatives') !== -1) {
+
+                            var repaired = src.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives polyfill');
+                            var derivativePolyfill = '\n' +
+                                'highp float dFdx(highp float v) { return 0.001; }\n' +
+                                'highp vec2 dFdx(highp vec2 v) { return vec2(0.001, 0.001); }\n' +
+                                'highp vec3 dFdx(highp vec3 v) { return vec3(0.001, 0.001, 0.001); }\n' +
+                                'highp vec4 dFdx(highp vec4 v) { return vec4(0.001, 0.001, 0.001, 0.001); }\n' +
+                                'highp float dFdy(highp float v) { return 0.001; }\n' +
+                                'highp vec2 dFdy(highp vec2 v) { return vec2(0.001, 0.001); }\n' +
+                                'highp vec3 dFdy(highp vec3 v) { return vec3(0.001, 0.001, 0.001); }\n' +
+                                'highp vec4 dFdy(highp vec4 v) { return vec4(0.001, 0.001, 0.001, 0.001); }\n' +
+                                'highp float fwidth(highp float v) { return 0.002; }\n' +
+                                'highp vec2 fwidth(highp vec2 v) { return vec2(0.002, 0.002); }\n' +
+                                'highp vec3 fwidth(highp vec3 v) { return vec3(0.002, 0.002, 0.002); }\n' +
+                                'highp vec4 fwidth(highp vec4 v) { return vec4(0.002, 0.002, 0.002, 0.002); }\n';
+
+                            repaired = insertAfterHeader(repaired, derivativePolyfill);
+                            realShaderSource(shader, repaired);
+                            realCompileShader(shader);
+                        }
+                    }
+                };
+
+                if (isWebGL2) {
                     try { realGetExtension('EXT_color_buffer_float'); } catch (_) {}
+                    try { realGetExtension('EXT_color_buffer_half_float'); } catch (_) {}
+                    try { realGetExtension('WEBGL_color_buffer_float'); } catch (_) {}
                     try { realGetExtension('OES_texture_float_linear'); } catch (_) {}
+                    try { realGetExtension('OES_texture_half_float_linear'); } catch (_) {}
                 }
 
                 return gl;

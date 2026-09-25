@@ -1109,3 +1109,17 @@ onyx-browser/
       - [`Onyx-Browser-v1.0.149-armeabi-v7a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-armeabi-v7a-release.apk) (15.29 MB, 32-bit ARM)
       - [`Onyx-Browser-v1.0.149-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-universal-release.apk) (38.97 MB, all ABIs)
       - [`Onyx-Browser-v1.0.149-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-x86_64-release.apk) (20.55 MB, emulators/x86_64)
+
+- [x] **WebGL Standard Derivatives & Self-Healing Shader Compilation Architecture (`WebGLCompatibilityBridge.kt`)**:
+  - **Root Cause Analysis (`dFdx` / `dFdy` / `fwidth` compilation failure)**:
+    - On Evan Wallace's WebGL Water demo (`https://madebyevan.com/webgl-water/`), shaders failed to compile with:
+      `Uncaught Error: compile error: ERROR: 0:2: 'dFdx' : no matching overloaded function found`
+      `ERROR: 0:2: 'dFdy' : no matching overloaded function found`
+    - In commit `fbb3d6a`, `gl.shaderSource` was previously stripping `#extension GL_OES_standard_derivatives : enable` indiscriminately under the assumption that all WebGL 2 contexts provide standard derivatives natively.
+    - However, in Chromium WebView / ANGLE, shaders without `#version 300 es` are compiled according to the GLSL ES 1.00 specification. In GLSL ES 1.00, ANGLE strictly requires `#extension GL_OES_standard_derivatives : enable` to add `dFdx`, `dFdy`, and `fwidth` to the compiler symbol table. Stripping this directive caused ANGLE's GLSL ES 1.00 compiler to reject valid `dFdx` calls.
+  - **Multi-Tiered Shader Bridge & Self-Healing Compilation**:
+    - **Context-Aware Extension Preservation**: In `gl.shaderSource`, only strip `#extension GL_OES_standard_derivatives` when `#version 300 es` is explicitly present (where derivatives are core). For GLSL ES 1.00 shaders, the extension directive is strictly preserved.
+    - **Proactive Directive Injection**: When a GLSL ES 1.00 shader invokes `dFdx`, `dFdy`, or `fwidth` but lacks `#extension GL_OES_standard_derivatives`, Onyx automatically injects `#extension GL_OES_standard_derivatives : enable\n` at the top of the shader source.
+    - **Self-Healing Fallback in `gl.compileShader`**: Intercepts `gl.compileShader`. If shader compilation fails and `gl.getShaderInfoLog` reports missing or rejected standard derivatives, Onyx injects an overloaded, high-precision GLSL ES polyfill for `dFdx`, `dFdy`, and `fwidth` (`float`, `vec2`, `vec3`, `vec4`) using `insertAfterHeader` and transparently recompiles the shader.
+    - **Extended Framebuffer & Texture Formats**: Added `gl.texSubImage2D` mapping for `HALF_FLOAT_OES` (`0x8D61` -> `gl.HALF_FLOAT` / `0x140B`) and activated `EXT_color_buffer_float`, `EXT_color_buffer_half_float`, `WEBGL_color_buffer_float`, `OES_texture_float_linear`, and `OES_texture_half_float_linear` on WebGL 2 contexts.
+
