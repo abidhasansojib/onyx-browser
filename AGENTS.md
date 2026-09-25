@@ -1211,9 +1211,15 @@ onyx-browser/
     - `dialog_update_progress.xml`: Displays real-time progress bar, percentage, and download speed with safe cancel action.
     - Directly bridges to `ApkInstallerHelper.installApk(...)` upon download completion, ensuring Unknown Sources security checks and seamless hand-off to the Android Package Installer.
 
-- [x] **Release Signing Keystore Reconfiguration & GitHub Secrets Synchronization (`keystore/release.keystore`, `app/build.gradle.kts`, `.github/workflows/build.yml`)**:
-  - Re-encrypted the project PKCS#12 release keystore with user credentials.
-  - Preserved the exact original RSA private key and SHA-256 certificate fingerprint (`F5:47:44:9B:27:46:63:A9:...`) ensuring full backward compatibility and seamless in-place APK updates without signature mismatch errors.
-  - Configured and synchronized all 4 repository secrets in GitHub Actions via GitHub CLI: `KEYSTORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS`, and `KEYSTORE_BASE64`.
-  - Configured secure environment variable consumption in `app/build.gradle.kts` and `.github/workflows/build.yml` without storing plaintext passwords in repository code.
+- [x] **Verified Remote CI/CD Build Run & Release Packaging (`v1.0.155`)**:
+  - GitHub Actions Workflow Run [#36176936061](https://github.com/abidhasansojib/onyx-browser/actions/runs/36176936061) completed successfully in 7m 57s.
+  - Successfully cross-compiled 32-bit and 64-bit Rust NDK binaries (`libadblock_bridge.so`) for `arm64-v8a`, `armeabi-v7a`, and `x86_64`.
+  - Built and digitally signed release APKs using the reconfigured release keystore credentials via GitHub Actions repository secrets.
+  - Automatically published GitHub Release **[`v1.0.155`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.155)** containing the official release APKs:
+    - `Onyx-Browser-v1.0.155-arm64-v8a-release.apk` (20.07 MB)
+    - `Onyx-Browser-v1.0.155-armeabi-v7a-release.apk` (16.07 MB)
+    - `Onyx-Browser-v1.0.155-universal-release.apk` (40.91 MB)
+    - `Onyx-Browser-v1.0.155-x86_64-release.apk` (21.59 MB)
+  - Verified local copy of all 4 signed release APKs in `/root/onyx-browser/release/`.
+
 
