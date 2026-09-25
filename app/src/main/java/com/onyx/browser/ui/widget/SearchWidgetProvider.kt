@@ -65,17 +65,22 @@ class SearchWidgetProvider : AppWidgetProvider() {
 
             // Evaluate system dark/light configuration so icon tint matches launcher theme
             val isSystemDark = (Resources.getSystem().configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val iconTint = if (isSystemDark) Color.parseColor("#9AA0A6") else Color.parseColor("#5F6368")
+            val iconTint = if (isSystemDark) Color.parseColor("#F1F3F4") else Color.parseColor("#3C4043")
+            val textColor = if (isSystemDark) Color.parseColor("#E8EAED") else Color.parseColor("#202124")
+
+            // Explicitly set text and color for launcher theme synchronization
+            views.setTextViewText(R.id.widget_search_text, context.getString(R.string.search))
+            views.setTextColor(R.id.widget_search_text, textColor)
 
             // 1. Search Engine Icon
             val engineBitmap = getSearchEngineBitmap(context, searchEngine, iconTint)
             views.setImageViewBitmap(R.id.widget_search_engine_icon, engineBitmap)
 
-            // 2. Microphone Icon (tinted with iconTint)
+            // 2. Microphone Icon (tinted with iconTint: crisp white in dark, Google charcoal in light)
             val micBitmap = getThemedVectorBitmap(context, R.drawable.ic_mic, iconTint)
             views.setImageViewBitmap(R.id.widget_btn_mic, micBitmap)
 
-            // 3. Incognito Icon (tinted with iconTint)
+            // 3. Incognito Icon (tinted with iconTint: crisp white in dark, Google charcoal in light)
             val incognitoBitmap = getThemedVectorBitmap(context, R.drawable.ic_incognito, iconTint)
             views.setImageViewBitmap(R.id.widget_btn_incognito, incognitoBitmap)
 
@@ -132,7 +137,8 @@ class SearchWidgetProvider : AppWidgetProvider() {
                     }
                     val bmp = BitmapFactory.decodeResource(context.resources, iconRes, opts)
                     if (bmp != null) {
-                        val maxDim = (32 * context.resources.displayMetrics.density).toInt().coerceAtLeast(48)
+                        val density = context.resources.displayMetrics.density
+                        val maxDim = (24 * density).toInt().coerceAtLeast(48)
                         return if (bmp.width > maxDim || bmp.height > maxDim) {
                             Bitmap.createScaledBitmap(bmp, maxDim, maxDim, true)
                         } else {
@@ -161,9 +167,9 @@ class SearchWidgetProvider : AppWidgetProvider() {
             val wrapped = DrawableCompat.wrap(drawable.mutate())
             DrawableCompat.setTint(wrapped, tintColor)
 
-            val width = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else 48
-            val height = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else 48
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val density = context.resources.displayMetrics.density
+            val targetSize = (24 * density).toInt().coerceAtLeast(48)
+            val bitmap = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             wrapped.setBounds(0, 0, canvas.width, canvas.height)
             wrapped.draw(canvas)
@@ -171,18 +177,19 @@ class SearchWidgetProvider : AppWidgetProvider() {
         }
 
         private fun createLetterAvatar(context: Context, name: String): Bitmap {
-            val size = (32 * context.resources.displayMetrics.density).toInt().coerceAtLeast(32)
+            val density = context.resources.displayMetrics.density
+            val size = (24 * density).toInt().coerceAtLeast(32)
             val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
 
             val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = ContextCompat.getColor(context, R.color.primary)
             }
-            canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), size / 2f, size / 2f, bgPaint)
+            canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), size / 4f, size / 4f, bgPaint)
 
             val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                textSize = size * 0.5f
+                textSize = size * 0.55f
                 textAlign = Paint.Align.CENTER
                 isFakeBoldText = true
             }

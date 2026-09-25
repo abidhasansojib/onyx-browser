@@ -1145,3 +1145,17 @@ onyx-browser/
   - **Set Google as System Default**: Updated `SearchEngine.BUILT_IN` ordering to place `GOOGLE` first and set `SearchEngine.GOOGLE` as the primary fallback in `SearchEngine.fromId()` and `SearchEnginePickerDialog`.
   - **Preference Architecture & One-Time Migration**: Updated `BrowserPreferences.searchEngine` default to `SearchEngine.GOOGLE.id`. Added `migrateDefaultSearchEngine()` to seamlessly upgrade existing user installations from the legacy default (`brave`) to `google` while preserving intentional user customizations.
   - **UI Drawable Alignment**: Updated default toolbar and settings XML layouts to display `ic_engine_google` out of the box.
+
+- [x] **Quetta-Inspired Modular Home Screen Search Widget Redesign (`widget_search_bar.xml`, `SearchWidgetProvider.kt`, drawables, colors)**:
+  - **Modular 3-Element Card Architecture**:
+    - Replaced the monolithic search pill with a sleek, 3-element modular card layout matching `/storage/emulated/0/widget.png`.
+    - **Outer Rounded Card Container** (`bg_widget_container.xml`): Deep dark `#0D0E0E` container card (`#F1F3F4` in light mode) with rounded 22dp corners and subtle border stroke.
+    - **Search Capsule Pill** (`bg_widget_pill.xml`): 48dp height capsule (`layout_weight="1"`) with elevated dark surface (`#1B1C1E` in dark mode, `#FFFFFF` in light mode) and 24dp corner radius.
+      - **Brand Squircle Badge** (`bg_widget_badge.xml`): 32dp x 32dp rounded squircle tile (radius 8dp, `#26282C`) showcasing the active search engine (Google by default) in vibrant colors.
+      - **Clean Typography**: "Search" (`@string/search`) in 16sp `sans-serif-medium`, dynamically color-matched (`#E8EAED` in dark, `#202124` in light).
+    - **Voice Search Circular Button** (`bg_widget_circle_button.xml`): Independent 48dp x 48dp circular tile matching pill height and surface color, with centered crisp white microphone icon (`ic_mic`).
+    - **Incognito Search Circular Button** (`bg_widget_circle_button.xml`): Independent 48dp x 48dp circular tile with centered crisp white Fedora Hat & Spy Glasses icon (`ic_incognito`).
+  - **Dynamic Theme & Density Synchronization (`SearchWidgetProvider.kt`)**:
+    - Synchronized text color and icon tints with launcher night mode: `#F1F3F4` in dark mode, `#3C4043` in light mode.
+    - High-density vector and bitmap rendering adapting directly to device display metrics (`density`).
+    - Dedicated, non-interfering `PendingIntent`s for instant search mode, voice input, and incognito tab spawning.

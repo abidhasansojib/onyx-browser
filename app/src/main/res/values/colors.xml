@@ -30,10 +30,17 @@
     <color name="red_danger">#EA4335</color>
     <color name="green_success">#34A853</color>
 
-    <!-- Search Widget Colors (Google Light) -->
+    <!-- Search Widget Colors (Light Theme) -->
     <color name="widget_background">#FFFFFF</color>
     <color name="widget_stroke">#DFE1E5</color>
-    <color name="widget_text">#5F6368</color>
-    <color name="widget_icon">#5F6368</color>
+    <color name="widget_text">#202124</color>
+    <color name="widget_icon">#3C4043</color>
+    <color name="widget_container_bg">#F1F3F4</color>
+    <color name="widget_container_stroke">#DFE1E5</color>
+    <color name="widget_surface_bg">#FFFFFF</color>
+    <color name="widget_surface_stroke">#DFE1E5</color>
+    <color name="widget_badge_bg">#F1F3F4</color>
+    <color name="widget_badge_stroke">#E0E2E6</color>
+    <color name="widget_ripple">#1F000000</color>
 </resources>
 

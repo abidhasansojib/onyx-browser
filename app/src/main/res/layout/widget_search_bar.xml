@@ -12,62 +12,77 @@
     <LinearLayout
         android:id="@+id/widget_search_bar_container"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:background="@drawable/bg_search_widget"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_widget_container"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingEnd="6dp">
+        android:paddingStart="8dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="8dp">
 
-        <!-- Search Clickable Area: Engine Icon + Hint Text -->
+        <!-- Search Capsule Pill: Squircle Brand Badge + 'Search' Hint Text -->
         <LinearLayout
             android:id="@+id/widget_btn_search"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="48dp"
             android:layout_weight="1"
+            android:background="@drawable/bg_widget_pill"
+            android:clickable="true"
+            android:focusable="true"
             android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="12dp">
 
             <ImageView
                 android:id="@+id/widget_search_engine_icon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:contentDescription="@string/search_or_type_url"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_widget_badge"
+                android:padding="5dp"
+                android:contentDescription="@string/search"
                 android:scaleType="fitCenter" />
 
             <TextView
                 android:id="@+id/widget_search_text"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
+                android:layout_marginStart="12dp"
                 android:layout_marginEnd="6dp"
                 android:layout_weight="1"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="@string/search_or_type_url"
+                android:text="@string/search"
                 android:textColor="@color/widget_text"
-                android:textSize="15sp" />
+                android:textSize="16sp"
+                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
-        <!-- Voice Search Button -->
+        <!-- Voice Search Button: Circular action button -->
         <ImageView
             android:id="@+id/widget_btn_mic"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:background="@drawable/bg_widget_action"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_widget_circle_button"
+            android:clickable="true"
+            android:focusable="true"
             android:contentDescription="@string/voice_search"
-            android:padding="8dp"
+            android:padding="12dp"
             android:scaleType="fitCenter" />
 
-        <!-- Incognito Search Button -->
+        <!-- Incognito Search Button: Circular action button -->
         <ImageView
             android:id="@+id/widget_btn_incognito"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:layout_marginStart="2dp"
-            android:background="@drawable/bg_widget_action"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_widget_circle_button"
+            android:clickable="true"
+            android:focusable="true"
             android:contentDescription="@string/incognito"
-            android:padding="8dp"
+            android:padding="12dp"
             android:scaleType="fitCenter" />
 
     </LinearLayout>

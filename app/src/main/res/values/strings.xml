@@ -2,6 +2,7 @@
     <string name="app_name">Onyx Browser</string>
 
     <!-- Toolbar & Search -->
+    <string name="search">Search</string>
     <string name="search_or_type_url">Search or type URL</string>
     <string name="clear_search">Clear search</string>
     <string name="voice_search">Voice search</string>
@@ -383,7 +384,7 @@
     <string name="search_widget_title">Search Widget</string>
     <string name="search_widget_desc">Search or type URL, voice search, and incognito mode</string>
     <string name="add_search_widget">Add Search Widget</string>
-    <string name="add_search_widget_desc">Add Chrome-style search bar to your home screen</string>
+    <string name="add_search_widget_desc">Add sleek search bar to your home screen</string>
     <string name="search_widget_pinned_success">Search widget added to home screen</string>
     <string name="search_widget_pin_failed">Could not pin widget automatically</string>
     <string name="search_widget_manual_add_guide">Touch &amp; hold an empty area on your home screen, tap Widgets, and add Onyx Search Bar.</string>
