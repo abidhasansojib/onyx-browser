@@ -1133,3 +1133,13 @@ onyx-browser/
   - **Removed Static Release Notes Boilerplate**: Stripped static architectural download guide, generic APK descriptions, and redundant optimization text.
   - **Dynamic Range-Based Git Changelog Engine**: Automatically discovers the previous release git tag (`PREV_TAG`), extracts all commits between `PREV_TAG..HEAD` (`git log --pretty=format:"* %s ([%h](commit_url))"`), and appends a direct GitHub compare link (`**Full Changelog**: https://github.com/abidhasansojib/onyx-browser/compare/${PREV_TAG}...${TAG}`).
   - **Clean GitHub Release Notes**: GitHub releases now cleanly display the exact commit history and feature changes introduced in each respective build.
+
+- [x] **WebGL Derivative Polyfill Injection Order & Idempotency Resolution (`WebGLCompatibilityBridge.kt`)**:
+  - **Root Cause Analysis (`dFdx : function already has a body` & missing overload)**:
+    - In `insertAfterHeader`, an over-permissive condition (`line.indexOf('/*') !== -1`) matched inline comments within shader code and `main()`, erroneously advancing `insertIdx` to line 28 (after `main()`).
+    - Because GLSL requires functions to be declared before they are called, placing the polyfill after `main()` caused calls on line 2 to fail with `'dFdx' : no matching overloaded function found`.
+    - When compilation failed, the self-healing fallback in `gl.compileShader` re-injected the polyfill, resulting in duplicate definitions on lines 28-39 (`'dFdx' : function already has a body`).
+  - **Strict Preprocessor Header Detection & Idempotency Guard**:
+    - Re-engineered `insertAfterHeader` to strictly advance only over `#version`, `#extension`, blank lines, and leading `//` comments. As soon as any code statement appears, it terminates scanning immediately and injects the polyfill directly before all functions and `main()`.
+    - Added `// ONYX_DERIVATIVE_POLYFILL_INSTALLED` marker and idempotency guards in both `insertAfterHeader` and `gl.compileShader`, completely preventing duplicate function injections.
+
