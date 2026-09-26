@@ -1535,3 +1535,16 @@ onyx-browser/
     - Decoupled open/install from folder navigation in `bottom_sheet_download_item_menu.xml` with dedicated `menuOpenOrInstall` ("Install" with `@drawable/ic_android` for APKs, "Open file" for other media) and `menuOpenInFolder` ("Open in file manager" with `@drawable/ic_folder`).
     - Implemented robust multi-tier `openFileManagerFolder()` in `DownloadsActivity.kt` targeting the containing folder: `DownloadManager.ACTION_VIEW_DOWNLOADS`, DocumentsUI Downloads SAF URI (`vnd.android.document/directory`), parent folder directory view, direct OEM/third-party file manager app packages, and system document picker fallback.
     - Added file manager directory MIME types and 14 major file manager package queries to `AndroidManifest.xml` under `<queries>` to ensure full Android 11+ package visibility.
+  - **Page Translation In-Place Restore & Multi-Language Switching Overhaul (`PageTranslateManager.kt`, `MainActivity.kt`, `LanguageSelectionDialog.kt`)**:
+    - **In-Place "Original" Restoration (Eliminated Unwanted Page Reload)**:
+      - Overhauled `restoreOriginalScript` to target Google Translate's native iframe restoration controls (`#goog-gt-tt button`, `[id*="restore"]`, `.goog-close-link`, `.goog-te-button`) and reset `.goog-te-combo` to index 0, triggering `change` and `input` events.
+      - Removed translation classes (`translated-ltr`, `translated-rtl`) from `document.documentElement` and `document.body` in-place.
+      - Eliminated the unconditional 1-second `window.location.reload()`, preserving all active webpage state, form inputs, scroll position, and tab memory.
+    - **Hierarchical `googtrans` Cookie Purging (Resolved Sticky/Defaulting to Bangla `bn`)**:
+      - Purged `googtrans` cookies across all domain levels (`.domain.com`, `sub.domain.com`, root domain, empty domain) and paths in both JavaScript `document.cookie` and Kotlin `CookieManager`.
+      - Purges old cookies before applying any target language, preventing old persistent cookies (e.g. `/auto/bn`) from overriding new user language selections.
+    - **Dynamic Language Switching & Self-Healing Re-injection**:
+      - Upgraded `getSwitchLanguageScript` with smart option matching (`applyComboTarget`) handling regional codes (`zh-CN`, `zh-TW`, `pt-BR`, `tl`/`fil`, `iw`/`he`).
+      - Returns `'reinitialize'` if the translation element is detached; `MainActivity.setupTranslateBar` automatically cascades into `getTranslateScript(targetCode)` for seamless re-injection without user interruption.
+      - Fixed duplicate Ukrainian entry in `LanguageSelectionDialog.kt`.
+

@@ -2266,20 +2266,35 @@ class MainActivity : AppCompatActivity() {
         binding.etFindQuery.setText("")
     }
 
-    private var currentTranslateTargetCode: String = "en"
+    private var currentTranslateTargetCode: String = ""
 
     private fun setupTranslateBar() {
         binding.toggleTranslateMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
             val wv = tabManager.getActiveWebView() ?: return@addOnButtonCheckedListener
+            val activeTab = tabManager.activeTab.value
             when (checkedId) {
                 R.id.btnTranslateOriginal -> {
+                    if (activeTab != null && activeTab.url.isNotBlank()) {
+                        PageTranslateManager.clearCookies(activeTab.url)
+                    }
                     wv.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
                 }
                 R.id.btnTranslateTarget -> {
+                    val code = currentTranslateTargetCode.ifBlank { preferences.targetTranslateLanguage }
+                    if (activeTab != null && activeTab.url.isNotBlank()) {
+                        PageTranslateManager.setupCookies(activeTab.url, code)
+                    }
                     binding.pbTranslateLoading.visibility = View.VISIBLE
-                    wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(currentTranslateTargetCode)) {
-                        binding.pbTranslateLoading.visibility = View.GONE
+                    wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(code)) { result ->
+                        val res = result?.trim('"')
+                        if (res == "reinitialize" || res == "pending" || res == null) {
+                            wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code)) {
+                                binding.pbTranslateLoading.visibility = View.GONE
+                            }
+                        } else {
+                            binding.pbTranslateLoading.visibility = View.GONE
+                        }
                     }
                 }
             }
@@ -2298,8 +2313,15 @@ class MainActivity : AppCompatActivity() {
                     PageTranslateManager.setupCookies(activeTab.url, code)
                 }
                 binding.pbTranslateLoading.visibility = View.VISIBLE
-                wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(code)) {
-                    binding.pbTranslateLoading.visibility = View.GONE
+                wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(code)) { result ->
+                    val res = result?.trim('"')
+                    if (res == "reinitialize" || res == "pending" || res == null) {
+                        wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code)) {
+                            binding.pbTranslateLoading.visibility = View.GONE
+                        }
+                    } else {
+                        binding.pbTranslateLoading.visibility = View.GONE
+                    }
                 }
             }
             dialog.show(supportFragmentManager, "LanguageSelectionDialog")
