@@ -852,7 +852,12 @@ class OnyxWebViewClient(
                 // Do not let data: or asset error pages overwrite the active URL or clear synthetic error state!
                 return
             }
+            val previousUrl = currentPageUrl
             currentPageUrl = url
+            if (previousUrl.isNotBlank() && previousUrl != url &&
+                com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId == onyxWv?.tabId) {
+                com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
+            }
             onyxWv?.clearSyntheticState()
             onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)

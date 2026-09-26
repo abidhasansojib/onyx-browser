@@ -2001,46 +2001,56 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMediaPlaybackListener() {
         MediaPlaybackService.mediaActionListener = object : MediaPlaybackService.MediaActionListener {
+            private fun getTargetWebView(): OnyxWebView? {
+                val playingId = MediaPlaybackBridge.currentPlayingTabId
+                if (!playingId.isNullOrBlank()) {
+                    val wv = tabManager.getWebView(playingId)
+                    if (wv != null) return wv
+                }
+                return tabManager.getActiveWebView()
+            }
+
             override fun onPlayMedia() {
                 runOnUiThread {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
                 }
             }
 
             override fun onPauseMedia() {
                 runOnUiThread {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
                 }
             }
 
             override fun onSeekMedia(deltaSeconds: Int) {
                 runOnUiThread {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(deltaSeconds), null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(deltaSeconds), null)
                 }
             }
 
             override fun onSeekToMedia(positionMs: Long) {
                 runOnUiThread {
                     val posSec = positionMs / 1000.0
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekToPositionScript(posSec), null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekToPositionScript(posSec), null)
                 }
             }
 
             override fun onSkipNextMedia() {
                 runOnUiThread {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.skipNextMediaScript, null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.skipNextMediaScript, null)
                 }
             }
 
             override fun onSkipPreviousMedia() {
                 runOnUiThread {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.skipPreviousMediaScript, null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.skipPreviousMediaScript, null)
                 }
             }
 
             override fun onStopMedia() {
                 runOnUiThread {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                    MediaPlaybackBridge.resetMediaPlayback(this@MainActivity)
                 }
             }
         }

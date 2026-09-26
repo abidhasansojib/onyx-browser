@@ -421,6 +421,9 @@ class TabManager(
     fun closeTab(tab: TabItem) {
         autoclearTabData(tab)
 
+        // If the closed tab was currently playing media, stop background play & dismiss notification immediately
+        com.onyx.browser.media.MediaPlaybackBridge.onTabClosed(tab.id, context)
+
         // Safe destruction of associated WebView
         val webView = webViewPool.remove(tab.id)
         webView?.destroySafely()
@@ -455,6 +458,10 @@ class TabManager(
 
     fun closeAllTabs(incognitoOnly: Boolean) {
         if (incognitoOnly) {
+            val closedPlayingTab = _incognitoTabs.value.any { it.id == com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId }
+            if (closedPlayingTab) {
+                com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
+            }
             _incognitoTabs.value.forEach { tab ->
                 autoclearTabData(tab)
                 webViewPool.remove(tab.id)?.destroySafely()
@@ -464,6 +471,7 @@ class TabManager(
                 _activeTab.value = _normalTabs.value.firstOrNull() ?: createNewTab(isIncognito = false)
             }
         } else {
+            com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
             _normalTabs.value.forEach { tab ->
                 autoclearTabData(tab)
                 webViewPool.remove(tab.id)?.destroySafely()
@@ -481,8 +489,13 @@ class TabManager(
     fun closeTabsCreatedSince(sinceTime: Long) {
         val normalToClose = _normalTabs.value.filter { it.createdAt >= sinceTime }
         val incognitoToClose = _incognitoTabs.value.filter { it.createdAt >= sinceTime }
+        val allClosing = normalToClose + incognitoToClose
 
-        for (tab in normalToClose + incognitoToClose) {
+        if (allClosing.any { it.id == com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId }) {
+            com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
+        }
+
+        for (tab in allClosing) {
             webViewPool.remove(tab.id)?.destroySafely()
             deleteTabState(tab.id)
         }
@@ -540,6 +553,7 @@ class TabManager(
     }
 
     fun clearAllWebViews() {
+        com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
         webViewPool.values.forEach { it.destroySafely() }
         webViewPool.clear()
     }

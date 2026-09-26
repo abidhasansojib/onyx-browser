@@ -409,6 +409,11 @@ class OnyxWebView @JvmOverloads constructor(
 
     fun destroySafely() {
         try {
+            if (com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId == tabId ||
+                com.onyx.browser.media.MediaPlaybackBridge.currentPlayingWebView?.get() == this) {
+                com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
+            }
+            evaluateJavascript("try { var v = document.querySelectorAll('video, audio'); for(var i=0; i<v.length; i++) { v[i].pause(); v[i].src = ''; } } catch(e){}", null)
             stopLoading()
             loadUrl("about:blank")
             clearHistory()

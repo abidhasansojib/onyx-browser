@@ -183,6 +183,9 @@ class MediaPlaybackService : Service() {
                 releaseWakeLock()
                 mediaActionListener?.onStopMedia()
                 stopForegroundCompat()
+                try {
+                    notificationManager.cancel(NOTIFICATION_ID)
+                } catch (_: Exception) {}
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -420,6 +423,9 @@ class MediaPlaybackService : Service() {
                 stopForeground(true)
             }
         } catch (_: Exception) {}
+        try {
+            notificationManager.cancel(NOTIFICATION_ID)
+        } catch (_: Exception) {}
     }
 
     private fun acquireWakeLock() {
@@ -443,6 +449,10 @@ class MediaPlaybackService : Service() {
         artworkJob?.cancel()
         releaseWakeLock()
         isMediaPlaying = false
+        stopForegroundCompat()
+        try {
+            notificationManager.cancel(NOTIFICATION_ID)
+        } catch (_: Exception) {}
         try {
             mediaSession.isActive = false
             mediaSession.release()
@@ -599,11 +609,29 @@ class MediaPlaybackService : Service() {
 
         fun stop(context: Context) {
             isMediaPlaying = false
+            currentArtworkBitmap = null
+            currentTitle = "Web Media"
+            currentArtist = "Onyx Browser"
+            currentArtworkUrl = null
+            currentPositionMs = 0L
+            currentDurationMs = 0L
+
             val intent = Intent(context, MediaPlaybackService::class.java).apply {
                 action = ACTION_STOP
             }
             try {
                 context.startService(intent)
+            } catch (_: Exception) {
+                try {
+                    context.stopService(intent)
+                } catch (_: Exception) {}
+            }
+            try {
+                context.stopService(Intent(context, MediaPlaybackService::class.java))
+            } catch (_: Exception) {}
+            try {
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+                nm?.cancel(NOTIFICATION_ID)
             } catch (_: Exception) {}
         }
     }

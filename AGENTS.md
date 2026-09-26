@@ -1561,10 +1561,11 @@ onyx-browser/
       - Enabled `isSocialMediaBlockingEnabled` by default (`true`), blocking third-party tracking pixels (`pixel.facebook.com`, `an.facebook.com`, `analytics.twitter.com`, `snap.licdn.com`, `analytics.tiktok.com`) across the web.
       - Defaulted `allowFacebookLogins = true`, `allowTwitterEmbeds = true`, and `allowLinkedInEmbeds = true` out-of-the-box so logins and embeds function reliably while protecting privacy.
       - Exposed `isFacebookLoginAllowed()` and `isSocialMediaBlockingEnabled()` to `OnyxShieldBridge` for synchronous document-start awareness.
-  - **MainActivity & InternalPlayer Kotlin Type Alignment Fix (`MainActivity.kt`, `InternalPlayerActivity.kt`)**:
-    - Resolved missing closing brace `}` on `pipReceiver = object : BroadcastReceiver()` anonymous object definition.
-    - Fixed `DownloadPromptBottomSheet.newInstance` call sites in `MainActivity.kt` and `InternalPlayerActivity.kt` to pass non-null `String` arguments for `userAgent`, `contentDisposition`, `cookies`, and `referer`.
-    - Corrected unresolved PiP call reference from `enterVideoPip()` to `requestInPageVideoPip()`.
-    - Validated all Kotlin files in `app/src/main/java` and all XML files in `app/src/main/res` to ensure zero compilation or linking errors.
+  - **Background Play Notification Dismissal on Tab Closure (`MediaPlaybackBridge.kt`, `MediaPlaybackService.kt`, `TabManager.kt`, `OnyxWebView.kt`, `MainActivity.kt`, `OnyxWebViewClient.kt`)**:
+    - **Tab-Aware Playback Tracking**: Added `currentPlayingTabId` and `currentPlayingWebView` to `MediaPlaybackBridge` so background media sessions are bound to the specific originating tab.
+    - **Automatic Closure & Cleanup**: Linked `TabManager.closeTab()`, `closeAllTabs()`, `closeTabsCreatedSince()`, and `clearAllWebViews()` to `MediaPlaybackBridge.onTabClosed()`, automatically halting `MediaPlaybackService` and removing the media notification the instant the playing tab is closed.
+    - **WebView Safe Tear-Down**: Updated `OnyxWebView.destroySafely()` to pause media elements and reset playback if the destroyed view was playing media.
+    - **Foreground Service Clean Stop**: Hardened `MediaPlaybackService.stop()` and `onDestroy()` to cancel `NOTIFICATION_ID` via `NotificationManager`, release wakelocks, and call `stopForeground(STOP_FOREGROUND_REMOVE)` so no orphaned notifications remain in Android SystemUI.
+    - **Targeted Notification Actions**: Updated `MainActivity.mediaActionListener` to execute Play/Pause/Seek on the actual playing tab rather than the foreground tab, and call `resetMediaPlayback` when media is stopped.
 
 

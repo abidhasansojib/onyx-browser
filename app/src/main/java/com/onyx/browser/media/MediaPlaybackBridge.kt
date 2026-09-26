@@ -34,12 +34,44 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
         @Volatile var lastVideoBounds: android.graphics.RectF? = null
 
+        @Volatile var currentPlayingTabId: String? = null
+        @Volatile var currentPlayingWebView: java.lang.ref.WeakReference<android.webkit.WebView>? = null
+
         var onMediaStateListener: ((isPlaying: Boolean, isVideo: Boolean, width: Int, height: Int) -> Unit)? = null
         var onMediaPlaybackStartedListener: ((playingWebView: android.webkit.WebView) -> Unit)? = null
         var onVideoBoundsListener: ((left: Float, top: Float, right: Float, bottom: Float) -> Unit)? = null
         var onVideoSourceListener: ((src: String) -> Unit)? = null
         var onPipRequestedListener: (() -> Unit)? = null
         var onPipExitListener: (() -> Unit)? = null
+
+        fun onTabClosed(tabId: String, context: Context) {
+            val playingId = currentPlayingTabId
+            val playingWv = currentPlayingWebView?.get()
+            val playingWvTabId = (playingWv as? com.onyx.browser.web.OnyxWebView)?.tabId
+
+            if (playingId == tabId || playingWvTabId == tabId || (!isAudioOrVideoPlaying && !isVideoPlaying && playingId == null)) {
+                resetMediaPlayback(context)
+            }
+        }
+
+        fun resetMediaPlayback(context: Context) {
+            isVideoPlaying = false
+            isAudioOrVideoPlaying = false
+            currentPlayingTabId = null
+            currentPlayingWebView = null
+            currentVideoSrc = null
+            lastVideoBounds = null
+            currentPositionMs = 0L
+            currentDurationMs = 0L
+            currentTitle = "Web Media"
+            currentArtist = "Onyx Browser"
+            currentArtworkUrl = null
+
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
+                MediaPlaybackService.stop(context)
+            }
+        }
     }
 
     @JavascriptInterface
@@ -103,6 +135,16 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         currentArtist = cleanArtist
         currentArtworkUrl = artworkUrl?.takeIf { it.isNotBlank() }
 
+        if (isPlaying) {
+            val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+            if (myTabId != null) {
+                currentPlayingTabId = myTabId
+            }
+            if (webView != null) {
+                currentPlayingWebView = java.lang.ref.WeakReference(webView)
+            }
+        }
+
         mainHandler.post {
             onMediaStateListener?.invoke(isPlaying, isVideo, lastVideoWidth, lastVideoHeight)
             if (isPlaying && webView != null) {
@@ -145,6 +187,14 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         val cleanArtist = artist?.takeIf { it.isNotBlank() } ?: "Onyx Browser"
         currentTitle = cleanTitle
         currentArtist = cleanArtist
+
+        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        if (myTabId != null) {
+            currentPlayingTabId = myTabId
+        }
+        if (webView != null) {
+            currentPlayingWebView = java.lang.ref.WeakReference(webView)
+        }
 
         mainHandler.post {
             onMediaStateListener?.invoke(true, isVideo, lastVideoWidth, lastVideoHeight)
