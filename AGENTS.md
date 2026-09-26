@@ -1403,6 +1403,10 @@ onyx-browser/
     - Action buttons: Cancel button placed on the left (`layout_weight="1"`, background `@color/btn_cancel_bg` `#35363A`, text `#E8EAED`), and Save button placed on the right (`layout_weight="1"`, background `@color/btn_clear_bg` `#DC4B64`, text `#FFFFFF`).
   - **Homepage Muted Gray Shortcut Icons (`ShortcutsAdapter.kt`, `ManageShortcutsAdapter.kt`)**:
     - Replaced bright colorful tints (`#E57373`, `#F4B400`, `#34A853`, `#4285F4`) for Bookmarks, History, and Downloads with the authentic, elegant secondary gray (`textColorSecondary` / `#9AA0A6`), restoring the cohesive dark aesthetic.
+  - **Verified End-to-End Build & Release v1.0.169**:
+    - Successfully verified full remote GitHub Actions build run [#36240076925](https://github.com/abidhasansojib/onyx-browser/actions/runs/36240076925) in 6m 28s.
+    - Published official [GitHub Release v1.0.169](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.169) packaging native Rust NDK `libadblock_bridge.so` libraries, bundled Brave filter lists, luxury dark Settings architecture, and new uneditable shortcuts.
+
 
 
 
