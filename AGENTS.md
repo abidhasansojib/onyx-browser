@@ -1306,6 +1306,13 @@ onyx-browser/
   - **Removed Bottom Divider Line**: Removed `bottomBarDivider` above the bottom bar, creating a continuous edge-to-edge canvas with zero harsh cutting lines.
   - **Direct Constraint Re-anchoring**: Connected `rvTabs` and `emptyTabsView` directly between `@id/tabSwitcherTopBar` and `@id/bottomBar`.
 
+- [x] **Clear Browsing Data Prompt Color Neutralization & Normal App Theme Alignment (`dialog_clear_browsing_data.xml`)**:
+  - **Color Retained Exclusively on Buttons**: Kept `@color/tab_switcher_accent` filled background exclusively on the `btnClearData` confirmation button, removing all extraneous pink/accent tinting across the rest of the dialog.
+  - **Clean Header**: Removed the artificial circular icon badge and secondary subtitle; restored the clean bold 20sp dialog title (`delete_browsing_data`).
+  - **Standard Dropdown Outlining**: Removed `app:boxStrokeColor="@color/tab_switcher_accent"` on `menuTimeRangeLayout`, returning to standard Material 3 / `?attr/colorOutline` border styling with neutral `?android:attr/textColorSecondary` chevron icon tint.
+  - **Neutral Warning Shield**: Tinted the preview warning shield icon with `?attr/colorControlNormal` rather than accent pink, maintaining uniform typography and iconography.
+  - **Authentic Black / Dark & Normal App Theme**: Dialog card is cleanly rendered with `app:cardBackgroundColor="?attr/colorSurface"` with `24dp` smooth rounded corners and `1dp` outline border, presenting as sleek black/dark in dark mode and clean white in light mode.
+
 
 
 
