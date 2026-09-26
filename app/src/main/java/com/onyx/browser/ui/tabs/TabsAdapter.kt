@@ -80,7 +80,7 @@ class TabsAdapter(
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_lock)
                 binding.ivTabFavicon.setColorFilter(if (isActive) android.graphics.Color.WHITE else ContextCompat.getColor(context, R.color.primary))
             } else if (item.isIncognito) {
-                binding.ivTabFavicon.setImageResource(R.drawable.ic_incognito_glasses)
+                binding.ivTabFavicon.setImageResource(R.drawable.ic_incognito)
                 binding.ivTabFavicon.setColorFilter(if (isActive) android.graphics.Color.WHITE else ContextCompat.getColor(context, R.color.incognito_purple))
             } else {
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_web)

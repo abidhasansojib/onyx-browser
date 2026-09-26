@@ -61,7 +61,7 @@
             android:layout_height="16dp"
             android:layout_marginEnd="8dp"
             app:srcCompat="@drawable/ic_qr_code"
-            app:tint="#8AB4F8" />
+            app:tint="@color/primary" />
 
         <TextView
             android:id="@+id/tvGuidance"
@@ -155,7 +155,7 @@
             app:iconGravity="textStart"
             app:iconPadding="8dp"
             app:iconSize="18dp"
-            app:iconTint="#8AB4F8"
+            app:iconTint="@color/primary"
             app:strokeColor="#33FFFFFF"
             app:strokeWidth="1dp" />
 

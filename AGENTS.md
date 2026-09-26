@@ -1223,4 +1223,18 @@ onyx-browser/
     - `Onyx-Browser-v1.0.155-x86_64-release.apk` (21.59 MB)
   - Verified local copy of all 4 signed release APKs in `/root/onyx-browser/release/`.
 
+- [x] **Tab Switcher Layout Polish, Incognito Fedora Logo Restoration & Pink Accent Theme Migration**:
+  - **Tab Switch Buttons Redesign & Centering (`bottom_sheet_tab_switcher.xml`, `TabSwitcherBottomSheet.kt`)**:
+    - Resolved asymmetrical positioning: Bound `tabModePillContainer` directly to `parent` start and end (`app:layout_constraintStart_toStartOf="parent"`, `app:layout_constraintEnd_toEndOf="parent"`), guaranteeing dead-center horizontal alignment on all screen sizes.
+    - Symmetrical Margins: Fixed search button start margin (8dp) and overflow menu end margin (8dp).
+    - Proportional Sizing: Refined capsule container height (42dp, 3dp padding, 21dp radius) and expanded buttons (54dp width x 36dp height, 18dp radius) for a balanced pill appearance.
+    - Touch Feedback: Added `bg_tab_pill_unselected.xml` ripple effect with 18dp rounded corners for instant tactile feedback when tapping unselected tabs.
+  - **Authentic Incognito Logo Restored (`bottom_sheet_tab_switcher.xml`, `TabsAdapter.kt`)**:
+    - Replaced `ic_incognito_glasses` with the iconic Fedora Hat & Glasses vector (`@drawable/ic_incognito`) in both the top bar incognito toggle and `TabsAdapter.kt` incognito tab favicon.
+  - **Universal Coral Pink (`#DC4B64`) Accent Migration (`colors.xml`, `error_page.html`, `markdown_previewer.html`, `LocalFileLoader.kt`, `activity_qr_scanner.xml`, `bg_qr_frame.xml`)**:
+    - Migrated `@color/primary` and `@color/secondary` from Google Blue (`#1A73E8` / `#8AB4F8`) to the tab switcher's signature coral pink (`#DC4B64` and `#C73A53` variant) across both Light and Dark themes (`values/colors.xml` and `values-night/colors.xml`).
+    - Configured `on_primary` to `#FFFFFF` for crisp contrast against `#DC4B64`.
+    - Applied pink accent across all primary and action buttons, floating action buttons (`fabNewTab`), progress bars (`pbWebLoading`), switch toggles, active tab highlight strokes, text input borders, QR scanner frames, and offline error / markdown previewer styles.
+
+
 

@@ -205,27 +205,27 @@ class TabSwitcherBottomSheet(
         val normalActive = !isViewingIncognito
 
         if (normalActive) {
-            // Normal tab button selected: vibrant accent squircle + white tab box
+            // Normal tab button selected: vibrant pink accent squircle + white tab box
             binding.btnNormalTabs.setBackgroundResource(R.drawable.bg_tab_pill_selected)
             binding.boxTabCount.setBackgroundResource(R.drawable.bg_tab_count_box)
             binding.tvNormalTabCount.setTextColor(android.graphics.Color.WHITE)
 
-            // Incognito tab unselected: transparent + subtle gray icon
-            binding.btnIncognitoTabs.background = null
-            binding.ivIncognitoToggle.setColorFilter(android.graphics.Color.parseColor("#B0B3B8"))
+            // Incognito tab unselected: rounded ripple + subtle muted icon
+            binding.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
+            binding.ivIncognitoToggle.setColorFilter(android.graphics.Color.parseColor("#9AA0A6"))
         } else {
-            // Incognito tab button selected: vibrant accent squircle + white sunglasses
+            // Incognito tab button selected: vibrant pink accent squircle + white fedora/glasses icon
             binding.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_selected)
             binding.ivIncognitoToggle.setColorFilter(android.graphics.Color.WHITE)
 
-            // Normal tab unselected: transparent + subtle gray tab box
-            binding.btnNormalTabs.background = null
+            // Normal tab unselected: rounded ripple + subtle muted tab box
+            binding.btnNormalTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
             val boxDrawable = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.bg_tab_count_box)?.mutate()
             if (boxDrawable != null) {
-                androidx.core.graphics.drawable.DrawableCompat.setTint(boxDrawable, android.graphics.Color.parseColor("#B0B3B8"))
+                androidx.core.graphics.drawable.DrawableCompat.setTint(boxDrawable, android.graphics.Color.parseColor("#9AA0A6"))
                 binding.boxTabCount.background = boxDrawable
             }
-            binding.tvNormalTabCount.setTextColor(android.graphics.Color.parseColor("#B0B3B8"))
+            binding.tvNormalTabCount.setTextColor(android.graphics.Color.parseColor("#9AA0A6"))
         }
     }
 

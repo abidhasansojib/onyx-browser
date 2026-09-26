@@ -24,6 +24,7 @@
             android:id="@+id/btnSearchTabSwitcher"
             android:layout_width="44dp"
             android:layout_height="44dp"
+            android:layout_marginStart="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/search_or_type_url"
             android:padding="10dp"
@@ -37,20 +38,20 @@
         <LinearLayout
             android:id="@+id/tabModePillContainer"
             android:layout_width="wrap_content"
-            android:layout_height="44dp"
+            android:layout_height="42dp"
             android:background="@drawable/bg_tab_pill_container"
             android:gravity="center"
             android:orientation="horizontal"
-            android:padding="4dp"
+            android:padding="3dp"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/btnTabSwitcherOverflow"
-            app:layout_constraintStart_toEndOf="@id/btnSearchTabSwitcher"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
             <!-- 1st Button: Normal Tabs with Tab Count in rounded box -->
             <FrameLayout
                 android:id="@+id/btnNormalTabs"
-                android:layout_width="48dp"
+                android:layout_width="54dp"
                 android:layout_height="36dp"
                 android:background="@drawable/bg_tab_pill_selected"
                 android:clickable="true"
@@ -77,12 +78,13 @@
                 </FrameLayout>
             </FrameLayout>
 
-            <!-- 2nd Button: Incognito Tabs with Sunglasses Icon -->
+            <!-- 2nd Button: Incognito Tabs with Fedora Hat & Glasses Icon -->
             <FrameLayout
                 android:id="@+id/btnIncognitoTabs"
-                android:layout_width="48dp"
+                android:layout_width="54dp"
                 android:layout_height="36dp"
-                android:layout_marginStart="4dp"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/bg_tab_pill_unselected"
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="@string/incognito_tabs">
@@ -92,8 +94,8 @@
                     android:layout_width="22dp"
                     android:layout_height="22dp"
                     android:layout_gravity="center"
-                    app:srcCompat="@drawable/ic_incognito_glasses"
-                    app:tint="#B0B3B8"
+                    app:srcCompat="@drawable/ic_incognito"
+                    app:tint="#9AA0A6"
                     android:scaleType="fitCenter" />
             </FrameLayout>
 
@@ -104,6 +106,7 @@
             android:id="@+id/btnTabSwitcherOverflow"
             android:layout_width="44dp"
             android:layout_height="44dp"
+            android:layout_marginEnd="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/menu"
             android:padding="10dp"
