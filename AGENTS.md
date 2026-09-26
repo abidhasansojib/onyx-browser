@@ -1530,3 +1530,8 @@ onyx-browser/
     - Changed search engine switcher popup and dialog background color to `#282A2D` (via semantic `@color/dialog_search_engine_bg`).
     - Resolved Material 3 surface tint bug where `cardElevation > 0` on `MaterialCardView` overlaid coral pink `@color/primary` onto dark surfaces resulting in `#392328`.
     - Set `cardElevation = 0dp` on all search engine pickers so `#282A2D` renders purely without color tinting, with shadow depth provided directly by the window level.
+  - **Downloads 3-Dot Menu "Open in File Manager" APK Install Bug Fix (`DownloadsActivity.kt`, `bottom_sheet_download_item_menu.xml`, `AndroidManifest.xml`)**:
+    - Fixed critical bug where tapping "Open in file manager" from a downloaded APK's 3-dot menu triggered `ApkInstallerHelper.installApk()` and package installer `ACTION_VIEW` intent rather than opening the file manager.
+    - Decoupled open/install from folder navigation in `bottom_sheet_download_item_menu.xml` with dedicated `menuOpenOrInstall` ("Install" with `@drawable/ic_android` for APKs, "Open file" for other media) and `menuOpenInFolder` ("Open in file manager" with `@drawable/ic_folder`).
+    - Implemented robust multi-tier `openFileManagerFolder()` in `DownloadsActivity.kt` targeting the containing folder: `DownloadManager.ACTION_VIEW_DOWNLOADS`, DocumentsUI Downloads SAF URI (`vnd.android.document/directory`), parent folder directory view, direct OEM/third-party file manager app packages, and system document picker fallback.
+    - Added file manager directory MIME types and 14 major file manager package queries to `AndroidManifest.xml` under `<queries>` to ensure full Android 11+ package visibility.

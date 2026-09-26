@@ -74,6 +74,35 @@
         <package android:name="me.proton.android.pass" />
         <package android:name="com.enpass.app" />
 
+        <!-- File Manager & Downloads Intent Queries (Android 11+ / API 30+) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW_DOWNLOADS" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.document/directory" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="resource/folder" />
+        </intent>
+
+        <!-- Known File Manager Packages for direct launching -->
+        <package android:name="com.google.android.apps.nbu.files" />
+        <package android:name="com.sec.android.app.myfiles" />
+        <package android:name="com.mi.android.globalFileexplorer" />
+        <package android:name="com.coloros.filemanager" />
+        <package android:name="com.oneplus.filemanager" />
+        <package android:name="com.huawei.hidisk" />
+        <package android:name="com.lenovo.filebrowser" />
+        <package android:name="pl.solidexplorer2" />
+        <package android:name="com.mixplorer" />
+        <package android:name="nextapp.fx" />
+        <package android:name="ru.zdevs.zarchiver" />
+        <package android:name="com.ghisler.android.TotalCommander" />
+        <package android:name="com.google.android.documentsui" />
+        <package android:name="com.android.documentsui" />
+
         <!-- External App Schemes & Messaging Intent Queries (Android 11+ / API 30+) -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
