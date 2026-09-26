@@ -30,11 +30,11 @@
     <color name="red_danger">#EA4335</color>
     <color name="green_success">#34A853</color>
 
-    <!-- Search Widget Colors (Light Theme) -->
+    <!-- Search Widget Colors (Light Theme - Chrome / Pixel Stadium Pill) -->
     <color name="widget_background">#FFFFFF</color>
     <color name="widget_stroke">#DFE1E5</color>
-    <color name="widget_text">#202124</color>
-    <color name="widget_icon">#3C4043</color>
+    <color name="widget_text">#5F6368</color>
+    <color name="widget_icon">#5F6368</color>
     <color name="widget_container_bg">#F1F3F4</color>
     <color name="widget_container_stroke">#DFE1E5</color>
     <color name="widget_surface_bg">#FFFFFF</color>

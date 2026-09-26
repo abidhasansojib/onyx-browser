@@ -7,17 +7,17 @@
     <color name="secondary">#DC4B64</color>
     <color name="on_secondary">#FFFFFF</color>
 
-    <!-- Search Widget Colors (Dark Theme: Quetta-style modular dark) -->
+    <!-- Search Widget Colors (Dark Theme - Chrome / Pixel Stadium Pill) -->
     <color name="widget_background">#303134</color>
     <color name="widget_stroke">#3C4043</color>
-    <color name="widget_text">#E8EAED</color>
-    <color name="widget_icon">#F1F3F4</color>
-    <color name="widget_container_bg">#0D0E0E</color>
-    <color name="widget_container_stroke">#1C1D1F</color>
-    <color name="widget_surface_bg">#1B1C1E</color>
-    <color name="widget_surface_stroke">#25272A</color>
-    <color name="widget_badge_bg">#26282C</color>
-    <color name="widget_badge_stroke">#34363B</color>
+    <color name="widget_text">#9AA0A6</color>
+    <color name="widget_icon">#E8EAED</color>
+    <color name="widget_container_bg">#303134</color>
+    <color name="widget_container_stroke">#3C4043</color>
+    <color name="widget_surface_bg">#303134</color>
+    <color name="widget_surface_stroke">#3C4043</color>
+    <color name="widget_badge_bg">#303134</color>
+    <color name="widget_badge_stroke">#3C4043</color>
     <color name="widget_ripple">#33FFFFFF</color>
 
     <!-- Tab Switcher (Dark Theme: Quetta-inspired Theme) -->

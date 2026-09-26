@@ -1256,3 +1256,16 @@ onyx-browser/
       - GitHub blob URLs (`github.com/owner/repo/blob/branch/path`) are automatically translated to raw endpoints (`raw.githubusercontent.com/owner/repo/branch/path`).
       - GitLab (`gitlab.com/.../-/raw/...`), Bitbucket (`bitbucket.org/.../raw/...`), and Codeberg/Gitea (`codeberg.org/.../raw/branch/...`) are similarly resolved and enqueued directly to `OnyxDownloadManager`.
       - Extracted sensible filenames from page URL path (`extractFileNameFromPageUrl`) avoiding generic `uuid.bin` fallbacks.
+
+- [x] **Chrome & Pixel Style Stadium Capsule Search Widget Redesign (`widget_search_bar.xml`, `SearchWidgetProvider.kt`)**:
+  - **Replaced Clunky "Dummy" Layout**:
+    - Eliminated the box-in-a-box mockup appearance (the outer container card with awkward inner pill and separate floating circle buttons).
+    - Engineered a single, unified, floating Material 3 Stadium Capsule Pill (`56dp` height, `28dp` mathematical radius, `bg_widget_pill.xml`).
+  - **Sleek Brand & Action Layout**:
+    - **Clean Brand Logo**: Removed the bulky squircle badge background; the search engine logo (Google 4-color "G", Brave orange lion, DuckDuckGo, etc.) sits cleanly on the capsule surface scaled to 26dp with bilinear filtering.
+    - **Authentic Google Hint Typography**: Upgraded hint text to `"Search or type URL"` (`@string/search_or_type_url`, `16sp`, `fontFamily="sans-serif"`) styled with secondary hint colors (`#5F6368` in Light theme, `#9AA0A6` in Dark theme) instead of stark black.
+    - **Integrated Circular Action Buttons**: Embedded Voice Search (`ic_mic`) and Incognito Search (`ic_incognito` Fedora Hat & Glasses) directly inside the right end of the pill with dedicated 40dp circular touch ripples (`bg_widget_action.xml`).
+  - **Material 3 Widget Theming & Android 12+ Features**:
+    - **Light Theme**: Pure clean white `#FFFFFF` surface with subtle Google border `#DFE1E5` and soft ripple `#1F000000`.
+    - **Dark Theme**: Authentic Chrome dark gray `#303134` surface with subtle border `#3C4043`, light silver action icons (`#E8EAED`), and subtle ripple `#33FFFFFF`.
+    - **Metadata & Previews (`search_widget_info.xml`)**: Configured `56dp` cell height, `targetCellWidth="4"`, `targetCellHeight="1"`, `maxResizeWidth="600dp"`, and added Android 12+ `android:previewLayout="@layout/widget_search_bar"` for live layout previews in the launcher widget selector.

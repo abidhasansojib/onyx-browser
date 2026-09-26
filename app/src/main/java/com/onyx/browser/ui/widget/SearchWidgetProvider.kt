@@ -65,26 +65,26 @@ class SearchWidgetProvider : AppWidgetProvider() {
 
             // Evaluate system dark/light configuration so icon tint matches launcher theme
             val isSystemDark = (Resources.getSystem().configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val iconTint = if (isSystemDark) Color.parseColor("#F1F3F4") else Color.parseColor("#3C4043")
-            val textColor = if (isSystemDark) Color.parseColor("#E8EAED") else Color.parseColor("#202124")
+            val iconTint = if (isSystemDark) Color.parseColor("#E8EAED") else Color.parseColor("#5F6368")
+            val textColor = if (isSystemDark) Color.parseColor("#9AA0A6") else Color.parseColor("#5F6368")
 
             // Explicitly set text and color for launcher theme synchronization
-            views.setTextViewText(R.id.widget_search_text, context.getString(R.string.search))
+            views.setTextViewText(R.id.widget_search_text, context.getString(R.string.search_or_type_url))
             views.setTextColor(R.id.widget_search_text, textColor)
 
-            // 1. Search Engine Icon
+            // 1. Search Engine Icon (26dp brand icon rendered in authentic colors)
             val engineBitmap = getSearchEngineBitmap(context, searchEngine, iconTint)
             views.setImageViewBitmap(R.id.widget_search_engine_icon, engineBitmap)
 
-            // 2. Microphone Icon (tinted with iconTint: crisp white in dark, Google charcoal in light)
-            val micBitmap = getThemedVectorBitmap(context, R.drawable.ic_mic, iconTint)
+            // 2. Microphone Icon (22dp vector inside 40dp circular touch ripple)
+            val micBitmap = getThemedVectorBitmap(context, R.drawable.ic_mic, iconTint, 22)
             views.setImageViewBitmap(R.id.widget_btn_mic, micBitmap)
 
-            // 3. Incognito Icon (tinted with iconTint: crisp white in dark, Google charcoal in light)
-            val incognitoBitmap = getThemedVectorBitmap(context, R.drawable.ic_incognito, iconTint)
+            // 3. Incognito Icon (22dp Fedora Hat & Glasses vector inside 40dp circular touch ripple)
+            val incognitoBitmap = getThemedVectorBitmap(context, R.drawable.ic_incognito, iconTint, 22)
             views.setImageViewBitmap(R.id.widget_btn_incognito, incognitoBitmap)
 
-            // 4. PendingIntent: Search Bar Click (Clicking search pill launches MainActivity into search mode)
+            // 4. PendingIntent: Search Bar Click (Clicking anywhere on the search pill launches search mode)
             val searchIntent = Intent(context, MainActivity::class.java).apply {
                 action = MainActivity.ACTION_WIDGET_SEARCH
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -98,6 +98,8 @@ class SearchWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_btn_search, searchPendingIntent)
             views.setOnClickPendingIntent(R.id.widget_search_bar_container, searchPendingIntent)
             views.setOnClickPendingIntent(R.id.widget_root, searchPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_search_text, searchPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_search_engine_icon, searchPendingIntent)
 
             // 5. PendingIntent: Voice Search Click
             val voiceIntent = Intent(context, MainActivity::class.java).apply {
@@ -138,29 +140,26 @@ class SearchWidgetProvider : AppWidgetProvider() {
                     val bmp = BitmapFactory.decodeResource(context.resources, iconRes, opts)
                     if (bmp != null) {
                         val density = context.resources.displayMetrics.density
-                        val maxDim = (24 * density).toInt().coerceAtLeast(48)
-                        return if (bmp.width > maxDim || bmp.height > maxDim) {
-                            Bitmap.createScaledBitmap(bmp, maxDim, maxDim, true)
-                        } else {
-                            bmp
-                        }
+                        val targetSize = (26 * density).toInt().coerceAtLeast(52)
+                        return Bitmap.createScaledBitmap(bmp, targetSize, targetSize, true)
                     }
                 } catch (_: Exception) {}
             }
 
             if (iconRes != 0) {
                 try {
-                    return getThemedVectorBitmap(context, iconRes, fallbackTint)
+                    return getThemedVectorBitmap(context, iconRes, fallbackTint, 26)
                 } catch (_: Exception) {}
             }
 
-            return createLetterAvatar(context, engine.displayName)
+            return createLetterAvatar(context, engine.displayName, 26)
         }
 
         private fun getThemedVectorBitmap(
             context: Context,
             @DrawableRes drawableRes: Int,
-            tintColor: Int
+            tintColor: Int,
+            sizeDp: Int = 22
         ): Bitmap {
             val drawable = ContextCompat.getDrawable(context, drawableRes)
                 ?: return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
@@ -168,7 +167,7 @@ class SearchWidgetProvider : AppWidgetProvider() {
             DrawableCompat.setTint(wrapped, tintColor)
 
             val density = context.resources.displayMetrics.density
-            val targetSize = (24 * density).toInt().coerceAtLeast(48)
+            val targetSize = (sizeDp * density).toInt().coerceAtLeast(44)
             val bitmap = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             wrapped.setBounds(0, 0, canvas.width, canvas.height)
@@ -176,9 +175,9 @@ class SearchWidgetProvider : AppWidgetProvider() {
             return bitmap
         }
 
-        private fun createLetterAvatar(context: Context, name: String): Bitmap {
+        private fun createLetterAvatar(context: Context, name: String, sizeDp: Int = 26): Bitmap {
             val density = context.resources.displayMetrics.density
-            val size = (24 * density).toInt().coerceAtLeast(32)
+            val size = (sizeDp * density).toInt().coerceAtLeast(52)
             val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
 
