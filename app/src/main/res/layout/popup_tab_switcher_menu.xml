@@ -4,10 +4,10 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:minWidth="140dp"
-    app:cardBackgroundColor="#3B3B3B"
+    app:cardBackgroundColor="@color/tab_pill_container_bg"
     app:cardCornerRadius="14dp"
     app:cardElevation="12dp"
-    app:strokeColor="#4A4A4A"
+    app:strokeColor="@color/tab_pill_stroke"
     app:strokeWidth="1dp">
 
     <LinearLayout

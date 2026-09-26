@@ -8,7 +8,7 @@
     app:cardBackgroundColor="@color/dialog_close_all_tabs_bg"
     app:cardCornerRadius="24dp"
     app:cardElevation="12dp"
-    app:strokeColor="#282A2D"
+    app:strokeColor="?attr/colorOutline"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -44,7 +44,7 @@
             android:layout_marginTop="18dp"
             android:gravity="center"
             android:text="@string/close_all_tabs_title"
-            android:textColor="#FFFFFFFF"
+            android:textColor="?android:attr/textColorPrimary"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -57,7 +57,7 @@
             android:gravity="center"
             android:lineSpacingMultiplier="1.2"
             android:text="@string/close_all_tabs_desc"
-            android:textColor="#9AA0A6"
+            android:textColor="?android:attr/textColorSecondary"
             android:textSize="14sp" />
 
         <!-- Tab Count Summary Pill / Badge -->
@@ -78,14 +78,14 @@
                 android:layout_width="16dp"
                 android:layout_height="16dp"
                 app:srcCompat="@drawable/ic_tabs"
-                app:tint="#9AA0A6" />
+                app:tint="@color/tab_close_icon" />
 
             <TextView
                 android:id="@+id/tvTabCountPill"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:textColor="#E8EAED"
+                android:textColor="@color/tab_text_primary"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 tools:text="3 tabs will be closed" />
@@ -107,7 +107,7 @@
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
                 android:text="@string/cancel"
-                android:textColor="#E8EAED"
+                android:textColor="?android:attr/textColorPrimary"
                 app:backgroundTint="@color/btn_cancel_bg"
                 app:cornerRadius="24dp" />
 
@@ -119,7 +119,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
                 android:text="@string/close_all_action"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/on_primary"
                 app:backgroundTint="@color/btn_clear_bg"
                 app:cornerRadius="24dp" />
         </LinearLayout>

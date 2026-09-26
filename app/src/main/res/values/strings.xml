@@ -177,6 +177,7 @@
     <string name="shortcut_updated">Shortcut updated</string>
     <string name="shortcut_deleted">Shortcut deleted</string>
     <string name="save">Save</string>
+    <string name="save_this_page">Save this page</string>
     <string name="add">Add</string>
     <string name="open_in_new_tab">Open in new tab</string>
     <string name="drag_to_reorder">Drag to reorder</string>

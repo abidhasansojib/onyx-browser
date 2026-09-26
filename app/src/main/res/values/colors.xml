@@ -60,15 +60,18 @@
     <color name="tab_text_primary">#E8EAED</color>
     <color name="tab_close_icon">#9AA0A6</color>
 
-    <!-- Dialog Prompts & Action Button Colors -->
-    <color name="dialog_clear_data_bg">#282A2D</color>
-    <color name="dialog_close_all_tabs_bg">#000000</color>
-    <color name="btn_cancel_bg">#35363A</color>
+    <!-- Dialog Prompts & Action Button Colors — Light mode uses white surface -->
+    <color name="dialog_clear_data_bg">#FFFFFF</color>
+    <color name="dialog_close_all_tabs_bg">#FFFFFF</color>
+    <color name="btn_cancel_bg">#E8EAED</color>
     <color name="btn_clear_bg">#DC4B64</color>
 
-    <!-- Settings Screen (#0B0305 luxury dark theme & #202020 card containers) -->
-    <color name="settings_canvas_bg">#0B0305</color>
-    <color name="settings_card_bg">#202020</color>
-    <color name="settings_card_stroke">#2C2C2C</color>
+    <!-- Settings Screen — Light mode uses clean white canvas -->
+    <color name="settings_canvas_bg">#F1F3F4</color>
+    <color name="settings_card_bg">#FFFFFF</color>
+    <color name="settings_card_stroke">#E0E2E6</color>
+    <!-- Settings text colors — light mode -->
+    <color name="settings_title_text">#202124</color>
+    <color name="settings_subtitle_text">#5F6368</color>
 </resources>
 

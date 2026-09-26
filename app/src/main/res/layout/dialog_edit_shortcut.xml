@@ -4,10 +4,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    app:cardBackgroundColor="#202020"
+    app:cardBackgroundColor="@color/settings_card_bg"
     app:cardCornerRadius="24dp"
     app:cardElevation="6dp"
-    app:strokeColor="#2C2C2C"
+    app:strokeColor="@color/settings_card_stroke"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -42,7 +42,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:textColor="#FFFFFF"
+                    android:textColor="?android:attr/textColorPrimary"
                     android:textSize="22sp"
                     android:textStyle="bold"
                     android:visibility="gone"
@@ -61,7 +61,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/edit_shortcut"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/settings_title_text"
                     android:textSize="20sp"
                     android:textStyle="bold" />
 
@@ -70,7 +70,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:text="Customize name and web address"
-                    android:textColor="#9AA0A6"
+                    android:textColor="@color/settings_subtitle_text"
                     android:textSize="13sp" />
             </LinearLayout>
         </LinearLayout>
@@ -80,7 +80,7 @@
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginTop="20dp"
-            android:background="#2C2C2C" />
+            android:background="@color/settings_card_stroke" />
 
         <!-- Title Input -->
         <com.google.android.material.textfield.TextInputLayout
@@ -90,17 +90,16 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:hint="@string/shortcut_title"
-            android:textColorHint="#9AA0A6"
             app:boxCornerRadiusBottomEnd="14dp"
             app:boxCornerRadiusBottomStart="14dp"
             app:boxCornerRadiusTopEnd="14dp"
             app:boxCornerRadiusTopStart="14dp"
-            app:boxStrokeColor="#3C4043"
+            app:boxStrokeColor="?attr/colorOutline"
             app:endIconMode="clear_text"
-            app:endIconTint="#9AA0A6"
-            app:hintTextColor="#DC4B64"
+            app:endIconTint="?attr/colorControlNormal"
+            app:hintTextColor="@color/primary"
             app:startIconDrawable="@drawable/ic_edit"
-            app:startIconTint="#9AA0A6">
+            app:startIconTint="?attr/colorControlNormal">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etEditTitle"
@@ -109,7 +108,7 @@
                 android:imeOptions="actionNext"
                 android:inputType="textCapWords"
                 android:maxLines="1"
-                android:textColor="#FFFFFF"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="14sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -121,19 +120,18 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
             android:hint="@string/shortcut_url"
-            android:textColorHint="#9AA0A6"
             app:boxCornerRadiusBottomEnd="14dp"
             app:boxCornerRadiusBottomStart="14dp"
             app:boxCornerRadiusTopEnd="14dp"
             app:boxCornerRadiusTopStart="14dp"
-            app:boxStrokeColor="#3C4043"
+            app:boxStrokeColor="?attr/colorOutline"
             app:endIconMode="clear_text"
-            app:endIconTint="#9AA0A6"
+            app:endIconTint="?attr/colorControlNormal"
             app:helperText="https://example.com"
-            app:helperTextTextColor="#9AA0A6"
-            app:hintTextColor="#DC4B64"
+            app:helperTextTextColor="?attr/colorControlNormal"
+            app:hintTextColor="@color/primary"
             app:startIconDrawable="@drawable/ic_link"
-            app:startIconTint="#9AA0A6">
+            app:startIconTint="?attr/colorControlNormal">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etEditUrl"
@@ -142,11 +140,11 @@
                 android:imeOptions="actionDone"
                 android:inputType="textUri"
                 android:maxLines="1"
-                android:textColor="#FFFFFF"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="14sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Button Actions: Cancel on Left, Save on Right with #DC4B64 -->
+        <!-- Button Actions: Cancel on Left, Save on Right -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -162,7 +160,7 @@
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
                 android:text="@string/cancel"
-                android:textColor="#E8EAED"
+                android:textColor="?android:attr/textColorPrimary"
                 app:backgroundTint="@color/btn_cancel_bg"
                 app:cornerRadius="24dp" />
 
@@ -174,13 +172,13 @@
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
                 android:text="@string/save"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/on_primary"
                 app:backgroundTint="@color/btn_clear_bg"
                 app:cornerRadius="24dp"
                 app:icon="@drawable/ic_check"
                 app:iconGravity="textStart"
                 app:iconSize="18dp"
-                app:iconTint="#FFFFFF" />
+                app:iconTint="@color/on_primary" />
         </LinearLayout>
 
     </LinearLayout>
