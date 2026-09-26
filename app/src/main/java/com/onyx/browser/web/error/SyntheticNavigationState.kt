@@ -30,6 +30,7 @@ sealed class SyntheticNavigationState(
         SERVER_DOWN,
         SHIELDS_BLOCKED,
         FILE_ERROR,
+        INVALID_URL,
         GENERIC
     }
 
@@ -208,6 +209,31 @@ sealed class SyntheticNavigationState(
         checklist = checklist,
         primaryButtonText = "Reload",
         primaryButtonAction = "reload",
+        secondaryButtonText = "Details",
+        secondaryButtonAction = "details",
+        technicalDetails = technicalDetails
+    )
+
+    class InvalidUrl(
+        failingUrl: String,
+        errorCode: String = "ERR_INVALID_URL",
+        title: String = "This webpage is not valid",
+        description: String = "The webpage address could not be loaded because the URL is invalid or malformed.",
+        checklist: List<String> = listOf(
+            "Check the web address for typos (such as ww.example.com instead of www.example.com)",
+            "Ensure the URL starts with a valid scheme like https:// or http://",
+            "Try searching for the page on your search engine"
+        ),
+        technicalDetails: String? = "Chromium network stack error net::ERR_INVALID_URL: The URL syntax is invalid or contains malformed characters."
+    ) : SyntheticNavigationState(
+        category = ErrorCategory.INVALID_URL,
+        failingUrl = failingUrl,
+        errorCodeString = errorCode,
+        title = title,
+        description = description,
+        checklist = checklist,
+        primaryButtonText = "Search Web",
+        primaryButtonAction = "search",
         secondaryButtonText = "Details",
         secondaryButtonAction = "details",
         technicalDetails = technicalDetails

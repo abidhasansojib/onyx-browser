@@ -135,6 +135,25 @@ object WebErrorHandler {
             )
         }
 
+        if (errorCode == WebViewClient.ERROR_BAD_URL ||
+            desc.contains("INVALID_URL", ignoreCase = true) ||
+            desc.contains("ERR_INVALID_URL", ignoreCase = true)
+        ) {
+            val displayUrl = if (failingUrl.length > 60) failingUrl.take(57) + "…" else failingUrl
+            return SyntheticNavigationState.InvalidUrl(
+                failingUrl = failingUrl,
+                errorCode = "ERR_INVALID_URL",
+                title = "The webpage is not valid",
+                description = "The web address <strong>$displayUrl</strong> is invalid.",
+                checklist = listOf(
+                    "Check the web address for typos (such as ww.example.com instead of www.example.com)",
+                    "Make sure the URL starts with a valid scheme like https:// or http://",
+                    "Try searching for the page on your search engine"
+                ),
+                technicalDetails = "Chromium network stack error net::ERR_INVALID_URL: The URL could not be parsed or contains malformed syntax/characters."
+            )
+        }
+
         val codeClean = if (desc.startsWith("net::")) desc.removePrefix("net::") else if (desc.isNotBlank()) desc else "ERR_CONNECTION_FAILED"
         return SyntheticNavigationState.Generic(
             failingUrl = failingUrl,

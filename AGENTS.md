@@ -1461,4 +1461,18 @@ onyx-browser/
     - Added `@color/primary` (#DC4B64) color filter to the active search engine checkmark icon in `SearchEnginePopupMenu.kt`.
     - Applied matching `@color/homepage_bg` background and subtle strokes to `bottom_sheet_search_engine_picker.xml` and `dialog_search_engine_picker.xml`.
 
+- [x] **Universal Chromium `net::ERR_INVALID_URL` Error Handling Subsystem**:
+  - **Strongly-Typed Synthetic Navigation State (`SyntheticNavigationState.kt`)**:
+    - Added `ErrorCategory.INVALID_URL` to the sealed navigation state hierarchy.
+    - Implemented `SyntheticNavigationState.InvalidUrl` tailored for malformed, invalid, or unparseable URLs.
+    - Configured intelligent primary action button `"Search Web"` (`primaryButtonAction = "search"`) invoking search query resolution rather than futile page reloads.
+  - **Chromium Error Classification Engine (`WebErrorHandler.kt`)**:
+    - Intercepts `WebViewClient.ERROR_BAD_URL`, Chromium `net::ERR_INVALID_URL`, and descriptive `"INVALID_URL"` error codes.
+    - Formats clear user-facing titles and diagnostic messages with URL string truncation to prevent layout breaking.
+    - Generates actionable troubleshooting suggestions (checking for typos like `ww.example.com`, verifying schemes like `https://`, and search recommendations).
+  - **Dynamic Error Page Presentation (`error_page.html`)**:
+    - Integrated Lucide-style broken link vector SVG glyph (`#iconInvalidUrl`).
+    - Activated dynamic icon toggling for `INVALID_URL` category and bound `"Search Web"` button to native `OnyxErrorBridge.search(domain)`.
+
+
 
