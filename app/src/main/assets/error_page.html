@@ -559,6 +559,22 @@
             window.location.reload();
           }
           break;
+        case 'reload_https':
+          if (data.url) {
+            const httpsUrl = data.url.replace(/^http:\/\//i, 'https://');
+            if (bridge && typeof bridge.reload === 'function') {
+              try {
+                bridge.reload(httpsUrl);
+              } catch(e) {
+                window.location.href = httpsUrl;
+              }
+            } else {
+              window.location.href = httpsUrl;
+            }
+          } else {
+            window.location.reload();
+          }
+          break;
         case 'back':
           if (bridge && typeof bridge.goBack === 'function') bridge.goBack();
           else if (window.history.length > 1) window.history.back();
@@ -585,6 +601,12 @@
         case 'search':
           if (bridge && typeof bridge.search === 'function') bridge.search(data.domain || data.url);
           else window.location.href = 'https://search.brave.com/search?q=' + encodeURIComponent(data.domain || '');
+          break;
+        case 'settings':
+          if (bridge && typeof bridge.openSettings === 'function') bridge.openSettings();
+          break;
+        case 'network_settings':
+          if (bridge && typeof bridge.openNetworkSettings === 'function') bridge.openNetworkSettings();
           break;
       }
     }

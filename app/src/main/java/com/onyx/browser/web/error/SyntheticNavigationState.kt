@@ -248,18 +248,29 @@ sealed class SyntheticNavigationState(
             "Checking the connection",
             "Checking the proxy, firewall, and DNS configuration"
         ),
-        technicalDetails: String? = null
+        technicalDetails: String? = null,
+        category: ErrorCategory = ErrorCategory.GENERIC,
+        isDanger: Boolean = false,
+        primaryButtonText: String = "Reload",
+        primaryButtonAction: String = "reload",
+        secondaryButtonText: String = "Details",
+        secondaryButtonAction: String = "details",
+        canCheckWayback: Boolean = false,
+        isHstsEnforced: Boolean = false
     ) : SyntheticNavigationState(
-        category = ErrorCategory.GENERIC,
+        category = category,
         failingUrl = failingUrl,
         errorCodeString = errorCode,
         title = title,
         description = description,
         checklist = checklist,
-        primaryButtonText = "Reload",
-        primaryButtonAction = "reload",
-        secondaryButtonText = "Details",
-        secondaryButtonAction = "details",
-        technicalDetails = technicalDetails
+        isDanger = isDanger,
+        primaryButtonText = primaryButtonText,
+        primaryButtonAction = primaryButtonAction,
+        secondaryButtonText = secondaryButtonText,
+        secondaryButtonAction = secondaryButtonAction,
+        technicalDetails = technicalDetails,
+        canCheckWayback = canCheckWayback,
+        isHstsEnforced = isHstsEnforced
     )
 }
