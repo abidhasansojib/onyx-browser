@@ -1606,6 +1606,10 @@ onyx-browser/
       - Hidden `floatingVideoMenuManager` immediately upon entering PiP to prevent floating pills inside the PiP viewport.
       - Added iframe video player fallback in `isolateVideoForPipScript` supporting YouTube, Vimeo, and embedded web players across non-YouTube platforms.
       - Added video presence verification: shows informative toast if no active video was found rather than shrinking the entire application into PiP.
+  - **Sample.png Compact Pill Webpage & Clipboard Card Redesign (`activity_main.xml`, `item_search_clipboard_suggestion.xml`, `MainActivity.kt`, `SuggestionsAdapter.kt`)**:
+    - Transformed `cardCurrentPage` into the exact single-row compact pill card from `sample.png` (`app:cardCornerRadius="24dp"`, single horizontal row, left site favicon, vertically stacked bold title and clean domain URL, right-aligned inline Share, Copy, and Edit `AppCompatImageButton`s).
+    - Upgraded `item_search_clipboard_suggestion.xml` into a matching `24dp` pill card with dynamic link/text detection, site icon, and search bar insert/edit button.
+    - Cleaned URL display formatting across cards to strip protocol/www noise (e.g. `facebook.com/reel/...`) matching Chrome/Brave aesthetics.
 
 
 

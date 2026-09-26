@@ -499,19 +499,8 @@ class MainActivity : AppCompatActivity() {
                 if (hasText) {
                     binding.cardCurrentPage.visibility = View.GONE
                     fetchSearchSuggestions(query)
-                } else {
                     val curUrl = getActivePageUrl()
-                    if (curUrl.isNotBlank()) {
-                        binding.cardCurrentPage.visibility = View.VISIBLE
-                        com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
-                            context = this@MainActivity,
-                            imageView = binding.ivCurrentPageFavicon,
-                            urlOrHost = curUrl,
-                            isCircular = true
-                        )
-                    } else {
-                        binding.cardCurrentPage.visibility = View.GONE
-                    }
+                    updateCurrentPageCard(curUrl)
                     suggestionJob?.cancel()
                     val clipboardOpt = getClipboardSuggestion()
                     suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
@@ -1414,6 +1403,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateCurrentPageCard(curUrl: String) {
+        if (curUrl.isNotBlank()) {
+            binding.cardCurrentPage.visibility = View.VISIBLE
+            val currentTab = tabManager.activeTab.value
+            val host = try { Uri.parse(curUrl).host?.removePrefix("www.") ?: curUrl } catch (_: Exception) { curUrl }
+            val displayTitle = currentTab?.title?.takeIf {
+                it.isNotBlank() && !it.startsWith("data:") && !it.startsWith("net::") && it != "Page Not Available"
+            } ?: host
+            binding.tvCurrentPageTitle.text = displayTitle
+            val displayUrlText = if (LocalFileLoader.isLocalFile(curUrl)) {
+                try {
+                    val parsed = Uri.parse(curUrl)
+                    if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else curUrl
+                } catch (_: Exception) { curUrl }
+            } else {
+                curUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.")
+            }
+            binding.tvCurrentPageUrl.text = displayUrlText
+            com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
+                context = this,
+                imageView = binding.ivCurrentPageFavicon,
+                urlOrHost = curUrl,
+                isCircular = true
+            )
+        } else {
+            binding.cardCurrentPage.visibility = View.GONE
+        }
+    }
+
     private fun enterSearchMode() {
         if (isSearchMode) return
         isSearchMode = true
@@ -1428,35 +1446,9 @@ class MainActivity : AppCompatActivity() {
         // 2. Open Search Overlay Page
         binding.searchOverlay.visibility = View.VISIBLE
 
-        // 3. Configure Current Webpage Card under search bar
-        val currentTab = tabManager.activeTab.value
+        // 3. Configure Current Webpage Card under search bar (matching sample.png)
         val curUrl = getActivePageUrl()
-        val hasCurrentUrl = curUrl.isNotBlank()
-
-        if (hasCurrentUrl) {
-            binding.cardCurrentPage.visibility = View.VISIBLE
-            val displayTitle = currentTab?.title?.takeIf {
-                it.isNotBlank() && !it.startsWith("data:") && !it.startsWith("net::") && it != "Page Not Available"
-            } ?: curUrl
-            binding.tvCurrentPageTitle.text = displayTitle
-            val displayUrlText = if (LocalFileLoader.isLocalFile(curUrl)) {
-                try {
-                    val parsed = Uri.parse(curUrl)
-                    if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else curUrl
-                } catch (_: Exception) { curUrl }
-            } else {
-                curUrl
-            }
-            binding.tvCurrentPageUrl.text = displayUrlText
-            com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
-                context = this,
-                imageView = binding.ivCurrentPageFavicon,
-                urlOrHost = curUrl,
-                isCircular = true
-            )
-        } else {
-            binding.cardCurrentPage.visibility = View.GONE
-        }
+        updateCurrentPageCard(curUrl)
 
         // Clean search bar for fresh input as requested
         binding.etUrl.setText("")

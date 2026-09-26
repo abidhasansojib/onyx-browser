@@ -145,6 +145,12 @@ class SuggestionsAdapter(
             binding.root.setOnClickListener {
                 onSuggestionClicked(item)
             }
+            binding.containerClipboardInfo.setOnClickListener {
+                onSuggestionClicked(item)
+            }
+            binding.btnClipboardInsert.setOnClickListener {
+                onInsertClicked(item)
+            }
         }
     }
 }
