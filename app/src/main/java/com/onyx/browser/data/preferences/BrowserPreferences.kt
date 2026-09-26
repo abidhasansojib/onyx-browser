@@ -275,6 +275,12 @@ class BrowserPreferences private constructor(context: Context) {
             prefs.edit().putBoolean(KEY_PIP_ENABLED, value).apply()
         }
 
+    var isFloatingVideoMenuEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FLOATING_VIDEO_MENU, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_FLOATING_VIDEO_MENU, value).apply()
+        }
+
     var isDesktopMode: Boolean
         get() = prefs.getBoolean(KEY_DESKTOP_MODE, false)
         set(value) {
@@ -668,6 +674,7 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_QUICK_ACTION_ORDER = "pref_quick_action_order"
         const val KEY_BACKGROUND_PLAY = "pref_background_play"
         const val KEY_PIP_ENABLED = "pref_pip_enabled"
+        const val KEY_FLOATING_VIDEO_MENU = "pref_floating_video_menu"
 
         // New keys
         const val KEY_AUTO_REDIRECT_AMP = "pref_auto_redirect_amp"

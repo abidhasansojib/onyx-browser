@@ -720,6 +720,18 @@ class OnyxWebViewClient(
                     injectCosmeticCss(view, cosmeticCss)
                 }
             } catch (_: Throwable) {}
+        } else if (isWhitelisted || !preferences.isAdBlockEnabled) {
+            val cleanupJs = """
+                (function() {
+                    try {
+                        var c1 = document.getElementById('onyx-universal-cosmetic');
+                        if (c1) c1.remove();
+                        var c2 = document.getElementById('onyx-adblock-cosmetic');
+                        if (c2) c2.remove();
+                    } catch(e) {}
+                })();
+            """.trimIndent()
+            view?.evaluateJavascript(cleanupJs, null)
         }
 
         // Fingerprint Protection (JS API spoofing)
@@ -808,10 +820,26 @@ class OnyxWebViewClient(
             onyxWv?.clearSyntheticState()
             onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)
-            if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)) {
+            val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)
+            view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
+            if (isAdBlockActiveForPage) {
                 val lvl = preferences.blockingLevel
                 view?.evaluateJavascript(AdBlockDocumentStart.getScript(lvl), null)
                 view?.evaluateJavascript("if (window.__onyx_set_blocking_level) window.__onyx_set_blocking_level($lvl);", null)
+            } else {
+                val cleanupJs = """
+                    (function() {
+                        try {
+                            window.__onyx_shields_active = false;
+                            window.__onyxAdBlockEnabled = false;
+                            var c1 = document.getElementById('onyx-universal-cosmetic');
+                            if (c1) c1.remove();
+                            var c2 = document.getElementById('onyx-adblock-cosmetic');
+                            if (c2) c2.remove();
+                        } catch(e) {}
+                    })();
+                """.trimIndent()
+                view?.evaluateJavascript(cleanupJs, null)
             }
             if (preferences.isPasskeysEnabled) {
                 view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)

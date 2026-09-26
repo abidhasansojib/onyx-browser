@@ -370,6 +370,12 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.OnyxBrowser" />
 
+        <activity
+            android:name=".ui.player.InternalPlayerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
         <!-- Media Playback Foreground Service for Background Audio & Lockscreen Mini Player -->
         <service
             android:name=".media.MediaPlaybackService"

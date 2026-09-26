@@ -147,9 +147,10 @@ class MainActivity : AppCompatActivity() {
                 ACTION_PIP_FORWARD -> {
                     tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(10), null)
                 }
-            }
         }
     }
+
+    private var floatingVideoMenuManager: com.onyx.browser.media.FloatingVideoMenuManager? = null
 
     // Permission Launchers
     private var pendingStorageAction: (() -> Unit)? = null
@@ -2024,6 +2025,18 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            override fun onSkipNextMedia() {
+                runOnUiThread {
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.skipNextMediaScript, null)
+                }
+            }
+
+            override fun onSkipPreviousMedia() {
+                runOnUiThread {
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.skipPreviousMediaScript, null)
+                }
+            }
+
             override fun onStopMedia() {
                 runOnUiThread {
                     tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
@@ -2059,6 +2072,85 @@ class MainActivity : AppCompatActivity() {
                     val inPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode
                     if (!inPip) {
                         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }
+                }
+                val isWvVisible = binding.webViewContainer.visibility == View.VISIBLE && binding.searchOverlay.visibility != View.VISIBLE
+                floatingVideoMenuManager?.onVideoPlaybackStateChanged(isVideo && isPlaying, isWvVisible)
+            }
+        }
+
+        // Initialize Floating Video Action Menu Overlay
+        if (floatingVideoMenuManager == null) {
+            floatingVideoMenuManager = com.onyx.browser.media.FloatingVideoMenuManager(this, binding.contentContainer).apply {
+                onDownloadClickListener = {
+                    val videoSrc = com.onyx.browser.media.MediaPlaybackBridge.currentVideoSrc
+                    val activeWv = tabManager.getActiveWebView()
+                    if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
+                        val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
+                            url = videoSrc,
+                            userAgent = activeWv?.settings?.userAgentString,
+                            contentDisposition = null,
+                            mimeType = "video/*",
+                            contentLength = 0L,
+                            pageUrl = activeWv?.url
+                        )
+                        sheet.show(supportFragmentManager, "DownloadPromptSheet")
+                    } else {
+                        activeWv?.evaluateJavascript("""
+                            (function() {
+                                var v = Array.from(document.querySelectorAll('video')).find(function(v) { return !v.paused; }) || document.querySelector('video');
+                                return v ? (v.currentSrc || v.src || '') : '';
+                            })();
+                        """.trimIndent()) { result ->
+                            val cleanUrl = result?.trim('"', '\'')?.replace("\\", "") ?: ""
+                            if (cleanUrl.isNotBlank() && cleanUrl != "null") {
+                                val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
+                                    url = cleanUrl,
+                                    userAgent = activeWv?.settings?.userAgentString,
+                                    contentDisposition = null,
+                                    mimeType = "video/*",
+                                    contentLength = 0L,
+                                    pageUrl = activeWv?.url
+                                )
+                                sheet.show(supportFragmentManager, "DownloadPromptSheet")
+                            } else {
+                                Toast.makeText(this@MainActivity, "No direct video URL detected", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
+
+                onPipClickListener = {
+                    enterVideoPip()
+                }
+
+                onInternalPlayerClickListener = {
+                    val activeWv = tabManager.getActiveWebView()
+                    val videoTitle = com.onyx.browser.media.MediaPlaybackBridge.currentTitle
+                    val pageUrl = activeWv?.url
+                    val videoSrc = com.onyx.browser.media.MediaPlaybackBridge.currentVideoSrc
+
+                    fun launchPlayer(src: String) {
+                        activeWv?.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.pauseAllMediaScript, null)
+                        startActivity(com.onyx.browser.ui.player.InternalPlayerActivity.createIntent(this@MainActivity, src, videoTitle, pageUrl))
+                    }
+
+                    if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
+                        launchPlayer(videoSrc)
+                    } else {
+                        activeWv?.evaluateJavascript("""
+                            (function() {
+                                var v = Array.from(document.querySelectorAll('video')).find(function(v) { return !v.paused; }) || document.querySelector('video');
+                                return v ? (v.currentSrc || v.src || '') : '';
+                            })();
+                        """.trimIndent()) { result ->
+                            val cleanUrl = result?.trim('"', '\'')?.replace("\\", "") ?: ""
+                            if (cleanUrl.isNotBlank() && cleanUrl != "null") {
+                                launchPlayer(cleanUrl)
+                            } else {
+                                Toast.makeText(this@MainActivity, "Unable to play video in internal player", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 }
             }
@@ -2976,6 +3068,8 @@ class MainActivity : AppCompatActivity() {
             unregisterReceiver(pipReceiver)
         } catch (_: Exception) {}
         MediaPlaybackService.mediaActionListener = null
+        floatingVideoMenuManager?.hideImmediately()
+        floatingVideoMenuManager = null
         tabManager.clearAllWebViews()
     }
 }

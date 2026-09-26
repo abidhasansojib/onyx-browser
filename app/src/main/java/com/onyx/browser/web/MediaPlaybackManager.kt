@@ -298,13 +298,66 @@ object MediaPlaybackManager {
                     }
                 } catch (_) {}
 
+                function isQualifyingMedia(elem) {
+                    if (!elem) return false;
+                    if (elem instanceof HTMLVideoElement) {
+                        // Check for decorative, looping, or hero demo videos (like GitHub hero video)
+                        var isMuted = elem.muted || elem.volume === 0 || elem.hasAttribute('muted');
+                        if (isMuted) {
+                            // Looping muted videos are decorative animations / GIF replacements
+                            if (elem.loop) return false;
+                            // Autoplay muted videos without direct user interaction are marketing/hero demos
+                            if (elem.autoplay && !elem.__onyx_user_interacted) return false;
+                            // If user never touched or explicitly unmuted, ignore muted videos
+                            if (!elem.__onyx_user_interacted) return false;
+                        }
+                        // Ignore tiny ad / tracking / hidden pixel videos
+                        if (elem.videoWidth > 0 && elem.videoWidth < 120) return false;
+                        if (elem.videoHeight > 0 && elem.videoHeight < 80) return false;
+                    }
+                    if (elem instanceof HTMLAudioElement) {
+                        if ((elem.muted || elem.volume === 0) && elem.autoplay && !elem.__onyx_user_interacted) return false;
+                    }
+                    return true;
+                }
+
+                function markMediaInteracted(e) {
+                    try {
+                        var target = e.target;
+                        if (target instanceof HTMLMediaElement) {
+                            target.__onyx_user_interacted = true;
+                        } else if (target && target.closest) {
+                            var m = target.closest('video, audio');
+                            if (m) m.__onyx_user_interacted = true;
+                        }
+                    } catch (_) {}
+                }
+                document.addEventListener('click', markMediaInteracted, true);
+                document.addEventListener('touchstart', markMediaInteracted, true);
+
+                document.addEventListener('volumechange', function(e) {
+                    if (e.target instanceof HTMLMediaElement) {
+                        if (!e.target.muted && e.target.volume > 0) {
+                            e.target.__onyx_user_interacted = true;
+                            if (!e.target.paused && isQualifyingMedia(e.target)) {
+                                reportMediaPlaying(e.target);
+                            }
+                        }
+                    }
+                }, true);
+
                 function reportMediaPlaying(elem) {
                     if (!window.OnyxMediaBridge) return;
+                    if (!isQualifyingMedia(elem)) return;
                     var isVid = (elem instanceof HTMLVideoElement);
                     var dur = (elem.duration && !isNaN(elem.duration)) ? elem.duration : 0;
                     var pos = (elem.currentTime && !isNaN(elem.currentTime)) ? elem.currentTime : 0;
                     var w = isVid ? (elem.videoWidth || 0) : 0;
                     var h = isVid ? (elem.videoHeight || 0) : 0;
+                    var vsrc = (elem.currentSrc || elem.src || '');
+                    if (vsrc && typeof window.OnyxMediaBridge.onVideoSourceDetected === 'function') {
+                        window.OnyxMediaBridge.onVideoSourceDetected(vsrc);
+                    }
                     window.OnyxMediaBridge.onMediaStateChanged(
                         extractTitle(),
                         extractArtist(),
@@ -321,6 +374,7 @@ object MediaPlaybackManager {
 
                 function reportMediaProgress(elem) {
                     if (!window.OnyxMediaBridge) return;
+                    if (!isQualifyingMedia(elem)) return;
                     var now = Date.now();
                     if (now - lastReportedTime < 1000) return;
                     lastReportedTime = now;
@@ -334,12 +388,12 @@ object MediaPlaybackManager {
                     if (!window.OnyxMediaBridge) return;
                     setTimeout(function() {
                         var anyPlaying = Array.from(document.querySelectorAll('video, audio')).some(function(m) {
-                            return !m.paused && !m.ended && m.readyState > 1;
+                            return !m.paused && !m.ended && m.readyState > 1 && isQualifyingMedia(m);
                         });
                         if (!anyPlaying) {
                             window.OnyxMediaBridge.onMediaPaused();
                         }
-                    }, 300);
+                    }, 350);
                 }
 
                 document.addEventListener('play', function(e) {
@@ -391,7 +445,7 @@ object MediaPlaybackManager {
 
                 // Check currently playing media right now in case script injected after play started
                 var currentlyPlaying = Array.from(document.querySelectorAll('video, audio')).find(function(m) {
-                    return !m.paused && !m.ended && m.readyState > 1;
+                    return !m.paused && !m.ended && m.readyState > 1 && isQualifyingMedia(m);
                 });
                 if (currentlyPlaying) {
                     reportMediaPlaying(currentlyPlaying);
@@ -406,7 +460,26 @@ object MediaPlaybackManager {
 
     val playAllMediaScript: String = """
         (function() {
-            var media = document.querySelectorAll('video, audio');
+            function getAllMedia(root) {
+                var res = [];
+                try {
+                    res = res.concat(Array.from(root.querySelectorAll('video, audio')));
+                    var all = root.querySelectorAll('*');
+                    for (var i = 0; i < all.length; i++) {
+                        if (all[i].shadowRoot) {
+                            res = res.concat(getAllMedia(all[i].shadowRoot));
+                        }
+                    }
+                } catch (_) {}
+                return res;
+            }
+            var media = getAllMedia(document);
+            document.querySelectorAll('iframe').forEach(function(f) {
+                try {
+                    if (f.contentDocument) media = media.concat(getAllMedia(f.contentDocument));
+                    f.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                } catch(_) {}
+            });
             media.forEach(function(m) {
                 m.play().catch(function(){});
             });
@@ -416,7 +489,26 @@ object MediaPlaybackManager {
     val pauseAllMediaScript: String = """
         (function() {
             window.__onyx_allow_explicit_pause = true;
-            var media = document.querySelectorAll('video, audio');
+            function getAllMedia(root) {
+                var res = [];
+                try {
+                    res = res.concat(Array.from(root.querySelectorAll('video, audio')));
+                    var all = root.querySelectorAll('*');
+                    for (var i = 0; i < all.length; i++) {
+                        if (all[i].shadowRoot) {
+                            res = res.concat(getAllMedia(all[i].shadowRoot));
+                        }
+                    }
+                } catch (_) {}
+                return res;
+            }
+            var media = getAllMedia(document);
+            document.querySelectorAll('iframe').forEach(function(f) {
+                try {
+                    if (f.contentDocument) media = media.concat(getAllMedia(f.contentDocument));
+                    f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                } catch(_) {}
+            });
             media.forEach(function(m) {
                 m.pause();
             });
@@ -428,24 +520,116 @@ object MediaPlaybackManager {
 
     fun getSeekMediaScript(deltaSeconds: Int): String = """
         (function(delta) {
-            var media = document.querySelectorAll('video, audio');
-            media.forEach(function(m) {
-                if (!m.paused && m.duration) {
-                    m.currentTime = Math.max(0, Math.min(m.duration, m.currentTime + delta));
-                }
+            function getAllMedia(root) {
+                var res = [];
+                try {
+                    res = res.concat(Array.from(root.querySelectorAll('video, audio')));
+                    var all = root.querySelectorAll('*');
+                    for (var i = 0; i < all.length; i++) {
+                        if (all[i].shadowRoot) {
+                            res = res.concat(getAllMedia(all[i].shadowRoot));
+                        }
+                    }
+                } catch (_) {}
+                return res;
+            }
+            var mediaList = getAllMedia(document);
+            document.querySelectorAll('iframe').forEach(function(f) {
+                try {
+                    if (f.contentDocument) mediaList = mediaList.concat(getAllMedia(f.contentDocument));
+                } catch(_) {}
+            });
+
+            var target = mediaList.find(function(m) { return !m.paused && m.duration; })
+                      || mediaList.find(function(m) { return m.duration && m.duration > 0; })
+                      || mediaList[0];
+
+            if (target && target.duration && !isNaN(target.duration)) {
+                var newTime = Math.max(0, Math.min(target.duration, target.currentTime + delta));
+                target.currentTime = newTime;
+                try {
+                    target.dispatchEvent(new Event('seeking'));
+                    target.dispatchEvent(new Event('timeupdate'));
+                    target.dispatchEvent(new Event('seeked'));
+                } catch(_) {}
+            }
+
+            document.querySelectorAll('iframe').forEach(function(f) {
+                try {
+                    f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [target ? target.currentTime : delta, true] }), '*');
+                } catch(_) {}
             });
         })($deltaSeconds);
     """.trimIndent()
 
     fun getSeekToPositionScript(positionSeconds: Double): String = """
         (function(pos) {
-            var media = document.querySelectorAll('video, audio');
-            media.forEach(function(m) {
-                if (m.duration && !isNaN(m.duration)) {
-                    m.currentTime = Math.max(0, Math.min(m.duration, pos));
-                }
+            function getAllMedia(root) {
+                var res = [];
+                try {
+                    res = res.concat(Array.from(root.querySelectorAll('video, audio')));
+                    var all = root.querySelectorAll('*');
+                    for (var i = 0; i < all.length; i++) {
+                        if (all[i].shadowRoot) {
+                            res = res.concat(getAllMedia(all[i].shadowRoot));
+                        }
+                    }
+                } catch (_) {}
+                return res;
+            }
+            var mediaList = getAllMedia(document);
+            document.querySelectorAll('iframe').forEach(function(f) {
+                try {
+                    if (f.contentDocument) mediaList = mediaList.concat(getAllMedia(f.contentDocument));
+                } catch(_) {}
+            });
+
+            var target = mediaList.find(function(m) { return !m.paused && m.duration; })
+                      || mediaList.find(function(m) { return m.duration && m.duration > 0; })
+                      || mediaList[0];
+
+            if (target && target.duration && !isNaN(target.duration)) {
+                var clamped = Math.max(0, Math.min(target.duration, pos));
+                target.currentTime = clamped;
+                try {
+                    target.dispatchEvent(new Event('seeking'));
+                    target.dispatchEvent(new Event('timeupdate'));
+                    target.dispatchEvent(new Event('seeked'));
+                } catch(_) {}
+            }
+
+            document.querySelectorAll('iframe').forEach(function(f) {
+                try {
+                    f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [pos, true] }), '*');
+                } catch(_) {}
             });
         })($positionSeconds);
+    """.trimIndent()
+
+    val skipNextMediaScript: String = """
+        (function() {
+            try {
+                var nextBtn = document.querySelector('.ytp-next-button, [aria-label*="Next" i], [title*="Next" i], .next-track, .btn-next');
+                if (nextBtn) {
+                    nextBtn.click();
+                    return;
+                }
+            } catch(_) {}
+            ${getSeekMediaScript(10)}
+        })();
+    """.trimIndent()
+
+    val skipPreviousMediaScript: String = """
+        (function() {
+            try {
+                var prevBtn = document.querySelector('.ytp-prev-button, [aria-label*="Previous" i], [title*="Previous" i], .prev-track, .btn-prev');
+                if (prevBtn) {
+                    prevBtn.click();
+                    return;
+                }
+            } catch(_) {}
+            ${getSeekMediaScript(-10)}
+        })();
     """.trimIndent()
 
     /**

@@ -228,6 +228,11 @@ class OnyxWebView @JvmOverloads constructor(
             addJavascriptInterface(touchBridge, OnyxTouchBridge.INTERFACE_NAME)
         } catch (_: Exception) {}
 
+        // Onyx Shield & AdBlock Whitelist Bridge (synchronous checks at document-start)
+        try {
+            addJavascriptInterface(OnyxShieldBridge(context.applicationContext), "OnyxShieldBridge")
+        } catch (_: Exception) {}
+
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
         try {
             val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)

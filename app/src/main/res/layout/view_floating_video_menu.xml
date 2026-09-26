@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardFloatingVideoMenu"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    app:cardBackgroundColor="@color/homepage_bg"
+    app:cardCornerRadius="24dp"
+    app:cardElevation="8dp"
+    app:strokeColor="@color/popup_menu_stroke"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="4dp">
+
+        <!-- 1. Download Video Button (Icon only) -->
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnFloatingDownload"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/download"
+            android:padding="9dp"
+            android:scaleType="fitCenter"
+            app:srcCompat="@drawable/ic_download"
+            app:tint="?android:attr/textColorPrimary" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="2dp"
+            android:background="@color/popup_menu_stroke" />
+
+        <!-- 2. Picture-in-Picture Button (Icon only) -->
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnFloatingPip"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Picture in Picture"
+            android:padding="9dp"
+            android:scaleType="fitCenter"
+            app:srcCompat="@drawable/ic_picture_in_picture"
+            app:tint="?android:attr/textColorPrimary" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="2dp"
+            android:background="@color/popup_menu_stroke" />
+
+        <!-- 3. Internal Media Player Button (Player/Box Icon) -->
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/btnFloatingPlayer"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Internal Player"
+            android:padding="9dp"
+            android:scaleType="fitCenter"
+            app:srcCompat="@drawable/ic_player_box"
+            app:tint="?android:attr/textColorPrimary" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

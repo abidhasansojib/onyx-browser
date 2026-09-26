@@ -30,14 +30,26 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         @Volatile var currentTitle: String = "Web Media"
         @Volatile var currentArtist: String = "Onyx Browser"
         @Volatile var currentArtworkUrl: String? = null
+        @Volatile var currentVideoSrc: String? = null
 
         @Volatile var lastVideoBounds: android.graphics.RectF? = null
 
         var onMediaStateListener: ((isPlaying: Boolean, isVideo: Boolean, width: Int, height: Int) -> Unit)? = null
         var onMediaPlaybackStartedListener: ((playingWebView: android.webkit.WebView) -> Unit)? = null
         var onVideoBoundsListener: ((left: Float, top: Float, right: Float, bottom: Float) -> Unit)? = null
+        var onVideoSourceListener: ((src: String) -> Unit)? = null
         var onPipRequestedListener: (() -> Unit)? = null
         var onPipExitListener: (() -> Unit)? = null
+    }
+
+    @JavascriptInterface
+    fun onVideoSourceDetected(src: String?) {
+        if (!src.isNullOrBlank()) {
+            currentVideoSrc = src
+            mainHandler.post {
+                onVideoSourceListener?.invoke(src)
+            }
+        }
     }
 
     @JavascriptInterface

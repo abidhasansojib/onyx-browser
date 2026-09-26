@@ -42,6 +42,8 @@ class MediaPlaybackService : Service() {
         fun onPauseMedia()
         fun onSeekMedia(deltaSeconds: Int)
         fun onSeekToMedia(positionMs: Long)
+        fun onSkipNextMedia()
+        fun onSkipPreviousMedia()
         fun onStopMedia()
     }
 
@@ -100,11 +102,11 @@ class MediaPlaybackService : Service() {
                 }
 
                 override fun onSkipToNext() {
-                    onFastForward()
+                    mediaActionListener?.onSkipNextMedia()
                 }
 
                 override fun onSkipToPrevious() {
-                    onRewind()
+                    mediaActionListener?.onSkipPreviousMedia()
                 }
 
                 override fun onFastForward() {

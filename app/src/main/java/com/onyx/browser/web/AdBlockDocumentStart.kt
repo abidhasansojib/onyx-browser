@@ -20,6 +20,25 @@ object AdBlockDocumentStart {
     fun getScript(blockingLevel: Int): String {
         return """
         (function() {
+            // ── 0. Synchronous Shield & Whitelist Status Check ─────────────────────
+            var isShieldActive = true;
+            try {
+                if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isAdBlockActive === 'function') {
+                    isShieldActive = window.OnyxShieldBridge.isAdBlockActive(location.hostname || location.href);
+                }
+            } catch(e) {}
+
+            if (!isShieldActive || window.__onyx_shields_active === false || window.__onyxAdBlockEnabled === false) {
+                // Adblocking is disabled globally or whitelisted for this site!
+                try {
+                    var oldCosm = document.getElementById('onyx-universal-cosmetic');
+                    if (oldCosm) oldCosm.remove();
+                    var oldAdCosm = document.getElementById('onyx-adblock-cosmetic');
+                    if (oldAdCosm) oldAdCosm.remove();
+                } catch(e) {}
+                return;
+            }
+
             window.__onyx_blocking_level = $blockingLevel;
             window.__onyx_set_blocking_level = function(lvl) {
                 window.__onyx_blocking_level = lvl;
@@ -236,7 +255,126 @@ object AdBlockDocumentStart {
                 }
             } catch(e) {}
 
-            // ── 9. Universal In-Memory Blob & ObjectURL Preserver ────────────────────
+            // ── 9. Interstitial & Full-Screen Overlay Ad Blocker ─────────────────────
+            try {
+                var INTERSTITIAL_SELECTORS = [
+                    '[id*="interstitial"]', '[class*="interstitial"]',
+                    '[id*="modal-ad"]', '[class*="modal-ad"]',
+                    '[id*="ad-overlay"]', '[class*="ad-overlay"]',
+                    '[class*="overlay-ad"]', '[id*="overlay-ad"]',
+                    '[id*="popup-ad"]', '[class*="popup-ad"]',
+                    '[id*="adgate"]', '[class*="adgate"]',
+                    '#FullPageAd', '.full-page-ad', '#interstitialAd',
+                    '.interstitial-wrapper', '#adgate', '.ad-gate',
+                    '.prestitial-ad', '#prestitial', '.over-page',
+                    '[id*="ad-blocker-wall"]', '[class*="ad-blocker-wall"]',
+                    '[class*="adblock-wall"]', '[id*="adblock-wall"]',
+                    '.adblock-detected', '#adblock-detected',
+                    '[class*="adblock-notice"]', '[id*="adblock-notice"]',
+                    '.tp-modal', '#tp-modal', '[id*="tp-backdrop"]',
+                    '.paywall-overlay', '.hard-paywall', '.content-wall',
+                    '#goog_skip_ad', '.GoogleActiveViewCreative', '.GoogleCreativeElement'
+                ];
+
+                function removeInterstitialBySelector() {
+                    try {
+                        for (var i = 0; i < INTERSTITIAL_SELECTORS.length; i++) {
+                            var sel = INTERSTITIAL_SELECTORS[i];
+                            var matched = document.querySelectorAll(sel);
+                            for (var j = 0; j < matched.length; j++) {
+                                var el = matched[j];
+                                if (el.querySelector('video, audio')) continue;
+                                el.remove();
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                function isInterstitialOverlay(el) {
+                    try {
+                        var style = window.getComputedStyle(el);
+                        var pos = style.position;
+                        if (pos !== 'fixed' && pos !== 'absolute') return false;
+                        var zi = parseInt(style.zIndex || '0');
+                        if (zi < 999) return false;
+                        var vw = window.innerWidth || 320;
+                        var vh = window.innerHeight || 480;
+                        var rect = el.getBoundingClientRect();
+                        var coverageW = (rect.width / vw);
+                        var coverageH = (rect.height / vh);
+                        if (coverageW < 0.5 || coverageH < 0.5) return false;
+                        if (el.querySelector('video, audio')) return false;
+                        var text = (el.innerText || '').replace(/\s+/g, ' ').trim();
+                        if (text.length > 800) return false;
+                        return true;
+                    } catch (_) { return false; }
+                }
+
+                function removeInterstitialOverlays() {
+                    try {
+                        var candidates = document.querySelectorAll('div, section, aside, article');
+                        for (var i = 0; i < candidates.length; i++) {
+                            var el = candidates[i];
+                            if (isInterstitialOverlay(el)) {
+                                el.remove();
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                function unlockScroll() {
+                    try {
+                        if (document.body) {
+                            if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
+                            if (document.body.style.position === 'fixed') document.body.style.position = '';
+                        }
+                        if (document.documentElement && document.documentElement.style.overflow === 'hidden') {
+                            document.documentElement.style.overflow = '';
+                        }
+                    } catch (_) {}
+                }
+
+                function runInterstitialPurge() {
+                    removeInterstitialBySelector();
+                    removeInterstitialOverlays();
+                    unlockScroll();
+                }
+
+                runInterstitialPurge();
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        runInterstitialPurge();
+                        setTimeout(runInterstitialPurge, 600);
+                        setTimeout(runInterstitialPurge, 2000);
+                    });
+                } else {
+                    setTimeout(runInterstitialPurge, 600);
+                    setTimeout(runInterstitialPurge, 2000);
+                }
+
+                try {
+                    var interstitialObserver = new MutationObserver(function(mutations) {
+                        var hasElementAdded = false;
+                        for (var i = 0; i < mutations.length; i++) {
+                            if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
+                                hasElementAdded = true;
+                                break;
+                            }
+                        }
+                        if (hasElementAdded) {
+                            clearTimeout(window.__onyxInterstitialTimer);
+                            window.__onyxInterstitialTimer = setTimeout(runInterstitialPurge, 250);
+                        }
+                    });
+                    interstitialObserver.observe(document.documentElement, {
+                        childList: true,
+                        subtree: true
+                    });
+                } catch (_) {}
+            } catch (e) {}
+
+            // ── 10. Universal In-Memory Blob & ObjectURL Preserver ────────────────────
             try {
                 window.__onyxBlobStore = window.__onyxBlobStore || new Map();
                 window.__onyxLastBlobDownload = null;

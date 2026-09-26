@@ -1492,5 +1492,37 @@ onyx-browser/
     - Expanded `SyntheticNavigationState.Generic` constructor with `category`, `isDanger`, `primaryButtonText`, `primaryButtonAction`, `secondaryButtonText`, `secondaryButtonAction`, and `canCheckWayback` support.
     - Added native bridge action dispatchers in `error_page.html`: `reload_https` (instant HTTPS protocol upgrade reload), `network_settings` (native Android wireless/network settings), and `settings` (browser settings).
 
+- [x] **Comprehensive UI Bug Audit & Theme Fix Pass (`dev` branch)**:
+  - Fixed 24 UI bugs across 4 phases on `dev` branch.
+  - Made all dialogs (`ClearBrowsingDataDialog`, `ClearHistoryDialog`, `CloseAllTabsDialog`, `EditShortcutDialog`) theme-aware across Light and Dark themes.
+  - Standardized settings text colors with `@color/settings_title_text` and `@color/settings_subtitle_text`.
+  - Fixed tab switcher popup menu and tab pill/count box drawable background and stroke colors.
+  - Resolved AAPT2 resource linking failure on `dev` branch by removing unsupported `app:surfaceTintColor` and duplicate night color definitions.
+
+- [x] **Video & Adblock Overhaul Subsystem (`dev` branch)**:
+  - **Synchronous Shield & Whitelist Engine (`OnyxShieldBridge.kt`, `AdBlockDocumentStart.kt`)**:
+    - Created synchronous `@JavascriptInterface` `OnyxShieldBridge` queried at document-start by JavaScript before HTML parsing.
+    - Fixed "Disable adblocker for this site" so that whitelisted domains bypass all adblock scripts, monkeypatching of `fetch`/`XMLHttpRequest`, and anti-adblock detection probes.
+    - Actively purges any previously injected cosmetic stylesheets (`onyx-universal-cosmetic`, `onyx-adblock-cosmetic`) when loading or toggling whitelisted sites.
+  - **Interstitial & Full-Screen Overlay Ad Blocker (`AdBlockDocumentStart.kt`)**:
+    - Built multi-layer interstitial ad suppression engine with extensive selector targeting (`[id*="interstitial"]`, `[class*="modal-ad"]`, `.prestitial-ad`, `[id*="adgate"]`, `tp-modal`, countdown overlays, and adblock walls).
+    - Added heuristic overlay detector evaluating z-index >= 999, fixed/absolute position, >50% screen coverage, and automatic scroll-unlocking (`overflow: visible`).
+    - Integrated `MutationObserver` on `document.documentElement` to instantly catch and purge dynamically inserted interstitial ads.
+  - **Smart Video Qualification & Demo Filtering (`MediaPlaybackManager.kt`)**:
+    - Engineered `isQualifyingMedia(elem)` to detect and filter out muted, looping, or autoplaying UI demo/hero videos (such as GitHub.com hero video and marketing animations).
+    - Added user interaction tracking (`click`, `touchstart`, and `volumechange`) on HTML5 media elements so background playback only engages for genuine user-intended media.
+  - **Universal Seek & Slider Controls for All Websites (`MediaPlaybackManager.kt`, `MediaPlaybackService.kt`, `MainActivity.kt`)**:
+    - Implemented deep recursive DOM search traversing Shadow DOM roots and accessible same-origin iframes.
+    - Fixed seek when paused so users can scrub the seekbar or skip 10s forward/backward even while media is paused.
+    - Dispatched `seeking`, `timeupdate`, and `seeked` DOM events to synchronize custom web player sliders (Plyr, Video.js, Twitch, Dailymotion).
+    - Wired `onSkipNextMedia` and `onSkipPreviousMedia` with automatic website button discovery (`.ytp-next-button`, `.next-track`, etc.).
+  - **Floating Video Action Menu (`FloatingVideoMenuManager.kt`, `view_floating_video_menu.xml`)**:
+    - Added on-screen draggable pill overlay showing 3 quick action buttons: Download (`ic_download`), PiP (`ic_picture_in_picture`), and Internal Player (`ic_player_box`).
+    - Automatically shows only when video is actively playing on web pages, with smooth fade/scale animations.
+    - Added toggle switch in Settings > Video options (`isFloatingVideoMenuEnabled`, `settingFloatingMenuSwitch`).
+  - **Dedicated Internal Media Player (`InternalPlayerActivity.kt`, `activity_internal_player.xml`)**:
+    - Immersive full-screen player with black background, auto-hiding controls, scrubbable seekbar, aspect ratio toggle, 10s seek buttons, and direct video download action.
+    - Fallback option to open in external video players for unstreamable media types.
+
 
 
