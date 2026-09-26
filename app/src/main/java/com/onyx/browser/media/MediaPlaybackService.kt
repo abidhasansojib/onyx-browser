@@ -52,7 +52,6 @@ class MediaPlaybackService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var artworkJob: Job? = null
-    private var currentArtworkBitmap: Bitmap? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -447,6 +446,7 @@ class MediaPlaybackService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         artworkJob?.cancel()
+        currentArtworkBitmap = null
         releaseWakeLock()
         isMediaPlaying = false
         stopForegroundCompat()
@@ -485,6 +485,7 @@ class MediaPlaybackService : Service() {
         @Volatile var currentTitle: String = "Web Media"
         @Volatile var currentArtist: String = "Onyx Browser"
         @Volatile var currentArtworkUrl: String? = null
+        @Volatile var currentArtworkBitmap: Bitmap? = null
         @Volatile var currentPositionMs: Long = 0L
         @Volatile var currentDurationMs: Long = 0L
 

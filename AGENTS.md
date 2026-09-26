@@ -1580,5 +1580,7 @@ onyx-browser/
       - Automatically clears the ongoing notification via `IncognitoNotificationHelper.dismissNotification()`.
     - **Reactive StateFlow Observation**: `TabManager` automatically observes `incognitoTabs` StateFlow on initialization, automatically posting/updating the notification when incognito tabs are opened/added, and automatically dismissing the notification whenever the last incognito tab is closed (via tab switcher swipe, tab close button, close all incognito tabs, or clear browsing data).
     - **Channel & Lifecycle Management**: Notification channel initialized cleanly in `OnyxApplication.onCreate()` and `MainActivity.onCreate()`; ongoing notification and active instance safely dismissed and cleared in `MainActivity.onDestroy()` when finishing.
+  - **MediaPlaybackService Artwork Scope Fix (`MediaPlaybackService.kt`)**:
+    - Relocated `@Volatile var currentArtworkBitmap: Bitmap? = null` to `companion object` so it is accessible within `stop(context)` and `onDestroy()` without unresolved reference compiler errors.
 
 
