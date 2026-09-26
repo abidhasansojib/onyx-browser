@@ -1290,4 +1290,10 @@ onyx-browser/
   - **Rounded Dropdown Menu Card**: Added `bg_dropdown_popup.xml` with `16dp` rounded corners and border outline for the `AutoCompleteTextView` popup menu, eliminating harsh square edges on dropdown lists.
   - **Enhanced Visual Hierarchy**: Added modern broom icon badge (`ic_broom` tinted with `@color/tab_switcher_accent`) in a 48dp circular badge (`bg_circle_action`), centered title and subtitle, upgraded preview card to `18dp` corner radius, and modern 48dp pill action buttons (`app:cornerRadius="24dp"`) with pink accent clear button matching user theme preferences.
 
+- [x] **Build Workflow Switched to Manual Trigger Only (`.github/workflows/build.yml`)**:
+  - Removed automatic `push` and `pull_request` event triggers.
+  - Retained `workflow_dispatch` with `build_type` inputs (Release, Debug, Both).
+  - Pushing commits will no longer trigger automatic CI/CD builds; builds can only be started manually via the GitHub Actions UI or `gh workflow run build.yml`.
+
+
 
