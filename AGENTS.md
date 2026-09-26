@@ -1446,3 +1446,7 @@ onyx-browser/
     - In `DownloadsAdapter.kt`: if a downloaded file is deleted externally by a file manager, displays `"File deleted • $details"`, dims the filename and icon to `alpha = 0.55f`, and preserves download history intact.
     - In `DownloadsActivity.kt`: wrapped `openFile`, `openInFileManager`, `shareDownloadedFile`, and `showRenameFileDialog` with existence checks. Tapping a deleted item (including Markdown/README files) displays a friendly `"File not found or deleted"` Toast, updates the adapter, and exits safely without crashing the app.
     - In `LocalFileLoader.kt`: added pre-flight existence verification preventing unhandled exceptions or crashes when attempting to render deleted local documents in WebView.
+  - **Verified End-to-End Build & Release v1.0.170**:
+    - Successfully verified full remote GitHub Actions build run [#36242446917](https://github.com/abidhasansojib/onyx-browser/actions/runs/36242446917) in 8m 27s.
+    - Published official [GitHub Release v1.0.170](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.170) packaging native Rust NDK `libadblock_bridge.so` libraries, bundled Brave filter lists, instant theme & state updating, zero-crash handling of deleted downloads, squarish search bar, and themed clear history dialog.
+
