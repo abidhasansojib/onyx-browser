@@ -1301,6 +1301,12 @@ onyx-browser/
   - **Infinite Loop Prevention**: In `shouldOverrideUrlLoading()`, if `bypassAppInterceptUrls.remove(url)` matches, the URL immediately bypasses external app interception and returns `false`, allowing Chromium WebView to load the webpage directly inside Onyx without re-prompting.
   - **Dialog Lifecycle Hardening**: Converted `dismiss()` to `dismissAllowingStateLoss()` and null-safe view binding in `OpenInAppPromptDialog.kt`.
 
+- [x] **Tab Switcher Seamless Borderless Background (`bottom_sheet_tab_switcher.xml`)**:
+  - **Removed Top Divider Line**: Removed `topBarDivider` beneath the top buttons, allowing the top controls to blend into the background.
+  - **Removed Bottom Divider Line**: Removed `bottomBarDivider` above the bottom bar, creating a continuous edge-to-edge canvas with zero harsh cutting lines.
+  - **Direct Constraint Re-anchoring**: Connected `rvTabs` and `emptyTabsView` directly between `@id/tabSwitcherTopBar` and `@id/bottomBar`.
+
+
 
 
 

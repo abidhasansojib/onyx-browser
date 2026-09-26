@@ -118,17 +118,6 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Thin divider below top bar -->
-    <View
-        android:id="@+id/topBarDivider"
-        android:layout_width="0dp"
-        android:layout_height="1dp"
-        android:background="?attr/colorOutline"
-        android:alpha="0.4"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tabSwitcherTopBar" />
-
     <!-- ── Empty State ──────────────────────────────────────────────────────── -->
     <LinearLayout
         android:id="@+id/emptyTabsView"
@@ -137,10 +126,10 @@
         android:gravity="center"
         android:orientation="vertical"
         android:visibility="gone"
-        app:layout_constraintBottom_toTopOf="@id/bottomBarDivider"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/topBarDivider"
+        app:layout_constraintTop_toBottomOf="@id/tabSwitcherTopBar"
         tools:visibility="visible">
 
         <androidx.appcompat.widget.AppCompatImageView
@@ -177,24 +166,13 @@
         android:clipToPadding="false"
         android:padding="10dp"
         app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
-        app:layout_constraintBottom_toTopOf="@id/bottomBarDivider"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/topBarDivider"
+        app:layout_constraintTop_toBottomOf="@id/tabSwitcherTopBar"
         app:layout_constraintWidth_max="760dp"
         app:spanCount="2"
         tools:listitem="@layout/item_tab" />
-
-    <!-- Divider above bottom bar -->
-    <View
-        android:id="@+id/bottomBarDivider"
-        android:layout_width="0dp"
-        android:layout_height="1dp"
-        android:background="?attr/colorOutline"
-        android:alpha="0.4"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
 
     <!-- ── Bottom Action Bar ────────────────────────────────────────────────── -->
     <androidx.constraintlayout.widget.ConstraintLayout
