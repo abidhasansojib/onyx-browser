@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="220dp"
+    android:layout_height="wrap_content"
+    app:cardBackgroundColor="#3B3B3B"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="12dp"
+    app:strokeColor="#4A4A4A"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp">
+
+        <!-- 1. New Tab -->
+        <LinearLayout
+            android:id="@+id/itemNewTab"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginEnd="14dp"
+                app:srcCompat="@drawable/ic_add"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/new_tab"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- 2. New Incognito Tab -->
+        <LinearLayout
+            android:id="@+id/itemNewIncognitoTab"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginEnd="14dp"
+                app:srcCompat="@drawable/ic_incognito"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/new_incognito_tab"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp"
+            android:alpha="0.2"
+            android:background="#FFFFFF" />
+
+        <!-- 3. Close All Tabs -->
+        <LinearLayout
+            android:id="@+id/itemCloseAllTabs"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginEnd="14dp"
+                app:srcCompat="@drawable/ic_tab_close"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/close_all_tabs"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- 4. Delete Browsing Data -->
+        <LinearLayout
+            android:id="@+id/itemClearBrowsingData"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginEnd="14dp"
+                app:srcCompat="@drawable/ic_delete"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/delete_browsing_data"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

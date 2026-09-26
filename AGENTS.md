@@ -62,7 +62,7 @@ onyx-browser/
 ### Environment & Capability Constraints
 - **Local Building Strictly Forbidden**: The local host environment is NOT permitted or capable of building Android Gradle projects, compiling NDK/Rust binaries, or running heavy compilation pipelines.
 - **Remote CI/CD Execution**: All compilation of Rust native libraries (`libadblock_bridge.so`) and Android APK builds (`./gradlew assembleDebug` / `assembleRelease`) MUST be executed remotely via GitHub Actions.
-- **Explicit User Build Gate**: Strictly **DO NOT** trigger CI/CD build workflows, compile, or build applications until the user explicitly commands **"build app now"**. Work on code, architecture, layouts, assets, and documentation until explicitly told to build.
+- **Explicit User Build Gate (Strict Rule)**: IF I don't tell you to build app, then you won't trigger GitHub Actions build. Strictly **DO NOT** trigger CI/CD build workflows, compile, or build applications until the user explicitly commands **"build app now"**. Work on code, architecture, layouts, assets, and documentation until explicitly told to build.
 - **Code Quality**:
   - Null-safe, idiomatic Kotlin code with lifecycle-aware ViewBinding binding inflation and clearing.
   - Strict WebView memory leak prevention: Detach WebViews from parent layout, destroy properly in `onDestroyView()` / tab closure, remove callbacks.
@@ -1362,3 +1362,10 @@ onyx-browser/
   - **Unified #131314 Tab Switcher Canvas**:
     - Set `tab_switcher_bg` to `#131314` across `values/colors.xml` and `values-night/colors.xml`.
     - Window status bar and navigation bar in `TabSwitcherBottomSheet` explicitly set to `#131314` for both normal and incognito modes.
+
+- [x] **Tab Switcher 3-Dot Overflow Menu Color & Smooth Corner Redesign (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
+  - Replaced standard Android platform `PopupMenu` (which defaulted to `#211F26` with sharp corners) with custom `PopupWindow` using `popup_tab_switcher_menu.xml`.
+  - Set card background to `#3B3B3B` with smooth `16dp` rounded corners (`app:cardCornerRadius="16dp"`), subtle `#4A4A4A` stroke outline, and `24f` elevation shadow.
+  - Implemented 4 refined menu items (New tab, New incognito tab, Close all tabs, Delete browsing data) with clean vector icons, ripple feedback, and seamless dispatching.
+  - Added strict rule to `AGENTS.md`: "IF I don't tell you to build app, then you won't trigger GitHub Actions build."
+

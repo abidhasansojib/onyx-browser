@@ -5,8 +5,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.widget.PopupMenu
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.view.Gravity
+import android.widget.PopupWindow
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -22,6 +24,7 @@ import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.databinding.BottomSheetTabSwitcherBinding
+import com.onyx.browser.databinding.PopupTabSwitcherMenuBinding
 import com.onyx.browser.ui.browser.TabManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -352,43 +355,53 @@ class TabSwitcherBottomSheet(
 
     private fun showOverflowMenu(anchor: View) {
         val context = context ?: return
-        val popup = PopupMenu(context, anchor)
-        popup.menu.apply {
-            add(0, 1, 0, getString(R.string.new_tab))
-            add(0, 2, 1, getString(R.string.new_incognito_tab))
-            add(0, 3, 2, getString(R.string.close_all_tabs))
-            add(0, 4, 3, getString(R.string.delete_browsing_history))
+        val inflater = LayoutInflater.from(context)
+        val menuBinding = PopupTabSwitcherMenuBinding.inflate(inflater)
+
+        val popup = PopupWindow(
+            menuBinding.root,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        ).apply {
+            isOutsideTouchable = true
+            isFocusable = true
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            elevation = 24f
         }
-        popup.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                1 -> {
-                    if (!isDismissing) {
-                        isDismissing = true
-                        onNewTabRequested(false)
-                        dismissAllowingStateLoss()
-                    }
-                    true
-                }
-                2 -> {
-                    if (!isDismissing) {
-                        isDismissing = true
-                        onNewTabRequested(true)
-                        dismissAllowingStateLoss()
-                    }
-                    true
-                }
-                3 -> {
-                    if (!isDismissing) confirmCloseAllTabs()
-                    true
-                }
-                4 -> {
-                    if (!isDismissing) showClearBrowsingDataDialog()
-                    true
-                }
-                else -> false
+
+        menuBinding.itemNewTab.setOnClickListener {
+            popup.dismiss()
+            if (!isDismissing) {
+                isDismissing = true
+                onNewTabRequested(false)
+                dismissAllowingStateLoss()
             }
         }
-        popup.show()
+
+        menuBinding.itemNewIncognitoTab.setOnClickListener {
+            popup.dismiss()
+            if (!isDismissing) {
+                isDismissing = true
+                onNewTabRequested(true)
+                dismissAllowingStateLoss()
+            }
+        }
+
+        menuBinding.itemCloseAllTabs.setOnClickListener {
+            popup.dismiss()
+            if (!isDismissing) confirmCloseAllTabs()
+        }
+
+        menuBinding.itemClearBrowsingData.setOnClickListener {
+            popup.dismiss()
+            if (!isDismissing) showClearBrowsingDataDialog()
+        }
+
+        val density = context.resources.displayMetrics.density
+        val xOffset = (-170 * density).toInt()
+        val yOffset = (4 * density).toInt()
+        popup.showAsDropDown(anchor, xOffset, yOffset)
     }
 
     private fun setupBottomControls(b: BottomSheetTabSwitcherBinding) {
