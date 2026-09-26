@@ -77,6 +77,7 @@ object AdBlockDocumentStart {
 
             function isBlockedUrl(rawUrl, level) {
                 if (!rawUrl || typeof rawUrl !== 'string') return false;
+                if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:')) return false;
                 try {
                     if (stdTrackerPattern.test(rawUrl) || adPathPattern.test(rawUrl)) return true;
                     if (level === 1) {
@@ -92,12 +93,16 @@ object AdBlockDocumentStart {
             try {
                 if (window.fetch) {
                     var _origFetch = window.fetch;
+                    window._origFetch = _origFetch;
                     window.fetch = function(input, init) {
                         var targetUrl = '';
                         if (typeof input === 'string') {
                             targetUrl = input;
                         } else if (input && typeof input.url === 'string') {
                             targetUrl = input.url;
+                        }
+                        if (targetUrl.startsWith('blob:') || targetUrl.startsWith('data:')) {
+                            return _origFetch.apply(this, arguments);
                         }
                         var lvl = window.__onyx_blocking_level || 0;
                         if (isBlockedUrl(targetUrl, lvl)) {
@@ -113,10 +118,12 @@ object AdBlockDocumentStart {
                 if (window.XMLHttpRequest) {
                     var _origOpen = XMLHttpRequest.prototype.open;
                     var _origSend = XMLHttpRequest.prototype.send;
+                    window._origXHR = { open: _origOpen, send: _origSend };
                     XMLHttpRequest.prototype.open = function(method, url) {
                         this._onyxTargetUrl = url;
+                        var isBlobOrData = typeof url === 'string' && (url.startsWith('blob:') || url.startsWith('data:'));
                         var lvl = window.__onyx_blocking_level || 0;
-                        this._onyxBlocked = isBlockedUrl(url, lvl);
+                        this._onyxBlocked = !isBlobOrData && isBlockedUrl(url, lvl);
                         return _origOpen.apply(this, arguments);
                     };
                     XMLHttpRequest.prototype.send = function() {
@@ -227,6 +234,98 @@ object AdBlockDocumentStart {
                 if (document.readyState === 'loading') {
                     document.addEventListener('readystatechange', injectCosmeticStyle);
                 }
+            } catch(e) {}
+
+            // ── 9. Universal In-Memory Blob & ObjectURL Preserver ────────────────────
+            try {
+                window.__onyxBlobStore = window.__onyxBlobStore || new Map();
+                window.__onyxLastBlobDownload = null;
+
+                var origCreateObjectURL = (window.URL && window.URL.createObjectURL) || (window.webkitURL && window.webkitURL.createObjectURL);
+                var origRevokeObjectURL = (window.URL && window.URL.revokeObjectURL) || (window.webkitURL && window.webkitURL.revokeObjectURL);
+
+                if (origCreateObjectURL) {
+                    var patchedCreateObjectURL = function(blob) {
+                        var url = origCreateObjectURL.apply(window.URL || window.webkitURL, arguments);
+                        try {
+                            if (blob && (blob instanceof Blob || blob instanceof File)) {
+                                if (window.__onyxBlobStore.size > 50) {
+                                    var firstKey = window.__onyxBlobStore.keys().next().value;
+                                    window.__onyxBlobStore.delete(firstKey);
+                                }
+                                window.__onyxBlobStore.set(url, {
+                                    blob: blob,
+                                    name: (blob instanceof File && blob.name) ? blob.name : null,
+                                    type: blob.type || 'application/octet-stream',
+                                    size: blob.size || 0,
+                                    created: Date.now()
+                                });
+                            }
+                        } catch(e) {}
+                        return url;
+                    };
+                    if (window.URL) window.URL.createObjectURL = patchedCreateObjectURL;
+                    if (window.webkitURL) window.webkitURL.createObjectURL = patchedCreateObjectURL;
+                }
+
+                if (origRevokeObjectURL) {
+                    var patchedRevokeObjectURL = function(url) {
+                        // Delay actual revocation by 60 seconds so Android WebView
+                        // asynchronous DownloadListener can reliably retrieve it.
+                        setTimeout(function() {
+                            try {
+                                origRevokeObjectURL.call(window.URL || window.webkitURL, url);
+                            } catch(e) {}
+                            try {
+                                if (window.__onyxBlobStore) {
+                                    window.__onyxBlobStore.delete(url);
+                                }
+                            } catch(e) {}
+                        }, 60000);
+                    };
+                    if (window.URL) window.URL.revokeObjectURL = patchedRevokeObjectURL;
+                    if (window.webkitURL) window.webkitURL.revokeObjectURL = patchedRevokeObjectURL;
+                }
+
+                function captureAnchorDownload(elem) {
+                    try {
+                        if (!elem) return;
+                        var href = elem.href || elem.getAttribute('href') || '';
+                        var downloadAttr = elem.getAttribute('download') || elem.download || '';
+                        if (href && href.startsWith('blob:')) {
+                            window.__onyxLastBlobDownload = {
+                                url: href,
+                                fileName: downloadAttr || '',
+                                time: Date.now()
+                            };
+                            if (window.__onyxBlobStore && window.__onyxBlobStore.has(href)) {
+                                var entry = window.__onyxBlobStore.get(href);
+                                if (entry && downloadAttr && !entry.name) {
+                                    entry.name = downloadAttr;
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+
+                if (window.HTMLAnchorElement && window.HTMLAnchorElement.prototype) {
+                    var origAnchorClick = HTMLAnchorElement.prototype.click;
+                    HTMLAnchorElement.prototype.click = function() {
+                        captureAnchorDownload(this);
+                        return origAnchorClick.apply(this, arguments);
+                    };
+                }
+
+                document.addEventListener('click', function(e) {
+                    var target = e.target;
+                    while (target && target !== document) {
+                        if (target.tagName === 'A') {
+                            captureAnchorDownload(target);
+                            break;
+                        }
+                        target = target.parentElement;
+                    }
+                }, true);
             } catch(e) {}
         })();
         """.trimIndent()

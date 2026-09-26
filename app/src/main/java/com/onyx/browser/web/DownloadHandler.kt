@@ -25,6 +25,8 @@ import android.app.NotificationManager
 import android.content.ContentValues
 import android.media.MediaScannerConnection
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Base64
 import kotlinx.coroutines.withContext
@@ -56,7 +58,7 @@ object DownloadHandler {
         }
 
         if (url.startsWith("blob:", ignoreCase = true)) {
-            handleBlobUriDownload(activity, coroutineScope, url, contentDisposition, mimeType)
+            handleBlobUriDownload(activity, coroutineScope, url, contentDisposition, mimeType, referer)
             return
         }
 
@@ -236,12 +238,117 @@ object DownloadHandler {
         }
     }
 
+    fun extractFileNameFromPageUrl(pageUrl: String): String? {
+        if (pageUrl.isBlank()) return null
+        try {
+            val uri = Uri.parse(pageUrl)
+            val path = uri.path ?: return null
+            val segments = path.split('/').filter { it.isNotBlank() }
+            if (segments.isNotEmpty()) {
+                val last = segments.last()
+                if (last.contains('.') && !last.endsWith(".html", ignoreCase = true) && !last.endsWith(".php", ignoreCase = true)) {
+                    return sanitizeFileName(last)
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    fun resolveFallbackUrl(pageUrl: String, fileName: String): String? {
+        if (pageUrl.isBlank()) return null
+        try {
+            // 1. GitHub blob view: https://github.com/owner/repo/blob/branch/path/to/file
+            val ghBlobRegex = Regex("""^https?://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$""", RegexOption.IGNORE_CASE)
+            val ghBlobMatch = ghBlobRegex.find(pageUrl)
+            if (ghBlobMatch != null) {
+                val (owner, repo, branch, path) = ghBlobMatch.destructured
+                return "https://raw.githubusercontent.com/$owner/$repo/$branch/$path"
+            }
+
+            // 2. GitHub repo root or tree: https://github.com/owner/repo or /tree/branch
+            val ghRepoRegex = Regex("""^https?://github\.com/([^/]+)/([^/]+)(?:/tree/([^/]+))?/?$""", RegexOption.IGNORE_CASE)
+            val ghRepoMatch = ghRepoRegex.find(pageUrl)
+            if (ghRepoMatch != null && fileName.isNotBlank() && !fileName.endsWith(".bin") && !fileName.matches(Regex("^[0-9a-fA-F-]{36}.*"))) {
+                val (owner, repo, branch) = ghRepoMatch.destructured
+                val b = if (branch.isNotBlank()) branch else "HEAD"
+                return "https://raw.githubusercontent.com/$owner/$repo/$b/$fileName"
+            }
+
+            // 3. GitLab blob view: https://gitlab.com/owner/repo/-/blob/branch/path
+            val glBlobRegex = Regex("""^https?://gitlab\.com/([^/]+)/([^/]+)/-/blob/([^/]+)/(.+)$""", RegexOption.IGNORE_CASE)
+            val glBlobMatch = glBlobRegex.find(pageUrl)
+            if (glBlobMatch != null) {
+                val (owner, repo, branch, path) = glBlobMatch.destructured
+                return "https://gitlab.com/$owner/$repo/-/raw/$branch/$path"
+            }
+
+            // 4. Bitbucket src: https://bitbucket.org/owner/repo/src/branch/path
+            val bbRegex = Regex("""^https?://bitbucket\.org/([^/]+)/([^/]+)/src/([^/]+)/(.+)$""", RegexOption.IGNORE_CASE)
+            val bbMatch = bbRegex.find(pageUrl)
+            if (bbMatch != null) {
+                val (owner, repo, branch, path) = bbMatch.destructured
+                return "https://bitbucket.org/$owner/$repo/raw/$branch/$path"
+            }
+
+            // 5. Codeberg / Gitea: https://codeberg.org/owner/repo/src/branch/branch/path
+            val giteaRegex = Regex("""^https?://([^/]+)/([^/]+)/([^/]+)/src/branch/([^/]+)/(.+)$""", RegexOption.IGNORE_CASE)
+            val giteaMatch = giteaRegex.find(pageUrl)
+            if (giteaMatch != null) {
+                val (host, owner, repo, branch, path) = giteaMatch.destructured
+                return "https://$host/$owner/$repo/raw/branch/$branch/$path"
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    fun handleBlobFallback(
+        context: Context,
+        coroutineScope: CoroutineScope,
+        error: String,
+        blobUrl: String,
+        fileName: String,
+        mimeType: String,
+        pageUrl: String
+    ) {
+        val fallbackUrl = resolveFallbackUrl(pageUrl, fileName)
+        if (fallbackUrl != null) {
+            val resolvedName = sanitizeFileName(
+                if (fileName.isNotBlank() && !fileName.endsWith(".bin")) fileName
+                else (extractFileNameFromPageUrl(pageUrl) ?: "download")
+            )
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(context, "Downloading from source: $resolvedName", Toast.LENGTH_SHORT).show()
+            }
+            startSystemDownload(
+                context = context,
+                coroutineScope = coroutineScope,
+                url = fallbackUrl,
+                userAgent = "",
+                fileName = resolvedName,
+                mimeType = mimeType.ifBlank { "application/octet-stream" },
+                contentLength = -1L,
+                referer = pageUrl
+            )
+            return
+        }
+
+        Handler(Looper.getMainLooper()).post {
+            val userMsg = if (error.contains("Failed to fetch", ignoreCase = true)) {
+                "Unable to fetch generated blob file from webpage."
+            } else {
+                "Blob download failed: $error"
+            }
+            Toast.makeText(context, userMsg, Toast.LENGTH_LONG).show()
+        }
+    }
+
     fun handleBlobUriDownload(
         activity: Activity,
         coroutineScope: CoroutineScope,
         blobUrl: String,
-        contentDisposition: String,
-        mimeType: String
+        contentDisposition: String = "",
+        mimeType: String = "",
+        referer: String = ""
     ) {
         val mainAct = activity as? MainActivity
         val webView = mainAct?.getActiveWebView()
@@ -250,26 +357,155 @@ object DownloadHandler {
             return
         }
 
-        val rawFileName = URLUtil.guessFileName(blobUrl, contentDisposition, mimeType)
-        val fileName = sanitizeFileName(rawFileName)
+        val pageUrl = referer.ifBlank { webView.url ?: "" }
+        val guessedFileName = URLUtil.guessFileName(blobUrl, contentDisposition, mimeType)
+        val initialFileName = if (guessedFileName.isNotBlank() && !guessedFileName.endsWith(".bin") && !guessedFileName.matches(Regex("^[0-9a-fA-F-]{36}.*"))) {
+            sanitizeFileName(guessedFileName)
+        } else {
+            extractFileNameFromPageUrl(pageUrl) ?: "download_${System.currentTimeMillis()}"
+        }
+
+        val escapedBlobUrl = blobUrl.replace("'", "\\'")
+        val escapedFileName = initialFileName.replace("'", "\\'")
+        val escapedMimeType = mimeType.replace("'", "\\'")
+        val escapedPageUrl = pageUrl.replace("'", "\\'")
 
         val script = """
             (function() {
+                var blobUrl = '$escapedBlobUrl';
+                var defaultFileName = '$escapedFileName';
+                var defaultMime = '$escapedMimeType';
+                var pageUrl = '$escapedPageUrl';
+
+                function sendSuccess(dataUrl, resolvedName, resolvedMime) {
+                    if (window.OnyxBlobBridge && window.OnyxBlobBridge.onBlobDownloaded) {
+                        window.OnyxBlobBridge.onBlobDownloaded(
+                            dataUrl,
+                            resolvedName || defaultFileName,
+                            resolvedMime || defaultMime || 'application/octet-stream'
+                        );
+                    }
+                }
+
+                function sendFailed(err) {
+                    var msg = (err && err.message) ? err.message : String(err);
+                    if (window.OnyxBlobBridge && window.OnyxBlobBridge.onBlobFailedWithContext) {
+                        window.OnyxBlobBridge.onBlobFailedWithContext(
+                            msg,
+                            blobUrl,
+                            defaultFileName,
+                            defaultMime,
+                            pageUrl
+                        );
+                    } else if (window.OnyxBlobBridge && window.OnyxBlobBridge.onBlobFailed) {
+                        window.OnyxBlobBridge.onBlobFailed(msg);
+                    }
+                }
+
+                function resolveBestFileName(entry) {
+                    if (entry && entry.name && entry.name.length > 0) return entry.name;
+                    if (window.__onyxLastBlobDownload && window.__onyxLastBlobDownload.fileName) {
+                        var diff = Date.now() - (window.__onyxLastBlobDownload.time || 0);
+                        if (diff < 60000 && window.__onyxLastBlobDownload.fileName.length > 0) {
+                            return window.__onyxLastBlobDownload.fileName;
+                        }
+                    }
+                    return defaultFileName;
+                }
+
+                // ── Tier 1: In-Memory Blob Store (Zero network, bypasses CSP and revoked URLs) ──
                 try {
-                    fetch('$blobUrl').then(function(r) { return r.blob(); }).then(function(blob) {
-                        var reader = new FileReader();
-                        reader.onloadend = function() {
-                            if (window.OnyxBlobBridge) {
-                                window.OnyxBlobBridge.onBlobDownloaded(reader.result, '$fileName', '$mimeType');
+                    if (window.__onyxBlobStore && window.__onyxBlobStore.has(blobUrl)) {
+                        var entry = window.__onyxBlobStore.get(blobUrl);
+                        if (entry && entry.blob) {
+                            var bestName = resolveBestFileName(entry);
+                            var reader = new FileReader();
+                            reader.onloadend = function() {
+                                if (reader.result) {
+                                    sendSuccess(reader.result, bestName, entry.type || defaultMime);
+                                } else {
+                                    tryFetchTier();
+                                }
+                            };
+                            reader.onerror = function() {
+                                tryFetchTier();
+                            };
+                            reader.readAsDataURL(entry.blob);
+                            return;
+                        }
+                    }
+                } catch(e) {}
+
+                // ── Tier 2: window.fetch() ──
+                function tryFetchTier() {
+                    try {
+                        var fetchPromise;
+                        if (typeof window._origFetch === 'function') {
+                            fetchPromise = window._origFetch(blobUrl);
+                        } else {
+                            fetchPromise = fetch(blobUrl);
+                        }
+                        fetchPromise.then(function(res) {
+                            if (!res.ok && res.status !== 0) throw new Error('HTTP ' + res.status);
+                            return res.blob();
+                        }).then(function(blob) {
+                            var bestName = resolveBestFileName({ name: null });
+                            var reader = new FileReader();
+                            reader.onloadend = function() {
+                                if (reader.result) {
+                                    sendSuccess(reader.result, bestName, blob.type || defaultMime);
+                                } else {
+                                    tryXhrTier();
+                                }
+                            };
+                            reader.onerror = function() {
+                                tryXhrTier();
+                            };
+                            reader.readAsDataURL(blob);
+                        }).catch(function(err) {
+                            tryXhrTier();
+                        });
+                    } catch(e) {
+                        tryXhrTier();
+                    }
+                }
+
+                // ── Tier 3: XMLHttpRequest (responseType = 'blob') ──
+                function tryXhrTier() {
+                    try {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('GET', blobUrl, true);
+                        xhr.responseType = 'blob';
+                        xhr.onload = function() {
+                            if ((xhr.status === 200 || xhr.status === 0) && xhr.response) {
+                                var bestName = resolveBestFileName({ name: null });
+                                var reader = new FileReader();
+                                reader.onloadend = function() {
+                                    if (reader.result) {
+                                        sendSuccess(reader.result, bestName, xhr.response.type || defaultMime);
+                                    } else {
+                                        sendFailed(new Error('FileReader empty result'));
+                                    }
+                                };
+                                reader.onerror = function(e) {
+                                    sendFailed(new Error('FileReader read error'));
+                                };
+                                reader.readAsDataURL(xhr.response);
+                            } else {
+                                sendFailed(new Error('XHR status ' + xhr.status));
                             }
                         };
-                        reader.readAsDataURL(blob);
-                    }).catch(function(err) {
-                        if (window.OnyxBlobBridge) window.OnyxBlobBridge.onBlobFailed(err.toString());
-                    });
-                } catch(e) {
-                    if (window.OnyxBlobBridge) window.OnyxBlobBridge.onBlobFailed(e.toString());
+                        xhr.onerror = function(err) {
+                            sendFailed(new Error('XHR network error on blob'));
+                        };
+                        xhr.send();
+                    } catch(e) {
+                        sendFailed(e);
+                    }
                 }
+
+                // Start Tier 2 if not found in Tier 1
+                tryFetchTier();
             })();
         """.trimIndent()
 

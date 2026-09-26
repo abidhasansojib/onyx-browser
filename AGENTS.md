@@ -1236,5 +1236,23 @@ onyx-browser/
     - Configured `on_primary` to `#FFFFFF` for crisp contrast against `#DC4B64`.
     - Applied pink accent across all primary and action buttons, floating action buttons (`fabNewTab`), progress bars (`pbWebLoading`), switch toggles, active tab highlight strokes, text input borders, QR scanner frames, and offline error / markdown previewer styles.
 
-
-
+- [x] **Universal In-Memory Blob Preserver & Multi-Tier Download Pipeline (`Blob download failed: TypeError: Failed to fetch` Resolution)**:
+  - **Root Cause Resolved**:
+    - Single-page web apps (such as GitHub React frontend, GitLab, Canva, Google Drive, Mega) generate files dynamically in JavaScript via `URL.createObjectURL(blob)`, click a temporary `<a download="filename" href="blob:...">`, and immediately invoke `URL.revokeObjectURL(url)` in the same synchronous execution turn.
+    - Android WebView's `DownloadListener` runs asynchronously; by the time WebView called `evaluateJavascript("fetch('$blobUrl')...")`, the blob URL was already revoked by the page, triggering `TypeError: Failed to fetch`.
+    - Strict Content Security Policies (CSP) like GitHub's (`connect-src 'self' ...` without `blob:`) also rejected JavaScript `fetch()` calls on `blob:` schemes.
+    - Standard `URLUtil.guessFileName` produced cryptic UUID filenames (`uuid.bin`) instead of preserving actual filenames like `README.md`.
+  - **Section 9 Document-Start Blob & ObjectURL Preserver (`AdBlockDocumentStart.kt`)**:
+    - Injected at `document_start` before any page script executes.
+    - **In-Memory Blob Store**: Intercepts `URL.createObjectURL(blob)` (and `webkitURL`), caching the in-memory `Blob`/`File` reference in `window.__onyxBlobStore = new Map()`, along with its name, MIME type, size, and timestamp.
+    - **Delayed Revocation**: Intercepts `URL.revokeObjectURL(url)` and delays actual browser destruction by 60,000ms (`setTimeout`), ensuring WebView's native download listener has sufficient time to read it.
+    - **Filename Capture**: Intercepts `HTMLAnchorElement.prototype.click` and document capture-phase click events on `<a download="..." href="blob:...">`, associating the genuine filename with the blob and storing in `window.__onyxLastBlobDownload`.
+    - **Adblock Exemptions**: Explicitly bypassed `blob:` and `data:` schemes in `isBlockedUrl()`, `window.fetch`, and `XMLHttpRequest.prototype.open`, exposing unproxied `_origFetch` and `_origXHR`.
+  - **Multi-Tier Extraction & Fallback Architecture (`DownloadHandler.kt`, `OnyxBlobBridge.kt`)**:
+    - **Tier 1 (In-Memory Blob Store via `FileReader`)**: Reads directly from `window.__onyxBlobStore.get(blobUrl)` via `FileReader.readAsDataURL(blob)`. Zero network calls, 100% CSP bypass, impervious to upstream revocation, and transfers exact filenames.
+    - **Tier 2 (Unproxied `window.fetch()`)**: Falls back to `fetch(blobUrl).then(r => r.blob())` if not found in memory store.
+    - **Tier 3 (`XMLHttpRequest` with `responseType = 'blob'`)**: Falls back to XHR if `fetch` is restricted by CSP policies.
+    - **Tier 4 (Native Android Repository Raw Fallback)**: If JavaScript extraction fails, native `handleBlobFallback` inspects the page URL and referer:
+      - GitHub blob URLs (`github.com/owner/repo/blob/branch/path`) are automatically translated to raw endpoints (`raw.githubusercontent.com/owner/repo/branch/path`).
+      - GitLab (`gitlab.com/.../-/raw/...`), Bitbucket (`bitbucket.org/.../raw/...`), and Codeberg/Gitea (`codeberg.org/.../raw/branch/...`) are similarly resolved and enqueued directly to `OnyxDownloadManager`.
+      - Extracted sensible filenames from page URL path (`extractFileNameFromPageUrl`) avoiding generic `uuid.bin` fallbacks.

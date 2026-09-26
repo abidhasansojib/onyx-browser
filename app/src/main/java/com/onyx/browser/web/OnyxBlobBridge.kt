@@ -27,9 +27,32 @@ class OnyxBlobBridge(
     }
 
     @JavascriptInterface
+    fun onBlobFailedWithContext(
+        error: String,
+        blobUrl: String,
+        fileName: String,
+        mimeType: String,
+        pageUrl: String
+    ) {
+        DownloadHandler.handleBlobFallback(
+            context = context,
+            coroutineScope = coroutineScope,
+            error = error,
+            blobUrl = blobUrl,
+            fileName = fileName,
+            mimeType = mimeType,
+            pageUrl = pageUrl
+        )
+    }
+
+    @JavascriptInterface
     fun onBlobFailed(error: String) {
-        Handler(Looper.getMainLooper()).post {
-            Toast.makeText(context, "Blob download failed: $error", Toast.LENGTH_LONG).show()
-        }
+        onBlobFailedWithContext(
+            error = error,
+            blobUrl = "",
+            fileName = "",
+            mimeType = "",
+            pageUrl = ""
+        )
     }
 }
