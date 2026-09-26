@@ -29,6 +29,7 @@ class BrowserPreferences private constructor(context: Context) {
     init {
         _shortcutsFlow.value = getShortcuts()
         migrateDefaultSearchEngine()
+        migrateAutoRedirectDefaults()
     }
 
     private fun migrateDefaultSearchEngine() {
@@ -42,6 +43,19 @@ class BrowserPreferences private constructor(context: Context) {
             } else {
                 prefs.edit().putBoolean(KEY_DEFAULT_ENGINE_MIGRATED, true).apply()
             }
+        }
+    }
+
+    private fun migrateAutoRedirectDefaults() {
+        if (!prefs.getBoolean(KEY_AUTO_REDIRECT_DEFAULTS_MIGRATED, false)) {
+            val editor = prefs.edit()
+            if (!prefs.contains(KEY_AUTO_REDIRECT_AMP)) {
+                editor.putBoolean(KEY_AUTO_REDIRECT_AMP, true)
+            }
+            if (!prefs.contains(KEY_AUTO_REDIRECT_TRACKING)) {
+                editor.putBoolean(KEY_AUTO_REDIRECT_TRACKING, true)
+            }
+            editor.putBoolean(KEY_AUTO_REDIRECT_DEFAULTS_MIGRATED, true).apply()
         }
     }
 
@@ -122,12 +136,12 @@ class BrowserPreferences private constructor(context: Context) {
 
     // ── AMP Redirect ─────────────────────────────────────────────────────────
     var isAutoRedirectAmpEnabled: Boolean
-        get() = prefs.getBoolean(KEY_AUTO_REDIRECT_AMP, false)
+        get() = prefs.getBoolean(KEY_AUTO_REDIRECT_AMP, true)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_REDIRECT_AMP, value).apply()
 
     // ── Tracking URL Redirect ─────────────────────────────────────────────────
     var isAutoRedirectTrackingUrlsEnabled: Boolean
-        get() = prefs.getBoolean(KEY_AUTO_REDIRECT_TRACKING, false)
+        get() = prefs.getBoolean(KEY_AUTO_REDIRECT_TRACKING, true)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_REDIRECT_TRACKING, value).apply()
 
     // ── HTTPS Upgrade Mode ────────────────────────────────────────────────────
@@ -653,6 +667,7 @@ class BrowserPreferences private constructor(context: Context) {
         // New keys
         const val KEY_AUTO_REDIRECT_AMP = "pref_auto_redirect_amp"
         const val KEY_AUTO_REDIRECT_TRACKING = "pref_auto_redirect_tracking"
+        const val KEY_AUTO_REDIRECT_DEFAULTS_MIGRATED = "pref_auto_redirect_defaults_migrated"
         const val KEY_HTTPS_UPGRADE_MODE = "pref_https_upgrade_mode"
         const val KEY_GLOBAL_SCRIPT_BLOCKING = "pref_global_script_blocking"
         const val KEY_COOKIE_BLOCKING_MODE = "pref_cookie_blocking_mode"

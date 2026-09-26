@@ -1269,3 +1269,8 @@ onyx-browser/
     - **Light Theme**: Pure clean white `#FFFFFF` surface with subtle Google border `#DFE1E5` and soft ripple `#1F000000`.
     - **Dark Theme**: Authentic Chrome dark gray `#303134` surface with subtle border `#3C4043`, light silver action icons (`#E8EAED`), and subtle ripple `#33FFFFFF`.
     - **Metadata & Previews (`search_widget_info.xml`)**: Configured `56dp` cell height, `targetCellWidth="4"`, `targetCellHeight="1"`, `maxResizeWidth="600dp"`, and added Android 12+ `android:previewLayout="@layout/widget_search_bar"` for live layout previews in the launcher widget selector.
+
+- [x] **Auto-Redirect AMP Pages & Tracking URLs Enabled by Default (`BrowserPreferences.kt`)**:
+  - Configured `isAutoRedirectAmpEnabled` default to `true` (resolves canonical non-AMP pages for Google AMP cache `/amp/s/`, `amp.` subdomains, and `/amp/` paths).
+  - Configured `isAutoRedirectTrackingUrlsEnabled` default to `true` (automatically strips 25+ ad and analytics tracking query parameters including `utm_*`, `fbclid`, `gclid`, `msclkid`, `ttclid`, `li_fat_id`, `igshid`, etc.).
+  - Added `migrateAutoRedirectDefaults()` in `BrowserPreferences.init` ensuring both settings are enabled on launch for existing and new users while respecting manual user overrides.
