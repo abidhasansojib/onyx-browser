@@ -2113,7 +2113,17 @@ class MainActivity : AppCompatActivity() {
                         activeWv?.evaluateJavascript("""
                             (function() {
                                 var v = Array.from(document.querySelectorAll('video')).find(function(v) { return !v.paused; }) || document.querySelector('video');
-                                return v ? (v.currentSrc || v.src || '') : '';
+                                if (v && (v.currentSrc || v.src)) return (v.currentSrc || v.src);
+                                var iframes = Array.from(document.querySelectorAll('iframe'));
+                                for (var i = 0; i < iframes.length; i++) {
+                                    try {
+                                        var iv = iframes[i].contentDocument ? iframes[i].contentDocument.querySelector('video') : null;
+                                        if (iv && (iv.currentSrc || iv.src)) return (iv.currentSrc || iv.src);
+                                    } catch (_) {}
+                                    var isrc = iframes[i].src || '';
+                                    if (isrc.includes('.mp4') || isrc.includes('.m3u8') || isrc.includes('.webm')) return isrc;
+                                }
+                                return '';
                             })();
                         """.trimIndent()) { result ->
                             val cleanUrl = result?.trim('"', '\'')?.replace("\\", "") ?: ""
@@ -2121,6 +2131,18 @@ class MainActivity : AppCompatActivity() {
                                 val cookies = android.webkit.CookieManager.getInstance().getCookie(cleanUrl) ?: ""
                                 val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
                                     url = cleanUrl,
+                                    userAgent = userAgent,
+                                    contentDisposition = "",
+                                    mimeType = "video/*",
+                                    contentLength = 0L,
+                                    cookies = cookies,
+                                    referer = pageUrl
+                                )
+                                sheet.show(supportFragmentManager, "DownloadPromptSheet")
+                            } else if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
+                                val cookies = android.webkit.CookieManager.getInstance().getCookie(videoSrc) ?: ""
+                                val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
+                                    url = videoSrc,
                                     userAgent = userAgent,
                                     contentDisposition = "",
                                     mimeType = "video/*",
@@ -2157,12 +2179,24 @@ class MainActivity : AppCompatActivity() {
                         activeWv?.evaluateJavascript("""
                             (function() {
                                 var v = Array.from(document.querySelectorAll('video')).find(function(v) { return !v.paused; }) || document.querySelector('video');
-                                return v ? (v.currentSrc || v.src || '') : '';
+                                if (v && (v.currentSrc || v.src)) return (v.currentSrc || v.src);
+                                var iframes = Array.from(document.querySelectorAll('iframe'));
+                                for (var i = 0; i < iframes.length; i++) {
+                                    try {
+                                        var iv = iframes[i].contentDocument ? iframes[i].contentDocument.querySelector('video') : null;
+                                        if (iv && (iv.currentSrc || iv.src)) return (iv.currentSrc || iv.src);
+                                    } catch (_) {}
+                                    var isrc = iframes[i].src || '';
+                                    if (isrc.includes('embed') || isrc.includes('player') || isrc.includes('video') || isrc.includes('abyss')) return isrc;
+                                }
+                                return '';
                             })();
                         """.trimIndent()) { result ->
                             val cleanUrl = result?.trim('"', '\'')?.replace("\\", "") ?: ""
                             if (cleanUrl.isNotBlank() && cleanUrl != "null") {
                                 launchPlayer(cleanUrl)
+                            } else if (!videoSrc.isNullOrBlank()) {
+                                launchPlayer(videoSrc)
                             } else {
                                 Toast.makeText(this@MainActivity, "Unable to play video in internal player", Toast.LENGTH_SHORT).show()
                             }
@@ -2541,6 +2575,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        MediaPlaybackBridge.isAppInBackground = true
         val activeTabId = tabManager.activeTab.value?.id
         val activeWebView = tabManager.getActiveWebView()
         if (activeTabId != null && activeWebView != null) {
@@ -2734,6 +2769,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        MediaPlaybackBridge.isAppInBackground = false
+        MediaPlaybackBridge.isExplicitUserPause = false
 
         // 1. Sync theme if changed in Settings or system dark mode toggled
         preferences.applyTheme()

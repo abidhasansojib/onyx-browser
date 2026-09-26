@@ -32,6 +32,17 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         @Volatile var currentArtworkUrl: String? = null
         @Volatile var currentVideoSrc: String? = null
 
+        @Volatile var isAppInBackground: Boolean = false
+        @Volatile var isExplicitUserPause: Boolean = false
+
+        fun isScreenOffOrLocked(ctx: Context): Boolean {
+            val pm = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+            val km = ctx.getSystemService(Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager
+            val isScreenOff = pm?.isInteractive == false
+            val isLocked = km?.isKeyguardLocked == true
+            return isScreenOff || isLocked
+        }
+
         @Volatile var lastVideoBounds: android.graphics.RectF? = null
 
         @Volatile var currentPlayingTabId: String? = null
@@ -217,6 +228,20 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaPaused() {
+        val shouldSuppress = preferences.isBackgroundPlayEnabled &&
+                (isAppInBackground || isScreenOffOrLocked(context)) &&
+                !isExplicitUserPause
+
+        if (shouldSuppress) {
+            // Brave pattern: Transient pause caused by screen lock or background transition.
+            // Suppress the pause, preserve playing state so audio keeps decoding in background!
+            mainHandler.post {
+                val wv = currentPlayingWebView?.get() ?: webView
+                wv?.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.playAllMediaScript, null)
+            }
+            return
+        }
+
         isAudioOrVideoPlaying = false
         isVideoPlaying = false
 

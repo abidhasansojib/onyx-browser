@@ -1608,9 +1608,22 @@ onyx-browser/
       - Added video presence verification: shows informative toast if no active video was found rather than shrinking the entire application into PiP.
   - **Sample.png Compact Pill Webpage & Clipboard Card Redesign (`activity_main.xml`, `item_search_clipboard_suggestion.xml`, `MainActivity.kt`, `SuggestionsAdapter.kt`)**:
     - Transformed `cardCurrentPage` into the exact single-row compact pill card from `sample.png` (`app:cardCornerRadius="24dp"`, single horizontal row, left site favicon, vertically stacked bold title and clean domain URL, right-aligned inline Share, Copy, and Edit `AppCompatImageButton`s).
-    - Upgraded `item_search_clipboard_suggestion.xml` into a matching `24dp` pill card with dynamic link/text detection, site icon, and search bar insert/edit button.
-    - Cleaned URL display formatting across cards to strip protocol/www noise (e.g. `facebook.com/reel/...`) matching Chrome/Brave aesthetics.
-
-
-
-
+  - **Streaming Video Player Options & Brave-Inspired Background Playback Overhaul (`AdBlockDocumentStart.kt`, `MediaPlaybackManager.kt`, `MediaPlaybackBridge.kt`, `MediaPlaybackService.kt`, `MainActivity.kt`)**:
+    - **Streaming Video Player Options Fix (e.g. `animesalt.cx` / AbyssPlayer / JWPlayer / Plyr)**:
+      - **Root Cause Analysis**:
+        1. Nested multi-tier cross-origin iframes (`animesalt.cx` -> `multi-lang-plyr.php` -> `abyssplayer.com` / `iamcdn.net`) prevented top-level DOM queries (`document.querySelector('video')`) from detecting playing media, audio selection modals, or video streams.
+        2. Muted autoplay video filtering in `isQualifyingMedia` rejected streaming players when user interactions occurred on overlay elements (`div#overlay`, `.jw-display-icon`, `.plyr`) rather than direct `<video>` DOM nodes (which cannot have HTML children).
+        3. Interstitial overlay remover in `AdBlockDocumentStart.kt` deleted `#audioModal` and streaming player selectors because they were full-screen fixed overlays with high z-index and no `<input>` tags.
+        4. Anti-tamper extension checks in AbyssPlayer (`functionfetch(){[nativecode]}` regex comparison on `window.fetch.toString()`) detected hook tampering.
+      - **Native Function Masquerade (`makeNative`)**: Wraps proxied `window.fetch`, `window.XMLHttpRequest`, and other hook functions with a custom `toString()` prototype returning `function () { [native code] }`, passing anti-tamper tests on streaming sites.
+      - **Overlay Protection**: Extended `isSecurityOrAuthElement` to exempt media player controls, server switchers, quality pickers, episode selectors, audio modal containers (`#audioModal`), and player libraries (`/player|audio|server|stream|quality|episode|language|subtitle|modal-option|video-option|jw-|plyr/i`).
+      - **Media Interactivity Propagation**: Updated `markMediaInteracted` to qualify media when clicks/taps occur on any player container (`[class*="player"]`, `#overlay`, `.jw-wrapper`, `.plyr`).
+      - **Streaming Video Qualification**: Qualified videos with duration > 10s or playback progression `currentTime > 0.5s` even if started muted, preventing premature rejection of video streams.
+      - **Universal Cross-Frame Message Bus (`__onyx_cmd`)**: Implemented recursive postMessage bus bridging top-level frame and all child iframes for `play`, `pause`, `seek`, `seek_to`, `set_bg`, and `fullscreen`.
+      - **Iframe Stream Extraction & Fallbacks**: Updated floating download menu and internal player launcher to inspect `MediaPlaybackBridge.currentVideoSrc`, child iframe documents, and player iframe source URLs.
+    - **Brave-Core Inspired WebView Background Playback**:
+      - Modeled after Brave's `kDisableBackgroundMediaSuspend`, `BraveMediaSessionHelper`, and `kYoutubeBackgroundPlayback`:
+        - **Synthetic Pause Suppression**: In `MediaPlaybackBridge.onMediaPaused()`, suppresses automated/synthetic pauses when the app is in the background or the screen is locked unless explicitly paused by the user, automatically resuming playback.
+        - **Screen State Receiver & Wakelock Management**: Registered dynamic broadcast receiver in `MediaPlaybackService` for `ACTION_SCREEN_OFF`, `ACTION_SCREEN_ON`, and `ACTION_USER_PRESENT` to maintain `PARTIAL_WAKE_LOCK` across lock gaps.
+        - **WebView Lifecycle Throttling Shield**: Maintained active rendering without invoking `webView.onPause()` or `pauseTimers()` on playback WebViews when background play is enabled.
+        - **Background State Synchronization**: Synced `isAppInBackground` in `MainActivity.onPause()` / `onResume()` and broadcast `set_bg` to all nested iframe players via the postMessage bus.

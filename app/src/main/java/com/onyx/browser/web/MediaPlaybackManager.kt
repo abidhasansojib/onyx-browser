@@ -301,34 +301,42 @@ object MediaPlaybackManager {
                 function isQualifyingMedia(elem) {
                     if (!elem) return false;
                     if (elem instanceof HTMLVideoElement) {
-                        // Check for decorative, looping, or hero demo videos (like GitHub hero video)
+                        // Check for tiny ad / tracking / hidden pixel videos
+                        if (elem.videoWidth > 0 && elem.videoWidth < 80) return false;
+                        if (elem.videoHeight > 0 && elem.videoHeight < 60) return false;
+                        // Looping muted short videos are decorative background animations / GIF replacements
+                        if (elem.loop && (elem.muted || elem.volume === 0) && elem.duration > 0 && elem.duration < 12) return false;
                         var isMuted = elem.muted || elem.volume === 0 || elem.hasAttribute('muted');
                         if (isMuted) {
-                            // Looping muted videos are decorative animations / GIF replacements
-                            if (elem.loop) return false;
-                            // Autoplay muted videos without direct user interaction are marketing/hero demos
-                            if (elem.autoplay && !elem.__onyx_user_interacted) return false;
-                            // If user never touched or explicitly unmuted, ignore muted videos
-                            if (!elem.__onyx_user_interacted) return false;
+                            // If user interacted with the page/frame, qualify it
+                            if (window.__onyx_frame_interacted || elem.__onyx_user_interacted) return true;
+                            // If video has active playback progress or non-trivial duration, it is a real stream
+                            if (elem.duration > 10 || elem.currentTime > 0.5) return true;
+                            // Autoplay looping videos without interaction: ignore
+                            if (elem.autoplay && elem.loop) return false;
                         }
-                        // Ignore tiny ad / tracking / hidden pixel videos
-                        if (elem.videoWidth > 0 && elem.videoWidth < 120) return false;
-                        if (elem.videoHeight > 0 && elem.videoHeight < 80) return false;
                     }
                     if (elem instanceof HTMLAudioElement) {
-                        if ((elem.muted || elem.volume === 0) && elem.autoplay && !elem.__onyx_user_interacted) return false;
+                        if ((elem.muted || elem.volume === 0) && elem.autoplay && !elem.__onyx_user_interacted && !window.__onyx_frame_interacted) return false;
                     }
                     return true;
                 }
 
                 function markMediaInteracted(e) {
                     try {
+                        window.__onyx_frame_interacted = true;
                         var target = e.target;
                         if (target instanceof HTMLMediaElement) {
                             target.__onyx_user_interacted = true;
                         } else if (target && target.closest) {
                             var m = target.closest('video, audio');
                             if (m) m.__onyx_user_interacted = true;
+                            if (target.closest('[class*="player" i], [id*="player" i], [class*="play" i], [class*="video" i], #overlay, .jw-wrapper, .plyr, [data-player], [data-plyr]')) {
+                                var vids = document.querySelectorAll('video, audio');
+                                for (var i = 0; i < vids.length; i++) {
+                                    vids[i].__onyx_user_interacted = true;
+                                }
+                            }
                         }
                     } catch (_) {}
                 }
@@ -339,6 +347,7 @@ object MediaPlaybackManager {
                     if (e.target instanceof HTMLMediaElement) {
                         if (!e.target.muted && e.target.volume > 0) {
                             e.target.__onyx_user_interacted = true;
+                            window.__onyx_frame_interacted = true;
                             if (!e.target.paused && isQualifyingMedia(e.target)) {
                                 reportMediaPlaying(e.target);
                             }
@@ -443,6 +452,54 @@ object MediaPlaybackManager {
                     }
                 }
 
+                // Universal Cross-Frame Message Bus for nested iframes media control
+                window.addEventListener('message', function(e) {
+                    try {
+                        if (!e.data || typeof e.data !== 'object') return;
+                        var cmd = e.data.__onyx_cmd;
+                        if (!cmd) return;
+
+                        if (cmd === 'play') {
+                            window.__onyx_allow_explicit_pause = false;
+                            var media = Array.from(document.querySelectorAll('video, audio'));
+                            media.forEach(function(m) { m.play().catch(function(){}); });
+                        } else if (cmd === 'pause') {
+                            window.__onyx_allow_explicit_pause = true;
+                            var media = Array.from(document.querySelectorAll('video, audio'));
+                            media.forEach(function(m) { m.pause(); });
+                            setTimeout(function() { window.__onyx_allow_explicit_pause = false; }, 500);
+                        } else if (cmd === 'seek') {
+                            var delta = e.data.delta || 0;
+                            var target = Array.from(document.querySelectorAll('video, audio')).find(function(m) { return !m.paused && m.duration; })
+                                      || Array.from(document.querySelectorAll('video, audio')).find(function(m) { return m.duration > 0; });
+                            if (target && target.duration) {
+                                target.currentTime = Math.max(0, Math.min(target.duration, target.currentTime + delta));
+                            }
+                        } else if (cmd === 'seek_to') {
+                            var pos = e.data.pos || 0;
+                            var target = Array.from(document.querySelectorAll('video, audio')).find(function(m) { return !m.paused && m.duration; })
+                                      || Array.from(document.querySelectorAll('video, audio')).find(function(m) { return m.duration > 0; });
+                            if (target && target.duration) {
+                                target.currentTime = Math.max(0, Math.min(target.duration, pos));
+                            }
+                        } else if (cmd === 'set_bg') {
+                            window.__onyx_in_background = !!e.data.inBackground;
+                        } else if (cmd === 'fullscreen') {
+                            var vids = Array.from(document.querySelectorAll('video'));
+                            var v = vids.find(function(item) { return !item.paused && !item.ended; }) || vids[0];
+                            if (v) {
+                                if (typeof v.webkitRequestFullscreen === 'function') v.webkitRequestFullscreen();
+                                else if (typeof v.requestFullscreen === 'function') v.requestFullscreen();
+                            }
+                        }
+
+                        // Recursively forward to all nested child iframes
+                        document.querySelectorAll('iframe').forEach(function(f) {
+                            try { f.contentWindow.postMessage(e.data, '*'); } catch(_) {}
+                        });
+                    } catch(_) {}
+                });
+
                 // Check currently playing media right now in case script injected after play started
                 var currentlyPlaying = Array.from(document.querySelectorAll('video, audio')).find(function(m) {
                     return !m.paused && !m.ended && m.readyState > 1 && isQualifyingMedia(m);
@@ -455,32 +512,36 @@ object MediaPlaybackManager {
         })();
     """.trimIndent()
 
-    fun getSetBackgroundStateScript(inBackground: Boolean): String =
-        "window.__onyx_in_background = $inBackground;"
+    fun getSetBackgroundStateScript(inBackground: Boolean): String = """
+        (function() {
+            window.__onyx_in_background = $inBackground;
+            var msg = { __onyx_cmd: 'set_bg', inBackground: $inBackground };
+            try {
+                window.postMessage(msg, '*');
+                document.querySelectorAll('iframe').forEach(function(f) {
+                    try { f.contentWindow.postMessage(msg, '*'); } catch(_) {}
+                });
+            } catch(_) {}
+        })();
+    """.trimIndent()
 
     val playAllMediaScript: String = """
         (function() {
-            function getAllMedia(root) {
-                var res = [];
-                try {
-                    res = res.concat(Array.from(root.querySelectorAll('video, audio')));
-                    var all = root.querySelectorAll('*');
-                    for (var i = 0; i < all.length; i++) {
-                        if (all[i].shadowRoot) {
-                            res = res.concat(getAllMedia(all[i].shadowRoot));
+            window.__onyx_allow_explicit_pause = false;
+            var msg = { __onyx_cmd: 'play' };
+            try {
+                window.postMessage(msg, '*');
+                document.querySelectorAll('iframe').forEach(function(f) {
+                    try {
+                        if (f.contentDocument) {
+                            f.contentDocument.querySelectorAll('video, audio').forEach(function(m) { m.play().catch(function(){}); });
                         }
-                    }
-                } catch (_) {}
-                return res;
-            }
-            var media = getAllMedia(document);
-            document.querySelectorAll('iframe').forEach(function(f) {
-                try {
-                    if (f.contentDocument) media = media.concat(getAllMedia(f.contentDocument));
-                    f.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
-                } catch(_) {}
-            });
-            media.forEach(function(m) {
+                        f.contentWindow.postMessage(msg, '*');
+                        f.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                    } catch(_) {}
+                });
+            } catch(_) {}
+            document.querySelectorAll('video, audio').forEach(function(m) {
                 m.play().catch(function(){});
             });
         })();
@@ -489,27 +550,20 @@ object MediaPlaybackManager {
     val pauseAllMediaScript: String = """
         (function() {
             window.__onyx_allow_explicit_pause = true;
-            function getAllMedia(root) {
-                var res = [];
-                try {
-                    res = res.concat(Array.from(root.querySelectorAll('video, audio')));
-                    var all = root.querySelectorAll('*');
-                    for (var i = 0; i < all.length; i++) {
-                        if (all[i].shadowRoot) {
-                            res = res.concat(getAllMedia(all[i].shadowRoot));
+            var msg = { __onyx_cmd: 'pause' };
+            try {
+                window.postMessage(msg, '*');
+                document.querySelectorAll('iframe').forEach(function(f) {
+                    try {
+                        if (f.contentDocument) {
+                            f.contentDocument.querySelectorAll('video, audio').forEach(function(m) { m.pause(); });
                         }
-                    }
-                } catch (_) {}
-                return res;
-            }
-            var media = getAllMedia(document);
-            document.querySelectorAll('iframe').forEach(function(f) {
-                try {
-                    if (f.contentDocument) media = media.concat(getAllMedia(f.contentDocument));
-                    f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-                } catch(_) {}
-            });
-            media.forEach(function(m) {
+                        f.contentWindow.postMessage(msg, '*');
+                        f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                    } catch(_) {}
+                });
+            } catch(_) {}
+            document.querySelectorAll('video, audio').forEach(function(m) {
                 m.pause();
             });
             setTimeout(function() {
@@ -520,6 +574,17 @@ object MediaPlaybackManager {
 
     fun getSeekMediaScript(deltaSeconds: Int): String = """
         (function(delta) {
+            var msg = { __onyx_cmd: 'seek', delta: delta };
+            try {
+                window.postMessage(msg, '*');
+                document.querySelectorAll('iframe').forEach(function(f) {
+                    try {
+                        f.contentWindow.postMessage(msg, '*');
+                        f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [delta, true] }), '*');
+                    } catch(_) {}
+                });
+            } catch(_) {}
+
             function getAllMedia(root) {
                 var res = [];
                 try {
@@ -553,17 +618,22 @@ object MediaPlaybackManager {
                     target.dispatchEvent(new Event('seeked'));
                 } catch(_) {}
             }
-
-            document.querySelectorAll('iframe').forEach(function(f) {
-                try {
-                    f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [target ? target.currentTime : delta, true] }), '*');
-                } catch(_) {}
-            });
         })($deltaSeconds);
     """.trimIndent()
 
     fun getSeekToPositionScript(positionSeconds: Double): String = """
         (function(pos) {
+            var msg = { __onyx_cmd: 'seek_to', pos: pos };
+            try {
+                window.postMessage(msg, '*');
+                document.querySelectorAll('iframe').forEach(function(f) {
+                    try {
+                        f.contentWindow.postMessage(msg, '*');
+                        f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [pos, true] }), '*');
+                    } catch(_) {}
+                });
+            } catch(_) {}
+
             function getAllMedia(root) {
                 var res = [];
                 try {
@@ -597,12 +667,6 @@ object MediaPlaybackManager {
                     target.dispatchEvent(new Event('seeked'));
                 } catch(_) {}
             }
-
-            document.querySelectorAll('iframe').forEach(function(f) {
-                try {
-                    f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [pos, true] }), '*');
-                } catch(_) {}
-            });
         })($positionSeconds);
     """.trimIndent()
 
@@ -665,6 +729,15 @@ object MediaPlaybackManager {
                 || vids.find(function(v) { return !v.paused; })
                 || (vids.length > 0 ? vids[0] : null);
 
+            // Broadcast to nested iframes
+            try {
+                var fsMsg = { __onyx_cmd: 'fullscreen' };
+                window.postMessage(fsMsg, '*');
+                document.querySelectorAll('iframe').forEach(function(f) {
+                    try { f.contentWindow.postMessage(fsMsg, '*'); } catch(_) {}
+                });
+            } catch (_) {}
+
             // 1. YouTube mobile / web fullscreen button
             var ytBtn = document.querySelector('button.fullscreen-icon, button.ytp-fullscreen-button, .ytp-fullscreen-button');
             if (ytBtn) {
@@ -712,6 +785,26 @@ object MediaPlaybackManager {
                         return 'fullscreen_triggered';
                     }
                 } catch (e) {}
+            }
+
+            // 5. Fallback: Drive player iframe into fullscreen
+            if (!playing) {
+                var iframes = Array.from(document.querySelectorAll('iframe'));
+                var playerIframe = iframes.find(function(f) {
+                    var s = (f.src || '').toLowerCase();
+                    return s.includes('player') || s.includes('embed') || s.includes('video') || s.includes('stream') || s.includes('abyss');
+                }) || iframes[0];
+                if (playerIframe) {
+                    try {
+                        if (typeof playerIframe.webkitRequestFullscreen === 'function') {
+                            playerIframe.webkitRequestFullscreen();
+                            return 'fullscreen_triggered';
+                        } else if (typeof playerIframe.requestFullscreen === 'function') {
+                            playerIframe.requestFullscreen();
+                            return 'fullscreen_triggered';
+                        }
+                    } catch (_) {}
+                }
             }
 
             return playing ? 'found_inline' : 'not_found';

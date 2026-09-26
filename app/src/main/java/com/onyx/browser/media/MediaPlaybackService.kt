@@ -53,6 +53,24 @@ class MediaPlaybackService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var artworkJob: Job? = null
 
+    private val screenStateReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    // Match Brave: Preserve playback through screen lock gap
+                    if (isMediaPlaying) {
+                        acquireWakeLock()
+                    }
+                }
+                Intent.ACTION_USER_PRESENT, Intent.ACTION_SCREEN_ON -> {
+                    if (isMediaPlaying) {
+                        acquireWakeLock()
+                    }
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -60,6 +78,14 @@ class MediaPlaybackService : Service() {
         wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OnyxBrowser:MediaWakeLock")
         createNotificationChannel()
         setupMediaSession()
+        try {
+            val filter = android.content.IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+            registerReceiver(screenStateReceiver, filter)
+        } catch (_: Exception) {}
     }
 
     private fun createNotificationChannel() {
@@ -85,6 +111,7 @@ class MediaPlaybackService : Service() {
             )
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
+                    MediaPlaybackBridge.isExplicitUserPause = false
                     isMediaPlaying = true
                     acquireWakeLock()
                     updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
@@ -93,6 +120,7 @@ class MediaPlaybackService : Service() {
                 }
 
                 override fun onPause() {
+                    MediaPlaybackBridge.isExplicitUserPause = true
                     isMediaPlaying = false
                     releaseWakeLock()
                     updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
@@ -158,6 +186,7 @@ class MediaPlaybackService : Service() {
 
         when (action) {
             ACTION_PLAY -> {
+                MediaPlaybackBridge.isExplicitUserPause = false
                 isMediaPlaying = true
                 acquireWakeLock()
                 updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
@@ -165,6 +194,7 @@ class MediaPlaybackService : Service() {
                 updateNotification()
             }
             ACTION_PAUSE -> {
+                MediaPlaybackBridge.isExplicitUserPause = true
                 isMediaPlaying = false
                 releaseWakeLock()
                 updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
@@ -178,6 +208,7 @@ class MediaPlaybackService : Service() {
                 mediaActionListener?.onSeekMedia(10)
             }
             ACTION_STOP -> {
+                MediaPlaybackBridge.isExplicitUserPause = true
                 isMediaPlaying = false
                 releaseWakeLock()
                 mediaActionListener?.onStopMedia()
@@ -445,6 +476,9 @@ class MediaPlaybackService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try {
+            unregisterReceiver(screenStateReceiver)
+        } catch (_: Exception) {}
         artworkJob?.cancel()
         currentArtworkBitmap = null
         releaseWakeLock()

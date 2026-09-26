@@ -137,12 +137,35 @@ object AdBlockDocumentStart {
                 }
             }
 
+            // Native code string masquerading helper for anti-tamper bypass
+            var nativeFns = new WeakSet();
+            var fnNames = new WeakMap();
+            function makeNative(fn, name) {
+                if (!fn) return fn;
+                try {
+                    nativeFns.add(fn);
+                    if (name) fnNames.set(fn, name);
+                } catch(e) {}
+                return fn;
+            }
+            try {
+                var origFnToString = Function.prototype.toString;
+                Function.prototype.toString = function() {
+                    if (nativeFns.has(this)) {
+                        var n = fnNames.get(this) || this.name || '';
+                        return 'function ' + n + '() { [native code] }';
+                    }
+                    return origFnToString.apply(this, arguments);
+                };
+                makeNative(Function.prototype.toString, 'toString');
+            } catch(e) {}
+
             // ── 4. Proxy window.fetch (Throws TypeError net::ERR_BLOCKED_BY_CLIENT) ───
             try {
                 if (window.fetch) {
                     var _origFetch = window.fetch;
                     window._origFetch = _origFetch;
-                    window.fetch = function(input, init) {
+                    window.fetch = makeNative(function(input, init) {
                         var targetUrl = '';
                         if (typeof input === 'string') {
                             targetUrl = input;
@@ -157,7 +180,7 @@ object AdBlockDocumentStart {
                             return Promise.reject(new TypeError('Failed to fetch: net::ERR_BLOCKED_BY_CLIENT'));
                         }
                         return _origFetch.apply(this, arguments);
-                    };
+                    }, 'fetch');
                 }
             } catch(e) {}
 
@@ -325,7 +348,15 @@ object AdBlockDocumentStart {
                             if (el.querySelector(captchaQuery)) return true;
 
                             var idClass = ((el.id || '') + ' ' + (el.className || '')).toLowerCase();
-                            if (/captcha|recaptcha|hcaptcha|arkose|funcaptcha|turnstile|checkpoint|challenge|verification|security|auth|login|signin|signup|password|prompt|dialog|modal-body|modal-content/i.test(idClass)) {
+                            // Media and video player controls, audio modals, server selectors, subtitles, quality pickers
+                            if (/player|audio|server|stream|quality|episode|language|subtitle|modal-option|video-option|jw-|plyr/i.test(idClass)) {
+                                return true;
+                            }
+                            if (el.querySelector('[class*="audio" i], [class*="server" i], [class*="player" i], [class*="stream" i], [class*="quality" i], [id*="audio" i], [id*="server" i], [data-language], [data-link]')) {
+                                return true;
+                            }
+
+                            if (/captcha|recaptcha|hcaptcha|arkose|funcaptcha|turnstile|checkpoint|challenge|verification|security|auth|login|signin|signup|password|prompt|dialog|modal/i.test(idClass)) {
                                 return true;
                             }
 
@@ -344,7 +375,7 @@ object AdBlockDocumentStart {
                                 var matched = document.querySelectorAll(sel);
                                 for (var j = 0; j < matched.length; j++) {
                                     var el = matched[j];
-                                    if (el.querySelector('video, audio') || isSecurityOrAuthElement(el)) continue;
+                                    if (el.querySelector('video, audio, iframe, embed, object') || isSecurityOrAuthElement(el)) continue;
                                     el.remove();
                                 }
                             }
@@ -354,6 +385,7 @@ object AdBlockDocumentStart {
                     function isInterstitialOverlay(el) {
                         try {
                             if (isSecurityOrAuthElement(el)) return false;
+                            if (el.querySelector('video, audio, iframe, embed, object')) return false;
                             var style = window.getComputedStyle(el);
                             var pos = style.position;
                             if (pos !== 'fixed' && pos !== 'absolute') return false;
