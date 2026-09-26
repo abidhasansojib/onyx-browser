@@ -141,25 +141,25 @@ class ShortcutsAdapter(
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_bookmark)
-                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(Color.parseColor("#E57373"))
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 ShortcutItem.ICON_HISTORY -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_history)
-                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(Color.parseColor("#F4B400"))
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 ShortcutItem.ICON_DOWNLOADS -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_download)
-                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(Color.parseColor("#34A853"))
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 ShortcutItem.ICON_QR_SCAN -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_qr_code)
-                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(Color.parseColor("#4285F4"))
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 else -> {
                     val letter = item.title.trim().firstOrNull()?.uppercase()

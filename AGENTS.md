@@ -1391,4 +1391,18 @@ onyx-browser/
     - Registered `VideoSettingsActivity`, `DownloadSettingsActivity`, `AccessibilitySettingsActivity`, and `ManagePersonalDataActivity` in `AndroidManifest.xml`.
     - Cleaned up `SettingsActivity.kt` into a lightweight, high-performance controller.
 
+- [x] **Uneditable System Shortcuts, #202020 Edit Menu, and Muted Gray Homepage Icons**:
+  - **Uneditable Bookmarks, History, and Downloads Shortcuts (`ManageShortcutsAdapter.kt`, `BrowserPreferences.kt`, `ShortcutItem.kt`)**:
+    - In the Plus management menu (`ManageShortcutsBottomSheet`), Bookmarks, History, and Downloads shortcuts no longer display the edit pencil or delete bin icon (`btnEditShortcut.visibility = GONE`, `btnDeleteShortcut.visibility = GONE`).
+    - The drag handle (`ivDragHandle`) remains fully visible and active, allowing effortless position swapping across the shortcuts grid.
+    - Added data-layer guards in `BrowserPreferences.updateShortcut` and `deleteShortcut` to prevent accidental modification or deletion of built-in system shortcuts.
+    - Custom user-added websites retain their edit and delete buttons.
+  - **Refined #202020 Shortcut Edit Menu (`dialog_edit_shortcut.xml`)**:
+    - Dialog card background set to `#202020` with smooth `24dp` rounded corners and `#2C2C2C` border stroke.
+    - Title and inputs styled with clean `#FFFFFF` text and `#9AA0A6` hints.
+    - Action buttons: Cancel button placed on the left (`layout_weight="1"`, background `@color/btn_cancel_bg` `#35363A`, text `#E8EAED`), and Save button placed on the right (`layout_weight="1"`, background `@color/btn_clear_bg` `#DC4B64`, text `#FFFFFF`).
+  - **Homepage Muted Gray Shortcut Icons (`ShortcutsAdapter.kt`, `ManageShortcutsAdapter.kt`)**:
+    - Replaced bright colorful tints (`#E57373`, `#F4B400`, `#34A853`, `#4285F4`) for Bookmarks, History, and Downloads with the authentic, elegant secondary gray (`textColorSecondary` / `#9AA0A6`), restoring the cohesive dark aesthetic.
+
+
 

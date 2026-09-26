@@ -9,6 +9,11 @@ data class ShortcutItem(
     val url: String,
     val iconType: String = DEFAULT_ICON
 ) {
+    val isSystemShortcut: Boolean
+        get() = id.startsWith("sys_") ||
+                url.startsWith("onyx://") ||
+                iconType in listOf(ICON_BOOKMARKS, ICON_HISTORY, ICON_DOWNLOADS, ICON_QR_SCAN, ICON_ADD)
+
     fun toJson(): JSONObject {
         val obj = JSONObject()
         obj.put("id", id)

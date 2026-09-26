@@ -1,6 +1,8 @@
 package com.onyx.browser.ui.home
 
 import android.annotation.SuppressLint
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -9,6 +11,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.color.MaterialColors
 import com.onyx.browser.R
 import com.onyx.browser.data.model.ShortcutItem
 import com.onyx.browser.databinding.ItemManageShortcutBinding
@@ -86,6 +89,9 @@ class ManageShortcutsAdapter(
             }
             binding.tvManageUrl.text = item.url
 
+            val textColorSecondary = MaterialColors.getColor(binding.root, android.R.attr.textColorSecondary, Color.LTGRAY)
+            binding.ivManageIcon.imageTintList = null
+
             when (item.iconType) {
                 ShortcutItem.ICON_GOOGLE -> {
                     binding.ivManageIcon.visibility = View.VISIBLE
@@ -121,16 +127,19 @@ class ManageShortcutsAdapter(
                     binding.ivManageIcon.visibility = View.VISIBLE
                     binding.tvManageLetter.visibility = View.GONE
                     binding.ivManageIcon.setImageResource(R.drawable.ic_bookmark)
+                    binding.ivManageIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 ShortcutItem.ICON_HISTORY -> {
                     binding.ivManageIcon.visibility = View.VISIBLE
                     binding.tvManageLetter.visibility = View.GONE
                     binding.ivManageIcon.setImageResource(R.drawable.ic_history)
+                    binding.ivManageIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 ShortcutItem.ICON_DOWNLOADS -> {
                     binding.ivManageIcon.visibility = View.VISIBLE
                     binding.tvManageLetter.visibility = View.GONE
                     binding.ivManageIcon.setImageResource(R.drawable.ic_download)
+                    binding.ivManageIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
                 }
                 else -> {
                     val letter = item.title.trim().firstOrNull()?.uppercase()
@@ -147,12 +156,20 @@ class ManageShortcutsAdapter(
                 }
             }
 
-            binding.btnEditShortcut.setOnClickListener {
-                onEditClick(item)
-            }
-
-            binding.btnDeleteShortcut.setOnClickListener {
-                onDeleteClick(item)
+            // Bookmarks, History, and Downloads shortcuts are uneditable (no edit pencil, no delete bin)
+            // but can still be dragged to change position via ivDragHandle
+            if (item.isSystemShortcut) {
+                binding.btnEditShortcut.visibility = View.GONE
+                binding.btnDeleteShortcut.visibility = View.GONE
+            } else {
+                binding.btnEditShortcut.visibility = View.VISIBLE
+                binding.btnDeleteShortcut.visibility = View.VISIBLE
+                binding.btnEditShortcut.setOnClickListener {
+                    onEditClick(item)
+                }
+                binding.btnDeleteShortcut.setOnClickListener {
+                    onDeleteClick(item)
+                }
             }
         }
     }

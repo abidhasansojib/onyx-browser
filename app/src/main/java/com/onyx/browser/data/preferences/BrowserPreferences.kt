@@ -449,6 +449,7 @@ class BrowserPreferences private constructor(context: Context) {
         val current = getShortcuts().toMutableList()
         val index = current.indexOfFirst { it.id == updated.id }
         if (index != -1) {
+            if (current[index].isSystemShortcut) return
             current[index] = updated
             saveShortcuts(current)
         }
@@ -456,6 +457,10 @@ class BrowserPreferences private constructor(context: Context) {
 
     fun deleteShortcut(id: String) {
         val current = getShortcuts().toMutableList()
+        val item = current.find { it.id == id }
+        if (item != null && item.isSystemShortcut) {
+            return
+        }
         val removed = current.removeAll { it.id == id }
         if (removed) {
             saveShortcuts(current)
