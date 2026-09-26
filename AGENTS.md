@@ -1284,3 +1284,10 @@ onyx-browser/
     - Hardened `onDestroyView()` to detach `b.rvTabs.adapter = null` and cancel pending animations before clearing `_binding`.
     - Upgraded all `dismiss()` calls to `dismissAllowingStateLoss()` across `TabSwitcherBottomSheet`, `ClearBrowsingDataDialog`, and `CloseAllTabsDialog` to prevent crashes during lifecycle transitions.
 
+- [x] **Clear Browsing Data Dialog Smooth Rounded Card Redesign (`dialog_clear_browsing_data.xml`, `ClearBrowsingDataDialog.kt`, `bg_dropdown_popup.xml`, `item_dropdown_time_range.xml`)**:
+  - **Eliminated Sharp Dialog Core Corners**: Replaced raw un-rounded `LinearLayout` root with floating `MaterialCardView` featuring `24dp` smooth corner radius, `12dp` elevation, and subtle `?attr/colorOutline` border.
+  - **Transparent Dialog Window & Responsive Width**: Configured `ColorDrawable(Color.TRANSPARENT)` and `FEATURE_NO_TITLE` in `onCreateView`, with adaptive `0.92 * widthPixels` max 440dp width in `onStart()`.
+  - **Rounded Dropdown Menu Card**: Added `bg_dropdown_popup.xml` with `16dp` rounded corners and border outline for the `AutoCompleteTextView` popup menu, eliminating harsh square edges on dropdown lists.
+  - **Enhanced Visual Hierarchy**: Added modern broom icon badge (`ic_broom` tinted with `@color/tab_switcher_accent`) in a 48dp circular badge (`bg_circle_action`), centered title and subtitle, upgraded preview card to `18dp` corner radius, and modern 48dp pill action buttons (`app:cornerRadius="24dp"`) with pink accent clear button matching user theme preferences.
+
+

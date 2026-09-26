@@ -1,10 +1,12 @@
 package com.onyx.browser.ui.tabs
 
-import android.content.Context
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.widget.ArrayAdapter
@@ -26,7 +28,7 @@ class ClearBrowsingDataDialog(
 ) : DialogFragment() {
 
     private var _binding: DialogClearBrowsingDataBinding? = null
-    private val binding get() = _binding!!
+    private val binding get() = _binding
 
     private fun getCutoffTime(selectedIndex: Int): Long {
         val now = System.currentTimeMillis()
@@ -45,12 +47,27 @@ class ClearBrowsingDataDialog(
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
+        dialog?.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            requestFeature(Window.FEATURE_NO_TITLE)
+        }
         _binding = DialogClearBrowsingDataBinding.inflate(inflater, container, false)
-        return binding.root
+        return _binding!!.root
+    }
+
+    override fun onStart() {
+        super.onStart()
+        dialog?.window?.let { window ->
+            val displayMetrics = resources.displayMetrics
+            val maxAllowedWidth = (440 * displayMetrics.density).toInt()
+            val targetWidth = (displayMetrics.widthPixels * 0.92).toInt().coerceAtMost(maxAllowedWidth)
+            window.setLayout(targetWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        val b = _binding ?: return
 
         val timeRanges = listOf(
             getString(R.string.time_range_last_15_mins),
@@ -61,24 +78,24 @@ class ClearBrowsingDataDialog(
             getString(R.string.time_range_all_time)
         )
 
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, timeRanges)
-        binding.actvTimeRange.setAdapter(adapter)
+        val adapter = ArrayAdapter(requireContext(), R.layout.item_dropdown_time_range, timeRanges)
+        b.actvTimeRange.setAdapter(adapter)
 
         // Default to Last 24 hours (index 2)
         var selectedIndex = 2
-        binding.actvTimeRange.setText(timeRanges[selectedIndex], false)
+        b.actvTimeRange.setText(timeRanges[selectedIndex], false)
         updatePreview(selectedIndex)
 
-        binding.actvTimeRange.setOnItemClickListener { _, _, position, _ ->
+        b.actvTimeRange.setOnItemClickListener { _, _, position, _ ->
             selectedIndex = position
             updatePreview(selectedIndex)
         }
 
-        binding.btnCancel.setOnClickListener {
-            dismiss()
+        b.btnCancel.setOnClickListener {
+            dismissAllowingStateLoss()
         }
 
-        binding.btnClearData.setOnClickListener {
+        b.btnClearData.setOnClickListener {
             performClearData(selectedIndex)
         }
     }
