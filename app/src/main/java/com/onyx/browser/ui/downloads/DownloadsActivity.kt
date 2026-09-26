@@ -23,6 +23,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import com.onyx.browser.download.FileUtils
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -76,6 +77,7 @@ class DownloadsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        adapter.notifyDataSetChanged()
         val pendingPath = pendingApkInstallPath
         if (pendingPath != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && packageManager.canRequestPackageInstalls()) {
@@ -189,6 +191,12 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun openFile(item: DownloadItem) {
+        if (!FileUtils.doesFileExist(item.filePath, this)) {
+            Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+            adapter.notifyDataSetChanged()
+            return
+        }
+
         if (ApkInstallerHelper.isApkFile(item.fileName, item.mimeType)) {
             ApkInstallerHelper.installApk(
                 activity = this,
@@ -310,6 +318,11 @@ class DownloadsActivity : AppCompatActivity() {
 
         menuBinding.menuOpenFile.setOnClickListener {
             bottomSheet.dismiss()
+            if (!FileUtils.doesFileExist(item.filePath, this)) {
+                Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+                adapter.notifyDataSetChanged()
+                return@setOnClickListener
+            }
             if (isApk) {
                 ApkInstallerHelper.installApk(
                     activity = this,
@@ -326,6 +339,11 @@ class DownloadsActivity : AppCompatActivity() {
 
         menuBinding.menuShareFile.setOnClickListener {
             bottomSheet.dismiss()
+            if (!FileUtils.doesFileExist(item.filePath, this)) {
+                Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+                adapter.notifyDataSetChanged()
+                return@setOnClickListener
+            }
             shareDownloadedFile(item)
         }
 
@@ -336,6 +354,11 @@ class DownloadsActivity : AppCompatActivity() {
 
         menuBinding.menuRenameFile.setOnClickListener {
             bottomSheet.dismiss()
+            if (!FileUtils.doesFileExist(item.filePath, this)) {
+                Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+                adapter.notifyDataSetChanged()
+                return@setOnClickListener
+            }
             showRenameFileDialog(item)
         }
 
@@ -348,6 +371,12 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun openInFileManager(item: DownloadItem) {
+        if (!FileUtils.doesFileExist(item.filePath, this)) {
+            Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+            adapter.notifyDataSetChanged()
+            return
+        }
+
         try {
             val downloadsIntent = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -366,7 +395,9 @@ class DownloadsActivity : AppCompatActivity() {
                 if (file.exists()) {
                     FileProvider.getUriForFile(this, "${applicationContext.packageName}.fileprovider", file)
                 } else {
-                    Uri.parse(item.filePath)
+                    Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+                    adapter.notifyDataSetChanged()
+                    return
                 }
             }
             val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -381,6 +412,12 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun shareDownloadedFile(item: DownloadItem) {
+        if (!FileUtils.doesFileExist(item.filePath, this)) {
+            Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+            adapter.notifyDataSetChanged()
+            return
+        }
+
         try {
             val uri: Uri = if (item.filePath.startsWith("content://")) {
                 Uri.parse(item.filePath)
@@ -389,7 +426,8 @@ class DownloadsActivity : AppCompatActivity() {
                 if (file.exists()) {
                     FileProvider.getUriForFile(this, "${applicationContext.packageName}.fileprovider", file)
                 } else {
-                    Toast.makeText(this, "File not found on storage", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+                    adapter.notifyDataSetChanged()
                     return
                 }
             }
@@ -420,6 +458,12 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun showRenameFileDialog(item: DownloadItem) {
+        if (!FileUtils.doesFileExist(item.filePath, this)) {
+            Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+            adapter.notifyDataSetChanged()
+            return
+        }
+
         val input = EditText(this).apply {
             setText(item.fileName)
             val dotIdx = item.fileName.lastIndexOf('.')

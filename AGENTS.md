@@ -1433,3 +1433,16 @@ onyx-browser/
     - Styled with `@color/dialog_clear_data_bg` (`#282A2D`) surface, smooth `24dp` rounded corners, `#3C4043` border stroke, and centered 56dp danger icon badge (`@drawable/bg_circle_danger` with `ic_delete` tinted `#DC4B64`).
     - Clear title (`@string/clear_browsing_data`) and descriptive confirmation message (`@string/confirm_clear_history`).
     - Standardized action buttons matching Onyx design guidelines: Cancel button on the left (`layout_weight="1"`, background `@color/btn_cancel_bg` `#35363A`, text `#E8EAED`), and Clear button on the right (`layout_weight="1"`, background `@color/btn_clear_bg` `#DC4B64`, text `#FFFFFF`).
+
+- [x] **Dynamic Theme & State Synchronization & Deleted Download Safe Handling**:
+  - **Dynamic Theme & Settings Sync Without App Restart (`MainActivity.kt`, `AndroidManifest.xml`)**:
+    - Removed `uiMode` from `MainActivity`'s `android:configChanges` in `AndroidManifest.xml` to allow Android's day/night system to trigger activity recreation when themes or night modes change.
+    - Implemented theme mode and system night mode tracking (`lastThemeMode`, `lastNightMode`) in `MainActivity.kt`.
+    - In `onResume()`: detects changes in `preferences.themeMode` or system night mode and immediately triggers `recreate()`, updating colors, styles, and XML drawables seamlessly without requiring the user to restart the app.
+    - Added synchronization for search engine icons, home screen search widgets (`SearchWidgetProvider.updateAllWidgets(this)`), `fabScrollToTop` visibility (`preferences.isScrollToTopEnabled`), and WebView cookie/script settings on resume.
+    - Implemented `onConfigurationChanged` callback to handle live system dark mode switches.
+  - **Safe Handling of Deleted Downloaded Files (`FileUtils.kt`, `DownloadsAdapter.kt`, `DownloadsActivity.kt`, `LocalFileLoader.kt`)**:
+    - Created high-performance `FileUtils.kt` utility verifying physical file existence across `content://` URIs (via `openFileDescriptor`), `file://` URIs, raw filesystem paths, and Scoped Storage MediaStore queries.
+    - In `DownloadsAdapter.kt`: if a downloaded file is deleted externally by a file manager, displays `"File deleted • $details"`, dims the filename and icon to `alpha = 0.55f`, and preserves download history intact.
+    - In `DownloadsActivity.kt`: wrapped `openFile`, `openInFileManager`, `shareDownloadedFile`, and `showRenameFileDialog` with existence checks. Tapping a deleted item (including Markdown/README files) displays a friendly `"File not found or deleted"` Toast, updates the adapter, and exits safely without crashing the app.
+    - In `LocalFileLoader.kt`: added pre-flight existence verification preventing unhandled exceptions or crashes when attempting to render deleted local documents in WebView.

@@ -116,6 +116,8 @@ class MainActivity : AppCompatActivity() {
     private var isTabsRestored = false
     private var pendingIntent: Intent? = null
     private var wasShowingWebViewBeforePip = false
+    private var lastThemeMode: Int = -1
+    private var lastNightMode: Int = -1
 
     companion object {
         const val ACTION_PIP_PLAY_PAUSE = "com.onyx.browser.action.PIP_PLAY_PAUSE"
@@ -323,6 +325,8 @@ class MainActivity : AppCompatActivity() {
         
         preferences = BrowserPreferences.getInstance(this)
         preferences.applyTheme()
+        lastThemeMode = preferences.themeMode
+        lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         com.onyx.browser.download.OnyxDownloadManager.init(this)
         tabManager = TabManager(this, lifecycleScope)
 
@@ -2599,11 +2603,41 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+
+        // 1. Sync theme if changed in Settings or system dark mode toggled
+        preferences.applyTheme()
+        val currentNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        if ((lastThemeMode != -1 && lastThemeMode != preferences.themeMode) ||
+            (lastNightMode != -1 && lastNightMode != currentNightMode)) {
+            lastThemeMode = preferences.themeMode
+            lastNightMode = currentNightMode
+            recreate()
+            return
+        }
+
+        // 2. Sync search engine & update home widgets
         updateSearchEngineIcon()
-        updatePipParams()
+        com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
+
+        // 3. Sync scroll to top FAB visibility
+        if (!preferences.isScrollToTopEnabled) {
+            binding.fabScrollToTop.visibility = View.GONE
+        }
+
+        // 4. Sync webview settings
         val wv = tabManager.getActiveWebView()
         wv?.onResume()
         wv?.applyUserAgentForUrl(wv.url ?: "")
+        if (wv != null) {
+            android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(
+                wv,
+                preferences.cookieBlockingMode != BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY &&
+                preferences.cookieBlockingMode != BrowserPreferences.COOKIE_BLOCK_ALL
+            )
+            wv.settings.javaScriptEnabled = !preferences.isGlobalScriptBlockingEnabled
+        }
+
+        updatePipParams()
         binding.root.post {
             wv?.resumeTimers()
             wv?.requestFocus()
@@ -2631,6 +2665,15 @@ class MainActivity : AppCompatActivity() {
             } else {
                 binding.fullscreenControlsOverlay.visibility = View.VISIBLE
             }
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val newNightMode = newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        if (lastNightMode != -1 && lastNightMode != newNightMode) {
+            lastNightMode = newNightMode
+            recreate()
         }
     }
 

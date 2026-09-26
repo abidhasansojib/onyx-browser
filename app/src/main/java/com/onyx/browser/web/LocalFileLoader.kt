@@ -9,6 +9,8 @@ import android.provider.OpenableColumns
 import android.util.Base64
 import android.webkit.MimeTypeMap
 import android.webkit.WebResourceResponse
+import android.widget.Toast
+import com.onyx.browser.download.FileUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -99,6 +101,14 @@ object LocalFileLoader {
         val uri = parseUri(rawUriOrPath)
 
         CoroutineScope(Dispatchers.IO).launch {
+            if (!FileUtils.doesFileExist(rawUriOrPath, context)) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "File not found or deleted", Toast.LENGTH_SHORT).show()
+                    showErrorPage(webView, rawUriOrPath, "The requested file was deleted or does not exist.")
+                }
+                return@launch
+            }
+
             val fileName = getDisplayName(context, uri)
             withContext(Dispatchers.Main) {
                 onTitleResolved?.invoke(fileName)

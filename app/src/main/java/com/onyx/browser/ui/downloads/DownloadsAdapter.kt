@@ -12,6 +12,7 @@ import com.onyx.browser.R
 import com.onyx.browser.data.model.DownloadItem
 import com.onyx.browser.databinding.ItemDownloadBinding
 import com.onyx.browser.download.DownloadTaskSnapshot
+import com.onyx.browser.download.FileUtils
 
 class DownloadsAdapter(
     private val onItemClicked: (DownloadItem) -> Unit,
@@ -68,6 +69,9 @@ class DownloadsAdapter(
             val isDbPausedOrInterrupted = snapshot == null && (item.status == DownloadItem.STATUS_PAUSED || item.status == DownloadItem.STATUS_RUNNING)
 
             if (isLiveActive && snapshot != null) {
+                binding.tvDownloadFileName.alpha = 1.0f
+                binding.ivDownloadIcon.alpha = 1.0f
+                binding.tvDownloadDetails.alpha = 1.0f
                 binding.progressDownload.visibility = View.VISIBLE
                 binding.btnActionDownload.visibility = View.VISIBLE
 
@@ -138,6 +142,9 @@ class DownloadsAdapter(
                 binding.progressDownload.visibility = View.GONE
                 binding.btnActionDownload.visibility = View.GONE
 
+                val fileExists = FileUtils.doesFileExist(item.filePath, context)
+                val isDeleted = !fileExists && item.status == DownloadItem.STATUS_COMPLETED
+
                 val sizeFormatted = if (item.fileSize > 0) {
                     Formatter.formatFileSize(context, item.fileSize)
                 } else ""
@@ -148,10 +155,11 @@ class DownloadsAdapter(
                     DateUtils.MINUTE_IN_MILLIS
                 )
 
-                val statusPrefix = when (item.status) {
-                    DownloadItem.STATUS_FAILED -> "Failed • "
-                    DownloadItem.STATUS_CANCELLED -> "Cancelled • "
-                    DownloadItem.STATUS_PAUSED -> "Paused • "
+                val statusPrefix = when {
+                    isDeleted -> "File deleted • "
+                    item.status == DownloadItem.STATUS_FAILED -> "Failed • "
+                    item.status == DownloadItem.STATUS_CANCELLED -> "Cancelled • "
+                    item.status == DownloadItem.STATUS_PAUSED -> "Paused • "
                     else -> ""
                 }
 
@@ -161,6 +169,10 @@ class DownloadsAdapter(
                 ).joinToString(" • ")
 
                 binding.tvDownloadDetails.text = "$statusPrefix$details"
+
+                binding.tvDownloadFileName.alpha = if (isDeleted) 0.55f else 1.0f
+                binding.ivDownloadIcon.alpha = if (isDeleted) 0.55f else 1.0f
+                binding.tvDownloadDetails.alpha = if (isDeleted) 0.75f else 1.0f
             }
 
             binding.root.setOnClickListener { onItemClicked(item) }
