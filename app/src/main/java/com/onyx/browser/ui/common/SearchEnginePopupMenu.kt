@@ -27,6 +27,8 @@ class SearchEnginePopupMenu(
 
     init {
         binding = PopupSearchEnginePickerBinding.inflate(LayoutInflater.from(context))
+        binding.root.setCardBackgroundColor(ContextCompat.getColor(context, R.color.dialog_search_engine_bg))
+        binding.root.cardElevation = 0f
 
         popupWindow = PopupWindow(
             binding.root,

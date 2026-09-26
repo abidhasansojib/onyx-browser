@@ -63,6 +63,7 @@
     <!-- Dialog Prompts & Action Button Colors — Light mode uses white surface -->
     <color name="dialog_clear_data_bg">#FFFFFF</color>
     <color name="dialog_close_all_tabs_bg">#FFFFFF</color>
+    <color name="dialog_search_engine_bg">#FFFFFF</color>
     <color name="btn_cancel_bg">#E8EAED</color>
     <color name="btn_clear_bg">#DC4B64</color>
 

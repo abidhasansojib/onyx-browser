@@ -1526,7 +1526,7 @@ onyx-browser/
   - **Tab Switcher 3-Dot Overflow Menu Width Reduction (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
     - Reduced menu width to 2/3 of current width (from ~225dp to 148dp) to eliminate empty horizontal whitespace.
     - Optimized item padding to 10dp, icon size to 16dp, text size to 12sp with singleLine and ellipsis protection.
-    - Set explicit `popupWidth = (148 * density).toInt()` in `PopupWindow` anchoring.
-
-
-
+  - **Search Engine Switcher Prompt Color Fix (`values/colors.xml`, `values-night/colors.xml`, `popup_search_engine_picker.xml`, `dialog_search_engine_picker.xml`, `bottom_sheet_search_engine_picker.xml`, `SearchEnginePopupMenu.kt`)**:
+    - Changed search engine switcher popup and dialog background color to `#282A2D` (via semantic `@color/dialog_search_engine_bg`).
+    - Resolved Material 3 surface tint bug where `cardElevation > 0` on `MaterialCardView` overlaid coral pink `@color/primary` onto dark surfaces resulting in `#392328`.
+    - Set `cardElevation = 0dp` on all search engine pickers so `#282A2D` renders purely without color tinting, with shadow depth provided directly by the window level.
