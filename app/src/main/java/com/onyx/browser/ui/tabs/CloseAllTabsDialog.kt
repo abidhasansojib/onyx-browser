@@ -63,13 +63,13 @@ class CloseAllTabsDialog(
         }
 
         binding.btnCancelCloseTabs.setOnClickListener {
-            dismiss()
+            dismissAllowingStateLoss()
         }
 
         binding.btnConfirmCloseTabs.setOnClickListener {
             tabManager.closeAllTabs(incognitoOnly = isIncognito)
             onTabsClosed()
-            dismiss()
+            dismissAllowingStateLoss()
         }
     }
 

@@ -37,10 +37,11 @@ class TabSwitcherBottomSheet(
 ) : DialogFragment() {
 
     private var _binding: BottomSheetTabSwitcherBinding? = null
-    private val binding get() = _binding!!
+    private val binding get() = _binding
 
     private lateinit var adapter: TabsAdapter
     private var isViewingIncognito = false
+    private var isDismissing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,59 +63,67 @@ class TabSwitcherBottomSheet(
         savedInstanceState: Bundle?
     ): View {
         _binding = BottomSheetTabSwitcherBinding.inflate(inflater, container, false)
-        return binding.root
+        return _binding!!.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        val b = _binding ?: return
+        isDismissing = false
 
         isViewingIncognito = tabManager.activeTab.value?.isIncognito ?: false
 
         // Apply Window Insets for topBar and bottomBar
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(b.root) { _, insets ->
+            val currentBinding = _binding ?: return@setOnApplyWindowInsetsListener insets
             val statusBars = insets.getInsets(
                 WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
             )
             val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
 
-            binding.tabSwitcherTopBar.setPadding(
-                binding.tabSwitcherTopBar.paddingLeft,
+            currentBinding.tabSwitcherTopBar.setPadding(
+                currentBinding.tabSwitcherTopBar.paddingLeft,
                 statusBars.top,
-                binding.tabSwitcherTopBar.paddingRight,
-                binding.tabSwitcherTopBar.paddingBottom
+                currentBinding.tabSwitcherTopBar.paddingRight,
+                currentBinding.tabSwitcherTopBar.paddingBottom
             )
-            binding.bottomBar.setPadding(
-                binding.bottomBar.paddingLeft,
-                binding.bottomBar.paddingTop,
-                binding.bottomBar.paddingRight,
+            currentBinding.bottomBar.setPadding(
+                currentBinding.bottomBar.paddingLeft,
+                currentBinding.bottomBar.paddingTop,
+                currentBinding.bottomBar.paddingRight,
                 navBars.bottom
             )
             insets
         }
 
-        setupRecyclerView()
-        setupTopControls()
-        setupBottomControls()
+        setupRecyclerView(b)
+        setupTopControls(b)
+        setupBottomControls(b)
         observeTabs()
     }
 
-    private fun setupRecyclerView() {
-        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
+    private fun setupRecyclerView(b: BottomSheetTabSwitcherBinding) {
+        val context = context ?: return
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         adapter = TabsAdapter(
             onTabClicked = { tab ->
+                if (isDismissing) return@TabsAdapter
                 if (tab.isIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
                     promptBiometricAuth {
+                        isDismissing = true
                         tabManager.selectTab(tab)
                         onTabSelected(tab)
-                        dismiss()
+                        dismissAllowingStateLoss()
                     }
                 } else {
+                    isDismissing = true
                     tabManager.selectTab(tab)
                     onTabSelected(tab)
-                    dismiss()
+                    dismissAllowingStateLoss()
                 }
             },
             onTabClosed = { tab ->
+                if (isDismissing) return@TabsAdapter
                 tabManager.closeTab(tab)
             },
             getSnapshot = { tabId ->
@@ -126,8 +135,8 @@ class TabSwitcherBottomSheet(
         )
 
         val spanCount = if (resources.configuration.screenWidthDp >= 600) 3 else 2
-        binding.rvTabs.layoutManager = GridLayoutManager(requireContext(), spanCount)
-        binding.rvTabs.adapter = adapter
+        b.rvTabs.layoutManager = GridLayoutManager(requireContext(), spanCount)
+        b.rvTabs.adapter = adapter
 
         // Swipe-to-dismiss gesture support
         val swipeHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
@@ -138,6 +147,7 @@ class TabSwitcherBottomSheet(
             ): Boolean = false
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                if (isDismissing) return
                 val position = viewHolder.bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION && position < adapter.currentList.size) {
                     val tab = adapter.currentList[position]
@@ -145,25 +155,27 @@ class TabSwitcherBottomSheet(
                 }
             }
         })
-        swipeHelper.attachToRecyclerView(binding.rvTabs)
+        swipeHelper.attachToRecyclerView(b.rvTabs)
     }
 
-    private fun setupTopControls() {
-        binding.btnSearchTabSwitcher.setOnClickListener {
-            dismiss()
+    private fun setupTopControls(b: BottomSheetTabSwitcherBinding) {
+        b.btnSearchTabSwitcher.setOnClickListener {
+            if (isDismissing) return@setOnClickListener
+            isDismissing = true
+            dismissAllowingStateLoss()
             onSearchRequested?.invoke()
         }
 
-        binding.btnNormalTabs.setOnClickListener {
-            if (isViewingIncognito) {
+        b.btnNormalTabs.setOnClickListener {
+            if (isViewingIncognito && !isDismissing) {
                 isViewingIncognito = false
                 updateTabModePillUI()
                 refreshTabsList()
             }
         }
 
-        binding.btnIncognitoTabs.setOnClickListener {
-            if (!isViewingIncognito) {
+        b.btnIncognitoTabs.setOnClickListener {
+            if (!isViewingIncognito && !isDismissing) {
                 val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
                 if (prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
                     promptBiometricAuth {
@@ -192,50 +204,55 @@ class TabSwitcherBottomSheet(
             updateTabModePillUI()
         }
 
-        binding.btnTabSwitcherOverflow.setOnClickListener { v ->
-            showOverflowMenu(v)
+        b.btnTabSwitcherOverflow.setOnClickListener { v ->
+            if (!isDismissing) {
+                showOverflowMenu(v)
+            }
         }
     }
 
     private fun updateTabModePillUI() {
+        val b = _binding ?: return
         val normalCount = tabManager.normalTabs.value.size
-        binding.tvNormalTabCount.text = if (normalCount > 99) "99+" else normalCount.toString()
+        b.tvNormalTabCount.text = if (normalCount > 99) "99+" else normalCount.toString()
 
         val context = context ?: return
         val normalActive = !isViewingIncognito
 
         if (normalActive) {
             // Normal tab button selected: vibrant pink accent squircle + white tab box
-            binding.btnNormalTabs.setBackgroundResource(R.drawable.bg_tab_pill_selected)
-            binding.boxTabCount.setBackgroundResource(R.drawable.bg_tab_count_box)
-            binding.tvNormalTabCount.setTextColor(android.graphics.Color.WHITE)
+            b.btnNormalTabs.setBackgroundResource(R.drawable.bg_tab_pill_selected)
+            b.boxTabCount.setBackgroundResource(R.drawable.bg_tab_count_box)
+            b.tvNormalTabCount.setTextColor(android.graphics.Color.WHITE)
 
             // Incognito tab unselected: rounded ripple + subtle muted icon
-            binding.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
-            binding.ivIncognitoToggle.setColorFilter(android.graphics.Color.parseColor("#9AA0A6"))
+            b.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
+            b.ivIncognitoToggle.setColorFilter(android.graphics.Color.parseColor("#9AA0A6"))
         } else {
             // Incognito tab button selected: vibrant pink accent squircle + white fedora/glasses icon
-            binding.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_selected)
-            binding.ivIncognitoToggle.setColorFilter(android.graphics.Color.WHITE)
+            b.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_selected)
+            b.ivIncognitoToggle.setColorFilter(android.graphics.Color.WHITE)
 
             // Normal tab unselected: rounded ripple + subtle muted tab box
-            binding.btnNormalTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
+            b.btnNormalTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
             val boxDrawable = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.bg_tab_count_box)?.mutate()
             if (boxDrawable != null) {
                 androidx.core.graphics.drawable.DrawableCompat.setTint(boxDrawable, android.graphics.Color.parseColor("#9AA0A6"))
-                binding.boxTabCount.background = boxDrawable
+                b.boxTabCount.background = boxDrawable
             }
-            binding.tvNormalTabCount.setTextColor(android.graphics.Color.parseColor("#9AA0A6"))
+            b.tvNormalTabCount.setTextColor(android.graphics.Color.parseColor("#9AA0A6"))
         }
     }
 
     private fun promptBiometricAuth(onSuccess: (() -> Unit)? = null) {
-        val executor = androidx.core.content.ContextCompat.getMainExecutor(requireContext())
+        val context = context ?: return
+        val executor = androidx.core.content.ContextCompat.getMainExecutor(context)
         val biometricPrompt = androidx.biometric.BiometricPrompt(this, executor,
             object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
                     tabManager.isIncognitoUnlocked = true
+                    if (isDismissing || _binding == null) return
                     onSuccess?.invoke() ?: run {
                         isViewingIncognito = true
                         updateTabModePillUI()
@@ -244,6 +261,7 @@ class TabSwitcherBottomSheet(
                 }
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
+                    if (isDismissing || _binding == null) return
                     isViewingIncognito = false
                     updateTabModePillUI()
                     refreshTabsList()
@@ -266,6 +284,7 @@ class TabSwitcherBottomSheet(
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     tabManager.normalTabs.collectLatest { list ->
+                        if (isDismissing || _binding == null) return@collectLatest
                         updateTabModePillUI()
                         if (!isViewingIncognito) {
                             renderTabs(list)
@@ -274,6 +293,7 @@ class TabSwitcherBottomSheet(
                 }
                 launch {
                     tabManager.incognitoTabs.collectLatest { list ->
+                        if (isDismissing || _binding == null) return@collectLatest
                         updateTabModePillUI()
                         if (isViewingIncognito) {
                             renderTabs(list)
@@ -282,6 +302,7 @@ class TabSwitcherBottomSheet(
                 }
                 launch {
                     tabManager.activeTab.collectLatest { active ->
+                        if (isDismissing || _binding == null) return@collectLatest
                         adapter.activeTabId = active?.id
                         adapter.notifyDataSetChanged()
                     }
@@ -291,6 +312,7 @@ class TabSwitcherBottomSheet(
     }
 
     fun refreshTabsList() {
+        if (isDismissing || _binding == null) return
         updateTabModePillUI()
         val list = if (isViewingIncognito) {
             tabManager.incognitoTabs.value
@@ -301,16 +323,20 @@ class TabSwitcherBottomSheet(
     }
 
     private fun renderTabs(list: List<TabItem>) {
+        if (isDismissing) return
+        val b = _binding ?: return
         adapter.activeTabId = tabManager.activeTab.value?.id
         adapter.submitList(ArrayList(list)) {
+            val currentBinding = _binding ?: return@submitList
             val isEmpty = list.isEmpty()
-            binding.emptyTabsView.visibility = if (isEmpty) View.VISIBLE else View.GONE
-            binding.rvTabs.visibility = if (isEmpty) View.GONE else View.VISIBLE
+            currentBinding.emptyTabsView.visibility = if (isEmpty) View.VISIBLE else View.GONE
+            currentBinding.rvTabs.visibility = if (isEmpty) View.GONE else View.VISIBLE
         }
     }
 
     private fun showOverflowMenu(anchor: View) {
-        val popup = PopupMenu(requireContext(), anchor)
+        val context = context ?: return
+        val popup = PopupMenu(context, anchor)
         popup.menu.apply {
             add(0, 1, 0, getString(R.string.new_tab))
             add(0, 2, 1, getString(R.string.new_incognito_tab))
@@ -320,21 +346,27 @@ class TabSwitcherBottomSheet(
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 1 -> {
-                    onNewTabRequested(false)
-                    dismiss()
+                    if (!isDismissing) {
+                        isDismissing = true
+                        onNewTabRequested(false)
+                        dismissAllowingStateLoss()
+                    }
                     true
                 }
                 2 -> {
-                    onNewTabRequested(true)
-                    dismiss()
+                    if (!isDismissing) {
+                        isDismissing = true
+                        onNewTabRequested(true)
+                        dismissAllowingStateLoss()
+                    }
                     true
                 }
                 3 -> {
-                    confirmCloseAllTabs()
+                    if (!isDismissing) confirmCloseAllTabs()
                     true
                 }
                 4 -> {
-                    showClearBrowsingDataDialog()
+                    if (!isDismissing) showClearBrowsingDataDialog()
                     true
                 }
                 else -> false
@@ -343,21 +375,23 @@ class TabSwitcherBottomSheet(
         popup.show()
     }
 
-    private fun setupBottomControls() {
+    private fun setupBottomControls(b: BottomSheetTabSwitcherBinding) {
         // Left Button: Clear Browsing Data (Brush icon)
-        binding.btnClearHistory.setOnClickListener {
-            showClearBrowsingDataDialog()
+        b.btnClearHistory.setOnClickListener {
+            if (!isDismissing) showClearBrowsingDataDialog()
         }
 
         // Center Button: New Tab
-        binding.fabNewTab.setOnClickListener {
+        b.fabNewTab.setOnClickListener {
+            if (isDismissing) return@setOnClickListener
+            isDismissing = true
             onNewTabRequested(isViewingIncognito)
-            dismiss()
+            dismissAllowingStateLoss()
         }
 
         // Right Button: Close All Open Tabs in current mode
-        binding.btnCloseAllTabs.setOnClickListener {
-            confirmCloseAllTabs()
+        b.btnCloseAllTabs.setOnClickListener {
+            if (!isDismissing) confirmCloseAllTabs()
         }
     }
 
@@ -392,6 +426,8 @@ class TabSwitcherBottomSheet(
     }
 
     override fun onDestroyView() {
+        isDismissing = true
+        _binding?.rvTabs?.adapter = null
         super.onDestroyView()
         _binding = null
     }

@@ -113,8 +113,9 @@ class ClearBrowsingDataDialog(
                 "None recorded in this period"
             }
 
-            binding.tvHistoryCount.text = getString(R.string.browsing_history_preview, count, "")
-            binding.tvHistoryExample.text = exampleString
+            val b = _binding ?: return@launch
+            b.tvHistoryCount.text = getString(R.string.browsing_history_preview, count, "")
+            b.tvHistoryExample.text = exampleString
 
             // 2. Open tabs count and examples
             val normalTabs = tabManager.normalTabs.value
@@ -135,8 +136,8 @@ class ClearBrowsingDataDialog(
                 "None opened in this period"
             }
 
-            binding.tvTabsCount.text = getString(R.string.open_tabs_preview, tabsCount, "")
-            binding.tvTabsExample.text = tabExampleString
+            b.tvTabsCount.text = getString(R.string.open_tabs_preview, tabsCount, "")
+            b.tvTabsExample.text = tabExampleString
         }
     }
 
@@ -172,7 +173,7 @@ class ClearBrowsingDataDialog(
 
             Toast.makeText(context, getString(R.string.browsing_data_cleared), Toast.LENGTH_SHORT).show()
             onDataCleared()
-            dismiss()
+            dismissAllowingStateLoss()
         }
     }
 

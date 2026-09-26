@@ -1274,3 +1274,13 @@ onyx-browser/
   - Configured `isAutoRedirectAmpEnabled` default to `true` (resolves canonical non-AMP pages for Google AMP cache `/amp/s/`, `amp.` subdomains, and `/amp/` paths).
   - Configured `isAutoRedirectTrackingUrlsEnabled` default to `true` (automatically strips 25+ ad and analytics tracking query parameters including `utm_*`, `fbclid`, `gclid`, `msclkid`, `ttclid`, `li_fat_id`, `igshid`, etc.).
   - Added `migrateAutoRedirectDefaults()` in `BrowserPreferences.init` ensuring both settings are enabled on launch for existing and new users while respecting manual user overrides.
+
+- [x] **Tab Switcher Selection Crash / NullPointerException Fix (`TabSwitcherBottomSheet.kt`, `ClearBrowsingDataDialog.kt`, `CloseAllTabsDialog.kt`)**:
+  - **Root Cause Resolved**: In `TabSwitcherBottomSheet.kt`, clicking a tab triggered `tabManager.selectTab(tab)`, then `onTabSelected(tab)`, and immediately `dismiss()`. The dismiss destroyed the view and cleared `_binding = null`. Simultaneously, the StateFlow updates triggered `adapter.submitList(...)` whose diffing callback on the main Handler accessed `binding.emptyTabsView.visibility`, calling `binding` (`_binding!!`), throwing `java.lang.NullPointerException at com.onyx.browser.ui.tabs.TabSwitcherBottomSheet.getBinding` and crashing the application.
+  - **Lifecycle-Safe Binding Guards**:
+    - Eliminated unsafe `_binding!!` property getter; converted `binding` to nullable `_binding` and passed safe non-null local references (`val b = _binding ?: return`) during `onViewCreated`.
+    - Added safe nullable guard `val currentBinding = _binding ?: return@submitList` inside `adapter.submitList` async commit callback.
+    - Added `isDismissing` state flag preventing redundant flow collections, layout re-renders, and list computations after dialog dismissal is requested.
+    - Hardened `onDestroyView()` to detach `b.rvTabs.adapter = null` and cancel pending animations before clearing `_binding`.
+    - Upgraded all `dismiss()` calls to `dismissAllowingStateLoss()` across `TabSwitcherBottomSheet`, `ClearBrowsingDataDialog`, and `CloseAllTabsDialog` to prevent crashes during lifecycle transitions.
+
