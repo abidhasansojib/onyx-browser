@@ -363,9 +363,12 @@ class TabSwitcherBottomSheet(
         val inflater = LayoutInflater.from(context)
         val menuBinding = PopupTabSwitcherMenuBinding.inflate(inflater)
 
+        val density = context.resources.displayMetrics.density
+        val popupWidth = (148 * density).toInt()
+
         val popup = PopupWindow(
             menuBinding.root,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
+            popupWidth,
             ViewGroup.LayoutParams.WRAP_CONTENT,
             true
         ).apply {
@@ -403,12 +406,6 @@ class TabSwitcherBottomSheet(
             if (!isDismissing) showClearBrowsingDataDialog()
         }
 
-        val density = context.resources.displayMetrics.density
-        menuBinding.root.measure(
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        )
-        val popupWidth = menuBinding.root.measuredWidth
         val anchorWidth = if (anchor.width > 0) anchor.width else (40 * density).toInt()
         val xOffset = anchorWidth - popupWidth
         val yOffset = (4 * density).toInt()

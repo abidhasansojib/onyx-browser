@@ -1523,7 +1523,10 @@ onyx-browser/
   - **Dedicated Internal Media Player (`InternalPlayerActivity.kt`, `activity_internal_player.xml`)**:
     - Immersive full-screen player with black background, auto-hiding controls, scrubbable seekbar, aspect ratio toggle, 10s seek buttons, and direct video download action.
   - **Close All Tabs Prompt Color Fix (`values-night/colors.xml`)**:
-    - Changed `dialog_close_all_tabs_bg` from `#000000` to `#282A2D` to match Google Dark theme card surface and the "Clear Data" confirmation prompt.
+  - **Tab Switcher 3-Dot Overflow Menu Width Reduction (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
+    - Reduced menu width to 2/3 of current width (from ~225dp to 148dp) to eliminate empty horizontal whitespace.
+    - Optimized item padding to 10dp, icon size to 16dp, text size to 12sp with singleLine and ellipsis protection.
+    - Set explicit `popupWidth = (148 * density).toInt()` in `PopupWindow` anchoring.
 
 
 
