@@ -1522,7 +1522,8 @@ onyx-browser/
     - Added toggle switch in Settings > Video options (`isFloatingVideoMenuEnabled`, `settingFloatingMenuSwitch`).
   - **Dedicated Internal Media Player (`InternalPlayerActivity.kt`, `activity_internal_player.xml`)**:
     - Immersive full-screen player with black background, auto-hiding controls, scrubbable seekbar, aspect ratio toggle, 10s seek buttons, and direct video download action.
-    - Fallback option to open in external video players for unstreamable media types.
+  - **Close All Tabs Prompt Color Fix (`values-night/colors.xml`)**:
+    - Changed `dialog_close_all_tabs_bg` from `#000000` to `#282A2D` to match Google Dark theme card surface and the "Clear Data" confirmation prompt.
 
 
 
