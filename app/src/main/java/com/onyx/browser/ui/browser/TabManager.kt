@@ -34,15 +34,6 @@ class TabManager(
         var activeInstance: TabManager? = null
     }
 
-    init {
-        activeInstance = this
-        coroutineScope.launch {
-            incognitoTabs.collect { tabs ->
-                com.onyx.browser.incognito.IncognitoNotificationHelper.updateNotification(context, tabs.size)
-            }
-        }
-    }
-
     private val database = AppDatabase.getInstance(context)
 
     private val _normalTabs = MutableStateFlow<List<TabItem>>(emptyList())
@@ -60,6 +51,15 @@ class TabManager(
     val snapshotCache = object : android.util.LruCache<String, Bitmap>(30) {
         override fun entryRemoved(evicted: Boolean, key: String?, oldValue: Bitmap?, newValue: Bitmap?) {
             // Let GC reclaim memory smoothly
+        }
+    }
+
+    init {
+        activeInstance = this
+        coroutineScope.launch {
+            incognitoTabs.collect { tabs ->
+                com.onyx.browser.incognito.IncognitoNotificationHelper.updateNotification(context, tabs.size)
+            }
         }
     }
 

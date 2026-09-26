@@ -1582,5 +1582,7 @@ onyx-browser/
     - **Channel & Lifecycle Management**: Notification channel initialized cleanly in `OnyxApplication.onCreate()` and `MainActivity.onCreate()`; ongoing notification and active instance safely dismissed and cleared in `MainActivity.onDestroy()` when finishing.
   - **MediaPlaybackService Artwork Scope Fix (`MediaPlaybackService.kt`)**:
     - Relocated `@Volatile var currentArtworkBitmap: Bitmap? = null` to `companion object` so it is accessible within `stop(context)` and `onDestroy()` without unresolved reference compiler errors.
+  - **TabManager Initialization Order Fix (`TabManager.kt`)**:
+    - Moved the `init` block below `incognitoTabs` and all other `StateFlow` property declarations. Previously, launching `coroutineScope.launch { incognitoTabs.collect { ... } }` in an `init` block placed above `incognitoTabs` executed before `val incognitoTabs` was instantiated, throwing `NullPointerException` on `collect()` on app startup.
 
 
