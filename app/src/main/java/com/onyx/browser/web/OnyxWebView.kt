@@ -17,6 +17,8 @@ import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.web.error.SyntheticNavigationState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 @SuppressLint("SetJavaScriptEnabled")
 class OnyxWebView @JvmOverloads constructor(
@@ -24,6 +26,8 @@ class OnyxWebView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
 ) : WebView(context, attrs, defStyleAttr) {
+
+    private val webViewScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     var tabId: String = ""
     var isIncognito: Boolean = false
@@ -188,8 +192,7 @@ class OnyxWebView @JvmOverloads constructor(
         val activity = findActivity(context)
         if (activity != null) {
             try {
-                val coroutineScope = (activity as? LifecycleOwner)?.lifecycleScope
-                    ?: CoroutineScope(Dispatchers.Main)
+                val coroutineScope = (activity as? LifecycleOwner)?.lifecycleScope ?: webViewScope
                 addJavascriptInterface(
                     PasskeyWebAuthnBridge(activity, this, coroutineScope),
                     PasskeyWebAuthnBridge.JS_INTERFACE_NAME
@@ -215,8 +218,7 @@ class OnyxWebView @JvmOverloads constructor(
 
         // Blob Downloads Bridge
         try {
-            val bridgeScope = (activity as? LifecycleOwner)?.lifecycleScope
-                ?: CoroutineScope(Dispatchers.Main)
+            val bridgeScope = (activity as? LifecycleOwner)?.lifecycleScope ?: webViewScope
             addJavascriptInterface(
                 OnyxBlobBridge(context.applicationContext, bridgeScope),
                 "OnyxBlobBridge"
@@ -289,7 +291,8 @@ class OnyxWebView @JvmOverloads constructor(
             clearCache(true)
             clearHistory()
             clearFormData()
-            CookieManager.getInstance().setAcceptCookie(false)
+            // Do NOT call CookieManager.setAcceptCookie(false) globally — it breaks all normal tabs!
+            // Restrict cookies per-WebView by disabling third-party cookies for this view.
             try { CookieManager.getInstance().setAcceptThirdPartyCookies(this, false) } catch (_: Exception) {}
         } else {
             settings.cacheMode = WebSettings.LOAD_DEFAULT
@@ -415,12 +418,12 @@ class OnyxWebView @JvmOverloads constructor(
             }
             evaluateJavascript("try { var v = document.querySelectorAll('video, audio'); for(var i=0; i<v.length; i++) { v[i].pause(); v[i].src = ''; } } catch(e){}", null)
             stopLoading()
-            loadUrl("about:blank")
             clearHistory()
             (parent as? ViewGroup)?.removeView(this)
             removeAllViews()
             destroy()
         } catch (_: Exception) {}
+        webViewScope.cancel()
     }
 
     override fun loadUrl(url: String) {

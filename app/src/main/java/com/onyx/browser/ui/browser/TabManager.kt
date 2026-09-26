@@ -31,7 +31,12 @@ class TabManager(
     private val coroutineScope: CoroutineScope
 ) {
     companion object {
-        var activeInstance: TabManager? = null
+        private var _activeInstanceRef: java.lang.ref.WeakReference<TabManager>? = null
+        var activeInstance: TabManager?
+            get() = _activeInstanceRef?.get()
+            set(value) {
+                _activeInstanceRef = value?.let { java.lang.ref.WeakReference(it) }
+            }
     }
 
     private val database = AppDatabase.getInstance(context)
@@ -56,7 +61,7 @@ class TabManager(
 
     init {
         activeInstance = this
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.Main) {
             incognitoTabs.collect { tabs ->
                 com.onyx.browser.incognito.IncognitoNotificationHelper.updateNotification(context, tabs.size)
             }
@@ -267,6 +272,9 @@ class TabManager(
 
     private fun saveSnapshot(tabId: String, bitmap: Bitmap) {
         snapshotCache.put(tabId, bitmap)
+        // NEVER write incognito tab screenshots to disk
+        val isIncognito = _incognitoTabs.value.any { it.id == tabId }
+        if (isIncognito) return
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val file = getThumbnailFile(tabId)
@@ -405,28 +413,34 @@ class TabManager(
     private fun autoclearTabData(tab: TabItem) {
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         if (prefs.isCookieAutoclearOnCloseEnabled && tab.url.isNotBlank() && !tab.url.startsWith("file://") && !tab.url.startsWith("content://")) {
-            try {
-                val uri = android.net.Uri.parse(tab.url)
-                val domain = uri.host
-                if (!domain.isNullOrBlank()) {
-                    android.webkit.WebStorage.getInstance().deleteOrigin("${uri.scheme}://$domain")
-                    
-                    val cookieManager = android.webkit.CookieManager.getInstance()
-                    val cookies = cookieManager.getCookie(domain)
-                    if (cookies != null) {
-                        val splitCookies = cookies.split(";")
-                        for (cookie in splitCookies) {
-                            val cookieParts = cookie.split("=")
-                            if (cookieParts.isNotEmpty()) {
-                                val cookieName = cookieParts[0].trim()
-                                cookieManager.setCookie(domain, "$cookieName=; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    val uri = android.net.Uri.parse(tab.url)
+                    val domain = uri.host
+                    if (!domain.isNullOrBlank()) {
+                        // Don't clear if another open tab uses the same domain
+                        val stillOpenOnDomain = (_normalTabs.value + _incognitoTabs.value)
+                            .any { it.id != tab.id && android.net.Uri.parse(it.url).host == domain }
+                        if (stillOpenOnDomain) return@post
+                        android.webkit.WebStorage.getInstance().deleteOrigin("${uri.scheme}://$domain")
+                        
+                        val cookieManager = android.webkit.CookieManager.getInstance()
+                        val cookies = cookieManager.getCookie(domain)
+                        if (cookies != null) {
+                            val splitCookies = cookies.split(";")
+                            for (cookie in splitCookies) {
+                                val cookieParts = cookie.split("=")
+                                if (cookieParts.isNotEmpty()) {
+                                    val cookieName = cookieParts[0].trim()
+                                    cookieManager.setCookie(domain, "$cookieName=; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                }
                             }
+                            cookieManager.flush()
                         }
-                        cookieManager.flush()
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -481,7 +495,7 @@ class TabManager(
             }
             _incognitoTabs.value = emptyList()
             if (_activeTab.value?.isIncognito == true) {
-                _activeTab.value = _normalTabs.value.firstOrNull() ?: createNewTab(isIncognito = false)
+                _activeTab.value = _normalTabs.value.lastOrNull() ?: createNewTab(isIncognito = false)
             }
         } else {
             com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
@@ -525,11 +539,16 @@ class TabManager(
             }
         }
 
-        if (remainingNormal.isEmpty()) {
+        if (remainingNormal.isEmpty() && remainingIncognito.isEmpty()) {
             val newTab = createNewTab(isIncognito = false)
             _activeTab.value = newTab
         } else if (_activeTab.value == null || normalToClose.any { it.id == _activeTab.value?.id } || incognitoToClose.any { it.id == _activeTab.value?.id }) {
-            _activeTab.value = remainingNormal.lastOrNull()
+            val wasIncognito = incognitoToClose.any { it.id == _activeTab.value?.id } || _activeTab.value?.isIncognito == true
+            _activeTab.value = if (wasIncognito && remainingIncognito.isNotEmpty()) {
+                remainingIncognito.last()
+            } else {
+                remainingNormal.lastOrNull() ?: remainingIncognito.lastOrNull() ?: createNewTab(isIncognito = false)
+            }
         }
     }
 

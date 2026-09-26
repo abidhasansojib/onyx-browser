@@ -1584,5 +1584,19 @@ onyx-browser/
     - Relocated `@Volatile var currentArtworkBitmap: Bitmap? = null` to `companion object` so it is accessible within `stop(context)` and `onDestroy()` without unresolved reference compiler errors.
   - **TabManager Initialization Order Fix (`TabManager.kt`)**:
     - Moved the `init` block below `incognitoTabs` and all other `StateFlow` property declarations. Previously, launching `coroutineScope.launch { incognitoTabs.collect { ... } }` in an `init` block placed above `incognitoTabs` executed before `val incognitoTabs` was instantiated, throwing `NullPointerException` on `collect()` on app startup.
+  - **Comprehensive Codebase Bug Audit & Fixes (`bug_fix_guide.md`)**:
+    - **BUG-01: Incognito CookieManager Isolation (`OnyxWebView.kt`)**: Removed global `CookieManager.getInstance().setAcceptCookie(false)` in `setIncognitoMode`. Because `CookieManager` is process-wide, this was inadvertently breaking cookies and authentication across all normal tabs whenever an incognito tab was open (fixing CAPTCHA confirmation and login failures). Third-party cookies remain blocked per-WebView via `setAcceptThirdPartyCookies(this, false)`.
+    - **BUG-02: Incognito Tab Disk Leak Guard (`TabManager.kt`)**: Prevented writing thumbnail snapshots of incognito tabs to disk storage in `saveSnapshot(tabId, bitmap)`.
+    - **BUG-03: Download Coroutine Cancellation Fix (`DownloadPromptBottomSheet.kt`)**: Introduced application-scoped `downloadScope` in companion object for `DownloadHandler.startSystemDownload`, replacing `lifecycleScope` which was prematurely cancelled upon bottom sheet dismissal.
+    - **BUG-04: Static Context Leak Prevention (`TabManager.kt`)**: Converted static `activeInstance` in `TabManager.companion object` to use `WeakReference<TabManager>` to prevent holding references to destroyed `MainActivity` contexts across configuration changes.
+    - **BUG-05: Media Playback Service Termination on End (`MediaPlaybackBridge.kt`)**: Updated `onMediaEnded()` to call `MediaPlaybackService.stop(context)` and clear playing tab/view references so ongoing media notifications dismiss when media finishes.
+    - **BUG-06: Shared Domain Cookie Auto-Clear Safeguard (`TabManager.kt`)**: Updated `autoclearTabData()` to verify no other open tabs share the target domain before purging WebStorage and cookies, and wrapped operations in `Handler(Looper.getMainLooper()).post`.
+    - **BUG-07: Detached Fragment Context Safety (`DownloadPromptBottomSheet.kt`)**: Added `isAdded` check prior to showing storage permission toasts in `storagePermissionLauncher`.
+    - **BUG-08: Coroutine Scope Leak Fix (`OnyxWebView.kt`)**: Replaced bare `CoroutineScope(Dispatchers.Main)` fallbacks with dedicated `webViewScope` that is cancelled in `destroySafely()`.
+    - **BUG-09: Active Tab Pointer Correction on Incognito Close (`TabManager.kt`)**: Ensured `closeAllTabs(incognitoOnly = true)` switches active tab to the last valid normal tab if the active tab was incognito.
+    - **BUG-11: Chromium Destroy Race Fix (`OnyxWebView.kt`)**: Removed redundant `loadUrl("about:blank")` immediately preceding `destroy()` in `destroySafely()`.
+    - **BUG-12: Incognito Fallback Consistency (`TabManager.kt`)**: Updated `closeTabsCreatedSince()` to keep the user in incognito mode if other incognito tabs remain open.
+    - **BUG-13: Explicit Dispatcher Initialization (`TabManager.kt`)**: Used `Dispatchers.Main` explicitly for the notification collector coroutine in `TabManager.init`.
+
 
 

@@ -232,11 +232,13 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     fun onMediaEnded() {
         isAudioOrVideoPlaying = false
         isVideoPlaying = false
+        currentPlayingTabId = null
+        currentPlayingWebView = null
 
         mainHandler.post {
             onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
             if (preferences.isBackgroundPlayEnabled) {
-                MediaPlaybackService.updateState(context, false, currentPositionMs, currentDurationMs)
+                MediaPlaybackService.stop(context)
             }
         }
     }

@@ -17,6 +17,9 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
@@ -44,7 +47,9 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
         if (isGranted) {
             pendingDownloadAction?.invoke()
         } else {
-            Toast.makeText(requireContext(), "Storage permission required to download files", Toast.LENGTH_SHORT).show()
+            if (isAdded) {
+                Toast.makeText(requireContext(), "Storage permission required to download files", Toast.LENGTH_SHORT).show()
+            }
         }
         pendingDownloadAction = null
     }
@@ -134,7 +139,7 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
             checkStorageAndDownload {
                 DownloadHandler.startSystemDownload(
                     context = requireContext().applicationContext,
-                    coroutineScope = lifecycleScope,
+                    coroutineScope = downloadScope,
                     url = fileUrl,
                     userAgent = userAgent,
                     fileName = finalFileName,
@@ -166,7 +171,7 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
                             checkStorageAndDownload {
                                 DownloadHandler.startSystemDownload(
                                     context = requireContext().applicationContext,
-                                    coroutineScope = lifecycleScope,
+                                    coroutineScope = downloadScope,
                                     url = fileUrl,
                                     userAgent = userAgent,
                                     fileName = finalFileName,
@@ -246,6 +251,7 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
     }
 
     companion object {
+        private val downloadScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         const val TAG = "DownloadPromptBottomSheet"
 
         private const val ARG_URL = "arg_url"
