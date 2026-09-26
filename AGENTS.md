@@ -1627,3 +1627,7 @@ onyx-browser/
         - **Screen State Receiver & Wakelock Management**: Registered dynamic broadcast receiver in `MediaPlaybackService` for `ACTION_SCREEN_OFF`, `ACTION_SCREEN_ON`, and `ACTION_USER_PRESENT` to maintain `PARTIAL_WAKE_LOCK` across lock gaps.
         - **WebView Lifecycle Throttling Shield**: Maintained active rendering without invoking `webView.onPause()` or `pauseTimers()` on playback WebViews when background play is enabled.
         - **Background State Synchronization**: Synced `isAppInBackground` in `MainActivity.onPause()` / `onResume()` and broadcast `set_bg` to all nested iframe players via the postMessage bus.
+  - **Removal of Manual Heuristic Interstitial Overlay Cleaner (`AdBlockDocumentStart.kt`)**:
+    - Removed manual Section 9 heuristic DOM cleaner (`isInterstitialOverlay`, `removeInterstitialOverlays`, and `interstitialObserver`).
+    - Aligned with Brave AdBlock architecture: interstitial ads are blocked cleanly and reliably at the network layer, through scriptlets, and via declarative cosmetic selector rules compiled from EasyList, uBlock Annoyances, and Fanboy's lists, completely eliminating DOM breakage on CAPTCHAs, video player modals, and stream dialogs.
+
