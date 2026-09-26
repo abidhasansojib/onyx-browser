@@ -364,7 +364,7 @@ class TabSwitcherBottomSheet(
         val menuBinding = PopupTabSwitcherMenuBinding.inflate(inflater)
 
         val density = context.resources.displayMetrics.density
-        val popupWidth = (148 * density).toInt()
+        val popupWidth = (180 * density).toInt()
 
         val popup = PopupWindow(
             menuBinding.root,

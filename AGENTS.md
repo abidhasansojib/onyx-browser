@@ -1567,5 +1567,8 @@ onyx-browser/
     - **WebView Safe Tear-Down**: Updated `OnyxWebView.destroySafely()` to pause media elements and reset playback if the destroyed view was playing media.
     - **Foreground Service Clean Stop**: Hardened `MediaPlaybackService.stop()` and `onDestroy()` to cancel `NOTIFICATION_ID` via `NotificationManager`, release wakelocks, and call `stopForeground(STOP_FOREGROUND_REMOVE)` so no orphaned notifications remain in Android SystemUI.
     - **Targeted Notification Actions**: Updated `MainActivity.mediaActionListener` to execute Play/Pause/Seek on the actual playing tab rather than the foreground tab, and call `resetMediaPlayback` when media is stopped.
+  - **Tab Switcher 3-Dot Overflow Menu Width Adjustment (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
+    - Expanded menu width from 148dp to 180dp to give comfortable breathing room for option labels ("New tab", "New incognito tab", "Close all tabs", "Delete browsing data") without any cramped text or ellipsis truncation.
+    - Adjusted item heights to 40dp, icon sizes to 18dp with 8dp end margins, and typography to 13sp with 12dp horizontal padding for optimal touch targets and clean visual balance.
 
 
