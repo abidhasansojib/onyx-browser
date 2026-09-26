@@ -30,6 +30,19 @@ class TabManager(
     private val context: Context,
     private val coroutineScope: CoroutineScope
 ) {
+    companion object {
+        var activeInstance: TabManager? = null
+    }
+
+    init {
+        activeInstance = this
+        coroutineScope.launch {
+            incognitoTabs.collect { tabs ->
+                com.onyx.browser.incognito.IncognitoNotificationHelper.updateNotification(context, tabs.size)
+            }
+        }
+    }
+
     private val database = AppDatabase.getInstance(context)
 
     private val _normalTabs = MutableStateFlow<List<TabItem>>(emptyList())

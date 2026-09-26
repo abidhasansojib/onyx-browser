@@ -3109,6 +3109,13 @@ class MainActivity : AppCompatActivity() {
         MediaPlaybackService.mediaActionListener = null
         floatingVideoMenuManager?.hideImmediately()
         floatingVideoMenuManager = null
+        if (isFinishing) {
+            tabManager.closeAllTabs(incognitoOnly = true)
+            com.onyx.browser.incognito.IncognitoNotificationHelper.dismissNotification(this)
+            if (TabManager.activeInstance == tabManager) {
+                TabManager.activeInstance = null
+            }
+        }
         tabManager.clearAllWebViews()
     }
 }

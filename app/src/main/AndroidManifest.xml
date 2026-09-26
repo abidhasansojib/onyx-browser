@@ -444,6 +444,15 @@
             android:name=".ui.widget.SearchWidgetPinnedReceiver"
             android:exported="false" />
 
+        <!-- Close All Incognito Tabs Broadcast Receiver -->
+        <receiver
+            android:name=".incognito.IncognitoNotificationReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.onyx.browser.action.CLOSE_ALL_INCOGNITO" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 

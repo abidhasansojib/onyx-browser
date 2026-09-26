@@ -469,6 +469,13 @@
     <string name="delete_custom_filter_title">Delete Custom Filter</string>
     <string name="delete_custom_filter_confirm">Are you sure you want to delete \'%1$s\'?</string>
     <string name="filter_badge_custom">CUSTOM</string>
+
+    <!-- Incognito Tabs Notification -->
+    <string name="incognito_tabs_notification_title">Incognito tabs</string>
+    <string name="close_all_incognito_tabs">Close all incognito tabs</string>
+    <string name="incognito_tabs_open_single">1 incognito tab open</string>
+    <string name="incognito_tabs_open_multi">%1$d incognito tabs open</string>
+    <string name="all_incognito_tabs_closed">All incognito tabs closed</string>
 </resources>
 
 

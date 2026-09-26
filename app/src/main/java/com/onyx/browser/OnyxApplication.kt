@@ -60,5 +60,12 @@ class OnyxApplication : Application() {
         } catch (t: Throwable) {
             Log.e("OnyxApplication", "Failed to initialize ServiceWorker interception", t)
         }
+
+        // Initialize Incognito tabs notification channel
+        try {
+            com.onyx.browser.incognito.IncognitoNotificationHelper.initChannel(this)
+        } catch (t: Throwable) {
+            Log.e("OnyxApplication", "Failed to initialize Incognito notification channel", t)
+        }
     }
 }

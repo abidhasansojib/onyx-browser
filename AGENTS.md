@@ -1570,5 +1570,15 @@ onyx-browser/
   - **Tab Switcher 3-Dot Overflow Menu Width Adjustment (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
     - Expanded menu width from 148dp to 180dp to give comfortable breathing room for option labels ("New tab", "New incognito tab", "Close all tabs", "Delete browsing data") without any cramped text or ellipsis truncation.
     - Adjusted item heights to 40dp, icon sizes to 18dp with 8dp end margins, and typography to 13sp with 12dp horizontal padding for optimal touch targets and clean visual balance.
+  - **Ongoing Incognito Tabs Notification & 1-Tap Close Action (`IncognitoNotificationHelper.kt`, `IncognitoNotificationReceiver.kt`, `TabManager.kt`, `MainActivity.kt`, `OnyxApplication.kt`, `AndroidManifest.xml`, `strings.xml`)**:
+    - **Chromium / Chrome-Style Ongoing Notification**: Implemented ongoing status notification (`onyx_incognito_tabs`, id `4041`) displaying whenever 1 or more incognito tabs are open, alerting the user to active private browsing sessions.
+    - **Notification Details**: Title `"Incognito tabs"`, body `"Close all incognito tabs"`, subText dynamic counter (`"1 incognito tab open"` / `"%1$d incognito tabs open"`), small icon `ic_incognito`, and action button `"Close all incognito tabs"`.
+    - **1-Tap Instant Dismissal**: Tapping the notification body or the action button sends a broadcast with `ACTION_CLOSE_ALL_INCOGNITO` to `IncognitoNotificationReceiver`.
+    - **Complete Cleanup & Safety**:
+      - `IncognitoNotificationReceiver` safely executes on the main thread, calling `TabManager.activeInstance?.closeAllTabs(incognitoOnly = true)`, which destroys private WebViews, cleans session cookies/cache, stops background media playback originating from incognito tabs, and emits an empty list on `incognitoTabs` StateFlow.
+      - Displays instant confirmation Toast (`"All incognito tabs closed"`).
+      - Automatically clears the ongoing notification via `IncognitoNotificationHelper.dismissNotification()`.
+    - **Reactive StateFlow Observation**: `TabManager` automatically observes `incognitoTabs` StateFlow on initialization, automatically posting/updating the notification when incognito tabs are opened/added, and automatically dismissing the notification whenever the last incognito tab is closed (via tab switcher swipe, tab close button, close all incognito tabs, or clear browsing data).
+    - **Channel & Lifecycle Management**: Notification channel initialized cleanly in `OnyxApplication.onCreate()` and `MainActivity.onCreate()`; ongoing notification and active instance safely dismissed and cleared in `MainActivity.onDestroy()` when finishing.
 
 
