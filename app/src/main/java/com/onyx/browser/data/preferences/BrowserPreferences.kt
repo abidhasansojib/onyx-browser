@@ -192,7 +192,7 @@ class BrowserPreferences private constructor(context: Context) {
 
     // ── Social Media Blocking ─────────────────────────────────────────────────
     var isSocialMediaBlockingEnabled: Boolean
-        get() = prefs.getBoolean(KEY_SOCIAL_MEDIA_BLOCKING, false)
+        get() = prefs.getBoolean(KEY_SOCIAL_MEDIA_BLOCKING, true)
         set(value) = prefs.edit().putBoolean(KEY_SOCIAL_MEDIA_BLOCKING, value).apply()
 
     var allowFacebookLogins: Boolean

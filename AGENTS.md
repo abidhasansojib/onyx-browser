@@ -1547,4 +1547,19 @@ onyx-browser/
       - Upgraded `getSwitchLanguageScript` with smart option matching (`applyComboTarget`) handling regional codes (`zh-CN`, `zh-TW`, `pt-BR`, `tl`/`fil`, `iw`/`he`).
       - Returns `'reinitialize'` if the translation element is detached; `MainActivity.setupTranslateBar` automatically cascades into `getTranslateScript(targetCode)` for seamless re-injection without user interruption.
       - Fixed duplicate Ukrainian entry in `LanguageSelectionDialog.kt`.
+  - **Facebook Login, CAPTCHA Verification & Social Media Shield Protection (`AdBlockDocumentStart.kt`, `OnyxWebViewClient.kt`, `AdBlockDomainManager.kt`, `BrowserPreferences.kt`, `OnyxShieldBridge.kt`)**:
+    - **Resolved CAPTCHA Disappearing / Hiding ("Hide the Captcha Box")**:
+      - Root cause: Heuristic interstitial overlay remover in `AdBlockDocumentStart.kt` evaluated all fixed/absolute containers with `z-index >= 999` and screen coverage >= 50% and invoked `el.remove()`. MutationObserver detected dynamic CAPTCHAs (Arkose Labs/FunCaptcha, reCAPTCHA, Cloudflare Turnstile, hCaptcha, Facebook checkpoints) and immediately purged the dialog from the DOM.
+      - Added `isSecurityOrAuthElement(el)` protecting any element containing forms, input fields, buttons, interactive controls, CAPTCHA iframes, or auth/security attributes from being removed.
+      - Completely disabled interstitial overlay remover on Meta/Facebook domains (`facebook.com`, `m.facebook.com`, `fb.com`, `messenger.com`, `instagram.com`) since Meta services do not serve third-party interstitial ads and all overlays are native checkpoints, 2FA, or lightboxes.
+    - **Resolved "Confirmation Failed" Error on CAPTCHA Submission**:
+      - Root cause: `static.xx.fbcdn.net` was erroneously included in `stdTrackerPattern` and `socialMediaTrackerDomains`, causing client-side verification scripts and assets to be rejected with `TypeError(ERR_BLOCKED_BY_CLIENT)` during fetch/XHR, and `connect.facebook.net` was blocked by `AdBlockDomainManager.standardDomains` even when Facebook logins were allowed.
+      - Removed `static.xx.fbcdn.net` from tracking patterns (it is Facebook's static CDN, not a tracking pixel).
+      - Added universal bypass for CAPTCHA challenge endpoints (`recaptcha`, `hcaptcha`, `arkoselabs`, `turnstile`, `geetest`, `/checkpoint/`, `/challenge/`) in both Kotlin and JavaScript network interceptors.
+      - Ensured first-party Meta assets on Meta domains and allowed Facebook content (`connect.facebook.net`, `static.xx.fbcdn.net`, `graph.facebook.com`) bypass ad and tracker blocking when `allowFacebookLogins` is enabled.
+    - **Aligned Default Social Media Settings with Brave**:
+      - Enabled `isSocialMediaBlockingEnabled` by default (`true`), blocking third-party tracking pixels (`pixel.facebook.com`, `an.facebook.com`, `analytics.twitter.com`, `snap.licdn.com`, `analytics.tiktok.com`) across the web.
+      - Defaulted `allowFacebookLogins = true`, `allowTwitterEmbeds = true`, and `allowLinkedInEmbeds = true` out-of-the-box so logins and embeds function reliably while protecting privacy.
+      - Exposed `isFacebookLoginAllowed()` and `isSocialMediaBlockingEnabled()` to `OnyxShieldBridge` for synchronous document-start awareness.
+
 

@@ -32,4 +32,14 @@ class OnyxShieldBridge(private val context: Context) {
     fun getBlockingLevel(): Int {
         return preferences.blockingLevel
     }
+
+    @JavascriptInterface
+    fun isFacebookLoginAllowed(): Boolean {
+        return preferences.allowFacebookLogins
+    }
+
+    @JavascriptInterface
+    fun isSocialMediaBlockingEnabled(): Boolean {
+        return preferences.isSocialMediaBlockingEnabled
+    }
 }

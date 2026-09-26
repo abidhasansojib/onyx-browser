@@ -85,7 +85,7 @@ object AdBlockDocumentStart {
             } catch(e) {}
 
             // ── 2. Standard Ad & Tracker URL Detection Pattern ───────────────────────
-            var stdTrackerPattern = /(\.|\/)(doubleclick\.net|googlesyndication\.com|googleadservices\.com|googletagservices\.com|googletagmanager\.com|google-analytics\.com|criteo\.(com|net)|taboola\.com|outbrain\.com|rubiconproject\.com|casalemedia\.com|openx\.net|pubmatic\.com|adnxs\.com|amazon-adsystem\.com|adroll\.com|scorecardresearch\.com|quantserve\.com|quantcast\.com|advertising\.com|bidswitch\.net|moatads\.com|smartadserver\.com|adsafeprotected\.com|doubleverify\.com|hotjar\.com|clarity\.ms|mixpanel\.com|amplitude\.com|segment\.(io|com)|chartboost\.com|applovin\.com|vungle\.com|inmobi\.com|ironsource\.mobi|unityads\.unity3d\.com|adcolony\.com|mgid\.com|propellerads\.com|propellerclick\.com|onclickads\.net|media\.net|fls-na\.amazon\.com|bat\.bing\.com|claritybt\.freshmarketer\.com|fwtracks\.freshmarketer\.com|mouseflow\.com|luckyorange\.(com|net)|heapanalytics\.com|fullstory\.com|newrelic\.com|nr-data\.net|datadoghq\.com|sentry\.io|bugsnag\.com|branch\.io|appsflyer\.com|stats\.wp\.com|connatix\.com|innovid\.com|tremorhub\.com|crwdcntrl\.net|fwmrm\.net|jwpltx\.com|rlcdn\.com|impactradius-event\.com|shareasale\.com|awin1\.com|partnerstack\.com|refersion\.com|fingerprintjs\.com|fpjs\.io|adlog\.vivo\.com|ads-api\.vivo\.com|click\.oneplus\.cn|open\.oneplus\.net|a\.lenovo\.com|ad\.mail\.ru|top-fwz1\.mail\.ru|ads\.vk\.com|mc\.yandex\.ru|adfox\.yandex\.ru|adfstat\.yandex\.ru|appmetrica\.yandex\.ru|driftt\.com|intercom\.io|wzrkt\.com|zenaps\.com|statdynamic\.com|srvcs\.tumblr\.com|quora\.com\/qevents|redditmedia\.com\/pixel|events\.reddit\.com|d\.reddit\.com|ct\.pinterest\.com|analytics\.tiktok\.com|an\.facebook\.com|pixel\.facebook\.com|static\.xx\.fbcdn\.net|analytics\.twitter\.com|ads-api\.twitter\.com|snap\.licdn\.com|analytics\.linkedin\.com|liftoff\.io|pangleglobal\.com|adservetx\.media\.net|spotxchange\.com|htlbid\.com|stickyadstv\.com|3lift\.com|sonobi\.com|gumgum\.com|teads\.tv|kargo\.com|omtrdc\.net|metrics\.adobe\.com|lr-ingest\.com|brightcove\.com\/metrics)(\/|\?|:|$)/i;
+            var stdTrackerPattern = /(\.|\/)(doubleclick\.net|googlesyndication\.com|googleadservices\.com|googletagservices\.com|googletagmanager\.com|google-analytics\.com|criteo\.(com|net)|taboola\.com|outbrain\.com|rubiconproject\.com|casalemedia\.com|openx\.net|pubmatic\.com|adnxs\.com|amazon-adsystem\.com|adroll\.com|scorecardresearch\.com|quantserve\.com|quantcast\.com|advertising\.com|bidswitch\.net|moatads\.com|smartadserver\.com|adsafeprotected\.com|doubleverify\.com|hotjar\.com|clarity\.ms|mixpanel\.com|amplitude\.com|segment\.(io|com)|chartboost\.com|applovin\.com|vungle\.com|inmobi\.com|ironsource\.mobi|unityads\.unity3d\.com|adcolony\.com|mgid\.com|propellerads\.com|propellerclick\.com|onclickads\.net|media\.net|fls-na\.amazon\.com|bat\.bing\.com|claritybt\.freshmarketer\.com|fwtracks\.freshmarketer\.com|mouseflow\.com|luckyorange\.(com|net)|heapanalytics\.com|fullstory\.com|newrelic\.com|nr-data\.net|datadoghq\.com|sentry\.io|bugsnag\.com|branch\.io|appsflyer\.com|stats\.wp\.com|connatix\.com|innovid\.com|tremorhub\.com|crwdcntrl\.net|fwmrm\.net|jwpltx\.com|rlcdn\.com|impactradius-event\.com|shareasale\.com|awin1\.com|partnerstack\.com|refersion\.com|fingerprintjs\.com|fpjs\.io|adlog\.vivo\.com|ads-api\.vivo\.com|click\.oneplus\.cn|open\.oneplus\.net|a\.lenovo\.com|ad\.mail\.ru|top-fwz1\.mail\.ru|ads\.vk\.com|mc\.yandex\.ru|adfox\.yandex\.ru|adfstat\.yandex\.ru|appmetrica\.yandex\.ru|driftt\.com|intercom\.io|wzrkt\.com|zenaps\.com|statdynamic\.com|srvcs\.tumblr\.com|quora\.com\/qevents|redditmedia\.com\/pixel|events\.reddit\.com|d\.reddit\.com|ct\.pinterest\.com|analytics\.tiktok\.com|an\.facebook\.com|pixel\.facebook\.com|analytics\.twitter\.com|ads-api\.twitter\.com|snap\.licdn\.com|analytics\.linkedin\.com|liftoff\.io|pangleglobal\.com|adservetx\.media\.net|spotxchange\.com|htlbid\.com|stickyadstv\.com|3lift\.com|sonobi\.com|gumgum\.com|teads\.tv|kargo\.com|omtrdc\.net|metrics\.adobe\.com|lr-ingest\.com|brightcove\.com\/metrics)(\/|\?|:|$)/i;
 
             var adPathPattern = /\/(pagead\/|adservice\/|google-analytics\.com\/g\/collect|collect\?|telemetry|analytics\.js|gtm\.js|ads\.js|prebid|show_ads\.js)/i;
 
@@ -94,9 +94,38 @@ object AdBlockDocumentStart {
 
             var aggSubPattern = /(aan\.amazon\.com|ads-api\.tiktok\.com|ads-api\.x\.com|ads-sg\.tiktok\.com|ads\.huawei\.com|ads\.microsoft\.com|ads\.pinterest\.com|ads\.tiktok\.com|ads\.x\.com|ads\.yahoo\.com|ads\.youtube\.com|adservice\.google\.com|adtago\.s3\.amazonaws\.com|adtech\.yahooinc\.com|advertising-api-eu\.amazon\.com|advertising\.apple\.com|advertising\.yahoo\.com|advertising\.yandex\.ru|advice-ads\.s3\.amazonaws\.com|analytics-sg\.tiktok\.com|analytics\.google\.com|analytics\.pinterest\.com|analytics\.query\.yahoo\.com|analytics\.x\.com|analytics\.yahoo\.com|analyticsengine\.s3\.amazonaws\.com|api-adservices\.apple\.com|api\.ad\.xiaomi\.com|bingads\.microsoft\.com|books-analytics-events\.apple\.com|browser\.events\.data\.msn\.com|business-api\.tiktok\.com|c\.bing\.com|dai\.google\.com|data\.mistat\.india\.xiaomi\.com|data\.mistat\.rus\.xiaomi\.com|data\.mistat\.xiaomi\.com|device-metrics-us-2\.amazon\.com|device-metrics-us\.amazon\.com|extmaps-api\.yandex\.net|firebase-settings\.crashlytics\.com|fundingchoicesmessages\.google\.com|gemini\.yahoo\.com|geo\.yahoo\.com|globalapi\.ad\.xiaomi\.com|graph\.facebook\.com|graph\.instagram\.com|grs\.hicloud\.com|i\.instagram\.com|iadsdk\.apple\.com|iot-eu-logser\.realme\.com|iot-logser\.realme\.com|log\.fc\.yahoo\.com|log\.pinterest\.com|logbak\.hicloud\.com|logservice\.hicloud\.com|logservice1\.hicloud\.com|mads-eu\.amazon\.com|metrics\.apple\.com|metrics\.data\.hicloud\.com|metrics2\.data\.hicloud\.com|metrika\.yandex\.ru|nmetrics\.samsung\.com|notes-analytics-events\.apple\.com|offerwall\.yandex\.net|partnerads\.ysm\.yahoo\.com|pixel\.quora\.com|qevents\.quora\.com|s\.youtube\.com|sdkconfig\.ad\.intl\.xiaomi\.com|sdkconfig\.ad\.xiaomi\.com|settings-win\.data\.microsoft\.com|smetrics\.samsung\.com|tagmanager\.google\.com|telemetry\.microsoft\.com|tr\.facebook\.com|tr\.iadsdk\.apple\.com|tracking\.miui\.com|tracking\.rus\.miui\.com|trk\.pinterest\.com|udc\.yahoo\.com|udcm\.yahoo\.com|vk\.com|vortex-win\.data\.microsoft\.com|vortex\.data\.microsoft\.com|watson\.telemetry\.microsoft\.com|widgets\.pinterest\.com|xp\.apple\.com)/i;
 
+            var curHost = (location.hostname || '').toLowerCase();
+            var isMetaHost = curHost === 'facebook.com' || curHost.endsWith('.facebook.com') ||
+                             curHost === 'fb.com' || curHost.endsWith('.fb.com') ||
+                             curHost === 'messenger.com' || curHost.endsWith('.messenger.com') ||
+                             curHost === 'instagram.com' || curHost.endsWith('.instagram.com');
+
+            var isFbAllowed = true;
+            try {
+                if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isFacebookLoginAllowed === 'function') {
+                    isFbAllowed = window.OnyxShieldBridge.isFacebookLoginAllowed();
+                }
+            } catch(e) {}
+
             function isBlockedUrl(rawUrl, level) {
                 if (!rawUrl || typeof rawUrl !== 'string') return false;
                 if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:')) return false;
+
+                // Never block CAPTCHAs, bot challenges, or checkpoint verification
+                if (/recaptcha|hcaptcha|arkose|turnstile|checkpoint|challenge|geetest/i.test(rawUrl)) {
+                    return false;
+                }
+
+                // First-party Meta resources on Meta pages are never blocked
+                if (isMetaHost && /(facebook\.com|facebook\.net|fbcdn\.net|fb\.com|instagram\.com|messenger\.com)/i.test(rawUrl)) {
+                    return false;
+                }
+
+                // Facebook logins and embeds allowed
+                if (isFbAllowed && /(connect\.facebook\.net|static.*\.fbcdn\.net|graph\.facebook\.com|facebook\.net|m\.facebook\.com|www\.facebook\.com)/i.test(rawUrl)) {
+                    return false;
+                }
+
                 try {
                     if (stdTrackerPattern.test(rawUrl) || adPathPattern.test(rawUrl)) return true;
                     if (level === 1) {
@@ -257,121 +286,156 @@ object AdBlockDocumentStart {
 
             // ── 9. Interstitial & Full-Screen Overlay Ad Blocker ─────────────────────
             try {
-                var INTERSTITIAL_SELECTORS = [
-                    '[id*="interstitial"]', '[class*="interstitial"]',
-                    '[id*="modal-ad"]', '[class*="modal-ad"]',
-                    '[id*="ad-overlay"]', '[class*="ad-overlay"]',
-                    '[class*="overlay-ad"]', '[id*="overlay-ad"]',
-                    '[id*="popup-ad"]', '[class*="popup-ad"]',
-                    '[id*="adgate"]', '[class*="adgate"]',
-                    '#FullPageAd', '.full-page-ad', '#interstitialAd',
-                    '.interstitial-wrapper', '#adgate', '.ad-gate',
-                    '.prestitial-ad', '#prestitial', '.over-page',
-                    '[id*="ad-blocker-wall"]', '[class*="ad-blocker-wall"]',
-                    '[class*="adblock-wall"]', '[id*="adblock-wall"]',
-                    '.adblock-detected', '#adblock-detected',
-                    '[class*="adblock-notice"]', '[id*="adblock-notice"]',
-                    '.tp-modal', '#tp-modal', '[id*="tp-backdrop"]',
-                    '.paywall-overlay', '.hard-paywall', '.content-wall',
-                    '#goog_skip_ad', '.GoogleActiveViewCreative', '.GoogleCreativeElement'
-                ];
+                // If on Meta / Facebook websites, never purge overlays as they are native dialogs/checkpoints/2FA/photos
+                if (isMetaHost) {
+                    // Do not run overlay remover on Meta sites
+                } else {
+                    var INTERSTITIAL_SELECTORS = [
+                        '[id*="interstitial"]', '[class*="interstitial"]',
+                        '[id*="modal-ad"]', '[class*="modal-ad"]',
+                        '[id*="ad-overlay"]', '[class*="ad-overlay"]',
+                        '[class*="overlay-ad"]', '[id*="overlay-ad"]',
+                        '[id*="popup-ad"]', '[class*="popup-ad"]',
+                        '[id*="adgate"]', '[class*="adgate"]',
+                        '#FullPageAd', '.full-page-ad', '#interstitialAd',
+                        '.interstitial-wrapper', '#adgate', '.ad-gate',
+                        '.prestitial-ad', '#prestitial', '.over-page',
+                        '[id*="ad-blocker-wall"]', '[class*="ad-blocker-wall"]',
+                        '[class*="adblock-wall"]', '[id*="adblock-wall"]',
+                        '.adblock-detected', '#adblock-detected',
+                        '[class*="adblock-notice"]', '[id*="adblock-notice"]',
+                        '.tp-modal', '#tp-modal', '[id*="tp-backdrop"]',
+                        '.paywall-overlay', '.hard-paywall', '.content-wall',
+                        '#goog_skip_ad', '.GoogleActiveViewCreative', '.GoogleCreativeElement'
+                    ];
 
-                function removeInterstitialBySelector() {
-                    try {
-                        for (var i = 0; i < INTERSTITIAL_SELECTORS.length; i++) {
-                            var sel = INTERSTITIAL_SELECTORS[i];
-                            var matched = document.querySelectorAll(sel);
-                            for (var j = 0; j < matched.length; j++) {
-                                var el = matched[j];
-                                if (el.querySelector('video, audio')) continue;
-                                el.remove();
+                    function isSecurityOrAuthElement(el) {
+                        if (!el) return false;
+                        try {
+                            if (el.tagName === 'FORM' || el.tagName === 'INPUT' || el.tagName === 'BUTTON') return true;
+                            if (el.querySelector('input, form, textarea, select, [contenteditable="true"]')) return true;
+
+                            var captchaQuery = 'iframe[src*="captcha" i], iframe[src*="recaptcha" i], iframe[src*="hcaptcha" i], ' +
+                                               'iframe[src*="turnstile" i], iframe[src*="arkose" i], iframe[src*="funcaptcha" i], ' +
+                                               'iframe[src*="challenge" i], iframe[src*="checkpoint" i], iframe[src*="facebook" i], ' +
+                                               '[class*="captcha" i], [id*="captcha" i], [class*="recaptcha" i], [id*="recaptcha" i], ' +
+                                               '[class*="hcaptcha" i], [id*="hcaptcha" i], [class*="arkose" i], [id*="arkose" i], ' +
+                                               '[class*="turnstile" i], [id*="turnstile" i], [class*="checkpoint" i], [id*="checkpoint" i], ' +
+                                               '[class*="challenge" i], [id*="challenge" i]';
+                            if (el.querySelector(captchaQuery)) return true;
+
+                            var idClass = ((el.id || '') + ' ' + (el.className || '')).toLowerCase();
+                            if (/captcha|recaptcha|hcaptcha|arkose|funcaptcha|turnstile|checkpoint|challenge|verification|security|auth|login|signin|signup|password|prompt|dialog|modal-body|modal-content/i.test(idClass)) {
+                                return true;
                             }
-                        }
-                    } catch (_) {}
-                }
 
-                function isInterstitialOverlay(el) {
-                    try {
-                        var style = window.getComputedStyle(el);
-                        var pos = style.position;
-                        if (pos !== 'fixed' && pos !== 'absolute') return false;
-                        var zi = parseInt(style.zIndex || '0');
-                        if (zi < 999) return false;
-                        var vw = window.innerWidth || 320;
-                        var vh = window.innerHeight || 480;
-                        var rect = el.getBoundingClientRect();
-                        var coverageW = (rect.width / vw);
-                        var coverageH = (rect.height / vh);
-                        if (coverageW < 0.5 || coverageH < 0.5) return false;
-                        if (el.querySelector('video, audio')) return false;
-                        var text = (el.innerText || '').replace(/\s+/g, ' ').trim();
-                        if (text.length > 800) return false;
-                        return true;
-                    } catch (_) { return false; }
-                }
-
-                function removeInterstitialOverlays() {
-                    try {
-                        var candidates = document.querySelectorAll('div, section, aside, article');
-                        for (var i = 0; i < candidates.length; i++) {
-                            var el = candidates[i];
-                            if (isInterstitialOverlay(el)) {
-                                el.remove();
+                            var role = (el.getAttribute('role') || '').toLowerCase();
+                            if ((role === 'dialog' || role === 'alertdialog' || el.getAttribute('aria-modal') === 'true') && el.querySelector('button, a, input')) {
+                                return true;
                             }
-                        }
-                    } catch (_) {}
-                }
+                        } catch (_) {}
+                        return false;
+                    }
 
-                function unlockScroll() {
-                    try {
-                        if (document.body) {
-                            if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
-                            if (document.body.style.position === 'fixed') document.body.style.position = '';
-                        }
-                        if (document.documentElement && document.documentElement.style.overflow === 'hidden') {
-                            document.documentElement.style.overflow = '';
-                        }
-                    } catch (_) {}
-                }
+                    function removeInterstitialBySelector() {
+                        try {
+                            for (var i = 0; i < INTERSTITIAL_SELECTORS.length; i++) {
+                                var sel = INTERSTITIAL_SELECTORS[i];
+                                var matched = document.querySelectorAll(sel);
+                                for (var j = 0; j < matched.length; j++) {
+                                    var el = matched[j];
+                                    if (el.querySelector('video, audio') || isSecurityOrAuthElement(el)) continue;
+                                    el.remove();
+                                }
+                            }
+                        } catch (_) {}
+                    }
 
-                function runInterstitialPurge() {
-                    removeInterstitialBySelector();
-                    removeInterstitialOverlays();
-                    unlockScroll();
-                }
+                    function isInterstitialOverlay(el) {
+                        try {
+                            if (isSecurityOrAuthElement(el)) return false;
+                            var style = window.getComputedStyle(el);
+                            var pos = style.position;
+                            if (pos !== 'fixed' && pos !== 'absolute') return false;
+                            var zi = parseInt(style.zIndex || '0');
+                            if (zi < 999) return false;
+                            var vw = window.innerWidth || 320;
+                            var vh = window.innerHeight || 480;
+                            var rect = el.getBoundingClientRect();
+                            var coverageW = (rect.width / vw);
+                            var coverageH = (rect.height / vh);
+                            if (coverageW < 0.5 || coverageH < 0.5) return false;
+                            if (el.querySelector('video, audio')) return false;
+                            var text = (el.innerText || '').replace(/\s+/g, ' ').trim();
+                            if (text.length > 800) return false;
+                            return true;
+                        } catch (_) { return false; }
+                    }
 
-                runInterstitialPurge();
+                    function removeInterstitialOverlays() {
+                        try {
+                            var candidates = document.querySelectorAll('div, section, aside, article');
+                            for (var i = 0; i < candidates.length; i++) {
+                                var el = candidates[i];
+                                if (isInterstitialOverlay(el)) {
+                                    el.remove();
+                                }
+                            }
+                        } catch (_) {}
+                    }
 
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', function() {
-                        runInterstitialPurge();
+                    function unlockScroll() {
+                        try {
+                            if (document.body) {
+                                if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
+                                if (document.body.style.position === 'fixed') document.body.style.position = '';
+                            }
+                            if (document.documentElement && document.documentElement.style.overflow === 'hidden') {
+                                document.documentElement.style.overflow = '';
+                            }
+                        } catch (_) {}
+                    }
+
+                    function runInterstitialPurge() {
+                        if (isMetaHost) return;
+                        removeInterstitialBySelector();
+                        removeInterstitialOverlays();
+                        unlockScroll();
+                    }
+
+                    runInterstitialPurge();
+
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', function() {
+                            runInterstitialPurge();
+                            setTimeout(runInterstitialPurge, 600);
+                            setTimeout(runInterstitialPurge, 2000);
+                        });
+                    } else {
                         setTimeout(runInterstitialPurge, 600);
                         setTimeout(runInterstitialPurge, 2000);
-                    });
-                } else {
-                    setTimeout(runInterstitialPurge, 600);
-                    setTimeout(runInterstitialPurge, 2000);
-                }
+                    }
 
-                try {
-                    var interstitialObserver = new MutationObserver(function(mutations) {
-                        var hasElementAdded = false;
-                        for (var i = 0; i < mutations.length; i++) {
-                            if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
-                                hasElementAdded = true;
-                                break;
+                    try {
+                        var interstitialObserver = new MutationObserver(function(mutations) {
+                            var hasElementAdded = false;
+                            for (var i = 0; i < mutations.length; i++) {
+                                if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
+                                    hasElementAdded = true;
+                                    break;
+                                }
                             }
-                        }
-                        if (hasElementAdded) {
-                            clearTimeout(window.__onyxInterstitialTimer);
-                            window.__onyxInterstitialTimer = setTimeout(runInterstitialPurge, 250);
-                        }
-                    });
-                    interstitialObserver.observe(document.documentElement, {
-                        childList: true,
-                        subtree: true
-                    });
-                } catch (_) {}
+                            if (hasElementAdded) {
+                                clearTimeout(window.__onyxInterstitialTimer);
+                                window.__onyxInterstitialTimer = setTimeout(runInterstitialPurge, 250);
+                            }
+                        });
+                        interstitialObserver.observe(document.documentElement, {
+                            childList: true,
+                            subtree: true
+                        });
+                    } catch (_) {}
+                }
             } catch (e) {}
 
             // ── 10. Universal In-Memory Blob & ObjectURL Preserver ────────────────────

@@ -88,7 +88,7 @@ class OnyxWebViewClient(
     // Social media tracker domains (analytics/pixel only, not content)
     private val socialMediaTrackerDomains = setOf(
         // Facebook/Meta pixels and analytics
-        "static.xx.fbcdn.net", "an.facebook.com", "pixel.facebook.com",
+        "an.facebook.com", "pixel.facebook.com", "tr.facebook.com",
         // Instagram trackers
         "i.instagram.com",
         // Twitter/X analytics
@@ -103,11 +103,12 @@ class OnyxWebViewClient(
         "alb.reddit.com"
     )
 
-    // Facebook domains that are content (logins, embeds) not pure tracking
+    // Facebook domains that are content (logins, embeds, CDN) not pure tracking
     private val facebookContentDomains = setOf(
-        "www.facebook.com", "m.facebook.com", "static.facebook.com",
-        "connect.facebook.net", "staticxx.facebook.com",
-        "graph.facebook.com"
+        "www.facebook.com", "m.facebook.com", "web.facebook.com", "touch.facebook.com",
+        "static.facebook.com", "staticxx.facebook.com", "static.xx.fbcdn.net",
+        "connect.facebook.net", "facebook.net", "graph.facebook.com",
+        "fbcdn.net", "scontent.xx.fbcdn.net"
     )
 
     // Twitter/X content domains (embeds)
@@ -197,6 +198,53 @@ class OnyxWebViewClient(
             val isIncognitoView = (view as? OnyxWebView)?.isIncognito ?: false
             val resourceType = detectResourceType(request)
 
+            // ── Universal CAPTCHA, Verification & Security Protection ──────────────
+            // Anti-bot verifications and checkpoints must never be blocked on any website
+            val isCaptchaResource = reqDomain.contains("recaptcha") || reqDomain.contains("hcaptcha") ||
+                    reqDomain.contains("arkoselabs") || reqDomain.contains("turnstile") ||
+                    reqDomain.contains("geetest") || url.contains("/checkpoint/") || url.contains("/challenge/")
+            if (isCaptchaResource) {
+                return null
+            }
+
+            // ── Meta / Facebook First-Party Integrity ─────────────────────────────
+            val isMetaPage = pageDomain == "facebook.com" || pageDomain.endsWith(".facebook.com") ||
+                    pageDomain == "fb.com" || pageDomain.endsWith(".fb.com") ||
+                    pageDomain == "messenger.com" || pageDomain.endsWith(".messenger.com") ||
+                    pageDomain == "instagram.com" || pageDomain.endsWith(".instagram.com")
+
+            val isMetaResource = reqDomain == "facebook.com" || reqDomain.endsWith(".facebook.com") ||
+                    reqDomain == "facebook.net" || reqDomain.endsWith(".facebook.net") ||
+                    reqDomain == "fbcdn.net" || reqDomain.endsWith(".fbcdn.net") ||
+                    reqDomain == "fb.com" || reqDomain.endsWith(".fb.com") ||
+                    reqDomain == "messenger.com" || reqDomain.endsWith(".messenger.com") ||
+                    reqDomain == "instagram.com" || reqDomain.endsWith(".instagram.com")
+
+            // First-party Meta resources when user is on Meta sites must never be blocked
+            if (isMetaPage && isMetaResource) {
+                return null
+            }
+
+            // ── Permitted Social Content & Embeds ─────────────────────────────────
+            // When allowed, completely bypass adblock and social tracking filters
+            val isFbContent = preferences.allowFacebookLogins &&
+                    facebookContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
+            if (isFbContent) {
+                return null
+            }
+
+            val isTwitterContent = preferences.allowTwitterEmbeds &&
+                    twitterContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
+            if (isTwitterContent) {
+                return null
+            }
+
+            val isLinkedInContent = preferences.allowLinkedInEmbeds &&
+                    linkedinContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
+            if (isLinkedInContent) {
+                return null
+            }
+
             // ── Element blocking in private windows: respect the setting ─────────
             // If element blocking in private windows is disabled and this is incognito,
             // skip all blocking
@@ -211,20 +259,8 @@ class OnyxWebViewClient(
                 }
 
                 if (isSocialTrackerDomain) {
-                    // Check if we should allow Facebook content (logins and embeds)
-                    val isFbContent = preferences.allowFacebookLogins &&
-                        facebookContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
-                    // Check if we should allow Twitter embeds
-                    val isTwitterContent = preferences.allowTwitterEmbeds &&
-                        twitterContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
-                    // Check if we should allow LinkedIn embeds
-                    val isLinkedInContent = preferences.allowLinkedInEmbeds &&
-                        linkedinContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
-
-                    if (!isFbContent && !isTwitterContent && !isLinkedInContent) {
-                        preferences.incrementBlockedRequests()
-                        return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
-                    }
+                    preferences.incrementBlockedRequests()
+                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                 }
             }
 
