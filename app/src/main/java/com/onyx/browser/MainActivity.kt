@@ -2086,14 +2086,18 @@ class MainActivity : AppCompatActivity() {
                 onDownloadClickListener = {
                     val videoSrc = com.onyx.browser.media.MediaPlaybackBridge.currentVideoSrc
                     val activeWv = tabManager.getActiveWebView()
+                    val userAgent = activeWv?.settings?.userAgentString ?: ""
+                    val pageUrl = activeWv?.url ?: ""
                     if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
+                        val cookies = android.webkit.CookieManager.getInstance().getCookie(videoSrc) ?: ""
                         val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
                             url = videoSrc,
-                            userAgent = activeWv?.settings?.userAgentString,
-                            contentDisposition = null,
+                            userAgent = userAgent,
+                            contentDisposition = "",
                             mimeType = "video/*",
                             contentLength = 0L,
-                            pageUrl = activeWv?.url
+                            cookies = cookies,
+                            referer = pageUrl
                         )
                         sheet.show(supportFragmentManager, "DownloadPromptSheet")
                     } else {
@@ -2105,13 +2109,15 @@ class MainActivity : AppCompatActivity() {
                         """.trimIndent()) { result ->
                             val cleanUrl = result?.trim('"', '\'')?.replace("\\", "") ?: ""
                             if (cleanUrl.isNotBlank() && cleanUrl != "null") {
+                                val cookies = android.webkit.CookieManager.getInstance().getCookie(cleanUrl) ?: ""
                                 val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
                                     url = cleanUrl,
-                                    userAgent = activeWv?.settings?.userAgentString,
-                                    contentDisposition = null,
+                                    userAgent = userAgent,
+                                    contentDisposition = "",
                                     mimeType = "video/*",
                                     contentLength = 0L,
-                                    pageUrl = activeWv?.url
+                                    cookies = cookies,
+                                    referer = pageUrl
                                 )
                                 sheet.show(supportFragmentManager, "DownloadPromptSheet")
                             } else {
@@ -2122,7 +2128,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 onPipClickListener = {
-                    enterVideoPip()
+                    requestInPageVideoPip()
                 }
 
                 onInternalPlayerClickListener = {

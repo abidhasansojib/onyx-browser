@@ -96,13 +96,15 @@ class InternalPlayerActivity : AppCompatActivity() {
         binding.btnBack.setOnClickListener { finish() }
 
         binding.btnPlayerDownload.setOnClickListener {
+            val cookies = android.webkit.CookieManager.getInstance().getCookie(videoUrl) ?: ""
             val sheet = DownloadPromptBottomSheet.newInstance(
                 url = videoUrl,
-                userAgent = null,
-                contentDisposition = null,
+                userAgent = "",
+                contentDisposition = "",
                 mimeType = "video/*",
                 contentLength = 0L,
-                pageUrl = pageUrl
+                cookies = cookies,
+                referer = pageUrl ?: ""
             )
             sheet.show(supportFragmentManager, "DownloadPromptSheet")
         }
