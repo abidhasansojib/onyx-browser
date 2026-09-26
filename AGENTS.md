@@ -1295,5 +1295,12 @@ onyx-browser/
   - Retained `workflow_dispatch` with `build_type` inputs (Release, Debug, Both).
   - Pushing commits will no longer trigger automatic CI/CD builds; builds can only be started manually via the GitHub Actions UI or `gh workflow run build.yml`.
 
+- [x] **"Stay In Onyx" Web Navigation & App Intercept Bypass Fix (`OnyxWebViewClient.kt`, `OpenInAppPromptDialog.kt`)**:
+  - **Root Cause Resolved**: When clicking a search result for YouTube, Reddit, WhatsApp, or Telegram, `tryOpenAppForHttpLink()` detected the installed external app and displayed `OpenInAppPromptDialog`, but passed `fallback = null`. Because `fallback` was null and `shouldOverrideUrlLoading` had already returned `true`, clicking "Stay In Onyx" did nothing and left the browser stuck on the search results page without loading the website.
+  - **Web Navigation Fallback**: Implemented `stayInOnyxAction` in `tryOpenAppForHttpLink()` and `handleIntentScheme()`. Selecting "Stay In Onyx" adds the target URL to a thread-safe `bypassAppInterceptUrls` set and calls `view.loadUrl(url)`.
+  - **Infinite Loop Prevention**: In `shouldOverrideUrlLoading()`, if `bypassAppInterceptUrls.remove(url)` matches, the URL immediately bypasses external app interception and returns `false`, allowing Chromium WebView to load the webpage directly inside Onyx without re-prompting.
+  - **Dialog Lifecycle Hardening**: Converted `dismiss()` to `dismissAllowingStateLoss()` and null-safe view binding in `OpenInAppPromptDialog.kt`.
+
+
 
 

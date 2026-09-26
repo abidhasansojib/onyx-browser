@@ -16,7 +16,7 @@ import com.onyx.browser.databinding.DialogOpenInAppPromptBinding
 class OpenInAppPromptDialog : DialogFragment() {
 
     private var _binding: DialogOpenInAppPromptBinding? = null
-    private val binding get() = _binding!!
+    private val binding get() = _binding
 
     var targetIntent: Intent? = null
     var appName: String? = null
@@ -33,26 +33,27 @@ class OpenInAppPromptDialog : DialogFragment() {
             requestFeature(Window.FEATURE_NO_TITLE)
         }
         _binding = DialogOpenInAppPromptBinding.inflate(inflater, container, false)
-        return binding.root
+        return _binding!!.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        val b = _binding ?: return
 
         val name = appName
         if (!name.isNullOrBlank()) {
-            binding.targetAppPill.visibility = View.VISIBLE
-            binding.tvTargetAppName.text = name
+            b.targetAppPill.visibility = View.VISIBLE
+            b.tvTargetAppName.text = name
         } else {
-            binding.targetAppPill.visibility = View.GONE
+            b.targetAppPill.visibility = View.GONE
         }
 
-        binding.btnStayInOnyx.setOnClickListener {
+        b.btnStayInOnyx.setOnClickListener {
             onStayInOnyx?.invoke()
-            dismiss()
+            dismissAllowingStateLoss()
         }
 
-        binding.btnOpenInApp.setOnClickListener {
+        b.btnOpenInApp.setOnClickListener {
             val intent = targetIntent
             if (intent != null) {
                 try {
@@ -64,7 +65,7 @@ class OpenInAppPromptDialog : DialogFragment() {
                     Toast.makeText(requireContext(), "Could not open app: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
-            dismiss()
+            dismissAllowingStateLoss()
         }
     }
 

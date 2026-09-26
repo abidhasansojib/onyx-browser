@@ -77,6 +77,11 @@ class OnyxWebViewClient(
     @Volatile
     private var currentPageUrl: String = ""
 
+    // Set of URLs where user explicitly chose "Stay in Onyx", bypassing external app interception
+    private val bypassAppInterceptUrls = java.util.Collections.newSetFromMap(
+        java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    )
+
     // Known ad/tracker domains (referenced from AdBlockDomainManager)
     private val firstPartyAdDomains = AdBlockDomainManager.standardDomains
 
@@ -322,7 +327,11 @@ class OnyxWebViewClient(
                 scheme == "file" || scheme == "content") {
                 // If "Open links in app" is enabled, check if there's a specialized app for this HTTP link
                 if (isForMainFrame && preferences.isOpenLinksInAppEnabled && (scheme == "http" || scheme == "https")) {
-                    if (tryOpenAppForHttpLink(uri)) {
+                    if (bypassAppInterceptUrls.remove(url) || bypassAppInterceptUrls.remove(normalizedUrl)) {
+                        // User chose "Stay in Onyx" for this URL — let WebView proceed directly
+                        return false
+                    }
+                    if (tryOpenAppForHttpLink(view, uri, url)) {
                         return true
                     }
                 }
@@ -401,13 +410,16 @@ class OnyxWebViewClient(
                     val fallbackUrl = intent.getStringExtra("browser_fallback_url")
                     if (!fallbackUrl.isNullOrBlank() &&
                         (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
+                        bypassAppInterceptUrls.add(fallbackUrl)
                         view?.post { view.loadUrl(fallbackUrl) }
                     } else {
                         val dataUri = intent.data
                         if (dataUri != null) {
                             val dataScheme = dataUri.scheme?.lowercase()
                             if (dataScheme == "http" || dataScheme == "https") {
-                                view?.post { view.loadUrl(dataUri.toString()) }
+                                val target = dataUri.toString()
+                                bypassAppInterceptUrls.add(target)
+                                view?.post { view.loadUrl(target) }
                             }
                         }
                     }
@@ -489,9 +501,16 @@ class OnyxWebViewClient(
         }
     }
 
-    private fun tryOpenAppForHttpLink(uri: Uri): Boolean {
+    private fun tryOpenAppForHttpLink(view: WebView?, uri: Uri, url: String): Boolean {
         if (!preferences.isOpenLinksInAppEnabled) return false
         val host = uri.host?.lowercase() ?: return false
+
+        val stayInOnyxAction: () -> Unit = {
+            bypassAppInterceptUrls.add(url)
+            view?.post {
+                view.loadUrl(url)
+            }
+        }
 
         // Quick dispatch for dedicated app links when clicked from within webpages:
         // E.g. t.me links: https://t.me/username -> tg://resolve?domain=username
@@ -502,7 +521,7 @@ class OnyxWebViewClient(
                 val intent = Intent(Intent.ACTION_VIEW, tgUri).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                return promptOrLaunchApp(intent, "Telegram", fallback = null)
+                return promptOrLaunchApp(intent, "Telegram", fallback = stayInOnyxAction)
             }
         } else if (host == "wa.me") {
             val phone = uri.path?.removePrefix("/") ?: ""
@@ -516,7 +535,7 @@ class OnyxWebViewClient(
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                return promptOrLaunchApp(intent, "WhatsApp", fallback = null)
+                return promptOrLaunchApp(intent, "WhatsApp", fallback = stayInOnyxAction)
             }
         } else if (host.contains("youtube.com") || host == "youtu.be" || host.contains("reddit.com")) {
             val intent = Intent(Intent.ACTION_VIEW, uri).apply {
@@ -531,7 +550,7 @@ class OnyxWebViewClient(
             if (externalApp != null) {
                 intent.setPackage(externalApp.activityInfo.packageName)
                 val appLabel = externalApp.loadLabel(pm).toString()
-                return promptOrLaunchApp(intent, appLabel, fallback = null)
+                return promptOrLaunchApp(intent, appLabel, fallback = stayInOnyxAction)
             }
         }
         return false
