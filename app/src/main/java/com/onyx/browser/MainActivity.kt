@@ -871,12 +871,12 @@ class MainActivity : AppCompatActivity() {
             context = this,
             coroutineScope = lifecycleScope,
             onUrlChanged = { newUrl ->
-                val cleanUrl = if (newUrl.startsWith("data:") || newUrl.startsWith("file:///android_asset/error_page")) {
+                val cleanUrl = if (newUrl.startsWith("data:") || newUrl.startsWith("file:///android_asset/") || newUrl.startsWith("file:///android_res/")) {
                     webView.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url ?: ""
                 } else {
                     newUrl
                 }
-                if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:")) {
+                if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:") && !cleanUrl.startsWith("file:///android_asset/") && !cleanUrl.startsWith("file:///android_res/")) {
                     tabManager.updateActiveTab(cleanUrl, webView.title ?: cleanUrl)
                     updateAddressBarDisplay(cleanUrl)
                     val activeTab = tabManager.activeTab.value
@@ -886,12 +886,12 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onPageFinishedCallback = { finishedUrl ->
-                val cleanUrl = if (finishedUrl.startsWith("data:") || finishedUrl.startsWith("file:///android_asset/error_page")) {
+                val cleanUrl = if (finishedUrl.startsWith("data:") || finishedUrl.startsWith("file:///android_asset/") || finishedUrl.startsWith("file:///android_res/")) {
                     webView.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url ?: ""
                 } else {
                     finishedUrl
                 }
-                if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:")) {
+                if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:") && !cleanUrl.startsWith("file:///android_asset/") && !cleanUrl.startsWith("file:///android_res/")) {
                     tabManager.updateActiveTab(cleanUrl, webView.title ?: cleanUrl)
                     updateAddressBarDisplay(cleanUrl)
                 }
@@ -1378,7 +1378,13 @@ class MainActivity : AppCompatActivity() {
         binding.btnCurrentPageEdit.setOnClickListener {
             val url = getActivePageUrl()
             if (url.isNotBlank()) {
-                binding.etUrl.setText(url)
+                val cleanUrl = if (LocalFileLoader.isLocalFile(url)) {
+                    try {
+                        val parsed = Uri.parse(url)
+                        if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else url
+                    } catch (_: Exception) { url }
+                } else url
+                binding.etUrl.setText(cleanUrl)
                 binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
                 binding.etUrl.requestFocus()
                 showSoftKeyboard()
@@ -1388,7 +1394,13 @@ class MainActivity : AppCompatActivity() {
         binding.containerPageInfo.setOnClickListener {
             val url = getActivePageUrl()
             if (url.isNotBlank()) {
-                binding.etUrl.setText(url)
+                val cleanUrl = if (LocalFileLoader.isLocalFile(url)) {
+                    try {
+                        val parsed = Uri.parse(url)
+                        if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else url
+                    } catch (_: Exception) { url }
+                } else url
+                binding.etUrl.setText(cleanUrl)
                 binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
                 binding.etUrl.requestFocus()
                 showSoftKeyboard()
@@ -1421,7 +1433,15 @@ class MainActivity : AppCompatActivity() {
                 it.isNotBlank() && !it.startsWith("data:") && !it.startsWith("net::") && it != "Page Not Available"
             } ?: curUrl
             binding.tvCurrentPageTitle.text = displayTitle
-            binding.tvCurrentPageUrl.text = curUrl
+            val displayUrlText = if (LocalFileLoader.isLocalFile(curUrl)) {
+                try {
+                    val parsed = Uri.parse(curUrl)
+                    if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else curUrl
+                } catch (_: Exception) { curUrl }
+            } else {
+                curUrl
+            }
+            binding.tvCurrentPageUrl.text = displayUrlText
             com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
                 context = this,
                 imageView = binding.ivCurrentPageFavicon,
@@ -1550,7 +1570,7 @@ class MainActivity : AppCompatActivity() {
             return failingUrl
         }
         val tabUrl = tabManager.activeTab.value?.url ?: ""
-        if (tabUrl.startsWith("data:") || tabUrl.startsWith("file:///android_asset/error_page")) {
+        if (tabUrl.startsWith("data:") || tabUrl.startsWith("file:///android_asset/") || tabUrl.startsWith("file:///android_res/")) {
             return ""
         }
         return tabUrl
@@ -1559,13 +1579,13 @@ class MainActivity : AppCompatActivity() {
     private fun updateAddressBarDisplay(url: String) {
         val activeWv = tabManager.getActiveWebView()
         val displayUrl = when {
-            url.isBlank() || url.startsWith("data:") || url.startsWith("file:///android_asset/error_page") -> {
+            url.isBlank() || url.startsWith("data:") || url.startsWith("file:///android_asset/") || url.startsWith("file:///android_res/") -> {
                 activeWv?.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url ?: ""
             }
             else -> url
         }
 
-        if (displayUrl.isBlank() || displayUrl.startsWith("data:") || displayUrl.startsWith("file:///android_asset/error_page")) {
+        if (displayUrl.isBlank() || displayUrl.startsWith("data:") || displayUrl.startsWith("file:///android_asset/") || displayUrl.startsWith("file:///android_res/")) {
             binding.etUrl.setText("")
             binding.ivSslLock.visibility = View.GONE
             return

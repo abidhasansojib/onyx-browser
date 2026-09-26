@@ -41,6 +41,24 @@ object DownloadHandler {
         return if (clean.isBlank()) "download_${System.currentTimeMillis()}" else clean
     }
 
+    fun guessResolvedFileName(url: String, contentDisposition: String?, mimeType: String?): String {
+        var guessed = URLUtil.guessFileName(url, contentDisposition, mimeType)
+        val urlLastSegment = try {
+            Uri.parse(url).path?.split('/')?.filter { it.isNotBlank() }?.lastOrNull()
+        } catch (_: Exception) { null }
+
+        if (guessed.equals("readme", ignoreCase = true) || guessed.equals("readme.bin", ignoreCase = true) ||
+            (guessed.equals("readme.txt", ignoreCase = true) && (urlLastSegment?.contains("readme", ignoreCase = true) == true))
+        ) {
+            guessed = "README.md"
+        } else if (urlLastSegment?.equals("readme", ignoreCase = true) == true) {
+            guessed = "README.md"
+        } else if (contentDisposition?.contains("readme", ignoreCase = true) == true && guessed.endsWith(".bin")) {
+            guessed = "README.md"
+        }
+        return sanitizeFileName(guessed)
+    }
+
     fun handleDownload(
         activity: Activity,
         coroutineScope: CoroutineScope,
@@ -100,8 +118,7 @@ object DownloadHandler {
             }
         } else if (behavior == 1) {
             // Internal download
-            val rawFileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
-            val fileName = sanitizeFileName(rawFileName)
+            val fileName = guessResolvedFileName(url, contentDisposition, mimeType)
             startSystemDownload(
                 context = activity,
                 coroutineScope = coroutineScope,
@@ -115,8 +132,7 @@ object DownloadHandler {
             )
         } else {
             // External download manager
-            val rawFileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
-            val fileName = sanitizeFileName(rawFileName)
+            val fileName = guessResolvedFileName(url, contentDisposition, mimeType)
             dispatchToExternalDownloader(
                 context = activity,
                 url = url,
@@ -155,10 +171,14 @@ object DownloadHandler {
 
                 val ext = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(detectedMime) ?: "bin"
                 val resolvedName = if (!suggestedFileName.isNullOrBlank()) {
-                    suggestedFileName
+                    if (suggestedFileName.equals("readme", ignoreCase = true)) "README.md" else suggestedFileName
                 } else {
                     val guessed = URLUtil.guessFileName(dataUri, contentDisposition, detectedMime)
-                    if (guessed.isNotBlank() && !guessed.endsWith(".bin")) guessed else "download_${System.currentTimeMillis()}.$ext"
+                    if (guessed.isNotBlank() && !guessed.endsWith(".bin")) {
+                        if (guessed.equals("readme", ignoreCase = true)) "README.md" else guessed
+                    } else if (contentDisposition.contains("readme", ignoreCase = true)) {
+                        "README.md"
+                    } else "download_${System.currentTimeMillis()}.$ext"
                 }
                 val fileName = sanitizeFileName(resolvedName)
 
@@ -246,6 +266,9 @@ object DownloadHandler {
             val segments = path.split('/').filter { it.isNotBlank() }
             if (segments.isNotEmpty()) {
                 val last = segments.last()
+                if (last.equals("readme", ignoreCase = true)) {
+                    return "README.md"
+                }
                 if (last.contains('.') && !last.endsWith(".html", ignoreCase = true) && !last.endsWith(".php", ignoreCase = true)) {
                     return sanitizeFileName(last)
                 }
@@ -585,7 +608,7 @@ object DownloadHandler {
                 ""
             }
         }
-        val resolvedFileName = if (fileName.isNotBlank()) fileName else URLUtil.guessFileName(url, null, mimeType)
+        val resolvedFileName = if (fileName.isNotBlank()) sanitizeFileName(fileName) else guessResolvedFileName(url, null, mimeType)
 
         if (downloaders.size == 1) {
             val single = downloaders.first()

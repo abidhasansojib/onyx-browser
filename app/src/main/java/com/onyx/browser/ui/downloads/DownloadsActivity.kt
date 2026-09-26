@@ -178,11 +178,14 @@ class DownloadsActivity : AppCompatActivity() {
         val mime = item.mimeType.lowercase()
         return name.endsWith(".mht") || name.endsWith(".mhtml") ||
                 name.endsWith(".html") || name.endsWith(".htm") || name.endsWith(".xhtml") ||
-                name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".txt") ||
+                name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".mdown") || name.endsWith(".mkd") ||
+                name.contains("readme") ||
+                name.endsWith(".txt") || name.endsWith(".log") || name.endsWith(".json") || name.endsWith(".xml") ||
                 mime == "multipart/related" || mime == "message/rfc822" ||
                 mime == "application/x-mimearchive" || mime == "application/mhtml" ||
                 mime == "text/html" || mime == "application/xhtml+xml" ||
-                mime == "text/markdown" || mime == "text/x-markdown"
+                mime == "text/markdown" || mime == "text/x-markdown" ||
+                mime == "text/plain"
     }
 
     private fun openFile(item: DownloadItem) {

@@ -61,8 +61,9 @@ object LocalFileLoader {
         val lower = trimmed.lowercase()
         if (lower.endsWith(".html") || lower.endsWith(".htm") || lower.endsWith(".xhtml") ||
             lower.endsWith(".mht") || lower.endsWith(".mhtml") ||
-            lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".txt") ||
-            lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".xml")) {
+            lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".mdown") ||
+            lower.endsWith(".txt") || lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".xml") ||
+            lower.contains("readme")) {
             if (trimmed.startsWith("/")) return true
         }
         if (trimmed.startsWith("/") && try { File(trimmed).exists() } catch (_: Exception) { false }) {
@@ -155,7 +156,13 @@ object LocalFileLoader {
                         if (rawMarkdown != null) {
                             val previewHtml = renderMarkdownToHtml(context, fileName, rawMarkdown)
                             webView.stopLoading()
-                            webView.loadDataWithBaseURL("file:///android_asset/", previewHtml, "text/html", "UTF-8", rawUriOrPath)
+                            val baseUrl = if (uri.scheme == "file" && uri.path != null) {
+                                val parent = File(uri.path!!).parentFile
+                                if (parent != null) "file://${parent.absolutePath}/" else "file:///"
+                            } else if (uri.scheme == "content") {
+                                rawUriOrPath
+                            } else null
+                            webView.loadDataWithBaseURL(baseUrl, previewHtml, "text/html", "UTF-8", rawUriOrPath)
                         } else {
                             showErrorPage(webView, rawUriOrPath, "Could not read Markdown document.")
                         }
@@ -172,9 +179,22 @@ object LocalFileLoader {
 
                     withContext(Dispatchers.Main) {
                         if (textContent != null) {
-                            val formattedHtml = formatPlainTextAsHtml(fileName, textContent)
-                            webView.stopLoading()
-                            webView.loadDataWithBaseURL("file:///android_asset/", formattedHtml, "text/html", "UTF-8", rawUriOrPath)
+                            val baseUrl = if (uri.scheme == "file" && uri.path != null) {
+                                val parent = File(uri.path!!).parentFile
+                                if (parent != null) "file://${parent.absolutePath}/" else "file:///"
+                            } else if (uri.scheme == "content") {
+                                rawUriOrPath
+                            } else null
+
+                            if (isMarkdownContent(fileName, textContent)) {
+                                val previewHtml = renderMarkdownToHtml(context, fileName, textContent)
+                                webView.stopLoading()
+                                webView.loadDataWithBaseURL(baseUrl, previewHtml, "text/html", "UTF-8", rawUriOrPath)
+                            } else {
+                                val formattedHtml = formatPlainTextAsHtml(fileName, textContent)
+                                webView.stopLoading()
+                                webView.loadDataWithBaseURL(baseUrl, formattedHtml, "text/html", "UTF-8", rawUriOrPath)
+                            }
                         } else {
                             showErrorPage(webView, rawUriOrPath, "Could not read text document.")
                         }
@@ -261,8 +281,12 @@ object LocalFileLoader {
         }
 
         // 3. Markdown files
-        if (name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".mdown") ||
+        if (name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".mdown") || name.endsWith(".mkd") ||
             path.endsWith(".md") || path.endsWith(".markdown") ||
+            name.equals("readme", ignoreCase = true) ||
+            name.startsWith("readme.", ignoreCase = true) ||
+            name.contains("readme", ignoreCase = true) ||
+            path.contains("readme", ignoreCase = true) ||
             mimeType == "text/markdown" || mimeType == "text/x-markdown"
         ) {
             return LocalFileType.MARKDOWN
@@ -482,18 +506,37 @@ object LocalFileLoader {
                 )
             }
             LocalFileType.TEXT, LocalFileType.UNKNOWN, LocalFileType.MHTML -> {
-                val headers = baseHeaders + mapOf(
-                    "Content-Type" to "text/plain; charset=UTF-8",
-                    "Content-Length" to allBytes.size.toString()
-                )
-                WebResourceResponse(
-                    "text/plain",
-                    "UTF-8",
-                    200,
-                    "OK",
-                    headers,
-                    ByteArrayInputStream(allBytes)
-                )
+                val fileName = getDisplayName(context, uri)
+                val text = String(allBytes, StandardCharsets.UTF_8)
+                if (isMarkdownContent(fileName, text)) {
+                    val previewHtml = renderMarkdownToHtml(context, fileName, text)
+                    val previewBytes = previewHtml.toByteArray(StandardCharsets.UTF_8)
+                    val headers = baseHeaders + mapOf(
+                        "Content-Type" to "text/html; charset=UTF-8",
+                        "Content-Length" to previewBytes.size.toString()
+                    )
+                    WebResourceResponse(
+                        "text/html",
+                        "UTF-8",
+                        200,
+                        "OK",
+                        headers,
+                        ByteArrayInputStream(previewBytes)
+                    )
+                } else {
+                    val headers = baseHeaders + mapOf(
+                        "Content-Type" to "text/plain; charset=UTF-8",
+                        "Content-Length" to allBytes.size.toString()
+                    )
+                    WebResourceResponse(
+                        "text/plain",
+                        "UTF-8",
+                        200,
+                        "OK",
+                        headers,
+                        ByteArrayInputStream(allBytes)
+                    )
+                }
             }
         }
     }
@@ -569,6 +612,22 @@ object LocalFileLoader {
             val base64Content = Base64.encodeToString(rawMarkdown.toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP)
             template.replace("{{MARKDOWN_B64}}", base64Content)
                 .replace("{{FILE_NAME}}", escapeHtml(fileName))
+        }
+    }
+
+    /**
+     * Determines whether the given text or filename represents Markdown content.
+     */
+    fun isMarkdownContent(fileName: String, content: String): Boolean {
+        val lower = fileName.lowercase()
+        if (lower.contains("readme") || lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".mdown") || lower.endsWith(".mkd")) {
+            return true
+        }
+        val firstLines = content.lineSequence().take(30).toList()
+        return firstLines.any { line ->
+            val trimmed = line.trimStart()
+            trimmed.startsWith("# ") || trimmed.startsWith("## ") || trimmed.startsWith("### ") ||
+            trimmed.startsWith("#### ") || trimmed.startsWith("```") || trimmed.startsWith("> ")
         }
     }
 
@@ -660,7 +719,15 @@ object LocalFileLoader {
             </body>
             </html>
         """.trimIndent()
-        webView.loadDataWithBaseURL("file:///android_asset/", errorHtml, "text/html", "UTF-8", pathOrUrl)
+        val baseUrl = if (pathOrUrl.startsWith("file://")) {
+            try {
+                val parent = File(Uri.parse(pathOrUrl).path ?: "").parentFile
+                if (parent != null) "file://${parent.absolutePath}/" else "file:///"
+            } catch (_: Exception) { null }
+        } else if (pathOrUrl.startsWith("content://")) {
+            pathOrUrl
+        } else null
+        webView.loadDataWithBaseURL(baseUrl, errorHtml, "text/html", "UTF-8", pathOrUrl)
     }
 
     /**

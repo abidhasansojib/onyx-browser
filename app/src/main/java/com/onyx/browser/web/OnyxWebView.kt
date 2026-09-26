@@ -91,7 +91,8 @@ class OnyxWebView @JvmOverloads constructor(
         fun isSyntheticOrDataUrl(url: String?): Boolean {
             if (url.isNullOrBlank()) return true
             return url.startsWith("data:") ||
-                    url.startsWith("file:///android_asset/error_page") ||
+                    url.startsWith("file:///android_asset/") ||
+                    url.startsWith("file:///android_res/") ||
                     url == "about:blank"
         }
     }

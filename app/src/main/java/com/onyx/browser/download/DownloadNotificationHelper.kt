@@ -173,11 +173,37 @@ object DownloadNotificationHelper {
         val contentText = if (sizeStr.isNotBlank()) "Download complete • $sizeStr" else "Download complete"
 
         val isApk = com.onyx.browser.ui.downloads.ApkInstallerHelper.isApkFile(task.fileName, task.mimeType)
+        val isLocalDoc = com.onyx.browser.web.LocalFileLoader.isLocalFile(task.finalFilePath) ||
+            task.fileName.lowercase().let { name ->
+                name.endsWith(".mht") || name.endsWith(".mhtml") ||
+                name.endsWith(".html") || name.endsWith(".htm") || name.endsWith(".xhtml") ||
+                name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".mdown") || name.endsWith(".mkd") ||
+                name.contains("readme") ||
+                name.endsWith(".txt")
+            } || task.mimeType.lowercase().let { mime ->
+                mime == "multipart/related" || mime == "message/rfc822" ||
+                mime == "application/x-mimearchive" || mime == "application/mhtml" ||
+                mime == "text/html" || mime == "application/xhtml+xml" ||
+                mime == "text/markdown" || mime == "text/x-markdown"
+            }
+
         val openIntent = try {
             val finalPath = task.finalFilePath
             if (isApk) {
                 Intent(context, DownloadsActivity::class.java).apply {
                     putExtra(DownloadsActivity.EXTRA_INSTALL_APK_PATH, finalPath)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
+            } else if (isLocalDoc) {
+                val docUri = if (finalPath.startsWith("content://", ignoreCase = true) || finalPath.startsWith("file://", ignoreCase = true)) {
+                    Uri.parse(finalPath)
+                } else {
+                    Uri.fromFile(File(finalPath))
+                }
+                Intent(context, com.onyx.browser.MainActivity::class.java).apply {
+                    action = Intent.ACTION_VIEW
+                    data = docUri
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 }
             } else {

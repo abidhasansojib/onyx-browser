@@ -1313,6 +1313,22 @@ onyx-browser/
   - **Neutral Warning Shield**: Tinted the preview warning shield icon with `?attr/colorControlNormal` rather than accent pink, maintaining uniform typography and iconography.
   - **Authentic Black / Dark & Normal App Theme**: Dialog card is cleanly rendered with `app:cardBackgroundColor="?attr/colorSurface"` with `24dp` smooth rounded corners and `1dp` outline border, presenting as sleek black/dark in dark mode and clean white in light mode.
 
+- [x] **Local File Path Preservation & Rendered Markdown README Viewer (`LocalFileLoader.kt`, `MainActivity.kt`, `TabManager.kt`, `OnyxWebView.kt`, `DownloadNotificationHelper.kt`, `DownloadsActivity.kt`, `DownloadHandler.kt`)**:
+  - **Eliminated `file:///android_asset/` Path Exposure**:
+    - Replaced hardcoded `"file:///android_asset/"` `baseUrl` in `LocalFileLoader.loadLocalFile` and `showErrorPage` with the authentic parent folder URI (`file://${parent.absolutePath}/`) for filesystem paths or the raw content URI for SAF content providers, completely preventing Chromium navigation commits from adopting the asset scheme.
+    - Updated `OnyxWebView.isSyntheticOrDataUrl` to include `url.startsWith("file:///android_asset/")` and `file:///android_res/`, preventing WebView internal asset URLs from ever overwriting `currentPageUrl`, `tabManager.activeTab.url`, or browsing history.
+    - Sanitized `MainActivity.kt` URL listeners (`onUrlChanged`, `onPageFinishedCallback`, `updateAddressBarDisplay`, `getActivePageUrl`), URL sharing, and clipboard copying to always preserve and format proper filesystem paths (e.g. `/storage/emulated/0/Download/README.md`) and display the clean document name in the address bar.
+    - Guarded `TabManager.updateActiveTab` from ever overwriting active tab titles or URLs with internal asset paths.
+  - **Universal Markdown & README Detection**:
+    - Expanded `LocalFileLoader.detectFileType` to match `README`, `README.md`, `README.txt`, `.mdown`, `.mkd`, and case-insensitive filename patterns as `LocalFileType.MARKDOWN`.
+    - Added `isMarkdownContent(fileName, text)`: If an extensionless or plain text file starts with Markdown headings (`# `, `## `, `### `), blockquotes (`> `), or fenced code blocks (` ``` `), it is automatically processed through `renderMarkdownToHtml` with full syntax highlighting, styled tables, and code copy buttons rather than raw `<pre>` plaintext.
+    - Intercepted subresource and local file requests in `LocalFileLoader.interceptLocalFile` to dynamically render Markdown HTML with UTF-8 encoding.
+  - **Seamless Downloaded README & Document Click Routing**:
+    - In `DownloadNotificationHelper.buildCompletedNotification`: Added `isLocalDoc` detection (`LocalFileLoader.isLocalFile`, `.md`, `readme`, `.html`, `.txt`). Clicking the download completion notification directly fires an `ACTION_VIEW` intent targeting `MainActivity`, opening the file rendered inside Onyx Browser rather than delegating to an external plain-text viewer.
+    - In `DownloadsActivity.kt`: Expanded `isLocalWebDocument` to include `readme`, `.mdown`, `.mkd`, `.txt`, `.log`, `.json`, `.xml`, routing downloaded READMEs and local web documents directly to `MainActivity` with read URI permissions.
+    - In `DownloadHandler.kt`: Added `guessResolvedFileName` across internal downloads, external download managers, `DownloadPromptBottomSheet`, and `DownloadPromptActivity`, ensuring downloads from URLs ending with `README` (e.g. GitHub raw links or repository trees) resolve to `"README.md"` rather than `.bin` or `.txt`.
+
+
 
 
 

@@ -100,7 +100,7 @@ class DownloadPromptActivity : AppCompatActivity() {
             referer = it.getStringExtra(EXTRA_REFERER) ?: ""
         }
 
-        initialFileName = URLUtil.guessFileName(fileUrl, contentDisposition, mimeType)
+        initialFileName = DownloadHandler.guessResolvedFileName(fileUrl, contentDisposition, mimeType)
     }
 
     private fun setupUI() {

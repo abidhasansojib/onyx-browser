@@ -509,10 +509,10 @@ class TabManager(
 
     fun updateActiveTab(url: String, title: String) {
         val current = _activeTab.value ?: return
-        if (url.startsWith("data:") || url.startsWith("file:///android_asset/error_page")) {
+        if (url.startsWith("data:") || url.startsWith("file:///android_asset/") || url.startsWith("file:///android_res/")) {
             return
         }
-        val cleanTitle = if (title.startsWith("data:") || title.startsWith("file:///android_asset/error_page")) {
+        val cleanTitle = if (title.startsWith("data:") || title.startsWith("file:///android_asset/") || title.startsWith("file:///android_res/")) {
             current.title.ifBlank { url }
         } else {
             title.ifBlank { url }

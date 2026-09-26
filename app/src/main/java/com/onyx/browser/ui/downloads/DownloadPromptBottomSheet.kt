@@ -66,7 +66,7 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
             referer = it.getString(ARG_REFERER, "")
         }
 
-        initialFileName = URLUtil.guessFileName(fileUrl, contentDisposition, mimeType)
+        initialFileName = DownloadHandler.guessResolvedFileName(fileUrl, contentDisposition, mimeType)
     }
 
     override fun onCreateView(
