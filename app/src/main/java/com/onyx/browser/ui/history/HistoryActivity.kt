@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
@@ -74,16 +73,11 @@ class HistoryActivity : AppCompatActivity() {
 
     private fun setupClearDataButton() {
         binding.btnClearBrowsingData.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle(R.string.clear_browsing_data)
-                .setMessage(R.string.confirm_clear_history)
-                .setPositiveButton(R.string.clear) { _, _ ->
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        database.historyDao().clearAllHistory()
-                    }
+            ClearHistoryDialog {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    database.historyDao().clearAllHistory()
                 }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
+            }.show(supportFragmentManager, ClearHistoryDialog.TAG)
         }
     }
 

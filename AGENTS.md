@@ -1420,7 +1420,16 @@ onyx-browser/
   - **Enlarged New Tab Button to 48dp (`fabNewTab`)**:
     - Resized the New Tab floating action button from 42dp to a balanced 48dp (`fabCustomSize="48dp"`, `maxImageSize="22dp"`).
 
-
-
-
-
+- [x] **Homepage Search Bar, Shortcut Sizing & Themed History Clear Dialog**:
+  - **Squarish Search Bar with Soft Corners (`bg_top_bar_box.xml`)**:
+    - Reduced corner radius from `24dp` (stadium capsule) to `12dp` for `topBarBox` (`bg_top_bar_box.xml`), giving the search bar container a modern squarish form factor with soft, smooth corners.
+    - Decoupled `tabCountPill` in `dialog_confirm_close_all_tabs.xml` to use its own `bg_tab_pill_container`.
+  - **Balanced Shortcut Tile Sizing (`item_home_shortcut.xml`, `bg_box_tile.xml`)**:
+    - Scaled down the homepage shortcut tile dimensions from `62dp x 62dp` to a balanced `54dp x 54dp`.
+    - Refined inner icon dimensions from `34dp x 34dp` to `28dp x 28dp`, and adjusted tile squircle radius from `18dp` to `15dp`.
+    - Scaled letter badge text size to `20sp` and tightened vertical padding (`8dp` top, `6dp` bottom).
+  - **Themed History Clear Browsing Data Prompt (`ClearHistoryDialog.kt`, `dialog_confirm_clear_history.xml`, `HistoryActivity.kt`)**:
+    - Replaced the generic platform `AlertDialog.Builder` popup in `HistoryActivity.kt` with a custom, beautifully themed `ClearHistoryDialog`.
+    - Styled with `@color/dialog_clear_data_bg` (`#282A2D`) surface, smooth `24dp` rounded corners, `#3C4043` border stroke, and centered 56dp danger icon badge (`@drawable/bg_circle_danger` with `ic_delete` tinted `#DC4B64`).
+    - Clear title (`@string/clear_browsing_data`) and descriptive confirmation message (`@string/confirm_clear_history`).
+    - Standardized action buttons matching Onyx design guidelines: Cancel button on the left (`layout_weight="1"`, background `@color/btn_cancel_bg` `#35363A`, text `#E8EAED`), and Clear button on the right (`layout_weight="1"`, background `@color/btn_clear_bg` `#DC4B64`, text `#FFFFFF`).
