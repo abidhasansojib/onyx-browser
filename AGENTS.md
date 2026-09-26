@@ -1646,5 +1646,16 @@ onyx-browser/
       - In Aggressive mode (Brave `BLOCK`), `DomainBlockingType` is `kAggressive`: Blocks all ads, trackers, and first-party ad resources at the network level and cosmetic filtering.
     - **Social Media Embed Controls Parity**:
       - Configured `allowLinkedInEmbeds` default to `false` matching Brave's `kLinkedInEmbedControlType = false` (LinkedIn embedded posts allowed by default for professional sites).
+  - [x] **Verified Remote GitHub Actions Release Build & Deployment (#36269070187, Release `v1.0.181`)**:
+    - Workflow dispatched for **Release** build on `dev` branch with inputs `build_type=Release`.
+    - Native Rust NDK `libadblock_bridge.so` compiled across `arm64-v8a`, `armeabi-v7a`, `x86_64`.
+    - Release APKs assembled with ABI splits and R8 minification, packaged with official release keystore.
+    - Verified published GitHub Release [`v1.0.181`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.181):
+      - `Onyx-Browser-v1.0.181-arm64-v8a-release.apk` (20 MB)
+      - `Onyx-Browser-v1.0.181-armeabi-v7a-release.apk` (16 MB)
+      - `Onyx-Browser-v1.0.181-universal-release.apk` (40 MB)
+      - `Onyx-Browser-v1.0.181-x86_64-release.apk` (21 MB)
+    - Copied latest release binaries directly to `/storage/emulated/0/` and `/root/onyx-browser/release/` for immediate installation.
+
 
 
