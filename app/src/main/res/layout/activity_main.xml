@@ -33,196 +33,196 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:minHeight="56dp"
-        android:background="?attr/colorSurface"
-        android:elevation="4dp"
-        android:paddingStart="6dp"
-        android:paddingTop="4dp"
-        android:paddingEnd="6dp"
+        android:background="@color/homepage_bg"
+        android:elevation="0dp"
+        android:paddingStart="12dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="12dp"
         android:paddingBottom="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvNetworkStatus">
 
-        <!-- Left Navigation Action Container: Home (Browsing mode) / Back Arrow (Search mode) -->
-        <FrameLayout
-            android:id="@+id/flNavAction"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+        <!-- Unified Top Bar Box: Encloses Home, Search Engine, Search Bar, Tab Switcher, and Menu in #333439 -->
+        <LinearLayout
+            android:id="@+id/topBarBox"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_top_bar_box"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
             app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <androidx.appcompat.widget.AppCompatImageButton
-                android:id="@+id/btnHome"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/home"
-                app:srcCompat="@drawable/ic_home"
-                app:tint="?attr/colorControlNormal" />
+            <!-- 1. Home / Back Action Container -->
+            <FrameLayout
+                android:id="@+id/flNavAction"
+                android:layout_width="34dp"
+                android:layout_height="34dp">
 
-            <androidx.appcompat.widget.AppCompatImageButton
-                android:id="@+id/btnSearchBack"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Back"
-                android:visibility="gone"
-                app:srcCompat="@drawable/ic_arrow_back"
-                app:tint="?attr/colorControlNormal" />
-        </FrameLayout>
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnHome"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/home"
+                    android:padding="6dp"
+                    app:srcCompat="@drawable/ic_home"
+                    app:tint="?attr/colorControlNormal" />
 
-        <!-- Search Engine Selector Icon -->
-        <androidx.appcompat.widget.AppCompatImageView
-            android:id="@+id/btnSearchEngine"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="4dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/switch_search_engine"
-            android:padding="2dp"
-            app:srcCompat="@drawable/ic_engine_google"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toEndOf="@id/flNavAction"
-            app:layout_constraintTop_toTopOf="parent" />
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnSearchBack"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Back"
+                    android:padding="6dp"
+                    android:visibility="gone"
+                    app:srcCompat="@drawable/ic_arrow_back"
+                    app:tint="?attr/colorControlNormal" />
+            </FrameLayout>
 
-        <!-- Address / Search Bar Pill Container -->
-        <LinearLayout
-            android:id="@+id/searchBarContainer"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:background="@drawable/bg_search_bar"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/btnTabSwitcher"
-            app:layout_constraintStart_toEndOf="@id/btnSearchEngine"
-            app:layout_constraintTop_toTopOf="parent">
-
-            <!-- Incognito Badge Indicator (shown when active tab is incognito) -->
+            <!-- 2. Search Engine Selector Icon -->
             <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/ivIncognitoIndicator"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:layout_marginEnd="6dp"
-                android:contentDescription="@string/incognito_mode"
-                android:visibility="gone"
-                app:srcCompat="@drawable/ic_incognito"
-                app:tint="?attr/colorControlNormal" />
+                android:id="@+id/btnSearchEngine"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="2dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/switch_search_engine"
+                android:padding="1dp"
+                app:srcCompat="@drawable/ic_engine_google" />
 
-            <!-- SSL Lock Icon (shown in idle browsing) -->
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/ivSslLock"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:layout_marginEnd="6dp"
-                android:contentDescription="SSL Lock"
-                app:srcCompat="@drawable/ic_lock"
-                app:tint="?attr/colorControlNormal" />
-
-            <!-- Address / Search EditText -->
-            <EditText
-                android:id="@+id/etUrl"
+            <!-- 3. Address / Search Bar Inner Area -->
+            <LinearLayout
+                android:id="@+id/searchBarContainer"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="6dp"
                 android:layout_weight="1"
-                android:background="@null"
-                android:ellipsize="end"
-                android:hint="@string/search_or_type_url"
-                android:imeOptions="actionGo"
-                android:importantForAutofill="no"
-                android:inputType="textUri|textNoSuggestions"
-                android:maxLines="1"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textColorHint="?android:attr/textColorSecondary"
-                android:textSize="14sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-            <!-- Clear Search Input Button -->
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/btnClearUrl"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_marginStart="4dp"
+                <!-- Incognito Badge Indicator -->
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/ivIncognitoIndicator"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_marginEnd="4dp"
+                    android:contentDescription="@string/incognito_mode"
+                    android:visibility="gone"
+                    app:srcCompat="@drawable/ic_incognito"
+                    app:tint="?attr/colorControlNormal" />
+
+                <!-- SSL Lock Icon -->
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/ivSslLock"
+                    android:layout_width="15dp"
+                    android:layout_height="15dp"
+                    android:layout_marginEnd="4dp"
+                    android:contentDescription="SSL Lock"
+                    app:srcCompat="@drawable/ic_lock"
+                    app:tint="?attr/colorControlNormal" />
+
+                <!-- Address / Search EditText -->
+                <EditText
+                    android:id="@+id/etUrl"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@null"
+                    android:ellipsize="end"
+                    android:hint="@string/search_or_type_url"
+                    android:imeOptions="actionGo"
+                    android:importantForAutofill="no"
+                    android:inputType="textUri|textNoSuggestions"
+                    android:maxLines="1"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textColorHint="?android:attr/textColorSecondary"
+                    android:textSize="14.5sp" />
+
+                <!-- Clear Search Input Button -->
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/btnClearUrl"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_marginStart="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/clear_search"
+                    android:padding="2dp"
+                    android:visibility="gone"
+                    app:srcCompat="@drawable/ic_close"
+                    app:tint="?attr/colorControlNormal" />
+
+                <!-- QR Code Scanner Button -->
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/btnQrScanner"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_marginStart="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/qr_scan"
+                    android:padding="2dp"
+                    android:visibility="gone"
+                    app:srcCompat="@drawable/ic_qr_code"
+                    app:tint="?attr/colorControlNormal" />
+
+                <!-- Voice Search Button (Mic) -->
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/btnVoiceSearch"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_marginStart="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/voice_search"
+                    app:srcCompat="@drawable/ic_mic"
+                    app:tint="?attr/colorControlNormal" />
+            </LinearLayout>
+
+            <!-- 4. Tab Switcher Badge Button -->
+            <FrameLayout
+                android:id="@+id/btnTabSwitcher"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_tab_badge"
+                android:contentDescription="@string/tabs">
+
+                <TextView
+                    android:id="@+id/tvTabCount"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="1"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
+
+            <!-- 5. Three-Dot Menu Button -->
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/btnMenu"
+                android:layout_width="28dp"
+                android:layout_height="34dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/clear_search"
+                android:contentDescription="@string/menu"
                 android:padding="2dp"
-                app:srcCompat="@drawable/ic_close"
-                android:visibility="gone"
-                app:tint="?attr/colorControlNormal" />
-
-            <!-- QR Code Scanner Button (shown when search bar is tapped to enter text, matching screenshot) -->
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/btnQrScanner"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_marginStart="6dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/qr_scan"
-                android:padding="2dp"
-                app:srcCompat="@drawable/ic_qr_code"
-                android:visibility="gone"
-                app:tint="?attr/colorControlNormal" />
-
-            <!-- Voice Search Button (Mic) -->
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/btnVoiceSearch"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_marginStart="6dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/voice_search"
-                app:srcCompat="@drawable/ic_mic"
+                app:srcCompat="@drawable/ic_more_vert"
                 app:tint="?attr/colorControlNormal" />
         </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- Tab Switcher Badge Button -->
-        <FrameLayout
-            android:id="@+id/btnTabSwitcher"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_marginEnd="4dp"
-            android:background="@drawable/bg_tab_badge"
-            android:contentDescription="@string/tabs"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/btnMenu"
-            app:layout_constraintTop_toTopOf="parent">
-
-            <TextView
-                android:id="@+id/tvTabCount"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="1"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-        </FrameLayout>
-
-        <!-- Three-Dot Menu Button -->
-        <androidx.appcompat.widget.AppCompatImageButton
-            android:id="@+id/btnMenu"
-            android:layout_width="36dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/menu"
-            app:srcCompat="@drawable/ic_more_vert"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:tint="?attr/colorControlNormal" />
-
-</androidx.constraintlayout.widget.ConstraintLayout>
-
-    <!-- Subtle 1dp Outline Divider separating toolbar from webview / content -->
+    <!-- Hidden Divider (Seamless #1C1C1E color for whole page) -->
     <View
         android:id="@+id/topBarDivider"
         android:layout_width="0dp"
-        android:layout_height="1dp"
-        android:background="?attr/colorOutline"
+        android:layout_height="0dp"
+        android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/topBar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

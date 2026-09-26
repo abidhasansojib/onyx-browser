@@ -762,7 +762,7 @@ class MainActivity : AppCompatActivity() {
     fun showHomeScreen() {
         if (customVideoView == null) {
             binding.topBar.visibility = View.VISIBLE
-            binding.topBarDivider.visibility = View.VISIBLE
+            binding.topBarDivider.visibility = View.GONE
         }
         binding.homeLayout.root.visibility = View.VISIBLE
         binding.webViewContainer.visibility = View.GONE
@@ -796,7 +796,7 @@ class MainActivity : AppCompatActivity() {
     private fun showWebView(tab: TabItem, forceUrl: String? = null, reloadIfChanged: Boolean = false) {
         if (customVideoView == null) {
             binding.topBar.visibility = View.VISIBLE
-            binding.topBarDivider.visibility = View.VISIBLE
+            binding.topBarDivider.visibility = View.GONE
         }
         binding.homeLayout.root.visibility = View.GONE
         binding.webViewContainer.visibility = View.VISIBLE

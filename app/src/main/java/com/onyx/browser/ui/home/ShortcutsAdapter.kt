@@ -141,25 +141,25 @@ class ShortcutsAdapter(
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_bookmark)
-                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(Color.parseColor("#E57373"))
                 }
                 ShortcutItem.ICON_HISTORY -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_history)
-                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(Color.parseColor("#F4B400"))
                 }
                 ShortcutItem.ICON_DOWNLOADS -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_download)
-                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(Color.parseColor("#34A853"))
                 }
                 ShortcutItem.ICON_QR_SCAN -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_qr_code)
-                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
+                    binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(Color.parseColor("#4285F4"))
                 }
                 else -> {
                     val letter = item.title.trim().firstOrNull()?.uppercase()
@@ -172,13 +172,15 @@ class ShortcutsAdapter(
                         binding.tvLetterBadge.setTextColor(textColorPrimary)
                     }
 
-                    // Dynamically fetch and display real website favicon / logo
+                    // Dynamically fetch and display real website favicon / logo with smooth rounded corners
                     com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
                         context = binding.root.context,
                         imageView = binding.ivShortcutIcon,
                         urlOrHost = item.url,
                         fallbackLetterView = binding.tvLetterBadge,
-                        isCircular = true
+                        isCircular = false,
+                        isRounded = true,
+                        cornerRadiusRatio = 0.22f
                     )
                 }
             }

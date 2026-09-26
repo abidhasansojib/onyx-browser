@@ -92,7 +92,9 @@ object FaviconManager {
         imageView: ImageView,
         urlOrHost: String,
         fallbackLetterView: View? = null,
-        isCircular: Boolean = false
+        isCircular: Boolean = false,
+        isRounded: Boolean = false,
+        cornerRadiusRatio: Float = 0.22f
     ) {
         val trimmed = urlOrHost.trim()
         if (trimmed.isBlank() || trimmed.startsWith("about:") || trimmed.startsWith("chrome:") || trimmed.startsWith("onyx:")) {
@@ -107,7 +109,11 @@ object FaviconManager {
         // 1. Memory Cache Hit (Immediate UI update)
         val memBitmap = memoryCache.get(key)
         if (memBitmap != null) {
-            val finalBmp = if (isCircular) getCircularBitmap(memBitmap) else memBitmap
+            val finalBmp = when {
+                isCircular -> getCircularBitmap(memBitmap)
+                isRounded -> getRoundedBitmap(memBitmap, cornerRadiusRatio)
+                else -> memBitmap
+            }
             imageView.setImageBitmap(finalBmp)
             imageView.clearColorFilter()
             imageView.imageTintList = null
@@ -124,7 +130,11 @@ object FaviconManager {
         scope.launch {
             val bitmap = loadFaviconInternal(context, trimmed, key)
             if (bitmap != null) {
-                val finalBmp = if (isCircular) getCircularBitmap(bitmap) else bitmap
+                val finalBmp = when {
+                    isCircular -> getCircularBitmap(bitmap)
+                    isRounded -> getRoundedBitmap(bitmap, cornerRadiusRatio)
+                    else -> bitmap
+                }
                 withContext(Dispatchers.Main) {
                     if (imageView.tag == key) {
                         imageView.setImageBitmap(finalBmp)
@@ -192,10 +202,16 @@ object FaviconManager {
             return@withContext null
         }
 
-        // C. Fetch Remote Favicon via Google S2 CDN (128px high-res)
-        var fetchedBitmap: Bitmap? = downloadBitmap("https://www.google.com/s2/favicons?domain=$host&sz=128")
+        // C. Fetch Remote Favicon:
+        // 1. Try high-resolution apple-touch-icon (180px official app icon)
+        var fetchedBitmap: Bitmap? = downloadBitmap("https://$host/apple-touch-icon.png")
 
-        // D. Fallback to direct favicon.ico if Google S2 returns empty or fails
+        // 2. Fallback to Google S2 CDN (128px high-res)
+        if (fetchedBitmap == null) {
+            fetchedBitmap = downloadBitmap("https://www.google.com/s2/favicons?domain=$host&sz=128")
+        }
+
+        // 3. Fallback to direct favicon.ico
         if (fetchedBitmap == null) {
             fetchedBitmap = downloadBitmap("https://$host/favicon.ico")
         }
@@ -283,6 +299,35 @@ object FaviconManager {
 
         canvas.drawARGB(0, 0, 0, 0)
         canvas.drawOval(rectF, paint)
+        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+        canvas.drawBitmap(src, srcRect, rect, paint)
+        return output
+    }
+
+    /**
+     * Produces an anti-aliased squircle / rounded rectangle crop of the given Bitmap.
+     */
+    fun getRoundedBitmap(src: Bitmap, cornerRadiusRatio: Float = 0.22f): Bitmap {
+        val size = minOf(src.width, src.height)
+        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+
+        val paint = Paint().apply {
+            isAntiAlias = true
+            isFilterBitmap = true
+            isDither = true
+        }
+
+        val rect = Rect(0, 0, size, size)
+        val rectF = RectF(rect)
+        val radius = size * cornerRadiusRatio
+
+        val srcLeft = (src.width - size) / 2
+        val srcTop = (src.height - size) / 2
+        val srcRect = Rect(srcLeft, srcTop, srcLeft + size, srcTop + size)
+
+        canvas.drawARGB(0, 0, 0, 0)
+        canvas.drawRoundRect(rectF, radius, radius, paint)
         paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
         canvas.drawBitmap(src, srcRect, rect, paint)
         return output

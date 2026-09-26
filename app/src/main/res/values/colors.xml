@@ -15,16 +15,21 @@
     <color name="text_secondary_light">#5F6368</color>
     <color name="outline_light">#DFE1E5</color>
 
-    <!-- Google Dark Mode Colors (matches google.com and Chrome Dark, not AMOLED) -->
-    <color name="background_dark">#202124</color>
-    <color name="surface_dark">#303134</color>
-    <color name="surface_variant_dark">#35363A</color>
+    <!-- Dark Mode Colors (matches #1C1C1E & #333439 from reference design) -->
+    <color name="background_dark">#1C1C1E</color>
+    <color name="surface_dark">#1C1C1E</color>
+    <color name="surface_variant_dark">#333439</color>
     <color name="text_primary_dark">#E8EAED</color>
     <color name="text_secondary_dark">#9AA0A6</color>
-    <color name="outline_dark">#3C4043</color>
+    <color name="outline_dark">#333439</color>
     <color name="primary_dark">#DC4B64</color>
     <color name="primary_variant_dark">#C73A53</color>
     <color name="on_primary_dark">#FFFFFF</color>
+
+    <!-- Homepage & Box-Type Colors matching Quetta reference design -->
+    <color name="homepage_bg">#FFFFFF</color>
+    <color name="top_bar_box_color">#F1F3F4</color>
+    <color name="shortcut_tile_bg">#F1F3F4</color>
 
     <color name="incognito_purple">#BB86FC</color>
     <color name="red_danger">#EA4335</color>

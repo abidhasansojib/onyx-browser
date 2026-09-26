@@ -1328,8 +1328,19 @@ onyx-browser/
     - In `DownloadsActivity.kt`: Expanded `isLocalWebDocument` to include `readme`, `.mdown`, `.mkd`, `.txt`, `.log`, `.json`, `.xml`, routing downloaded READMEs and local web documents directly to `MainActivity` with read URI permissions.
     - In `DownloadHandler.kt`: Added `guessResolvedFileName` across internal downloads, external download managers, `DownloadPromptBottomSheet`, and `DownloadPromptActivity`, ensuring downloads from URLs ending with `README` (e.g. GitHub raw links or repository trees) resolve to `"README.md"` rather than `.bin` or `.txt`.
 
-
-
-
-
-
+- [x] **Unified Quetta-Inspired Homepage (`#1C1C1E`), Seamless Background, `#333439` Top Bar Box & Enlarged Shortcut Tiles**:
+  - **Seamless `#1C1C1E` Color Canvas**:
+    - Updated `colors.xml` and `values-night/colors.xml`: Set `background_dark` to `#1C1C1E`, `surface_dark` to `#1C1C1E`, `surface_variant_dark` to `#333439`, `top_bar_box_color` to `#333439`, `shortcut_tile_bg` to `#333439`, and `homepage_bg` to `#1C1C1E`.
+    - Window background, status bar, navigation bar, top bar, and homepage background flow in one continuous `#1C1C1E` canvas.
+    - Completely removed the dividing line under the search bar: Set `topBarDivider` to `height="0dp"` and `visibility="gone"`.
+  - **Unified `#333439` Top Bar Box Layout (`activity_main.xml`, `bg_top_bar_box.xml`)**:
+    - Wrapped all top bar controls (`flNavAction` [Home/Back], `btnSearchEngine`, `searchBarContainer` [`etUrl`, clear, QR, mic, SSL lock, incognito indicator], `btnTabSwitcher`, and `btnMenu` [3-dots]) inside a single `#333439` stadium capsule box (`topBarBox`) with `24dp` corners.
+    - Maintained exact ViewBinding IDs, event handlers, and search mode transitions.
+  - **Enlarged Shortcut Tiles & Website Logo Optimization (`item_home_shortcut.xml`, `bg_box_tile.xml`, `FaviconManager.kt`, `ShortcutsAdapter.kt`)**:
+    - Enlarged icon container from `52dp` to `62dp`, icon size from `26dp` to `34dp` with `scaleType="fitCenter"`, and title to `12sp`.
+    - Updated `bg_box_tile.xml` to `18dp` squircle radius with solid `#333439` fill and no harsh stroke outlines.
+    - Upgraded `FaviconManager.kt`: Added high-resolution `https://$host/apple-touch-icon.png` fetch before Google S2 fallback, and added `getRoundedBitmap(src, 0.22f)` with anti-aliased squircle corner clipping.
+    - In `ShortcutsAdapter.kt`, passed `isRounded = true` so website logos render as crisp rounded app icons, and styled system actions with dedicated vibrant colors matching reference screenshot (coral `#E57373` for Bookmarks, golden amber `#F4B400` for History, emerald `#34A853` for Downloads, blue `#4285F4` for QR).
+  - **GitHub Actions Clean State**:
+    - Cleared all historical workflow runs and action logs (`gh run delete`).
+    - Deleted all old releases and remote/local git tags, preserving only the latest stable release (`v1.0.167`).

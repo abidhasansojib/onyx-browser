@@ -29,6 +29,9 @@
     <color name="tab_card_stroke">#2C2D30</color>
     <color name="tab_card_header_bg">#252628</color>
     <color name="tab_text_primary">#E8EAED</color>
-    <color name="tab_close_icon">#9AA0A6</color>
+    <!-- Homepage & Box-Type Colors matching Quetta reference design (#1C1C1E & #333439) -->
+    <color name="homepage_bg">#1C1C1E</color>
+    <color name="top_bar_box_color">#333439</color>
+    <color name="shortcut_tile_bg">#333439</color>
 </resources>
 
