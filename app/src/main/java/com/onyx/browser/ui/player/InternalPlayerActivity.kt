@@ -19,7 +19,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import com.onyx.browser.R
 import com.onyx.browser.databinding.ActivityInternalPlayerBinding
-import com.onyx.browser.ui.downloads.DownloadPromptBottomSheet
 
 /**
  * Dedicated, hardware-accelerated internal media player for Onyx Browser.
@@ -94,20 +93,6 @@ class InternalPlayerActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         binding.btnBack.setOnClickListener { finish() }
-
-        binding.btnPlayerDownload.setOnClickListener {
-            val cookies = android.webkit.CookieManager.getInstance().getCookie(videoUrl) ?: ""
-            val sheet = DownloadPromptBottomSheet.newInstance(
-                url = videoUrl,
-                userAgent = "",
-                contentDisposition = "",
-                mimeType = "video/*",
-                contentLength = 0L,
-                cookies = cookies,
-                referer = pageUrl ?: ""
-            )
-            sheet.show(supportFragmentManager, "DownloadPromptSheet")
-        }
 
         binding.btnPlayPause.setOnClickListener {
             togglePlayPause()

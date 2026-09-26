@@ -1555,11 +1555,20 @@ class MainActivity : AppCompatActivity() {
             if (clipboard.hasPrimaryClip()) {
                 val clipData = clipboard.primaryClip
                 if (clipData != null && clipData.itemCount > 0) {
-                    val text = clipData.getItemAt(0).text?.toString()?.trim()
-                    if (!text.isNullOrBlank() && (android.util.Patterns.WEB_URL.matcher(text).matches() || text.startsWith("http"))) {
+                    val rawText = clipData.getItemAt(0).text?.toString()?.trim()
+                    if (!rawText.isNullOrBlank()) {
+                        val isLink = android.util.Patterns.WEB_URL.matcher(rawText).matches() ||
+                                rawText.startsWith("http://", ignoreCase = true) ||
+                                rawText.startsWith("https://", ignoreCase = true) ||
+                                rawText.startsWith("www.", ignoreCase = true) ||
+                                isLikelyUrl(rawText)
+
+                        val title = if (isLink) getString(R.string.link_you_copied) else getString(R.string.text_you_copied)
                         return com.onyx.browser.data.model.SearchSuggestion(
-                            title = "Link from clipboard",
-                            queryOrUrl = text,
+                            title = title,
+                            queryOrUrl = rawText,
+                            isUrl = isLink,
+                            isDomain = isLink && !rawText.startsWith("http://", ignoreCase = true) && !rawText.startsWith("https://", ignoreCase = true),
                             isClipboard = true
                         )
                     }
@@ -1879,16 +1888,27 @@ class MainActivity : AppCompatActivity() {
                 activeWv.postDelayed({
                     if (customVideoView == null && shouldAutoEnterPipOnCustomView) {
                         shouldAutoEnterPipOnCustomView = false
-                        activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) {
-                            enterPipMode()
-                        }
+                        isolateAndEnterPip(activeWv)
                     }
                 }, 350)
             } else {
                 shouldAutoEnterPipOnCustomView = false
-                activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) {
+                isolateAndEnterPip(activeWv)
+            }
+        }
+    }
+
+    private fun isolateAndEnterPip(activeWv: com.onyx.browser.web.OnyxWebView) {
+        floatingVideoMenuManager?.hideImmediately()
+        activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) { res ->
+            val hasVideo = res?.contains("\"found\":true") == true || res?.contains("\"found\": true") == true
+            if (hasVideo) {
+                // Allow Chromium compositor 100ms to paint the isolated video layout before OS PiP snapshot
+                activeWv.postDelayed({
                     enterPipMode()
-                }
+                }, 100)
+            } else {
+                Toast.makeText(this, "No active video found to enter Picture-in-Picture", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -1938,7 +1958,8 @@ class MainActivity : AppCompatActivity() {
                         paramsBuilder.setSourceRectHint(rect)
                     }
                 } else {
-                    // Hide browser UI before transition so only the isolated video is captured
+                    // Hide floating overlay and browser UI before transition so only the isolated video is captured
+                    floatingVideoMenuManager?.hideImmediately()
                     binding.topBar.visibility = View.GONE
                     binding.topBarDivider.visibility = View.GONE
                     binding.fullscreenControlsOverlay.visibility = View.GONE
@@ -1946,25 +1967,11 @@ class MainActivity : AppCompatActivity() {
                     binding.findInPageBar.visibility = View.GONE
                     binding.searchOverlay.visibility = View.GONE
 
-                    val bounds = MediaPlaybackBridge.lastVideoBounds
                     val activeWv = tabManager.getActiveWebView()
-                    if (bounds != null && activeWv != null) {
-                        val location = IntArray(2)
-                        activeWv.getLocationInWindow(location)
-                        val density = resources.displayMetrics.density
-                        val left = (location[0] + bounds.left * density).toInt()
-                        val top = (location[1] + bounds.top * density).toInt()
-                        val right = (location[0] + bounds.right * density).toInt()
-                        val bottom = (location[1] + bounds.bottom * density).toInt()
-                        val rect = Rect(
-                            left.coerceAtLeast(0),
-                            top.coerceAtLeast(0),
-                            right.coerceAtMost(resources.displayMetrics.widthPixels),
-                            bottom.coerceAtMost(resources.displayMetrics.heightPixels)
-                        )
-                        if (rect.width() > 20 && rect.height() > 20) {
-                            paramsBuilder.setSourceRectHint(rect)
-                        }
+                    val rect = Rect()
+                    activeWv?.getGlobalVisibleRect(rect)
+                    if (!rect.isEmpty) {
+                        paramsBuilder.setSourceRectHint(rect)
                     }
                 }
 
@@ -2681,6 +2688,7 @@ class MainActivity : AppCompatActivity() {
         val activeWv = tabManager.getActiveWebView()
         if (isInPictureInPictureMode) {
             // Video-Only PiP: Strip all browser UI and chrome
+            floatingVideoMenuManager?.hideImmediately()
             binding.topBar.visibility = View.GONE
             binding.topBarDivider.visibility = View.GONE
             binding.homeLayout.root.visibility = View.GONE

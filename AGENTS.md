@@ -1597,6 +1597,16 @@ onyx-browser/
     - **BUG-11: Chromium Destroy Race Fix (`OnyxWebView.kt`)**: Removed redundant `loadUrl("about:blank")` immediately preceding `destroy()` in `destroySafely()`.
     - **BUG-12: Incognito Fallback Consistency (`TabManager.kt`)**: Updated `closeTabsCreatedSince()` to keep the user in incognito mode if other incognito tabs remain open.
     - **BUG-13: Explicit Dispatcher Initialization (`TabManager.kt`)**: Used `Dispatchers.Main` explicitly for the notification collector coroutine in `TabManager.init`.
+  - **Dynamic Clipboard Detection & Media/PiP Fixes (`MainActivity.kt`, `SuggestionsAdapter.kt`, `MediaPlaybackManager.kt`, `InternalPlayerActivity.kt`)**:
+    - **Dynamic Clipboard Text/Link Detection**: Upgraded `getClipboardSuggestion()` in `MainActivity.kt` to inspect copied content: if a URL or web domain is detected, displays `"Link you copied"` (`R.string.link_you_copied`) with link icon and direct URL navigation; if plain text is detected, displays `"Text you copied"` (`R.string.text_you_copied`) with search icon and triggers web search via the default search engine.
+    - **Removed In-Player Download Button**: Removed non-functional download button from `InternalPlayerActivity` and `activity_internal_player.xml`.
+    - **PiP Isolation & Multi-Platform Support**:
+      - Fixed bug where PiP button opened the entire app window instead of video-only by eliminating stale in-page video bounds and setting `sourceRectHint` to `activeWv.getGlobalVisibleRect()` on the black-letterboxed isolated WebView.
+      - Added 100ms render synchronization delay after DOM isolation to allow Chromium to paint the black letterboxed frame before Android OS captures the PiP snapshot.
+      - Hidden `floatingVideoMenuManager` immediately upon entering PiP to prevent floating pills inside the PiP viewport.
+      - Added iframe video player fallback in `isolateVideoForPipScript` supporting YouTube, Vimeo, and embedded web players across non-YouTube platforms.
+      - Added video presence verification: shows informative toast if no active video was found rather than shrinking the entire application into PiP.
+
 
 
 

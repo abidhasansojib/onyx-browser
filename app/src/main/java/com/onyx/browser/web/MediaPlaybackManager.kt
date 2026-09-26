@@ -760,7 +760,18 @@ object MediaPlaybackManager {
                 var activeVid = vids.find(function(v) { return !v.paused && !v.ended && v.readyState > 1; }) 
                     || vids.find(function(v) { return !v.paused; }) 
                     || vids[0];
-                if (!activeVid) return JSON.stringify({ width: 16, height: 9 });
+
+                if (!activeVid) {
+                    var iframes = Array.from(document.querySelectorAll('iframe'));
+                    activeVid = iframes.find(function(f) {
+                        var src = (f.src || '').toLowerCase();
+                        var allow = (f.getAttribute('allow') || '').toLowerCase();
+                        return src.includes('youtube') || src.includes('vimeo') || src.includes('player') || 
+                               src.includes('embed') || src.includes('video') || allow.includes('fullscreen');
+                    });
+                }
+
+                if (!activeVid) return JSON.stringify({ found: false, width: 16, height: 9 });
 
                 var oldStyle = document.getElementById('__onyx_pip_style');
                 if (oldStyle) oldStyle.remove();
@@ -804,8 +815,8 @@ object MediaPlaybackManager {
                         overflow: visible !important;
                         background: transparent !important;
                     }
-                    /* Make the video element fill 100% of the PiP viewport with black letterboxing */
-                    video[data-onyx-pip-target] {
+                    /* Make the video/player element fill 100% of the PiP viewport with black letterboxing */
+                    [data-onyx-pip-target] {
                         display: block !important;
                         position: fixed !important;
                         top: 0 !important;
@@ -835,11 +846,11 @@ object MediaPlaybackManager {
                 `;
                 document.head.appendChild(style);
 
-                var vidWidth = activeVid.videoWidth || activeVid.clientWidth || 16;
-                var vidHeight = activeVid.videoHeight || activeVid.clientHeight || 9;
-                return JSON.stringify({ width: vidWidth, height: vidHeight });
+                var vidWidth = activeVid.videoWidth || activeVid.clientWidth || activeVid.offsetWidth || 16;
+                var vidHeight = activeVid.videoHeight || activeVid.clientHeight || activeVid.offsetHeight || 9;
+                return JSON.stringify({ found: true, width: vidWidth, height: vidHeight });
             } catch (e) {}
-            return JSON.stringify({ width: 16, height: 9 });
+            return JSON.stringify({ found: false, width: 16, height: 9 });
         })();
     """.trimIndent()
 

@@ -444,6 +444,8 @@
     <string name="delete">Delete</string>
     <string name="update">Update</string>
     <string name="paste_clipboard">Paste</string>
+    <string name="link_you_copied">Link you copied</string>
+    <string name="text_you_copied">Text you copied</string>
 
     <!-- Content Filters & Custom Filters -->
     <string name="action_add_filter_via_url">+ Add filter via URL</string>
