@@ -1561,5 +1561,8 @@ onyx-browser/
       - Enabled `isSocialMediaBlockingEnabled` by default (`true`), blocking third-party tracking pixels (`pixel.facebook.com`, `an.facebook.com`, `analytics.twitter.com`, `snap.licdn.com`, `analytics.tiktok.com`) across the web.
       - Defaulted `allowFacebookLogins = true`, `allowTwitterEmbeds = true`, and `allowLinkedInEmbeds = true` out-of-the-box so logins and embeds function reliably while protecting privacy.
       - Exposed `isFacebookLoginAllowed()` and `isSocialMediaBlockingEnabled()` to `OnyxShieldBridge` for synchronous document-start awareness.
+  - **MainActivity Unclosed Brace & Kotlin Compilation Fix (`MainActivity.kt`)**:
+    - Resolved missing closing brace `}` on `pipReceiver = object : BroadcastReceiver()` anonymous object definition (lines 147-152), which had caused the compiler to report `Missing '}' at MainActivity.kt:3097:2`.
+    - Validated all Kotlin files in `app/src/main/java` and all XML files in `app/src/main/res` to ensure zero compilation or linking errors.
 
 

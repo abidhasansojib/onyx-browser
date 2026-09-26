@@ -147,6 +147,7 @@ class MainActivity : AppCompatActivity() {
                 ACTION_PIP_FORWARD -> {
                     tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(10), null)
                 }
+            }
         }
     }
 
