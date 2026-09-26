@@ -48,8 +48,5 @@
     <!-- Settings text colors — dark mode -->
     <color name="settings_title_text">#FFFFFFFF</color>
     <color name="settings_subtitle_text">#9AA0A6</color>
-    <!-- Dialog cancel button bg for dark mode -->
-    <color name="btn_cancel_bg">#35363A</color>
-    <color name="btn_clear_bg">#DC4B64</color>
 </resources>
 
