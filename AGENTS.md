@@ -1362,10 +1362,33 @@ onyx-browser/
   - **Unified #131314 Tab Switcher Canvas**:
     - Set `tab_switcher_bg` to `#131314` across `values/colors.xml` and `values-night/colors.xml`.
     - Window status bar and navigation bar in `TabSwitcherBottomSheet` explicitly set to `#131314` for both normal and incognito modes.
-
 - [x] **Tab Switcher 3-Dot Overflow Menu Color & Smooth Corner Redesign (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
   - Replaced standard Android platform `PopupMenu` (which defaulted to `#211F26` with sharp corners) with custom `PopupWindow` using `popup_tab_switcher_menu.xml`.
   - Set card background to `#3B3B3B` with smooth `16dp` rounded corners (`app:cardCornerRadius="16dp"`), subtle `#4A4A4A` stroke outline, and `24f` elevation shadow.
   - Implemented 4 refined menu items (New tab, New incognito tab, Close all tabs, Delete browsing data) with clean vector icons, ripple feedback, and seamless dispatching.
   - Added strict rule to `AGENTS.md`: "IF I don't tell you to build app, then you won't trigger GitHub Actions build."
+
+- [x] **Settings Screen Redesign with Luxury Dark #0B0305 Canvas and Categorized #202020 Cards**:
+  - **Header & Navigation**:
+    - "Settings" title with down arrow navigation icon on the left (rotated 90° clockwise version of `>`, `ic_chevron_down.xml` with `pathData="M6,9l6,6 6,-6"`), finishing the activity cleanly.
+  - **Color Palette & Visual Geometry**:
+    - Entire Settings canvas set to `#0B0305` luxury dark background (`settings_canvas_bg`).
+    - Settings options grouped into distinct MaterialCardView card containers with smooth `18dp` rounded corners, `#202020` card background (`settings_card_bg`), and subtle `#2C2C2C` border stroke (`settings_card_stroke`).
+  - **Category 1: General**:
+    - **Search engine**: Displays current engine icon & name, launches `SearchEngineSettingsActivity`.
+    - **Appearance**: Renamed from Theme, displays current theme mode, launches `ThemePickerSheet` (System, Google Dark, Google Light).
+    - **Auto fill & passwords**: Displays Google Password Manager & autofill summary, launches `AutofillSettingsActivity`.
+    - **Video Options**: Launches new dedicated `VideoSettingsActivity` with toggles for Background play and Picture-in-picture (with Android appOps permission handling).
+    - **Download settings**: Launches new dedicated `DownloadSettingsActivity` with Download manager selector (Ask before download, Internal downloader, External download manager) and Wi-Fi only download toggle.
+    - **Accessibility**: Launches new dedicated `AccessibilitySettingsActivity` with Search widget home screen pinning, Scroll to top button toggle, and Biometric incognito protection toggle (with `BiometricPrompt` confirmation).
+  - **Category 2: Privacy & Security**:
+    - **Privacy & shields**: Launches comprehensive `ShieldsActivity`.
+    - **User agent spoofer**: Displays current active UA profile and launches `UserAgentPickerSheet`.
+    - **Manage personal data**: Launches new dedicated full-page dashboard `ManagePersonalDataActivity` with Chrome-style time range selector (15m, 1h, 24h, 7d, 4w, all time), live database statistics for history and tabs, selective checkboxes for History, Cookies, Cache, and Tabs, and `#DC4B64` clear button.
+  - **Category 3: About**:
+    - **About Onyx**: Launches `AboutActivity` with version, in-app update checker, and open-source licenses.
+  - **Manifest & Architecture**:
+    - Registered `VideoSettingsActivity`, `DownloadSettingsActivity`, `AccessibilitySettingsActivity`, and `ManagePersonalDataActivity` in `AndroidManifest.xml`.
+    - Cleaned up `SettingsActivity.kt` into a lightweight, high-performance controller.
+
 

@@ -309,6 +309,26 @@
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
+            android:name=".ui.settings.VideoSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
+            android:name=".ui.settings.DownloadSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
+            android:name=".ui.settings.AccessibilitySettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
+            android:name=".ui.settings.ManagePersonalDataActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
             android:name=".ui.settings.AboutActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />
