@@ -1630,4 +1630,21 @@ onyx-browser/
   - **Removal of Manual Heuristic Interstitial Overlay Cleaner (`AdBlockDocumentStart.kt`)**:
     - Removed manual Section 9 heuristic DOM cleaner (`isInterstitialOverlay`, `removeInterstitialOverlays`, and `interstitialObserver`).
     - Aligned with Brave AdBlock architecture: interstitial ads are blocked cleanly and reliably at the network layer, through scriptlets, and via declarative cosmetic selector rules compiled from EasyList, uBlock Annoyances, and Fanboy's lists, completely eliminating DOM breakage on CAPTCHAs, video player modals, and stream dialogs.
+  - **Brave Android Parity: Filter List Selection, Default Shields & Standard/Aggressive Enforcement Parity (`FilterListManager.kt`, `BrowserPreferences.kt`, `OnyxApplication.kt`, `OnyxWebViewClient.kt`)**:
+    - **Filter List Selection Parity**:
+      - Default core lists enabled: `easylist`, `easyprivacy`, `ublock_filters`, `ublock_privacy`, `ublock_badware`, `ublock_quick_fixes`, `ublock_unbreak`, and `brave_default`.
+      - First-party protection enabled by default (`brave_firstparty`): Blocks first-party tracking scripts, CNAME uncloaking, and ad injection.
+      - Cookie Notice blocker enabled by default (`cookie_notice` / Fanboy's Cookie Monster): Matches Brave Android `kCookieListUuid` default.
+      - Mobile App Promo blocker enabled by default (`mobile_app_promo` / Fanboy's Mobile Notifications): Matches Brave Android `kMobileNotificationsListUuid` default.
+    - **Automatic Device Locale Detection & Regional List Activation**:
+      - Implemented `FilterListManager.getRegionalListIdForLocale(locale)` and `autoEnableRegionalListsForLocale(context)` matching Brave's `FindAdBlockFilterListsByLocale` and `kAdBlockCheckedDefaultRegion`.
+      - On first launch / migration, inspects device ISO-639-1 language (e.g. `de` -> German EasyList, `fr` -> French AdGuard, `es` -> Spanish EasyList, `ar` -> Arabic, `hi` -> IndianList, `zh` -> Chinese, `ja` -> Japanese, `ru` -> Russian RU AdList, etc.) and auto-enables the matching regional filter list in `BrowserPreferences.enabledFilterLists`.
+      - Tracks `BrowserPreferences.hasCheckedDefaultRegion` so user customization is never overwritten on subsequent launches.
+      - Called asynchronously in `OnyxApplication` during background startup before `AdBlockEngine.initialize()`.
+    - **Standard vs. Aggressive Enforcement Parity**:
+      - In Standard mode (Brave `BLOCK_THIRD_PARTY`), `DomainBlockingType` is `kNone`: Main-frame top-level user navigations are never cancelled or 403-intercepted by adblock rules in `OnyxWebViewClient.shouldInterceptRequest` (`if (request.isForMainFrame && !isAggressive) return null`).
+      - In Aggressive mode (Brave `BLOCK`), `DomainBlockingType` is `kAggressive`: Blocks all ads, trackers, and first-party ad resources at the network level and cosmetic filtering.
+    - **Social Media Embed Controls Parity**:
+      - Configured `allowLinkedInEmbeds` default to `false` matching Brave's `kLinkedInEmbedControlType = false` (LinkedIn embedded posts allowed by default for professional sites).
+
 

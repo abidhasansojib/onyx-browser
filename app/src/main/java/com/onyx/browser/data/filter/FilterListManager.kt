@@ -11,6 +11,7 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 
 data class FilterListEntry(
     val id: String,
@@ -105,7 +106,7 @@ object FilterListManager {
             subtitle = "Blocks first-party tracking scripts and ad injection",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-firstparty.txt",
             category = "core",
-            defaultEnabled = false
+            defaultEnabled = true
         ),
         FilterListEntry(
             id = "adguard_base",
@@ -171,7 +172,7 @@ object FilterListManager {
             subtitle = "EasyList Cookie",
             url = "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt",
             category = "annoyance",
-            defaultEnabled = false
+            defaultEnabled = true
         ),
         FilterListEntry(
             id = "annoying_distractions",
@@ -203,7 +204,7 @@ object FilterListManager {
             subtitle = "Fanboy's Mobile Notifications",
             url = "https://secure.fanboy.co.nz/fanboy-notifications.txt",
             category = "annoyance",
-            defaultEnabled = false
+            defaultEnabled = true
         ),
         FilterListEntry(
             id = "social_media",
@@ -825,6 +826,73 @@ object FilterListManager {
             }
         } else {
             throw Exception("HTTP ${conn.responseCode}")
+        }
+    }
+
+    /**
+     * Resolves the regional filter list ID matching the given locale's ISO-639-1 language code.
+     * Matches Brave's FindAdBlockFilterListsByLocale logic.
+     */
+    fun getRegionalListIdForLocale(locale: Locale = Locale.getDefault()): String? {
+        return when (locale.language.lowercase()) {
+            "ar" -> "regional_arabic"
+            "bg" -> "regional_bulgarian"
+            "zh" -> "regional_chinese"
+            "cs", "sk" -> "regional_czech"
+            "nl" -> "regional_dutch"
+            "et" -> "regional_estonian"
+            "fi" -> "regional_finnish"
+            "fr" -> "regional_french"
+            "de" -> "regional_german"
+            "el" -> "regional_greek"
+            "he", "iw" -> "regional_hebrew"
+            "hi" -> "regional_hindi"
+            "hu" -> "regional_hungarian"
+            "is" -> "regional_icelandic"
+            "id", "in" -> "regional_indonesian"
+            "it" -> "regional_italian"
+            "ja" -> "regional_japanese"
+            "ko" -> "regional_korean"
+            "lv" -> "regional_latvian"
+            "lt" -> "regional_lithuanian"
+            "mk" -> "regional_macedonian"
+            "no", "nb", "nn", "da" -> "regional_nordic"
+            "fa" -> "regional_persian"
+            "pl" -> "regional_polish"
+            "ro" -> "regional_romanian"
+            "ru" -> "regional_russian_ru"
+            "sl" -> "regional_slovenian"
+            "es" -> "regional_spanish"
+            "pt" -> "regional_spanish_portuguese"
+            "sv" -> "regional_swedish"
+            "tr" -> "regional_turkish"
+            "vi" -> "regional_vietnamese"
+            else -> null
+        }
+    }
+
+    /**
+     * Matches Brave's `kAdBlockCheckedDefaultRegion`:
+     * On first run or migration, ensures Brave default lists (core, first-party,
+     * cookie notices, mobile notifications) and the detected regional list for the
+     * user's locale are automatically enabled.
+     */
+    fun autoEnableRegionalListsForLocale(context: Context) {
+        try {
+            val prefs = BrowserPreferences.getInstance(context)
+            if (!prefs.hasCheckedDefaultRegion) {
+                val current = prefs.enabledFilterLists.toMutableSet()
+                current.addAll(BrowserPreferences.DEFAULT_FILTER_LISTS)
+                val regionalId = getRegionalListIdForLocale()
+                if (regionalId != null) {
+                    current.add(regionalId)
+                    Log.i(TAG, "Auto-enabled regional filter list '$regionalId' for locale '${Locale.getDefault().language}'")
+                }
+                prefs.enabledFilterLists = current
+                prefs.hasCheckedDefaultRegion = true
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed in autoEnableRegionalListsForLocale", t)
         }
     }
 }

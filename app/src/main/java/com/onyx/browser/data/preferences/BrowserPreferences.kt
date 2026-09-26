@@ -173,8 +173,12 @@ class BrowserPreferences private constructor(context: Context) {
 
     // ── Filter List Subscriptions (comma-separated keys) ─────────────────────
     var enabledFilterLists: Set<String>
-        get() = prefs.getStringSet(KEY_ENABLED_FILTER_LISTS, setOf("easylist", "easyprivacy", "ublock_filters", "brave_default")) ?: setOf("easylist", "easyprivacy", "ublock_filters", "brave_default")
+        get() = prefs.getStringSet(KEY_ENABLED_FILTER_LISTS, DEFAULT_FILTER_LISTS) ?: DEFAULT_FILTER_LISTS
         set(value) = prefs.edit().putStringSet(KEY_ENABLED_FILTER_LISTS, value).apply()
+
+    var hasCheckedDefaultRegion: Boolean
+        get() = prefs.getBoolean(KEY_CHECKED_DEFAULT_REGION, false)
+        set(value) = prefs.edit().putBoolean(KEY_CHECKED_DEFAULT_REGION, value).apply()
 
     // ── Filter List Auto-Update ────────────────────────────────────────────────
     var isFilterAutoUpdateEnabled: Boolean
@@ -204,7 +208,7 @@ class BrowserPreferences private constructor(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_ALLOW_TWITTER_EMBEDS, value).apply()
 
     var allowLinkedInEmbeds: Boolean
-        get() = prefs.getBoolean(KEY_ALLOW_LINKEDIN_EMBEDS, true)
+        get() = prefs.getBoolean(KEY_ALLOW_LINKEDIN_EMBEDS, false)
         set(value) = prefs.edit().putBoolean(KEY_ALLOW_LINKEDIN_EMBEDS, value).apply()
 
     // ── Open Links in App ─────────────────────────────────────────────────────
@@ -708,6 +712,28 @@ class BrowserPreferences private constructor(context: Context) {
         const val KEY_CUSTOM_UA = "pref_custom_ua"
         const val KEY_SCROLL_TO_TOP = "pref_scroll_to_top"
         const val KEY_DEFAULT_ENGINE_MIGRATED = "pref_default_engine_google_migrated"
+        const val KEY_CHECKED_DEFAULT_REGION = "pref_checked_default_region"
+
+        /**
+         * Default filter lists matching Brave Android:
+         * - Core ad & tracker blocking (EasyList, EasyPrivacy, uBlock filters/privacy/badware/quick-fixes/unbreak, Brave Default)
+         * - First-party ad & tracking protections (Brave First-party)
+         * - Cookie notices & annoyance protection (EasyList Cookie / Fanboy's Cookie Monster)
+         * - Mobile app notification/install promo blocking (Fanboy's Mobile Notifications)
+         */
+        val DEFAULT_FILTER_LISTS: Set<String> = setOf(
+            "easylist",
+            "easyprivacy",
+            "ublock_filters",
+            "ublock_privacy",
+            "ublock_badware",
+            "ublock_quick_fixes",
+            "ublock_unbreak",
+            "brave_default",
+            "brave_firstparty",
+            "cookie_notice",
+            "mobile_app_promo"
+        )
 
 
 

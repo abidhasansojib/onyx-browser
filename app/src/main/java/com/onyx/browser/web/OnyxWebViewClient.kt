@@ -276,6 +276,13 @@ class OnyxWebViewClient(
             if (preferences.isAdBlockEnabled && !isWhitelisted) {
                 val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
 
+                // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
+                // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave). Only subresources and trackers
+                // are intercepted. In Aggressive mode (DomainBlockingType::kAggressive), main-frame ad domains can also be blocked.
+                if (request.isForMainFrame && !isAggressive) {
+                    return null
+                }
+
                 // Standard mode: use EasyList engine + standard ad/tracker domains
                 val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
                 val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(reqDomain)
