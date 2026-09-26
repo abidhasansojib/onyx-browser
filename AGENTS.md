@@ -1450,3 +1450,15 @@ onyx-browser/
     - Successfully verified full remote GitHub Actions build run [#36242446917](https://github.com/abidhasansojib/onyx-browser/actions/runs/36242446917) in 8m 27s.
     - Published official [GitHub Release v1.0.170](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.170) packaging native Rust NDK `libadblock_bridge.so` libraries, bundled Brave filter lists, instant theme & state updating, zero-crash handling of deleted downloads, squarish search bar, and themed clear history dialog.
 
+- [x] **Compact Tab Menu 3-Dot Overflow & Homepage-Matching Search Engine Switcher**:
+  - **Compact Tab Menu 3-Dot Overflow (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
+    - Eliminated large empty space on the right of items by changing `layout_width` from fixed `180dp` to `wrap_content` (with `minWidth="140dp"`).
+    - Preserved 40dp row height ("not up to down") while reducing icon end margins to `8dp` and adding `android:singleLine="true"` to prevent multi-line wrapping.
+    - Implemented dynamic measurement in `TabSwitcherBottomSheet.kt` (`menuBinding.root.measure`) to calculate exact popup width and set `xOffset = anchorWidth - popupWidth`, ensuring the menu aligns flush with the right edge of the 3-dot button on all display densities.
+  - **Homepage-Matching Search Engine Switcher Menu (`popup_search_engine_picker.xml`, `SearchEnginePopupMenu.kt`, `bottom_sheet_search_engine_picker.xml`, `dialog_search_engine_picker.xml`, `colors.xml`)**:
+    - Set `app:cardBackgroundColor="@color/homepage_bg"` and `app:surfaceTintColor="@android:color/transparent"` on the quick search engine popup, matching the exact `#1C1C1E` dark mode / `#FFFFFF` light mode homepage background color without Material 3 elevation tint distortion.
+    - Defined semantic `@color/popup_menu_stroke` (`#2E3033` in dark mode, `#DFE1E5` in light mode) for matching subtle border and divider styling.
+    - Added `@color/primary` (#DC4B64) color filter to the active search engine checkmark icon in `SearchEnginePopupMenu.kt`.
+    - Applied matching `@color/homepage_bg` background and subtle strokes to `bottom_sheet_search_engine_picker.xml` and `dialog_search_engine_picker.xml`.
+
+

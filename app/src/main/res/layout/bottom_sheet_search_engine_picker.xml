@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?attr/colorSurface"
+    android:background="@color/homepage_bg"
     android:orientation="vertical"
     android:paddingBottom="16dp">
 
@@ -15,7 +15,7 @@
         android:layout_marginTop="10dp"
         android:layout_marginBottom="4dp"
         android:background="@drawable/bg_search_bar"
-        android:backgroundTint="?attr/colorOutline" />
+        android:backgroundTint="@color/popup_menu_stroke" />
 
     <!-- Header row -->
     <LinearLayout

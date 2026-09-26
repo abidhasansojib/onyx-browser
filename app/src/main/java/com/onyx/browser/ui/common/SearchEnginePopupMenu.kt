@@ -112,6 +112,7 @@ class SearchEnginePopupMenu(
                 val ivCheck = ImageView(context).apply {
                     layoutParams = LinearLayout.LayoutParams(checkSize, checkSize)
                     setImageResource(R.drawable.ic_check)
+                    setColorFilter(ContextCompat.getColor(context, R.color.primary))
                 }
                 row.addView(ivCheck)
             }
@@ -133,7 +134,8 @@ class SearchEnginePopupMenu(
             ).apply {
                 setMargins(0, (4 * density).toInt(), 0, (4 * density).toInt())
             }
-            setBackgroundColor(Color.parseColor("#33888888"))
+            setBackgroundColor(ContextCompat.getColor(context, R.color.popup_menu_stroke))
+            alpha = 0.5f
         }
         container.addView(divider)
 

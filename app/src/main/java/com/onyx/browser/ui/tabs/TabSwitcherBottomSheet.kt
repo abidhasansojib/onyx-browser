@@ -404,7 +404,13 @@ class TabSwitcherBottomSheet(
         }
 
         val density = context.resources.displayMetrics.density
-        val xOffset = (-136 * density).toInt()
+        menuBinding.root.measure(
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val popupWidth = menuBinding.root.measuredWidth
+        val anchorWidth = if (anchor.width > 0) anchor.width else (40 * density).toInt()
+        val xOffset = anchorWidth - popupWidth
         val yOffset = (4 * density).toInt()
         popup.showAsDropDown(anchor, xOffset, yOffset)
     }
