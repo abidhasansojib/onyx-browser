@@ -33,5 +33,11 @@
     <color name="homepage_bg">#1C1C1E</color>
     <color name="top_bar_box_color">#333439</color>
     <color name="shortcut_tile_bg">#333439</color>
+
+    <!-- Dialog Prompts & Action Button Colors -->
+    <color name="dialog_clear_data_bg">#282A2D</color>
+    <color name="dialog_close_all_tabs_bg">#000000</color>
+    <color name="btn_cancel_bg">#35363A</color>
+    <color name="btn_clear_bg">#DC4B64</color>
 </resources>
 

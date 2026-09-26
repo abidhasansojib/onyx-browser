@@ -1344,3 +1344,21 @@ onyx-browser/
   - **GitHub Actions Clean State**:
     - Cleared all historical workflow runs and action logs (`gh run delete`).
     - Deleted all old releases and remote/local git tags, preserving only the latest stable release (`v1.0.167`).
+
+- [x] **Tab Switcher Square Toggle, Compact 42dp FAB, Redesigned Action Buttons, Incognito Watermark & Dialog Color Overhaul**:
+  - **Square Mode Toggle with Smooth Rounded Corners (`bg_tab_pill_container.xml`, `bg_tab_pill_selected.xml`, `bg_tab_pill_unselected.xml`, `bottom_sheet_tab_switcher.xml`)**:
+    - Replaced elongated pills with 38dp x 38dp square buttons with smooth 10dp rounded corners inside a 12dp rounded squircle container (`tabModePillContainer`).
+    - Maintained clear visual differentiation between normal tabs (tab count box) and incognito tabs (Fedora Hat & Glasses icon).
+  - **Compact 42dp FAB (`fabNewTab`)**:
+    - Reduced the New Tab FAB from 56dp (`fabSize="normal"`) to 42dp (`fabCustomSize="42dp"`) with 20dp icon and 2dp elevation for a much sleeker profile.
+  - **Redesigned Close All Tabs & Clear Browsing Data Buttons (`bg_tab_action_button.xml`)**:
+    - Created dedicated 44dp x 44dp squircle action buttons with 12dp smooth corners, `#202022` fill, and `#2E3033` stroke for both `btnCloseAllTabs` (with `ic_tab_close`) and `btnClearHistory` (with `ic_delete`).
+  - **Asking Prompt Dialog Color Overhaul (`dialog_confirm_close_all_tabs.xml`, `dialog_clear_browsing_data.xml`)**:
+    - "Close all tabs" confirmation prompt: Card background set to `#000000` (Pure Black), cancel button set to `#35363A`, clear button set to `#DC4B64`, danger badge updated to Onyx coral tint, completely eliminating any `#4D353C` hue.
+    - "Delete browsing data" dialog: Card background set to `#282A2D`, dropdown & preview cards set to `#202124`, cancel button set to `#35363A`, and clear button set to `#DC4B64`.
+  - **Incognito Background Watermark & State Emblem**:
+    - Added 180dp subtle incognito watermark (`ivIncognitoBackground`, `alpha="0.08"`) in the tab menu background behind the tab grid, visible when viewing incognito tabs.
+    - Updated empty tabs state (`emptyTabsView`) to dynamically show the Fedora Hat & Glasses icon, title "Incognito tabs", and privacy description when no incognito tabs are open.
+  - **Unified #131314 Tab Switcher Canvas**:
+    - Set `tab_switcher_bg` to `#131314` across `values/colors.xml` and `values-night/colors.xml`.
+    - Window status bar and navigation bar in `TabSwitcherBottomSheet` explicitly set to `#131314` for both normal and incognito modes.

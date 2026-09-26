@@ -48,15 +48,21 @@
     <color name="widget_badge_stroke">#E0E2E6</color>
     <color name="widget_ripple">#1F000000</color>
 
-    <!-- Tab Switcher (Light Theme) -->
-    <color name="tab_switcher_bg">#F8F9FA</color>
+    <!-- Tab Switcher (Unified #131314 for both Light and Dark) -->
+    <color name="tab_switcher_bg">#131314</color>
     <color name="tab_switcher_accent">#DC4B64</color>
-    <color name="tab_pill_container_bg">#E8EAED</color>
-    <color name="tab_pill_stroke">#DFE1E5</color>
-    <color name="tab_card_bg">#FFFFFF</color>
-    <color name="tab_card_stroke">#DFE1E5</color>
-    <color name="tab_card_header_bg">#F1F3F4</color>
-    <color name="tab_text_primary">#202124</color>
-    <color name="tab_close_icon">#5F6368</color>
+    <color name="tab_pill_container_bg">#202022</color>
+    <color name="tab_pill_stroke">#2E3033</color>
+    <color name="tab_card_bg">#1D1E20</color>
+    <color name="tab_card_stroke">#2C2D30</color>
+    <color name="tab_card_header_bg">#252628</color>
+    <color name="tab_text_primary">#E8EAED</color>
+    <color name="tab_close_icon">#9AA0A6</color>
+
+    <!-- Dialog Prompts & Action Button Colors -->
+    <color name="dialog_clear_data_bg">#282A2D</color>
+    <color name="dialog_close_all_tabs_bg">#000000</color>
+    <color name="btn_cancel_bg">#35363A</color>
+    <color name="btn_clear_bg">#DC4B64</color>
 </resources>
 

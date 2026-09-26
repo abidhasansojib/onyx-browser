@@ -34,11 +34,11 @@
             app:layout_constraintTop_toTopOf="parent"
             app:tint="?attr/colorControlNormal" />
 
-        <!-- Center: Normal / Incognito capsule pill (Quetta-style 2-button control) -->
+        <!-- Center: Normal / Incognito square segmented control with smooth round corners -->
         <LinearLayout
             android:id="@+id/tabModePillContainer"
             android:layout_width="wrap_content"
-            android:layout_height="42dp"
+            android:layout_height="44dp"
             android:background="@drawable/bg_tab_pill_container"
             android:gravity="center"
             android:orientation="horizontal"
@@ -48,11 +48,11 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <!-- 1st Button: Normal Tabs with Tab Count in rounded box -->
+            <!-- 1st Button: Normal Tabs with Tab Count in rounded box (Square with smooth corners) -->
             <FrameLayout
                 android:id="@+id/btnNormalTabs"
-                android:layout_width="54dp"
-                android:layout_height="36dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
                 android:background="@drawable/bg_tab_pill_selected"
                 android:clickable="true"
                 android:focusable="true"
@@ -78,12 +78,12 @@
                 </FrameLayout>
             </FrameLayout>
 
-            <!-- 2nd Button: Incognito Tabs with Fedora Hat & Glasses Icon -->
+            <!-- 2nd Button: Incognito Tabs with Fedora Hat & Glasses Icon (Square with smooth corners) -->
             <FrameLayout
                 android:id="@+id/btnIncognitoTabs"
-                android:layout_width="54dp"
-                android:layout_height="36dp"
-                android:layout_marginStart="2dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="3dp"
                 android:background="@drawable/bg_tab_pill_unselected"
                 android:clickable="true"
                 android:focusable="true"
@@ -91,8 +91,8 @@
 
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/ivIncognitoToggle"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:layout_gravity="center"
                     app:srcCompat="@drawable/ic_incognito"
                     app:tint="#9AA0A6"
@@ -118,6 +118,22 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- ── Incognito Background Watermark (Shown when viewing incognito tabs) ──── -->
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/ivIncognitoBackground"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:alpha="0.08"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tabSwitcherTopBar"
+        app:srcCompat="@drawable/ic_incognito"
+        app:tint="#FFFFFFFF"
+        tools:visibility="visible" />
+
     <!-- ── Empty State ──────────────────────────────────────────────────────── -->
     <LinearLayout
         android:id="@+id/emptyTabsView"
@@ -133,6 +149,7 @@
         tools:visibility="visible">
 
         <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/ivEmptyIcon"
             android:layout_width="72dp"
             android:layout_height="72dp"
             android:alpha="0.22"
@@ -149,6 +166,7 @@
             android:textSize="15sp" />
 
         <TextView
+            android:id="@+id/tvEmptySubtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
@@ -189,36 +207,37 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <!-- Left: Clear Browsing Data — trash-bin icon -->
-        <LinearLayout
+        <!-- Left: Clear Browsing Data — Redesigned squircle button -->
+        <FrameLayout
             android:id="@+id/btnClearHistory"
-            android:layout_width="52dp"
-            android:layout_height="52dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_tab_action_button"
             android:clickable="true"
             android:focusable="true"
-            android:gravity="center"
             android:contentDescription="@string/delete_browsing_data"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
             <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
                 app:srcCompat="@drawable/ic_delete"
                 app:tint="?attr/colorControlNormal" />
-        </LinearLayout>
+        </FrameLayout>
 
-        <!-- Center: FAB — New Tab -->
+        <!-- Center: FAB — New Tab (Decreased size to compact 42dp) -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabNewTab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
             android:contentDescription="@string/new_tab"
             app:backgroundTint="@color/tab_switcher_accent"
-            app:elevation="4dp"
-            app:fabSize="normal"
+            app:elevation="2dp"
+            app:fabCustomSize="42dp"
+            app:maxImageSize="20dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -226,19 +245,26 @@
             app:srcCompat="@drawable/ic_add"
             app:tint="#FFFFFFFF" />
 
-        <!-- Right: Close All Tabs -->
-        <androidx.appcompat.widget.AppCompatImageButton
+        <!-- Right: Close All Tabs — Redesigned squircle button -->
+        <FrameLayout
             android:id="@+id/btnCloseAllTabs"
-            android:layout_width="52dp"
-            android:layout_height="52dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_tab_action_button"
+            android:clickable="true"
+            android:focusable="true"
             android:contentDescription="@string/close_all_tabs"
-            android:padding="14dp"
-            app:srcCompat="@drawable/ic_tab_close"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:tint="?attr/colorControlNormal" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                app:srcCompat="@drawable/ic_tab_close"
+                app:tint="?attr/colorControlNormal" />
+        </FrameLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

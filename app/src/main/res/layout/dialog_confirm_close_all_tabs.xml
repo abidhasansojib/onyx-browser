@@ -5,10 +5,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_gravity="center"
-    app:cardBackgroundColor="?attr/colorSurface"
+    app:cardBackgroundColor="@color/dialog_close_all_tabs_bg"
     app:cardCornerRadius="24dp"
     app:cardElevation="12dp"
-    app:strokeColor="?attr/colorOutline"
+    app:strokeColor="#282A2D"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -23,17 +23,17 @@
 
         <!-- Danger Icon Badge -->
         <FrameLayout
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
             android:background="@drawable/bg_circle_danger">
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/ivDialogIcon"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:layout_gravity="center"
                 app:srcCompat="@drawable/ic_tab_close"
-                app:tint="@color/red_danger" />
+                app:tint="@color/btn_clear_bg" />
         </FrameLayout>
 
         <!-- Title -->
@@ -44,7 +44,7 @@
             android:layout_marginTop="18dp"
             android:gravity="center"
             android:text="@string/close_all_tabs_title"
-            android:textColor="?android:attr/textColorPrimary"
+            android:textColor="#FFFFFFFF"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -57,7 +57,7 @@
             android:gravity="center"
             android:lineSpacingMultiplier="1.2"
             android:text="@string/close_all_tabs_desc"
-            android:textColor="?android:attr/textColorSecondary"
+            android:textColor="#9AA0A6"
             android:textSize="14sp" />
 
         <!-- Tab Count Summary Pill / Badge -->
@@ -66,7 +66,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/bg_search_bar"
+            android:background="@drawable/bg_top_bar_box"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingStart="14dp"
@@ -78,14 +78,14 @@
                 android:layout_width="16dp"
                 android:layout_height="16dp"
                 app:srcCompat="@drawable/ic_tabs"
-                app:tint="?android:attr/textColorSecondary" />
+                app:tint="#9AA0A6" />
 
             <TextView
                 android:id="@+id/tvTabCountPill"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:textColor="?android:attr/textColorPrimary"
+                android:textColor="#E8EAED"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 tools:text="3 tabs will be closed" />
@@ -107,8 +107,8 @@
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
                 android:text="@string/cancel"
-                android:textColor="?android:attr/textColorPrimary"
-                app:backgroundTint="?attr/colorSurfaceVariant"
+                android:textColor="#E8EAED"
+                app:backgroundTint="@color/btn_cancel_bg"
                 app:cornerRadius="24dp" />
 
             <com.google.android.material.button.MaterialButton
@@ -120,7 +120,7 @@
                 android:layout_weight="1"
                 android:text="@string/close_all_action"
                 android:textColor="#FFFFFF"
-                app:backgroundTint="@color/red_danger"
+                app:backgroundTint="@color/btn_clear_bg"
                 app:cornerRadius="24dp" />
         </LinearLayout>
     </LinearLayout>

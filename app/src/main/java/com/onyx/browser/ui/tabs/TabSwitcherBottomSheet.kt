@@ -53,6 +53,8 @@ class TabSwitcherBottomSheet(
         dialog?.window?.apply {
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             setBackgroundDrawableResource(android.R.color.transparent)
+            statusBarColor = android.graphics.Color.parseColor("#131314")
+            navigationBarColor = android.graphics.Color.parseColor("#131314")
             WindowCompat.setDecorFitsSystemWindows(this, false)
         }
     }
@@ -216,6 +218,9 @@ class TabSwitcherBottomSheet(
         val normalCount = tabManager.normalTabs.value.size
         b.tvNormalTabCount.text = if (normalCount > 99) "99+" else normalCount.toString()
 
+        // Incognito background watermark
+        b.ivIncognitoBackground.visibility = if (isViewingIncognito) View.VISIBLE else View.GONE
+
         val context = context ?: return
         val normalActive = !isViewingIncognito
 
@@ -331,6 +336,17 @@ class TabSwitcherBottomSheet(
             val isEmpty = list.isEmpty()
             currentBinding.emptyTabsView.visibility = if (isEmpty) View.VISIBLE else View.GONE
             currentBinding.rvTabs.visibility = if (isEmpty) View.GONE else View.VISIBLE
+            if (isEmpty) {
+                if (isViewingIncognito) {
+                    currentBinding.ivEmptyIcon.setImageResource(R.drawable.ic_incognito)
+                    currentBinding.tvEmptyTitle.text = getString(R.string.incognito_tabs)
+                    currentBinding.tvEmptySubtitle.text = getString(R.string.incognito_privacy_desc)
+                } else {
+                    currentBinding.ivEmptyIcon.setImageResource(R.drawable.ic_logo_onyx)
+                    currentBinding.tvEmptyTitle.text = "No tabs open"
+                    currentBinding.tvEmptySubtitle.text = "Tap + to open a new tab"
+                }
+            }
         }
     }
 

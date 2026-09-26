@@ -3,7 +3,7 @@
     android:color="?attr/colorControlHighlight">
     <item android:id="@android:id/mask">
         <shape android:shape="rectangle">
-            <corners android:radius="18dp" />
+            <corners android:radius="10dp" />
             <solid android:color="#FFFFFFFF" />
         </shape>
     </item>
