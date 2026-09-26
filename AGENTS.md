@@ -1407,6 +1407,20 @@ onyx-browser/
     - Successfully verified full remote GitHub Actions build run [#36240076925](https://github.com/abidhasansojib/onyx-browser/actions/runs/36240076925) in 6m 28s.
     - Published official [GitHub Release v1.0.169](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.169) packaging native Rust NDK `libadblock_bridge.so` libraries, bundled Brave filter lists, luxury dark Settings architecture, and new uneditable shortcuts.
 
+- [x] **Tab Switcher Visual Polish & Refinements**:
+  - **Fixed Duplicate Incognito Logo & Empty State Positioning (`bottom_sheet_tab_switcher.xml`, `TabSwitcherBottomSheet.kt`)**:
+    - Guarded `ivIncognitoBackground` watermark to only show when viewing incognito tabs AND tabs exist in the grid (`isViewingIncognito && !isEmpty`), completely resolving the duplicate incognito logo when there are no tabs.
+    - Symmetrically centered empty state container (`emptyTabsView`) with 64dp icon, bold 17sp `#FFFFFFFF` title, and formatted, centered 13sp `#9AA0A6` privacy description (`incognito_privacy_desc`) with comfortable 32dp horizontal padding.
+  - **Removed Glassy Border Around Bottom Action Buttons (`bg_tab_action_button.xml`)**:
+    - Removed stroke border from `bg_tab_action_button.xml`, rendering `btnClearHistory` and `btnCloseAllTabs` as clean solid `#202022` squircles with 12dp smooth corners.
+  - **Exact 2px Spacing Beneath Mode Switcher**:
+    - Configured `tabModePillContainer` with 2dp bottom margin and `rvTabs` with 0dp top padding, ensuring tabs begin exactly 2px beneath the tab switcher toggle.
+  - **Compact 180dp 3-Dot Overflow Menu (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
+    - Redesigned 3-dot overflow menu from 220dp down to a compact 180dp width with 12dp horizontal padding, 18dp crisp vector icons, and adjusted popup anchor xOffset (`-136dp`).
+  - **Enlarged New Tab Button to 48dp (`fabNewTab`)**:
+    - Resized the New Tab floating action button from 42dp to a balanced 48dp (`fabCustomSize="48dp"`, `maxImageSize="22dp"`).
+
+
 
 
 

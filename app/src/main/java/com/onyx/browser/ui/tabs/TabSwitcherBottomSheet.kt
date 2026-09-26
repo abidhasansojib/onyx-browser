@@ -221,9 +221,6 @@ class TabSwitcherBottomSheet(
         val normalCount = tabManager.normalTabs.value.size
         b.tvNormalTabCount.text = if (normalCount > 99) "99+" else normalCount.toString()
 
-        // Incognito background watermark
-        b.ivIncognitoBackground.visibility = if (isViewingIncognito) View.VISIBLE else View.GONE
-
         val context = context ?: return
         val normalActive = !isViewingIncognito
 
@@ -339,13 +336,21 @@ class TabSwitcherBottomSheet(
             val isEmpty = list.isEmpty()
             currentBinding.emptyTabsView.visibility = if (isEmpty) View.VISIBLE else View.GONE
             currentBinding.rvTabs.visibility = if (isEmpty) View.GONE else View.VISIBLE
+
+            // Background watermark is ONLY shown when viewing incognito tabs AND tabs exist in the grid.
+            // When there are no tabs (isEmpty == true), emptyTabsView displays the single central incognito icon,
+            // completely eliminating the duplicate incognito logo.
+            currentBinding.ivIncognitoBackground.visibility = if (isViewingIncognito && !isEmpty) View.VISIBLE else View.GONE
+
             if (isEmpty) {
                 if (isViewingIncognito) {
                     currentBinding.ivEmptyIcon.setImageResource(R.drawable.ic_incognito)
+                    currentBinding.ivEmptyIcon.alpha = 0.40f
                     currentBinding.tvEmptyTitle.text = getString(R.string.incognito_tabs)
                     currentBinding.tvEmptySubtitle.text = getString(R.string.incognito_privacy_desc)
                 } else {
                     currentBinding.ivEmptyIcon.setImageResource(R.drawable.ic_logo_onyx)
+                    currentBinding.ivEmptyIcon.alpha = 0.22f
                     currentBinding.tvEmptyTitle.text = "No tabs open"
                     currentBinding.tvEmptySubtitle.text = "Tap + to open a new tab"
                 }
@@ -399,7 +404,7 @@ class TabSwitcherBottomSheet(
         }
 
         val density = context.resources.displayMetrics.density
-        val xOffset = (-170 * density).toInt()
+        val xOffset = (-136 * density).toInt()
         val yOffset = (4 * density).toInt()
         popup.showAsDropDown(anchor, xOffset, yOffset)
     }
