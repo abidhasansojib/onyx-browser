@@ -285,6 +285,7 @@ class OnyxWebViewClient(
     private fun handleUrlLoading(view: WebView?, uri: Uri, isForMainFrame: Boolean): Boolean {
         return try {
             val url = uri.toString()
+            val normalizedUrl = url.trimEnd('/')
             val scheme = uri.scheme?.lowercase() ?: ""
 
             // ── Tracking URL Cleanup (strip tracking query params) ─────────────────
@@ -311,7 +312,6 @@ class OnyxWebViewClient(
             val httpsMode = preferences.httpsUpgradeMode
             if (scheme == "http" && isForMainFrame &&
                 httpsMode != BrowserPreferences.HTTPS_MODE_DISABLED) {
-                val normalizedUrl = url.trimEnd('/')
                 if (!upgradedUrls.contains(url) && !upgradedUrls.contains(normalizedUrl)) {
                     upgradedUrls.add(url)
                     upgradedUrls.add(normalizedUrl)
