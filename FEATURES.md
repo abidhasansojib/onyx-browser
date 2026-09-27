@@ -1,201 +1,118 @@
-# 🚀 Onyx Browser — Comprehensive Feature Guide
+# Onyx Browser — Feature Status & Documentation
 
-Welcome to the detailed feature manual for **Onyx Browser** (`com.onyx.browser`). This document provides an exhaustive breakdown of Onyx Browser's architecture, privacy engines, media capabilities, security systems, and user interface paradigms.
+This document tracks all features of Onyx Browser, their current implementation status, and concise technical summaries.
 
----
-
-## 📑 Table of Contents
-1. [🛡️ Dual-Tier Ad-Blocking & Privacy Shields](#1-dual-tier-ad-blocking--privacy-shields)
-2. [🎬 Advanced Video & Media Suite](#2-advanced-video--media-suite)
-3. [📥 Download Management & External Downloader Integration](#3-download-management--external-downloader-integration)
-4. [🔑 Passkeys, WebAuthn & Password Autofill](#4-passkeys-webauthn--password-autofill)
-5. [🔍 Omnibox, Smart Search & QR Scanner](#5-omnibox-smart-search--qr-scanner)
-6. [🖼️ Context Menu & Multi-Engine Reverse Image Search](#6-context-menu--multi-engine-reverse-image-search)
-7. [🎨 Pure Google Themes & Material 3 Box-Type UI](#7-pure-google-themes--material-3-box-type-ui)
-8. [📑 Tab Switcher & Time-Range Data Cleaning](#8-tab-switcher--time-range-data-cleaning)
-9. [🔒 Local Encryption & Security Hardening](#9-local-encryption--security-hardening)
-10. [🛠️ Developer Tools & Web Utilities](#10-developer-tools--web-utilities)
+### Status Legend
+- `[x]` **Working** – Fully implemented, tested, and active in release builds.
+- `[-]` **Known Issue / Partial** – Implemented but has a known limitation or bug being addressed.
+- `[ ]` **Planned** – Not yet implemented; on the development roadmap.
 
 ---
 
-## 1. 🛡️ Dual-Tier Ad-Blocking & Privacy Shields
+## Master Feature List
 
-Onyx Browser features an ultra-low-latency native ad-blocking engine powered by Brave's **`adblock-rust`**, compiled into native Android shared libraries (`libadblock_bridge.so`) across all major ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`).
+1. [x] Native Rust Adblock Engine (`adblock-rust` compiled via NDK for all 4 ABIs)
+2. [x] 54 Brave Content Filter Lists (with FlatBuffers binary caching `onyx_filters.bin`)
+3. [x] Dual-Tier Adblocking (Standard vs Aggressive shields)
+4. [x] Per-Site Shields & Domain Whitelist (toggle adblocking on/off per site)
+5. [x] Custom Filter Rules & Subscriptions (add custom EasyList-syntax rules & URLs)
+6. [x] Type-Aware 200 OK Stubs (transparent 1×1 PNG, empty JS/CSS/subframe responses)
+7. [x] Anti-Fingerprinting Protections (language spoofing, canvas/audio normalization)
+8. [x] Social Tracker & Cookie Notice Stripping
+9. [x] Background Audio & Video Playback (Brave `userHitPause`, visibilityState spoofing, event filtering)
+10. [x] Picture-in-Picture (PiP) (True video isolation, Shadow DOM traversal, letterbox centering)
+11. [x] Foreground Media Service (`MediaPlaybackService` with lockscreen controls & notification)
+12. [x] MediaSession & YouTube Player API Sync (Bluetooth, smartwatch, and lockscreen sync)
+13. [x] In-App Download Manager (pause, resume, progress tracking, file opening)
+14. [x] External Download Manager Handoff (detects 1DM, ADM, FDM; forwards cookies & headers)
+15. [x] Stream Detector (sniffs audio/video stream URLs for one-tap downloading)
+16. [x] Passkeys & WebAuthn Bridge (biometric login via AndroidX Credential Manager)
+17. [x] Password Autofill Support (Google Password Manager, Bitwarden, 1Password)
+18. [x] Full-Page Omnibox Search Mode (soft keyboard autofocus, distraction-free overlay)
+19. [x] Real-Time Multi-Engine Search Suggestions (Brave, Google, DuckDuckGo, Bing, Yahoo, Startpage)
+20. [x] Custom Search Engines & Keyword Shortcuts (e.g. `w <query>` for Wikipedia)
+21. [x] Smart Clipboard Suggestion Card ("Link you copied" / "Text you copied" with query insert arrow)
+22. [x] One-Tap Active Webpage Card (direct reload/navigate, share sheet, copy URL, edit URL)
+23. [x] CameraX + ML Kit QR Code & Barcode Scanner (scanner integrated in omnibox)
+24. [x] Context Menu Bottom Sheet (open in new tab, open in background, copy link, download)
+25. [x] Image Preview Inspector (tap thumbnail to zoom, save image, share image)
+26. [x] Multi-Engine Reverse Image Search (Google Lens, TinEye, Yandex, Bing)
+27. [x] Visual Tab Switcher (grid previews, swipe-to-dismiss, close all tabs prompt)
+28. [x] Incognito / Private Browsing Mode (separate in-memory cookie jar, no history logging)
+29. [x] Tab Memory Optimization (suspends JS timers on inactive tabs via `onPause()`)
+30. [x] Time-Range Data Cleaning (clear 15 min, 1 hr, 24 hr, 7 days, 4 weeks, or all time)
+31. [x] SQLCipher AES-256 Encrypted Database (bookmarks, history, tabs, downloads encrypted on-disk)
+32. [x] Bookmarks Manager (create, edit, delete, organize folders, search)
+33. [x] Browsing History Manager (search history, delete individual items, clear all)
+34. [x] Homepage Shortcuts Grid (customizable tiles, favicons, drag-and-drop reordering)
+35. [x] User Agent Spoofer Manager (custom UA strings, presets for Chrome, Safari, Edge, Firefox)
+36. [x] Accessibility Settings (search widget toggle, webpage menu "Add to Home screen" toggle, text scaling)
+37. [x] Add to Home Screen (PWA launcher shortcuts via `ShortcutManagerCompat`)
+38. [x] Theme System (Google Light, Google Dark `#202124`, and pure AMOLED Black)
+39. [x] Hardened WebView Sandboxing (third-party cookies blocked, file scheme disabled, safe intent routing)
+40. [x] Offline Eruda Developer Tools (bundled mobile DOM inspector, console, network monitor)
+41. [x] Console & Error Pre-Buffering (captures startup logs & JS errors before DevTools opens)
+42. [x] Remote USB Debugging (Chrome DevTools `chrome://inspect` over USB/ADB)
+43. [x] In-Page Text Search (find in page with match count and next/previous navigation)
+44. [x] Webpage Translation Bar (Google Translate integration for 20 languages)
+45. [x] Desktop Site Toggle (per-tab desktop viewport switch)
+46. [-] WebGL 1/2 Complex Shader Polyfills (Evan Wallace water works; older GPUs may lack hardware float texture targets)
+47. [ ] Custom Userscript Manager (Tampermonkey / Violentmonkey scriptlet support)
+48. [ ] P2P Encrypted Sync (bookmarks and history sync across Onyx devices)
+49. [ ] Built-in Reader Mode (distraction-free text view for articles)
+50. [ ] DNS-over-HTTPS (DoH) Provider Selection (Cloudflare, Quad9, AdGuard DNS)
 
-```
-[ Web Resource Request ]
-           │
-           ▼
-[ OnyxWebViewClient.shouldInterceptRequest ]
-           │
-           ├──► [ Domain Whitelist Check (In-memory cached) ] ──► Allowed
-           ├──► [ Native JNI: AdBlockEngine.shouldBlock ]
-           │          │
-           │          ├──► Allowed ──► Direct Network Fetch
-           │          └──► Blocked ──► Content-Type Safe Response:
-           │                             • Image: 1×1 Transparent PNG (200 OK + CORS)
-           │                             • Script: Empty JS Stream (200 OK + CORS)
-           │                             • Stylesheet: Empty CSS Stream (200 OK + CORS)
-           │                             • Subframe: Empty HTML Comment (200 OK)
-           │                             • XHR/Fetch: 200 OK Empty Stream
-           └──► [ Universal Cosmetic CSS & Scriptlet Defusers Injected ]
-```
+---
 
-### Key Capabilities:
-- **Rust NDK High Performance**: High-throughput rule matching via Bloom filters and token buckets executing in native C/Rust speed.
+## Feature Details
+
+### 1. Adblocking & Privacy Shields
+- **Rust NDK Engine**: Compiled `adblock-rust` performs token-bucket and Bloom filter matching in native C/Rust.
+- **Filter Lists**: Bundles 54 official Brave filter lists and compiles them into binary FlatBuffers (`onyx_filters.bin`) for instant startup.
+- **Type-Aware Responses**: Blocked resources receive valid 200 OK responses (empty JS, 1×1 transparent PNG, or blank CSS) with CORS headers to keep page scripts and media players from crashing.
 - **Two Protection Tiers**:
-  - **Standard Protection**: Blocks tracking scripts, banner ads, tracking beacons, video interstitials, and coin miners.
-  - **Aggressive Protection**: Aggressively eliminates OEM telemetry (Xiaomi, Huawei, Samsung, Vivo, Oppo), cookie consent popups (OneTrust, Cookiebot, TrustArc), third-party widgets, and behavioral heatmaps.
-- **54 Brave Android Content Filters**:
-  - Full catalog of 54 official Brave filter subscriptions including Cookie Notice, Annoying Distractions, Mobile App Promos, Anti-AI suggestions, YouTube Shorts/Playables/Recommendations, URL Tracking Parameters, and 35 regional language rulesets.
-  - Automatic background updates compiling lists into binary FlatBuffers (`onyx_filters.bin`).
-- **Resilient Blocked Responses**: Unlike primitive blockers that throw raw `HTTP 403 Forbidden` errors (which break streaming video players and crash JavaScript promises), Onyx serves type-aware 200 OK stubs with CORS headers, preserving page rendering integrity.
-- **Document-Start Scriptlet Injection**: Intercepts `window.fetch`, `window.XMLHttpRequest`, and `window.WebSocket` at `document_start` before page scripts parse or execute.
-- **Anti-Fingerprinting**: Spoofs generic `en-US` language headers, overrides `navigator.languages`, and normalizes canvas/audio signatures.
-- **Social Media Tracker Stripper**: Dedicated toggles to strip embedded trackers from Facebook, Twitter/X, and LinkedIn.
+  - *Standard*: Blocks advertisements, tracking scripts, web beacons, and cryptominers.
+  - *Aggressive*: Strips OEM telemetry, third-party widgets, and cookie consent modals.
+- **Domain Whitelist**: Allows users to disable shields for individual sites directly from the toolbar menu.
 
----
+### 2. Media & Playback Subsystem
+- **Background Playback**: Employs Brave's `userHitPause` pattern to distinguish user pauses from background tab switches. Overrides `document.visibilityState` to remain `"visible"`, intercepts `visibilitychange` listeners, and auto-resumes suppressed playback.
+- **Picture-in-Picture (PiP)**: Isolates the `<video>` element across Shadow DOM boundaries, removes CSS transforms/clipping, centers the video in black letterbox bounds, and sets source rect hints for Android Window Manager.
+- **Foreground Media Service**: `MediaPlaybackService` maintains persistent lockscreen playback controls, notification artwork, track title, and MediaSession actions.
+- **YouTube API Sync**: Direct integration with YouTube `#movie_player` and W3C MediaSession handlers keeps Bluetooth headsets and lockscreen buttons in sync.
 
-## 2. 🎬 Advanced Video & Media Suite
+### 3. Downloads & External Downloaders
+- **In-App Downloads**: Native background download manager handles pause, resume, progress reporting, and system notification updates.
+- **External Downloader Handoff**: Detects installed third-party downloaders (1DM, ADM, FDM) and passes download URLs along with cookies, User-Agent, and Referer headers so authenticated downloads succeed.
+- **Stream Sniffer**: Monitors HTML5 video/audio elements and network requests to offer quick stream download prompts.
 
-Onyx Browser introduces a streaming-grade media architecture modeled after Brave's `brave-core` browser engine, delivering seamless background playback, true video-only Picture-in-Picture, and bidirectional media control synchronization.
+### 4. Authentication & Security
+- **Passkeys (WebAuthn)**: Polyfills `window.PublicKeyCredential` to allow passwordless biometric authentication through AndroidX Credential Manager.
+- **Autofill Compatibility**: Supports Google Password Manager, Bitwarden, 1Password, and hardware security keys.
+- **SQLCipher Encryption**: Uses 256-bit AES encryption (`net.zetetic:android-database-sqlcipher`) for Room database storage containing tabs, history, and bookmarks.
+- **Sandboxed WebView**: Disables third-party cookies by default, disables `file://` scheme access, and requires explicit user permission for microphone, camera, and location.
 
-### 🎧 Background Playback Keep-Alive
-- **`userHitPause` State Machine**: Intercepts `HTMLMediaElement.prototype.pause` and `play` calls to distinguish between genuine user pauses and background visibility suppression. When a streaming site attempts to pause audio/video upon tab switching or screen lock, Onyx automatically overrides and resumes playback.
-- **Document Visibility Spoofing**: Patches `Document.prototype.visibilityState` to permanently report `"visible"` and `hidden = false`.
-- **Visibility Listener Filtering**: Monkey-patches `document.addEventListener` at `document_start` to intercept and discard `visibilitychange` and `webkitvisibilitychange` handlers registered by websites.
-- **Patched YouTube `ytcfg` Experiment Flags**: Automatically neutralizes YouTube's internal `html5_picture_in_picture_blocking_*` experiment flags.
-- **Android MediaSession Service (`MediaPlaybackService`)**: Persistent Android Foreground Service with lockscreen controls, notification artwork, title/artist metadata, and playback timeline progress.
+### 5. Omnibox & Search
+- **Full-Page Search Overlay**: Tapping the toolbar opens a clean search screen with suggestions and clipboard detection.
+- **Multi-Engine Suggestions**: Queries OpenSearch endpoints for Brave, Google, DuckDuckGo, Bing, Yahoo, and Startpage alongside local history.
+- **Custom Engines**: Add any search provider with a `%s` URL template and assign single-letter keyword shortcuts (e.g. `w query` for Wikipedia).
+- **QR Code Scanner**: Integrated CameraX + Google ML Kit scanner opens scanned links directly or copies barcode data.
+- **Active Webpage Card**: Quick actions beneath the search bar to reload, share, copy URL, or edit the current address without retyping.
 
-### 🖼️ True Video-Only Picture-in-Picture (PiP)
-- **Shadow DOM Penetration**: Streaming sites (such as YouTube and custom HTML5 web components) encapsulate the `<video>` element inside nested ShadowRoots. Onyx's PiP isolation script traverses the composed ancestor path, removing CSS `transform`, `contain`, `filter`, and `clip-path` constraints up to `<html>`.
-- **Letterbox Centering**: Zeroes out browser container padding during PiP transitions and centers the video inside pure `#000000` bounds.
-- **Aspect-Ratio-Corrected `setSourceRectHint`**: Directs the Android Window Manager to crop strictly to the video viewport coordinates, eliminating address bars, controls, and surrounding page chrome.
-- **Interactive PiP Actions**: Android PiP window includes Previous, Play/Pause, and Next/Forward media transport controls.
+### 6. Tab Management & Data Clearing
+- **Visual Tab Grid**: Responsive card grid with live favicons, page titles, close buttons, and swipe-to-dismiss.
+- **Incognito Tabs**: Isolated in-memory browsing session that leaves no history, cache, or cookies on device.
+- **Resource Management**: Calls `webView.onPause()` on background tabs to halt JavaScript timers and save battery, and `webView.onResume()` on the active tab.
+- **Selective Data Clearing**: Time-range selection (15 minutes, 1 hour, 24 hours, 7 days, 4 weeks, all time) with live summary of items to be removed.
 
-### 🎛️ Floating Video Control Pill
-- When any HTML5 video is detected on the page, an elevated, draggable floating control pill appears:
-  1. **📥 Download**: Instant one-tap video stream detection and download.
-  2. **🎧 Headphone Button**: One-tap toggle for Background Playback with live active color tinting.
-  3. **📺 PiP Button**: Direct invocation of isolated Picture-in-Picture mode.
-- Supports drag-and-drop repositioning anywhere along the screen bounds and persists across pause or buffering states.
+### 7. Developer Tools
+- **Offline Mobile DevTools**: Bundles `eruda.min.js` to provide a full DOM inspector, console, network activity log, and local storage editor without a PC.
+- **Pre-Buffering**: Hooks `console.*` and `window.onerror` at `document_start` so errors occurring before opening DevTools are recorded and replayed.
+- **Remote USB Debugging**: `WebView.setWebContentsDebuggingEnabled(true)` enables standard Chrome DevTools inspection (`chrome://inspect`) over ADB.
+- **Logcat Output**: Pipes web console messages directly to Android Logcat with tag `[OnyxDevTools]`.
 
-### 🔄 Streaming Player API Synchronization
-- Integrates with standard W3C `navigator.mediaSession.setActionHandler` (`play`, `pause`, `seekto`, `seekforward`, `seekbackward`, `nexttrack`, `previoustrack`).
-- Directly bridges with YouTube's `#movie_player` JavaScript API (`playVideo()`, `pauseVideo()`, `seekTo()`, `nextVideo()`), ensuring Bluetooth headsets, smartwatches, and Android lockscreen controls stay in exact sync with web players.
-
----
-
-## 3. 📥 Download Management & External Downloader Integration
-
-Onyx combines a clean in-app downloader with smart hand-off to dedicated external Android download managers.
-
-### Features:
-- **Stream Verification**: Automatically performs non-destructive HTTP `HEAD` / partial `GET` (`bytes=0-1`) requests prior to prompting, reporting file size, MIME type, and catching HTTP 403 Forbidden or Widevine DRM restrictions before download initiation.
-- **Full Session & Header Forwarding**: Extracts and passes session `Cookie` (from `CookieManager`), `User-Agent`, and `Referer` headers to downloaders to ensure authenticated downloads (cloud drives, private forums) succeed seamlessly.
-- **External Downloader Smart Dispatch**:
-  - Scans for installed download engines (**1DM**, **1DM+**, **1DM Lite**, **ADM**, **ADM Pro**, **FDM**, **Download Navi**, **Aria2**).
-  - If a single external manager is installed: Launches directly with full parameters and forwarded headers.
-  - If multiple managers are detected: Displays a clean `SelectDownloaderBottomSheet` selector.
-- **Configurable Download Policies**: Set default behavior in Video Settings (Ask Every Time, Always In-App Downloader, or Always External Downloader).
-
----
-
-## 4. 🔑 Passkeys, WebAuthn & Password Autofill
-
-Experience modern, passwordless authentication with zero compromises.
-
-### Features:
-- **AndroidX Credential Manager**: Integrated with `androidx.credentials:credentials:1.3.0` and Google Play Services Auth.
-- **WebAuthn Bridge (`PasskeyWebAuthnBridge`)**: Polyfills standard W3C `window.PublicKeyCredential`, `navigator.credentials.create()`, and `navigator.credentials.get()` into the WebView, translating JSON/Base64URL requests into native Android credential requests.
-- **Autofill Provider Support**: Fully compatible with **Google Password Manager**, **Bitwarden**, **1Password**, **Dashlane**, and hardware **YubiKeys**.
-- **Deterministic Keystore Signing**: Build pipeline signs release APKs with deterministic keystore configuration, ensuring consistent cryptographic app signatures across updates so saved Passkeys never break.
-
----
-
-## 5. 🔍 Omnibox, Smart Search & QR Scanner
-
-### Features:
-- **Dedicated Full-Page Search Mode**: Tapping the address bar smoothly transitions into a distraction-free search experience with soft keyboard autofocus.
-- **Active Webpage Card**: Quick action buttons beneath the search bar:
-  - **🔗 Share Link**: Native Android share sheet.
-  - **📋 Copy URL**: Instant clipboard copy with visual feedback.
-  - **✏️ Edit URL**: Populates search bar with the current URL for instant customization.
-- **Real-Time Search Suggestions**:
-  - Blended suggestions querying OpenSearch APIs across 6 search engines (**Brave**, **Google**, **DuckDuckGo**, **Bing**, **Startpage**, **Yahoo**) alongside local encrypted browsing history.
-  - Query append buttons (`ic_insert_query`) to customize search queries before submission.
-- **Custom Search Engines with Keyword Shortcuts**:
-  - Add and manage custom search engines with `%s` query parameters.
-  - Keyword search shortcuts (e.g. typing `w quantum computing` searches directly on Wikipedia).
-- **CameraX + ML Kit QR Scanner**: Modern camera overlay scanning URLs, Wi-Fi credentials, and contact codes directly from the search bar.
-
----
-
-## 6. 🖼️ Context Menu & Multi-Engine Reverse Image Search
-
-Long-pressing any link or image triggers Onyx's Material 3 context sheet:
-- **Live Image Thumbnail Preview**: 170dp interactive image card with tap-to-expand badge.
-- **Fullscreen Image Inspector (`ImagePreviewDialog`)**: Zoomable inspection with high-res save and share actions.
-- **Multi-Engine Reverse Image Search**:
-  - **Google Lens**
-  - **TinEye**
-  - **Yandex Images**
-  - **Bing Visual Search**
-- **Link Quick Tools**: Open in New Tab, Open in Background, Copy Link Address, Download Linked File.
-
----
-
-## 7. 🎨 Pure Google Themes & Material 3 Box-Type UI
-
-Designed strictly with classic Android XML ViewBinding (zero Jetpack Compose overhead) for instantaneous cold starts and fluid 120Hz scrolling.
-
-### Three Theme Modes:
-1. **Google Dark Mode** (`#202124`): Authentic Google Dark palette matching Chrome and google.com (`#303134` surface, `#8AB4F8` Google Blue 300 accent; avoids eye-straining pure `#000000`).
-2. **Google Light Mode** (`#FFFFFF`): Clean Google Light theme with `#DFE1E5` borders and `#1A73E8` Google Blue 600 accents.
-3. **System Default**: Automatically syncs with Android OS system dark theme toggles.
-
-### UI Refinements:
-- **Material 3 Box Containers**: Elevated box cards with rounded corners housing dynamic shortcut grids and browser tools.
-- **Responsive Layout**: Adapts gracefully across compact phones (`max-width: 540dp`), foldables, and large Android tablets (`max-width: 760dp`).
-- **Edge-to-Edge Navigation**: Dynamic `WindowInsetsCompat` handling ensuring content never clips behind status or gesture navigation bars.
-
----
-
-## 8. 📑 Tab Switcher & Time-Range Data Cleaning
-
-### Features:
-- **Material 3 Tab Grid**: Visual preview cards displaying live website favicons, domain titles, and tab close buttons with swipe-to-dismiss gestures.
-- **Normal & Incognito Segmented Pill**: Smooth toggle between isolated normal tabs and private sessions.
-- **Battery & CPU Throttling**: Inactive tabs invoke `webView.onPause()` to halt background JavaScript timers and conserve device battery; active tab invokes `webView.onResume()`.
-- **Chrome-Style Clear Browsing Data Dialog**:
-  - Selectable time ranges: **Last 15 minutes**, **Last hour**, **Last 24 hours**, **Last 7 days**, **Last 4 weeks**, and **All time**.
-  - Live preview calculating history items, open tabs that will close, and cookies/cache storage size.
-
----
-
-## 9. 🔒 Local Encryption & Security Hardening
-
-- **SQLCipher AES-256 Storage**: SQLite database holding tabs, history, bookmarks, and download records is encrypted with SQLCipher (`net.zetetic:android-database-sqlcipher`).
-- **Hardened WebView Sandboxing**:
-  - Third-party cookies blocked by default (`CookieManager.setAcceptThirdPartyCookies(false)`).
-  - File scheme access restricted (`allowFileAccess = false`, `allowContentAccess = true`).
-  - Geolocation, microphone, and camera access gated by explicit user consent dialogs.
-- **Safe External Link Dispatch**: `launchMode="singleTask"` prevents duplicate activity stacks and safely dispatches external app links (`tg://`, `whatsapp://`, `mailto:`, `intent://`).
-
----
-
-## 10. 🛠️ Developer Tools & Web Utilities
-
-- **Offline Eruda Developer Console**: Bundled `eruda.min.js` provides mobile web developers with an interactive DOM inspector, JavaScript console, network monitor, and local storage viewer without connecting to a desktop PC.
-  - **Console & Error Pre-Buffering**: Hooks `console.log/warn/error/info/debug` and `window.onerror` at `document_start` so all startup errors prior to opening DevTools are preserved and replayed.
-  - **In-Memory Caching**: Eliminates repeated asset reads, providing instant sub-millisecond console initialization.
-  - **Theme Synchronization**: Automatically adopts Dark or Light theme matching the user's active browser palette.
-  - **Session Persistence**: Maintains active DevTools across in-tab page navigations and reloads.
-- **Remote WebContents Debugging (Chrome DevTools)**:
-  - Enabled via `WebView.setWebContentsDebuggingEnabled(true)`, allowing full desktop Chrome/Edge DevTools inspection (`chrome://inspect`) over USB/ADB with live DOM tree editing, network waterfall graphs, timeline profiling, and JavaScript breakpoints.
-- **Logcat Console Forwarding**: Web console outputs automatically format with line number and source URL under the `[OnyxDevTools]` Logcat tag.
-- **Webpage Translation**: In-app Google Web Translate bar supporting 20 languages with target language persistence.
-- **In-Page Text Finder**: Interactive search bar with real-time match counts (`X/Y`) and next/previous match highlighting.
-- **Desktop Site Toggle**: Instant user-agent switching to request desktop-rendered web pages.
-- **Add to Home Screen**: Pins native progressive web app (PWA) launcher shortcuts with website titles and high-res favicons via `ShortcutManagerCompat`.
-
+### 8. Customization & Accessibility
+- **Themes**: Pure Google Dark (`#202124`), Google Light (`#FFFFFF`), and pure AMOLED Black (`#000000`).
+- **User Agent Spoofer**: Select from built-in presets (Chrome Mobile, Chrome Desktop, Safari iOS, Safari macOS, Edge, Firefox) or input a custom UA string.
+- **Accessibility Settings**: Toggle the Search widget, toggle the "Add to Home screen" option in the webpage 3-dot menu, adjust text scaling, and force dark mode on web content.
+- **Home Screen Shortcuts**: Pin progressive web app shortcuts directly to the Android launcher via `ShortcutManagerCompat`.

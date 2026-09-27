@@ -65,6 +65,14 @@ When the user explicitly issues the command **"build app now"**, the agent must 
 - **No Emoji Clutter**: Avoid spamming emojis across every heading, list item, or paragraph.
 - Speak and write like a real, practical software engineer.
 
+### RULE 6: Feature Tracking via `FEATURES.md`
+- `FEATURES.md` is the single source of truth for tracking all browser capabilities, their live status, bugs, and upcoming features.
+- Every feature is maintained in a numbered list with status checkboxes:
+  - `[x]` = Working and verified in release builds.
+  - `[-]` = Implemented with a known issue, bug, or hardware limitation.
+  - `[ ]` = Planned / not yet implemented.
+- **Mandatory Agent Tracking**: Before developing or debugging, agents must inspect `FEATURES.md` to see what is already working and what has bugs. Whenever an agent adds a feature, identifies a bug, or resolves an issue, they **MUST** update `FEATURES.md` accordingly.
+
 ---
 
 ## 3. Directory Layout & Architecture Map
@@ -274,6 +282,10 @@ onyx-browser/
     - Preserved visual branding (centered 128px logo, title, clean badges, quick links).
     - Simplified sections: natural "What is Onyx?", clear benefit-focused feature bullet points, straightforward download guide matching CPU architectures to everyday devices, minimal tech stack, and easy-to-follow source build instructions.
     - Streamlined the header subtitle ("A fast, private, and lightweight browser for Android") and trimmed the Features section to 6 tight, human-readable bullet points free of repetitive marketing fluff.
+  - Master Feature Checklist Architecture (`FEATURES.md`):
+    - Completely restructured `FEATURES.md` into a numbered 1..N checklist with live status indicators (`[x]` working, `[-]` known issue/bug, `[ ]` planned).
+    - Established `FEATURES.md` as the unified feature tracking reference for all AI agents and developers.
+    - Added clean, human-readable technical breakdowns following Rule 5 (no hype, no emoji spam).
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
