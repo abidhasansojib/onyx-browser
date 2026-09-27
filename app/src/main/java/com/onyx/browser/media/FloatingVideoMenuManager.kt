@@ -154,7 +154,8 @@ class FloatingVideoMenuManager(
         val shouldShow = hasVideo && isWebViewVisible && preferences.isFloatingVideoMenuEnabled
         val view = binding?.root ?: return
 
-        updateHeadphonesState(preferences.isBackgroundPlayEnabled)
+        val isBgActive = MediaPlaybackBridge.isBackgroundPlayActive(preferences)
+        updateHeadphonesState(isBgActive)
 
         if (shouldShow) {
             view.bringToFront()
@@ -197,5 +198,20 @@ class FloatingVideoMenuManager(
     fun hideImmediately() {
         binding?.root?.visibility = View.GONE
         binding?.root?.alpha = 0f
+    }
+
+    /**
+     * Resets all floating menu options, position, and visibility to default.
+     * Called when switching tabs or closing a tab so temporary actions do not persist.
+     */
+    fun resetToDefault(isBackgroundPlayEnabled: Boolean = preferences.isBackgroundPlayEnabled) {
+        hideImmediately()
+        val view = binding?.root ?: return
+        view.translationX = 0f
+        view.translationY = 0f
+        view.scaleX = 1f
+        view.scaleY = 1f
+        isDragging = false
+        updateHeadphonesState(isBackgroundPlayEnabled)
     }
 }

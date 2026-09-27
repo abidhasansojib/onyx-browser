@@ -60,7 +60,14 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         var onPipRequestedListener: (() -> Unit)? = null
         var onPipExitListener: (() -> Unit)? = null
 
+        @Volatile var temporaryBackgroundPlayOverride: Boolean? = null
+
+        fun isBackgroundPlayActive(preferences: BrowserPreferences): Boolean {
+            return temporaryBackgroundPlayOverride ?: preferences.isBackgroundPlayEnabled
+        }
+
         fun onTabClosed(tabId: String, context: Context) {
+            temporaryBackgroundPlayOverride = null
             val playingId = currentPlayingTabId
             val playingWv = currentPlayingWebView?.get()
             val playingWvTabId = (playingWv as? com.onyx.browser.web.OnyxWebView)?.tabId
@@ -71,6 +78,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         }
 
         fun resetMediaPlayback(context: Context) {
+            temporaryBackgroundPlayOverride = null
             isVideoPresent = false
             isVideoPlaying = false
             isAudioOrVideoPlaying = false
@@ -91,6 +99,9 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             }
         }
     }
+
+    private val isBackgroundPlayActive: Boolean
+        get() = isBackgroundPlayActive(preferences)
 
     @JavascriptInterface
     fun onVideoPresenceChanged(hasVideo: Boolean, src: String?, width: Int, height: Int) {
@@ -192,7 +203,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             if (isPlaying && webView != null) {
                 onMediaPlaybackStartedListener?.invoke(webView)
             }
-            if (preferences.isBackgroundPlayEnabled && isPlaying) {
+            if (isBackgroundPlayActive && isPlaying) {
                 MediaPlaybackService.start(
                     context,
                     cleanTitle,
@@ -214,7 +225,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         currentDurationMs = (durationSec * 1000).toLong().coerceAtLeast(0L)
 
         mainHandler.post {
-            if (preferences.isBackgroundPlayEnabled && isAudioOrVideoPlaying) {
+            if (isBackgroundPlayActive && isAudioOrVideoPlaying) {
                 MediaPlaybackService.updateProgress(context, currentPositionMs, currentDurationMs)
             }
         }
@@ -250,7 +261,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             if (webView != null) {
                 onMediaPlaybackStartedListener?.invoke(webView)
             }
-            if (preferences.isBackgroundPlayEnabled) {
+            if (isBackgroundPlayActive) {
                 MediaPlaybackService.start(
                     context,
                     cleanTitle,
@@ -266,7 +277,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaPaused() {
-        val shouldSuppress = preferences.isBackgroundPlayEnabled &&
+        val shouldSuppress = isBackgroundPlayActive &&
                 (isAppInBackground || isScreenOffOrLocked(context)) &&
                 !isExplicitUserPause
 
@@ -285,7 +296,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
         mainHandler.post {
             onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
-            if (preferences.isBackgroundPlayEnabled) {
+            if (isBackgroundPlayActive) {
                 MediaPlaybackService.updateState(context, false, currentPositionMs, currentDurationMs)
             }
         }
@@ -300,7 +311,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
         mainHandler.post {
             onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
-            if (preferences.isBackgroundPlayEnabled) {
+            if (isBackgroundPlayActive) {
                 MediaPlaybackService.stop(context)
             }
         }
@@ -317,7 +328,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         if (cleanArtwork != null) currentArtworkUrl = cleanArtwork
 
         mainHandler.post {
-            if (preferences.isBackgroundPlayEnabled && isAudioOrVideoPlaying) {
+            if (isBackgroundPlayActive && isAudioOrVideoPlaying) {
                 MediaPlaybackService.updateMetadata(
                     context,
                     currentTitle,
