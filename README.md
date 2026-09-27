@@ -42,12 +42,10 @@ Onyx is a clean, minimal, and fast web browser for Android. It has Brave's adblo
 
 Get the latest APK from [**GitHub Releases**](https://github.com/abidhasansojib/onyx-browser/releases/latest):
 
-| Architecture | Best For | Package File |
-| :--- | :--- | :--- |
-| **`arm64-v8a`** | Most modern Android phones & tablets *(Recommended)* | `Onyx-Browser-*-arm64-v8a-release.apk` |
-| **`armeabi-v7a`** | Older 32-bit Android phones | `Onyx-Browser-*-armeabi-v7a-release.apk` |
-| **`x86_64`** | PC emulators & Chromebooks | `Onyx-Browser-*-x86_64-release.apk` |
-| **`universal`** | Works on any device *(Larger file size)* | `Onyx-Browser-*-universal-release.apk` |
+- **Most phones (recommended):** `arm64-v8a`
+- **Older phones (32-bit):** `armeabi-v7a`
+- **Emulators / PC:** `x86_64`
+- **Not sure?** Grab the `universal` build
 
 ---
 
