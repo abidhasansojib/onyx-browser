@@ -291,6 +291,10 @@ onyx-browser/
     - Replaced clunky 2014 filled silhouette shapes with a modern Lucide smartphone, crescent moon, and balanced 8-ray radial sun.
     - Overhauled `bottom_sheet_theme_picker.xml` to match Onyx's Google luxury theme, adding a drag handle, top header with box tile and close button, and cards with `@color/settings_card_bg` and `@color/settings_card_stroke`.
     - Eliminated all coral pink (`colorPrimary`) selection artifacts in `ThemePickerSheet.kt`, adopting `@color/google_blue` for active card borders and checkmarks.
+  - 3-Dot Menu Soft Curved Edge Architecture:
+    - Created `bg_bottom_sheet_soft_menu.xml` with 18dp soft curved top-left and top-right corners (`topLeftRadius="18dp"`, `topRightRadius="18dp"`), replacing sharp rectangular backgrounds and avoiding exaggerated full-round bubbles.
+    - Standardized `ShapeAppearance.OnyxBrowser.BottomSheet` to 18dp in `themes.xml` and `values-night/themes.xml`.
+    - Set `Theme_OnyxBrowser_BottomSheetDialog` style and applied `clipToOutline = true` on `design_bottom_sheet` in `MenuBottomSheetDialogFragment.kt` to ensure clean hardware clipping without corner bleed.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

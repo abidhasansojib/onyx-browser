@@ -47,6 +47,11 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
     var onSiteShieldWhitelistChanged: ((Boolean) -> Unit)? = null
     
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NORMAL, R.style.Theme_OnyxBrowser_BottomSheetDialog)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -54,6 +59,17 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
     ): View {
         _binding = BottomSheetMenuBinding.inflate(inflater, container, false)
         return binding.root
+    }
+
+    override fun onStart() {
+        super.onStart()
+        dialog?.let { d ->
+            val bottomSheet = d.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheet?.let { sheet ->
+                sheet.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_bottom_sheet_soft_menu)
+                sheet.clipToOutline = true
+            }
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
