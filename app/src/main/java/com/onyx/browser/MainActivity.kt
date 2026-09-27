@@ -493,15 +493,16 @@ class MainActivity : AppCompatActivity() {
                 binding.btnQrScanner.visibility = View.VISIBLE
                 binding.btnVoiceSearch.visibility = if (hasText) View.GONE else View.VISIBLE
 
-                val currentTab = tabManager.activeTab.value
-                val hasCurrentUrl = !currentTab?.url.isNullOrBlank()
-
                 if (hasText) {
+                    // Hide current-page card while typing so search results have more room
                     binding.cardCurrentPage.visibility = View.GONE
+                    // fetchSearchSuggestions handles debounce, clipboard blending, and adapter updates
                     fetchSearchSuggestions(query)
+                } else {
+                    // Empty query: cancel any pending job, show current-page card + clipboard only
+                    suggestionJob?.cancel()
                     val curUrl = getActivePageUrl()
                     updateCurrentPageCard(curUrl)
-                    suggestionJob?.cancel()
                     val clipboardOpt = getClipboardSuggestion()
                     suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
                 }
@@ -720,8 +721,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            tabManager.incognitoTabs.collectLatest {
+            tabManager.incognitoTabs.collectLatest { tabs ->
                 updateTabBadgeCount()
+                // Update (or dismiss) incognito persistent notification
+                com.onyx.browser.incognito.IncognitoNotificationHelper.updateNotification(this@MainActivity, tabs.size)
             }
         }
     }

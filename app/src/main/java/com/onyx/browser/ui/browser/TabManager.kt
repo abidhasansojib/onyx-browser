@@ -61,11 +61,6 @@ class TabManager(
 
     init {
         activeInstance = this
-        coroutineScope.launch(Dispatchers.Main) {
-            incognitoTabs.collect { tabs ->
-                com.onyx.browser.incognito.IncognitoNotificationHelper.updateNotification(context, tabs.size)
-            }
-        }
     }
 
     private fun getThumbnailDir(): File {
