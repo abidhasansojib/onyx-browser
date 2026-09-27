@@ -1668,3 +1668,14 @@ onyx-browser/
      - **Fix 4 — Updated `AdBlockEngine.kt`**: `loadBraveResources()` auto-loads resources after init; `getCosmeticCss()` parses `css`; `getScriptletJs()` extracts `script`; `isGenericHide()` extracts `generichide`.
      - **Fix 5 — Scriptlet injection in `OnyxWebViewClient.onPageStarted()`**: Base64-encodes scriptlet JS, decodes via `atob()`, executes via `new Function()` in try/catch. Runs before page JS for proper API interception.
      - **Expected impact**: 10-15% benchmark improvement, from 48-50% up to 60-65% on https://adblock.turtlecute.org/.
+  - [x] **Verified Remote GitHub Actions Release Build & Deployment (#36291131104, Release `v1.0.182`)**:
+    - Workflow dispatched for **Release** build on `main` branch with inputs `build_type=Release`.
+    - Native Rust NDK `libadblock_bridge.so` compiled with full scriptlet pipeline support across `arm64-v8a`, `armeabi-v7a`, `x86_64`.
+    - Release APKs assembled with ABI splits and R8 minification, packaged with official release keystore.
+    - Verified published GitHub Release [`v1.0.182`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.182):
+      - `Onyx-Browser-v1.0.182-arm64-v8a-release.apk` (19.5 MB)
+      - `Onyx-Browser-v1.0.182-armeabi-v7a-release.apk` (15.7 MB)
+      - `Onyx-Browser-v1.0.182-universal-release.apk` (39.6 MB)
+      - `Onyx-Browser-v1.0.182-x86_64-release.apk` (21.0 MB)
+    - Copied latest release binaries directly to `/storage/emulated/0/` and `/root/onyx-browser/release/` for immediate installation.
+    - Successfully merged `dev` into `main` and deleted `dev` locally and remotely.
