@@ -262,6 +262,10 @@ onyx-browser/
   - Settings Category Icons Dynamic Theme Tinting:
     - Fixed an issue where the left category icons in `activity_settings.xml` (Appearance, Autofill, Video options, Download settings, Accessibility, Privacy & shields, User agent spoofer, Manage personal data, and About Onyx) were invisible in light mode due to hardcoded white tint (`app:tint="#FFFFFFFF"` blending into white cards).
     - Replaced hardcoded tint with `@color/settings_title_text`, dynamically rendering in `#202124` charcoal in light mode and retaining crisp `#FFFFFFFF` white in dark mode, matching the existing standard used in sub-settings activities.
+  - Simplified, Human-Friendly README Overhaul:
+    - Rewrote `README.md` to remove robotic AI buzzwords, verbose marketing prose, and internal technical over-explanations.
+    - Preserved visual branding (centered 128px logo, title, clean badges, quick links).
+    - Simplified sections: natural "What is Onyx?", clear benefit-focused feature bullet points, straightforward download guide matching CPU architectures to everyday devices, minimal tech stack, and easy-to-follow source build instructions.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
