@@ -1,5 +1,1 @@
-blank_issues_enabled: true
-contact_links:
-  - name: GitHub Releases & APK Downloads
-    url: https://github.com/abidhasansojib/onyx-browser/releases/latest
-    about: Download the latest release APKs for your Android architecture.
+blank_issues_enabled: false

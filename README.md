@@ -86,6 +86,18 @@ All official binaries are built via the autonomous GitHub Actions CI/CD workflow
 
 ---
 
+## 💖 Credits & Acknowledgements
+
+Onyx Browser is built on the shoulders of incredible open-source innovations:
+
+- **[Brave Software](https://brave.com)**: For the high-performance native [`adblock-rust`](https://github.com/brave/adblock-rust) engine, official adblocking filter lists, and pioneering browser privacy concepts.
+- **[Quetta Browser](https://www.quetta.net/)**: For aesthetic inspiration and design ideas behind the clean, modern UI layout and theme presentation.
+- **[Lucide Icons](https://lucide.dev)**: For crisp, elegant vector icons adapted throughout the browser interface.
+- **[SQLCipher](https://www.zetetic.net/sqlcipher/)**: For full 256-bit AES database encryption protecting local user data.
+
+---
+
 ## 📄 License
 
 Onyx Browser is open-source software licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
+

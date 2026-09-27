@@ -1839,7 +1839,10 @@ onyx-browser/
     - **GitHub Issue Templates (`.github/ISSUE_TEMPLATE`)**:
       - Added Bug Report template (`bug_report.md`) with structured fields: Title, Issue description, How to reproduce, Expected behavior, OS version, App version & architecture, and Screenshots.
       - Added Feature Request template (`feature_request.md`) with Title, Feature description, Motivation/Use case, and Context.
-      - Added `config.yml` with links to latest releases.
+      - Updated `config.yml`: disabled blank issues (`blank_issues_enabled: false`) and removed external contact links to enforce structured bug reporting and feature tracking.
+    - **README Credits & Acknowledgements (`README.md`)**:
+      - Added dedicated Credits section honoring Brave Software (`adblock-rust`, filter lists, and privacy architecture) and Quetta Browser (modern UI/UX theme and box-type layout inspiration).
+
 
 
 
