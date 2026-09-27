@@ -6,7 +6,7 @@
     android:layout_height="wrap_content"
     app:cardBackgroundColor="@color/dialog_clear_data_bg"
     app:cardCornerRadius="24dp"
-    app:cardElevation="4dp"
+    app:cardElevation="24dp"
     app:strokeColor="@color/popup_menu_stroke"
     app:strokeWidth="1dp">
 

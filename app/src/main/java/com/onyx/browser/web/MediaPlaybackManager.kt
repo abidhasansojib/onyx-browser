@@ -1,26 +1,27 @@
 package com.onyx.browser.web
 
 /**
- * Manages web media playback enhancements for Android System WebView:
- * 1. Background Playback: Prevents streaming services (YouTube, Twitch, SoundCloud, Vimeo, Spotify, etc.)
- *    from pausing when the browser is minimized, screen is locked, or another app is opened.
- * 2. Automatic Pause Neutralizer: Prevents website scripts from invoking .pause() in the background.
- * 3. MediaSession & Playback Hook: Reports video/audio state to Android's MediaPlaybackService.
- * 4. Video-Only PiP Isolation: True DOM isolation for clean PiP video display.
+ * Production Media & Video Engine for Onyx Browser.
  *
- * Architecture — two-tier injection:
- * • mediaMonitorScript: ALWAYS injected at document-start. Handles media event detection,
- *   OnyxMediaBridge reporting, PiP polyfill, and video bounds. Required for the floating video
- *   menu pill, media session controls, and PiP rect — regardless of background play setting.
- * • backgroundPlaybackScript: ONLY injected when isBackgroundPlayEnabled == true. Handles pause
- *   suppression, visibility spoofing, IntersectionObserver override, and background mute blocking.
+ * Implements Brave-parity media detection, background video playback keep-alive,
+ * W3C Picture-in-Picture polyfill, and streaming player API synchronization.
+ *
+ * Modeled after Brave's core media architecture:
+ * - PlaylistScript.js (property descriptor interception for instant video detection)
+ * - MediaBackgroundingScript.js / media_backgrounding.ts (userHitPause, visibility spoofing, auto-resume)
+ * - youtube_script_injector_tab_helper.cc (kYoutubeBackgroundPlayback, kYoutubePictureInPictureSupport, kYoutubeFullscreenVideoFitWorkaround)
  */
 object MediaPlaybackManager {
 
     /**
-     * Media monitor script — ALWAYS injected at document-start (no background-play gate).
-     * Provides: OnyxMediaBridge event reporting, PiP Web API polyfill, video bounds tracking,
-     * MediaSession metadata interception, and the cross-frame message bus.
+     * Media monitor script — ALWAYS injected at document-start into all frames.
+     * Provides:
+     * 1. Instant video detection via HTMLMediaElement.src descriptor & setAttribute hooks.
+     * 2. MutationObserver scanning for newly added videos across light and shadow DOM.
+     * 3. Direct event binding (play, playing, pause, timeupdate, volumechange, ended, loadedmetadata).
+     * 4. W3C Picture-in-Picture Web API polyfill.
+     * 5. Video bounds reporting for accurate Android PiP sourceRectHint.
+     * 6. Universal cross-frame message bus for nested iframes.
      */
     val mediaMonitorScript: String = """
         (function() {
@@ -28,68 +29,120 @@ object MediaPlaybackManager {
             window.__onyx_monitor_active = true;
 
             try {
-                // PiP Web API Polyfill
-                try {
-                    var currentPipElem = null;
-                    if (!document.pictureInPictureEnabled) {
-                        Object.defineProperty(document, 'pictureInPictureEnabled', { get: function() { return true; }, configurable: true });
-                    }
-                    Object.defineProperty(document, 'pictureInPictureElement', { get: function() { return currentPipElem; }, configurable: true });
-                    document.exitPictureInPicture = function() {
-                        return new Promise(function(resolve, reject) {
-                            if (!currentPipElem) { reject(new DOMException("No active PiP element", "InvalidStateError")); return; }
-                            var old = currentPipElem; currentPipElem = null;
-                            if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.exitVideoPip === 'function') { window.OnyxMediaBridge.exitVideoPip(); }
-                            try { old.dispatchEvent(new Event('leavepictureinpicture', { bubbles: true })); } catch (_) {}
-                            resolve();
+                // ── 1. W3C Picture-in-Picture Web API Polyfill ─────────────────────────
+                var currentPipElem = null;
+                if (!document.pictureInPictureEnabled) {
+                    try {
+                        Object.defineProperty(document, 'pictureInPictureEnabled', {
+                            get: function() { return true; },
+                            configurable: true
                         });
-                    };
-                    if (typeof HTMLVideoElement !== 'undefined' && HTMLVideoElement.prototype) {
-                        HTMLVideoElement.prototype.requestPictureInPicture = function() {
-                            var self = this;
-                            return new Promise(function(resolve, reject) {
-                                if (self.readyState === 0) { reject(new DOMException("Video not ready", "InvalidStateError")); return; }
-                                currentPipElem = self;
-                                reportVideoBounds(self);
-                                if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.requestVideoPip === 'function') { window.OnyxMediaBridge.requestVideoPip(); }
-                                try { self.dispatchEvent(new Event('enterpictureinpicture', { bubbles: true })); } catch (_) {}
-                                resolve({ width: self.videoWidth || self.clientWidth || 320, height: self.videoHeight || self.clientHeight || 180, onresize: null });
-                            });
-                        };
-                    }
+                    } catch (_) {}
+                }
+
+                try {
+                    Object.defineProperty(document, 'pictureInPictureElement', {
+                        get: function() { return currentPipElem; },
+                        configurable: true
+                    });
                 } catch (_) {}
 
+                document.exitPictureInPicture = function() {
+                    return new Promise(function(resolve, reject) {
+                        if (!currentPipElem) {
+                            reject(new DOMException("No active Picture-in-Picture element", "InvalidStateError"));
+                            return;
+                        }
+                        var old = currentPipElem;
+                        currentPipElem = null;
+                        if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.exitVideoPip === 'function') {
+                            window.OnyxMediaBridge.exitVideoPip();
+                        }
+                        try {
+                            old.dispatchEvent(new Event('leavepictureinpicture', { bubbles: true }));
+                        } catch (_) {}
+                        resolve();
+                    });
+                };
+
+                if (typeof HTMLVideoElement !== 'undefined' && HTMLVideoElement.prototype) {
+                    HTMLVideoElement.prototype.requestPictureInPicture = function() {
+                        var self = this;
+                        return new Promise(function(resolve, reject) {
+                            if (self.readyState === 0 && !self.src && !self.currentSrc && !self.srcObject) {
+                                reject(new DOMException("Video is not ready", "InvalidStateError"));
+                                return;
+                            }
+                            currentPipElem = self;
+                            reportVideoBounds(self);
+
+                            if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.requestVideoPip === 'function') {
+                                window.OnyxMediaBridge.requestVideoPip();
+                            }
+
+                            try {
+                                self.dispatchEvent(new Event('enterpictureinpicture', { bubbles: true }));
+                            } catch (_) {}
+
+                            resolve({
+                                width: self.videoWidth || self.clientWidth || 320,
+                                height: self.videoHeight || self.clientHeight || 180,
+                                onresize: null
+                            });
+                        });
+                    };
+                }
+
+                // ── 2. Metadata Extraction ──────────────────────────────────────────
                 function extractTitle() {
-                    if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.title) return navigator.mediaSession.metadata.title;
-                    var yt = document.querySelector('h1.title yt-formatted-string, #title h1, .slim-video-information-title, .video-title, ytm-slim-video-metadata-section-renderer .title');
-                    if (yt && yt.textContent) return yt.textContent.trim();
-                    return document.title || 'Web Media';
+                    try {
+                        if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.title) {
+                            return navigator.mediaSession.metadata.title;
+                        }
+                        var yt = document.querySelector('h1.title yt-formatted-string, #title h1, .slim-video-information-title, .video-title, ytm-slim-video-metadata-section-renderer .title');
+                        if (yt && yt.textContent) return yt.textContent.trim();
+                        return document.title || 'Web Media';
+                    } catch (_) { return document.title || 'Web Media'; }
                 }
+
                 function extractArtist() {
-                    if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.artist) return navigator.mediaSession.metadata.artist;
-                    var ytChan = document.querySelector('#owner-name, ytm-channel-name, .slim-owner-channel-name, ytm-badge-and-byline-renderer .byline-title');
-                    if (ytChan && ytChan.textContent) return ytChan.textContent.trim();
-                    return location.hostname.replace(/^www\./, '');
+                    try {
+                        if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.artist) {
+                            return navigator.mediaSession.metadata.artist;
+                        }
+                        var ytChan = document.querySelector('#owner-name, ytm-channel-name, .slim-owner-channel-name, ytm-badge-and-byline-renderer .byline-title');
+                        if (ytChan && ytChan.textContent) return ytChan.textContent.trim();
+                        return (location.hostname || '').replace(/^www\./, '');
+                    } catch (_) { return (location.hostname || '').replace(/^www\./, ''); }
                 }
+
                 function extractArtwork(elem) {
-                    if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.artwork && navigator.mediaSession.metadata.artwork.length > 0) {
-                        var arts = navigator.mediaSession.metadata.artwork;
-                        return arts[arts.length - 1].src || arts[0].src || '';
-                    }
-                    if (elem instanceof HTMLVideoElement && elem.poster) return elem.poster;
-                    var ogImg = document.querySelector('meta[property="og:image"]');
-                    if (ogImg && ogImg.content) return ogImg.content;
+                    try {
+                        if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.artwork && navigator.mediaSession.metadata.artwork.length > 0) {
+                            var arts = navigator.mediaSession.metadata.artwork;
+                            return arts[arts.length - 1].src || arts[0].src || '';
+                        }
+                        if (elem instanceof HTMLVideoElement && elem.poster) {
+                            return elem.poster;
+                        }
+                        var ogImg = document.querySelector('meta[property="og:image"]');
+                        if (ogImg && ogImg.content) return ogImg.content;
+                    } catch (_) {}
                     return '';
                 }
 
+                // ── 3. Video Bounds Tracking ────────────────────────────────────────
                 var lastReportedTime = 0;
                 var lastReportedVideoBounds = { left: 0, top: 0, right: 0, bottom: 0 };
+
                 function reportVideoBounds(elem) {
                     try {
                         if (elem instanceof HTMLVideoElement && window.OnyxMediaBridge && typeof window.OnyxMediaBridge.onVideoBoundsChanged === 'function') {
                             var r = elem.getBoundingClientRect();
-                            if (Math.abs(r.left - lastReportedVideoBounds.left) > 4 || Math.abs(r.top - lastReportedVideoBounds.top) > 4 ||
-                                Math.abs(r.right - lastReportedVideoBounds.right) > 4 || Math.abs(r.bottom - lastReportedVideoBounds.bottom) > 4) {
+                            if (Math.abs(r.left - lastReportedVideoBounds.left) > 4 ||
+                                Math.abs(r.top - lastReportedVideoBounds.top) > 4 ||
+                                Math.abs(r.right - lastReportedVideoBounds.right) > 4 ||
+                                Math.abs(r.bottom - lastReportedVideoBounds.bottom) > 4) {
                                 lastReportedVideoBounds = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
                                 window.OnyxMediaBridge.onVideoBoundsChanged(r.left, r.top, r.right, r.bottom);
                             }
@@ -97,122 +150,334 @@ object MediaPlaybackManager {
                     } catch (_) {}
                 }
 
+                // ── 4. Qualifying Media Detection (Brave-Parity) ─────────────────────
                 function isQualifyingMedia(elem) {
-                    if (!elem) return false;
+                    if (!elem || !(elem instanceof HTMLMediaElement)) return false;
                     if (elem instanceof HTMLVideoElement) {
-                        if (elem.videoWidth > 0 && elem.videoWidth < 80) return false;
-                        if (elem.videoHeight > 0 && elem.videoHeight < 60) return false;
-                        if (elem.loop && (elem.muted || elem.volume === 0) && elem.duration > 0 && elem.duration < 12) return false;
-                        var isMuted = elem.muted || elem.volume === 0 || elem.hasAttribute('muted');
-                        if (isMuted) {
-                            if (window.__onyx_frame_interacted || elem.__onyx_user_interacted) return true;
-                            if (elem.duration > 10 || elem.currentTime > 0.5) return true;
-                            if (elem.autoplay && elem.loop) return false;
-                        }
+                        // Filter out tiny invisible ad beacons (< 32px)
+                        if (elem.hasAttribute('width') && parseInt(elem.getAttribute('width')) < 32 && parseInt(elem.getAttribute('width')) > 0) return false;
+                        if (elem.hasAttribute('height') && parseInt(elem.getAttribute('height')) < 32 && parseInt(elem.getAttribute('height')) > 0) return false;
+                        // Filter out short looping decorative background animations with no audio
+                        if (elem.loop && (elem.muted || elem.volume === 0) && elem.duration > 0 && elem.duration < 4) return false;
+                        return true;
                     }
                     if (elem instanceof HTMLAudioElement) {
-                        if ((elem.muted || elem.volume === 0) && elem.autoplay && !elem.__onyx_user_interacted && !window.__onyx_frame_interacted) return false;
+                        return true;
                     }
-                    return true;
+                    return false;
                 }
-
-                function markMediaInteracted(e) {
-                    try {
-                        window.__onyx_frame_interacted = true;
-                        var now = Date.now();
-                        var target = e.target;
-                        if (target instanceof HTMLMediaElement) { target.__onyx_user_interacted = true; target.__onyx_last_user_play = now; }
-                        else if (target && target.closest) {
-                            var m = target.closest('video, audio');
-                            if (m) { m.__onyx_user_interacted = true; m.__onyx_last_user_play = now; }
-                            if (target.closest('[class*="player" i], [id*="player" i], [class*="play" i], [class*="video" i], #overlay, .jw-wrapper, .plyr, [data-player], [data-plyr], [class*="control" i]')) {
-                                var vids = document.querySelectorAll('video, audio');
-                                for (var i = 0; i < vids.length; i++) { vids[i].__onyx_user_interacted = true; vids[i].__onyx_last_user_play = now; }
-                            }
-                        }
-                    } catch (_) {}
-                }
-                document.addEventListener('click', markMediaInteracted, true);
-                document.addEventListener('touchstart', markMediaInteracted, true);
-                document.addEventListener('volumechange', function(e) {
-                    if (e.target instanceof HTMLMediaElement && !e.target.muted && e.target.volume > 0) {
-                        e.target.__onyx_user_interacted = true; window.__onyx_frame_interacted = true;
-                        if (!e.target.paused && isQualifyingMedia(e.target)) reportMediaPlaying(e.target);
-                    }
-                }, true);
 
                 function reportMediaPlaying(elem) {
                     if (!window.OnyxMediaBridge || !isQualifyingMedia(elem)) return;
                     var isVid = (elem instanceof HTMLVideoElement);
                     var dur = (elem.duration && !isNaN(elem.duration)) ? elem.duration : 0;
                     var pos = (elem.currentTime && !isNaN(elem.currentTime)) ? elem.currentTime : 0;
-                    var vsrc = (elem.currentSrc || elem.src || '');
-                    if (vsrc && typeof window.OnyxMediaBridge.onVideoSourceDetected === 'function') window.OnyxMediaBridge.onVideoSourceDetected(vsrc);
-                    window.OnyxMediaBridge.onMediaStateChanged(extractTitle(), extractArtist(), extractArtwork(elem), true, pos, dur, isVid, isVid ? (elem.videoWidth || 0) : 0, isVid ? (elem.videoHeight || 0) : 0);
+                    var w = isVid ? (elem.videoWidth || elem.clientWidth || 0) : 0;
+                    var h = isVid ? (elem.videoHeight || elem.clientHeight || 0) : 0;
+                    var vsrc = elem.currentSrc || elem.src || '';
+                    if (!vsrc && elem.children) {
+                        for (var i = 0; i < elem.children.length; i++) {
+                            var ch = elem.children[i];
+                            if (ch.tagName === 'SOURCE' && (ch.src || ch.getAttribute('src'))) {
+                                vsrc = ch.src || ch.getAttribute('src');
+                                break;
+                            }
+                        }
+                    }
+                    if (vsrc && typeof window.OnyxMediaBridge.onVideoSourceDetected === 'function') {
+                        window.OnyxMediaBridge.onVideoSourceDetected(vsrc);
+                    }
+                    window.OnyxMediaBridge.onMediaStateChanged(
+                        extractTitle(),
+                        extractArtist(),
+                        extractArtwork(elem),
+                        true,
+                        pos,
+                        dur,
+                        isVid,
+                        w,
+                        h
+                    );
                     if (isVid) reportVideoBounds(elem);
                 }
+
                 function reportMediaProgress(elem) {
                     if (!window.OnyxMediaBridge || !isQualifyingMedia(elem)) return;
-                    var now = Date.now(); if (now - lastReportedTime < 1000) return; lastReportedTime = now;
-                    window.OnyxMediaBridge.onMediaProgress((elem.currentTime && !isNaN(elem.currentTime)) ? elem.currentTime : 0, (elem.duration && !isNaN(elem.duration)) ? elem.duration : 0);
+                    var now = Date.now();
+                    if (now - lastReportedTime < 1000) return;
+                    lastReportedTime = now;
+                    var dur = (elem.duration && !isNaN(elem.duration)) ? elem.duration : 0;
+                    var pos = (elem.currentTime && !isNaN(elem.currentTime)) ? elem.currentTime : 0;
+                    window.OnyxMediaBridge.onMediaProgress(pos, dur);
                     if (elem instanceof HTMLVideoElement) reportVideoBounds(elem);
                 }
+
                 function reportMediaPaused() {
                     if (!window.OnyxMediaBridge) return;
                     setTimeout(function() {
-                        var anyPlaying = Array.from(document.querySelectorAll('video, audio')).some(function(m) { return !m.paused && !m.ended && m.readyState > 1 && isQualifyingMedia(m); });
-                        if (!anyPlaying) window.OnyxMediaBridge.onMediaPaused();
+                        var anyPlaying = Array.from(document.querySelectorAll('video, audio')).some(function(m) {
+                            return !m.paused && !m.ended && isQualifyingMedia(m);
+                        });
+                        if (!anyPlaying) {
+                            window.OnyxMediaBridge.onMediaPaused();
+                        }
                     }, 350);
                 }
 
-                document.addEventListener('play', function(e) { if (e.target instanceof HTMLMediaElement) { e.target.__onyx_last_play_time = Date.now(); reportMediaPlaying(e.target); } }, true);
-                document.addEventListener('playing', function(e) { if (e.target instanceof HTMLMediaElement) reportMediaPlaying(e.target); }, true);
-                document.addEventListener('pause', function(e) { if (e.target instanceof HTMLMediaElement) reportMediaPaused(); }, true);
-                document.addEventListener('ended', function(e) { if (e.target instanceof HTMLMediaElement) reportMediaPaused(); }, true);
-                document.addEventListener('timeupdate', function(e) { if (e.target instanceof HTMLMediaElement && !e.target.paused) reportMediaProgress(e.target); }, true);
+                // ── 5. Direct Element Event Binding (Brave Playlist pattern) ────────
+                function bindMediaElement(elem) {
+                    if (!elem || elem.__onyx_bound) return;
+                    elem.__onyx_bound = true;
 
-                // Hook navigator.mediaSession metadata updates
-                if (navigator.mediaSession) {
-                    var origMetadataSetter = Object.getOwnPropertyDescriptor(MediaSession.prototype, 'metadata')?.set;
-                    if (origMetadataSetter) {
-                        Object.defineProperty(navigator.mediaSession, 'metadata', {
-                            set: function(val) {
-                                origMetadataSetter.call(this, val);
-                                if (val && window.OnyxMediaBridge) {
-                                    var art = (val.artwork && val.artwork.length > 0) ? val.artwork[val.artwork.length - 1].src : '';
-                                    window.OnyxMediaBridge.onMediaMetadata(val.title || '', val.artist || '', art);
-                                }
-                            }, configurable: true
-                        });
+                    elem.addEventListener('play', function() {
+                        elem.__onyx_last_play_time = Date.now();
+                        reportMediaPlaying(elem);
+                    }, true);
+
+                    elem.addEventListener('playing', function() {
+                        reportMediaPlaying(elem);
+                    }, true);
+
+                    elem.addEventListener('pause', function() {
+                        reportMediaPaused();
+                    }, true);
+
+                    elem.addEventListener('ended', function() {
+                        reportMediaPaused();
+                    }, true);
+
+                    elem.addEventListener('timeupdate', function() {
+                        if (!elem.paused) reportMediaProgress(elem);
+                    }, true);
+
+                    elem.addEventListener('volumechange', function() {
+                        if (!elem.muted && elem.volume > 0 && !elem.paused) {
+                            reportMediaPlaying(elem);
+                        }
+                    }, true);
+
+                    elem.addEventListener('loadedmetadata', function() {
+                        if (!elem.paused) reportMediaPlaying(elem);
+                        if (elem instanceof HTMLVideoElement) reportVideoBounds(elem);
+                    }, true);
+
+                    // Check if already playing when bound
+                    if (!elem.paused && !elem.ended && isQualifyingMedia(elem)) {
+                        reportMediaPlaying(elem);
                     }
                 }
 
-                // Cross-Frame Message Bus
+                // ── 6. Intercept Media src (Brave PlaylistScript.js parity) ─────────
+                try {
+                    var srcDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
+                    if (srcDescriptor && srcDescriptor.set) {
+                        Object.defineProperty(HTMLMediaElement.prototype, 'src', {
+                            enumerable: srcDescriptor.enumerable,
+                            configurable: srcDescriptor.configurable,
+                            get: function() { return srcDescriptor.get.call(this); },
+                            set: function(val) {
+                                srcDescriptor.set.call(this, val);
+                                bindMediaElement(this);
+                                if (val && typeof window.OnyxMediaBridge?.onVideoSourceDetected === 'function') {
+                                    window.OnyxMediaBridge.onVideoSourceDetected(val);
+                                }
+                            }
+                        });
+                    }
+                } catch (_) {}
+
+                try {
+                    var origSetAttr = HTMLMediaElement.prototype.setAttribute;
+                    HTMLMediaElement.prototype.setAttribute = function(key, val) {
+                        origSetAttr.call(this, key, val);
+                        if (key && key.toLowerCase() === 'src') {
+                            bindMediaElement(this);
+                            if (val && typeof window.OnyxMediaBridge?.onVideoSourceDetected === 'function') {
+                                window.OnyxMediaBridge.onVideoSourceDetected(val);
+                            }
+                        }
+                    };
+                } catch (_) {}
+
+                // ── 7. MutationObserver & Shadow DOM Media Scanning ─────────────────
+                function scanNodeForMedia(node) {
+                    if (node instanceof HTMLMediaElement) {
+                        bindMediaElement(node);
+                    } else if (node.querySelectorAll) {
+                        try {
+                            node.querySelectorAll('video, audio').forEach(bindMediaElement);
+                        } catch (_) {}
+                    }
+                    if (node.shadowRoot) {
+                        try {
+                            node.shadowRoot.querySelectorAll('video, audio').forEach(bindMediaElement);
+                        } catch (_) {}
+                    }
+                }
+
+                var mutationQueue = [];
+                function processMutationQueue() {
+                    for (var i = 0; i < mutationQueue.length; i++) {
+                        var m = mutationQueue[i];
+                        if (m.addedNodes) {
+                            for (var j = 0; j < m.addedNodes.length; j++) {
+                                scanNodeForMedia(m.addedNodes[j]);
+                            }
+                        }
+                    }
+                    mutationQueue = [];
+                }
+
+                var observer = new MutationObserver(function(mutations) {
+                    if (!mutationQueue.length) {
+                        if (window.requestAnimationFrame) {
+                            requestAnimationFrame(processMutationQueue);
+                        } else {
+                            setTimeout(processMutationQueue, 16);
+                        }
+                    }
+                    for (var k = 0; k < mutations.length; k++) {
+                        mutationQueue.push(mutations[k]);
+                    }
+                });
+
+                if (document.documentElement) {
+                    observer.observe(document.documentElement, { childList: true, subtree: true });
+                } else {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        if (document.documentElement) {
+                            observer.observe(document.documentElement, { childList: true, subtree: true });
+                        }
+                    }, { once: true });
+                }
+
+                // Initial sweep for existing media elements
+                function scanAllMedia() {
+                    document.querySelectorAll('video, audio').forEach(bindMediaElement);
+                }
+                scanAllMedia();
+                document.addEventListener('DOMContentLoaded', scanAllMedia, { once: true });
+                setTimeout(scanAllMedia, 1000);
+                setTimeout(scanAllMedia, 3000);
+
+                // Document-level fallback event listeners
+                document.addEventListener('play', function(e) {
+                    if (e.target instanceof HTMLMediaElement) {
+                        bindMediaElement(e.target);
+                        e.target.__onyx_last_play_time = Date.now();
+                        reportMediaPlaying(e.target);
+                    }
+                }, true);
+
+                document.addEventListener('playing', function(e) {
+                    if (e.target instanceof HTMLMediaElement) {
+                        bindMediaElement(e.target);
+                        reportMediaPlaying(e.target);
+                    }
+                }, true);
+
+                document.addEventListener('pause', function(e) {
+                    if (e.target instanceof HTMLMediaElement) reportMediaPaused();
+                }, true);
+
+                document.addEventListener('ended', function(e) {
+                    if (e.target instanceof HTMLMediaElement) reportMediaPaused();
+                }, true);
+
+                document.addEventListener('timeupdate', function(e) {
+                    if (e.target instanceof HTMLMediaElement && !e.target.paused) reportMediaProgress(e.target);
+                }, true);
+
+                // ── 8. Hook navigator.mediaSession metadata updates ─────────────────
+                if (navigator.mediaSession) {
+                    try {
+                        var origMetadataSetter = Object.getOwnPropertyDescriptor(MediaSession.prototype, 'metadata')?.set;
+                        if (origMetadataSetter) {
+                            Object.defineProperty(navigator.mediaSession, 'metadata', {
+                                set: function(val) {
+                                    origMetadataSetter.call(this, val);
+                                    if (val && window.OnyxMediaBridge) {
+                                        var art = (val.artwork && val.artwork.length > 0) ? val.artwork[val.artwork.length - 1].src : '';
+                                        window.OnyxMediaBridge.onMediaMetadata(val.title || '', val.artist || '', art);
+                                    }
+                                },
+                                configurable: true
+                            });
+                        }
+                    } catch (_) {}
+                }
+
+                // ── 9. Universal Cross-Frame Message Bus ────────────────────────────
                 window.addEventListener('message', function(e) {
                     try {
                         if (!e.data || typeof e.data !== 'object') return;
-                        var cmd = e.data.__onyx_cmd; if (!cmd) return;
-                        if (cmd === 'play') { window.__onyx_allow_explicit_pause = false; Array.from(document.querySelectorAll('video, audio')).forEach(function(m) { m.play().catch(function(){}); }); }
-                        else if (cmd === 'pause') { window.__onyx_allow_explicit_pause = true; Array.from(document.querySelectorAll('video, audio')).forEach(function(m) { m.pause(); }); setTimeout(function() { window.__onyx_allow_explicit_pause = false; }, 500); }
-                        else if (cmd === 'seek') { var d = e.data.delta || 0; var t = Array.from(document.querySelectorAll('video, audio')).find(function(m) { return !m.paused && m.duration; }) || Array.from(document.querySelectorAll('video, audio')).find(function(m) { return m.duration > 0; }); if (t && t.duration) t.currentTime = Math.max(0, Math.min(t.duration, t.currentTime + d)); }
-                        else if (cmd === 'seek_to') { var p = e.data.pos || 0; var t = Array.from(document.querySelectorAll('video, audio')).find(function(m) { return !m.paused && m.duration; }) || Array.from(document.querySelectorAll('video, audio')).find(function(m) { return m.duration > 0; }); if (t && t.duration) t.currentTime = Math.max(0, Math.min(t.duration, p)); }
-                        else if (cmd === 'set_bg') { window.__onyx_in_background = !!e.data.inBackground; }
-                        else if (cmd === 'fullscreen') { var vids = Array.from(document.querySelectorAll('video')); var v = vids.find(function(i) { return !i.paused && !i.ended; }) || vids[0]; if (v) { if (typeof v.webkitRequestFullscreen === 'function') v.webkitRequestFullscreen(); else if (typeof v.requestFullscreen === 'function') v.requestFullscreen(); } }
-                        document.querySelectorAll('iframe').forEach(function(f) { try { f.contentWindow.postMessage(e.data, '*'); } catch(_) {} });
-                    } catch(_) {}
-                });
+                        var cmd = e.data.__onyx_cmd;
+                        if (!cmd) return;
 
-                // Detect already-playing media
-                var cur = Array.from(document.querySelectorAll('video, audio')).find(function(m) { return !m.paused && !m.ended && m.readyState > 1 && isQualifyingMedia(m); });
-                if (cur) reportMediaPlaying(cur);
+                        if (cmd === 'play') {
+                            window.__onyx_allow_explicit_pause = false;
+                            var yt = document.querySelector('#movie_player, .html5-video-player');
+                            if (yt && typeof yt.playVideo === 'function') yt.playVideo();
+                            Array.from(document.querySelectorAll('video, audio')).forEach(function(m) {
+                                m.userHitPause = false;
+                                m.play().catch(function(){});
+                            });
+                        } else if (cmd === 'pause') {
+                            window.__onyx_allow_explicit_pause = true;
+                            var yt = document.querySelector('#movie_player, .html5-video-player');
+                            if (yt && typeof yt.pauseVideo === 'function') yt.pauseVideo();
+                            Array.from(document.querySelectorAll('video, audio')).forEach(function(m) {
+                                m.userHitPause = true;
+                                m.pause();
+                            });
+                            setTimeout(function() { window.__onyx_allow_explicit_pause = false; }, 800);
+                        } else if (cmd === 'seek') {
+                            var d = e.data.delta || 0;
+                            var yt = document.querySelector('#movie_player, .html5-video-player');
+                            if (yt && typeof yt.getCurrentTime === 'function' && typeof yt.seekTo === 'function') {
+                                yt.seekTo(yt.getCurrentTime() + d, true);
+                            }
+                            var t = Array.from(document.querySelectorAll('video, audio')).find(function(m) { return !m.paused && m.duration; })
+                                 || Array.from(document.querySelectorAll('video, audio')).find(function(m) { return m.duration > 0; });
+                            if (t && t.duration) t.currentTime = Math.max(0, Math.min(t.duration, t.currentTime + d));
+                        } else if (cmd === 'seek_to') {
+                            var p = e.data.pos || 0;
+                            var yt = document.querySelector('#movie_player, .html5-video-player');
+                            if (yt && typeof yt.seekTo === 'function') yt.seekTo(p, true);
+                            var t = Array.from(document.querySelectorAll('video, audio')).find(function(m) { return !m.paused && m.duration; })
+                                 || Array.from(document.querySelectorAll('video, audio')).find(function(m) { return m.duration > 0; });
+                            if (t && t.duration) t.currentTime = Math.max(0, Math.min(t.duration, p));
+                        } else if (cmd === 'set_bg') {
+                            window.__onyx_in_background = !!e.data.inBackground;
+                        } else if (cmd === 'fullscreen') {
+                            var vids = Array.from(document.querySelectorAll('video'));
+                            var v = vids.find(function(i) { return !i.paused && !i.ended; }) || vids[0];
+                            if (v) {
+                                if (typeof v.webkitRequestFullscreen === 'function') v.webkitRequestFullscreen();
+                                else if (typeof v.requestFullscreen === 'function') v.requestFullscreen();
+                            }
+                        }
+
+                        // Recursively forward to child iframes
+                        document.querySelectorAll('iframe').forEach(function(f) {
+                            try { f.contentWindow.postMessage(e.data, '*'); } catch (_) {}
+                        });
+                    } catch (_) {}
+                });
 
             } catch (e) {}
         })();
     """.trimIndent()
 
     /**
-     * Background playback suppression — ONLY injected when isBackgroundPlayEnabled == true.
-     * Spoofs visibility API, suppresses background pauses, overrides IntersectionObserver.
+     * Background video playback keep-alive engine — ONLY injected when isBackgroundPlayEnabled == true.
+     * Modeled on Brave's kYoutubeBackgroundPlayback + MediaBackgroundingScript.js:
+     * 1. Filters out document.addEventListener('visibilitychange') so web players cannot detect page hide.
+     * 2. Overrides Document.prototype.visibilityState to always return 'visible'.
+     * 3. Implements userHitPause tracking to automatically neutralize script/blur/background auto-pauses.
+     * 4. Patches YouTube ytcfg serializedExperimentFlags to disable PiP blocking flags.
+     * 5. Overrides IntersectionObserver so offscreen video elements are never frozen.
+     * 6. Blocks background audio muting.
      */
     val backgroundPlaybackScript: String = """
         (function() {
@@ -220,52 +485,171 @@ object MediaPlaybackManager {
             window.__onyx_bg_play_active = true;
 
             try {
-                // 1. Patch YouTube ytcfg experiment flags
-                function patchYtcfg() {
-                    try {
-                        if (window.ytcfg && typeof window.ytcfg.get === 'function') {
-                            var configs = ['WEB_PLAYER_CONTEXT_CONFIG_ID_MWEB_WATCH', 'WEB_PLAYER_CONTEXT_CONFIG_ID_KEVLAR_WATCH'];
-                            configs.forEach(function(key) {
-                                var config = window.ytcfg.get(key) || window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIGS')?.[key];
-                                if (config && config.serializedExperimentFlags && typeof config.serializedExperimentFlags === 'string') {
-                                    config.serializedExperimentFlags = config.serializedExperimentFlags.replace(/html5_picture_in_picture_blocking_\w+=true/g, function(m) { return m.replace('=true', '=false'); });
-                                }
-                            });
-                            if (window.ytcfg.set) { window.ytcfg.set({ 'html5_picture_in_picture_blocking_web': false, 'html5_picture_in_picture_blocking_android': false, 'html5_picture_in_picture_blocking_standard_api': false }); }
+                // ── 1. Brave kYoutubeBackgroundPlayback: Filter visibilitychange listeners ──
+                if (document._addEventListener === undefined) {
+                    document._addEventListener = document.addEventListener;
+                    document.addEventListener = function(type, listener, options) {
+                        if (type === 'visibilitychange' || type === 'webkitvisibilitychange') {
+                            return; // Filter out website pause-on-hide listeners!
                         }
-                    } catch (e) {}
+                        document._addEventListener(type, listener, options);
+                    };
                 }
-                patchYtcfg(); document.addEventListener('DOMContentLoaded', patchYtcfg, { once: true });
 
-                // 2. Spoof visibility API
-                function patchVisibility(target) {
+                // ── 2. Brave MediaBackgrounding: Document.prototype.visibilityState ─────────
+                try {
+                    var descriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState');
+                    if (descriptor && descriptor.get) {
+                        var origGet = descriptor.get;
+                        Object.defineProperty(Document.prototype, 'visibilityState', {
+                            enumerable: descriptor.enumerable,
+                            configurable: true,
+                            get: function() {
+                                var res = origGet.call(this);
+                                return (res !== 'visible') ? 'visible' : res;
+                            }
+                        });
+                    }
+                } catch (_) {}
+
+                try {
+                    Object.defineProperty(document, 'visibilityState', {
+                        configurable: true,
+                        get: function() { return 'visible'; }
+                    });
+                    Object.defineProperty(document, 'hidden', {
+                        configurable: true,
+                        get: function() { return false; }
+                    });
+                    Object.defineProperty(document, 'webkitHidden', {
+                        configurable: true,
+                        get: function() { return false; }
+                    });
+                    Object.defineProperty(document, 'webkitVisibilityState', {
+                        configurable: true,
+                        get: function() { return 'visible'; }
+                    });
+                    document.hasFocus = function() { return true; };
+                    if (typeof Document !== 'undefined' && Document.prototype) {
+                        Document.prototype.hasFocus = function() { return true; };
+                    }
+                } catch (_) {}
+
+                // Suppress window blur & focusout events during background transitions
+                var stopWindowBlur = function(e) {
+                    if (e.target === window || e.target === document) {
+                        e.stopImmediatePropagation();
+                    }
+                };
+                window.addEventListener('blur', stopWindowBlur, true);
+                window.addEventListener('focusout', stopWindowBlur, true);
+
+                var stopVisibilityInBg = function(e) {
+                    if (window.__onyx_in_background) {
+                        e.stopImmediatePropagation();
+                    }
+                };
+                window.addEventListener('visibilitychange', stopVisibilityInBg, true);
+                document.addEventListener('visibilitychange', stopVisibilityInBg, true);
+
+                try {
+                    Object.defineProperty(document, 'onvisibilitychange', {
+                        get: function() { return null; },
+                        set: function() {},
+                        configurable: true
+                    });
+                } catch (_) {}
+
+                // ── 3. Brave MediaBackgrounding: userHitPause & Auto-Resume ────────────────
+                var origPause = HTMLMediaElement.prototype.pause;
+                HTMLMediaElement.prototype.pause = function() {
+                    if (window.__onyx_allow_explicit_pause) {
+                        this.userHitPause = true;
+                        return origPause.apply(this, arguments);
+                    }
+                    if (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden') {
+                        return; // Prevent background script pauses!
+                    }
+                    this.userHitPause = true;
+                    return origPause.apply(this, arguments);
+                };
+
+                var origPlay = HTMLMediaElement.prototype.play;
+                HTMLMediaElement.prototype.play = function() {
+                    this.userHitPause = false;
+                    return origPlay.apply(this, arguments);
+                };
+
+                function addBackgroundListeners(element) {
+                    if (!element || element.__onyx_bg_bound) return;
+                    element.__onyx_bg_bound = true;
+
+                    element.addEventListener('pause', function() {
+                        if (!element.userHitPause && !element.ended) {
+                            // Video paused by page visibility or blur: auto-resume!
+                            origPlay.call(element).catch(function(){});
+                        }
+                    }, false);
+
+                    element.addEventListener('webkitpresentationmodechanged', function(e) {
+                        e.stopPropagation();
+                    }, true);
+                }
+
+                document.querySelectorAll('video, audio').forEach(addBackgroundListeners);
+
+                // ── 4. Brave kYoutubePictureInPictureSupport: ytcfg Flag Patching ──────────
+                function modifyYtcfgFlags() {
                     try {
-                        Object.defineProperty(target, 'hidden', { get: function() { return false; }, configurable: true });
-                        Object.defineProperty(target, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
-                        Object.defineProperty(target, 'webkitHidden', { get: function() { return false; }, configurable: true });
-                        Object.defineProperty(target, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
-                    } catch (e) {}
+                        if (!window.ytcfg || typeof window.ytcfg.get !== 'function') return;
+                        var configs = [
+                            window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIGS')?.WEB_PLAYER_CONTEXT_CONFIG_ID_MWEB_WATCH,
+                            window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIGS')?.WEB_PLAYER_CONTEXT_CONFIG_ID_KEVLAR_WATCH,
+                            window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIG_ID_MWEB_WATCH'),
+                            window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIG_ID_KEVLAR_WATCH')
+                        ];
+                        configs.forEach(function(config) {
+                            if (config && config.serializedExperimentFlags && typeof config.serializedExperimentFlags === 'string') {
+                                config.serializedExperimentFlags = config.serializedExperimentFlags
+                                    .replace(/html5_picture_in_picture_blocking_\w+=true/g, function(m) { return m.replace('=true', '=false'); })
+                                    .replace('html5_picture_in_picture_blocking_ontimeupdate=true', 'html5_picture_in_picture_blocking_ontimeupdate=false')
+                                    .replace('html5_picture_in_picture_blocking_onresize=true', 'html5_picture_in_picture_blocking_onresize=false')
+                                    .replace('html5_picture_in_picture_blocking_document_fullscreen=true', 'html5_picture_in_picture_blocking_document_fullscreen=false')
+                                    .replace('html5_picture_in_picture_blocking_standard_api=true', 'html5_picture_in_picture_blocking_standard_api=false')
+                                    .replace('html5_picture_in_picture_logging_onresize=true', 'html5_picture_in_picture_logging_onresize=false');
+                            }
+                        });
+                        if (window.ytcfg.set) {
+                            window.ytcfg.set({
+                                'html5_picture_in_picture_blocking_web': false,
+                                'html5_picture_in_picture_blocking_android': false,
+                                'html5_picture_in_picture_blocking_standard_api': false
+                            });
+                        }
+                    } catch (_) {}
                 }
-                patchVisibility(document);
-                if (typeof Document !== 'undefined' && Document.prototype) patchVisibility(Document.prototype);
-                try { document.hasFocus = function() { return true; }; if (typeof Document !== 'undefined' && Document.prototype) Document.prototype.hasFocus = function() { return true; }; } catch (e) {}
 
-                // 3. Suppress blur/focusout
-                var stopWindowBlur = function(e) { if (e.target === window || e.target === document) e.stopImmediatePropagation(); };
-                window.addEventListener('blur', stopWindowBlur, true); window.addEventListener('focusout', stopWindowBlur, true);
-                var stopVisibilityInBg = function(e) { if (window.__onyx_in_background) e.stopImmediatePropagation(); };
-                window.addEventListener('visibilitychange', stopVisibilityInBg, true); document.addEventListener('visibilitychange', stopVisibilityInBg, true);
-                window.addEventListener('webkitvisibilitychange', stopVisibilityInBg, true); document.addEventListener('webkitvisibilitychange', stopVisibilityInBg, true);
-                try { Object.defineProperty(document, 'onvisibilitychange', { get: function() { return null; }, set: function() {}, configurable: true }); } catch (e) {}
+                modifyYtcfgFlags();
+                document.addEventListener('load', function(event) {
+                    if (event.target && event.target.tagName === 'SCRIPT' && window.ytcfg) {
+                        modifyYtcfgFlags();
+                    }
+                }, true);
 
-                // 4. Override IntersectionObserver for media elements
+                // ── 5. IntersectionObserver Override for Media Elements ────────────────────
                 if (window.IntersectionObserver) {
                     var OrigIO = window.IntersectionObserver;
                     window.IntersectionObserver = function(cb, opts) {
                         return new OrigIO(function(entries, obs) {
                             return cb(entries.map(function(entry) {
                                 if (entry.target instanceof HTMLMediaElement || entry.target?.querySelector('video, audio')) {
-                                    return new Proxy(entry, { get: function(t, p) { if (p === 'isIntersecting') return true; if (p === 'intersectionRatio') return 1.0; return t[p]; } });
+                                    return new Proxy(entry, {
+                                        get: function(t, p) {
+                                            if (p === 'isIntersecting') return true;
+                                            if (p === 'intersectionRatio') return 1.0;
+                                            return t[p];
+                                        }
+                                    });
                                 }
                                 return entry;
                             }), obs);
@@ -274,32 +658,26 @@ object MediaPlaybackManager {
                     window.IntersectionObserver.prototype = OrigIO.prototype;
                 }
 
-                // 5. Block auto-pause from background state changes
-                var origPause = HTMLMediaElement.prototype.pause;
-                HTMLMediaElement.prototype.pause = function() {
-                    if (window.__onyx_allow_explicit_pause) return origPause.apply(this, arguments);
-                    if (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden') return;
-                    var now = Date.now();
-                    var timeSincePlay = now - (this.__onyx_last_user_play || this.__onyx_last_play_time || 0);
-                    if (timeSincePlay < 800 && this.currentTime < 1.0 && !this.ended) return;
-                    return origPause.apply(this, arguments);
-                };
-
-                // 6. Block muting in background
+                // ── 6. Prevent Site Scripts From Muting in Background ─────────────────────
                 try {
                     var origMuted = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'muted');
                     if (origMuted && origMuted.set) {
                         Object.defineProperty(HTMLMediaElement.prototype, 'muted', {
                             get: function() { return origMuted.get.call(this); },
-                            set: function(val) { if (val && (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden')) return; return origMuted.set.call(this, val); },
+                            set: function(val) {
+                                if (val && (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden')) {
+                                    return;
+                                }
+                                return origMuted.set.call(this, val);
+                            },
                             configurable: true
                         });
                     }
                 } catch (_) {}
+
             } catch (e) {}
         })();
     """.trimIndent()
-
 
     fun getSetBackgroundStateScript(inBackground: Boolean): String = """
         (function() {
@@ -308,9 +686,9 @@ object MediaPlaybackManager {
             try {
                 window.postMessage(msg, '*');
                 document.querySelectorAll('iframe').forEach(function(f) {
-                    try { f.contentWindow.postMessage(msg, '*'); } catch(_) {}
+                    try { f.contentWindow.postMessage(msg, '*'); } catch (_) {}
                 });
-            } catch(_) {}
+            } catch (_) {}
         })();
     """.trimIndent()
 
@@ -323,14 +701,25 @@ object MediaPlaybackManager {
                 document.querySelectorAll('iframe').forEach(function(f) {
                     try {
                         if (f.contentDocument) {
-                            f.contentDocument.querySelectorAll('video, audio').forEach(function(m) { m.play().catch(function(){}); });
+                            f.contentDocument.querySelectorAll('video, audio').forEach(function(m) {
+                                m.userHitPause = false;
+                                m.play().catch(function(){});
+                            });
                         }
                         f.contentWindow.postMessage(msg, '*');
                         f.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
-                    } catch(_) {}
+                    } catch (_) {}
                 });
-            } catch(_) {}
+            } catch (_) {}
+
+            // YouTube Player API
+            try {
+                var yt = document.querySelector('#movie_player, .html5-video-player');
+                if (yt && typeof yt.playVideo === 'function') yt.playVideo();
+            } catch (_) {}
+
             document.querySelectorAll('video, audio').forEach(function(m) {
+                m.userHitPause = false;
                 m.play().catch(function(){});
             });
         })();
@@ -345,19 +734,31 @@ object MediaPlaybackManager {
                 document.querySelectorAll('iframe').forEach(function(f) {
                     try {
                         if (f.contentDocument) {
-                            f.contentDocument.querySelectorAll('video, audio').forEach(function(m) { m.pause(); });
+                            f.contentDocument.querySelectorAll('video, audio').forEach(function(m) {
+                                m.userHitPause = true;
+                                m.pause();
+                            });
                         }
                         f.contentWindow.postMessage(msg, '*');
                         f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-                    } catch(_) {}
+                    } catch (_) {}
                 });
-            } catch(_) {}
+            } catch (_) {}
+
+            // YouTube Player API
+            try {
+                var yt = document.querySelector('#movie_player, .html5-video-player');
+                if (yt && typeof yt.pauseVideo === 'function') yt.pauseVideo();
+            } catch (_) {}
+
             document.querySelectorAll('video, audio').forEach(function(m) {
+                m.userHitPause = true;
                 m.pause();
             });
+
             setTimeout(function() {
                 window.__onyx_allow_explicit_pause = false;
-            }, 500);
+            }, 800);
         })();
     """.trimIndent()
 
@@ -370,9 +771,18 @@ object MediaPlaybackManager {
                     try {
                         f.contentWindow.postMessage(msg, '*');
                         f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [delta, true] }), '*');
-                    } catch(_) {}
+                    } catch (_) {}
                 });
-            } catch(_) {}
+            } catch (_) {}
+
+            // YouTube Player API
+            try {
+                var yt = document.querySelector('#movie_player, .html5-video-player');
+                if (yt && typeof yt.getCurrentTime === 'function' && typeof yt.seekTo === 'function') {
+                    yt.seekTo(yt.getCurrentTime() + delta, true);
+                    return;
+                }
+            } catch (_) {}
 
             function getAllMedia(root) {
                 var res = [];
@@ -387,11 +797,12 @@ object MediaPlaybackManager {
                 } catch (_) {}
                 return res;
             }
+
             var mediaList = getAllMedia(document);
             document.querySelectorAll('iframe').forEach(function(f) {
                 try {
                     if (f.contentDocument) mediaList = mediaList.concat(getAllMedia(f.contentDocument));
-                } catch(_) {}
+                } catch (_) {}
             });
 
             var target = mediaList.find(function(m) { return !m.paused && m.duration; })
@@ -399,13 +810,12 @@ object MediaPlaybackManager {
                       || mediaList[0];
 
             if (target && target.duration && !isNaN(target.duration)) {
-                var newTime = Math.max(0, Math.min(target.duration, target.currentTime + delta));
-                target.currentTime = newTime;
+                target.currentTime = Math.max(0, Math.min(target.duration, target.currentTime + delta));
                 try {
                     target.dispatchEvent(new Event('seeking'));
                     target.dispatchEvent(new Event('timeupdate'));
                     target.dispatchEvent(new Event('seeked'));
-                } catch(_) {}
+                } catch (_) {}
             }
         })($deltaSeconds);
     """.trimIndent()
@@ -419,9 +829,18 @@ object MediaPlaybackManager {
                     try {
                         f.contentWindow.postMessage(msg, '*');
                         f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [pos, true] }), '*');
-                    } catch(_) {}
+                    } catch (_) {}
                 });
-            } catch(_) {}
+            } catch (_) {}
+
+            // YouTube Player API
+            try {
+                var yt = document.querySelector('#movie_player, .html5-video-player');
+                if (yt && typeof yt.seekTo === 'function') {
+                    yt.seekTo(pos, true);
+                    return;
+                }
+            } catch (_) {}
 
             function getAllMedia(root) {
                 var res = [];
@@ -436,11 +855,12 @@ object MediaPlaybackManager {
                 } catch (_) {}
                 return res;
             }
+
             var mediaList = getAllMedia(document);
             document.querySelectorAll('iframe').forEach(function(f) {
                 try {
                     if (f.contentDocument) mediaList = mediaList.concat(getAllMedia(f.contentDocument));
-                } catch(_) {}
+                } catch (_) {}
             });
 
             var target = mediaList.find(function(m) { return !m.paused && m.duration; })
@@ -448,13 +868,12 @@ object MediaPlaybackManager {
                       || mediaList[0];
 
             if (target && target.duration && !isNaN(target.duration)) {
-                var clamped = Math.max(0, Math.min(target.duration, pos));
-                target.currentTime = clamped;
+                target.currentTime = Math.max(0, Math.min(target.duration, pos));
                 try {
                     target.dispatchEvent(new Event('seeking'));
                     target.dispatchEvent(new Event('timeupdate'));
                     target.dispatchEvent(new Event('seeked'));
-                } catch(_) {}
+                } catch (_) {}
             }
         })($positionSeconds);
     """.trimIndent()
@@ -467,7 +886,7 @@ object MediaPlaybackManager {
                     nextBtn.click();
                     return;
                 }
-            } catch(_) {}
+            } catch (_) {}
             ${getSeekMediaScript(10)}
         })();
     """.trimIndent()
@@ -480,21 +899,31 @@ object MediaPlaybackManager {
                     prevBtn.click();
                     return;
                 }
-            } catch(_) {}
+            } catch (_) {}
             ${getSeekMediaScript(-10)}
         })();
     """.trimIndent()
 
     /**
-     * Drives the active video player into native fullscreen.
+     * Drives the active video player into native fullscreen (Brave kYoutubeFullscreen parity).
+     * Injects Brave's kYoutubeFullscreenVideoFitWorkaround CSS.
      */
     val requestVideoFullscreenScript: String = """
         (function() {
+            // Brave kYoutubeFullscreenVideoFitWorkaround: ensure video fills viewport cleanly
+            try {
+                if (!document.getElementById('__onyx_yt_fit_style')) {
+                    var s = document.createElement('style');
+                    s.id = '__onyx_yt_fit_style';
+                    s.textContent = '#player-container-id:fullscreen video.html5-main-video { width: 100% !important; height: 100dvh !important; left: 0 !important; top: 0 !important; object-fit: contain !important; }';
+                    (document.head || document.documentElement).appendChild(s);
+                }
+            } catch (_) {}
+
             function getAllVideos(root) {
                 var res = [];
                 try {
-                    var vids = root.querySelectorAll('video');
-                    res = res.concat(Array.from(vids));
+                    res = res.concat(Array.from(root.querySelectorAll('video')));
                     var all = root.querySelectorAll('*');
                     for (var i = 0; i < all.length; i++) {
                         if (all[i].shadowRoot) {
@@ -508,24 +937,12 @@ object MediaPlaybackManager {
             var vids = getAllVideos(document);
             document.querySelectorAll('iframe').forEach(function(f) {
                 try {
-                    if (f.contentDocument) {
-                        vids = vids.concat(getAllVideos(f.contentDocument));
-                    }
+                    if (f.contentDocument) vids = vids.concat(getAllVideos(f.contentDocument));
                 } catch (_) {}
             });
 
-            var playing = vids.find(function(v) { return !v.paused && !v.ended && v.readyState > 1; })
-                || vids.find(function(v) { return !v.paused; })
-                || (vids.length > 0 ? vids[0] : null);
-
-            // Broadcast to nested iframes
-            try {
-                var fsMsg = { __onyx_cmd: 'fullscreen' };
-                window.postMessage(fsMsg, '*');
-                document.querySelectorAll('iframe').forEach(function(f) {
-                    try { f.contentWindow.postMessage(fsMsg, '*'); } catch(_) {}
-                });
-            } catch (_) {}
+            var playing = vids.find(function(v) { return !v.paused && !v.ended; })
+                || vids[0];
 
             // 1. YouTube mobile / web fullscreen button
             var ytBtn = document.querySelector('button.fullscreen-icon, button.ytp-fullscreen-button, .ytp-fullscreen-button');
@@ -576,26 +993,6 @@ object MediaPlaybackManager {
                 } catch (e) {}
             }
 
-            // 5. Fallback: Drive player iframe into fullscreen
-            if (!playing) {
-                var iframes = Array.from(document.querySelectorAll('iframe'));
-                var playerIframe = iframes.find(function(f) {
-                    var s = (f.src || '').toLowerCase();
-                    return s.includes('player') || s.includes('embed') || s.includes('video') || s.includes('stream') || s.includes('abyss');
-                }) || iframes[0];
-                if (playerIframe) {
-                    try {
-                        if (typeof playerIframe.webkitRequestFullscreen === 'function') {
-                            playerIframe.webkitRequestFullscreen();
-                            return 'fullscreen_triggered';
-                        } else if (typeof playerIframe.requestFullscreen === 'function') {
-                            playerIframe.requestFullscreen();
-                            return 'fullscreen_triggered';
-                        }
-                    } catch (_) {}
-                }
-            }
-
             return playing ? 'found_inline' : 'not_found';
         })();
     """.trimIndent()
@@ -603,12 +1000,10 @@ object MediaPlaybackManager {
     /**
      * True In-Page DOM Video Isolation for Picture-in-Picture:
      * 1. Finds the active video element.
-     * 2. Walks up the ancestor tree and marks every ancestor node.
+     * 2. Walks up the ancestor tree and tags every ancestor node.
      * 3. Sets display: none !important on ALL other elements in the body and ancestor branches.
-     * 4. Eliminates CSS layout constraints (transform, contain, clip-path, overflow) on all ancestors,
-     *    breaking containing block traps.
-     * 5. Forces the video to occupy 100vw x 100vh with black letterboxing (object-fit: contain)
-     *    at z-index 2147483647.
+     * 4. Eliminates CSS layout constraints (transform, contain, clip-path, overflow) on all ancestors.
+     * 5. Forces the video to occupy 100vw x 100vh with black letterboxing (object-fit: contain) at z-index 2147483647.
      * 6. Hides YouTube overlay controls, watermark, header bars, and descriptions.
      */
     val isolateVideoForPipScript: String = """
@@ -630,7 +1025,6 @@ object MediaPlaybackManager {
                 }
 
                 var vids = getAllVideos(document);
-                // Also scan accessible same-origin iframes
                 document.querySelectorAll('iframe').forEach(function(f) {
                     try {
                         if (f.contentDocument) {
@@ -639,8 +1033,7 @@ object MediaPlaybackManager {
                     } catch (_) {}
                 });
 
-                var activeVid = vids.find(function(v) { return !v.paused && !v.ended && v.readyState > 1; }) 
-                    || vids.find(function(v) { return !v.paused; }) 
+                var activeVid = vids.find(function(v) { return !v.paused && !v.ended; })
                     || vids[0];
 
                 if (!activeVid) {
@@ -680,14 +1073,12 @@ object MediaPlaybackManager {
                         width: 100% !important;
                         height: 100% !important;
                     }
-                    /* Hide everything in the body that is not in the ancestor path to the video */
                     body > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-target]) {
                         display: none !important;
                     }
                     [data-onyx-pip-ancestor] > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-target]) {
                         display: none !important;
                     }
-                    /* Eliminate containing blocks, transforms, clipping, and overflow on ancestors */
                     [data-onyx-pip-ancestor] {
                         transform: none !important;
                         contain: none !important;
@@ -697,7 +1088,6 @@ object MediaPlaybackManager {
                         overflow: visible !important;
                         background: transparent !important;
                     }
-                    /* Make the video/player element fill 100% of the PiP viewport with black letterboxing */
                     [data-onyx-pip-target] {
                         display: block !important;
                         position: fixed !important;
@@ -715,7 +1105,6 @@ object MediaPlaybackManager {
                         border: none !important;
                         box-shadow: none !important;
                     }
-                    /* Hide website navigation, overlays, player chrome, and watermarks */
                     ytm-mobile-topbar-renderer, ytm-pivot-bar-renderer, #header-bar,
                     .ytp-chrome-top, .ytp-chrome-bottom, .ytp-gradient-top, .ytp-gradient-bottom,
                     .ytp-watermark, .ytp-pause-overlay, ytm-player-control-overlay,
@@ -726,7 +1115,7 @@ object MediaPlaybackManager {
                         display: none !important;
                     }
                 `;
-                document.head.appendChild(style);
+                (document.head || document.documentElement).appendChild(style);
 
                 var vidWidth = activeVid.videoWidth || activeVid.clientWidth || activeVid.offsetWidth || 16;
                 var vidHeight = activeVid.videoHeight || activeVid.clientHeight || activeVid.offsetHeight || 9;
@@ -749,20 +1138,6 @@ object MediaPlaybackManager {
                 });
                 document.querySelectorAll('[data-onyx-pip-ancestor]').forEach(function(el) {
                     el.removeAttribute('data-onyx-pip-ancestor');
-                });
-                document.querySelectorAll('iframe').forEach(function(f) {
-                    try {
-                        if (f.contentDocument) {
-                            var innerStyle = f.contentDocument.getElementById('__onyx_pip_style');
-                            if (innerStyle) innerStyle.remove();
-                            f.contentDocument.querySelectorAll('[data-onyx-pip-target]').forEach(function(el) {
-                                el.removeAttribute('data-onyx-pip-target');
-                            });
-                            f.contentDocument.querySelectorAll('[data-onyx-pip-ancestor]').forEach(function(el) {
-                                el.removeAttribute('data-onyx-pip-ancestor');
-                            });
-                        }
-                    } catch (_) {}
                 });
             } catch (e) {}
         })();

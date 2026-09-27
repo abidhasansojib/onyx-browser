@@ -889,7 +889,11 @@ class OnyxWebViewClient(
             view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
         }
 
-        // Background Playback Support (Media keep-alive & visibility spoofing)
+        // Media Monitor — always inject so floating video menu pill, OnyxMediaBridge events,
+        // and PiP polyfill work regardless of whether background playback is enabled.
+        view?.evaluateJavascript(MediaPlaybackManager.mediaMonitorScript, null)
+
+        // Background Playback Suppression — only inject when the user has it enabled
         if (preferences.isBackgroundPlayEnabled) {
             view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
         }
@@ -1061,6 +1065,10 @@ class OnyxWebViewClient(
             }
             if (effectiveUrl.isNotBlank() && !isSyntheticOrDataUrl(effectiveUrl)) {
                 onPageFinishedCallback(effectiveUrl)
+            }
+            // Media Monitor — always inject so OnyxMediaBridge events fire and floating pill works
+            if (!isSyntheticError) {
+                view?.evaluateJavascript(MediaPlaybackManager.mediaMonitorScript, null)
             }
             if (preferences.isBackgroundPlayEnabled && !isSyntheticError) {
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)

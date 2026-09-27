@@ -154,6 +154,9 @@ class FloatingVideoMenuManager(
         updateHeadphonesState(preferences.isBackgroundPlayEnabled)
 
         if (shouldShow) {
+            view.bringToFront()
+            parentContainer.bringChildToFront(view)
+            view.translationZ = 100f
             if (!view.isVisible || view.alpha < 1f) {
                 view.visibility = View.VISIBLE
                 view.animate()

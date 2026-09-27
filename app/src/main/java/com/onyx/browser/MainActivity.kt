@@ -1939,6 +1939,16 @@ class MainActivity : AppCompatActivity() {
         activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) { res ->
             val hasVideo = res?.contains("\"found\":true") == true || res?.contains("\"found\": true") == true
             if (hasVideo) {
+                try {
+                    val unescaped = res?.trim('"', '\'')?.replace("\\\"", "\"") ?: "{}"
+                    val jsonObj = org.json.JSONObject(unescaped)
+                    val vw = jsonObj.optInt("width", 0)
+                    val vh = jsonObj.optInt("height", 0)
+                    if (vw > 0 && vh > 0) {
+                        MediaPlaybackBridge.lastVideoWidth = vw
+                        MediaPlaybackBridge.lastVideoHeight = vh
+                    }
+                } catch (_: Exception) {}
                 // Allow Chromium compositor 100ms to paint the isolated video layout before OS PiP snapshot
                 activeWv.postDelayed({
                     enterPipMode()
@@ -2003,11 +2013,22 @@ class MainActivity : AppCompatActivity() {
                     binding.findInPageBar.visibility = View.GONE
                     binding.searchOverlay.visibility = View.GONE
 
-                    val activeWv = tabManager.getActiveWebView()
-                    val rect = Rect()
-                    activeWv?.getGlobalVisibleRect(rect)
-                    if (!rect.isEmpty) {
-                        paramsBuilder.setSourceRectHint(rect)
+                    val screenW = resources.displayMetrics.widthPixels
+                    val screenH = resources.displayMetrics.heightPixels
+                    val videoRect: Rect
+                    if (screenW.toFloat() / screenH.toFloat() > w.toFloat() / h.toFloat()) {
+                        val videoH = screenH
+                        val videoW = ((screenH.toFloat() * w.toFloat()) / h.toFloat()).toInt().coerceAtMost(screenW)
+                        val left = (screenW - videoW) / 2
+                        videoRect = Rect(left, 0, left + videoW, screenH)
+                    } else {
+                        val videoW = screenW
+                        val videoH = ((screenW.toFloat() * h.toFloat()) / w.toFloat()).toInt().coerceAtMost(screenH)
+                        val top = (screenH - videoH) / 2
+                        videoRect = Rect(0, top, screenW, top + videoH)
+                    }
+                    if (videoRect.width() > 20 && videoRect.height() > 20) {
+                        paramsBuilder.setSourceRectHint(videoRect)
                     }
                 }
 
@@ -2689,10 +2710,12 @@ class MainActivity : AppCompatActivity() {
         }
         val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
         if (preferences.isBackgroundPlayEnabled) {
-            tabManager.getActiveWebView()?.evaluateJavascript(
-                MediaPlaybackManager.getSetBackgroundStateScript(true),
-                null
-            )
+            tabManager.getAllWebViews().forEach { wv ->
+                wv.evaluateJavascript(
+                    MediaPlaybackManager.getSetBackgroundStateScript(true),
+                    null
+                )
+            }
         }
         if (!isPip && !preferences.isBackgroundPlayEnabled) {
             tabManager.getActiveWebView()?.onPause()
@@ -2912,10 +2935,12 @@ class MainActivity : AppCompatActivity() {
             wv?.resumeTimers()
             wv?.requestFocus()
         }
-        wv?.evaluateJavascript(
-            MediaPlaybackManager.getSetBackgroundStateScript(false),
-            null
-        )
+        tabManager.getAllWebViews().forEach { v ->
+            v.evaluateJavascript(
+                MediaPlaybackManager.getSetBackgroundStateScript(false),
+                null
+            )
+        }
         // Restore screen-on flag if video was still playing when we came back to the app
         if (MediaPlaybackBridge.isVideoPlaying) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

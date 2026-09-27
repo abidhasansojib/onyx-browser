@@ -1785,3 +1785,32 @@ onyx-browser/
       - Grouped into two Material 3 cards:
         - **Playback Controls**: Background playback toggle with headphone icon, Picture-in-picture switch, and Floating video controls switch.
         - **Downloads & Access**: `settingVideoDownloadRow` showing current selection subtitle and opening `DownloadManagerPickerSheet` (Ask before download, Internal downloader, External download manager), alongside a Protected Media notice card explaining DRM (Widevine) and HTTP 403 restrictions.
+
+  - [x] **Brave-Core Media Detection, Background Playback Keep-Alive & Video-Only PiP Overhaul**:
+    - **In-Depth Inspection of Brave-Core Repository (`/root/brave-core`)**:
+      - Researched Brave's production media implementations across Android and iOS:
+        - `ios/browser/web/media/resources/media_backgrounding.ts` & `MediaBackgroundingScript.js` (`userHitPause`, `visibilityState` getter spoofing, and automatic unpause).
+        - `ios/brave-ios/.../PlaylistScript.js` (Property descriptor hooks on `HTMLMediaElement.prototype.src` and `setAttribute` for instant detection).
+        - `browser/android/youtube_script_injector/youtube_script_injector_tab_helper.cc` (`kYoutubeBackgroundPlayback`, `kYoutubePictureInPictureSupport`, `kYoutubeFullscreen`, `kYoutubeFullscreenVideoFitWorkaround`).
+        - `android/.../BraveYouTubePictureInPictureController.java` & `BraveFullscreenVideoPictureInPictureController.java` (Session lifecycle, media suspension vs background keep-alive).
+    - **Brave-Parity Media & Video Detection Engine (`MediaPlaybackManager.mediaMonitorScript`)**:
+      - Overhauled `mediaMonitorScript` to inject unconditionally at `document_start` across all frames:
+        - Hooked `HTMLMediaElement.prototype.src` getter/setter descriptors and `HTMLMediaElement.prototype.setAttribute('src', ...)` to detect video streams immediately upon assignment.
+        - Deployed a debounced `MutationObserver` (`requestAnimationFrame`) scanning for `<video>`, `<audio>`, and `<source>` elements across both light DOM and Shadow DOM roots.
+        - Directly bound lifecycle event listeners (`play`, `playing`, `pause`, `timeupdate`, `volumechange`, `loadedmetadata`, `ended`) on media elements, preventing website scripts from hiding playback states via `event.stopPropagation()`.
+        - Removed over-restrictive media disqualifiers (`currentTime < 0.5`, `duration < 10`, etc.) that prematurely discarded valid playing videos on mobile sites (YouTube Mobile, Twitter/X, Reddit).
+    - **Brave-Parity Background Playback Engine (`MediaPlaybackManager.backgroundPlaybackScript`)**:
+      - Modeled on Brave's `kYoutubeBackgroundPlayback`: Monkey-patched `document.addEventListener` to intercept and filter out `visibilitychange` and `webkitvisibilitychange` registrations from website scripts, neutralizing pause-on-hide event handlers at registration time.
+      - Modeled on Brave's `MediaBackgroundingScript`: Implemented `userHitPause` state machine on `HTMLMediaElement.prototype`. When an auto-pause occurs while `!element.userHitPause` and `!element.ended`, automatically triggers playback resumption.
+      - Spoofed `Document.prototype.visibilityState` to always return `"visible"` and `hidden = false`.
+      - Patched YouTube `ytcfg` serialized experiment flags (`html5_picture_in_picture_blocking_*=false`) with dynamic script load observation.
+      - Overrode `IntersectionObserver` so off-screen media elements always report `isIntersecting: true`.
+    - **True Video-Only Picture-in-Picture (PiP) Isolation & Geometry**:
+      - Fixed `MainActivity.enterPipMode()`: Replaced whole-WebView `sourceRectHint` with the exact aspect-ratio-corrected centered video rectangle (`Rect(left, top, right, bottom)`), instructing the Android OS Window Manager to crop strictly to the video content without capturing browser toolbars or webpage text.
+      - Enhanced `isolateAndEnterPip`: Dynamically extracted video dimensions from `isolateVideoForPipScript` to configure precise aspect ratios in `PictureInPictureParams`.
+      - Injected Brave's `kYoutubeFullscreenVideoFitWorkaround` style (`#player-container-id:fullscreen video.html5-main-video { width: 100% !important; height: 100dvh !important; object-fit: contain !important; }`).
+    - **Streaming Player API Synchronization (`playAllMediaScript`, `pauseAllMediaScript`, `getSeekMediaScript`)**:
+      - Added direct integration with the YouTube Player JavaScript API (`#movie_player.playVideo()`, `pauseVideo()`, `seekTo()`), synchronizing notification controls, PiP buttons, and headset commands with YouTube's internal player state machine.
+      - Updated `MainActivity.onPause()` and `MainActivity.onResume()` to broadcast background/foreground state changes to all active WebViews across tabs via `tabManager.getAllWebViews()`.
+    - **Floating Action Pill Robustness**:
+      - Elevated `view_floating_video_menu.xml` to `app:cardElevation="24dp"` and set `view.translationZ = 100f` with `bringToFront()`, ensuring the floating controls are never obscured by hardware-accelerated WebViews or swipe refresh containers.
