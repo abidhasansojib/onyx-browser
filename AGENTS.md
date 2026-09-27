@@ -286,6 +286,11 @@ onyx-browser/
     - Completely restructured `FEATURES.md` into a numbered 1..N checklist with live status indicators (`[x]` working, `[-]` known issue/bug, `[ ]` planned).
     - Established `FEATURES.md` as the unified feature tracking reference for all AI agents and developers.
     - Added clean, human-readable technical breakdowns following Rule 5 (no hype, no emoji spam).
+  - Appearance Theme Picker & Vector Icons Redesign:
+    - Redesigned `ic_theme_system.xml`, `ic_theme_dark.xml`, and `ic_theme_light.xml` to match the browser's Lucide outline vector design system (`strokeWidth="2"`, `strokeLineCap="round"`, `strokeLineJoin="round"`).
+    - Replaced clunky 2014 filled silhouette shapes with a modern Lucide smartphone, crescent moon, and balanced 8-ray radial sun.
+    - Overhauled `bottom_sheet_theme_picker.xml` to match Onyx's Google luxury theme, adding a drag handle, top header with box tile and close button, and cards with `@color/settings_card_bg` and `@color/settings_card_stroke`.
+    - Eliminated all coral pink (`colorPrimary`) selection artifacts in `ThemePickerSheet.kt`, adopting `@color/google_blue` for active card borders and checkmarks.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

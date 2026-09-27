@@ -4,8 +4,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.google.android.material.color.MaterialColors
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetThemePickerBinding
@@ -58,26 +58,33 @@ class ThemePickerSheet(
     }
 
     private fun updateSelection(selectedTheme: Int) {
-        val colorPrimary = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorPrimary)
-        val colorOutline = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorOutline)
+        val colorActive = ContextCompat.getColor(requireContext(), R.color.google_blue)
+        val colorDefaultStroke = ContextCompat.getColor(requireContext(), R.color.settings_card_stroke)
+        val colorDefaultIcon = ContextCompat.getColor(requireContext(), R.color.settings_title_text)
+
+        val activeStrokeWidth = dpToPx(2)
+        val defaultStrokeWidth = dpToPx(1)
 
         // System
         val isSystem = selectedTheme == BrowserPreferences.THEME_SYSTEM
         binding.ivCheckSystem.visibility = if (isSystem) View.VISIBLE else View.INVISIBLE
-        binding.optionSystem.strokeColor = if (isSystem) colorPrimary else colorOutline
-        binding.optionSystem.strokeWidth = if (isSystem) dpToPx(2) else dpToPx(1)
+        binding.optionSystem.strokeColor = if (isSystem) colorActive else colorDefaultStroke
+        binding.optionSystem.strokeWidth = if (isSystem) activeStrokeWidth else defaultStrokeWidth
+        binding.ivIconSystem.setColorFilter(if (isSystem) colorActive else colorDefaultIcon)
 
         // Dark
         val isDark = selectedTheme == BrowserPreferences.THEME_DARK
         binding.ivCheckDark.visibility = if (isDark) View.VISIBLE else View.INVISIBLE
-        binding.optionDark.strokeColor = if (isDark) colorPrimary else colorOutline
-        binding.optionDark.strokeWidth = if (isDark) dpToPx(2) else dpToPx(1)
+        binding.optionDark.strokeColor = if (isDark) colorActive else colorDefaultStroke
+        binding.optionDark.strokeWidth = if (isDark) activeStrokeWidth else defaultStrokeWidth
+        binding.ivIconDark.setColorFilter(if (isDark) colorActive else colorDefaultIcon)
 
         // Light
         val isLight = selectedTheme == BrowserPreferences.THEME_LIGHT
         binding.ivCheckLight.visibility = if (isLight) View.VISIBLE else View.INVISIBLE
-        binding.optionLight.strokeColor = if (isLight) colorPrimary else colorOutline
-        binding.optionLight.strokeWidth = if (isLight) dpToPx(2) else dpToPx(1)
+        binding.optionLight.strokeColor = if (isLight) colorActive else colorDefaultStroke
+        binding.optionLight.strokeWidth = if (isLight) activeStrokeWidth else defaultStrokeWidth
+        binding.ivIconLight.setColorFilter(if (isLight) colorActive else colorDefaultIcon)
     }
 
     private fun dpToPx(dp: Int): Int {
