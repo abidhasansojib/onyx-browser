@@ -57,9 +57,10 @@ This document tracks all features of Onyx Browser, their current implementation 
 44. [x] Webpage Translation Bar (Google Translate integration for 20 languages)
 45. [x] Desktop Site Toggle (per-tab desktop viewport switch)
 46. [-] WebGL 1/2 Complex Shader Polyfills (Evan Wallace water works; older GPUs may lack hardware float texture targets)
-47. [ ] Custom Userscript Manager (Tampermonkey / Violentmonkey scriptlet support)
-48. [ ] Built-in Reader Mode (distraction-free text view for articles)
-49. [ ] DNS-over-HTTPS (DoH) Provider Selection (Cloudflare, Quad9, AdGuard DNS)
+47. [x] Ad Detection Spoofing Toggle (Settings → Privacy & Shields — inject `adsbygoogle`, `ga`, `gtag` stubs to bypass anti-adblock walls; **OFF by default** so adblock test sites and Cloudflare work)
+48. [ ] Custom Userscript Manager (Tampermonkey / Violentmonkey scriptlet support)
+49. [ ] Built-in Reader Mode (distraction-free text view for articles)
+50. [ ] DNS-over-HTTPS (DoH) Provider Selection (Cloudflare, Quad9, AdGuard DNS)
 
 ---
 

@@ -308,6 +308,12 @@ onyx-browser/
     - Synchronized Bundled Filter Assets: Updated `scripts/update_filter_lists.sh` to explicitly bundle ABP domain rules (`||domain^`) for all curated ad networks into `app/src/main/assets/easylist_rules.txt` (35,474 rules).
     - Fixed `CookieManager` compilation import in `OnyxWebViewClient.kt`.
     - Verified Release Build `v1.0.200`: Successfully compiled Rust NDK across all ABIs, minified with R8, and published to GitHub Releases. Downloaded to `/storage/emulated/0/`.
+  - Ad Detection Spoofing Toggle & Facebook Login Improvements:
+    - Added `isAntiAdblockDetectionEnabled` preference (`KEY_ANTI_ADBLOCK_DETECTION`, default `false`) to `BrowserPreferences.kt`.
+    - Added `isAntiAdblockDetectionEnabled()` `@JavascriptInterface` to `OnyxShieldBridge.kt` for synchronous JS → Kotlin preference reads at document-start.
+    - Gated the anti-adblock JS stubs (`window.ga`, `window.gtag`, `window.adsbygoogle.loaded`, `fbq`, `outbrain`, `taboola`, `dataLayer`) in `AdBlockDocumentStart.getScript()` behind a runtime bridge call so they only inject when the user enables the toggle. **Default OFF** — lets adblock test sites (superadblocktest.com, etc.) report accurately and prevents disrupting Cloudflare Turnstile challenges.
+    - Added "Ad Detection Spoofing" toggle row (`rowAntiAdblockDetection` / `switchAntiAdblockDetection`) in `activity_shields.xml` under the Trackers & Ads section; wired in `ShieldsActivity.setupTrackersAds()`.
+    - Expanded `isCaptchaOrAuthUrl()` in `OnyxWebViewClient.kt` to cover additional anti-bot and auth URL patterns: PerimeterX, `/two_step_verification`, `/save-device/`, `/trusted-devices/`, `/login_attempt`.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
