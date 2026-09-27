@@ -116,6 +116,11 @@ object AdBlockDocumentStart {
                     return false;
                 }
 
+                // Never block media streams (HLS .m3u8/.ts, DASH .mpd/.m4s, video/audio chunks)
+                if (/\.(m3u8|ts|mpd|m4s|mp4|webm|m4a|aac)(\?|$)/i.test(rawUrl)) {
+                    return false;
+                }
+
                 // First-party Meta resources on Meta pages are never blocked
                 if (isMetaHost && /(facebook\.com|facebook\.net|fbcdn\.net|fb\.com|instagram\.com|messenger\.com)/i.test(rawUrl)) {
                     return false;
@@ -305,13 +310,20 @@ object AdBlockDocumentStart {
                         if (!resJson || resJson === '[]') return;
                         var selectors = JSON.parse(resJson);
                         if (selectors && selectors.length > 0) {
-                            var styleTag = getOrCreateCosmeticStyle();
-                            if (styleTag) {
-                                var cssRule = selectors.join(', ') + ' { display: none !important; }\n';
-                                styleTag.appendChild(document.createTextNode(cssRule));
-                                var target = document.head || document.documentElement || document.body;
-                                if (target && !document.contains(styleTag)) {
-                                    target.appendChild(styleTag);
+                            // Filter out any selectors that could match video, audio, or media player wrappers
+                            var safeSelectors = selectors.filter(function(sel) {
+                                if (!sel || typeof sel !== 'string') return false;
+                                return !/(video|audio|player|stream|media|vjs|jwplayer|html5|playing|paused)/i.test(sel);
+                            });
+                            if (safeSelectors.length > 0) {
+                                var styleTag = getOrCreateCosmeticStyle();
+                                if (styleTag) {
+                                    var cssRule = safeSelectors.join(', ') + ' { display: none !important; }\n';
+                                    styleTag.appendChild(document.createTextNode(cssRule));
+                                    var target = document.head || document.documentElement || document.body;
+                                    if (target && !document.contains(styleTag)) {
+                                        target.appendChild(styleTag);
+                                    }
                                 }
                             }
                         }
@@ -363,14 +375,13 @@ object AdBlockDocumentStart {
                     }
                 }
 
-                // Initial baseline collapsed styles
+                // Initial baseline collapsed styles + explicit HTML5 video player protection
                 var initStyle = getOrCreateCosmeticStyle();
                 initStyle.textContent = [
-                    '.ad-banner, .adsbox, .textads, .banner-ad, .ad-unit, .ads-wrapper,',
-                    '[class*="ad-container"], [id*="ad-container"], ins.adsbygoogle,',
-                    '[id*="google_ads"], [class*="google-ads"], [class*="sponsor-ad"],',
+                    '#cts_test, #ctd_test, #ad_ctd, .ad-banner, .adsbox, .textads, .banner-ad, .banner_ads,',
+                    'ins.adsbygoogle, [id*="google_ads"], [class*="google-ads"], [class*="sponsor-ad"],',
                     '.afs_ads, .sponsor-content, .commercial-unit, #banner-ad, #ad-banner,',
-                    '.dfp-ad-container, [data-ad-unit], [data-ad-slot], .taboola-ad, .outbrain-ad,',
+                    '.dfp-ad-container, .taboola-ad, .outbrain-ad,',
                     '[class*="native-ad"], [id*="native-ad"], .ad-placeholder, .advertisement-box,',
                     '.adblockHostDiv_probe, [id*="ad_banner"], [id*="ad_unit"], [class*="sponsored-item"],',
                     '#onetrust-banner-sdk, #cookie-law-info-bar, .cc-window, .qc-cmp2-container, #CybotCookiebotDialog {',
@@ -382,6 +393,12 @@ object AdBlockDocumentStart {
                     '  pointer-events: none !important;',
                     '  position: absolute !important;',
                     '  left: -9999px !important;',
+                    '}',
+                    'video, audio, [class*="player" i] video, .html5-main-video, .video-stream {',
+                    '  display: block !important;',
+                    '  visibility: visible !important;',
+                    '  opacity: 1 !important;',
+                    '  pointer-events: auto !important;',
                     '}'
                 ].join('\n');
 

@@ -190,13 +190,16 @@ class OnyxWebViewClient(
 
                         if (blockedByEngine || blockedByStandard || blockedByAggressive) {
                             preferences.incrementBlockedRequests()
-                            if (view is OnyxWebView && !view.canGoBack()) {
+                            if (view is OnyxWebView) {
                                 val onyxWv = view
                                 onyxWv.post {
                                     val tabId = onyxWv.tabId
                                     if (tabId.isNotBlank()) {
                                         val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
-                                        act?.closeTabById(tabId)
+                                        val tab = act?.tabManager?.getTabById(tabId)
+                                        if (tab?.parentId != null || onyxWv.isPopupPendingDisplay) {
+                                            act?.closeTabById(tabId)
+                                        }
                                     }
                                 }
                             }
@@ -332,6 +335,28 @@ class OnyxWebViewClient(
                     return null
                 }
 
+                // Never block media streams (video/audio, HLS chunks, DASH segments) with generic domain lists.
+                // Only let the adblock engine check if there is an explicit media rule.
+                if (resourceType == "media") {
+                    val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, "media")
+                    if (blockedByEngine) {
+                        preferences.incrementBlockedRequests()
+                        return WebResourceResponse(
+                            "text/plain",
+                            "UTF-8",
+                            403,
+                            "Blocked by Onyx Shields",
+                            mapOf(
+                                "Access-Control-Allow-Origin" to "*",
+                                "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
+                                "Access-Control-Allow-Headers" to "*"
+                            ),
+                            ByteArrayInputStream(ByteArray(0))
+                        )
+                    }
+                    return null // Allow media playback!
+                }
+
                 // Standard mode: use EasyList engine + standard ad/tracker domains
                 val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
                 val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(reqDomain)
@@ -427,18 +452,32 @@ class OnyxWebViewClient(
 
                     if (blockedByEngine || blockedByStandard || blockedByAggressive) {
                         preferences.incrementBlockedRequests()
-                        // If this WebView is a newly opened popup tab without back history, close it!
-                        if (view is OnyxWebView && !view.canGoBack()) {
+                        // If this WebView is a newly opened popup tab, close it!
+                        if (view is OnyxWebView) {
                             val onyxWv = view
                             onyxWv.post {
                                 val tabId = onyxWv.tabId
                                 if (tabId.isNotBlank()) {
                                     val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
-                                    act?.closeTabById(tabId)
+                                    val tab = act?.tabManager?.getTabById(tabId)
+                                    if (tab?.parentId != null || onyxWv.isPopupPendingDisplay) {
+                                        act?.closeTabById(tabId)
+                                    }
                                 }
                             }
                         }
                         return true // Cancel the ad navigation!
+                    }
+                }
+
+                // If this is a pending popup window and it's NOT an ad, safely display it!
+                if (view is OnyxWebView && view.isPopupPendingDisplay) {
+                    val onyxWv = view
+                    val tabId = onyxWv.tabId
+                    val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
+                    val tab = act?.tabManager?.getTabById(tabId)
+                    if (tab != null) {
+                        act.displayPopupTab(tab)
                     }
                 }
             }
@@ -947,6 +986,16 @@ class OnyxWebViewClient(
             onyxWv?.clearSyntheticState()
             onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)
+
+            // If this is a pending popup window that successfully started navigating to a valid URL, display it
+            if (onyxWv?.isPopupPendingDisplay == true && url != "about:blank") {
+                val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
+                val tab = act?.tabManager?.getTabById(onyxWv.tabId)
+                if (tab != null) {
+                    act.displayPopupTab(tab)
+                }
+            }
+
             val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)
             view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
             if (isAdBlockActiveForPage) {
@@ -1069,6 +1118,12 @@ class OnyxWebViewClient(
         if (fetchDest == "style") return "stylesheet"
         if (fetchDest == "font") return "font"
         if (fetchDest == "video" || fetchDest == "audio") return "media"
+        if (urlPath.endsWith(".m3u8") || urlPath.endsWith(".ts") || urlPath.endsWith(".mpd") ||
+            urlPath.endsWith(".m4s") || urlPath.endsWith(".mp4") || urlPath.endsWith(".webm") ||
+            urlPath.endsWith(".ogg") || urlPath.endsWith(".mp3") || urlPath.endsWith(".m4a") ||
+            urlPath.endsWith(".aac") || urlPath.endsWith(".flv")) {
+            return "media"
+        }
         if (fetchDest == "empty" || fetchMode == "cors" || reqWith == "xmlhttprequest") return "xmlhttprequest"
 
         return when {

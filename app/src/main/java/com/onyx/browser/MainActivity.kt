@@ -986,6 +986,7 @@ class MainActivity : AppCompatActivity() {
                         parentId = parentTab?.id
                     )
                     val newWebView = tabManager.getOrCreateWebView(newTab)
+                    newWebView.isPopupPendingDisplay = true
 
                     // Pre-setup the clients before passing it back, so it instantly has download listeners
                     setupWebViewClients(newWebView)
@@ -995,11 +996,20 @@ class MainActivity : AppCompatActivity() {
                         transport.webView = newWebView
                         resultMsg.sendToTarget()
 
-                        // Force show the WebView regardless of the URL being blank
-                        tabManager.selectTab(newTab)
-                        currentDisplayedTabId = newTab.id
-                        updateTabBadgeCount()
-                        showWebView(newTab)
+                        // NOTE: Do NOT immediately switch tabs or pause the parent tab!
+                        // If this window.open was triggered by an ad clickjack on a video player,
+                        // switching tabs would call onPause() on the video tab and pause the video!
+                        // Instead, keep the parent tab active. When newWebView navigates:
+                        // - If it's an ad URL, handleUrlLoading cancels it and closes newTab silently!
+                        // - If it's a legitimate URL, displayPopupTab(newTab) switches to it smoothly!
+                        newWebView.postDelayed({
+                            if (newWebView.isPopupPendingDisplay) {
+                                val current = tabManager.getTabById(newTab.id)
+                                if (current != null && currentDisplayedTabId != newTab.id) {
+                                    closeTabById(newTab.id)
+                                }
+                            }
+                        }, 5000)
 
                         true
                     } else {
@@ -1267,6 +1277,19 @@ class MainActivity : AppCompatActivity() {
     fun closeTabById(tabId: String) {
         val tab = tabManager.getTabById(tabId) ?: return
         tabManager.closeTab(tab)
+    }
+
+    fun displayPopupTab(tab: TabItem) {
+        runOnUiThread {
+            val wv = tabManager.getWebView(tab.id)
+            if (wv != null && wv.isPopupPendingDisplay) {
+                wv.isPopupPendingDisplay = false
+                tabManager.selectTab(tab)
+                currentDisplayedTabId = tab.id
+                updateTabBadgeCount()
+                showWebView(tab)
+            }
+        }
     }
 
     private fun startQrScanner() {

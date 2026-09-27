@@ -163,6 +163,17 @@ object MediaPlaybackManager {
                     if (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden') {
                         return;
                     }
+                    // Ad-preroll pause hijack prevention:
+                    // When user clicks play, ad scripts (e.g. Google IMA, VAST, JW Player ad plugins)
+                    // immediately call video.pause() to display an ad. If the ad request is blocked by Onyx Shields,
+                    // the video remains stuck in a paused state.
+                    // If the user interacted with this media or play started within the last 800ms and video is at the start (currentTime < 1s),
+                    // ignore the script-triggered pause so the content continues playing smoothly!
+                    var now = Date.now();
+                    var timeSincePlay = now - (this.__onyx_last_user_play || this.__onyx_last_play_time || 0);
+                    if (timeSincePlay < 800 && this.currentTime < 1.0 && !this.ended) {
+                        return;
+                    }
                     return origPause.apply(this, arguments);
                 };
 
@@ -325,16 +336,22 @@ object MediaPlaybackManager {
                 function markMediaInteracted(e) {
                     try {
                         window.__onyx_frame_interacted = true;
+                        var now = Date.now();
                         var target = e.target;
                         if (target instanceof HTMLMediaElement) {
                             target.__onyx_user_interacted = true;
+                            target.__onyx_last_user_play = now;
                         } else if (target && target.closest) {
                             var m = target.closest('video, audio');
-                            if (m) m.__onyx_user_interacted = true;
-                            if (target.closest('[class*="player" i], [id*="player" i], [class*="play" i], [class*="video" i], #overlay, .jw-wrapper, .plyr, [data-player], [data-plyr]')) {
+                            if (m) {
+                                m.__onyx_user_interacted = true;
+                                m.__onyx_last_user_play = now;
+                            }
+                            if (target.closest('[class*="player" i], [id*="player" i], [class*="play" i], [class*="video" i], #overlay, .jw-wrapper, .plyr, [data-player], [data-plyr], [class*="control" i]')) {
                                 var vids = document.querySelectorAll('video, audio');
                                 for (var i = 0; i < vids.length; i++) {
                                     vids[i].__onyx_user_interacted = true;
+                                    vids[i].__onyx_last_user_play = now;
                                 }
                             }
                         }
@@ -407,6 +424,7 @@ object MediaPlaybackManager {
 
                 document.addEventListener('play', function(e) {
                     if (e.target instanceof HTMLMediaElement) {
+                        e.target.__onyx_last_play_time = Date.now();
                         reportMediaPlaying(e.target);
                     }
                 }, true);

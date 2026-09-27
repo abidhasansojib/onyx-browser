@@ -35,6 +35,7 @@ class OnyxWebView @JvmOverloads constructor(
     var currentSyntheticState: SyntheticNavigationState? = null
     var lastFailingUrl: String? = null
     var isLoadingSyntheticPage: Boolean = false
+    @Volatile var isPopupPendingDisplay: Boolean = false
     
     val touchBridge = OnyxTouchBridge()
     var lastTouchX: Float = 0f
