@@ -223,10 +223,23 @@ object MediaPlaybackManager {
                     if (elem instanceof HTMLVideoElement) reportVideoBounds(elem);
                 }
 
+                function getAllMedia(root) {
+                    var res = [];
+                    try {
+                        if (!root) return res;
+                        if (root.querySelectorAll) res = res.concat(Array.from(root.querySelectorAll('video, audio')));
+                        var all = root.querySelectorAll ? root.querySelectorAll('*') : [];
+                        for (var i = 0; i < all.length; i++) {
+                            if (all[i].shadowRoot) res = res.concat(getAllMedia(all[i].shadowRoot));
+                        }
+                    } catch (_) {}
+                    return res;
+                }
+
                 function reportMediaPaused() {
                     if (!window.OnyxMediaBridge) return;
                     setTimeout(function() {
-                        var anyPlaying = Array.from(document.querySelectorAll('video, audio')).some(function(m) {
+                        var anyPlaying = getAllMedia(document).some(function(m) {
                             return !m.paused && !m.ended && isQualifyingMedia(m);
                         });
                         if (!anyPlaying) {
@@ -373,8 +386,8 @@ object MediaPlaybackManager {
 
                 // Initial sweep for existing media elements
                 function scanAllMedia() {
-                    document.querySelectorAll('video, audio').forEach(bindMediaElement);
-                    var vids = Array.from(document.querySelectorAll('video')).filter(isQualifyingMedia);
+                    getAllMedia(document).forEach(bindMediaElement);
+                    var vids = getAllMedia(document).filter(function(m) { return m instanceof HTMLVideoElement && isQualifyingMedia(m); });
                     if (vids.length > 0 && window.OnyxMediaBridge && typeof window.OnyxMediaBridge.onVideoPresenceChanged === 'function') {
                         var v = vids[0];
                         var vsrc = v.currentSrc || v.src || '';
@@ -457,17 +470,27 @@ object MediaPlaybackManager {
 
                         if (cmd === 'play') {
                             window.__onyx_allow_explicit_pause = false;
+                            try {
+                                if (window.__onyx_media_session_handlers && typeof window.__onyx_media_session_handlers['play'] === 'function') {
+                                    window.__onyx_media_session_handlers['play']({ action: 'play' });
+                                }
+                            } catch (_) {}
                             var yt = document.querySelector('#movie_player, .html5-video-player');
                             if (yt && typeof yt.playVideo === 'function') yt.playVideo();
-                            Array.from(document.querySelectorAll('video, audio')).forEach(function(m) {
+                            getAllMedia(document).forEach(function(m) {
                                 m.userHitPause = false;
                                 m.play().catch(function(){});
                             });
                         } else if (cmd === 'pause') {
                             window.__onyx_allow_explicit_pause = true;
+                            try {
+                                if (window.__onyx_media_session_handlers && typeof window.__onyx_media_session_handlers['pause'] === 'function') {
+                                    window.__onyx_media_session_handlers['pause']({ action: 'pause' });
+                                }
+                            } catch (_) {}
                             var yt = document.querySelector('#movie_player, .html5-video-player');
                             if (yt && typeof yt.pauseVideo === 'function') yt.pauseVideo();
-                            Array.from(document.querySelectorAll('video, audio')).forEach(function(m) {
+                            getAllMedia(document).forEach(function(m) {
                                 m.userHitPause = true;
                                 m.pause();
                             });
@@ -670,26 +693,12 @@ object MediaPlaybackManager {
                 // ── 3. Brave MediaBackgrounding: userHitPause & Auto-Resume ────────────────
                 var origPause = HTMLMediaElement.prototype.pause;
                 HTMLMediaElement.prototype.pause = function() {
-                    if (!window.__onyx_bg_play_active) {
-                        return origPause.apply(this, arguments);
-                    }
-                    var isUserClick = (Date.now() - (window.__onyx_last_user_touch || 0)) < 600;
-                    if (window.__onyx_allow_explicit_pause || isUserClick) {
-                        this.userHitPause = true;
-                        return origPause.apply(this, arguments);
-                    }
-                    if (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden') {
-                        return; // Prevent background script auto-pauses!
-                    }
                     this.userHitPause = true;
                     return origPause.apply(this, arguments);
                 };
 
                 var origPlay = HTMLMediaElement.prototype.play;
                 HTMLMediaElement.prototype.play = function() {
-                    if (!window.__onyx_bg_play_active) {
-                        return origPlay.apply(this, arguments);
-                    }
                     this.userHitPause = false;
                     return origPlay.apply(this, arguments);
                 };
@@ -713,6 +722,11 @@ object MediaPlaybackManager {
                 }
 
                 document.querySelectorAll('video, audio').forEach(addBackgroundListeners);
+                document.addEventListener('play', function(e) {
+                    if (e.target instanceof HTMLMediaElement) {
+                        addBackgroundListeners(e.target);
+                    }
+                }, true);
 
                 // ── 4. Brave kYoutubePictureInPictureSupport: ytcfg Flag Patching ──────────
                 function modifyYtcfgFlags() {
@@ -821,15 +835,30 @@ object MediaPlaybackManager {
     val playAllMediaScript: String = """
         (function() {
             window.__onyx_allow_explicit_pause = false;
+
+            function getAllMedia(root) {
+                var res = [];
+                try {
+                    if (!root) return res;
+                    if (root.querySelectorAll) res = res.concat(Array.from(root.querySelectorAll('video, audio')));
+                    var all = root.querySelectorAll ? root.querySelectorAll('*') : [];
+                    for (var i = 0; i < all.length; i++) {
+                        if (all[i].shadowRoot) res = res.concat(getAllMedia(all[i].shadowRoot));
+                    }
+                } catch (_) {}
+                return res;
+            }
+
             var msg = { __onyx_cmd: 'play' };
             try {
                 window.postMessage(msg, '*');
                 document.querySelectorAll('iframe').forEach(function(f) {
                     try {
                         if (f.contentDocument) {
-                            f.contentDocument.querySelectorAll('video, audio').forEach(function(m) {
+                            getAllMedia(f.contentDocument).forEach(function(m) {
                                 m.userHitPause = false;
-                                m.play().catch(function(){});
+                                var p = m.play();
+                                if (p && typeof p.catch === 'function') p.catch(function(){});
                             });
                         }
                         f.contentWindow.postMessage(msg, '*');
@@ -852,6 +881,18 @@ object MediaPlaybackManager {
             } catch (_) {}
 
             // 3. HTML5 Media Elements across light & Shadow DOM
+            getAllMedia(document).forEach(function(m) {
+                m.userHitPause = false;
+                var p = m.play();
+                if (p && typeof p.catch === 'function') p.catch(function(){});
+            });
+        })();
+    """.trimIndent()
+
+    val pauseAllMediaScript: String = """
+        (function() {
+            window.__onyx_allow_explicit_pause = true;
+
             function getAllMedia(root) {
                 var res = [];
                 try {
@@ -864,23 +905,14 @@ object MediaPlaybackManager {
                 } catch (_) {}
                 return res;
             }
-            getAllMedia(document).forEach(function(m) {
-                m.userHitPause = false;
-                m.play().catch(function(){});
-            });
-        })();
-    """.trimIndent()
 
-    val pauseAllMediaScript: String = """
-        (function() {
-            window.__onyx_allow_explicit_pause = true;
             var msg = { __onyx_cmd: 'pause' };
             try {
                 window.postMessage(msg, '*');
                 document.querySelectorAll('iframe').forEach(function(f) {
                     try {
                         if (f.contentDocument) {
-                            f.contentDocument.querySelectorAll('video, audio').forEach(function(m) {
+                            getAllMedia(f.contentDocument).forEach(function(m) {
                                 m.userHitPause = true;
                                 m.pause();
                             });
@@ -905,18 +937,6 @@ object MediaPlaybackManager {
             } catch (_) {}
 
             // 3. HTML5 Media Elements across light & Shadow DOM
-            function getAllMedia(root) {
-                var res = [];
-                try {
-                    if (!root) return res;
-                    if (root.querySelectorAll) res = res.concat(Array.from(root.querySelectorAll('video, audio')));
-                    var all = root.querySelectorAll ? root.querySelectorAll('*') : [];
-                    for (var i = 0; i < all.length; i++) {
-                        if (all[i].shadowRoot) res = res.concat(getAllMedia(all[i].shadowRoot));
-                    }
-                } catch (_) {}
-                return res;
-            }
             getAllMedia(document).forEach(function(m) {
                 m.userHitPause = true;
                 m.pause();

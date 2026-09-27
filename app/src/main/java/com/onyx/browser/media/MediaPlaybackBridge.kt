@@ -19,9 +19,10 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         @Volatile var isVideoPlaying: Boolean = false
         @Volatile var isAudioOrVideoPlaying: Boolean = false
         var isMediaPlaying: Boolean
-            get() = isAudioOrVideoPlaying
+            get() = isAudioOrVideoPlaying || isVideoPlaying
             set(value) {
                 isAudioOrVideoPlaying = value
+                isVideoPlaying = value
             }
         @Volatile var lastVideoWidth: Int = 16
         @Volatile var lastVideoHeight: Int = 9
@@ -33,6 +34,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         @Volatile var currentVideoSrc: String? = null
 
         @Volatile var isAppInBackground: Boolean = false
+        @Volatile var isCurrentlyInPip: Boolean = false
         @Volatile var isExplicitUserPause: Boolean = false
 
         fun isScreenOffOrLocked(ctx: Context): Boolean {
@@ -92,6 +94,8 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             isVideoPresent = false
             isVideoPlaying = false
             isAudioOrVideoPlaying = false
+            isCurrentlyInPip = false
+            isExplicitUserPause = false
             currentPlayingTabId = null
             currentPlayingWebView = null
             currentVideoSrc = null
@@ -302,7 +306,9 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaPaused() {
-        val shouldSuppress = isBackgroundPlayActive &&
+        val inPip = isCurrentlyInPip
+        val shouldSuppress = !inPip &&
+                isBackgroundPlayActive &&
                 (isAppInBackground || isScreenOffOrLocked(context)) &&
                 !isExplicitUserPause
 
@@ -318,6 +324,9 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
         val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
         if (myTabId != null && currentPlayingTabId == myTabId) {
+            isAudioOrVideoPlaying = false
+            isVideoPlaying = false
+        } else if (currentPlayingTabId == null || inPip) {
             isAudioOrVideoPlaying = false
             isVideoPlaying = false
         }

@@ -114,7 +114,11 @@ class MainActivity : AppCompatActivity() {
     private var customVideoView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var justExitedPip: Boolean = false
-    private var isCurrentlyInPip: Boolean = false
+    private var isCurrentlyInPip: Boolean
+        get() = MediaPlaybackBridge.isCurrentlyInPip
+        set(value) {
+            MediaPlaybackBridge.isCurrentlyInPip = value
+        }
     private var currentDisplayedTabId: String? = null
     private var isTabsRestored = false
     private var pendingIntent: Intent? = null
@@ -131,24 +135,42 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_WIDGET_INCOGNITO_SEARCH = "com.onyx.browser.action.WIDGET_INCOGNITO_SEARCH"
     }
 
+    private fun getMediaTargetWebView(): OnyxWebView? {
+        val playingWv = MediaPlaybackBridge.currentPlayingWebView?.get() as? OnyxWebView
+        if (playingWv != null) return playingWv
+        val playingId = MediaPlaybackBridge.currentPlayingTabId
+        if (!playingId.isNullOrBlank()) {
+            val wv = tabManager.getWebView(playingId)
+            if (wv != null) return wv
+        }
+        return tabManager.getActiveWebView()
+    }
+
     private val pipReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 ACTION_PIP_PLAY_PAUSE -> {
-                    if (MediaPlaybackBridge.isMediaPlaying) {
-                        tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
-                        MediaPlaybackBridge.isMediaPlaying = false
+                    val targetWv = getMediaTargetWebView()
+                    val wasPlaying = MediaPlaybackBridge.isMediaPlaying
+                    val newPlayingState = !wasPlaying
+
+                    MediaPlaybackBridge.isExplicitUserPause = !newPlayingState
+                    MediaPlaybackBridge.isMediaPlaying = newPlayingState
+                    MediaPlaybackBridge.isVideoPlaying = newPlayingState
+                    MediaPlaybackBridge.isAudioOrVideoPlaying = newPlayingState
+
+                    if (newPlayingState) {
+                        targetWv?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
                     } else {
-                        tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
-                        MediaPlaybackBridge.isMediaPlaying = true
+                        targetWv?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
                     }
-                    updatePipParams()
+                    updatePipParams(isVideoPlaying = newPlayingState)
                 }
                 ACTION_PIP_REWIND -> {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(-10), null)
+                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(-10), null)
                 }
                 ACTION_PIP_FORWARD -> {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(10), null)
+                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(10), null)
                 }
             }
         }
@@ -1786,7 +1808,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun buildPipActions(): List<RemoteAction> {
+    private fun buildPipActions(isPlaying: Boolean = MediaPlaybackBridge.isMediaPlaying): List<RemoteAction> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return emptyList()
 
         val actions = mutableListOf<RemoteAction>()
@@ -1808,7 +1830,6 @@ class MainActivity : AppCompatActivity() {
         )
 
         // 2. Play / Pause
-        val isPlaying = MediaPlaybackBridge.isMediaPlaying
         val playPauseIntent = PendingIntent.getBroadcast(
             this,
             102,
@@ -1844,7 +1865,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun updatePipParams(
-        isVideoPlaying: Boolean = MediaPlaybackBridge.isVideoPlaying,
+        isVideoPlaying: Boolean = MediaPlaybackBridge.isMediaPlaying,
         width: Int = MediaPlaybackBridge.lastVideoWidth,
         height: Int = MediaPlaybackBridge.lastVideoHeight,
         shouldAutoEnter: Boolean = false
@@ -1855,7 +1876,7 @@ class MainActivity : AppCompatActivity() {
                     .coerceIn(Rational(1, 2), Rational(2, 1))
                 val builder = PictureInPictureParams.Builder()
                     .setAspectRatio(rational)
-                    .setActions(buildPipActions())
+                    .setActions(buildPipActions(isVideoPlaying))
 
                 // Video-only PiP: crop strictly to the video viewport using sourceRectHint
                 if (customVideoView != null) {
@@ -2064,55 +2085,46 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMediaPlaybackListener() {
         MediaPlaybackService.mediaActionListener = object : MediaPlaybackService.MediaActionListener {
-            private fun getTargetWebView(): OnyxWebView? {
-                val playingId = MediaPlaybackBridge.currentPlayingTabId
-                if (!playingId.isNullOrBlank()) {
-                    val wv = tabManager.getWebView(playingId)
-                    if (wv != null) return wv
-                }
-                return tabManager.getActiveWebView()
-            }
-
             override fun onPlayMedia() {
                 runOnUiThread {
-                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
+                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
                 }
             }
 
             override fun onPauseMedia() {
                 runOnUiThread {
-                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
                 }
             }
 
             override fun onSeekMedia(deltaSeconds: Int) {
                 runOnUiThread {
-                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(deltaSeconds), null)
+                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(deltaSeconds), null)
                 }
             }
 
             override fun onSeekToMedia(positionMs: Long) {
                 runOnUiThread {
                     val posSec = positionMs / 1000.0
-                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekToPositionScript(posSec), null)
+                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekToPositionScript(posSec), null)
                 }
             }
 
             override fun onSkipNextMedia() {
                 runOnUiThread {
-                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.skipNextMediaScript, null)
+                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.skipNextMediaScript, null)
                 }
             }
 
             override fun onSkipPreviousMedia() {
                 runOnUiThread {
-                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.skipPreviousMediaScript, null)
+                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.skipPreviousMediaScript, null)
                 }
             }
 
             override fun onStopMedia() {
                 runOnUiThread {
-                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
                     MediaPlaybackBridge.resetMediaPlayback(this@MainActivity)
                 }
             }
@@ -2530,8 +2542,9 @@ class MainActivity : AppCompatActivity() {
         val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
         if (preferences.isBackgroundPlayEnabled) {
             tabManager.getAllWebViews().forEach { wv ->
+                val isWvInPip = isPip && (wv == tabManager.getActiveWebView() || (wv as? com.onyx.browser.web.OnyxWebView)?.tabId == MediaPlaybackBridge.currentPlayingTabId)
                 wv.evaluateJavascript(
-                    MediaPlaybackManager.getSetBackgroundStateScript(true),
+                    MediaPlaybackManager.getSetBackgroundStateScript(!isWvInPip),
                     null
                 )
             }
@@ -2694,6 +2707,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             // Exiting PiP — set cooldown to prevent immediate re-entry loop
             isCurrentlyInPip = false
+            MediaPlaybackBridge.isExplicitUserPause = false
             justExitedPip = true
             binding.root.postDelayed({ justExitedPip = false }, 2500)
 
