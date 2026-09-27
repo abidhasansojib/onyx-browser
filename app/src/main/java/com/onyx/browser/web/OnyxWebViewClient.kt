@@ -13,6 +13,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import com.onyx.browser.MainActivity
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.data.preferences.BrowserPreferences
@@ -37,6 +38,15 @@ class OnyxWebViewClient(
     private val database = AppDatabase.getInstance(context)
 
     var onOpenInAppPrompt: ((intent: Intent, appName: String?, fallback: (() -> Unit)?) -> Unit)? = null
+
+    private fun findMainActivity(ctx: Context?): MainActivity? {
+        var current: Context? = ctx
+        while (current is android.content.ContextWrapper) {
+            if (current is MainActivity) return current
+            current = current.baseContext
+        }
+        return null
+    }
 
     private fun getAppNameForIntent(intent: Intent, fallbackName: String? = null): String? {
         try {
@@ -185,7 +195,8 @@ class OnyxWebViewClient(
                                 onyxWv.post {
                                     val tabId = onyxWv.tabId
                                     if (tabId.isNotBlank()) {
-                                        (context as? MainActivity)?.closeTabById(tabId)
+                                        val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
+                                        act?.closeTabById(tabId)
                                     }
                                 }
                             }
@@ -422,7 +433,8 @@ class OnyxWebViewClient(
                             onyxWv.post {
                                 val tabId = onyxWv.tabId
                                 if (tabId.isNotBlank()) {
-                                    (context as? MainActivity)?.closeTabById(tabId)
+                                    val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
+                                    act?.closeTabById(tabId)
                                 }
                             }
                         }
