@@ -306,6 +306,7 @@ onyx-browser/
     - Restored `AdBlockDomainManager.isBlockedInStandard(reqDomain)` in `OnyxWebViewClient.kt` across subresource network requests and popup tab navigations. Known ad networks (`doubleclick.net`, `googlesyndication.com`, `googleadservices.com`, `criteo.com`, `taboola.com`, `outbrain.com`, `adnxs.com`, `amazon-adsystem.com`, etc.) are now intercepted with 0ms latency even during cold-start or while the Rust engine compiles.
     - Fixed Third-Party Request Evaluation in `rust_engine/src/lib.rs`: Eliminated the bug where empty `source_url` strings were replaced with `&url_str` (causing `adblock-rust` to mistakenly compute `third_party = false`), passing `&source_str` directly so empty source requests evaluate as `third_party = true`, enabling thousands of EasyList `$third-party` rules to match correctly.
     - Synchronized Bundled Filter Assets: Updated `scripts/update_filter_lists.sh` to explicitly bundle ABP domain rules (`||domain^`) for all curated ad networks into `app/src/main/assets/easylist_rules.txt` (35,474 rules).
+    - Fixed `CookieManager` compilation import in `OnyxWebViewClient.kt`.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
