@@ -39,6 +39,11 @@ class OnyxShieldBridge(private val context: Context) {
     }
 
     @JavascriptInterface
+    fun isAntiAdblockDetectionEnabled(): Boolean {
+        return preferences.isAntiAdblockDetectionEnabled
+    }
+
+    @JavascriptInterface
     fun isSocialMediaBlockingEnabled(): Boolean {
         return preferences.isSocialMediaBlockingEnabled
     }

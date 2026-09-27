@@ -55,6 +55,12 @@ class ShieldsActivity : AppCompatActivity() {
             }
             sheet.show(supportFragmentManager, BlockingLevelPickerSheet.TAG)
         }
+
+        binding.switchAntiAdblockDetection.isChecked = prefs.isAntiAdblockDetectionEnabled
+        binding.rowAntiAdblockDetection.setOnClickListener {
+            prefs.isAntiAdblockDetectionEnabled = !prefs.isAntiAdblockDetectionEnabled
+            binding.switchAntiAdblockDetection.isChecked = prefs.isAntiAdblockDetectionEnabled
+        }
     }
 
     private fun updateBlockingLevelDisplay() {

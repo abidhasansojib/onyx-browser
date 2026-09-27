@@ -141,13 +141,15 @@ class OnyxWebViewClient(
         return d.contains("recaptcha") || d.contains("hcaptcha") ||
                 d.contains("arkose") || d.contains("arkoselabs") || d.contains("funcaptcha") ||
                 d.contains("turnstile") || d.contains("geetest") || d.contains("datadome") ||
-                d.contains("kasada") ||
+                d.contains("kasada") || d.contains("perimeterx") ||
                 u.contains("recaptcha") || u.contains("hcaptcha") || u.contains("arkose") ||
                 u.contains("funcaptcha") || u.contains("turnstile") ||
                 u.contains("/checkpoint/") || u.contains("/challenge/") ||
                 u.contains("/captcha/") || u.contains("/security-check") ||
                 u.contains("/waf/") || u.contains("/bot-detection") ||
-                u.contains("/human-verification") || u.contains("login/device-based")
+                u.contains("/human-verification") || u.contains("login/device-based") ||
+                u.contains("/two_step_verification") || u.contains("/save-device/") ||
+                u.contains("/trusted-devices/") || u.contains("/login_attempt")
     }
 
     // Twitter/X content domains (embeds)

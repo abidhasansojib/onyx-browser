@@ -287,6 +287,8 @@
     <!-- App Banner -->
     <string name="block_app_banner_title">Block switch-to-app notices</string>
     <string name="block_app_banner_desc">Hide smart app banners that ask you to open native apps</string>
+    <string name="anti_adblock_detection_title">Ad Detection Spoofing</string>
+    <string name="anti_adblock_detection_desc">Inject stubs to bypass anti-adblock walls. Turn off to test adblock or fix Cloudflare issues</string>
 
     <!-- DNT -->
     <string name="dnt_request_title">Send a Do Not Track request</string>

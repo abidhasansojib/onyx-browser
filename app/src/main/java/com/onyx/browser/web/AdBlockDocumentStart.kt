@@ -51,28 +51,39 @@ object AdBlockDocumentStart {
             window.__onyx_shields_active = true;
 
             // ── 1. Preemptive Anti-Adblock, Analytics & Consent Stubs ─────────────────
+            // Only injected when the user has enabled "Ad Detection Spoofing" in Privacy & Shields.
+            // Off by default — allows adblock test sites and Cloudflare challenges to function correctly.
+            var isAntiDetectEnabled = false;
             try {
-                window.ga = window.ga || function() { (window.ga.q = window.ga.q || []).push(arguments); };
-                window.ga.l = +new Date;
-                window.gtag = window.gtag || function() {};
-                window.adsbygoogle = window.adsbygoogle || [];
-                window.adsbygoogle.loaded = true;
-                window.google_ad_client = true;
-                window.google_ad_width = window.innerWidth || 1024;
-                window.google_ad_height = window.innerHeight || 768;
-                if (!window.fbq) {
-                    var fbqStub = function() {
-                        if (fbqStub.callMethod) { fbqStub.callMethod.apply(fbqStub, arguments); }
-                        else if (fbqStub.queue) { fbqStub.queue.push(arguments); }
-                    };
-                    fbqStub.push = fbqStub; fbqStub.loaded = true; fbqStub.version = '2.0'; fbqStub.queue = [];
-                    window.fbq = fbqStub;
+                if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isAntiAdblockDetectionEnabled === 'function') {
+                    isAntiDetectEnabled = window.OnyxShieldBridge.isAntiAdblockDetectionEnabled();
                 }
-                window._paq = window._paq || [];
-                window.dataLayer = window.dataLayer || [];
-                window.outbrain = window.outbrain || { ready: function() {} };
-                window.taboola = window.taboola || { push: function() {} };
             } catch(e) {}
+
+            if (isAntiDetectEnabled) {
+                try {
+                    window.ga = window.ga || function() { (window.ga.q = window.ga.q || []).push(arguments); };
+                    window.ga.l = +new Date;
+                    window.gtag = window.gtag || function() {};
+                    window.adsbygoogle = window.adsbygoogle || [];
+                    window.adsbygoogle.loaded = true;
+                    window.google_ad_client = true;
+                    window.google_ad_width = window.innerWidth || 1024;
+                    window.google_ad_height = window.innerHeight || 768;
+                    if (!window.fbq) {
+                        var fbqStub = function() {
+                            if (fbqStub.callMethod) { fbqStub.callMethod.apply(fbqStub, arguments); }
+                            else if (fbqStub.queue) { fbqStub.queue.push(arguments); }
+                        };
+                        fbqStub.push = fbqStub; fbqStub.loaded = true; fbqStub.version = '2.0'; fbqStub.queue = [];
+                        window.fbq = fbqStub;
+                    }
+                    window._paq = window._paq || [];
+                    window.dataLayer = window.dataLayer || [];
+                    window.outbrain = window.outbrain || { ready: function() {} };
+                    window.taboola = window.taboola || { push: function() {} };
+                } catch(e) {}
+            }
 
             // ── 2. Brave Parity Generic Cosmetic Filter Engine (hidden_class_id_selectors) ───────
             try {
