@@ -1,6 +1,7 @@
 use adblock::engine::Engine;
 use adblock::lists::{FilterSet, ParseOptions};
 use adblock::request::Request;
+use adblock::resources::Resource;
 use jni::objects::{JByteArray, JClass, JString};
 use jni::sys::{jboolean, jbyteArray, jstring, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
@@ -71,6 +72,40 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initFrom
     result.unwrap_or(ptr::null_mut())
 }
 
+/// Loads scriptlet/redirect resources from a JSON string (brave-resources.json format).
+/// Must be called after initEngine() or initFromRules() to enable scriptlet injection.
+/// Returns JNI_TRUE on success, JNI_FALSE on failure.
+#[no_mangle]
+pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_loadResources(
+    mut env: JNIEnv,
+    _class: JClass,
+    resources_json: JString,
+) -> jboolean {
+    let result = catch_unwind(move || {
+        let json_str: String = match env.get_string(&resources_json) {
+            Ok(s) => s.into(),
+            Err(_) => return JNI_FALSE,
+        };
+
+        // Parse Vec<Resource> from the brave-resources.json format
+        let resources: Vec<Resource> = match serde_json::from_str(&json_str) {
+            Ok(r) => r,
+            Err(_) => return JNI_FALSE,
+        };
+
+        if let Ok(mut lock) = ENGINE.write() {
+            if let Some(ref mut engine) = *lock {
+                engine.use_resources(resources);
+                return JNI_TRUE;
+            }
+        }
+
+        JNI_FALSE
+    });
+
+    result.unwrap_or(JNI_FALSE)
+}
+
 /// Checks if a network request to `url` originating from `source_url` with `resource_type` should be blocked.
 #[no_mangle]
 pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkUrl(
@@ -121,7 +156,11 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkUrl
     result.unwrap_or(JNI_FALSE)
 }
 
-/// Returns CSS selectors formatted as a stylesheet to collapse and hide ad elements for the given URL.
+/// Returns a JSON object with cosmetic filter resources for the given URL.
+/// JSON format: {"css":"<hide selectors css>","script":"<injected scriptlet JS>","generichide":<bool>}
+/// - "css": CSS stylesheet string to inject (hide_selectors formatted as display:none rules)
+/// - "script": Raw JS scriptlet code to inject at document_start (empty string if none)
+/// - "generichide": true if generic cosmetic filters should be suppressed for this page
 #[no_mangle]
 pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosmeticResources(
     mut env: JNIEnv,
@@ -135,25 +174,49 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
 
     let result = catch_unwind(std::panic::AssertUnwindSafe(|| {
         let mut css = String::new();
+        let mut script = String::new();
+        let mut generichide = false;
+
         if !url_str.is_empty() {
             if let Ok(lock) = ENGINE.read() {
                 if let Some(ref engine) = *lock {
                     let resources = engine.url_cosmetic_resources(&url_str);
+
+                    // Build CSS from hide_selectors
                     if !resources.hide_selectors.is_empty() {
                         let selectors: Vec<&str> =
                             resources.hide_selectors.iter().map(|s| s.as_str()).collect();
                         css = format!("{} {{ display: none !important; }}", selectors.join(", "));
                     }
+
+                    // Get scriptlet JS code (compiled from +js() rules using loaded resources)
+                    script = resources.injected_script;
+
+                    // Propagate generichide flag
+                    generichide = resources.generichide;
                 }
             }
         }
-        css
+
+        // Use serde_json for correct JSON string escaping of the scriptlet JS
+        // (handles newlines, tabs, control chars, quotes — all common in scriptlet code)
+        let css_val = serde_json::Value::String(css);
+        let script_val = serde_json::Value::String(script);
+        format!(
+            "{{\"css\":{},\"script\":{},\"generichide\":{}}}",
+            css_val,
+            script_val,
+            generichide
+        )
     }));
 
-    let css_out = result.unwrap_or_default();
-    match env.new_string(css_out) {
+    let json_out = result.unwrap_or_else(|_| "{\"css\":\"\",\"script\":\"\",\"generichide\":false}".to_string());
+    match env.new_string(json_out) {
         Ok(s) => s.into_raw(),
-        Err(_) => env.new_string("").map(|s| s.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => env
+            .new_string("{\"css\":\"\",\"script\":\"\",\"generichide\":false}")
+            .map(|s| s.into_raw())
+            .unwrap_or(ptr::null_mut()),
     }
 }
 

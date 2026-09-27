@@ -874,6 +874,37 @@ class OnyxWebViewClient(
                 val lvl = preferences.blockingLevel
                 view?.evaluateJavascript(AdBlockDocumentStart.getScript(lvl), null)
                 view?.evaluateJavascript("if (window.__onyx_set_blocking_level) window.__onyx_set_blocking_level($lvl);", null)
+
+                // Inject scriptlets resolved from +js() cosmetic filter rules via brave-resources.json.
+                // These must run before any page scripts to intercept ad-related APIs early.
+                if (preferences.isCosmeticFilteringEnabled && !preferences.isDomainWhitelisted(url)) {
+                    try {
+                        val scriptletJs = AdBlockEngine.getScriptletJs(url)
+                        if (scriptletJs.isNotBlank()) {
+                            // Base64-encode the scriptlet to safely embed arbitrary JS code
+                            // (prevents breaking due to quotes, template literals, newlines in scriptlet content)
+                            val b64 = android.util.Base64.encodeToString(
+                                scriptletJs.toByteArray(Charsets.UTF_8),
+                                android.util.Base64.NO_WRAP
+                            )
+                            // Decode and execute using Function() constructor approach for isolation
+                            // matching Brave's kScriptletInitScript self-removing <script> pattern
+                            val wrappedScriptlet = """
+                                (function() {
+                                    try {
+                                        var _b = atob('$b64');
+                                        var _f = new Function(_b);
+                                        _f();
+                                    } catch(ex) {
+                                        /* scriptlet error suppressed */
+                                    }
+                                })();
+                            """.trimIndent()
+                            view?.evaluateJavascript(wrappedScriptlet, null)
+                        }
+                    } catch (_: Throwable) {}
+                }
+
             } else {
                 val cleanupJs = """
                     (function() {
