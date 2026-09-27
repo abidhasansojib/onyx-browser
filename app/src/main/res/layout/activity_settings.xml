@@ -386,7 +386,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Search widget, scroll to top, biometric protection"
+                                android:text="Search widget, Add to Home screen, scroll to top"
                                 android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>

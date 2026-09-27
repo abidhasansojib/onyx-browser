@@ -250,6 +250,11 @@ onyx-browser/
     - Adopted `@color/settings_card_bg` and `@color/settings_card_stroke` matching SettingsActivity cards.
     - Updated active template and custom UA states to use `@color/google_blue` borders, checkmarks, and badges.
     - Redesigned action buttons: Outlined Paste button and Google Blue Apply button with contrast-optimized `btn_apply_text`.
+  - Accessibility "Add to Home screen" Webpage Menu Toggle:
+    - Added `isAddToHomeScreenEnabled` boolean preference (`KEY_ADD_TO_HOME_SCREEN`, default `false`) to `BrowserPreferences`.
+    - Added a new toggle row (`settingAddToHomeScreenRow` with `settingAddToHomeScreenSwitch`) in `activity_accessibility_settings.xml` directly under the Search widget row.
+    - Updated `AccessibilitySettingsActivity.kt` to bind the toggle state to `preferences.isAddToHomeScreenEnabled`.
+    - Gated `menuItemAddToHomeScreen` in `MenuBottomSheetDialogFragment.kt` so the "Add to Home screen" option in the webpage 3-dot menu is hidden by default and only visible when enabled in Accessibility settings.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

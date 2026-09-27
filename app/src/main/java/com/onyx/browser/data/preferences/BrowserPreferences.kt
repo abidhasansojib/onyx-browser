@@ -670,6 +670,10 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_SCROLL_TO_TOP, false)
         set(value) = prefs.edit().putBoolean(KEY_SCROLL_TO_TOP, value).apply()
 
+    var isAddToHomeScreenEnabled: Boolean
+        get() = prefs.getBoolean(KEY_ADD_TO_HOME_SCREEN, false)
+        set(value) = prefs.edit().putBoolean(KEY_ADD_TO_HOME_SCREEN, value).apply()
+
     companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
@@ -746,6 +750,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_UA_SPOOF = "pref_ua_spoof"
         const val KEY_CUSTOM_UA = "pref_custom_ua"
         const val KEY_SCROLL_TO_TOP = "pref_scroll_to_top"
+        const val KEY_ADD_TO_HOME_SCREEN = "pref_add_to_home_screen"
         const val KEY_DEFAULT_ENGINE_MIGRATED = "pref_default_engine_google_migrated"
         const val KEY_CHECKED_DEFAULT_REGION = "pref_checked_default_region"
 

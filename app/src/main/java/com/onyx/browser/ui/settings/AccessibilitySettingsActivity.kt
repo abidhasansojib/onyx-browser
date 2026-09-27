@@ -46,6 +46,7 @@ class AccessibilitySettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        binding.settingAddToHomeScreenSwitch.isChecked = preferences.isAddToHomeScreenEnabled
         binding.settingScrollToTopSwitch.isChecked = preferences.isScrollToTopEnabled
         binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
         com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
@@ -55,6 +56,14 @@ class AccessibilitySettingsActivity : AppCompatActivity() {
         // Search Widget Pinning
         binding.settingSearchWidgetRow.setOnClickListener {
             com.onyx.browser.ui.widget.SearchWidgetManager.requestPinSearchWidget(this)
+        }
+
+        // Add to Home Screen in Menu Toggle
+        binding.settingAddToHomeScreenSwitch.isChecked = preferences.isAddToHomeScreenEnabled
+        binding.settingAddToHomeScreenRow.setOnClickListener {
+            val newState = !binding.settingAddToHomeScreenSwitch.isChecked
+            binding.settingAddToHomeScreenSwitch.isChecked = newState
+            preferences.isAddToHomeScreenEnabled = newState
         }
 
         // Scroll to Top Button

@@ -296,10 +296,15 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
             dismiss()
         }
 
-        // 5th: Add to Home screen
-        binding.menuItemAddToHomeScreen.setOnClickListener {
-            onAddToHomeScreenClicked?.invoke()
-            dismiss()
+        // 5th: Add to Home screen (controlled via Accessibility settings toggle)
+        if (prefs.isAddToHomeScreenEnabled) {
+            binding.menuItemAddToHomeScreen.visibility = View.VISIBLE
+            binding.menuItemAddToHomeScreen.setOnClickListener {
+                onAddToHomeScreenClicked?.invoke()
+                dismiss()
+            }
+        } else {
+            binding.menuItemAddToHomeScreen.visibility = View.GONE
         }
 
 
