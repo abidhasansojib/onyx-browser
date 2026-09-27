@@ -1836,12 +1836,14 @@ onyx-browser/
       - Optimized `cleanDomain` with zero-allocation index slicing and added `cachedWhitelist` in-memory HashSet cache to accelerate adblock evaluations during heavy subresource request bursts.
     - **Open-Source GPL-3.0 Licensing (`LICENSE`)**:
       - Added the official GNU General Public License v3.0 (GPL-3.0) file in the root repository to formally license the project and activate GitHub license identification.
-    - **GitHub Issue Templates (`.github/ISSUE_TEMPLATE`)**:
-      - Added Bug Report template (`bug_report.md`) with structured fields: Title, Issue description, How to reproduce, Expected behavior, OS version, App version & architecture, and Screenshots.
-      - Added Feature Request template (`feature_request.md`) with Title, Feature description, Motivation/Use case, and Context.
-      - Updated `config.yml`: disabled blank issues (`blank_issues_enabled: false`) and removed external contact links to enforce structured bug reporting and feature tracking.
+    - **GitHub Issue Forms & Templates (`.github/ISSUE_TEMPLATE`)**:
+      - Modeled on `gki_kernel_builder`: migrated to modern YAML issue forms (`bug_report.yml` and `feature_request.yml`).
+      - Bug Report form includes Device Model, Android OS & ROM Version, Onyx Browser Version, Architecture dropdown (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`), Affected URL, Bug Description, Reproduction steps, Expected Behavior, Screenshots & Screen Recordings box, Crash logs & shell console output box, and confirmation checklist.
+      - Feature Request form includes Feature Description, Problem/Motivation, Proposed UI & Solution details, Screenshots/Mockups box, and checklist.
+      - Enforced strict template chooser via `config.yml` (`blank_issues_enabled: false`).
     - **README Credits & Acknowledgements (`README.md`)**:
       - Added dedicated Credits section honoring Brave Software (`adblock-rust`, filter lists, and privacy architecture) and Quetta Browser (modern UI/UX theme and box-type layout inspiration).
+
 
 
 

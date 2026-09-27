@@ -1,0 +1,120 @@
+name: "🐛 Bug Report"
+description: "Report a bug or unexpected behavior in Onyx Browser"
+title: "[Bug]: "
+labels: ["bug"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please fill out the form below as accurately as possible to help us diagnose and resolve the bug quickly.
+
+  - type: input
+    id: device_model
+    attributes:
+      label: Device Model
+      description: The brand and model of your Android device.
+      placeholder: "e.g., Google Pixel 8 Pro / Samsung Galaxy S24 / Xiaomi 14"
+    validations:
+      required: true
+
+  - type: input
+    id: os_android_version
+    attributes:
+      label: Android OS & ROM Version
+      description: Your Android version, custom ROM, or OEM skin.
+      placeholder: "e.g., Android 14 (One UI 6.1) / Android 15 (HyperOS 2) / LineageOS 21"
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: Onyx Browser Version
+      description: The version of Onyx Browser you are using (find this in Browser Settings > About).
+      placeholder: "e.g., v1.0.188"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: app_architecture
+    attributes:
+      label: App Architecture / Build
+      description: Which APK architecture variant did you install?
+      options:
+        - "arm64-v8a (64-bit - Modern Devices)"
+        - "armeabi-v7a (32-bit - Legacy Devices)"
+        - "universal"
+        - "x86_64 (Emulators / Chromebooks)"
+    validations:
+      required: true
+
+  - type: input
+    id: affected_url
+    attributes:
+      label: Affected URL / Website (If applicable)
+      description: The exact webpage URL where the issue occurred.
+      placeholder: "e.g., https://example.com/watch?v=..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: Describe the Bug
+      description: A clear and concise description of what happened and what the problem is.
+      placeholder: "Describe the bug in detail..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: how_to_reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the bug.
+      value: |
+        1. Open Onyx Browser
+        2. Navigate to '...'
+        3. Tap on '...'
+        4. See error:
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: A clear description of what you expected to happen instead.
+      placeholder: "Explain what should have happened..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots_recordings
+    attributes:
+      label: Screenshots or Screen Recordings
+      description: Drag and drop screenshots or screen recordings demonstrating the problem.
+      placeholder: "Drag and drop images or video files here..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: crash_logs
+    attributes:
+      label: Crash Logs & Console Output
+      description: Paste any logcat output, Eruda console logs, or crash traces here.
+      render: shell
+      placeholder: "Paste logcat output or console errors here..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following before submitting this issue.
+      options:
+        - label: "I have tested this issue on the latest available Onyx Browser release"
+          required: true
+        - label: "I searched existing issues and verified this bug has not already been reported"
+          required: true

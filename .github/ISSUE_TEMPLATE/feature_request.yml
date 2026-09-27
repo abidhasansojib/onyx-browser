@@ -1,0 +1,54 @@
+name: "💡 Feature Request"
+description: "Suggest a new idea, feature, or enhancement for Onyx Browser"
+title: "[Feature]: "
+labels: ["enhancement"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Onyx Browser! Please share your ideas or proposed enhancements below.
+
+  - type: textarea
+    id: feature_description
+    attributes:
+      label: Feature Description
+      description: A clear and detailed description of the feature you want added.
+      placeholder: "Describe what this feature should do and how it should work..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem_motivation
+    attributes:
+      label: Problem or Motivation
+      description: What problem or limitation does this feature address?
+      placeholder: "e.g., I'm frustrated when... or This would improve browsing efficiency by..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution & UI Details
+      description: How do you envision this being integrated into Onyx Browser? (e.g. settings toggle, toolbar button, context menu item)
+      placeholder: "Describe where this should appear in the browser UI and how it should behave..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots_references
+    attributes:
+      label: Screenshots, Mockups & References
+      description: Attach mockups, sketches, or screenshots from other browsers (e.g. Brave, Chrome, Quetta) illustrating the requested feature.
+      placeholder: "Drag and drop mockups or paste reference URLs here..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: "I have searched existing feature requests to ensure this is not a duplicate"
+          required: true
