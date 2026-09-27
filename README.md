@@ -13,54 +13,59 @@
 
 <br />
 
-[**📥 Download APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**📖 Full Features**](FEATURES.md) • [**🐛 Report an Issue**](https://github.com/abidhasansojib/onyx-browser/issues)
+[**Download APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**Full Features**](FEATURES.md) • [**Report an Issue**](https://github.com/abidhasansojib/onyx-browser/issues)
 
 </div>
 
 ---
 
-## 🌟 What is Onyx?
+## What is Onyx?
 
 Onyx is a clean, minimal, and fast web browser for Android. It has Brave's adblocking engine built right in, blocks annoying popups and trackers out of the box, and stays light on your battery and RAM.
 
 ---
 
-## ⚡ Features
+## Features
 
-- 🛡️ **Built-in Adblocker** – Blocks video ads, banners, popups, and trackers using Brave's native adblocking engine.
-- 🎧 **Background Play & PiP** – Keep playing audio/video when switching apps or locking your screen, plus Picture-in-Picture support.
-- ⚡ **Fast & Smooth** – Opens instantly and scrolls smoothly without background bloat or lag.
-- 🔒 **Privacy by Default** – Encrypted history and bookmarks stored only on your phone, with zero tracking or telemetry.
-- 🎨 **Clean Theme** – Matches your phone with Google Light, Google Dark, and true AMOLED Black modes.
-- 🔑 **Passkeys & Autofill** – Works seamlessly with Google Password Manager, Bitwarden, and biometric passkeys.
-- 📥 **External Downloads** – Catch video streams and easily hand off downloads to apps like 1DM or ADM.
-- 📷 **QR Code Scanner** – Scan QR codes straight from the search bar with your camera.
+- **Built-in Adblocker** – Blocks video ads, banners, popups, and trackers using Brave's native adblocking engine.
+- **Background Play & PiP** – Keep playing audio or video when switching apps or locking your screen, with full Picture-in-Picture support.
+- **Fast & Smooth** – Opens instantly and scrolls smoothly without background bloat or lag.
+- **Privacy by Default** – Encrypted history and bookmarks stored only on your phone, with zero tracking or telemetry.
+- **Clean Theme** – Matches your phone with Google Light, Google Dark, and true AMOLED Black modes.
+- **Passkeys & Autofill** – Works seamlessly with Google Password Manager, Bitwarden, and biometric passkeys.
+- **External Downloads** – Catch video streams and easily hand off downloads to apps like 1DM or ADM.
+- **QR Code Scanner** – Scan QR codes straight from the search bar with your camera.
 
 ---
 
-## 📥 Download
+## Download
 
 Get the latest APK from [**GitHub Releases**](https://github.com/abidhasansojib/onyx-browser/releases/latest):
 
 | Architecture | Best For | Package File |
 | :--- | :--- | :--- |
-| 📱 **`arm64-v8a`** | Most modern Android phones & tablets *(Recommended)* | `Onyx-Browser-*-arm64-v8a-release.apk` |
-| 📟 **`armeabi-v7a`** | Older 32-bit Android phones | `Onyx-Browser-*-armeabi-v7a-release.apk` |
-| 💻 **`x86_64`** | PC emulators & Chromebooks | `Onyx-Browser-*-x86_64-release.apk` |
-| 📦 **`universal`** | Works on any device *(Larger file size)* | `Onyx-Browser-*-universal-release.apk` |
+| **`arm64-v8a`** | Most modern Android phones & tablets *(Recommended)* | `Onyx-Browser-*-arm64-v8a-release.apk` |
+| **`armeabi-v7a`** | Older 32-bit Android phones | `Onyx-Browser-*-armeabi-v7a-release.apk` |
+| **`x86_64`** | PC emulators & Chromebooks | `Onyx-Browser-*-x86_64-release.apk` |
+| **`universal`** | Works on any device *(Larger file size)* | `Onyx-Browser-*-universal-release.apk` |
 
 ---
 
-## 🛠️ Built With
+## Built With
 
-- ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white) **Kotlin & Native Views** – Fast, smooth native Android UI
-- ![Rust](https://img.shields.io/badge/Rust-DEA584?logo=rust&logoColor=black) **Rust NDK** – Brave's `adblock-rust` engine
-- ![SQLite](https://img.shields.io/badge/SQLCipher-003B57?logo=sqlite&logoColor=white) **SQLCipher** – Encrypted local database
-- ![Android](https://img.shields.io/badge/CameraX-3DDC84?logo=android&logoColor=white) **CameraX** – Built-in QR code scanning
+[![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Rust](https://img.shields.io/badge/Rust_NDK-DEA584?style=flat-square&logo=rust&logoColor=black)](https://www.rust-lang.org)
+[![SQLite](https://img.shields.io/badge/SQLCipher-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.zetetic.net/sqlcipher/)
+[![Android](https://img.shields.io/badge/CameraX-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
+
+- **Kotlin & Native Views** – Lightweight Android UI with ViewBinding
+- **Rust NDK** – Brave's native `adblock-rust` engine
+- **SQLCipher** – Local database encryption
+- **CameraX** – Fast on-device QR scanning
 
 ---
 
-## 🏗️ Building from Source
+## Building from Source
 
 1. Clone the repository:
    ```bash
@@ -73,14 +78,14 @@ Get the latest APK from [**GitHub Releases**](https://github.com/abidhasansojib/
 
 ---
 
-## 💖 Credits
+## Credits
 
-- 🦁 [**Brave Software**](https://brave.com) – for `adblock-rust` and adblocking filter lists
-- 🎨 [**Lucide Icons**](https://lucide.dev) – for clean UI vectors
-- 🔐 [**SQLCipher**](https://www.zetetic.net/sqlcipher/) – for database encryption
+- [Brave Software](https://brave.com) – for `adblock-rust` and adblocking filter lists
+- [Lucide Icons](https://lucide.dev) – for clean UI vectors
+- [SQLCipher](https://www.zetetic.net/sqlcipher/) – for database encryption
 
 ---
 
-## 📄 License
+## License
 
 Onyx Browser is open-source under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
