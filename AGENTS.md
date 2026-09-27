@@ -58,6 +58,13 @@ When the user explicitly issues the command **"build app now"**, the agent must 
 ### RULE 4: Mandatory `AGENTS.md` Maintenance
 - Whenever a feature is added, a bug is fixed, an architectural decision is made, or a workflow is completed, you **MUST** update this `AGENTS.md` file before concluding the turn.
 
+### RULE 5: Keep Everything Simple, Minimal & Effective
+- All documentation, README files, UI copy, and explanations must remain **simple, minimal, and effective**.
+- **No AI Marketing Buzzwords**: Avoid hyperbolic adjectives ("uncompromising", "sub-millisecond", "extreme").
+- **No Over-Explaining**: State what things do in plain English from the user's perspective.
+- **No Emoji Clutter**: Avoid spamming emojis across every heading, list item, or paragraph.
+- Speak and write like a real, practical software engineer.
+
 ---
 
 ## 3. Directory Layout & Architecture Map
