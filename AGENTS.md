@@ -1836,5 +1836,10 @@ onyx-browser/
       - Optimized `cleanDomain` with zero-allocation index slicing and added `cachedWhitelist` in-memory HashSet cache to accelerate adblock evaluations during heavy subresource request bursts.
     - **Open-Source GPL-3.0 Licensing (`LICENSE`)**:
       - Added the official GNU General Public License v3.0 (GPL-3.0) file in the root repository to formally license the project and activate GitHub license identification.
+    - **GitHub Issue Templates (`.github/ISSUE_TEMPLATE`)**:
+      - Added Bug Report template (`bug_report.md`) with structured fields: Title, Issue description, How to reproduce, Expected behavior, OS version, App version & architecture, and Screenshots.
+      - Added Feature Request template (`feature_request.md`) with Title, Feature description, Motivation/Use case, and Context.
+      - Added `config.yml` with links to latest releases.
+
 
 
