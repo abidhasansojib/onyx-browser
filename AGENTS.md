@@ -1659,3 +1659,12 @@ onyx-browser/
 
 
 
+
+  - [x] **Full Brave Scriptlet Injection Pipeline** (commit `35f84c5`):
+     - **Root Cause Analysis**: Onyx scored 48-50% on https://adblock.turtlecute.org/ vs Brave's 62-65% because `+js()` cosmetic filter rules (scriptlet rules) were completely ignored. The `adblock-rust` engine was returning an empty `injected_script` field because no scriptlet resource bundle was loaded — `engine.use_resources()` was never called.
+     - **Fix 1 — Bundle `brave-resources.json`** (`app/src/main/assets/brave-resources.json`): Copied from `external/adblock-rust/data/brave/brave-resources.json`. Contains 200+ scriptlet implementations: `abort-on-property-read`, `json-prune`, `set-constant`, `prevent-setTimeout`, `prevent-fetch`, etc.
+     - **Fix 2 — New `loadResources()` JNI** (`rust_engine/src/lib.rs`): Parses JSON via `serde_json::from_str::<Vec<Resource>>()`, calls `engine.use_resources()`. Added `serde_json = "1.0"` to Cargo.toml.
+     - **Fix 3 — Updated `getCosmeticResources()` JNI**: Returns JSON `{"css":"...","script":"...","generichide":bool}` with `serde_json::Value::String` escaping.
+     - **Fix 4 — Updated `AdBlockEngine.kt`**: `loadBraveResources()` auto-loads resources after init; `getCosmeticCss()` parses `css`; `getScriptletJs()` extracts `script`; `isGenericHide()` extracts `generichide`.
+     - **Fix 5 — Scriptlet injection in `OnyxWebViewClient.onPageStarted()`**: Base64-encodes scriptlet JS, decodes via `atob()`, executes via `new Function()` in try/catch. Runs before page JS for proper API interception.
+     - **Expected impact**: 10-15% benchmark improvement, from 48-50% up to 60-65% on https://adblock.turtlecute.org/.
