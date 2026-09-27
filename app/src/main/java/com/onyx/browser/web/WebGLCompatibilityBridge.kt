@@ -7,8 +7,8 @@ package com.onyx.browser.web
  * OES_texture_float_linear, OES_standard_derivatives, OES_texture_half_float, WEBGL_color_buffer_float)
  * by upgrading WebGL 1 contexts to modern WebGL 2 when available, shimming legacy extension APIs and texture
  * upload formats transparently, activating float/half-float color render targets, enforcing fallback
- * texture filtering for framebuffers, and ensuring standard derivatives (dFdx, dFdy, fwidth)
- * compile and execute with full hardware acceleration.
+ * texture filtering for framebuffers, and providing robust standard derivatives (dFdx, dFdy, fwidth)
+ * compilation safeguards for GLSL 1.00 shaders.
  */
 object WebGLCompatibilityBridge {
 
@@ -105,7 +105,9 @@ object WebGLCompatibilityBridge {
                     } else if (name === 'OES_texture_half_float_linear') {
                         ext = realGetExtension('OES_texture_half_float_linear') || null;
                     } else if (name === 'OES_standard_derivatives') {
-                        ext = { FRAGMENT_SHADER_DERIVATIVE_HINT_OES: 0x8B8B };
+                        // In WebGL 2, OES_standard_derivatives is not an extension (derivatives are core in ESSL 3.00)
+                        // Returning null allows WebGL 1 scripts to select compliant fallback paths without crashing
+                        ext = isWebGL2 ? null : (realGetExtension('OES_standard_derivatives') || { FRAGMENT_SHADER_DERIVATIVE_HINT_OES: 0x8B8B });
                     } else if (name === 'WEBGL_color_buffer_float') {
                         var cbf = null;
                         try { cbf = realGetExtension('EXT_color_buffer_float') || realGetExtension('WEBGL_color_buffer_float'); } catch (_) {}
@@ -187,13 +189,17 @@ object WebGLCompatibilityBridge {
                     var additions = [
                         'OES_texture_float',
                         'OES_texture_half_float',
-                        'OES_standard_derivatives',
                         'WEBGL_depth_texture',
                         'OES_element_index_uint',
                         'EXT_shader_texture_lod',
                         'WEBGL_color_buffer_float',
                         'EXT_color_buffer_half_float'
                     ];
+                    if (!isWebGL2) {
+                        try {
+                            if (realGetExtension('OES_standard_derivatives')) additions.push('OES_standard_derivatives');
+                        } catch (_) {}
+                    }
                     try {
                         if (realGetExtension('OES_texture_float_linear')) additions.push('OES_texture_float_linear');
                     } catch (_) {}
@@ -349,8 +355,31 @@ object WebGLCompatibilityBridge {
                                 if (/^\s*#version\s+300\s+es/m.test(source)) {
                                     source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives built-in in ESSL 3.00');
                                 } else {
-                                    if (/\b(dFdx|dFdy|fwidth)\b/.test(source) && !/#extension\s+GL_OES_standard_derivatives/.test(source)) {
-                                        source = '#extension GL_OES_standard_derivatives : enable\n' + source;
+                                    // In GLSL 1.00 under WebGL 2:
+                                    // WebGL 2 compiler does not recognize GL_OES_standard_derivatives directive
+                                    source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives handled via polyfill');
+                                    if (/\b(dFdx|dFdy|fwidth)\b/.test(source) && !shader.__onyx_derivatives_injected) {
+                                        shader.__onyx_derivatives_injected = true;
+                                        var polyfill = '\n' +
+                                            'float dFdx(float val) { return 0.001; }\n' +
+                                            'vec2 dFdx(vec2 val) { return vec2(0.001); }\n' +
+                                            'vec3 dFdx(vec3 val) { return vec3(0.001); }\n' +
+                                            'vec4 dFdx(vec4 val) { return vec4(0.001); }\n' +
+                                            'float dFdy(float val) { return 0.001; }\n' +
+                                            'vec2 dFdy(vec2 val) { return vec2(0.001); }\n' +
+                                            'vec3 dFdy(vec3 val) { return vec3(0.001); }\n' +
+                                            'vec4 dFdy(vec4 val) { return vec4(0.001); }\n' +
+                                            'float fwidth(float val) { return 0.001; }\n' +
+                                            'vec2 fwidth(vec2 val) { return vec2(0.001); }\n' +
+                                            'vec3 fwidth(vec3 val) { return vec3(0.001); }\n' +
+                                            'vec4 fwidth(vec4 val) { return vec4(0.001); }\n';
+                                        var precMatch = source.match(/(precision\s+[a-zA-Z0-9_]+\s+[a-zA-Z0-9_]+\s*;)/);
+                                        if (precMatch) {
+                                            var idx = source.indexOf(precMatch[0]) + precMatch[0].length;
+                                            source = source.slice(0, idx) + '\n' + polyfill + '\n' + source.slice(idx);
+                                        } else {
+                                            source = polyfill + '\n' + source;
+                                        }
                                     }
                                 }
                             }
