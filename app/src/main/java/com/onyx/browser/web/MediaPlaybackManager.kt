@@ -486,6 +486,15 @@ object MediaPlaybackManager {
                                 if (typeof v.webkitRequestFullscreen === 'function') v.webkitRequestFullscreen();
                                 else if (typeof v.requestFullscreen === 'function') v.requestFullscreen();
                             }
+                        } else if (cmd === 'pip') {
+                            var vids = Array.from(document.querySelectorAll('video'));
+                            var v = vids.find(function(i) { return !i.paused && !i.ended; }) || vids[0];
+                            if (v) {
+                                reportVideoBounds(v);
+                                if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.requestVideoPip === 'function') {
+                                    window.OnyxMediaBridge.requestVideoPip();
+                                }
+                            }
                         }
 
                         // Recursively forward to child iframes
@@ -1155,59 +1164,117 @@ object MediaPlaybackManager {
     val isolateVideoForPipScript: String = """
         (function() {
             try {
-                function getAllVideos(root) {
-                    var res = [];
+                // 1. Recursive search across light DOM and shadow roots
+                function findVideos(root) {
+                    var list = [];
+                    if (!root) return list;
                     try {
-                        var vids = root.querySelectorAll('video');
-                        res = res.concat(Array.from(vids));
+                        var v = root.querySelectorAll('video');
+                        if (v) list = list.concat(Array.from(v));
+                    } catch (_) {}
+                    try {
                         var all = root.querySelectorAll('*');
                         for (var i = 0; i < all.length; i++) {
                             if (all[i].shadowRoot) {
-                                res = res.concat(getAllVideos(all[i].shadowRoot));
+                                list = list.concat(findVideos(all[i].shadowRoot));
                             }
                         }
                     } catch (_) {}
-                    return res;
+                    return list;
                 }
 
-                var vids = getAllVideos(document);
+                var vids = findVideos(document);
                 document.querySelectorAll('iframe').forEach(function(f) {
                     try {
                         if (f.contentDocument) {
-                            vids = vids.concat(getAllVideos(f.contentDocument));
+                            var subVids = findVideos(f.contentDocument);
+                            vids = vids.concat(subVids);
                         }
                     } catch (_) {}
                 });
 
+                // Prioritize video elements: actively playing > recently played > has source > any video
                 var activeVid = vids.find(function(v) { return !v.paused && !v.ended; })
+                    || vids.find(function(v) { return v.currentTime > 0; })
+                    || vids.find(function(v) { return (v.currentSrc || v.src); })
                     || vids[0];
 
+                // 2. If no direct HTML5 video found (e.g. cross-origin iframe streaming player),
+                // score all candidate iframes to isolate the streaming player iframe!
                 if (!activeVid) {
                     var iframes = Array.from(document.querySelectorAll('iframe'));
-                    activeVid = iframes.find(function(f) {
-                        var src = (f.src || '').toLowerCase();
+                    var scored = iframes.map(function(f) {
+                        var score = 0;
+                        var src = (f.src || f.getAttribute('data-src') || f.getAttribute('data-url') || '').toLowerCase();
+                        var id = (f.id || '').toLowerCase();
+                        var cls = (f.className || '').toLowerCase();
+                        var name = (f.name || '').toLowerCase();
                         var allow = (f.getAttribute('allow') || '').toLowerCase();
-                        return src.includes('youtube') || src.includes('vimeo') || src.includes('player') || 
-                               src.includes('embed') || src.includes('video') || allow.includes('fullscreen');
-                    });
+                        var hasFs = f.hasAttribute('allowfullscreen') || f.hasAttribute('webkitallowfullscreen') || f.hasAttribute('mozallowfullscreen');
+
+                        if (hasFs) score += 35;
+                        if (allow.includes('fullscreen')) score += 30;
+                        if (allow.includes('autoplay')) score += 15;
+                        if (allow.includes('encrypted-media')) score += 15;
+
+                        var patterns = [
+                            'embed', 'player', 'video', 'stream', 'cloud', 'watch', 'movie', 'film',
+                            'youtube', 'youtu.be', 'vimeo', 'twitch', 'dailymotion', 'bilibili',
+                            'rumble', 'mp4', 'm3u8', 'hls', '/e/', '/v/', '/e-', '/v-', 'play'
+                        ];
+                        patterns.forEach(function(p) {
+                            if (src.includes(p)) score += 20;
+                        });
+
+                        if (id.includes('player') || id.includes('video')) score += 25;
+                        if (cls.includes('player') || cls.includes('video')) score += 25;
+                        if (name.includes('player') || name.includes('video')) score += 25;
+
+                        var parent = f.closest ? f.closest('#player, .player, [id*="player"], [class*="player"], [id*="video"], [class*="video"], .embed-responsive, .video-container') : null;
+                        if (parent) score += 40;
+
+                        try {
+                            var r = f.getBoundingClientRect();
+                            var area = r.width * r.height;
+                            if (area > 25000) {
+                                score += 30;
+                                var ratio = r.width / (r.height || 1);
+                                if (ratio >= 1.1 && ratio <= 2.5) score += 25;
+                            }
+                            if (r.width < 50 || r.height < 50) score -= 100;
+                        } catch (_) {}
+
+                        return { iframe: f, score: score };
+                    }).filter(function(item) { return item.score > 0; });
+
+                    scored.sort(function(a, b) { return b.score - a.score; });
+                    if (scored.length > 0) {
+                        activeVid = scored[0].iframe;
+                    }
                 }
 
-                if (!activeVid) return JSON.stringify({ found: false, width: 16, height: 9 });
+                // 3. Fallback to common player containers if activeVid still not set
+                if (!activeVid) {
+                    activeVid = document.querySelector('#movie_player, .html5-video-player, ytm-player, #player-container-id, #player, .video-js, .jwplayer, .plyr, .video-container');
+                }
+
+                if (!activeVid) {
+                    return JSON.stringify({ found: false, width: 16, height: 9 });
+                }
 
                 var oldStyle = document.getElementById('__onyx_pip_style');
                 if (oldStyle) oldStyle.remove();
 
                 window.scrollTo(0, 0);
 
-                // 1. Tag the target video and its player container
                 var target = activeVid;
-                var closestPlayer = activeVid.closest ? (activeVid.closest('.html5-video-player') || activeVid.closest('ytm-player') || activeVid.closest('.video-js') || activeVid.closest('.jwplayer') || activeVid.closest('#player-container-id') || activeVid.closest('#player')) : null;
+                var closestPlayer = activeVid.closest ? (activeVid.closest('.html5-video-player') || activeVid.closest('ytm-player') || activeVid.closest('.video-js') || activeVid.closest('.jwplayer') || activeVid.closest('#player-container-id') || activeVid.closest('#player') || activeVid.closest('.video-container')) : null;
                 if (closestPlayer) target = closestPlayer;
 
                 target.setAttribute('data-onyx-pip-target', 'true');
                 activeVid.setAttribute('data-onyx-pip-target', 'true');
 
-                // 2. Tag every ancestor of target up to html, penetrating Shadow DOM hosts!
+                // Tag every ancestor up to documentElement
                 var cur = target;
                 while (cur && cur !== document.documentElement) {
                     if (cur.setAttribute) {
@@ -1224,7 +1291,14 @@ object MediaPlaybackManager {
                     cur = cur.parentElement || (cur.parentNode && cur.parentNode.host ? cur.parentNode.host : cur.parentNode);
                 }
 
-                // 3. Inject isolation stylesheet
+                // Also notify child iframes via postMessage
+                try {
+                    var msg = { __onyx_cmd: 'pip' };
+                    document.querySelectorAll('iframe').forEach(function(f) {
+                        try { f.contentWindow.postMessage(msg, '*'); } catch (_) {}
+                    });
+                } catch (_) {}
+
                 var style = document.createElement('style');
                 style.id = '__onyx_pip_style';
                 style.textContent = `
@@ -1259,7 +1333,8 @@ object MediaPlaybackManager {
                         border: none !important;
                         box-shadow: none !important;
                     }
-                    [data-onyx-pip-target] video {
+                    [data-onyx-pip-target] video,
+                    [data-onyx-pip-target] iframe {
                         display: block !important;
                         position: fixed !important;
                         top: 0 !important;
@@ -1271,6 +1346,7 @@ object MediaPlaybackManager {
                         object-fit: contain !important;
                         background: #000000 !important;
                         z-index: 2147483647 !important;
+                        border: none !important;
                     }
                     ytm-mobile-topbar-renderer, ytm-pivot-bar-renderer, #header-bar,
                     .ytp-chrome-top, .ytp-chrome-bottom, .ytp-gradient-top, .ytp-gradient-bottom,
@@ -1290,8 +1366,9 @@ object MediaPlaybackManager {
                 var vidWidth = activeVid.videoWidth || activeVid.clientWidth || activeVid.offsetWidth || 16;
                 var vidHeight = activeVid.videoHeight || activeVid.clientHeight || activeVid.offsetHeight || 9;
                 return JSON.stringify({ found: true, width: vidWidth, height: vidHeight });
-            } catch (e) {}
-            return JSON.stringify({ found: false, width: 16, height: 9 });
+            } catch (e) {
+                return JSON.stringify({ found: false, error: e.message, width: 16, height: 9 });
+            }
         })();
     """.trimIndent()
 

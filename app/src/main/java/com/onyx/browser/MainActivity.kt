@@ -1961,6 +1961,12 @@ class MainActivity : AppCompatActivity() {
                 activeWv.postDelayed({
                     enterPipMode()
                 }, 100)
+            } else if (MediaPlaybackBridge.isVideoAvailable || MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isVideoPresent) {
+                // Resilient Brave-parity fallback: Stream was already confirmed available by MediaPlaybackBridge
+                // (e.g. nested cross-origin iframe). Enter PiP mode directly with known bounds!
+                activeWv.postDelayed({
+                    enterPipMode()
+                }, 50)
             } else {
                 Toast.makeText(this, "No active video found to enter Picture-in-Picture", Toast.LENGTH_SHORT).show()
             }
