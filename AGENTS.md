@@ -255,6 +255,10 @@ onyx-browser/
     - Added a new toggle row (`settingAddToHomeScreenRow` with `settingAddToHomeScreenSwitch`) in `activity_accessibility_settings.xml` directly under the Search widget row.
     - Updated `AccessibilitySettingsActivity.kt` to bind the toggle state to `preferences.isAddToHomeScreenEnabled`.
     - Gated `menuItemAddToHomeScreen` in `MenuBottomSheetDialogFragment.kt` so the "Add to Home screen" option in the webpage 3-dot menu is hidden by default and only visible when enabled in Accessibility settings.
+  - Shield with Centered Lock Vector Redesign:
+    - Redesigned `app/src/main/res/drawable/ic_shield_lock.xml` to match the browser's Lucide outline vector design system (`strokeWidth="2"`, `strokeLineCap="round"`, `strokeLineJoin="round"`).
+    - Replaced the outdated jagged Android 5.0 silhouette with an elegant Lucide crest shield and a geometrically centered, perfectly balanced padlock with rounded corners and arched shackle.
+    - Preserved `#FFFFFFFF` static vector coloring for reliable runtime tinting across Android 8-15.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
