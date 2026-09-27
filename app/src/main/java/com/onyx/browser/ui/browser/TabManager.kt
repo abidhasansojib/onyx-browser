@@ -327,6 +327,9 @@ class TabManager(
 
     fun getWebView(tabId: String): OnyxWebView? = webViewPool[tabId]
 
+    /** Returns all WebViews currently in the pool (live tabs). */
+    fun getAllWebViews(): List<OnyxWebView> = webViewPool.values.toList()
+
     fun getTabById(tabId: String): TabItem? {
         return _normalTabs.value.firstOrNull { it.id == tabId }
             ?: _incognitoTabs.value.firstOrNull { it.id == tabId }

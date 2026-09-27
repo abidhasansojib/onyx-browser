@@ -261,6 +261,15 @@ class OnyxWebView @JvmOverloads constructor(
                     OnyxTouchBridge.TOUCH_LISTENER_JS,
                     setOf("*")
                 )
+                // Always inject the media monitor: powers floating video menu pill, media session,
+                // PiP video bounds, and OnyxMediaBridge events regardless of background-play setting.
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    MediaPlaybackManager.mediaMonitorScript,
+                    setOf("*")
+                )
+                // Only inject the background playback suppression script when the user has enabled it.
+                // This handles: visibility spoofing, pause interception, IntersectionObserver override.
                 if (prefs.isBackgroundPlayEnabled) {
                     androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                         this,

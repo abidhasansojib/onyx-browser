@@ -2271,13 +2271,18 @@ class MainActivity : AppCompatActivity() {
                     val newState = !preferences.isBackgroundPlayEnabled
                     preferences.isBackgroundPlayEnabled = newState
                     floatingVideoMenuManager?.updateHeadphonesState(newState)
-                    val activeWv = tabManager.getActiveWebView()
                     if (newState) {
-                        activeWv?.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.backgroundPlaybackScript, null)
+                        // Inject background suppression script into ALL currently open tabs
+                        tabManager.getAllWebViews().forEach { wv ->
+                            wv.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.backgroundPlaybackScript, null)
+                        }
                         Toast.makeText(this@MainActivity, "Background playback enabled", Toast.LENGTH_SHORT).show()
                     } else {
+                        // Disable background playback on all tabs
+                        tabManager.getAllWebViews().forEach { wv ->
+                            wv.evaluateJavascript("window.__onyx_bg_play_active = false; window.__onyx_in_background = false;", null)
+                        }
                         com.onyx.browser.media.MediaPlaybackService.stop(this@MainActivity)
-                        activeWv?.evaluateJavascript("window.__onyx_in_background = false;", null)
                         Toast.makeText(this@MainActivity, "Background playback disabled", Toast.LENGTH_SHORT).show()
                     }
                 }
