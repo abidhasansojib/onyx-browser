@@ -2136,22 +2136,107 @@ class MainActivity : AppCompatActivity() {
         if (floatingVideoMenuManager == null) {
             floatingVideoMenuManager = com.onyx.browser.media.FloatingVideoMenuManager(this, binding.contentContainer).apply {
                 onDownloadClickListener = {
-                    val videoSrc = com.onyx.browser.media.MediaPlaybackBridge.currentVideoSrc
                     val activeWv = tabManager.getActiveWebView()
                     val userAgent = activeWv?.settings?.userAgentString ?: ""
                     val pageUrl = activeWv?.url ?: ""
+                    val videoSrc = com.onyx.browser.media.MediaPlaybackBridge.currentVideoSrc
+
+                    fun executeDownloadCheck(url: String) {
+                        if (url.isBlank()) {
+                            Toast.makeText(this@MainActivity, "Can't download video: No stream detected", Toast.LENGTH_SHORT).show()
+                            return
+                        }
+                        if (url.startsWith("blob:", ignoreCase = true)) {
+                            com.onyx.browser.web.DownloadHandler.handleBlobUriDownload(
+                                activity = this@MainActivity,
+                                coroutineScope = lifecycleScope,
+                                blobUrl = url,
+                                contentDisposition = "",
+                                mimeType = "video/mp4",
+                                pageUrl = pageUrl
+                            )
+                            return
+                        }
+
+                        val cookies = try {
+                            android.webkit.CookieManager.getInstance().getCookie(url) ?: ""
+                        } catch (_: Exception) { "" }
+
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            var isForbidden = false
+                            var errorMessage: String? = null
+
+                            try {
+                                val urlObj = java.net.URL(url)
+                                val connection = (urlObj.openConnection() as? java.net.HttpURLConnection)?.apply {
+                                    requestMethod = "HEAD"
+                                    connectTimeout = 4000
+                                    readTimeout = 4000
+                                    setRequestProperty("User-Agent", userAgent)
+                                    if (cookies.isNotBlank()) setRequestProperty("Cookie", cookies)
+                                    if (pageUrl.isNotBlank()) setRequestProperty("Referer", pageUrl)
+                                    instanceFollowRedirects = true
+                                }
+                                val responseCode = connection?.responseCode ?: -1
+                                connection?.disconnect()
+
+                                if (responseCode == 403) {
+                                    isForbidden = true
+                                } else if (responseCode == 401) {
+                                    errorMessage = "Access not permitted (HTTP 401 Unauthorized)"
+                                } else if (responseCode in 400..599 && responseCode != 405) {
+                                    try {
+                                        val getConn = (urlObj.openConnection() as? java.net.HttpURLConnection)?.apply {
+                                            requestMethod = "GET"
+                                            setRequestProperty("Range", "bytes=0-1")
+                                            connectTimeout = 4000
+                                            readTimeout = 4000
+                                            setRequestProperty("User-Agent", userAgent)
+                                            if (cookies.isNotBlank()) setRequestProperty("Cookie", cookies)
+                                            if (pageUrl.isNotBlank()) setRequestProperty("Referer", pageUrl)
+                                            instanceFollowRedirects = true
+                                        }
+                                        val getCode = getConn?.responseCode ?: -1
+                                        getConn?.disconnect()
+                                        if (getCode == 403) {
+                                            isForbidden = true
+                                        } else if (getCode == 401) {
+                                            errorMessage = "Access not permitted (HTTP 401 Unauthorized)"
+                                        } else if (getCode in 400..599) {
+                                            errorMessage = "Server returned error (HTTP $getCode)"
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                            } catch (e: Exception) {
+                                val msg = e.message ?: ""
+                                if (msg.contains("403") || msg.contains("Forbidden", ignoreCase = true)) {
+                                    isForbidden = true
+                                }
+                            }
+
+                            withContext(Dispatchers.Main) {
+                                if (isForbidden) {
+                                    Toast.makeText(this@MainActivity, "Can't download video: Access not permitted (403 Forbidden)", Toast.LENGTH_LONG).show()
+                                } else if (errorMessage != null) {
+                                    Toast.makeText(this@MainActivity, "Can't download video: $errorMessage", Toast.LENGTH_LONG).show()
+                                } else {
+                                    val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
+                                        url = url,
+                                        userAgent = userAgent,
+                                        contentDisposition = "",
+                                        mimeType = "video/*",
+                                        contentLength = 0L,
+                                        cookies = cookies,
+                                        referer = pageUrl
+                                    )
+                                    sheet.show(supportFragmentManager, "DownloadPromptSheet")
+                                }
+                            }
+                        }
+                    }
+
                     if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
-                        val cookies = android.webkit.CookieManager.getInstance().getCookie(videoSrc) ?: ""
-                        val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
-                            url = videoSrc,
-                            userAgent = userAgent,
-                            contentDisposition = "",
-                            mimeType = "video/*",
-                            contentLength = 0L,
-                            cookies = cookies,
-                            referer = pageUrl
-                        )
-                        sheet.show(supportFragmentManager, "DownloadPromptSheet")
+                        executeDownloadCheck(videoSrc)
                     } else {
                         activeWv?.evaluateJavascript("""
                             (function() {
@@ -2171,80 +2256,33 @@ class MainActivity : AppCompatActivity() {
                         """.trimIndent()) { result ->
                             val cleanUrl = result?.trim('"', '\'')?.replace("\\", "") ?: ""
                             if (cleanUrl.isNotBlank() && cleanUrl != "null") {
-                                val cookies = android.webkit.CookieManager.getInstance().getCookie(cleanUrl) ?: ""
-                                val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
-                                    url = cleanUrl,
-                                    userAgent = userAgent,
-                                    contentDisposition = "",
-                                    mimeType = "video/*",
-                                    contentLength = 0L,
-                                    cookies = cookies,
-                                    referer = pageUrl
-                                )
-                                sheet.show(supportFragmentManager, "DownloadPromptSheet")
-                            } else if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
-                                val cookies = android.webkit.CookieManager.getInstance().getCookie(videoSrc) ?: ""
-                                val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
-                                    url = videoSrc,
-                                    userAgent = userAgent,
-                                    contentDisposition = "",
-                                    mimeType = "video/*",
-                                    contentLength = 0L,
-                                    cookies = cookies,
-                                    referer = pageUrl
-                                )
-                                sheet.show(supportFragmentManager, "DownloadPromptSheet")
+                                executeDownloadCheck(cleanUrl)
+                            } else if (!videoSrc.isNullOrBlank()) {
+                                executeDownloadCheck(videoSrc)
                             } else {
-                                Toast.makeText(this@MainActivity, "No direct video URL detected", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this@MainActivity, "Can't download video: No direct stream detected", Toast.LENGTH_SHORT).show()
                             }
                         }
+                    }
+                }
+
+                onHeadphonesClickListener = {
+                    val newState = !preferences.isBackgroundPlayEnabled
+                    preferences.isBackgroundPlayEnabled = newState
+                    floatingVideoMenuManager?.updateHeadphonesState(newState)
+                    val activeWv = tabManager.getActiveWebView()
+                    if (newState) {
+                        activeWv?.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.backgroundPlaybackScript, null)
+                        Toast.makeText(this@MainActivity, "Background playback enabled", Toast.LENGTH_SHORT).show()
+                    } else {
+                        com.onyx.browser.media.MediaPlaybackService.stop(this@MainActivity)
+                        activeWv?.evaluateJavascript("window.__onyx_in_background = false;", null)
+                        Toast.makeText(this@MainActivity, "Background playback disabled", Toast.LENGTH_SHORT).show()
                     }
                 }
 
                 onPipClickListener = {
                     requestInPageVideoPip()
-                }
-
-                onInternalPlayerClickListener = {
-                    val activeWv = tabManager.getActiveWebView()
-                    val videoTitle = com.onyx.browser.media.MediaPlaybackBridge.currentTitle
-                    val pageUrl = activeWv?.url
-                    val videoSrc = com.onyx.browser.media.MediaPlaybackBridge.currentVideoSrc
-
-                    fun launchPlayer(src: String) {
-                        activeWv?.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.pauseAllMediaScript, null)
-                        startActivity(com.onyx.browser.ui.player.InternalPlayerActivity.createIntent(this@MainActivity, src, videoTitle, pageUrl))
-                    }
-
-                    if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
-                        launchPlayer(videoSrc)
-                    } else {
-                        activeWv?.evaluateJavascript("""
-                            (function() {
-                                var v = Array.from(document.querySelectorAll('video')).find(function(v) { return !v.paused; }) || document.querySelector('video');
-                                if (v && (v.currentSrc || v.src)) return (v.currentSrc || v.src);
-                                var iframes = Array.from(document.querySelectorAll('iframe'));
-                                for (var i = 0; i < iframes.length; i++) {
-                                    try {
-                                        var iv = iframes[i].contentDocument ? iframes[i].contentDocument.querySelector('video') : null;
-                                        if (iv && (iv.currentSrc || iv.src)) return (iv.currentSrc || iv.src);
-                                    } catch (_) {}
-                                    var isrc = iframes[i].src || '';
-                                    if (isrc.includes('embed') || isrc.includes('player') || isrc.includes('video') || isrc.includes('abyss')) return isrc;
-                                }
-                                return '';
-                            })();
-                        """.trimIndent()) { result ->
-                            val cleanUrl = result?.trim('"', '\'')?.replace("\\", "") ?: ""
-                            if (cleanUrl.isNotBlank() && cleanUrl != "null") {
-                                launchPlayer(cleanUrl)
-                            } else if (!videoSrc.isNullOrBlank()) {
-                                launchPlayer(videoSrc)
-                            } else {
-                                Toast.makeText(this@MainActivity, "Unable to play video in internal player", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
                 }
             }
         }

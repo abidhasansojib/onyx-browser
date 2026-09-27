@@ -268,7 +268,7 @@ class BrowserPreferences private constructor(context: Context) {
         }
 
     var isBackgroundPlayEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BACKGROUND_PLAY, true)
+        get() = prefs.getBoolean(KEY_BACKGROUND_PLAY, false)
         set(value) {
             prefs.edit().putBoolean(KEY_BACKGROUND_PLAY, value).apply()
         }

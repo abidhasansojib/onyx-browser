@@ -39,6 +39,7 @@
             android:paddingEnd="16dp"
             android:paddingBottom="40dp">
 
+            <!-- Category 1: Playback & PiP Controls -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -63,7 +64,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
-                    <!-- Background Play -->
+                    <!-- Background Playback (Headphones Icon) -->
                     <LinearLayout
                         android:id="@+id/settingBackgroundPlayRow"
                         android:layout_width="match_parent"
@@ -82,7 +83,7 @@
                         <androidx.appcompat.widget.AppCompatImageView
                             android:layout_width="24dp"
                             android:layout_height="24dp"
-                            app:srcCompat="@drawable/ic_play_arrow"
+                            app:srcCompat="@drawable/ic_headphones"
                             app:tint="@color/settings_title_text" />
 
                         <LinearLayout
@@ -96,7 +97,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Background play"
+                                android:text="Background playback"
                                 android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
@@ -105,7 +106,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Continue playing audio from web videos when switching apps or locking screen"
+                                android:text="Continue playing audio when app is minimized or screen is locked. Can also be toggled directly via the floating headphone button."
                                 android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
@@ -124,7 +125,7 @@
                         android:layout_marginStart="56dp"
                         android:background="@color/settings_card_stroke" />
 
-                    <!-- Picture-in-picture -->
+                    <!-- Picture-in-picture (PiP) -->
                     <LinearLayout
                         android:id="@+id/settingPipRow"
                         android:layout_width="match_parent"
@@ -166,7 +167,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Automatically pop out video into floating player when leaving full screen or switching apps"
+                                android:text="Open videos in a floating resizable window when switching apps or tapping the in-player / floating PiP button"
                                 android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
@@ -185,7 +186,7 @@
                         android:layout_marginStart="56dp"
                         android:background="@color/settings_card_stroke" />
 
-                    <!-- Floating Video Menu -->
+                    <!-- Floating Video Controls Pill -->
                     <LinearLayout
                         android:id="@+id/settingFloatingMenuRow"
                         android:layout_width="match_parent"
@@ -218,7 +219,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Floating video menu"
+                                android:text="Floating video controls"
                                 android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
@@ -227,7 +228,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Show quick action buttons on screen (Download, PiP, Custom Player) when video is playing"
+                                android:text="Show quick action floating pill (Download, Background Play, PiP) when watching web videos"
                                 android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
@@ -238,6 +239,137 @@
                             android:layout_height="wrap_content"
                             android:clickable="false"
                             android:focusable="false" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Category 2: Video Downloads & Access -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:text="Downloads &amp; Access"
+                android:textColor="@color/settings_subtitle_text"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="@color/settings_card_bg"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/settings_card_stroke"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Video Download Behavior Row -->
+                    <LinearLayout
+                        android:id="@+id/settingVideoDownloadRow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="68dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingTop="12dp"
+                        android:paddingEnd="16dp"
+                        android:paddingBottom="12dp">
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            app:srcCompat="@drawable/ic_download"
+                            app:tint="@color/settings_title_text" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:layout_marginEnd="12dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Video download behavior"
+                                android:textColor="@color/settings_title_text"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvVideoDownloadBehaviorSubtitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Ask before download"
+                                android:textColor="@color/settings_subtitle_text"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:srcCompat="@drawable/ic_arrow_forward"
+                            app:tint="@color/settings_subtitle_text" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="56dp"
+                        android:background="@color/settings_card_stroke" />
+
+                    <!-- Protected Media Notice -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingTop="12dp"
+                        android:paddingEnd="16dp"
+                        android:paddingBottom="12dp">
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            app:srcCompat="@drawable/ic_shield"
+                            app:tint="@color/settings_subtitle_text" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Protected Media &amp; Streams"
+                                android:textColor="@color/settings_title_text"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Streams protected by provider DRM (Widevine) or restricted by HTTP 403 Forbidden cannot be downloaded directly."
+                                android:textColor="@color/settings_subtitle_text"
+                                android:textSize="12sp" />
+                        </LinearLayout>
                     </LinearLayout>
 
                 </LinearLayout>

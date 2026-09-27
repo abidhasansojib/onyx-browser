@@ -4,12 +4,17 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.ImageViewCompat
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ViewFloatingVideoMenuBinding
@@ -18,9 +23,9 @@ import kotlin.math.abs
 /**
  * Manages the floating video action menu overlay that appears when an HTML5 video is actively playing.
  * Provides quick one-tap actions for:
- * 1. Download video
- * 2. Enter Picture-in-Picture (PiP)
- * 3. Open in Onyx Internal Media Player
+ * 1. Download video (btnFloatingDownload)
+ * 2. Toggle Background Playback with active status indicator (btnFloatingHeadphones)
+ * 3. Enter Picture-in-Picture (btnFloatingPip)
  *
  * Supports drag-to-reposition anywhere along the viewport so it never obstructs web content.
  */
@@ -32,8 +37,8 @@ class FloatingVideoMenuManager(
     private var binding: ViewFloatingVideoMenuBinding? = null
 
     var onDownloadClickListener: (() -> Unit)? = null
+    var onHeadphonesClickListener: (() -> Unit)? = null
     var onPipClickListener: (() -> Unit)? = null
-    var onInternalPlayerClickListener: (() -> Unit)? = null
 
     private var isDragging = false
     private var dX = 0f
@@ -69,13 +74,15 @@ class FloatingVideoMenuManager(
             onDownloadClickListener?.invoke()
         }
 
+        menuBinding.btnFloatingHeadphones.setOnClickListener {
+            onHeadphonesClickListener?.invoke()
+        }
+
         menuBinding.btnFloatingPip.setOnClickListener {
             onPipClickListener?.invoke()
         }
 
-        menuBinding.btnFloatingPlayer.setOnClickListener {
-            onInternalPlayerClickListener?.invoke()
-        }
+        updateHeadphonesState(preferences.isBackgroundPlayEnabled)
 
         // Draggable Floating Pill Touch Listener
         menuBinding.root.setOnTouchListener { view, event ->
@@ -116,11 +123,35 @@ class FloatingVideoMenuManager(
     }
 
     /**
+     * Updates the headphone button icon tint and state according to whether
+     * background playback is enabled or disabled.
+     */
+    fun updateHeadphonesState(enabled: Boolean) {
+        val btn = binding?.btnFloatingHeadphones ?: return
+        if (enabled) {
+            val activeColor = ContextCompat.getColor(context, R.color.google_blue)
+            ImageViewCompat.setImageTintList(btn, ColorStateList.valueOf(activeColor))
+            btn.contentDescription = "Background Playback: On"
+        } else {
+            val typedValue = TypedValue()
+            val defaultColor = if (context.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)) {
+                typedValue.data
+            } else {
+                Color.WHITE
+            }
+            ImageViewCompat.setImageTintList(btn, ColorStateList.valueOf(defaultColor))
+            btn.contentDescription = "Background Playback: Off"
+        }
+    }
+
+    /**
      * Updates visibility of the floating menu based on video playback state and user preference.
      */
     fun onVideoPlaybackStateChanged(isVideoPlaying: Boolean, isWebViewVisible: Boolean) {
         val shouldShow = isVideoPlaying && isWebViewVisible && preferences.isFloatingVideoMenuEnabled
         val view = binding?.root ?: return
+
+        updateHeadphonesState(preferences.isBackgroundPlayEnabled)
 
         if (shouldShow) {
             if (!view.isVisible || view.alpha < 1f) {

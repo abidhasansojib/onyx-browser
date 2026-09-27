@@ -35,6 +35,7 @@
     <color name="incognito_purple">#BB86FC</color>
     <color name="red_danger">#EA4335</color>
     <color name="green_success">#34A853</color>
+    <color name="google_blue">#1A73E8</color>
 
     <!-- Search Widget Colors (Light Theme - Chrome / Pixel Stadium Pill) -->
     <color name="widget_background">#FFFFFF</color>

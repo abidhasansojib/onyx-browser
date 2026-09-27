@@ -1764,3 +1764,24 @@ onyx-browser/
          - In Standard mode, suppressed hardcoded hiding of `#onetrust-banner-sdk`, `#CybotCookiebotDialog`, etc. This prevents pages from freezing with unscrollable `overflow: hidden` body styles while waiting for consent, moving CMP hiding strictly to Aggressive mode.
          - Removed invasive `audio { display: block !important; }` which forced invisible audio elements to render empty boxes on pages.
 
+  - [x] **Media Floating Action Pill Redesign, Internal Player Removal, Background Play Defused by Default & Access-Checked Video Downloads**:
+    - **Internal Player Removal**:
+      - Deleted `InternalPlayerActivity.kt` and `activity_internal_player.xml`.
+      - Removed `InternalPlayerActivity` declaration from `AndroidManifest.xml`.
+    - **Floating Video Action Pill Overhaul**:
+      - Redesigned `view_floating_video_menu.xml` to feature 3 buttons in order:
+        1. **Download Video** (`btnFloatingDownload` with `ic_download`): Inspects active `<video>` and iframe stream URLs with access verification.
+        2. **Headphone Background Playback Toggle** (`btnFloatingHeadphones` with `ic_headphones`): One-tap toggle for `preferences.isBackgroundPlayEnabled` with dynamic Google Blue active state tinting and runtime script injection.
+        3. **Picture-in-Picture** (`btnFloatingPip` with `ic_picture_in_picture`): Triggers video-only PiP mode (`requestInPageVideoPip()`).
+    - **Strict Background Play Opt-In (No Background Audio/Video by Default)**:
+      - Changed default `isBackgroundPlayEnabled` in `BrowserPreferences.kt` from `true` to `false`.
+      - Web audio and video strictly pause when the browser is backgrounded or minimized, unless the user explicitly enables background playback via the floating headphone button or Video Settings.
+    - **Access & HTTP 403 Forbidden Download Verification**:
+      - In `MainActivity.kt`, before invoking the download sheet, the video stream URL is verified via asynchronous `HEAD` and partial `GET` (`bytes=0-1`) requests on `Dispatchers.IO` forwarding session `Cookie`, `User-Agent`, and `Referer` headers.
+      - If the server returns HTTP 403 Forbidden, displays toast: `"Can't download video: Access not permitted (403 Forbidden)"`.
+      - If the server returns HTTP 401 Unauthorized or other HTTP error codes, displays an informative error toast.
+    - **Redesigned Video Settings UI & Download Behavior Integration**:
+      - Overhauled `activity_video_settings.xml` and `VideoSettingsActivity.kt`.
+      - Grouped into two Material 3 cards:
+        - **Playback Controls**: Background playback toggle with headphone icon, Picture-in-picture switch, and Floating video controls switch.
+        - **Downloads & Access**: `settingVideoDownloadRow` showing current selection subtitle and opening `DownloadManagerPickerSheet` (Ask before download, Internal downloader, External download manager), alongside a Protected Media notice card explaining DRM (Widevine) and HTTP 403 restrictions.
