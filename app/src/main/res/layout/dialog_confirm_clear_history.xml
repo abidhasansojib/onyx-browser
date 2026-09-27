@@ -8,7 +8,7 @@
     app:cardBackgroundColor="@color/dialog_clear_data_bg"
     app:cardCornerRadius="24dp"
     app:cardElevation="12dp"
-    app:strokeColor="#3C4043"
+    app:strokeColor="?attr/colorOutline"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -44,7 +44,7 @@
             android:layout_marginTop="18dp"
             android:gravity="center"
             android:text="@string/clear_browsing_data"
-            android:textColor="#FFFFFFFF"
+            android:textColor="?android:attr/textColorPrimary"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -57,7 +57,7 @@
             android:gravity="center"
             android:lineSpacingMultiplier="1.2"
             android:text="@string/confirm_clear_history"
-            android:textColor="#9AA0A6"
+            android:textColor="?android:attr/textColorSecondary"
             android:textSize="14sp" />
 
         <!-- Action Buttons: Cancel on Left (#35363A), Clear on Right (#DC4B64) -->
@@ -76,7 +76,7 @@
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
                 android:text="@string/cancel"
-                android:textColor="#E8EAED"
+                android:textColor="?android:attr/textColorPrimary"
                 app:backgroundTint="@color/btn_cancel_bg"
                 app:cornerRadius="24dp" />
 

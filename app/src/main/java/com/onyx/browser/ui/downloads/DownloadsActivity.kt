@@ -10,6 +10,7 @@ import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.text.Editable
 import android.text.TextWatcher
@@ -102,21 +103,7 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun openSystemDownloadsFolder() {
-        try {
-            startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            })
-        } catch (e: Exception) {
-            try {
-                val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                    type = "*/*"
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                }
-                startActivity(Intent.createChooser(intent, "Open Downloads"))
-            } catch (ex: Exception) {
-                Toast.makeText(this, "Could not open downloads: ${ex.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
+        openFileManagerFolder()
     }
 
     private fun setupRecyclerView() {
@@ -294,18 +281,26 @@ class DownloadsActivity : AppCompatActivity() {
         when {
             isApk -> {
                 menuBinding.ivMenuFileIcon.setImageResource(R.drawable.ic_android)
+                menuBinding.ivMenuOpenIcon.setImageResource(R.drawable.ic_android)
+                menuBinding.tvMenuOpenText.text = "Install"
             }
             lowerName.endsWith(".mht") || lowerName.endsWith(".mhtml") ||
             lowerName.endsWith(".html") || lowerName.endsWith(".htm") ||
             item.mimeType.contains("html") || item.mimeType.contains("multipart") -> {
                 menuBinding.ivMenuFileIcon.setImageResource(R.drawable.ic_web)
+                menuBinding.ivMenuOpenIcon.setImageResource(R.drawable.ic_open_in_new)
+                menuBinding.tvMenuOpenText.text = "Open in browser"
             }
             lowerName.endsWith(".md") || lowerName.endsWith(".markdown") ||
             lowerName.endsWith(".txt") -> {
                 menuBinding.ivMenuFileIcon.setImageResource(R.drawable.ic_file)
+                menuBinding.ivMenuOpenIcon.setImageResource(R.drawable.ic_open_in_new)
+                menuBinding.tvMenuOpenText.text = "Open file"
             }
             else -> {
                 menuBinding.ivMenuFileIcon.setImageResource(R.drawable.ic_download)
+                menuBinding.ivMenuOpenIcon.setImageResource(R.drawable.ic_open_in_new)
+                menuBinding.tvMenuOpenText.text = "Open file"
             }
         }
 
@@ -316,25 +311,24 @@ class DownloadsActivity : AppCompatActivity() {
 
         menuBinding.tvMenuSiteUrl.text = item.url.ifBlank { "Original site unknown" }
 
-        menuBinding.menuOpenFile.setOnClickListener {
+        menuBinding.menuOpenOrInstall.setOnClickListener {
             bottomSheet.dismiss()
             if (!FileUtils.doesFileExist(item.filePath, this)) {
                 Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
                 adapter.notifyDataSetChanged()
                 return@setOnClickListener
             }
-            if (isApk) {
-                ApkInstallerHelper.installApk(
-                    activity = this,
-                    filePath = item.filePath,
-                    fileName = item.fileName,
-                    onPermissionNeeded = { pendingPath ->
-                        pendingApkInstallPath = pendingPath
-                    }
-                )
-            } else {
-                openInFileManager(item)
+            openFile(item)
+        }
+
+        menuBinding.menuOpenInFolder.setOnClickListener {
+            bottomSheet.dismiss()
+            if (!FileUtils.doesFileExist(item.filePath, this)) {
+                Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+                adapter.notifyDataSetChanged()
+                return@setOnClickListener
             }
+            openInFileManager(item)
         }
 
         menuBinding.menuShareFile.setOnClickListener {
@@ -376,7 +370,29 @@ class DownloadsActivity : AppCompatActivity() {
             adapter.notifyDataSetChanged()
             return
         }
+        openFileManagerFolder(item.filePath)
+    }
 
+    private fun openFileManagerFolder(targetFilePath: String? = null) {
+        val parentFolder: File? = try {
+            if (!targetFilePath.isNullOrBlank() && !targetFilePath.startsWith("content://", ignoreCase = true)) {
+                val clean = if (targetFilePath.startsWith("file://", ignoreCase = true)) {
+                    Uri.parse(targetFilePath).path ?: targetFilePath.removePrefix("file://")
+                } else {
+                    targetFilePath
+                }
+                File(clean).parentFile?.takeIf { it.exists() }
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+
+        val downloadsDir: File = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val targetDir = parentFolder ?: downloadsDir
+
+        // 1. Try DownloadManager.ACTION_VIEW_DOWNLOADS
         try {
             val downloadsIntent = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -387,25 +403,112 @@ class DownloadsActivity : AppCompatActivity() {
             }
         } catch (_: Exception) {}
 
+        // 2. Try DocumentsUI / SAF with Downloads folder URI
         try {
-            val uri: Uri = if (item.filePath.startsWith("content://")) {
-                Uri.parse(item.filePath)
-            } else {
-                val file = File(item.filePath)
-                if (file.exists()) {
-                    FileProvider.getUriForFile(this, "${applicationContext.packageName}.fileprovider", file)
-                } else {
-                    Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
-                    adapter.notifyDataSetChanged()
-                    return
-                }
-            }
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, item.mimeType.ifBlank { "*/*" })
+            val downloadsDocUri = Uri.parse("content://com.android.externalstorage.documents/document/primary:Download")
+            val docIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(downloadsDocUri, "vnd.android.document/directory")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            startActivity(Intent.createChooser(intent, "Open in file manager"))
+            if (docIntent.resolveActivity(packageManager) != null) {
+                startActivity(docIntent)
+                return
+            }
+        } catch (_: Exception) {}
+
+        // 3. Try DocumentsUI / SAF root URI
+        try {
+            val rootUri = Uri.parse("content://com.android.externalstorage.documents/root/primary")
+            val rootIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(rootUri, "vnd.android.document/root")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            if (rootIntent.resolveActivity(packageManager) != null) {
+                startActivity(rootIntent)
+                return
+            }
+        } catch (_: Exception) {}
+
+        // 4. Try ACTION_VIEW with target directory FileProvider / file Uri and folder mime types
+        try {
+            val folderUri = try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    FileProvider.getUriForFile(this, "${applicationContext.packageName}.fileprovider", targetDir)
+                } else {
+                    Uri.fromFile(targetDir)
+                }
+            } catch (_: Exception) {
+                Uri.fromFile(targetDir)
+            }
+
+            val folderIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(folderUri, "vnd.android.document/directory")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            if (folderIntent.resolveActivity(packageManager) != null) {
+                startActivity(folderIntent)
+                return
+            }
+
+            val resourceFolderIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(folderUri, "resource/folder")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            if (resourceFolderIntent.resolveActivity(packageManager) != null) {
+                startActivity(resourceFolderIntent)
+                return
+            }
+        } catch (_: Exception) {}
+
+        // 5. Try launching known OEM / third-party File Manager packages directly
+        val fileManagerPackages = listOf(
+            "com.google.android.apps.nbu.files",       // Google Files
+            "com.sec.android.app.myfiles",             // Samsung My Files
+            "com.mi.android.globalFileexplorer",       // Xiaomi / Poco / Redmi
+            "com.coloros.filemanager",                 // OPPO / Realme
+            "com.oneplus.filemanager",                 // OnePlus
+            "com.huawei.hidisk",                       // Huawei
+            "com.lenovo.filebrowser",                  // Motorola / Lenovo
+            "pl.solidexplorer2",                       // Solid Explorer
+            "com.mixplorer",                           // MiXplorer
+            "nextapp.fx",                              // FX File Explorer
+            "ru.zdevs.zarchiver",                      // ZArchiver
+            "com.ghisler.android.TotalCommander",      // Total Commander
+            "com.google.android.documentsui",          // Google DocumentsUI
+            "com.android.documentsui"                  // AOSP DocumentsUI
+        )
+
+        for (pkg in fileManagerPackages) {
+            try {
+                val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
+                if (launchIntent != null) {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(launchIntent)
+                    return
+                }
+            } catch (_: Exception) {}
+        }
+
+        // 6. Fallback: Intent.ACTION_GET_CONTENT chooser (opens system document / file picker)
+        try {
+            val pickerIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "*/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(Intent.createChooser(pickerIntent, "Open in file manager"))
+            return
+        } catch (_: Exception) {}
+
+        // 7. Last resort: Open Storage Settings
+        try {
+            startActivity(Intent(android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
         } catch (e: Exception) {
             Toast.makeText(this, "Cannot open file manager: ${e.message}", Toast.LENGTH_SHORT).show()
         }

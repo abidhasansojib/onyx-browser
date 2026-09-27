@@ -63,7 +63,6 @@ class LanguageSelectionDialog(
         TranslateLanguage("ur", "Urdu (اردو)"),
         TranslateLanguage("ms", "Malay (Bahasa Melayu)"),
         TranslateLanguage("fil", "Filipino (Filipino)"),
-        TranslateLanguage("uk", "Ukrainian (Українська)"),
         TranslateLanguage("bg", "Bulgarian (Български)"),
         TranslateLanguage("hr", "Croatian (Hrvatski)"),
         TranslateLanguage("sr", "Serbian (Српски)"),

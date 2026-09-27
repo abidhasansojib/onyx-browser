@@ -276,7 +276,7 @@
                         android:layout_width="16dp"
                         android:layout_height="16dp"
                         app:srcCompat="@drawable/ic_shield_lock"
-                        app:tint="#34A853" />
+                        app:tint="@color/green_success" />
 
                     <TextView
                         android:layout_width="0dp"

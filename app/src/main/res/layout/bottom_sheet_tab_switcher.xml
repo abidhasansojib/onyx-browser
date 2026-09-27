@@ -73,7 +73,7 @@
                         android:layout_height="match_parent"
                         android:gravity="center"
                         android:text="1"
-                        android:textColor="#FFFFFFFF"
+                        android:textColor="@color/tab_text_primary"
                         android:textSize="11sp"
                         android:fontFamily="sans-serif-medium"
                         android:textStyle="bold" />
@@ -97,7 +97,7 @@
                     android:layout_height="20dp"
                     android:layout_gravity="center"
                     app:srcCompat="@drawable/ic_incognito"
-                    app:tint="#9AA0A6"
+                    app:tint="@color/tab_close_icon"
                     android:scaleType="fitCenter" />
             </FrameLayout>
 
@@ -133,7 +133,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tabSwitcherTopBar"
         app:srcCompat="@drawable/ic_incognito"
-        app:tint="#FFFFFFFF" />
+        app:tint="@color/tab_text_primary" />
 
     <!-- ── Empty State: Centered icon, title, and clear privacy description ───── -->
     <LinearLayout
@@ -167,7 +167,7 @@
             android:layout_marginTop="16dp"
             android:gravity="center"
             android:text="No tabs open"
-            android:textColor="#FFFFFFFF"
+            android:textColor="@color/tab_text_primary"
             android:textSize="17sp"
             android:fontFamily="sans-serif-medium"
             android:textStyle="bold" />
@@ -181,7 +181,7 @@
             android:textAlignment="center"
             android:lineSpacingExtra="3dp"
             android:text="Tap + to open a new tab"
-            android:textColor="#9AA0A6"
+            android:textColor="@color/tab_close_icon"
             android:textSize="13sp" />
     </LinearLayout>
 
@@ -255,7 +255,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/ic_add"
-            app:tint="#FFFFFFFF" />
+            app:tint="@color/tab_text_primary" />
 
         <!-- Right: Close All Tabs — Solid squircle button without glassy border -->
         <FrameLayout

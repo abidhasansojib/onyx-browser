@@ -17,6 +17,7 @@
     <string name="incognito">Incognito</string>
     <string name="history">History</string>
     <string name="downloads">Downloads</string>
+    <string name="download">Download</string>
     <string name="bookmarks">Bookmarks</string>
     <string name="share">Share</string>
     <string name="copy">Copy</string>
@@ -177,6 +178,7 @@
     <string name="shortcut_updated">Shortcut updated</string>
     <string name="shortcut_deleted">Shortcut deleted</string>
     <string name="save">Save</string>
+    <string name="save_this_page">Save this page</string>
     <string name="add">Add</string>
     <string name="open_in_new_tab">Open in new tab</string>
     <string name="drag_to_reorder">Drag to reorder</string>
@@ -442,6 +444,8 @@
     <string name="delete">Delete</string>
     <string name="update">Update</string>
     <string name="paste_clipboard">Paste</string>
+    <string name="link_you_copied">Link you copied</string>
+    <string name="text_you_copied">Text you copied</string>
 
     <!-- Content Filters & Custom Filters -->
     <string name="action_add_filter_via_url">+ Add filter via URL</string>
@@ -467,6 +471,13 @@
     <string name="delete_custom_filter_title">Delete Custom Filter</string>
     <string name="delete_custom_filter_confirm">Are you sure you want to delete \'%1$s\'?</string>
     <string name="filter_badge_custom">CUSTOM</string>
+
+    <!-- Incognito Tabs Notification -->
+    <string name="incognito_tabs_notification_title">Incognito tabs</string>
+    <string name="close_all_incognito_tabs">Close all incognito tabs</string>
+    <string name="incognito_tabs_open_single">1 incognito tab open</string>
+    <string name="incognito_tabs_open_multi">%1$d incognito tabs open</string>
+    <string name="all_incognito_tabs_closed">All incognito tabs closed</string>
 </resources>
 
 

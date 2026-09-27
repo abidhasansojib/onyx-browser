@@ -20,9 +20,9 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:navigationIcon="@drawable/ic_chevron_down"
-            app:navigationIconTint="#FFFFFFFF"
+            app:navigationIconTint="@color/settings_title_text"
             app:title="@string/settings"
-            app:titleTextColor="#FFFFFFFF" />
+            app:titleTextColor="@color/settings_title_text" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
@@ -47,7 +47,7 @@
                 android:layout_marginStart="4dp"
                 android:layout_marginBottom="8dp"
                 android:text="General"
-                android:textColor="#9AA0A6"
+                android:textColor="@color/settings_subtitle_text"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -95,7 +95,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Search engine"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
 
@@ -104,7 +104,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp"
                                 tools:text="Google" />
                         </LinearLayout>
@@ -152,7 +152,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Appearance"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
 
@@ -161,7 +161,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp"
                                 tools:text="Google Dark Mode" />
                         </LinearLayout>
@@ -209,7 +209,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Auto fill &amp; passwords"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
 
@@ -218,7 +218,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="Google Password Manager &amp; autofill services"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
 
@@ -265,7 +265,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Video Options"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
 
@@ -274,7 +274,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="Background play, Picture-in-picture"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
 
@@ -321,7 +321,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Download settings"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
 
@@ -330,7 +330,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="Download manager, Wi-Fi downloads"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
 
@@ -377,7 +377,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Accessibility"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
 
@@ -386,7 +386,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="Search widget, scroll to top, biometric protection"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
 
@@ -408,7 +408,7 @@
                 android:layout_marginTop="22dp"
                 android:layout_marginBottom="8dp"
                 android:text="Privacy &amp; Security"
-                android:textColor="#9AA0A6"
+                android:textColor="@color/settings_subtitle_text"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -456,7 +456,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Privacy &amp; shields"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
 
@@ -465,7 +465,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="Ad blocking, tracker shields, fingerprint protection"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
 
@@ -512,7 +512,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="User agent spoofer"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
 
@@ -521,7 +521,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp"
                                 tools:text="Default (Android Mobile)" />
                         </LinearLayout>
@@ -569,7 +569,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Manage personal data"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
 
@@ -578,7 +578,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="Clear history, cache, cookies, and open tabs"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
 
@@ -600,7 +600,7 @@
                 android:layout_marginTop="22dp"
                 android:layout_marginBottom="8dp"
                 android:text="About"
-                android:textColor="#9AA0A6"
+                android:textColor="@color/settings_subtitle_text"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -648,7 +648,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="About Onyx"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="15sp"
                                 android:textStyle="bold" />
 
@@ -657,7 +657,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="Version, update checker, licenses"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
 

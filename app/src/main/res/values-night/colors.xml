@@ -37,7 +37,8 @@
 
     <!-- Dialog Prompts & Action Button Colors -->
     <color name="dialog_clear_data_bg">#282A2D</color>
-    <color name="dialog_close_all_tabs_bg">#000000</color>
+    <color name="dialog_close_all_tabs_bg">#282A2D</color>
+    <color name="dialog_search_engine_bg">#282A2D</color>
     <color name="btn_cancel_bg">#35363A</color>
     <color name="btn_clear_bg">#DC4B64</color>
 
@@ -45,5 +46,8 @@
     <color name="settings_canvas_bg">#0B0305</color>
     <color name="settings_card_bg">#202020</color>
     <color name="settings_card_stroke">#2C2C2C</color>
+    <!-- Settings text colors — dark mode -->
+    <color name="settings_title_text">#FFFFFFFF</color>
+    <color name="settings_subtitle_text">#9AA0A6</color>
 </resources>
 

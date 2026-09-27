@@ -30,14 +30,69 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         @Volatile var currentTitle: String = "Web Media"
         @Volatile var currentArtist: String = "Onyx Browser"
         @Volatile var currentArtworkUrl: String? = null
+        @Volatile var currentVideoSrc: String? = null
+
+        @Volatile var isAppInBackground: Boolean = false
+        @Volatile var isExplicitUserPause: Boolean = false
+
+        fun isScreenOffOrLocked(ctx: Context): Boolean {
+            val pm = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+            val km = ctx.getSystemService(Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager
+            val isScreenOff = pm?.isInteractive == false
+            val isLocked = km?.isKeyguardLocked == true
+            return isScreenOff || isLocked
+        }
 
         @Volatile var lastVideoBounds: android.graphics.RectF? = null
+
+        @Volatile var currentPlayingTabId: String? = null
+        @Volatile var currentPlayingWebView: java.lang.ref.WeakReference<android.webkit.WebView>? = null
 
         var onMediaStateListener: ((isPlaying: Boolean, isVideo: Boolean, width: Int, height: Int) -> Unit)? = null
         var onMediaPlaybackStartedListener: ((playingWebView: android.webkit.WebView) -> Unit)? = null
         var onVideoBoundsListener: ((left: Float, top: Float, right: Float, bottom: Float) -> Unit)? = null
+        var onVideoSourceListener: ((src: String) -> Unit)? = null
         var onPipRequestedListener: (() -> Unit)? = null
         var onPipExitListener: (() -> Unit)? = null
+
+        fun onTabClosed(tabId: String, context: Context) {
+            val playingId = currentPlayingTabId
+            val playingWv = currentPlayingWebView?.get()
+            val playingWvTabId = (playingWv as? com.onyx.browser.web.OnyxWebView)?.tabId
+
+            if (playingId == tabId || playingWvTabId == tabId || (!isAudioOrVideoPlaying && !isVideoPlaying && playingId == null)) {
+                resetMediaPlayback(context)
+            }
+        }
+
+        fun resetMediaPlayback(context: Context) {
+            isVideoPlaying = false
+            isAudioOrVideoPlaying = false
+            currentPlayingTabId = null
+            currentPlayingWebView = null
+            currentVideoSrc = null
+            lastVideoBounds = null
+            currentPositionMs = 0L
+            currentDurationMs = 0L
+            currentTitle = "Web Media"
+            currentArtist = "Onyx Browser"
+            currentArtworkUrl = null
+
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
+                MediaPlaybackService.stop(context)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun onVideoSourceDetected(src: String?) {
+        if (!src.isNullOrBlank()) {
+            currentVideoSrc = src
+            mainHandler.post {
+                onVideoSourceListener?.invoke(src)
+            }
+        }
     }
 
     @JavascriptInterface
@@ -91,6 +146,16 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         currentArtist = cleanArtist
         currentArtworkUrl = artworkUrl?.takeIf { it.isNotBlank() }
 
+        if (isPlaying) {
+            val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+            if (myTabId != null) {
+                currentPlayingTabId = myTabId
+            }
+            if (webView != null) {
+                currentPlayingWebView = java.lang.ref.WeakReference(webView)
+            }
+        }
+
         mainHandler.post {
             onMediaStateListener?.invoke(isPlaying, isVideo, lastVideoWidth, lastVideoHeight)
             if (isPlaying && webView != null) {
@@ -134,6 +199,14 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         currentTitle = cleanTitle
         currentArtist = cleanArtist
 
+        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        if (myTabId != null) {
+            currentPlayingTabId = myTabId
+        }
+        if (webView != null) {
+            currentPlayingWebView = java.lang.ref.WeakReference(webView)
+        }
+
         mainHandler.post {
             onMediaStateListener?.invoke(true, isVideo, lastVideoWidth, lastVideoHeight)
             if (webView != null) {
@@ -155,6 +228,20 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaPaused() {
+        val shouldSuppress = preferences.isBackgroundPlayEnabled &&
+                (isAppInBackground || isScreenOffOrLocked(context)) &&
+                !isExplicitUserPause
+
+        if (shouldSuppress) {
+            // Brave pattern: Transient pause caused by screen lock or background transition.
+            // Suppress the pause, preserve playing state so audio keeps decoding in background!
+            mainHandler.post {
+                val wv = currentPlayingWebView?.get() ?: webView
+                wv?.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.playAllMediaScript, null)
+            }
+            return
+        }
+
         isAudioOrVideoPlaying = false
         isVideoPlaying = false
 
@@ -170,11 +257,13 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     fun onMediaEnded() {
         isAudioOrVideoPlaying = false
         isVideoPlaying = false
+        currentPlayingTabId = null
+        currentPlayingWebView = null
 
         mainHandler.post {
             onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
             if (preferences.isBackgroundPlayEnabled) {
-                MediaPlaybackService.updateState(context, false, currentPositionMs, currentDurationMs)
+                MediaPlaybackService.stop(context)
             }
         }
     }

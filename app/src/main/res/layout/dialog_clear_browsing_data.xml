@@ -8,7 +8,7 @@
     app:cardBackgroundColor="@color/dialog_clear_data_bg"
     app:cardCornerRadius="24dp"
     app:cardElevation="12dp"
-    app:strokeColor="#3C4043"
+    app:strokeColor="?attr/colorOutline"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -25,7 +25,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/delete_browsing_data"
-            android:textColor="#FFFFFFFF"
+            android:textColor="?android:attr/textColorPrimary"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -35,7 +35,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="Time range"
-            android:textColor="#9AA0A6"
+            android:textColor="?android:attr/textColorSecondary"
             android:textSize="12sp"
             android:textStyle="bold" />
 
@@ -46,13 +46,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            app:boxBackgroundColor="#202124"
+            app:boxBackgroundColor="?attr/colorSurfaceVariant"
             app:boxCornerRadiusBottomEnd="16dp"
             app:boxCornerRadiusBottomStart="16dp"
             app:boxCornerRadiusTopEnd="16dp"
             app:boxCornerRadiusTopStart="16dp"
-            app:boxStrokeColor="#3C4043"
-            app:endIconTint="#9AA0A6"
+            app:boxStrokeColor="?attr/colorOutline"
+            app:endIconTint="?attr/colorControlNormal"
             app:hintEnabled="false">
 
             <AutoCompleteTextView
@@ -65,7 +65,7 @@
                 android:paddingEnd="16dp"
                 android:paddingBottom="12dp"
                 android:popupBackground="@drawable/bg_dropdown_popup"
-                android:textColor="#FFFFFFFF"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="14sp"
                 tools:text="Last 24 hours" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -75,10 +75,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            app:cardBackgroundColor="#202124"
+            app:cardBackgroundColor="?attr/colorSurfaceVariant"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
-            app:strokeColor="#35363A"
+            app:strokeColor="?attr/colorOutline"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -100,7 +100,7 @@
                         android:layout_marginEnd="12dp"
                         android:contentDescription="History"
                         app:srcCompat="@drawable/ic_history"
-                        app:tint="#9AA0A6" />
+                        app:tint="?attr/colorControlNormal" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -112,7 +112,7 @@
                             android:id="@+id/tvHistoryCount"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="#FFFFFFFF"
+                            android:textColor="?android:attr/textColorPrimary"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             tools:text="Browsing history: 12 sites" />
@@ -124,7 +124,7 @@
                             android:layout_marginTop="2dp"
                             android:ellipsize="end"
                             android:maxLines="2"
-                            android:textColor="#9AA0A6"
+                            android:textColor="?android:attr/textColorSecondary"
                             android:textSize="12sp"
                             tools:text="e.g. google.com, wikipedia.org, github.com" />
                     </LinearLayout>
@@ -135,8 +135,8 @@
                     android:layout_height="1dp"
                     android:layout_marginTop="10dp"
                     android:layout_marginBottom="10dp"
-                    android:alpha="0.2"
-                    android:background="#3C4043" />
+                    android:alpha="0.3"
+                    android:background="?attr/colorOutline" />
 
                 <!-- Item 2: Related Open Tabs Preview -->
                 <LinearLayout
@@ -151,7 +151,7 @@
                         android:layout_marginEnd="12dp"
                         android:contentDescription="Tabs"
                         app:srcCompat="@drawable/ic_tabs"
-                        app:tint="#9AA0A6" />
+                        app:tint="?attr/colorControlNormal" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -163,7 +163,7 @@
                             android:id="@+id/tvTabsCount"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="#FFFFFFFF"
+                            android:textColor="?android:attr/textColorPrimary"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             tools:text="Open tabs: 3 tabs" />
@@ -175,7 +175,7 @@
                             android:layout_marginTop="2dp"
                             android:ellipsize="end"
                             android:maxLines="2"
-                            android:textColor="#9AA0A6"
+                            android:textColor="?android:attr/textColorSecondary"
                             android:textSize="12sp"
                             tools:text="e.g. Kotlin Reference, Wikipedia" />
                     </LinearLayout>
@@ -186,8 +186,8 @@
                     android:layout_height="1dp"
                     android:layout_marginTop="10dp"
                     android:layout_marginBottom="10dp"
-                    android:alpha="0.2"
-                    android:background="#3C4043" />
+                    android:alpha="0.3"
+                    android:background="?attr/colorOutline" />
 
                 <!-- Item 3: Cookies & Cache Warning -->
                 <LinearLayout
@@ -202,14 +202,14 @@
                         android:layout_marginEnd="12dp"
                         android:contentDescription="Warning"
                         app:srcCompat="@drawable/ic_shield"
-                        app:tint="#9AA0A6" />
+                        app:tint="?attr/colorControlNormal" />
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/cookies_cache_warning"
-                        android:textColor="#9AA0A6"
+                        android:textColor="?android:attr/textColorSecondary"
                         android:textSize="12sp" />
                 </LinearLayout>
 
@@ -232,7 +232,7 @@
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
                 android:text="@string/cancel"
-                android:textColor="#E8EAED"
+                android:textColor="?android:attr/textColorPrimary"
                 app:backgroundTint="@color/btn_cancel_bg"
                 app:cornerRadius="24dp" />
 
@@ -244,7 +244,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
                 android:text="@string/clear_data"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/on_primary"
                 app:backgroundTint="@color/btn_clear_bg"
                 app:cornerRadius="24dp" />
 

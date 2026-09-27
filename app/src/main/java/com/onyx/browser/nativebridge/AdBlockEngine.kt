@@ -5,6 +5,7 @@ import android.util.Log
 import com.onyx.browser.data.preferences.BrowserPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -15,6 +16,7 @@ object AdBlockEngine {
     private const val TAG = "AdBlockEngine"
     private const val BINARY_CACHE_FILE = "onyx_filters.bin"
     private const val DEFAULT_ASSET_RULES = "easylist_rules.txt"
+    private const val BRAVE_RESOURCES_ASSET = "brave-resources.json"
 
     private var isNativeLoaded = false
 
@@ -31,6 +33,7 @@ object AdBlockEngine {
 
     external fun initEngine(data: ByteArray): Boolean
     external fun initFromRules(rules: String): ByteArray?
+    external fun loadResources(resourcesJson: String): Boolean
     external fun checkUrl(url: String, sourceUrl: String, resourceType: String): Boolean
     external fun getCosmeticResources(url: String): String?
     external fun serializeEngine(): ByteArray?
@@ -49,6 +52,8 @@ object AdBlockEngine {
                 val success = initEngine(bytes)
                 if (success) {
                     Log.i(TAG, "AdBlockEngine initialized from serialized binary cache (${bytes.size} bytes)")
+                    // Always reload scriptlet resources on top of cached engine
+                    loadBraveResources(context)
                     return@withContext
                 }
             }
@@ -62,8 +67,30 @@ object AdBlockEngine {
                 FileOutputStream(cacheFile).use { it.write(compiledBytes) }
                 Log.i(TAG, "Compiled and cached filter database (${compiledBytes.size} bytes)")
             }
+
+            // Load scriptlet resources (brave-resources.json) so +js() rules resolve to real JS
+            loadBraveResources(context)
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing AdBlockEngine", e)
+        }
+    }
+
+    /**
+     * Loads brave-resources.json into the engine so that +js() scriptlet rules are resolved
+     * into actual JS code returned by getCosmeticResources().
+     * Without this, injected_script will always be empty and scriptlet-based ad blocking won't work.
+     */
+    private fun loadBraveResources(context: Context) {
+        try {
+            val json = context.assets.open(BRAVE_RESOURCES_ASSET).bufferedReader().use { it.readText() }
+            val success = loadResources(json)
+            if (success) {
+                Log.i(TAG, "Scriptlet resources (brave-resources.json) loaded successfully")
+            } else {
+                Log.w(TAG, "Failed to load scriptlet resources from brave-resources.json")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading brave-resources.json", e)
         }
     }
 
@@ -86,6 +113,8 @@ object AdBlockEngine {
                     FileOutputStream(cacheFile).use { it.write(compiledBytes) }
                     BrowserPreferences.getInstance(context).filterLastUpdatedTime = System.currentTimeMillis()
                     Log.i(TAG, "Successfully updated and serialized filter lists (${compiledBytes.size} bytes)")
+                    // Reload scriptlet resources after filter update
+                    loadBraveResources(context)
                     true
                 } else {
                     false
@@ -110,13 +139,54 @@ object AdBlockEngine {
         }
     }
 
+    /**
+     * Returns cosmetic CSS (hide_selectors formatted as display:none rules) for injection.
+     * Returns empty string if none.
+     */
     fun getCosmeticCss(url: String): String {
         if (!isNativeLoaded) return ""
         return try {
-            getCosmeticResources(url) ?: ""
+            val json = getCosmeticResources(url) ?: return ""
+            if (json.isEmpty()) return ""
+            val obj = JSONObject(json)
+            obj.optString("css", "")
         } catch (t: Throwable) {
-            Log.e(TAG, "Error in getCosmeticResources", t)
+            Log.e(TAG, "Error parsing cosmetic CSS from getCosmeticResources", t)
             ""
+        }
+    }
+
+    /**
+     * Returns scriptlet JS code resolved from +js() cosmetic filter rules for the given URL.
+     * This must be injected at document_start before any page scripts run.
+     * Returns empty string if no scriptlets apply to this URL.
+     */
+    fun getScriptletJs(url: String): String {
+        if (!isNativeLoaded) return ""
+        return try {
+            val json = getCosmeticResources(url) ?: return ""
+            if (json.isEmpty()) return ""
+            val obj = JSONObject(json)
+            obj.optString("script", "")
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error parsing scriptlet JS from getCosmeticResources", t)
+            ""
+        }
+    }
+
+    /**
+     * Returns true if generic cosmetic filtering should be suppressed for this URL.
+     * Corresponds to the $generichide network filter option.
+     */
+    fun isGenericHide(url: String): Boolean {
+        if (!isNativeLoaded) return false
+        return try {
+            val json = getCosmeticResources(url) ?: return false
+            if (json.isEmpty()) return false
+            val obj = JSONObject(json)
+            obj.optBoolean("generichide", false)
+        } catch (t: Throwable) {
+            false
         }
     }
 }

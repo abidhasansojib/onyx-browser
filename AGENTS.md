@@ -1492,5 +1492,179 @@ onyx-browser/
     - Expanded `SyntheticNavigationState.Generic` constructor with `category`, `isDanger`, `primaryButtonText`, `primaryButtonAction`, `secondaryButtonText`, `secondaryButtonAction`, and `canCheckWayback` support.
     - Added native bridge action dispatchers in `error_page.html`: `reload_https` (instant HTTPS protocol upgrade reload), `network_settings` (native Android wireless/network settings), and `settings` (browser settings).
 
+- [x] **Comprehensive UI Bug Audit & Theme Fix Pass (`dev` branch)**:
+  - Fixed 24 UI bugs across 4 phases on `dev` branch.
+  - Made all dialogs (`ClearBrowsingDataDialog`, `ClearHistoryDialog`, `CloseAllTabsDialog`, `EditShortcutDialog`) theme-aware across Light and Dark themes.
+  - Standardized settings text colors with `@color/settings_title_text` and `@color/settings_subtitle_text`.
+  - Fixed tab switcher popup menu and tab pill/count box drawable background and stroke colors.
+  - Resolved AAPT2 resource linking failure on `dev` branch by removing unsupported `app:surfaceTintColor` and duplicate night color definitions.
+
+- [x] **Video & Adblock Overhaul Subsystem (`dev` branch)**:
+  - **Synchronous Shield & Whitelist Engine (`OnyxShieldBridge.kt`, `AdBlockDocumentStart.kt`)**:
+    - Created synchronous `@JavascriptInterface` `OnyxShieldBridge` queried at document-start by JavaScript before HTML parsing.
+    - Fixed "Disable adblocker for this site" so that whitelisted domains bypass all adblock scripts, monkeypatching of `fetch`/`XMLHttpRequest`, and anti-adblock detection probes.
+    - Actively purges any previously injected cosmetic stylesheets (`onyx-universal-cosmetic`, `onyx-adblock-cosmetic`) when loading or toggling whitelisted sites.
+  - **Interstitial & Full-Screen Overlay Ad Blocker (`AdBlockDocumentStart.kt`)**:
+    - Built multi-layer interstitial ad suppression engine with extensive selector targeting (`[id*="interstitial"]`, `[class*="modal-ad"]`, `.prestitial-ad`, `[id*="adgate"]`, `tp-modal`, countdown overlays, and adblock walls).
+    - Added heuristic overlay detector evaluating z-index >= 999, fixed/absolute position, >50% screen coverage, and automatic scroll-unlocking (`overflow: visible`).
+    - Integrated `MutationObserver` on `document.documentElement` to instantly catch and purge dynamically inserted interstitial ads.
+  - **Smart Video Qualification & Demo Filtering (`MediaPlaybackManager.kt`)**:
+    - Engineered `isQualifyingMedia(elem)` to detect and filter out muted, looping, or autoplaying UI demo/hero videos (such as GitHub.com hero video and marketing animations).
+    - Added user interaction tracking (`click`, `touchstart`, and `volumechange`) on HTML5 media elements so background playback only engages for genuine user-intended media.
+  - **Universal Seek & Slider Controls for All Websites (`MediaPlaybackManager.kt`, `MediaPlaybackService.kt`, `MainActivity.kt`)**:
+    - Implemented deep recursive DOM search traversing Shadow DOM roots and accessible same-origin iframes.
+    - Fixed seek when paused so users can scrub the seekbar or skip 10s forward/backward even while media is paused.
+    - Dispatched `seeking`, `timeupdate`, and `seeked` DOM events to synchronize custom web player sliders (Plyr, Video.js, Twitch, Dailymotion).
+    - Wired `onSkipNextMedia` and `onSkipPreviousMedia` with automatic website button discovery (`.ytp-next-button`, `.next-track`, etc.).
+  - **Floating Video Action Menu (`FloatingVideoMenuManager.kt`, `view_floating_video_menu.xml`)**:
+    - Added on-screen draggable pill overlay showing 3 quick action buttons: Download (`ic_download`), PiP (`ic_picture_in_picture`), and Internal Player (`ic_player_box`).
+    - Automatically shows only when video is actively playing on web pages, with smooth fade/scale animations.
+    - Added toggle switch in Settings > Video options (`isFloatingVideoMenuEnabled`, `settingFloatingMenuSwitch`).
+  - **Dedicated Internal Media Player (`InternalPlayerActivity.kt`, `activity_internal_player.xml`)**:
+    - Immersive full-screen player with black background, auto-hiding controls, scrubbable seekbar, aspect ratio toggle, 10s seek buttons, and direct video download action.
+  - **Close All Tabs Prompt Color Fix (`values-night/colors.xml`)**:
+  - **Tab Switcher 3-Dot Overflow Menu Width Reduction (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
+    - Reduced menu width to 2/3 of current width (from ~225dp to 148dp) to eliminate empty horizontal whitespace.
+    - Optimized item padding to 10dp, icon size to 16dp, text size to 12sp with singleLine and ellipsis protection.
+  - **Search Engine Switcher Prompt Color Fix (`values/colors.xml`, `values-night/colors.xml`, `popup_search_engine_picker.xml`, `dialog_search_engine_picker.xml`, `bottom_sheet_search_engine_picker.xml`, `SearchEnginePopupMenu.kt`)**:
+    - Changed search engine switcher popup and dialog background color to `#282A2D` (via semantic `@color/dialog_search_engine_bg`).
+    - Resolved Material 3 surface tint bug where `cardElevation > 0` on `MaterialCardView` overlaid coral pink `@color/primary` onto dark surfaces resulting in `#392328`.
+    - Set `cardElevation = 0dp` on all search engine pickers so `#282A2D` renders purely without color tinting, with shadow depth provided directly by the window level.
+  - **Downloads 3-Dot Menu "Open in File Manager" APK Install Bug Fix (`DownloadsActivity.kt`, `bottom_sheet_download_item_menu.xml`, `AndroidManifest.xml`)**:
+    - Fixed critical bug where tapping "Open in file manager" from a downloaded APK's 3-dot menu triggered `ApkInstallerHelper.installApk()` and package installer `ACTION_VIEW` intent rather than opening the file manager.
+    - Decoupled open/install from folder navigation in `bottom_sheet_download_item_menu.xml` with dedicated `menuOpenOrInstall` ("Install" with `@drawable/ic_android` for APKs, "Open file" for other media) and `menuOpenInFolder` ("Open in file manager" with `@drawable/ic_folder`).
+    - Implemented robust multi-tier `openFileManagerFolder()` in `DownloadsActivity.kt` targeting the containing folder: `DownloadManager.ACTION_VIEW_DOWNLOADS`, DocumentsUI Downloads SAF URI (`vnd.android.document/directory`), parent folder directory view, direct OEM/third-party file manager app packages, and system document picker fallback.
+    - Added file manager directory MIME types and 14 major file manager package queries to `AndroidManifest.xml` under `<queries>` to ensure full Android 11+ package visibility.
+  - **Page Translation In-Place Restore & Multi-Language Switching Overhaul (`PageTranslateManager.kt`, `MainActivity.kt`, `LanguageSelectionDialog.kt`)**:
+    - **In-Place "Original" Restoration (Eliminated Unwanted Page Reload)**:
+      - Overhauled `restoreOriginalScript` to target Google Translate's native iframe restoration controls (`#goog-gt-tt button`, `[id*="restore"]`, `.goog-close-link`, `.goog-te-button`) and reset `.goog-te-combo` to index 0, triggering `change` and `input` events.
+      - Removed translation classes (`translated-ltr`, `translated-rtl`) from `document.documentElement` and `document.body` in-place.
+      - Eliminated the unconditional 1-second `window.location.reload()`, preserving all active webpage state, form inputs, scroll position, and tab memory.
+    - **Hierarchical `googtrans` Cookie Purging (Resolved Sticky/Defaulting to Bangla `bn`)**:
+      - Purged `googtrans` cookies across all domain levels (`.domain.com`, `sub.domain.com`, root domain, empty domain) and paths in both JavaScript `document.cookie` and Kotlin `CookieManager`.
+      - Purges old cookies before applying any target language, preventing old persistent cookies (e.g. `/auto/bn`) from overriding new user language selections.
+    - **Dynamic Language Switching & Self-Healing Re-injection**:
+      - Upgraded `getSwitchLanguageScript` with smart option matching (`applyComboTarget`) handling regional codes (`zh-CN`, `zh-TW`, `pt-BR`, `tl`/`fil`, `iw`/`he`).
+      - Returns `'reinitialize'` if the translation element is detached; `MainActivity.setupTranslateBar` automatically cascades into `getTranslateScript(targetCode)` for seamless re-injection without user interruption.
+      - Fixed duplicate Ukrainian entry in `LanguageSelectionDialog.kt`.
+  - **Facebook Login, CAPTCHA Verification & Social Media Shield Protection (`AdBlockDocumentStart.kt`, `OnyxWebViewClient.kt`, `AdBlockDomainManager.kt`, `BrowserPreferences.kt`, `OnyxShieldBridge.kt`)**:
+    - **Resolved CAPTCHA Disappearing / Hiding ("Hide the Captcha Box")**:
+      - Root cause: Heuristic interstitial overlay remover in `AdBlockDocumentStart.kt` evaluated all fixed/absolute containers with `z-index >= 999` and screen coverage >= 50% and invoked `el.remove()`. MutationObserver detected dynamic CAPTCHAs (Arkose Labs/FunCaptcha, reCAPTCHA, Cloudflare Turnstile, hCaptcha, Facebook checkpoints) and immediately purged the dialog from the DOM.
+      - Added `isSecurityOrAuthElement(el)` protecting any element containing forms, input fields, buttons, interactive controls, CAPTCHA iframes, or auth/security attributes from being removed.
+      - Completely disabled interstitial overlay remover on Meta/Facebook domains (`facebook.com`, `m.facebook.com`, `fb.com`, `messenger.com`, `instagram.com`) since Meta services do not serve third-party interstitial ads and all overlays are native checkpoints, 2FA, or lightboxes.
+    - **Resolved "Confirmation Failed" Error on CAPTCHA Submission**:
+      - Root cause: `static.xx.fbcdn.net` was erroneously included in `stdTrackerPattern` and `socialMediaTrackerDomains`, causing client-side verification scripts and assets to be rejected with `TypeError(ERR_BLOCKED_BY_CLIENT)` during fetch/XHR, and `connect.facebook.net` was blocked by `AdBlockDomainManager.standardDomains` even when Facebook logins were allowed.
+      - Removed `static.xx.fbcdn.net` from tracking patterns (it is Facebook's static CDN, not a tracking pixel).
+      - Added universal bypass for CAPTCHA challenge endpoints (`recaptcha`, `hcaptcha`, `arkoselabs`, `turnstile`, `geetest`, `/checkpoint/`, `/challenge/`) in both Kotlin and JavaScript network interceptors.
+      - Ensured first-party Meta assets on Meta domains and allowed Facebook content (`connect.facebook.net`, `static.xx.fbcdn.net`, `graph.facebook.com`) bypass ad and tracker blocking when `allowFacebookLogins` is enabled.
+    - **Aligned Default Social Media Settings with Brave**:
+      - Enabled `isSocialMediaBlockingEnabled` by default (`true`), blocking third-party tracking pixels (`pixel.facebook.com`, `an.facebook.com`, `analytics.twitter.com`, `snap.licdn.com`, `analytics.tiktok.com`) across the web.
+      - Defaulted `allowFacebookLogins = true`, `allowTwitterEmbeds = true`, and `allowLinkedInEmbeds = true` out-of-the-box so logins and embeds function reliably while protecting privacy.
+      - Exposed `isFacebookLoginAllowed()` and `isSocialMediaBlockingEnabled()` to `OnyxShieldBridge` for synchronous document-start awareness.
+  - **Background Play Notification Dismissal on Tab Closure (`MediaPlaybackBridge.kt`, `MediaPlaybackService.kt`, `TabManager.kt`, `OnyxWebView.kt`, `MainActivity.kt`, `OnyxWebViewClient.kt`)**:
+    - **Tab-Aware Playback Tracking**: Added `currentPlayingTabId` and `currentPlayingWebView` to `MediaPlaybackBridge` so background media sessions are bound to the specific originating tab.
+    - **Automatic Closure & Cleanup**: Linked `TabManager.closeTab()`, `closeAllTabs()`, `closeTabsCreatedSince()`, and `clearAllWebViews()` to `MediaPlaybackBridge.onTabClosed()`, automatically halting `MediaPlaybackService` and removing the media notification the instant the playing tab is closed.
+    - **WebView Safe Tear-Down**: Updated `OnyxWebView.destroySafely()` to pause media elements and reset playback if the destroyed view was playing media.
+    - **Foreground Service Clean Stop**: Hardened `MediaPlaybackService.stop()` and `onDestroy()` to cancel `NOTIFICATION_ID` via `NotificationManager`, release wakelocks, and call `stopForeground(STOP_FOREGROUND_REMOVE)` so no orphaned notifications remain in Android SystemUI.
+    - **Targeted Notification Actions**: Updated `MainActivity.mediaActionListener` to execute Play/Pause/Seek on the actual playing tab rather than the foreground tab, and call `resetMediaPlayback` when media is stopped.
+  - **Tab Switcher 3-Dot Overflow Menu Width Adjustment (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
+    - Expanded menu width from 148dp to 180dp to give comfortable breathing room for option labels ("New tab", "New incognito tab", "Close all tabs", "Delete browsing data") without any cramped text or ellipsis truncation.
+    - Adjusted item heights to 40dp, icon sizes to 18dp with 8dp end margins, and typography to 13sp with 12dp horizontal padding for optimal touch targets and clean visual balance.
+  - **Ongoing Incognito Tabs Notification & 1-Tap Close Action (`IncognitoNotificationHelper.kt`, `IncognitoNotificationReceiver.kt`, `TabManager.kt`, `MainActivity.kt`, `OnyxApplication.kt`, `AndroidManifest.xml`, `strings.xml`)**:
+    - **Chromium / Chrome-Style Ongoing Notification**: Implemented ongoing status notification (`onyx_incognito_tabs`, id `4041`) displaying whenever 1 or more incognito tabs are open, alerting the user to active private browsing sessions.
+    - **Notification Details**: Title `"Incognito tabs"`, body `"Close all incognito tabs"`, subText dynamic counter (`"1 incognito tab open"` / `"%1$d incognito tabs open"`), small icon `ic_incognito`, and action button `"Close all incognito tabs"`.
+    - **1-Tap Instant Dismissal**: Tapping the notification body or the action button sends a broadcast with `ACTION_CLOSE_ALL_INCOGNITO` to `IncognitoNotificationReceiver`.
+    - **Complete Cleanup & Safety**:
+      - `IncognitoNotificationReceiver` safely executes on the main thread, calling `TabManager.activeInstance?.closeAllTabs(incognitoOnly = true)`, which destroys private WebViews, cleans session cookies/cache, stops background media playback originating from incognito tabs, and emits an empty list on `incognitoTabs` StateFlow.
+      - Displays instant confirmation Toast (`"All incognito tabs closed"`).
+      - Automatically clears the ongoing notification via `IncognitoNotificationHelper.dismissNotification()`.
+    - **Reactive StateFlow Observation**: `TabManager` automatically observes `incognitoTabs` StateFlow on initialization, automatically posting/updating the notification when incognito tabs are opened/added, and automatically dismissing the notification whenever the last incognito tab is closed (via tab switcher swipe, tab close button, close all incognito tabs, or clear browsing data).
+    - **Channel & Lifecycle Management**: Notification channel initialized cleanly in `OnyxApplication.onCreate()` and `MainActivity.onCreate()`; ongoing notification and active instance safely dismissed and cleared in `MainActivity.onDestroy()` when finishing.
+  - **MediaPlaybackService Artwork Scope Fix (`MediaPlaybackService.kt`)**:
+    - Relocated `@Volatile var currentArtworkBitmap: Bitmap? = null` to `companion object` so it is accessible within `stop(context)` and `onDestroy()` without unresolved reference compiler errors.
+  - **TabManager Initialization Order Fix (`TabManager.kt`)**:
+    - Moved the `init` block below `incognitoTabs` and all other `StateFlow` property declarations. Previously, launching `coroutineScope.launch { incognitoTabs.collect { ... } }` in an `init` block placed above `incognitoTabs` executed before `val incognitoTabs` was instantiated, throwing `NullPointerException` on `collect()` on app startup.
+  - **Comprehensive Codebase Bug Audit & Fixes (`bug_fix_guide.md`)**:
+    - **BUG-01: Incognito CookieManager Isolation (`OnyxWebView.kt`)**: Removed global `CookieManager.getInstance().setAcceptCookie(false)` in `setIncognitoMode`. Because `CookieManager` is process-wide, this was inadvertently breaking cookies and authentication across all normal tabs whenever an incognito tab was open (fixing CAPTCHA confirmation and login failures). Third-party cookies remain blocked per-WebView via `setAcceptThirdPartyCookies(this, false)`.
+    - **BUG-02: Incognito Tab Disk Leak Guard (`TabManager.kt`)**: Prevented writing thumbnail snapshots of incognito tabs to disk storage in `saveSnapshot(tabId, bitmap)`.
+    - **BUG-03: Download Coroutine Cancellation Fix (`DownloadPromptBottomSheet.kt`)**: Introduced application-scoped `downloadScope` in companion object for `DownloadHandler.startSystemDownload`, replacing `lifecycleScope` which was prematurely cancelled upon bottom sheet dismissal.
+    - **BUG-04: Static Context Leak Prevention (`TabManager.kt`)**: Converted static `activeInstance` in `TabManager.companion object` to use `WeakReference<TabManager>` to prevent holding references to destroyed `MainActivity` contexts across configuration changes.
+    - **BUG-05: Media Playback Service Termination on End (`MediaPlaybackBridge.kt`)**: Updated `onMediaEnded()` to call `MediaPlaybackService.stop(context)` and clear playing tab/view references so ongoing media notifications dismiss when media finishes.
+    - **BUG-06: Shared Domain Cookie Auto-Clear Safeguard (`TabManager.kt`)**: Updated `autoclearTabData()` to verify no other open tabs share the target domain before purging WebStorage and cookies, and wrapped operations in `Handler(Looper.getMainLooper()).post`.
+    - **BUG-07: Detached Fragment Context Safety (`DownloadPromptBottomSheet.kt`)**: Added `isAdded` check prior to showing storage permission toasts in `storagePermissionLauncher`.
+    - **BUG-08: Coroutine Scope Leak Fix (`OnyxWebView.kt`)**: Replaced bare `CoroutineScope(Dispatchers.Main)` fallbacks with dedicated `webViewScope` that is cancelled in `destroySafely()`.
+    - **BUG-09: Active Tab Pointer Correction on Incognito Close (`TabManager.kt`)**: Ensured `closeAllTabs(incognitoOnly = true)` switches active tab to the last valid normal tab if the active tab was incognito.
+    - **BUG-11: Chromium Destroy Race Fix (`OnyxWebView.kt`)**: Removed redundant `loadUrl("about:blank")` immediately preceding `destroy()` in `destroySafely()`.
+    - **BUG-12: Incognito Fallback Consistency (`TabManager.kt`)**: Updated `closeTabsCreatedSince()` to keep the user in incognito mode if other incognito tabs remain open.
+    - **BUG-13: Explicit Dispatcher Initialization (`TabManager.kt`)**: Used `Dispatchers.Main` explicitly for the notification collector coroutine in `TabManager.init`.
+  - **Dynamic Clipboard Detection & Media/PiP Fixes (`MainActivity.kt`, `SuggestionsAdapter.kt`, `MediaPlaybackManager.kt`, `InternalPlayerActivity.kt`)**:
+    - **Dynamic Clipboard Text/Link Detection**: Upgraded `getClipboardSuggestion()` in `MainActivity.kt` to inspect copied content: if a URL or web domain is detected, displays `"Link you copied"` (`R.string.link_you_copied`) with link icon and direct URL navigation; if plain text is detected, displays `"Text you copied"` (`R.string.text_you_copied`) with search icon and triggers web search via the default search engine.
+    - **Removed In-Player Download Button**: Removed non-functional download button from `InternalPlayerActivity` and `activity_internal_player.xml`.
+    - **PiP Isolation & Multi-Platform Support**:
+      - Fixed bug where PiP button opened the entire app window instead of video-only by eliminating stale in-page video bounds and setting `sourceRectHint` to `activeWv.getGlobalVisibleRect()` on the black-letterboxed isolated WebView.
+      - Added 100ms render synchronization delay after DOM isolation to allow Chromium to paint the black letterboxed frame before Android OS captures the PiP snapshot.
+      - Hidden `floatingVideoMenuManager` immediately upon entering PiP to prevent floating pills inside the PiP viewport.
+      - Added iframe video player fallback in `isolateVideoForPipScript` supporting YouTube, Vimeo, and embedded web players across non-YouTube platforms.
+      - Added video presence verification: shows informative toast if no active video was found rather than shrinking the entire application into PiP.
+  - **Sample.png Compact Pill Webpage & Clipboard Card Redesign (`activity_main.xml`, `item_search_clipboard_suggestion.xml`, `MainActivity.kt`, `SuggestionsAdapter.kt`)**:
+    - Transformed `cardCurrentPage` into the exact single-row compact pill card from `sample.png` (`app:cardCornerRadius="24dp"`, single horizontal row, left site favicon, vertically stacked bold title and clean domain URL, right-aligned inline Share, Copy, and Edit `AppCompatImageButton`s).
+  - **Streaming Video Player Options & Brave-Inspired Background Playback Overhaul (`AdBlockDocumentStart.kt`, `MediaPlaybackManager.kt`, `MediaPlaybackBridge.kt`, `MediaPlaybackService.kt`, `MainActivity.kt`)**:
+    - **Streaming Video Player Options Fix (e.g. `animesalt.cx` / AbyssPlayer / JWPlayer / Plyr)**:
+      - **Root Cause Analysis**:
+        1. Nested multi-tier cross-origin iframes (`animesalt.cx` -> `multi-lang-plyr.php` -> `abyssplayer.com` / `iamcdn.net`) prevented top-level DOM queries (`document.querySelector('video')`) from detecting playing media, audio selection modals, or video streams.
+        2. Muted autoplay video filtering in `isQualifyingMedia` rejected streaming players when user interactions occurred on overlay elements (`div#overlay`, `.jw-display-icon`, `.plyr`) rather than direct `<video>` DOM nodes (which cannot have HTML children).
+        3. Interstitial overlay remover in `AdBlockDocumentStart.kt` deleted `#audioModal` and streaming player selectors because they were full-screen fixed overlays with high z-index and no `<input>` tags.
+        4. Anti-tamper extension checks in AbyssPlayer (`functionfetch(){[nativecode]}` regex comparison on `window.fetch.toString()`) detected hook tampering.
+      - **Native Function Masquerade (`makeNative`)**: Wraps proxied `window.fetch`, `window.XMLHttpRequest`, and other hook functions with a custom `toString()` prototype returning `function () { [native code] }`, passing anti-tamper tests on streaming sites.
+      - **Overlay Protection**: Extended `isSecurityOrAuthElement` to exempt media player controls, server switchers, quality pickers, episode selectors, audio modal containers (`#audioModal`), and player libraries (`/player|audio|server|stream|quality|episode|language|subtitle|modal-option|video-option|jw-|plyr/i`).
+      - **Media Interactivity Propagation**: Updated `markMediaInteracted` to qualify media when clicks/taps occur on any player container (`[class*="player"]`, `#overlay`, `.jw-wrapper`, `.plyr`).
+      - **Streaming Video Qualification**: Qualified videos with duration > 10s or playback progression `currentTime > 0.5s` even if started muted, preventing premature rejection of video streams.
+      - **Universal Cross-Frame Message Bus (`__onyx_cmd`)**: Implemented recursive postMessage bus bridging top-level frame and all child iframes for `play`, `pause`, `seek`, `seek_to`, `set_bg`, and `fullscreen`.
+      - **Iframe Stream Extraction & Fallbacks**: Updated floating download menu and internal player launcher to inspect `MediaPlaybackBridge.currentVideoSrc`, child iframe documents, and player iframe source URLs.
+    - **Brave-Core Inspired WebView Background Playback**:
+      - Modeled after Brave's `kDisableBackgroundMediaSuspend`, `BraveMediaSessionHelper`, and `kYoutubeBackgroundPlayback`:
+        - **Synthetic Pause Suppression**: In `MediaPlaybackBridge.onMediaPaused()`, suppresses automated/synthetic pauses when the app is in the background or the screen is locked unless explicitly paused by the user, automatically resuming playback.
+        - **Screen State Receiver & Wakelock Management**: Registered dynamic broadcast receiver in `MediaPlaybackService` for `ACTION_SCREEN_OFF`, `ACTION_SCREEN_ON`, and `ACTION_USER_PRESENT` to maintain `PARTIAL_WAKE_LOCK` across lock gaps.
+        - **WebView Lifecycle Throttling Shield**: Maintained active rendering without invoking `webView.onPause()` or `pauseTimers()` on playback WebViews when background play is enabled.
+        - **Background State Synchronization**: Synced `isAppInBackground` in `MainActivity.onPause()` / `onResume()` and broadcast `set_bg` to all nested iframe players via the postMessage bus.
+  - **Removal of Manual Heuristic Interstitial Overlay Cleaner (`AdBlockDocumentStart.kt`)**:
+    - Removed manual Section 9 heuristic DOM cleaner (`isInterstitialOverlay`, `removeInterstitialOverlays`, and `interstitialObserver`).
+    - Aligned with Brave AdBlock architecture: interstitial ads are blocked cleanly and reliably at the network layer, through scriptlets, and via declarative cosmetic selector rules compiled from EasyList, uBlock Annoyances, and Fanboy's lists, completely eliminating DOM breakage on CAPTCHAs, video player modals, and stream dialogs.
+  - **Brave Android Parity: Filter List Selection, Default Shields & Standard/Aggressive Enforcement Parity (`FilterListManager.kt`, `BrowserPreferences.kt`, `OnyxApplication.kt`, `OnyxWebViewClient.kt`)**:
+    - **Filter List Selection Parity**:
+      - Default core lists enabled: `easylist`, `easyprivacy`, `ublock_filters`, `ublock_privacy`, `ublock_badware`, `ublock_quick_fixes`, `ublock_unbreak`, and `brave_default`.
+      - First-party protection enabled by default (`brave_firstparty`): Blocks first-party tracking scripts, CNAME uncloaking, and ad injection.
+      - Cookie Notice blocker enabled by default (`cookie_notice` / Fanboy's Cookie Monster): Matches Brave Android `kCookieListUuid` default.
+      - Mobile App Promo blocker enabled by default (`mobile_app_promo` / Fanboy's Mobile Notifications): Matches Brave Android `kMobileNotificationsListUuid` default.
+    - **Automatic Device Locale Detection & Regional List Activation**:
+      - Implemented `FilterListManager.getRegionalListIdForLocale(locale)` and `autoEnableRegionalListsForLocale(context)` matching Brave's `FindAdBlockFilterListsByLocale` and `kAdBlockCheckedDefaultRegion`.
+      - On first launch / migration, inspects device ISO-639-1 language (e.g. `de` -> German EasyList, `fr` -> French AdGuard, `es` -> Spanish EasyList, `ar` -> Arabic, `hi` -> IndianList, `zh` -> Chinese, `ja` -> Japanese, `ru` -> Russian RU AdList, etc.) and auto-enables the matching regional filter list in `BrowserPreferences.enabledFilterLists`.
+      - Tracks `BrowserPreferences.hasCheckedDefaultRegion` so user customization is never overwritten on subsequent launches.
+      - Called asynchronously in `OnyxApplication` during background startup before `AdBlockEngine.initialize()`.
+    - **Standard vs. Aggressive Enforcement Parity**:
+      - In Standard mode (Brave `BLOCK_THIRD_PARTY`), `DomainBlockingType` is `kNone`: Main-frame top-level user navigations are never cancelled or 403-intercepted by adblock rules in `OnyxWebViewClient.shouldInterceptRequest` (`if (request.isForMainFrame && !isAggressive) return null`).
+      - In Aggressive mode (Brave `BLOCK`), `DomainBlockingType` is `kAggressive`: Blocks all ads, trackers, and first-party ad resources at the network level and cosmetic filtering.
+    - **Social Media Embed Controls Parity**:
+      - Configured `allowLinkedInEmbeds` default to `false` matching Brave's `kLinkedInEmbedControlType = false` (LinkedIn embedded posts allowed by default for professional sites).
+  - [x] **Verified Remote GitHub Actions Release Build & Deployment (#36269070187, Release `v1.0.181`)**:
+    - Workflow dispatched for **Release** build on `dev` branch with inputs `build_type=Release`.
+    - Native Rust NDK `libadblock_bridge.so` compiled across `arm64-v8a`, `armeabi-v7a`, `x86_64`.
+    - Release APKs assembled with ABI splits and R8 minification, packaged with official release keystore.
+    - Verified published GitHub Release [`v1.0.181`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.181):
+      - `Onyx-Browser-v1.0.181-arm64-v8a-release.apk` (20 MB)
+      - `Onyx-Browser-v1.0.181-armeabi-v7a-release.apk` (16 MB)
+      - `Onyx-Browser-v1.0.181-universal-release.apk` (40 MB)
+      - `Onyx-Browser-v1.0.181-x86_64-release.apk` (21 MB)
+    - Copied latest release binaries directly to `/storage/emulated/0/` and `/root/onyx-browser/release/` for immediate installation.
 
 
+
+
+  - [x] **Full Brave Scriptlet Injection Pipeline** (commit `35f84c5`):
+     - **Root Cause Analysis**: Onyx scored 48-50% on https://adblock.turtlecute.org/ vs Brave's 62-65% because `+js()` cosmetic filter rules (scriptlet rules) were completely ignored. The `adblock-rust` engine was returning an empty `injected_script` field because no scriptlet resource bundle was loaded — `engine.use_resources()` was never called.
+     - **Fix 1 — Bundle `brave-resources.json`** (`app/src/main/assets/brave-resources.json`): Copied from `external/adblock-rust/data/brave/brave-resources.json`. Contains 200+ scriptlet implementations: `abort-on-property-read`, `json-prune`, `set-constant`, `prevent-setTimeout`, `prevent-fetch`, etc.
+     - **Fix 2 — New `loadResources()` JNI** (`rust_engine/src/lib.rs`): Parses JSON via `serde_json::from_str::<Vec<Resource>>()`, calls `engine.use_resources()`. Added `serde_json = "1.0"` to Cargo.toml.
+     - **Fix 3 — Updated `getCosmeticResources()` JNI**: Returns JSON `{"css":"...","script":"...","generichide":bool}` with `serde_json::Value::String` escaping.
+     - **Fix 4 — Updated `AdBlockEngine.kt`**: `loadBraveResources()` auto-loads resources after init; `getCosmeticCss()` parses `css`; `getScriptletJs()` extracts `script`; `isGenericHide()` extracts `generichide`.
+     - **Fix 5 — Scriptlet injection in `OnyxWebViewClient.onPageStarted()`**: Base64-encodes scriptlet JS, decodes via `atob()`, executes via `new Function()` in try/catch. Runs before page JS for proper API interception.
+     - **Expected impact**: 10-15% benchmark improvement, from 48-50% up to 60-65% on https://adblock.turtlecute.org/.

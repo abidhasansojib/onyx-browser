@@ -20,9 +20,9 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:navigationIcon="@drawable/ic_arrow_back"
-            app:navigationIconTint="#FFFFFFFF"
+            app:navigationIconTint="@color/settings_title_text"
             app:title="Manage Personal Data"
-            app:titleTextColor="#FFFFFFFF" />
+            app:titleTextColor="@color/settings_title_text" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
@@ -47,7 +47,7 @@
                 android:layout_marginStart="4dp"
                 android:layout_marginBottom="8dp"
                 android:text="Time Range"
-                android:textColor="#9AA0A6"
+                android:textColor="@color/settings_subtitle_text"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -71,12 +71,12 @@
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        app:boxBackgroundColor="#282A2D"
+                        app:boxBackgroundColor="@color/settings_card_bg"
                         app:boxCornerRadiusBottomEnd="14dp"
                         app:boxCornerRadiusBottomStart="14dp"
                         app:boxCornerRadiusTopEnd="14dp"
                         app:boxCornerRadiusTopStart="14dp"
-                        app:boxStrokeColor="#3C4043"
+                        app:boxStrokeColor="?attr/colorOutline"
                         app:endIconTint="#9AA0A6"
                         app:hintEnabled="false">
 
@@ -90,7 +90,7 @@
                             android:paddingEnd="16dp"
                             android:paddingBottom="12dp"
                             android:popupBackground="@drawable/bg_dropdown_popup"
-                            android:textColor="#FFFFFFFF"
+                            android:textColor="@color/settings_title_text"
                             android:textSize="14sp"
                             tools:text="Last 24 hours" />
                     </com.google.android.material.textfield.TextInputLayout>
@@ -105,7 +105,7 @@
                 android:layout_marginTop="20dp"
                 android:layout_marginBottom="8dp"
                 android:text="Data Overview"
-                android:textColor="#9AA0A6"
+                android:textColor="@color/settings_subtitle_text"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -136,7 +136,7 @@
                             android:layout_height="22dp"
                             android:layout_marginEnd="12dp"
                             app:srcCompat="@drawable/ic_history"
-                            app:tint="#9AA0A6" />
+                            app:tint="@color/settings_subtitle_text" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -148,7 +148,7 @@
                                 android:id="@+id/tvHistoryCount"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="14sp"
                                 android:textStyle="bold"
                                 tools:text="Browsing history: 12 sites" />
@@ -160,7 +160,7 @@
                                 android:layout_marginTop="2dp"
                                 android:ellipsize="end"
                                 android:maxLines="2"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12sp"
                                 tools:text="e.g. google.com, wikipedia.org, github.com" />
                         </LinearLayout>
@@ -172,7 +172,7 @@
                         android:layout_marginTop="12dp"
                         android:layout_marginBottom="12dp"
                         android:alpha="0.2"
-                        android:background="#3C4043" />
+                        android:background="?attr/colorOutline" />
 
                     <!-- Tabs Preview -->
                     <LinearLayout
@@ -186,7 +186,7 @@
                             android:layout_height="22dp"
                             android:layout_marginEnd="12dp"
                             app:srcCompat="@drawable/ic_tabs"
-                            app:tint="#9AA0A6" />
+                            app:tint="@color/settings_subtitle_text" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -198,7 +198,7 @@
                                 android:id="@+id/tvTabsCount"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:textColor="#FFFFFFFF"
+                                android:textColor="@color/settings_title_text"
                                 android:textSize="14sp"
                                 android:textStyle="bold"
                                 tools:text="Open tabs: 3 tabs" />
@@ -210,7 +210,7 @@
                                 android:layout_marginTop="2dp"
                                 android:ellipsize="end"
                                 android:maxLines="2"
-                                android:textColor="#9AA0A6"
+                                android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12sp"
                                 tools:text="e.g. Kotlin Reference, Wikipedia" />
                         </LinearLayout>
@@ -222,7 +222,7 @@
                         android:layout_marginTop="12dp"
                         android:layout_marginBottom="12dp"
                         android:alpha="0.2"
-                        android:background="#3C4043" />
+                        android:background="?attr/colorOutline" />
 
                     <!-- Warning: Cookies & Storage -->
                     <LinearLayout
@@ -236,14 +236,14 @@
                             android:layout_height="22dp"
                             android:layout_marginEnd="12dp"
                             app:srcCompat="@drawable/ic_shield"
-                            app:tint="#9AA0A6" />
+                            app:tint="@color/settings_subtitle_text" />
 
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="@string/cookies_cache_warning"
-                            android:textColor="#9AA0A6"
+                            android:textColor="@color/settings_subtitle_text"
                             android:textSize="12sp" />
                     </LinearLayout>
 
@@ -258,7 +258,7 @@
                 android:layout_marginTop="20dp"
                 android:layout_marginBottom="8dp"
                 android:text="Select What to Clear"
-                android:textColor="#9AA0A6"
+                android:textColor="@color/settings_subtitle_text"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -285,7 +285,7 @@
                         android:checked="true"
                         android:paddingStart="8dp"
                         android:text="Browsing history"
-                        android:textColor="#FFFFFFFF"
+                        android:textColor="@color/settings_title_text"
                         android:textSize="14sp" />
 
                     <com.google.android.material.checkbox.MaterialCheckBox
@@ -295,7 +295,7 @@
                         android:checked="true"
                         android:paddingStart="8dp"
                         android:text="Cookies and site data"
-                        android:textColor="#FFFFFFFF"
+                        android:textColor="@color/settings_title_text"
                         android:textSize="14sp" />
 
                     <com.google.android.material.checkbox.MaterialCheckBox
@@ -305,7 +305,7 @@
                         android:checked="true"
                         android:paddingStart="8dp"
                         android:text="Cached images and files"
-                        android:textColor="#FFFFFFFF"
+                        android:textColor="@color/settings_title_text"
                         android:textSize="14sp" />
 
                     <com.google.android.material.checkbox.MaterialCheckBox
@@ -315,7 +315,7 @@
                         android:checked="true"
                         android:paddingStart="8dp"
                         android:text="Open tabs created in this timeframe"
-                        android:textColor="#FFFFFFFF"
+                        android:textColor="@color/settings_title_text"
                         android:textSize="14sp" />
 
                 </LinearLayout>
@@ -332,7 +332,7 @@
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                app:backgroundTint="#DC4B64"
+                app:backgroundTint="@color/btn_clear_bg"
                 app:cornerRadius="26dp" />
 
         </LinearLayout>

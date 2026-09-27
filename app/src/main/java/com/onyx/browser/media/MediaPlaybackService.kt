@@ -42,6 +42,8 @@ class MediaPlaybackService : Service() {
         fun onPauseMedia()
         fun onSeekMedia(deltaSeconds: Int)
         fun onSeekToMedia(positionMs: Long)
+        fun onSkipNextMedia()
+        fun onSkipPreviousMedia()
         fun onStopMedia()
     }
 
@@ -50,7 +52,24 @@ class MediaPlaybackService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var artworkJob: Job? = null
-    private var currentArtworkBitmap: Bitmap? = null
+
+    private val screenStateReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    // Match Brave: Preserve playback through screen lock gap
+                    if (isMediaPlaying) {
+                        acquireWakeLock()
+                    }
+                }
+                Intent.ACTION_USER_PRESENT, Intent.ACTION_SCREEN_ON -> {
+                    if (isMediaPlaying) {
+                        acquireWakeLock()
+                    }
+                }
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -59,6 +78,14 @@ class MediaPlaybackService : Service() {
         wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OnyxBrowser:MediaWakeLock")
         createNotificationChannel()
         setupMediaSession()
+        try {
+            val filter = android.content.IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+            registerReceiver(screenStateReceiver, filter)
+        } catch (_: Exception) {}
     }
 
     private fun createNotificationChannel() {
@@ -84,6 +111,7 @@ class MediaPlaybackService : Service() {
             )
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
+                    MediaPlaybackBridge.isExplicitUserPause = false
                     isMediaPlaying = true
                     acquireWakeLock()
                     updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
@@ -92,6 +120,7 @@ class MediaPlaybackService : Service() {
                 }
 
                 override fun onPause() {
+                    MediaPlaybackBridge.isExplicitUserPause = true
                     isMediaPlaying = false
                     releaseWakeLock()
                     updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
@@ -100,11 +129,11 @@ class MediaPlaybackService : Service() {
                 }
 
                 override fun onSkipToNext() {
-                    onFastForward()
+                    mediaActionListener?.onSkipNextMedia()
                 }
 
                 override fun onSkipToPrevious() {
-                    onRewind()
+                    mediaActionListener?.onSkipPreviousMedia()
                 }
 
                 override fun onFastForward() {
@@ -157,6 +186,7 @@ class MediaPlaybackService : Service() {
 
         when (action) {
             ACTION_PLAY -> {
+                MediaPlaybackBridge.isExplicitUserPause = false
                 isMediaPlaying = true
                 acquireWakeLock()
                 updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
@@ -164,6 +194,7 @@ class MediaPlaybackService : Service() {
                 updateNotification()
             }
             ACTION_PAUSE -> {
+                MediaPlaybackBridge.isExplicitUserPause = true
                 isMediaPlaying = false
                 releaseWakeLock()
                 updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
@@ -177,10 +208,14 @@ class MediaPlaybackService : Service() {
                 mediaActionListener?.onSeekMedia(10)
             }
             ACTION_STOP -> {
+                MediaPlaybackBridge.isExplicitUserPause = true
                 isMediaPlaying = false
                 releaseWakeLock()
                 mediaActionListener?.onStopMedia()
                 stopForegroundCompat()
+                try {
+                    notificationManager.cancel(NOTIFICATION_ID)
+                } catch (_: Exception) {}
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -418,6 +453,9 @@ class MediaPlaybackService : Service() {
                 stopForeground(true)
             }
         } catch (_: Exception) {}
+        try {
+            notificationManager.cancel(NOTIFICATION_ID)
+        } catch (_: Exception) {}
     }
 
     private fun acquireWakeLock() {
@@ -438,9 +476,17 @@ class MediaPlaybackService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try {
+            unregisterReceiver(screenStateReceiver)
+        } catch (_: Exception) {}
         artworkJob?.cancel()
+        currentArtworkBitmap = null
         releaseWakeLock()
         isMediaPlaying = false
+        stopForegroundCompat()
+        try {
+            notificationManager.cancel(NOTIFICATION_ID)
+        } catch (_: Exception) {}
         try {
             mediaSession.isActive = false
             mediaSession.release()
@@ -473,6 +519,7 @@ class MediaPlaybackService : Service() {
         @Volatile var currentTitle: String = "Web Media"
         @Volatile var currentArtist: String = "Onyx Browser"
         @Volatile var currentArtworkUrl: String? = null
+        @Volatile var currentArtworkBitmap: Bitmap? = null
         @Volatile var currentPositionMs: Long = 0L
         @Volatile var currentDurationMs: Long = 0L
 
@@ -597,11 +644,29 @@ class MediaPlaybackService : Service() {
 
         fun stop(context: Context) {
             isMediaPlaying = false
+            currentArtworkBitmap = null
+            currentTitle = "Web Media"
+            currentArtist = "Onyx Browser"
+            currentArtworkUrl = null
+            currentPositionMs = 0L
+            currentDurationMs = 0L
+
             val intent = Intent(context, MediaPlaybackService::class.java).apply {
                 action = ACTION_STOP
             }
             try {
                 context.startService(intent)
+            } catch (_: Exception) {
+                try {
+                    context.stopService(intent)
+                } catch (_: Exception) {}
+            }
+            try {
+                context.stopService(Intent(context, MediaPlaybackService::class.java))
+            } catch (_: Exception) {}
+            try {
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+                nm?.cancel(NOTIFICATION_ID)
             } catch (_: Exception) {}
         }
     }

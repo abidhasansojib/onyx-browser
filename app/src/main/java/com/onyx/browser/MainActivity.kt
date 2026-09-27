@@ -151,6 +151,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var floatingVideoMenuManager: com.onyx.browser.media.FloatingVideoMenuManager? = null
+
     // Permission Launchers
     private var pendingStorageAction: (() -> Unit)? = null
     private val storagePermissionLauncher = registerForActivityResult(
@@ -491,26 +493,16 @@ class MainActivity : AppCompatActivity() {
                 binding.btnQrScanner.visibility = View.VISIBLE
                 binding.btnVoiceSearch.visibility = if (hasText) View.GONE else View.VISIBLE
 
-                val currentTab = tabManager.activeTab.value
-                val hasCurrentUrl = !currentTab?.url.isNullOrBlank()
-
                 if (hasText) {
+                    // Hide current-page card while typing so search results have more room
                     binding.cardCurrentPage.visibility = View.GONE
+                    // fetchSearchSuggestions handles debounce, clipboard blending, and adapter updates
                     fetchSearchSuggestions(query)
                 } else {
-                    val curUrl = getActivePageUrl()
-                    if (curUrl.isNotBlank()) {
-                        binding.cardCurrentPage.visibility = View.VISIBLE
-                        com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
-                            context = this@MainActivity,
-                            imageView = binding.ivCurrentPageFavicon,
-                            urlOrHost = curUrl,
-                            isCircular = true
-                        )
-                    } else {
-                        binding.cardCurrentPage.visibility = View.GONE
-                    }
+                    // Empty query: cancel any pending job, show current-page card + clipboard only
                     suggestionJob?.cancel()
+                    val curUrl = getActivePageUrl()
+                    updateCurrentPageCard(curUrl)
                     val clipboardOpt = getClipboardSuggestion()
                     suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
                 }
@@ -729,8 +721,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            tabManager.incognitoTabs.collectLatest {
+            tabManager.incognitoTabs.collectLatest { tabs ->
                 updateTabBadgeCount()
+                // Update (or dismiss) incognito persistent notification
+                com.onyx.browser.incognito.IncognitoNotificationHelper.updateNotification(this@MainActivity, tabs.size)
             }
         }
     }
@@ -1412,6 +1406,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateCurrentPageCard(curUrl: String) {
+        if (curUrl.isNotBlank()) {
+            binding.cardCurrentPage.visibility = View.VISIBLE
+            val currentTab = tabManager.activeTab.value
+            val host = try { Uri.parse(curUrl).host?.removePrefix("www.") ?: curUrl } catch (_: Exception) { curUrl }
+            val displayTitle = currentTab?.title?.takeIf {
+                it.isNotBlank() && !it.startsWith("data:") && !it.startsWith("net::") && it != "Page Not Available"
+            } ?: host
+            binding.tvCurrentPageTitle.text = displayTitle
+            val displayUrlText = if (LocalFileLoader.isLocalFile(curUrl)) {
+                try {
+                    val parsed = Uri.parse(curUrl)
+                    if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else curUrl
+                } catch (_: Exception) { curUrl }
+            } else {
+                curUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.")
+            }
+            binding.tvCurrentPageUrl.text = displayUrlText
+            com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
+                context = this,
+                imageView = binding.ivCurrentPageFavicon,
+                urlOrHost = curUrl,
+                isCircular = true
+            )
+        } else {
+            binding.cardCurrentPage.visibility = View.GONE
+        }
+    }
+
     private fun enterSearchMode() {
         if (isSearchMode) return
         isSearchMode = true
@@ -1426,35 +1449,9 @@ class MainActivity : AppCompatActivity() {
         // 2. Open Search Overlay Page
         binding.searchOverlay.visibility = View.VISIBLE
 
-        // 3. Configure Current Webpage Card under search bar
-        val currentTab = tabManager.activeTab.value
+        // 3. Configure Current Webpage Card under search bar (matching sample.png)
         val curUrl = getActivePageUrl()
-        val hasCurrentUrl = curUrl.isNotBlank()
-
-        if (hasCurrentUrl) {
-            binding.cardCurrentPage.visibility = View.VISIBLE
-            val displayTitle = currentTab?.title?.takeIf {
-                it.isNotBlank() && !it.startsWith("data:") && !it.startsWith("net::") && it != "Page Not Available"
-            } ?: curUrl
-            binding.tvCurrentPageTitle.text = displayTitle
-            val displayUrlText = if (LocalFileLoader.isLocalFile(curUrl)) {
-                try {
-                    val parsed = Uri.parse(curUrl)
-                    if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else curUrl
-                } catch (_: Exception) { curUrl }
-            } else {
-                curUrl
-            }
-            binding.tvCurrentPageUrl.text = displayUrlText
-            com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
-                context = this,
-                imageView = binding.ivCurrentPageFavicon,
-                urlOrHost = curUrl,
-                isCircular = true
-            )
-        } else {
-            binding.cardCurrentPage.visibility = View.GONE
-        }
+        updateCurrentPageCard(curUrl)
 
         // Clean search bar for fresh input as requested
         binding.etUrl.setText("")
@@ -1553,11 +1550,20 @@ class MainActivity : AppCompatActivity() {
             if (clipboard.hasPrimaryClip()) {
                 val clipData = clipboard.primaryClip
                 if (clipData != null && clipData.itemCount > 0) {
-                    val text = clipData.getItemAt(0).text?.toString()?.trim()
-                    if (!text.isNullOrBlank() && (android.util.Patterns.WEB_URL.matcher(text).matches() || text.startsWith("http"))) {
+                    val rawText = clipData.getItemAt(0).text?.toString()?.trim()
+                    if (!rawText.isNullOrBlank()) {
+                        val isLink = android.util.Patterns.WEB_URL.matcher(rawText).matches() ||
+                                rawText.startsWith("http://", ignoreCase = true) ||
+                                rawText.startsWith("https://", ignoreCase = true) ||
+                                rawText.startsWith("www.", ignoreCase = true) ||
+                                isLikelyUrl(rawText)
+
+                        val title = if (isLink) getString(R.string.link_you_copied) else getString(R.string.text_you_copied)
                         return com.onyx.browser.data.model.SearchSuggestion(
-                            title = "Link from clipboard",
-                            queryOrUrl = text,
+                            title = title,
+                            queryOrUrl = rawText,
+                            isUrl = isLink,
+                            isDomain = isLink && !rawText.startsWith("http://", ignoreCase = true) && !rawText.startsWith("https://", ignoreCase = true),
                             isClipboard = true
                         )
                     }
@@ -1877,16 +1883,27 @@ class MainActivity : AppCompatActivity() {
                 activeWv.postDelayed({
                     if (customVideoView == null && shouldAutoEnterPipOnCustomView) {
                         shouldAutoEnterPipOnCustomView = false
-                        activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) {
-                            enterPipMode()
-                        }
+                        isolateAndEnterPip(activeWv)
                     }
                 }, 350)
             } else {
                 shouldAutoEnterPipOnCustomView = false
-                activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) {
+                isolateAndEnterPip(activeWv)
+            }
+        }
+    }
+
+    private fun isolateAndEnterPip(activeWv: com.onyx.browser.web.OnyxWebView) {
+        floatingVideoMenuManager?.hideImmediately()
+        activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) { res ->
+            val hasVideo = res?.contains("\"found\":true") == true || res?.contains("\"found\": true") == true
+            if (hasVideo) {
+                // Allow Chromium compositor 100ms to paint the isolated video layout before OS PiP snapshot
+                activeWv.postDelayed({
                     enterPipMode()
-                }
+                }, 100)
+            } else {
+                Toast.makeText(this, "No active video found to enter Picture-in-Picture", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -1936,7 +1953,8 @@ class MainActivity : AppCompatActivity() {
                         paramsBuilder.setSourceRectHint(rect)
                     }
                 } else {
-                    // Hide browser UI before transition so only the isolated video is captured
+                    // Hide floating overlay and browser UI before transition so only the isolated video is captured
+                    floatingVideoMenuManager?.hideImmediately()
                     binding.topBar.visibility = View.GONE
                     binding.topBarDivider.visibility = View.GONE
                     binding.fullscreenControlsOverlay.visibility = View.GONE
@@ -1944,25 +1962,11 @@ class MainActivity : AppCompatActivity() {
                     binding.findInPageBar.visibility = View.GONE
                     binding.searchOverlay.visibility = View.GONE
 
-                    val bounds = MediaPlaybackBridge.lastVideoBounds
                     val activeWv = tabManager.getActiveWebView()
-                    if (bounds != null && activeWv != null) {
-                        val location = IntArray(2)
-                        activeWv.getLocationInWindow(location)
-                        val density = resources.displayMetrics.density
-                        val left = (location[0] + bounds.left * density).toInt()
-                        val top = (location[1] + bounds.top * density).toInt()
-                        val right = (location[0] + bounds.right * density).toInt()
-                        val bottom = (location[1] + bounds.bottom * density).toInt()
-                        val rect = Rect(
-                            left.coerceAtLeast(0),
-                            top.coerceAtLeast(0),
-                            right.coerceAtMost(resources.displayMetrics.widthPixels),
-                            bottom.coerceAtMost(resources.displayMetrics.heightPixels)
-                        )
-                        if (rect.width() > 20 && rect.height() > 20) {
-                            paramsBuilder.setSourceRectHint(rect)
-                        }
+                    val rect = Rect()
+                    activeWv?.getGlobalVisibleRect(rect)
+                    if (!rect.isEmpty) {
+                        paramsBuilder.setSourceRectHint(rect)
                     }
                 }
 
@@ -1999,34 +2003,56 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMediaPlaybackListener() {
         MediaPlaybackService.mediaActionListener = object : MediaPlaybackService.MediaActionListener {
+            private fun getTargetWebView(): OnyxWebView? {
+                val playingId = MediaPlaybackBridge.currentPlayingTabId
+                if (!playingId.isNullOrBlank()) {
+                    val wv = tabManager.getWebView(playingId)
+                    if (wv != null) return wv
+                }
+                return tabManager.getActiveWebView()
+            }
+
             override fun onPlayMedia() {
                 runOnUiThread {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
                 }
             }
 
             override fun onPauseMedia() {
                 runOnUiThread {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
                 }
             }
 
             override fun onSeekMedia(deltaSeconds: Int) {
                 runOnUiThread {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(deltaSeconds), null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(deltaSeconds), null)
                 }
             }
 
             override fun onSeekToMedia(positionMs: Long) {
                 runOnUiThread {
                     val posSec = positionMs / 1000.0
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekToPositionScript(posSec), null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekToPositionScript(posSec), null)
+                }
+            }
+
+            override fun onSkipNextMedia() {
+                runOnUiThread {
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.skipNextMediaScript, null)
+                }
+            }
+
+            override fun onSkipPreviousMedia() {
+                runOnUiThread {
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.skipPreviousMediaScript, null)
                 }
             }
 
             override fun onStopMedia() {
                 runOnUiThread {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                    getTargetWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                    MediaPlaybackBridge.resetMediaPlayback(this@MainActivity)
                 }
             }
         }
@@ -2059,6 +2085,125 @@ class MainActivity : AppCompatActivity() {
                     val inPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode
                     if (!inPip) {
                         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }
+                }
+                val isWvVisible = binding.webViewContainer.visibility == View.VISIBLE && binding.searchOverlay.visibility != View.VISIBLE
+                floatingVideoMenuManager?.onVideoPlaybackStateChanged(isVideo && isPlaying, isWvVisible)
+            }
+        }
+
+        // Initialize Floating Video Action Menu Overlay
+        if (floatingVideoMenuManager == null) {
+            floatingVideoMenuManager = com.onyx.browser.media.FloatingVideoMenuManager(this, binding.contentContainer).apply {
+                onDownloadClickListener = {
+                    val videoSrc = com.onyx.browser.media.MediaPlaybackBridge.currentVideoSrc
+                    val activeWv = tabManager.getActiveWebView()
+                    val userAgent = activeWv?.settings?.userAgentString ?: ""
+                    val pageUrl = activeWv?.url ?: ""
+                    if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
+                        val cookies = android.webkit.CookieManager.getInstance().getCookie(videoSrc) ?: ""
+                        val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
+                            url = videoSrc,
+                            userAgent = userAgent,
+                            contentDisposition = "",
+                            mimeType = "video/*",
+                            contentLength = 0L,
+                            cookies = cookies,
+                            referer = pageUrl
+                        )
+                        sheet.show(supportFragmentManager, "DownloadPromptSheet")
+                    } else {
+                        activeWv?.evaluateJavascript("""
+                            (function() {
+                                var v = Array.from(document.querySelectorAll('video')).find(function(v) { return !v.paused; }) || document.querySelector('video');
+                                if (v && (v.currentSrc || v.src)) return (v.currentSrc || v.src);
+                                var iframes = Array.from(document.querySelectorAll('iframe'));
+                                for (var i = 0; i < iframes.length; i++) {
+                                    try {
+                                        var iv = iframes[i].contentDocument ? iframes[i].contentDocument.querySelector('video') : null;
+                                        if (iv && (iv.currentSrc || iv.src)) return (iv.currentSrc || iv.src);
+                                    } catch (_) {}
+                                    var isrc = iframes[i].src || '';
+                                    if (isrc.includes('.mp4') || isrc.includes('.m3u8') || isrc.includes('.webm')) return isrc;
+                                }
+                                return '';
+                            })();
+                        """.trimIndent()) { result ->
+                            val cleanUrl = result?.trim('"', '\'')?.replace("\\", "") ?: ""
+                            if (cleanUrl.isNotBlank() && cleanUrl != "null") {
+                                val cookies = android.webkit.CookieManager.getInstance().getCookie(cleanUrl) ?: ""
+                                val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
+                                    url = cleanUrl,
+                                    userAgent = userAgent,
+                                    contentDisposition = "",
+                                    mimeType = "video/*",
+                                    contentLength = 0L,
+                                    cookies = cookies,
+                                    referer = pageUrl
+                                )
+                                sheet.show(supportFragmentManager, "DownloadPromptSheet")
+                            } else if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
+                                val cookies = android.webkit.CookieManager.getInstance().getCookie(videoSrc) ?: ""
+                                val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
+                                    url = videoSrc,
+                                    userAgent = userAgent,
+                                    contentDisposition = "",
+                                    mimeType = "video/*",
+                                    contentLength = 0L,
+                                    cookies = cookies,
+                                    referer = pageUrl
+                                )
+                                sheet.show(supportFragmentManager, "DownloadPromptSheet")
+                            } else {
+                                Toast.makeText(this@MainActivity, "No direct video URL detected", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
+
+                onPipClickListener = {
+                    requestInPageVideoPip()
+                }
+
+                onInternalPlayerClickListener = {
+                    val activeWv = tabManager.getActiveWebView()
+                    val videoTitle = com.onyx.browser.media.MediaPlaybackBridge.currentTitle
+                    val pageUrl = activeWv?.url
+                    val videoSrc = com.onyx.browser.media.MediaPlaybackBridge.currentVideoSrc
+
+                    fun launchPlayer(src: String) {
+                        activeWv?.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.pauseAllMediaScript, null)
+                        startActivity(com.onyx.browser.ui.player.InternalPlayerActivity.createIntent(this@MainActivity, src, videoTitle, pageUrl))
+                    }
+
+                    if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
+                        launchPlayer(videoSrc)
+                    } else {
+                        activeWv?.evaluateJavascript("""
+                            (function() {
+                                var v = Array.from(document.querySelectorAll('video')).find(function(v) { return !v.paused; }) || document.querySelector('video');
+                                if (v && (v.currentSrc || v.src)) return (v.currentSrc || v.src);
+                                var iframes = Array.from(document.querySelectorAll('iframe'));
+                                for (var i = 0; i < iframes.length; i++) {
+                                    try {
+                                        var iv = iframes[i].contentDocument ? iframes[i].contentDocument.querySelector('video') : null;
+                                        if (iv && (iv.currentSrc || iv.src)) return (iv.currentSrc || iv.src);
+                                    } catch (_) {}
+                                    var isrc = iframes[i].src || '';
+                                    if (isrc.includes('embed') || isrc.includes('player') || isrc.includes('video') || isrc.includes('abyss')) return isrc;
+                                }
+                                return '';
+                            })();
+                        """.trimIndent()) { result ->
+                            val cleanUrl = result?.trim('"', '\'')?.replace("\\", "") ?: ""
+                            if (cleanUrl.isNotBlank() && cleanUrl != "null") {
+                                launchPlayer(cleanUrl)
+                            } else if (!videoSrc.isNullOrBlank()) {
+                                launchPlayer(videoSrc)
+                            } else {
+                                Toast.makeText(this@MainActivity, "Unable to play video in internal player", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 }
             }
@@ -2174,20 +2319,35 @@ class MainActivity : AppCompatActivity() {
         binding.etFindQuery.setText("")
     }
 
-    private var currentTranslateTargetCode: String = "en"
+    private var currentTranslateTargetCode: String = ""
 
     private fun setupTranslateBar() {
         binding.toggleTranslateMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
             val wv = tabManager.getActiveWebView() ?: return@addOnButtonCheckedListener
+            val activeTab = tabManager.activeTab.value
             when (checkedId) {
                 R.id.btnTranslateOriginal -> {
+                    if (activeTab != null && activeTab.url.isNotBlank()) {
+                        PageTranslateManager.clearCookies(activeTab.url)
+                    }
                     wv.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
                 }
                 R.id.btnTranslateTarget -> {
+                    val code = currentTranslateTargetCode.ifBlank { preferences.targetTranslateLanguage }
+                    if (activeTab != null && activeTab.url.isNotBlank()) {
+                        PageTranslateManager.setupCookies(activeTab.url, code)
+                    }
                     binding.pbTranslateLoading.visibility = View.VISIBLE
-                    wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(currentTranslateTargetCode)) {
-                        binding.pbTranslateLoading.visibility = View.GONE
+                    wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(code)) { result ->
+                        val res = result?.trim('"')
+                        if (res == "reinitialize" || res == "pending" || res == null) {
+                            wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code)) {
+                                binding.pbTranslateLoading.visibility = View.GONE
+                            }
+                        } else {
+                            binding.pbTranslateLoading.visibility = View.GONE
+                        }
                     }
                 }
             }
@@ -2206,8 +2366,15 @@ class MainActivity : AppCompatActivity() {
                     PageTranslateManager.setupCookies(activeTab.url, code)
                 }
                 binding.pbTranslateLoading.visibility = View.VISIBLE
-                wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(code)) {
-                    binding.pbTranslateLoading.visibility = View.GONE
+                wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(code)) { result ->
+                    val res = result?.trim('"')
+                    if (res == "reinitialize" || res == "pending" || res == null) {
+                        wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code)) {
+                            binding.pbTranslateLoading.visibility = View.GONE
+                        }
+                    } else {
+                        binding.pbTranslateLoading.visibility = View.GONE
+                    }
                 }
             }
             dialog.show(supportFragmentManager, "LanguageSelectionDialog")
@@ -2411,6 +2578,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        MediaPlaybackBridge.isAppInBackground = true
         val activeTabId = tabManager.activeTab.value?.id
         val activeWebView = tabManager.getActiveWebView()
         if (activeTabId != null && activeWebView != null) {
@@ -2550,6 +2718,7 @@ class MainActivity : AppCompatActivity() {
         val activeWv = tabManager.getActiveWebView()
         if (isInPictureInPictureMode) {
             // Video-Only PiP: Strip all browser UI and chrome
+            floatingVideoMenuManager?.hideImmediately()
             binding.topBar.visibility = View.GONE
             binding.topBarDivider.visibility = View.GONE
             binding.homeLayout.root.visibility = View.GONE
@@ -2603,6 +2772,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        MediaPlaybackBridge.isAppInBackground = false
+        MediaPlaybackBridge.isExplicitUserPause = false
 
         // 1. Sync theme if changed in Settings or system dark mode toggled
         preferences.applyTheme()
@@ -2976,6 +3147,15 @@ class MainActivity : AppCompatActivity() {
             unregisterReceiver(pipReceiver)
         } catch (_: Exception) {}
         MediaPlaybackService.mediaActionListener = null
+        floatingVideoMenuManager?.hideImmediately()
+        floatingVideoMenuManager = null
+        if (isFinishing) {
+            tabManager.closeAllTabs(incognitoOnly = true)
+            com.onyx.browser.incognito.IncognitoNotificationHelper.dismissNotification(this)
+            if (TabManager.activeInstance == tabManager) {
+                TabManager.activeInstance = null
+            }
+        }
         tabManager.clearAllWebViews()
     }
 }

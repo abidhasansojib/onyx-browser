@@ -137,8 +137,19 @@ class SuggestionsAdapter(
         fun bind(item: SearchSuggestion) {
             binding.tvClipboardText.text = item.title
             binding.tvClipboardUrl.text = item.queryOrUrl
+            if (item.isUrl || item.isDomain) {
+                binding.ivClipboardIcon.setImageResource(R.drawable.ic_link)
+            } else {
+                binding.ivClipboardIcon.setImageResource(R.drawable.ic_search)
+            }
             binding.root.setOnClickListener {
                 onSuggestionClicked(item)
+            }
+            binding.containerClipboardInfo.setOnClickListener {
+                onSuggestionClicked(item)
+            }
+            binding.btnClipboardInsert.setOnClickListener {
+                onInsertClicked(item)
             }
         }
     }

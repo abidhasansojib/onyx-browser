@@ -88,7 +88,7 @@ class OnyxWebViewClient(
     // Social media tracker domains (analytics/pixel only, not content)
     private val socialMediaTrackerDomains = setOf(
         // Facebook/Meta pixels and analytics
-        "static.xx.fbcdn.net", "an.facebook.com", "pixel.facebook.com",
+        "an.facebook.com", "pixel.facebook.com", "tr.facebook.com",
         // Instagram trackers
         "i.instagram.com",
         // Twitter/X analytics
@@ -103,11 +103,12 @@ class OnyxWebViewClient(
         "alb.reddit.com"
     )
 
-    // Facebook domains that are content (logins, embeds) not pure tracking
+    // Facebook domains that are content (logins, embeds, CDN) not pure tracking
     private val facebookContentDomains = setOf(
-        "www.facebook.com", "m.facebook.com", "static.facebook.com",
-        "connect.facebook.net", "staticxx.facebook.com",
-        "graph.facebook.com"
+        "www.facebook.com", "m.facebook.com", "web.facebook.com", "touch.facebook.com",
+        "static.facebook.com", "staticxx.facebook.com", "static.xx.fbcdn.net",
+        "connect.facebook.net", "facebook.net", "graph.facebook.com",
+        "fbcdn.net", "scontent.xx.fbcdn.net"
     )
 
     // Twitter/X content domains (embeds)
@@ -197,6 +198,53 @@ class OnyxWebViewClient(
             val isIncognitoView = (view as? OnyxWebView)?.isIncognito ?: false
             val resourceType = detectResourceType(request)
 
+            // ── Universal CAPTCHA, Verification & Security Protection ──────────────
+            // Anti-bot verifications and checkpoints must never be blocked on any website
+            val isCaptchaResource = reqDomain.contains("recaptcha") || reqDomain.contains("hcaptcha") ||
+                    reqDomain.contains("arkoselabs") || reqDomain.contains("turnstile") ||
+                    reqDomain.contains("geetest") || url.contains("/checkpoint/") || url.contains("/challenge/")
+            if (isCaptchaResource) {
+                return null
+            }
+
+            // ── Meta / Facebook First-Party Integrity ─────────────────────────────
+            val isMetaPage = pageDomain == "facebook.com" || pageDomain.endsWith(".facebook.com") ||
+                    pageDomain == "fb.com" || pageDomain.endsWith(".fb.com") ||
+                    pageDomain == "messenger.com" || pageDomain.endsWith(".messenger.com") ||
+                    pageDomain == "instagram.com" || pageDomain.endsWith(".instagram.com")
+
+            val isMetaResource = reqDomain == "facebook.com" || reqDomain.endsWith(".facebook.com") ||
+                    reqDomain == "facebook.net" || reqDomain.endsWith(".facebook.net") ||
+                    reqDomain == "fbcdn.net" || reqDomain.endsWith(".fbcdn.net") ||
+                    reqDomain == "fb.com" || reqDomain.endsWith(".fb.com") ||
+                    reqDomain == "messenger.com" || reqDomain.endsWith(".messenger.com") ||
+                    reqDomain == "instagram.com" || reqDomain.endsWith(".instagram.com")
+
+            // First-party Meta resources when user is on Meta sites must never be blocked
+            if (isMetaPage && isMetaResource) {
+                return null
+            }
+
+            // ── Permitted Social Content & Embeds ─────────────────────────────────
+            // When allowed, completely bypass adblock and social tracking filters
+            val isFbContent = preferences.allowFacebookLogins &&
+                    facebookContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
+            if (isFbContent) {
+                return null
+            }
+
+            val isTwitterContent = preferences.allowTwitterEmbeds &&
+                    twitterContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
+            if (isTwitterContent) {
+                return null
+            }
+
+            val isLinkedInContent = preferences.allowLinkedInEmbeds &&
+                    linkedinContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
+            if (isLinkedInContent) {
+                return null
+            }
+
             // ── Element blocking in private windows: respect the setting ─────────
             // If element blocking in private windows is disabled and this is incognito,
             // skip all blocking
@@ -211,20 +259,8 @@ class OnyxWebViewClient(
                 }
 
                 if (isSocialTrackerDomain) {
-                    // Check if we should allow Facebook content (logins and embeds)
-                    val isFbContent = preferences.allowFacebookLogins &&
-                        facebookContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
-                    // Check if we should allow Twitter embeds
-                    val isTwitterContent = preferences.allowTwitterEmbeds &&
-                        twitterContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
-                    // Check if we should allow LinkedIn embeds
-                    val isLinkedInContent = preferences.allowLinkedInEmbeds &&
-                        linkedinContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
-
-                    if (!isFbContent && !isTwitterContent && !isLinkedInContent) {
-                        preferences.incrementBlockedRequests()
-                        return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
-                    }
+                    preferences.incrementBlockedRequests()
+                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                 }
             }
 
@@ -239,6 +275,13 @@ class OnyxWebViewClient(
             // ── Ad & Tracker Blocking ─────────────────────────────────────────
             if (preferences.isAdBlockEnabled && !isWhitelisted) {
                 val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
+
+                // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
+                // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave). Only subresources and trackers
+                // are intercepted. In Aggressive mode (DomainBlockingType::kAggressive), main-frame ad domains can also be blocked.
+                if (request.isForMainFrame && !isAggressive) {
+                    return null
+                }
 
                 // Standard mode: use EasyList engine + standard ad/tracker domains
                 val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
@@ -720,6 +763,18 @@ class OnyxWebViewClient(
                     injectCosmeticCss(view, cosmeticCss)
                 }
             } catch (_: Throwable) {}
+        } else if (isWhitelisted || !preferences.isAdBlockEnabled) {
+            val cleanupJs = """
+                (function() {
+                    try {
+                        var c1 = document.getElementById('onyx-universal-cosmetic');
+                        if (c1) c1.remove();
+                        var c2 = document.getElementById('onyx-adblock-cosmetic');
+                        if (c2) c2.remove();
+                    } catch(e) {}
+                })();
+            """.trimIndent()
+            view?.evaluateJavascript(cleanupJs, null)
         }
 
         // Fingerprint Protection (JS API spoofing)
@@ -804,14 +859,66 @@ class OnyxWebViewClient(
                 // Do not let data: or asset error pages overwrite the active URL or clear synthetic error state!
                 return
             }
+            val previousUrl = currentPageUrl
             currentPageUrl = url
+            if (previousUrl.isNotBlank() && previousUrl != url &&
+                com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId == onyxWv?.tabId) {
+                com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
+            }
             onyxWv?.clearSyntheticState()
             onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)
-            if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)) {
+            val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)
+            view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
+            if (isAdBlockActiveForPage) {
                 val lvl = preferences.blockingLevel
                 view?.evaluateJavascript(AdBlockDocumentStart.getScript(lvl), null)
                 view?.evaluateJavascript("if (window.__onyx_set_blocking_level) window.__onyx_set_blocking_level($lvl);", null)
+
+                // Inject scriptlets resolved from +js() cosmetic filter rules via brave-resources.json.
+                // These must run before any page scripts to intercept ad-related APIs early.
+                if (preferences.isCosmeticFilteringEnabled && !preferences.isDomainWhitelisted(url)) {
+                    try {
+                        val scriptletJs = AdBlockEngine.getScriptletJs(url)
+                        if (scriptletJs.isNotBlank()) {
+                            // Base64-encode the scriptlet to safely embed arbitrary JS code
+                            // (prevents breaking due to quotes, template literals, newlines in scriptlet content)
+                            val b64 = android.util.Base64.encodeToString(
+                                scriptletJs.toByteArray(Charsets.UTF_8),
+                                android.util.Base64.NO_WRAP
+                            )
+                            // Decode and execute using Function() constructor approach for isolation
+                            // matching Brave's kScriptletInitScript self-removing <script> pattern
+                            val wrappedScriptlet = """
+                                (function() {
+                                    try {
+                                        var _b = atob('$b64');
+                                        var _f = new Function(_b);
+                                        _f();
+                                    } catch(ex) {
+                                        /* scriptlet error suppressed */
+                                    }
+                                })();
+                            """.trimIndent()
+                            view?.evaluateJavascript(wrappedScriptlet, null)
+                        }
+                    } catch (_: Throwable) {}
+                }
+
+            } else {
+                val cleanupJs = """
+                    (function() {
+                        try {
+                            window.__onyx_shields_active = false;
+                            window.__onyxAdBlockEnabled = false;
+                            var c1 = document.getElementById('onyx-universal-cosmetic');
+                            if (c1) c1.remove();
+                            var c2 = document.getElementById('onyx-adblock-cosmetic');
+                            if (c2) c2.remove();
+                        } catch(e) {}
+                    })();
+                """.trimIndent()
+                view?.evaluateJavascript(cleanupJs, null)
             }
             if (preferences.isPasskeysEnabled) {
                 view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)

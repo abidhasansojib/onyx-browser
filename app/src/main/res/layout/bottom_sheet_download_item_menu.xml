@@ -74,9 +74,40 @@
         android:alpha="0.3"
         android:layout_marginBottom="4dp" />
 
-    <!-- 1. Open in file manager -->
+    <!-- 1. Open / Install action -->
     <LinearLayout
-        android:id="@+id/menuOpenFile"
+        android:id="@+id/menuOpenOrInstall"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="50dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/ivMenuOpenIcon"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            app:srcCompat="@drawable/ic_open_in_new"
+            app:tint="?attr/colorControlNormal" />
+
+        <TextView
+            android:id="@+id/tvMenuOpenText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Open file"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- 2. Open in file manager -->
+    <LinearLayout
+        android:id="@+id/menuOpenInFolder"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="50dp"
