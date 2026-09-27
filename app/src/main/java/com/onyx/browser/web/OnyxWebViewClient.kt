@@ -115,11 +115,39 @@ class OnyxWebViewClient(
 
     // Facebook domains that are content (logins, embeds, CDN) not pure tracking
     private val facebookContentDomains = setOf(
-        "www.facebook.com", "m.facebook.com", "web.facebook.com", "touch.facebook.com",
+        "facebook.com", "www.facebook.com", "m.facebook.com", "web.facebook.com", "touch.facebook.com",
         "static.facebook.com", "staticxx.facebook.com", "static.xx.fbcdn.net",
         "connect.facebook.net", "facebook.net", "graph.facebook.com",
-        "fbcdn.net", "scontent.xx.fbcdn.net"
+        "fbcdn.net", "scontent.xx.fbcdn.net", "fbsbx.com", "fb.com", "accountkit.com"
     )
+
+    private fun isMetaDomain(domain: String): Boolean {
+        if (domain.isBlank()) return false
+        val d = domain.lowercase()
+        return d == "facebook.com" || d.endsWith(".facebook.com") ||
+                d == "fb.com" || d.endsWith(".fb.com") ||
+                d == "fbcdn.net" || d.endsWith(".fbcdn.net") ||
+                d == "facebook.net" || d.endsWith(".facebook.net") ||
+                d == "fbsbx.com" || d.endsWith(".fbsbx.com") ||
+                d == "messenger.com" || d.endsWith(".messenger.com") ||
+                d == "instagram.com" || d.endsWith(".instagram.com") ||
+                d == "accountkit.com" || d.endsWith(".accountkit.com")
+    }
+
+    private fun isCaptchaOrAuthUrl(url: String, domain: String): Boolean {
+        val d = domain.lowercase()
+        val u = url.lowercase()
+        return d.contains("recaptcha") || d.contains("hcaptcha") ||
+                d.contains("arkose") || d.contains("arkoselabs") || d.contains("funcaptcha") ||
+                d.contains("turnstile") || d.contains("geetest") || d.contains("datadome") ||
+                d.contains("kasada") ||
+                u.contains("recaptcha") || u.contains("hcaptcha") || u.contains("arkose") ||
+                u.contains("funcaptcha") || u.contains("turnstile") ||
+                u.contains("/checkpoint/") || u.contains("/challenge/") ||
+                u.contains("/captcha/") || u.contains("/security-check") ||
+                u.contains("/waf/") || u.contains("/bot-detection") ||
+                u.contains("/human-verification") || u.contains("login/device-based")
+    }
 
     // Twitter/X content domains (embeds)
     private val twitterContentDomains = setOf(
@@ -320,30 +348,29 @@ class OnyxWebViewClient(
             val isIncognitoView = (view as? OnyxWebView)?.isIncognito ?: false
             val resourceType = detectResourceType(request)
 
+            val currentDomain = preferences.cleanDomain(currentPageUrl)
+            val isMetaContext = isMetaDomain(pageDomain) || isMetaDomain(currentDomain) ||
+                    isCaptchaOrAuthUrl(currentPageUrl, currentDomain) ||
+                    isCaptchaOrAuthUrl(pageUrl, pageDomain)
+
             // ── Universal CAPTCHA, Verification & Security Protection ──────────────
             // Anti-bot verifications and checkpoints must never be blocked on any website
-            val isCaptchaResource = reqDomain.contains("recaptcha") || reqDomain.contains("hcaptcha") ||
-                    reqDomain.contains("arkoselabs") || reqDomain.contains("turnstile") ||
-                    reqDomain.contains("geetest") || url.contains("/checkpoint/") || url.contains("/challenge/")
+            val isCaptchaResource = isCaptchaOrAuthUrl(url, reqDomain)
             if (isCaptchaResource) {
+                if (!isIncognitoView && view != null) {
+                    try { CookieManager.getInstance().setAcceptThirdPartyCookies(view, true) } catch (_: Exception) {}
+                }
                 return null
             }
 
             // ── Meta / Facebook First-Party Integrity ─────────────────────────────
-            val isMetaPage = pageDomain == "facebook.com" || pageDomain.endsWith(".facebook.com") ||
-                    pageDomain == "fb.com" || pageDomain.endsWith(".fb.com") ||
-                    pageDomain == "messenger.com" || pageDomain.endsWith(".messenger.com") ||
-                    pageDomain == "instagram.com" || pageDomain.endsWith(".instagram.com")
+            val isMetaResource = isMetaDomain(reqDomain)
 
-            val isMetaResource = reqDomain == "facebook.com" || reqDomain.endsWith(".facebook.com") ||
-                    reqDomain == "facebook.net" || reqDomain.endsWith(".facebook.net") ||
-                    reqDomain == "fbcdn.net" || reqDomain.endsWith(".fbcdn.net") ||
-                    reqDomain == "fb.com" || reqDomain.endsWith(".fb.com") ||
-                    reqDomain == "messenger.com" || reqDomain.endsWith(".messenger.com") ||
-                    reqDomain == "instagram.com" || reqDomain.endsWith(".instagram.com")
-
-            // First-party Meta resources when user is on Meta sites must never be blocked
-            if (isMetaPage && isMetaResource) {
+            // First-party Meta resources when user is on Meta sites or in an authentication/login/captcha context must never be blocked
+            if (isMetaResource && (isMetaContext || preferences.allowFacebookLogins)) {
+                if (!isIncognitoView && view != null) {
+                    try { CookieManager.getInstance().setAcceptThirdPartyCookies(view, true) } catch (_: Exception) {}
+                }
                 return null
             }
 
@@ -352,6 +379,9 @@ class OnyxWebViewClient(
             val isFbContent = preferences.allowFacebookLogins &&
                     facebookContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
             if (isFbContent) {
+                if (!isIncognitoView && view != null) {
+                    try { CookieManager.getInstance().setAcceptThirdPartyCookies(view, true) } catch (_: Exception) {}
+                }
                 return null
             }
 
@@ -375,7 +405,7 @@ class OnyxWebViewClient(
             }
 
             // ── Social Media Tracker Blocking ─────────────────────────────────────
-            if (preferences.isSocialMediaBlockingEnabled && !isWhitelisted) {
+            if (preferences.isSocialMediaBlockingEnabled && !isWhitelisted && !isMetaContext) {
                 val isSocialTrackerDomain = socialMediaTrackerDomains.any { trackerDomain ->
                     reqDomain == trackerDomain || reqDomain.endsWith(".$trackerDomain")
                 }
@@ -455,10 +485,15 @@ class OnyxWebViewClient(
             // ── Tracking URL Cleanup (strip tracking query params) ─────────────────
             if (isForMainFrame && preferences.isAutoRedirectTrackingUrlsEnabled &&
                 (scheme == "http" || scheme == "https")) {
-                val cleaned = stripTrackingParams(url)
-                if (cleaned != url) {
-                    view?.post { view.loadUrl(cleaned) }
-                    return true
+                val host = uri.host?.lowercase() ?: ""
+                val isAuthOrMeta = isMetaDomain(host) || isCaptchaOrAuthUrl(url, host) ||
+                        host.contains("login") || host.contains("auth") || host.contains("checkpoint")
+                if (!isAuthOrMeta) {
+                    val cleaned = stripTrackingParams(url)
+                    if (cleaned != url) {
+                        view?.post { view.loadUrl(cleaned) }
+                        return true
+                    }
                 }
             }
 
@@ -548,8 +583,9 @@ class OnyxWebViewClient(
 
             // External app URL schemes (tg://, whatsapp://, tel:, mailto:, sms:, geo:, intent:, market:, etc.)
             dispatchExternalScheme(view, uri, url, scheme)
+            true
         } catch (_: Throwable) {
-            false
+            true
         }
     }
 
@@ -1020,6 +1056,14 @@ class OnyxWebViewClient(
             onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)
 
+            val pageDomain = preferences.cleanDomain(url)
+            val isAuthOrMeta = isMetaDomain(pageDomain) || isCaptchaOrAuthUrl(url, pageDomain)
+            if (isAuthOrMeta && !(onyxWv?.isIncognito ?: false)) {
+                try {
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
+                } catch (_: Exception) {}
+            }
+
             // If this is a pending popup window that successfully started navigating to a valid URL, display it
             if (onyxWv?.isPopupPendingDisplay == true && url != "about:blank") {
                 val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
@@ -1029,7 +1073,7 @@ class OnyxWebViewClient(
                 }
             }
 
-            val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)
+            val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url) && !isAuthOrMeta
             view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
             if (isAdBlockActiveForPage) {
                 val lvl = preferences.blockingLevel

@@ -24,8 +24,15 @@ object AdBlockDocumentStart {
                 }
             } catch(e) {}
 
-            if (!isShieldActive || window.__onyx_shields_active === false || window.__onyxAdBlockEnabled === false) {
-                // Adblocking is disabled globally or whitelisted for this site!
+            var host = (location.hostname || '').toLowerCase();
+            var isMetaOrAuthContext = host.endsWith('facebook.com') || host.endsWith('fb.com') ||
+                                      host.endsWith('messenger.com') || host.endsWith('instagram.com') ||
+                                      host.endsWith('fbcdn.net') || host.indexOf('arkose') !== -1 ||
+                                      host.indexOf('recaptcha') !== -1 || host.indexOf('hcaptcha') !== -1 ||
+                                      host.indexOf('turnstile') !== -1 || host.indexOf('funcaptcha') !== -1;
+
+            if (isMetaOrAuthContext || !isShieldActive || window.__onyx_shields_active === false || window.__onyxAdBlockEnabled === false) {
+                // Do not run adblock/cosmetic injections or stub globals on Meta login, CAPTCHA challenges, or whitelisted sites!
                 try {
                     var oldCosm = document.getElementById('onyx-universal-cosmetic');
                     if (oldCosm) oldCosm.remove();
@@ -53,7 +60,14 @@ object AdBlockDocumentStart {
                 window.google_ad_client = true;
                 window.google_ad_width = window.innerWidth || 1024;
                 window.google_ad_height = window.innerHeight || 768;
-                window.fbq = window.fbq || function() {};
+                if (!window.fbq) {
+                    var fbqStub = function() {
+                        if (fbqStub.callMethod) { fbqStub.callMethod.apply(fbqStub, arguments); }
+                        else if (fbqStub.queue) { fbqStub.queue.push(arguments); }
+                    };
+                    fbqStub.push = fbqStub; fbqStub.loaded = true; fbqStub.version = '2.0'; fbqStub.queue = [];
+                    window.fbq = fbqStub;
+                }
                 window._paq = window._paq || [];
                 window.dataLayer = window.dataLayer || [];
                 window.outbrain = window.outbrain || { ready: function() {} };

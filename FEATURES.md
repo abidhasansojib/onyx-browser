@@ -49,7 +49,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 36. [x] Accessibility Settings (search widget toggle, webpage menu "Add to Home screen" toggle, text scaling)
 37. [x] Add to Home Screen (PWA launcher shortcuts via `ShortcutManagerCompat`)
 38. [x] Theme System (Google Light, Google Dark `#202124`, and pure AMOLED Black)
-39. [x] Hardened WebView Sandboxing (third-party cookies blocked, file scheme disabled, safe intent routing)
+39. [x] Hardened WebView Sandboxing (third-party cookies enabled for web auth/CAPTCHAs, blocked in Incognito, file scheme disabled, safe intent routing)
 40. [x] Offline Eruda Developer Tools (bundled mobile DOM inspector, console, network monitor)
 41. [x] Console & Error Pre-Buffering (captures startup logs & JS errors before DevTools opens)
 42. [x] Remote USB Debugging (Chrome DevTools `chrome://inspect` over USB/ADB)
@@ -88,8 +88,9 @@ This document tracks all features of Onyx Browser, their current implementation 
 ### 4. Authentication & Security
 - **Passkeys (WebAuthn)**: Polyfills `window.PublicKeyCredential` to allow passwordless biometric authentication through AndroidX Credential Manager.
 - **Autofill Compatibility**: Supports Google Password Manager, Bitwarden, 1Password, and hardware security keys.
+- **Anti-Bot & Social Login Integrity**: Client hints (`navigator.userAgentData`), `window.chrome`, and automation flag spoofing ensure anti-bot engines (Arkose Labs / FunCaptcha, reCAPTCHA, Turnstile, Meta Risk Engine) recognise Onyx as an authentic mobile browser. Third-party cookies are accepted for cross-origin verification iframes during authentication flows, resolving 'Confirmation failed in captcha'.
 - **SQLCipher Encryption**: Uses 256-bit AES encryption (`net.zetetic:android-database-sqlcipher`) for Room database storage containing tabs, history, and bookmarks.
-- **Sandboxed WebView**: Disables third-party cookies by default, disables `file://` scheme access, and requires explicit user permission for microphone, camera, and location.
+- **Sandboxed WebView**: Disables third-party cookies by default in Incognito, disables `file://` scheme access, and requires explicit user permission for microphone, camera, and location.
 
 ### 5. Omnibox & Search
 - **Full-Page Search Overlay**: Tapping the toolbar opens a clean search screen with suggestions and clipboard detection.

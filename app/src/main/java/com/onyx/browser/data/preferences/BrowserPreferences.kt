@@ -127,7 +127,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         }
 
     var isBlockThirdPartyCookiesEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BLOCK_THIRD_PARTY_COOKIES, true)
+        get() = prefs.getBoolean(KEY_BLOCK_THIRD_PARTY_COOKIES, false)
         set(value) = prefs.edit().putBoolean(KEY_BLOCK_THIRD_PARTY_COOKIES, value).apply()
 
     var isDoNotTrackEnabled: Boolean
@@ -156,9 +156,9 @@ class BrowserPreferences private constructor(private val context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_GLOBAL_SCRIPT_BLOCKING, value).apply()
 
     // ── Cookie Blocking Mode ──────────────────────────────────────────────────
-    // 0 = Allow All, 1 = Block Third-Party (default), 2 = Block All
+    // 0 = Allow All (default), 1 = Block Third-Party, 2 = Block All
     var cookieBlockingMode: Int
-        get() = prefs.getInt(KEY_COOKIE_BLOCKING_MODE, COOKIE_BLOCK_THIRD_PARTY)
+        get() = prefs.getInt(KEY_COOKIE_BLOCKING_MODE, COOKIE_BLOCK_NONE)
         set(value) = prefs.edit().putInt(KEY_COOKIE_BLOCKING_MODE, value).apply()
 
     // ── Fingerprint via Language ──────────────────────────────────────────────

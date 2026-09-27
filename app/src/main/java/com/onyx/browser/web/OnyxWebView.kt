@@ -282,6 +282,12 @@ class OnyxWebView @JvmOverloads constructor(
                     DevToolsManager.consoleBufferScript,
                     setOf("*")
                 )
+                // Client Hints (navigator.userAgentData), window.chrome, and bot integrity
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    ClientHintsCompatibilityBridge.SCRIPT,
+                    setOf("*")
+                )
             }
         } catch (_: Exception) {}
 
