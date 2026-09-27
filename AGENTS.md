@@ -1717,3 +1717,14 @@ onyx-browser/
         - Added `MainActivity.closeTabById(tabId: String)`.
       - **Standard Ad & Tracker List Expansion (`AdBlockDomainManager.kt`)**:
         - Added standard ad and tracker networks tested by adblock suites (`googleanalytics.com`, `adfox`, `appmetrica`, `sentry-cdn`, `events.reddit.com`, `ads.youtube.com`, `ads-api.tiktok.com`, etc.) to `standardDomains`.
+  - [x] **Verified Remote GitHub Actions Release Build & Deployment (#36294401990, Release `v1.0.184`)**:
+    - Workflow dispatched for **Release** build on `main` branch with inputs `build_type=Release`.
+    - Native Rust NDK `libadblock_bridge.so` compiled with full `hidden_class_id_selectors` cosmetic filter and Brave scriptlet pipeline support across `arm64-v8a`, `armeabi-v7a`, `x86_64`.
+    - Release APKs assembled with ABI splits and R8 minification, packaged with official release keystore.
+    - Verified published GitHub Release [`v1.0.184`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.184):
+      - `Onyx-Browser-v1.0.184-arm64-v8a-release.apk` (20.5 MB)
+      - `Onyx-Browser-v1.0.184-armeabi-v7a-release.apk` (16.5 MB)
+      - `Onyx-Browser-v1.0.184-universal-release.apk` (41.5 MB)
+      - `Onyx-Browser-v1.0.184-x86_64-release.apk` (22.0 MB)
+    - Copied latest release binaries directly to `/storage/emulated/0/` and `/root/onyx-browser/release/` for immediate installation.
+
