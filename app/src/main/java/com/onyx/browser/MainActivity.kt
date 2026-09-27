@@ -1452,19 +1452,20 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Clicking the webpage card directly opens/reloads the page in one tap (matching Brave/Chromium)
         binding.containerPageInfo.setOnClickListener {
             val url = getActivePageUrl()
             if (url.isNotBlank()) {
-                val cleanUrl = if (LocalFileLoader.isLocalFile(url)) {
-                    try {
-                        val parsed = Uri.parse(url)
-                        if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else url
-                    } catch (_: Exception) { url }
-                } else url
-                binding.etUrl.setText(cleanUrl)
-                binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
-                binding.etUrl.requestFocus()
-                showSoftKeyboard()
+                performSearchOrLoad(url)
+                hideSoftKeyboard()
+            }
+        }
+
+        binding.cardCurrentPage.setOnClickListener {
+            val url = getActivePageUrl()
+            if (url.isNotBlank()) {
+                performSearchOrLoad(url)
+                hideSoftKeyboard()
             }
         }
     }

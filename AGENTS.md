@@ -241,6 +241,8 @@ onyx-browser/
     - Diagonal omnibox insert arrow: `ic_insert_query` (36dp x 36dp, `selectableItemBackgroundBorderless`, `tint="?attr/colorControlNormal"`) to cleanly populate the address bar for editing without direct execution.
     - Active page URL suppression: suppresses "Link you copied" when clipboard matches active tab URL (`cleanUrlForComparison`).
     - Search query filtering: only blends clipboard suggestion during active typing if it contains the user query, preventing clipboard clutter over relevant search suggestions.
+  - One-Tap Active Webpage Card Navigation (Matching Brave-Core):
+    - Tapping the current webpage card (or its site info container) in the omnibox search overlay directly navigates/reloads the page via `performSearchOrLoad()` and dismisses the keyboard in one tap, while preserving the dedicated edit pencil button (`btnCurrentPageEdit`) for customizing the URL in the omnibox.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
