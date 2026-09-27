@@ -321,7 +321,7 @@
                         <androidx.appcompat.widget.AppCompatImageView
                             android:layout_width="20dp"
                             android:layout_height="20dp"
-                            app:srcCompat="@drawable/ic_arrow_forward"
+                            app:srcCompat="@drawable/ic_chevron_right"
                             app:tint="@color/settings_subtitle_text" />
                     </LinearLayout>
 
