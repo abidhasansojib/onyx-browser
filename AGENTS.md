@@ -266,7 +266,7 @@ onyx-browser/
     - Rewrote `README.md` to remove robotic AI buzzwords, verbose marketing prose, and internal technical over-explanations.
     - Preserved visual branding (centered 128px logo, title, clean badges, quick links).
     - Simplified sections: natural "What is Onyx?", clear benefit-focused feature bullet points, straightforward download guide matching CPU architectures to everyday devices, minimal tech stack, and easy-to-follow source build instructions.
-    - Streamlined the "Built With" section to clean, concise bullet points without redundant badge links, eliminating artificial clutter for a crisp, human-developer layout.
+    - Streamlined the header subtitle ("A fast, private, and lightweight browser for Android") and trimmed the Features section to 6 tight, human-readable bullet points free of repetitive marketing fluff.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

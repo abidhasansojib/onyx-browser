@@ -4,7 +4,7 @@
 
 # Onyx Browser
 
-### Fast, private, and lightweight Android browser with built-in adblocking
+A fast, private, and lightweight browser for Android.
 
 [![Build & Release](https://github.com/abidhasansojib/onyx-browser/actions/workflows/build.yml/badge.svg)](https://github.com/abidhasansojib/onyx-browser/actions/workflows/build.yml)
 [![Latest Release](https://img.shields.io/github/v/release/abidhasansojib/onyx-browser?color=blue&label=Release)](https://github.com/abidhasansojib/onyx-browser/releases/latest)
@@ -19,22 +19,20 @@
 
 ---
 
-## What is Onyx?
+## About
 
-Onyx is a clean, minimal, and fast web browser for Android. It has Brave's adblocking engine built right in, blocks annoying popups and trackers out of the box, and stays light on your battery and RAM.
+Onyx is a clean and fast web browser for Android with built-in adblocking, background media playback, and on-device privacy.
 
 ---
 
 ## Features
 
-- **Built-in Adblocker** – Blocks video ads, banners, popups, and trackers using Brave's native adblocking engine.
-- **Background Play & PiP** – Keep playing audio or video when switching apps or locking your screen, with full Picture-in-Picture support.
-- **Fast & Smooth** – Opens instantly and scrolls smoothly without background bloat or lag.
-- **Privacy by Default** – Encrypted history and bookmarks stored only on your phone, with zero tracking or telemetry.
-- **Clean Theme** – Matches your phone with Google Light, Google Dark, and true AMOLED Black modes.
-- **Passkeys & Autofill** – Works seamlessly with Google Password Manager, Bitwarden, and biometric passkeys.
-- **External Downloads** – Catch video streams and easily hand off downloads to apps like 1DM or ADM.
-- **QR Code Scanner** – Scan QR codes straight from the search bar with your camera.
+- **Adblocking** – Blocks ads, popups, and trackers with Brave's native engine
+- **Background Play & PiP** – Audio and video keep playing in the background, with Picture-in-Picture
+- **Fast & Light** – Instant startup, low memory usage, and no background bloat
+- **Private** – On-device encrypted bookmarks and history with zero tracking
+- **Themes** – Google Light, Google Dark, and pure AMOLED black modes
+- **Tools** – Passkeys, external download manager handoff, and QR scanner
 
 ---
 
