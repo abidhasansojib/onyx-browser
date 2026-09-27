@@ -1,1850 +1,222 @@
-# AGENTS.md - Onyx Browser Project Operational Guide & Architecture
+# AGENTS.md — Onyx Browser Engineering Guide & Operational Mandates
 
-## 1. Project Summary & Purpose
-**Onyx Browser** (`com.onyx.browser`) is a production-grade, ultra-lightweight, high-performance Android web browser engineered from scratch for modern Android devices (Min SDK 26, Target/Compile SDK 35).
-
-### Core Goals & Tech Stack
-- **Language**: Kotlin 2.x (Android App) & Rust (Ad-blocking Engine via JNI).
-- **UI Paradigm**: Classic Android XML Views with ViewBinding. Strictly NO Jetpack Compose to preserve instantaneous cold starts, minimize memory consumption, and ensure optimal hardware-accelerated WebView compositing.
-- **Native Ad-Blocker**: Brave's `adblock-rust` (linked via submodule and symlinked) compiled to `.so` shared libraries (`libadblock_bridge.so`) across target Android ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`) via `cargo-ndk`.
-- **Adblock Lists Integration**: Official Brave `adblock-lists` repository integrated via submodule and symlink, with automated aggregation into mobile assets.
-- **Continuous Upstream Synchronization**: Automated GitHub Actions cron workflow (`.github/workflows/sync_upstream.yml`) running every 6 hours to pull upstream changes, refresh filter lists, and rebuild APKs.
-- **Database**: Room Database for history, bookmarks, tabs, and downloads persistence.
-- **Preferences**: AndroidX Jetpack Preferences with AMOLED Pure Black `#000000`, Light, and Material You dynamic color themes.
-- **CI/CD**: Fully autonomous GitHub Actions workflow to cross-compile Rust NDK shared libraries and build Android release/debug APKs.
+> **CRITICAL DIRECTIVE FOR ALL AI MODELS & AGENTS**:  
+> Read this entire document before inspecting, modifying, or executing any task on this codebase. All rules defined herein are absolute, strictly enforced, and take precedence over default assistant behavior.
 
 ---
 
-## 2. Architecture & Directory Layout
+## 1. Project Summary & Architectural Mission
+
+**Onyx Browser** (`com.onyx.browser`) is a production-grade, ultra-lightweight, high-performance, and privacy-first Android web browser engineered from scratch for modern Android devices (Min SDK 26 / Android 8.0+, Compile & Target SDK 35 / Android 15).
+
+### Core Goals & Technical Philosophy
+- **Zero Overhead Native Architecture**: Built with idiomatic Kotlin 2.x and classic Android XML Views with ViewBinding. **Strictly NO Jetpack Compose** to preserve sub-millisecond cold starts, eliminate UI framework overhead, minimize memory consumption, and guarantee 120Hz hardware-accelerated WebView compositing.
+- **Native Rust Adblock Engine (`adblock-rust`)**: Brave's high-performance adblocking engine compiled via `cargo-ndk` into native `.so` shared libraries (`libadblock_bridge.so`) across all 4 Android ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`).
+- **54 Brave Content Filter Lists**: Production filter list management with background compilation into binary FlatBuffers (`onyx_filters.bin`).
+- **Brave-Parity Media & Background Playback**: Streaming background audio/video keep-alive (`userHitPause`, `visibilityState` spoofing, event suppression) and true video-only Picture-in-Picture (PiP) penetrating Shadow DOM hosts.
+- **Modern Standards**: Passkeys & WebAuthn via AndroidX Credential Manager, Google Password Manager integration, CameraX + ML Kit QR scanning, SQLCipher AES-256 database encryption, and multi-engine reverse image search.
+
+---
+
+## 2. 🔴 MANDATORY OPERATIONAL RULES FOR ALL AGENTS
+
+### RULE 1: Local Building Strictly Forbidden
+- **Prohibited Operations**: Executing compilation or build commands locally on this Linux machine (including `./gradlew`, `cargo`, `rustc`, `cmake`, `ninja`, `make`, `docker build`, NDK compilation, or running Gradle daemons) is **STRICTLY FORBIDDEN**.
+- **Reason**: The host system is a lightweight agent environment not configured or resourced to run heavy mobile compilation pipelines.
+- **Permitted Operations**: Lightweight CLI utilities, file editing, Python/Bash scripting, code analysis, Git operations, and GitHub CLI (`gh`) are fully permitted.
+
+### RULE 2: Explicit User Build Gate ("build app now")
+- **Default State**: Do **NOT** trigger GitHub Actions CI/CD workflows, compile code, or trigger remote builds during regular conversation.
+- **Intermediate Commits**: All routine code changes, bug fixes, refactors, and documentation updates must include `[skip ci]` in the commit message to prevent accidental CI triggers:
+  ```bash
+  git commit -m "fix(media): resolve video bounds calculation [skip ci]"
+  ```
+- **The Gate Command**: Only when the user explicitly commands **"build app now"** are you permitted to initiate a CI/CD build run.
+
+### RULE 3: Autonomous Remote Build & Auto-Fix Loop
+When the user explicitly issues the command **"build app now"**, the agent must execute the following autonomous loop:
+1. **Push & Trigger**: Commit all pending changes (without `[skip ci]`) and push to `origin main`, or trigger the workflow:
+   ```bash
+   gh workflow run build.yml -f build_type=Both
+   ```
+2. **Monitor Execution**: Track the active workflow run to completion using `schedule` timers and `gh run view <run_id>`. Do NOT poll in a busy while-loop; use the `schedule` tool.
+3. **If Build Succeeds**:
+   - Download the generated release APKs to `/storage/emulated/0/` via `gh release download`.
+   - Report the release version, file sizes, and download links to the user.
+4. **If Build Fails (CRITICAL AUTO-REPAIR REQUIREMENT)**:
+   - **DO NOT STOP OR REPORT FAILURE TO USER WITHOUT FIXING!**
+   - Retrieve the failed step logs:
+     ```bash
+     gh run view --log-failed --job=<job_id>
+     ```
+   - Analyze the compiler error, Kotlin syntax error, resource collision, or ProGuard/R8 exception.
+   - Apply the necessary code fixes directly in the repository.
+   - Commit the fix and push to `origin main`.
+   - Re-trigger the build workflow and monitor again.
+   - **Repeat this loop autonomously until a 100% successful build is achieved.**
+
+### RULE 4: Mandatory `AGENTS.md` Maintenance
+- Whenever a feature is added, a bug is fixed, an architectural decision is made, or a workflow is completed, you **MUST** update this `AGENTS.md` file before concluding the turn.
+
+---
+
+## 3. Directory Layout & Architecture Map
+
 ```text
 onyx-browser/
 ├── .github/
+│   ├── ISSUE_TEMPLATE/
+│   │   ├── bug_report.yml        # YAML Issue Form: structured bug reports with logs & screenshots
+│   │   ├── feature_request.yml   # YAML Issue Form: structured feature requests & mockups
+│   │   └── config.yml            # Strict template configuration (blank_issues_enabled: false)
 │   └── workflows/
-│       ├── build.yml             # Native Rust NDK & Gradle build pipeline
-│       └── sync_upstream.yml     # Automated upstream Brave sync pipeline
+│       ├── build.yml             # Native Rust NDK compile, Lucide sync, Gradle Release/Debug APKs
+│       └── sync_upstream.yml     # Automated 6-hour cron sync for Brave filter lists
+│
 ├── app/
-│   ├── src/
-│   │   └── main/
-│   │       ├── assets/
-│   │       │   ├── easylist_rules.txt  # Bundled compiled Brave adblock rules
-│   │       │   └── brave-lists/        # Symlink -> external/adblock-lists/brave-lists
-│   │       ├── java/com/onyx/browser/
-│   │       │   ├── data/ (Room DB & Preferences)
-│   │       │   ├── nativebridge/ (AdBlockEngine.kt JNI bridge)
-│   │       │   ├── ui/ (Classic XML ViewBinding controllers)
-│   │       │   └── web/ (WebViewClient, ChromeClient, DownloadHandler)
-│   │       ├── res/
-│   │       ├── jniLibs/ (arm64-v8a, armeabi-v7a, x86_64)
-│   │       └── AndroidManifest.xml
-│   └── build.gradle.kts
-├── external/
-│   ├── adblock-rust/             # Submodule: https://github.com/brave/adblock-rust.git
-│   └── adblock-lists/            # Submodule: https://github.com/brave/adblock-lists.git
-├── rust_engine/
-│   ├── adblock-rust/             # Symlink -> ../external/adblock-rust
+│   ├── src/main/
+│   │   ├── assets/
+│   │   │   ├── easylist_rules.txt  # 35,000+ bundled Brave & uBlock filter rules (1.3 MB)
+│   │   │   ├── eruda.min.js        # Offline mobile developer console
+│   │   │   └── fonts/              # Typography assets
+│   │   │
+│   │   ├── java/com/onyx/browser/
+│   │   │   ├── MainActivity.kt     # Primary activity, toolbar coordinator, PiP & insets manager
+│   │   │   ├── OnyxApplication.kt  # App lifecycle, encrypted DB initialization, ServiceWorker setup
+│   │   │   │
+│   │   │   ├── data/               # Data & Storage Layer
+│   │   │   │   ├── filter/         # FilterListManager (54 Brave filter lists compiler)
+│   │   │   │   ├── local/          # Room Database, DAOs, and SQLCipher key provider
+│   │   │   │   ├── model/          # TabItem, HistoryItem, BookmarkItem, ShortcutItem
+│   │   │   │   ├── preferences/    # BrowserPreferences (StateFlow reactive settings & domain cache)
+│   │   │   │   └── search/         # SearchSuggestionRepository & OpenSearch engine queries
+│   │   │   │
+│   │   │   ├── media/              # Media & Playback Subsystem
+│   │   │   │   ├── FloatingVideoMenuManager.kt # Draggable floating action pill (download, bg play, PiP)
+│   │   │   │   ├── MediaPlaybackBridge.kt      # Thread-safe JS/JNI bridge & video presence flags
+│   │   │   │   └── MediaPlaybackService.kt     # Foreground MediaSession service for lockscreen controls
+│   │   │   │
+│   │   │   ├── nativebridge/
+│   │   │   │   └── AdBlockEngine.kt            # JNI bindings to native libadblock_bridge.so
+│   │   │   │
+│   │   │   ├── ui/                 # Presentation Layer (XML ViewBinding)
+│   │   │   │   ├── bookmarks/      # BookmarksActivity & BookmarksAdapter
+│   │   │   │   ├── browser/        # TabManager (WebView lifecycle & tab state persistence)
+│   │   │   │   ├── downloads/      # DownloadsActivity, DownloadPromptBottomSheet, 1DM handoff
+│   │   │   │   ├── history/        # HistoryActivity & HistoryAdapter
+│   │   │   │   ├── home/           # ShortcutsAdapter, quick action rows, drag-and-drop reordering
+│   │   │   │   ├── menu/           # ContextMenuBottomSheet, ImagePreviewDialog, Reverse Image Search
+│   │   │   │   ├── qr/             # QrScannerActivity (CameraX + ML Kit)
+│   │   │   │   ├── search/         # SuggestionsAdapter, SearchEnginePopupMenu, keyword routing
+│   │   │   │   ├── settings/       # SettingsActivity, ShieldsActivity, ContentFiltersActivity
+│   │   │   │   └── tabs/           # TabSwitcherBottomSheet (Normal vs Incognito segmented pill)
+│   │   │   │
+│   │   │   └── web/                # Chromium WebView Subsystem
+│   │   │       ├── AdBlockDocumentStart.kt   # Document-start scriptlets (CORS, fetch/XHR, CMP stubs)
+│   │   │       ├── AdBlockDomainManager.kt   # 2-Tier domain rules (Standard vs Aggressive)
+│   │   │       ├── AdBlockServiceWorkerHelper.kt # ServiceWorker network request interception
+│   │   │       ├── MediaPlaybackManager.kt   # Brave backgrounding scripts, PiP Shadow DOM isolation
+│   │   │       ├── OnyxWebChromeClient.kt    # Fullscreen video, file chooser, WebRTC permissions
+│   │   │       ├── OnyxWebView.kt            # Hardened WebView, hardware layer, sandboxing
+│   │   │       ├── OnyxWebViewClient.kt      # URL routing, type-aware 200 OK stubs, scheme dispatcher
+│   │   │       └── PasskeyWebAuthnBridge.kt  # AndroidX Credential Manager WebAuthn bridge
+│   │   │
+│   │   ├── res/                    # Google Theme styles (Light/Dark/AMOLED), layouts, vectors
+│   │   └── AndroidManifest.xml     # SingleTask launchMode, queries, hardware acceleration, permissions
+│   │
+│   └── build.gradle.kts            # App dependencies, NDK configuration, deterministic signing
+│
+├── external/                       # Submodules
+│   ├── adblock-rust/               # Brave adblock-rust engine source
+│   └── adblock-lists/              # Official Brave filter lists
+│
+├── rust_engine/                    # Native Rust NDK Bridge
 │   ├── Cargo.toml
-│   └── src/lib.rs
-├── scripts/
-│   ├── fetch_icons.sh            # Automated Lucide icon acquisition
-│   ├── svg_to_vector.py          # SVG -> Android Vector Drawable converter
-│   ├── sync_upstream.sh          # Upstream submodule & symlink sync
-│   └── update_filter_lists.sh    # Bundles official Brave lists into assets
-├── .gitmodules
-├── build.gradle.kts
-├── settings.gradle.kts
-└── AGENTS.md
+│   └── src/lib.rs                  # JNI exports: init, shouldBlock, getCosmeticResources
+│
+├── art/                            # High-res branding & visual assets
+│   └── logo.png                    # 1024x1024 master icon
+│
+├── scripts/                        # Automation & Asset Builders
+│   ├── fetch_icons.sh              # Lucide vector icon acquisition
+│   ├── svg_to_vector.py            # SVG to Android Vector Drawable normalizer
+│   ├── sync_upstream.sh            # Submodule sync
+│   └── update_filter_lists.sh      # Bundles official Brave lists into easylist_rules.txt
+│
+├── README.md                       # Streamlined public documentation & download guide
+├── FEATURES.md                     # Exhaustive technical feature manual
+├── LICENSE                         # Official GNU General Public License v3.0 (GPL-3.0)
+└── AGENTS.md                       # This document (Engineering & Operations Guide)
 ```
 
 ---
 
-## 3. Established Project Rules & Coding Standards
+## 4. Deep Dive: Core Subsystems & Implementation Guidelines
 
-### Environment & Capability Constraints
-- **Local Building Strictly Forbidden**: The local host environment is NOT permitted or capable of building Android Gradle projects, compiling NDK/Rust binaries, or running heavy compilation pipelines.
-- **Remote CI/CD Execution**: All compilation of Rust native libraries (`libadblock_bridge.so`) and Android APK builds (`./gradlew assembleDebug` / `assembleRelease`) MUST be executed remotely via GitHub Actions.
-- **Explicit User Build Gate (Strict Rule)**: IF I don't tell you to build app, then you won't trigger GitHub Actions build. Strictly **DO NOT** trigger CI/CD build workflows, compile, or build applications until the user explicitly commands **"build app now"**. Work on code, architecture, layouts, assets, and documentation until explicitly told to build.
-- **Code Quality**:
-  - Null-safe, idiomatic Kotlin code with lifecycle-aware ViewBinding binding inflation and clearing.
-  - Strict WebView memory leak prevention: Detach WebViews from parent layout, destroy properly in `onDestroyView()` / tab closure, remove callbacks.
-  - Coroutines with `Dispatchers.IO` for disk and database access, `Dispatchers.Main` for UI updates.
-  - Rust memory safety: Clean JNI boundary error handling with `catch_unwind` and fallback to unblocked if any JNI error occurs.
+### 4.1. Ad-Blocking Subsystem (`OnyxWebViewClient` & `AdBlockEngine`)
+- **Type-Aware Response Synthesis**: Never return raw HTTP 403 errors when blocking resources. Websites use JavaScript promises that crash or halt rendering upon receiving HTTP error statuses. Always synthesize safe 200 OK stubs via `createBlockedResponse`:
+  - `image`: Returns 1×1 transparent PNG (`iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=`) with CORS headers.
+  - `script`: Returns an empty JavaScript stream with CORS headers.
+  - `stylesheet`: Returns an empty CSS stream with CORS headers.
+  - `sub_frame`: Returns an empty HTML comment (`<!-- blocked subframe -->`).
+  - `media`/`other`: Returns an empty stream with CORS headers.
+- **Fast Domain Parsing**: Use zero-allocation index scanning in `BrowserPreferences.cleanDomain` and cache the whitelist in an in-memory `HashSet<String>` to prevent disk I/O bottlenecks during request bursts.
+
+### 4.2. Media & Playback Subsystem (`MediaPlaybackManager` & `FloatingVideoMenuManager`)
+- **Video Presence vs Playback**: The floating action pill must remain visible whenever HTML5 video elements exist on the page, not solely when actively playing. Use `MediaPlaybackBridge.isVideoAvailable` (`isVideoPresent || isVideoPlaying`) to govern visibility.
+- **Brave `userHitPause` Architecture**:
+  - The script monkey-patches `HTMLMediaElement.prototype.pause` and `play` to maintain a `userHitPause` flag.
+  - If a website fires a pause event while `!element.userHitPause` (e.g. on window blur or tab visibility change), the engine immediately auto-resumes playback via `origPlay.call(element)`.
+- **MediaSession Synchronization**:
+  - Intercept `navigator.mediaSession.setActionHandler` to capture streaming websites' custom actions (`play`, `pause`, `seekto`, `seekforward`, `seekbackward`, `nexttrack`, `previoustrack`).
+  - Direct lockscreen and notification transport commands to dispatch through the site's registered MediaSession handlers first, falling back to YouTube's `#movie_player` and DOM media elements.
+- **True Video-Only PiP Isolation**:
+  - Traverses the composed ancestor path across ShadowRoot boundaries to remove CSS `transform`, `contain`, `filter`, and `clip-path` constraints up to `<html>`.
+  - Zeroes out `contentContainer` navigation bar padding during PiP transitions and restores it upon exit.
+  - Supplies an aspect-ratio-corrected `setSourceRectHint` so the Android Window Manager crops strictly to the video viewport.
+
+### 4.3. Navigation, Schemes & Intent Routing (`AndroidManifest.xml`)
+- **SingleTask Launch Mode**: `MainActivity` has `android:launchMode="singleTask"` to prevent duplicate activity stacks when links are clicked from external apps (WhatsApp, Telegram, Gmail, SMS).
+- **External App Scheme Dispatching**:
+  - Custom schemes (`tg://`, `whatsapp://`, `mailto:`, `intent://`) are dispatched directly via `context.startActivity(intent)` with `FLAG_ACTIVITY_NEW_TASK` wrapped in a clean `try ... catch (ActivityNotFoundException)`.
+  - Do NOT gate intent resolution with `resolveActivity != null` on Android 11+ without explicit `<queries>` declarations.
 
 ---
 
-## 4. Active Tasks & Milestones
-- [x] Create project structure and `AGENTS.md`.
-- [x] Implement Rust native crate (`rust_engine/Cargo.toml`, `rust_engine/src/lib.rs`).
-- [x] Configure root and app `build.gradle.kts`, `settings.gradle.kts`, and Gradle wrapper.
-- [x] Implement Room Database, Entities, and DAOs (`data/local`, `data/model`).
-- [x] Implement SharedPreferences manager (`BrowserPreferences`).
-- [x] Implement Native JNI bridge (`nativebridge/AdBlockEngine.kt`).
-- [x] Implement WebView client and chrome client with adblocking & cosmetic CSS injection (`web/`).
-- [x] Implement UI: Top toolbar, Home body, Tab switcher, Quick menu, Downloads dialog, Settings, History, Bookmarks.
-- [x] Provide high-tech vector drawables and AMOLED themes via automated Lucide icon acquisition.
-- [x] Implement GitHub Actions CI/CD workflow (`.github/workflows/build.yml`).
-- [x] Initialize Git repo, push to GitHub (`abidhasansojib/onyx-browser`), trigger workflow, and verify successful build.
-- [x] Monitor remote CI/CD execution and verify artifact generation.
-- [x] Implement monochrome Chrome silhouette adaptive app icon matching user reference image on AMOLED Pure Black `#000000` with Android 13+ themed icon support.
-- [x] Configure complete runtime permissions: Notifications (Android 13+ download alerts/progress), Storage (Android 8-9 download saves), Microphone (Voice search & WebRTC), Geolocation (Web maps/weather), and Camera (Web uploads/calls).
-- [x] Fix runtime search and restart crash: Remove `panic = "abort"` in Rust NDK release profile, harden JNI native bridge (`checkUrl`, `getCosmeticResources`), and fail open safely in `OnyxWebViewClient`.
-- [x] Resolve status bar collision: Apply WindowInsetsCompat systemBars top padding to toolbar and navigationBars bottom padding to containers across all activities.
-- [x] Transform Tab Switcher into a full-page DialogFragment with reactive StateFlow collection and swipe-to-dismiss gesture support.
-- [x] Fix homepage quick actions: Make History, Downloads, Bookmarks, and Incognito buttons clickable with ripple feedback and system downloads folder access.
-- [x] Fetch official brand search engine SVG vectors (Brave, Google, DuckDuckGo, Bing, Startpage, Yahoo) from simple-icons CDN and implement compact dropdown `SearchEnginePopupMenu`.
-- [x] Verified full end-to-end GitHub Actions build run (#35543759711), packaging native 64/32-bit Rust `libadblock_bridge.so` libraries, assets, and producing verified `app-debug.apk` and `app-release.apk` artifacts.
-- [x] Fix app launch crash / instant closure: Add `vectorDrawables.useSupportLibrary = true`, enable `setCompatVectorFromResourcesEnabled(true)`, add `colorControlNormal` and `colorControlHighlight` attributes to Material3 themes, sanitize all 22 vector drawables from dynamic theme references to rock-solid `#FFFFFFFF`, and migrate all layouts to `AppCompatImageButton`/`AppCompatImageView` with `app:srcCompat`.
-- [x] Fix PathParser IllegalArgumentException on `ic_engine_brave.xml` & `ic_engine_bing.xml`: Implement strict SVG path tokenizer and normalizer to unpack concatenated flags (e.g. `0 01-4.293` -> `0 0 1 -4.293`) across all vector drawables.
-- [x] Fix ThreadPoolForeg crash on search & startup: Remove `view.url` access from `shouldInterceptRequest` (which runs on Chromium's background thread), implement thread-safe `@Volatile currentPageUrl` tracking with Referer header inspection, wrap interception in fail-open try-catch, implement robust `shouldOverrideUrlLoading` for external intent schemes, and track `currentDisplayedTabId` in `MainActivity` to eliminate tab churn.
-- [x] Via Browser Architectural Logic & Algorithms:
-  - Smart Search & URL routing: Regex-based domain, IPv4, localhost, and custom scheme parser.
-  - Multi-window & popup window lifecycle: Implemented `onCreateWindow` (spawns new tab with `WebViewTransport`) and `onCloseWindow` in `OnyxWebChromeClient`.
-  - Battery & CPU lifecycle throttling: Background tabs and activities invoke `webView.onPause()`; active tab invokes `webView.onResume()`.
-  - Hardware-accelerated rendering & privacy: `LAYER_TYPE_HARDWARE` enabled, third-party cookies blocked, deprecated render priority cleaned.
-- [x] UI Refinement & Modernization Phase (Completed & Built):
-  - [x] Verified full end-to-end GitHub Actions build run (#35573934472), packaging native Rust `libadblock_bridge.so`, offline `eruda.min.js` assets, context-aware menu, Find in Page bar, and producing verified [`app-release.apk`](file:///root/onyx-browser/release/app-release.apk) (14MB) and [`app-debug.apk`](file:///root/onyx-browser/release/app-debug.apk) (16MB).
-  - [x] Remove diamond gemstone emblem from homepage logo and vector drawable (`ic_logo_onyx.xml`), center the clean geometric ONYX wordmark, and update subtitle to "Fast and Private" (`tagline_fast_and_private`).
-  - [x] Dedicated Full-Page Search Mode & Webpage Action Card:
-    - Tap search bar opens full-page search overlay with back button and clean input ready for fresh search.
-    - Current Webpage Card displayed beneath search bar with Favicon, Title, URL, and 3 quick action buttons: Share (`ic_share`), Copy (`ic_copy`), and Edit (`ic_edit` populates the clean search bar with current URL for customization).
-  - [x] Universal Real-time Search Suggestions Engine (`SearchSuggestionRepository` & `SuggestionsAdapter`):
-    - Full OpenSearch and JSON API support across all 6 search engines: Brave, Google, DuckDuckGo, Bing, Startpage, Yahoo.
-    - Blended local browsing history suggestions (`HistoryDao.searchHistory`).
-    - Diagonal insert arrow button (`ic_insert_query`) on each suggestion to append/customize query without immediate submission.
-  - [x] Fixed "Set as Default Browser":
-    - Added `<category android:name="android.intent.category.APP_BROWSER" />` and `WEB_SEARCH` action in `AndroidManifest.xml` to qualify for system browser role.
-    - Replaced unhandled `startActivity` with `registerForActivityResult(StartActivityForResult())` on `RoleManager.createRequestRoleIntent(ROLE_BROWSER)` and robust multi-step OEM fallback intents (`ACTION_MANAGE_DEFAULT_APPS_SETTINGS`, application details, and general settings).
-  - [x] Tab Switcher Top Bar Redesign:
-    - Replaced top-left cross button with Search button (`ic_search`) to access search mode directly from the tab menu.
-    - Centered the "Normal" and "Incognito" segmented buttons properly in the middle top.
-  - [x] Clear Browsing Data & Tab Switcher Broom Action:
-    - Replaced bottom-left bin and painting brush icons with dedicated cleaning broom icon (`ic_broom.xml`).
-    - Implemented `ClearBrowsingDataDialog` with Chrome-style time range selection: Last 15 mins, Last hour, Last 24 hours, Last 7 days, Last 4 weeks, All time.
-    - Dynamic preview calculating browsing history site count with domain examples, open tab count with tab title examples that will be closed, and cookies/cache warning.
-    - Integrated Room DB time-range history deletion, tab closure (`closeTabsCreatedSince`), and WebView cookie/cache/storage clearing.
-  - [x] Tab Switcher Close All Tabs Icon & Dialog Redesign:
-    - Replaced generic cross icon (`ic_close`) with dedicated tab-close icon (`ic_tab_close.xml`: tab window outline with centered 'X').
-    - Redesigned "Close all tabs" confirmation prompt with modern Material 3 dialog layout (`dialog_confirm_close_all_tabs.xml` and `CloseAllTabsDialog.kt`):
-      - Prominent danger icon badge (`bg_circle_danger.xml` with `ic_tab_close` tinted `@color/red_danger`).
-      - Dynamic contextual title and warning message distinguishing between normal and incognito mode and single vs. multiple tabs.
-      - Tab count summary pill displaying exact tab count to be closed.
-      - Styled Material 3 action buttons: Tonal rounded "Cancel" button and filled red danger "Close All" button.
-      - Empty tab list protection displaying an instant toast message.
-  - [x] Context-Aware 3-Dot Menu & Webpage Toolset Redesign:
-    - Homepage / New Tab Mode:
-      - Displays quick shortcuts (Bookmarks, History, Downloads, Share).
-      - Displays "Set as default browser" banner only when Onyx is not yet the system default.
-      - Displays Settings button directly underneath.
-      - Suppresses extra web-only navigation options (new tab, incognito tab, desktop site, bookmark, find in page).
-    - Webpage Mode:
-      - 1st Header Box-Type UI Card: Clean website domain, centered Shield with Lock button (`ic_shield_lock.xml`), and direct Share button (`ic_share.xml`).
-      - Site Shield & Privacy Dialog (`SiteShieldBottomSheetDialog.kt`): Real-time protection status, "Disable adblocker for this site only" toggle with persistent domain whitelist in `BrowserPreferences` and immediate tab reload.
-      - 2nd Translate to [Language] (`ic_translate.xml`): Contextual target language display, right gear icon opening `LanguageSelectionDialog.kt` (20 languages supported), and instant Google Web Translate loading.
-      - 3rd Find in Page: Interactive toolbar (`findInPageBar`) with real-time match counter (`X/Y`), previous/next navigation, and back-press handling.
-      - 4th Desktop Site: MaterialSwitch toggle switching desktop user agent and reloading.
-      - 5th Add to Home Screen (`ic_add_to_home_screen.xml`): Native Android launcher shortcut pinning with website title and favicon via `ShortcutManagerCompat`.
-      - 6th Developer Tools (`ic_terminal_outline.xml`): Bundled offline `eruda.min.js` in assets, injected dynamically to provide full mobile DevTools console (DOM, console, network, resources).
-      - 7th Settings: Direct access to global browser configuration.
-  - [x] Editable Homepage Shortcuts & Drag-to-Reorder System:
-    - Quick Action Row Redesign:
-      - Replaced `actionIncognito` with Plus button (`actionAddShortcut`, `ic_add.xml`, label "Add").
-      - Replaced `actionShortcuts` with direct Bookmarks button (`actionBookmarks`, `ic_bookmark.xml`).
-    - Dynamic Top Sites Grid:
-      - Replaced static XML table layout with dynamic `RecyclerView` (`rvShortcuts`) and `GridLayoutManager(context, 4)`.
-      - Integrated Android `ItemTouchHelper` to support drag-and-drop position swapping with scale animations and immediate persistent order saving.
-      - Long-press contextual options menu: Open in new tab, Edit shortcut, Delete shortcut, Share link.
-    - Default Prepopulated Shortcuts:
-      - YouTube (`https://www.youtube.com`, `ic_brand_youtube.xml`)
-      - GitHub (`https://www.github.com`, `ic_brand_github.xml`)
-      - Wikipedia (`https://www.wikipedia.org`, `ic_brand_wikipedia.xml`)
-      - Facebook (`https://www.facebook.com`, `ic_brand_facebook.xml`)
-      - Reddit (`https://www.reddit.com`, `ic_brand_reddit.xml`)
-      - Google (`https://www.google.com`, `ic_brand_google.xml`)
-      - Dynamic brand icon detection and custom site letter avatars for user-added URLs.
-    - Shortcut Management Interface:
-      - `ManageShortcutsBottomSheet`: Bottom sheet invoked via quick action plus button containing an Add Shortcut card (Title and URL inputs with scheme validation) and a list of all current shortcuts with Edit and Delete actions.
-      - `EditShortcutDialog`: Material 3 dialog for customizing shortcut title and URL.
-      - Synchronous reactive persistence via `BrowserPreferences` JSON storage and StateFlow updates.
-  - [x] Material Box-Type UI & Pure Google Theme System (System, Google Dark, Google Light):
-    - Material 3 Box-Type UI & Responsive Multi-Display Layout:
-      - Encapsulated quick action buttons into elevated Material 3 box card container (`bg_material_box.xml`) with rounded corners and subtle outline.
-      - Encapsulated dynamic shortcuts grid in a matching Material 3 box card container with elevation.
-      - Upgraded individual shortcut buttons to interactive squircle box tiles (`bg_box_tile.xml`) with ripple and border stroke.
-      - Responsive multi-display optimization: Centered max-width constraints (`layout_constraintWidth_max="540dp"` for home, `760dp` for tab switcher) ensuring optimal readability on compact phones, foldables, and large tablets.
-      - Adaptive grid span counts: 4 columns on phones, 6 columns on tablets/wide screens for shortcuts; 2 columns on phones, 3 columns on tablets for tab switcher.
-    - 3-Option Pure Google Theme System (No Material You dynamic tinting):
-      - 1. **System** (`THEME_SYSTEM`): Automatically checks system dark mode status via `AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM`. If system dark mode is ON, uses Google Dark; if OFF, uses Google Light.
-      - 2. **Dark** (`THEME_DARK`): Manual forced dark mode. Rich, authentic Google Dark Mode matching google.com and Chrome (`#202124` background, `#303134` surface, `#35363A` variant, `#3C4043` outline, `#E8EAED` text, `#8AB4F8` Google Blue 300 accent; avoiding harsh pure black `#000000`).
-      - 3. **Light** (`THEME_LIGHT`): Manual forced light mode. Authentic Google Light UI (`#FFFFFF` background & surface, `#DFE1E5` outline/borders, `#F1F3F4` chips/variant, `#202124` text, `#5F6368` secondary text, `#1A73E8` Google Blue 600 accent).
-  - [x] Default Browser External Link Intent Handling & Routing:
-    - Root Cause Resolved: Previously, `MainActivity` only ran `tabManager.restoreTabs()` on launch and never inspected `intent.data` or handled `onNewIntent`, causing external links from WhatsApp, SMS, Messenger, email, or pinned homescreen shortcuts to launch Onyx to the home screen without opening the target URL.
-    - Android Manifest Enhancements:
-      - Set `android:launchMode="singleTask"` on `MainActivity` so all incoming links from other apps route directly to the single browser instance rather than duplicating activities across task stacks.
-      - Registered comprehensive intent filters: `ACTION_VIEW` (`http`, `https`, `file`, `content` for HTML/XHTML/text), `ACTION_WEB_SEARCH`, `ACTION_SEARCH`, and `ACTION_SEND` (`text/plain` for receiving shared links/text).
-    - Lifecycle-Safe Intent Dispatching:
-      - Cold Start: Tabs are asynchronously restored from Room DB, after which `handleIncomingIntent(intent)` inspects the launch intent.
-      - Warm / Running State: Overrode `onNewIntent(intent)` to immediately handle new links delivered while the app is alive.
-      - Tab Routing Policy: If the active tab is an unused blank normal tab (home screen), it reuses that tab; if the active tab is displaying a website or is incognito, it spawns a new normal tab with the incoming URL and displays it immediately.
-      - URL & Query Extraction: Robust parsing supporting direct URIs, `EXTRA_TEXT` (direct links or links embedded within message text), and search queries.
-  - [x] Dedicated Onyx Downloader Popup Menu & External Downloader Integration:
-    - Download Prompt Popup Menu (`DownloadPromptBottomSheet.kt` & `bottom_sheet_download_prompt.xml`):
-      - Replaced full-page activity with a bottom sheet modal popup menu matching the 3-dot menu experience, smoothly sliding over the active webpage without disrupting browsing state.
-      - Header: "Onyx Downloader" title with download badge and close button.
-      - File Details Card: Uppercase extension badge, formatted size, editable file name input with clear text icon, MIME type.
-      - Website Details Card: Domain name, full URL with one-tap copy button, and active "Session cookies & headers forwarded" indicator with green shield lock icon.
-      - Session & Security Forwarding: Automatically extracts and forwards `Cookie` (from `CookieManager`), `User-Agent`, and `Referer` to internal and external downloaders to ensure authenticated cloud storage, forums, and protected links download successfully.
-      - Download Button: Triggers built-in Onyx / Android system download with complete headers and records in Room database.
-      - External Downloader Button with Smart Dispatch:
-        - Added Android 11+ `<queries>` in `AndroidManifest.xml` for 1DM, 1DM+, 1DM Lite, ADM, ADM Pro, FDM, Download Navi, Aria2.
-        - If exactly 1 external downloader is installed (e.g. 1DM): Launches it directly with all forwarded headers, cookies, and parameters without prompting.
-        - If multiple external downloaders are installed (e.g. 1DM & ADM): Shows `SelectDownloaderBottomSheet` with app icons and names to select between them.
-        - If no external downloader is installed: Shows a helpful prompt offering to open the Play Store or use the default Onyx Downloader.
-  - [x] Homepage Quick Action Reordering, Incognito Visual Clarity, and Toolbar Separation:
-    - Homepage Quick Actions Redesign (Non-Box UI & Reorderable):
-      - Replaced box-type card container with clean, circular flat action buttons (`item_quick_action.xml` and `bg_circle_action.xml`) matching modern mobile browser aesthetics.
-      - Default ordering sets Add (`+`) button to the 4th position: Bookmarks, History, Downloads, Add (`DEFAULT_ORDER = [bookmarks, history, downloads, add]`).
-      - Full drag-and-drop position swapping via `ItemTouchHelper` directly on the homepage, with instant persistent order saving to `BrowserPreferences`.
-      - Added `AdjustQuickActionsBottomSheet` and long-press dialog with Up/Down buttons and "Reset Default" action for effortless manual reordering.
-      - Integrated "Adjust Action Buttons" into `ManageShortcutsBottomSheet`.
-    - Toolbar Spacing & WebUI Boundary Separation:
-      - Added 8dp bottom padding and 4dp top padding to `topBar`, giving the search bar and action icons comfortable breathing room.
-      - Introduced a crisp 1dp outline divider line (`topBarDivider`) beneath the toolbar to physically separate the toolbar from web content, completely preventing UI blending.
-    - Authentic Incognito Icon & Tab Switcher Segmented Control:
-      - Replaced old lightbulb icon with authentic Fedora Hat & Spy Glasses vector drawable (`ic_incognito.xml`).
-      - Added `app:tabInlineLabel="true"` and icons (`@drawable/ic_tabs` and `@drawable/ic_incognito`) to the tab switcher segmented bar.
-    - Prominent Incognito Homepage Branding & Top Bar Indicator:
-      - Swapped normal brand header with dedicated `incognitoHeader` (Fedora Hat & Glasses logo, bold "Incognito" title, and privacy description) whenever the active tab is incognito.
-      - Added `ivIncognitoIndicator` in the top search bar and custom `"Search privately or type URL"` hint to provide unmistakable visual feedback that the user is browsing in Incognito mode.
-  - [x] Tab Switcher Pill Segmented Control, Proper Bin Icon & Homepage UI Polish (commit `9345a52`):
-    - Tab Switcher Segmented Control:
-      - Replaced `bg_search_bar` with dedicated `bg_tab_mode_selector` (colorSurfaceVariant pill) for the Normal/Incognito toggle so the background blends seamlessly with the tab switcher surface in both Light and Dark themes.
-      - Set `tabIndicatorHeight=36dp` + `tabIndicatorGravity=center` so the active tab indicator fills the pill slot as a proper rounded pill — matching the selected tab visually.
-      - Added `@color/tab_mode_icon_tint` color state list: icon tints to `@color/primary` when selected and `?android:attr/textColorSecondary` when not, replacing the flat `?attr/colorControlNormal` which didn't differentiate state.
-      - Added top and bottom 1dp `colorOutline` dividers (alpha 0.4) between the top bar, tab grid, and bottom action bar for cleaner structural separation.
-    - Bottom Bar Broom → Proper Bin Icon:
-      - Replaced the broom icon with the `ic_delete` trash-bin icon (Lucide Trash-2) properly tinted via `app:tint="?attr/colorControlNormal"` so it adapts correctly to both Light (`#202124`) and Dark (`#E8EAED`) themes.
-    - Homepage Layout Improvements:
-      - Wrapped quick action `RecyclerView` inside a `MaterialCardView` (theme-matching `colorSurface` background, `colorOutline` stroke, 20dp corner radius) for visual grouping.
-      - Tightened layout max-width from 540dp → 480dp for better phone-proportioned display.
-      - "Top Sites" section label upgraded with `sans-serif-medium` font weight and 0.1 letter spacing for a more polished heading style.
-      - Removed elevation shadow from the shortcuts grid box (elevation=0dp) — cleaner flat look consistent with Google's UI language.
-      - Consistent 50dp icon sizing across quick action circles and shortcut squircle tiles; both now use 11.5sp label text.
-      - Empty tab state updated with secondary hint "Tap + to open a new tab" and reduced logo opacity (0.22).
-  - [x] Fix build failure: Restore missing `getQuickActionOrder()` declaration, `saveQuickActionOrder()`, and `companion object {` wrapper in `BrowserPreferences.kt` (commit `9122cbe`).
-  - [x] Full Brave-like Shields & Privacy System (commit `4aac01f`):
-    - [x] **Homepage Shortcut Tap Fix**: Disabled `SwipeRefreshLayout` on homepage — it was intercepting RecyclerView touch events. `isEnabled = false` in `showHomeScreen()`, re-enabled in `showWebView()`. Also fixed `setOnChildScrollUpCallback` to block pull-to-refresh when homeLayout is visible. No more refresh on homepage/new tab.
-    - [x] **BrowserPreferences**: 17 new preference fields, `HTTPS_MODE_*` constants, `COOKIE_BLOCK_*` constants, 17 new key constants, `isFilterListEnabled()`/`setFilterListEnabled()` helpers.
-    - [x] **OnyxWebViewClient** full rewrite with:
-      - Auto-redirect AMP pages (`resolveAmpUrl()` handles Google AMP cache, `amp.` subdomain, `/amp/` path, `?amp=1`)
-      - Auto-redirect tracking URLs (strips 25+ params: utm_*, fbclid, gclid, msclkid, ttclid, li_fat_id, igshid, etc.)
-      - HTTPS Upgrade: 3 modes — Disabled / When Possible (fallback to HTTP) / Strict (cancel+error on SSL failure)
-      - Global script blocking (`isGlobalScriptBlockingEnabled` gates all script resources)
-      - Social media tracker blocking with per-platform allowlists (Facebook logins/embeds, Twitter embeds, LinkedIn embeds)
-      - Element blocking in private windows toggle (`isElementBlockingInPrivateEnabled`)
-      - Language fingerprint spoofing (`navigator.language = 'en-US'`, `navigator.languages = ['en-US', 'en']`)
-      - Block smart app banners (CSS+JS removes apple-itunes-app/google-play-app meta tags and hides banner elements)
-      - Open links in app toggle (gates custom scheme dispatcher; `intent://` fallback always works)
-    - [x] **OnyxWebView** cookie blocking: 3-mode `CookieManager` integration — Block All / Block Third-Party (`setAcceptThirdPartyCookies`) / Allow All
-    - [x] **ShieldsActivity** (336 lines) with 11 sections: Trackers & Ads, Connections, Scripts, Cookies, Fingerprinting, Content Filtering, Element Blocking, Social Media, Links, Secure DNS, Privacy
-    - [x] **FilterListsBottomSheet**: 10 Brave/community filter lists (EasyList, EasyPrivacy, uBlock, Brave Default, Fanboy Annoyance, AdGuard Base, AdGuard Mobile, Peter Lowe's, Brave Social, Cookie Consent)
-    - [x] **CustomRulesDialog**: Multiline EditText for user-defined Adblock/uBlock rules
-    - [x] **Secure DNS**: Toggle + provider picker (Cloudflare 1.1.1.1, Google 8.8.8.8, NextDNS, Custom URL)
-    - [x] **Do Not Track**: Send DNT header via OnyxWebView.loadUrl() + spoof `navigator.doNotTrack = '1'`
-    - [x] **SettingsActivity**: New "Shields & Privacy" row linking to ShieldsActivity
-    - [x] **AndroidManifest**: ShieldsActivity registered
-  - [x] Custom Search Engines, Google Password Manager & Passkeys System:
-    - [x] **Custom Search Engines (Brave-core Inspired)**:
-      - Migrated `SearchEngine` from enum to extensible data class with JSON serialization, maintaining full backward compatibility with built-in engines (Brave, Google, DuckDuckGo, Bing, Startpage, Yahoo).
-      - Added custom search engines persistent management in `BrowserPreferences` (`getCustomSearchEngines`, `addCustomSearchEngine`, `updateCustomSearchEngine`, `deleteCustomSearchEngine`, `getAllSearchEngines`).
-      - Created `SearchEngineSettingsActivity` with Standard Engines, Custom Engines list, and `AddEditSearchEngineDialog` (name, keyword shortcut, query URL with `%s` validation).
-      - Implemented Brave-style keyword address bar shortcuts in `MainActivity.performSearchOrLoad` (e.g. typing `e climate change` searches via Ecosia keyword `e`).
-      - Updated `SearchEnginePopupMenu` and `SearchEnginePickerDialog` with custom search engines and direct "Manage search engines…" shortcut.
-    - [x] **Google Password Manager & Autofill Services**:
-      - Created `AutofillHelper` querying `AutofillManager` and `PackageManager` for installed autofill providers (Google Password Manager, Bitwarden, 1Password, etc.).
-      - Created `AutofillSettingsActivity` with active service status card, system Autofill service picker launcher (`ACTION_REQUEST_SET_AUTOFILL_SERVICE`), direct Google Password Manager settings launcher (`com.google.android.gms.credential.manager.PasswordManagerActivity`), and detected provider list.
-      - Enabled native Android Autofill in `OnyxWebView` (`importantForAutofill = IMPORTANT_FOR_AUTOFILL_YES`, `saveFormData = true`).
-    - [x] **Passkeys Support (WebAuthn / FIDO2 / Credential Manager)**:
-      - Integrated Google's official AndroidX `androidx.credentials:credentials:1.3.0` and `androidx.credentials:credentials-play-services-auth:1.3.0`.
-      - Created `PasskeyWebAuthnBridge` with `@JavascriptInterface` handling `createPasskey` and `getPasskey` via `CreatePublicKeyCredentialRequest` and `GetPublicKeyCredentialOption`.
-      - Injected W3C-compliant WebAuthn polyfill into `OnyxWebView` handling ArrayBuffer <-> Base64URL conversions, `window.PublicKeyCredential`, and `navigator.credentials.create`/`get` interception for biometric and password manager passkey registration and login.
-      - Added Passkeys toggle and info card in `AutofillSettingsActivity`.
-  - [x] Settings Cleanup & Consolidation:
-    - Removed redundant "Ad Blocker & Privacy" row from `SettingsActivity` and `activity_settings.xml`.
-    - Consolidated all privacy and adblocking configuration into the single comprehensive "Shields & Privacy" (`ShieldsActivity`) entry.
-    - Updated `SiteShieldBottomSheetDialog` "Global Adblocker Settings" button to open `ShieldsActivity`.
-    - Converted legacy `SettingsPrivacyActivity` to automatically forward to `ShieldsActivity`.
-  - [x] Fix GitHub Actions Build Failure (run 35629351278):
-    - Resolved `pm.getApplicationIcon` overload resolution error in `AutofillHelper.kt` by passing package name String `"com.google.android.gms"` directly.
-    - Resolved unresolved reference `lifecycleScope` in `OnyxWebView.kt` by explicitly importing `androidx.lifecycle.LifecycleOwner` and `androidx.lifecycle.lifecycleScope`.
-  - [x] Advanced Adblocking Engine & 54 Brave Content Filters (75%–85%+ Benchmark Target):
-    - **ServiceWorker Interception**: Integrated `ServiceWorkerControllerCompat` with `ServiceWorkerClientCompat` in `AdBlockServiceWorkerHelper.kt` and initialized in `OnyxApplication`, eliminating the background Service Worker bypass blind spot.
-    - **Document-Start Scriptlet Injection (`WebViewCompat.addDocumentStartJavaScript`)**:
-      - Injected `AdBlockDocumentStart.SCRIPT` at `document_start` before any HTML parse or inline scripts execute.
-      - Proxied `window.fetch` to reject ad and tracker network requests with `TypeError('Failed to fetch: net::ERR_BLOCKED_BY_CLIENT')` so ad benchmark suites (like superadblocktest.com) evaluate probes as blocked rather than opaque 200 OK.
-      - Proxied `window.XMLHttpRequest` to dispatch error events for ad/tracker probes.
-      - Proxied `window.WebSocket` to block ad and tracking WebSocket connections (`wss://`).
-      - Injected early high-priority Universal Cosmetic CSS collapsing bait containers (`.ad-banner`, `.adsbox`, `ins.adsbygoogle`, etc.) with `display: none !important; height: 0 !important;` so `offsetHeight` evaluates to 0.
-      - Injected pre-emptive scriptlet defusers and stubs (`window.ga`, `window.gtag`, `window.adsbygoogle`, `window.fbq`, `window._paq`, etc.).
-    - **Production Bundled Filter Rules Asset**:
-      - Upgraded `scripts/update_filter_lists.sh` to compile over 35,000 active rules from `filters-mirror.txt` (uBlock), Brave Unbreak, Brave Firstparty, Brave CNAME, Peter Lowe's adservers, YouTube distraction lists, and cookie consent rules into `easylist_rules.txt` (1.33 MB).
-    - **54 Brave Android Content Filters Screen**:
-      - Created `ContentFiltersActivity` matching user screenshots (`1.jpg` to `5.jpg`) from `/storage/emulated/0/` with title "Content filters", real-time search, and top-right "UPDATE" button.
-      - Created `FilterListManager` cataloging all 54 filter lists (Cookie notice, Annoying distractions, Anti-AI suggestions, Newsletter popup, Mobile promo, Social media, YouTube Shorts, YouTube Playables, YouTube Recommendations, YouTube Autodubbed, YouTube End video, Tracking URL, Chat app, Paywall, Anti-porn, and all 35 regional country lists).
-      - Background updater downloads enabled remote lists, merges them with bundled assets and custom rules, compiles into binary FlatBuffers cache (`onyx_filters.bin`) via `AdBlockEngine.initFromRules()`, and updates the native Rust engine dynamically.
-  - [x] External App Link Dispatching & Custom Schemes Resolution:
-    - **Root Cause Resolved**: When users navigated to profiles such as `https://t.me/abidhasansojib` and tapped "Send Message" (`tg://resolve?domain=abidhasansojib`), the browser failed silently without launching the Telegram native app.
-      - Cause 1: Package Visibility Filtering on Android 11+ (API 30+) caused `packageManager.resolveActivity(intent, 0)` to return `null` because `tg` was not declared under `<queries>` in `AndroidManifest.xml`.
-      - Cause 2: Hardcoded `intent.addCategory(CATEGORY_BROWSABLE)` prevented apps whose intent-filters only declare `CATEGORY_DEFAULT` from matching.
-      - Cause 3: Missing `FLAG_ACTIVITY_NEW_TASK` caused intent dispatching failures when invoked outside an explicit activity stack.
-    - **Robust Intent & Scheme Dispatching Engine (`OnyxWebViewClient`)**:
-      - Removed the blocking `resolveActivity != null` gate and `CATEGORY_BROWSABLE` restriction.
-      - Direct `context.startActivity(intent)` execution with `FLAG_ACTIVITY_NEW_TASK` wrapped in clean `try ... catch (ActivityNotFoundException)`.
-      - Complete `intent:` URI scheme parser handling `browser_fallback_url`, embedded http/https data fallback, and Google Play Store redirection via `intent.getPackage()`.
-      - Intelligent fallback mechanism for known messaging and social apps (Telegram `org.telegram.messenger`, WhatsApp `com.whatsapp`, Twitter, Instagram, Facebook, Discord, Signal, Viber, Skype): Automatically opens Google Play Store or web link if the target application is not installed on the device.
-      - Full backward and forward compatibility supporting both `shouldOverrideUrlLoading(view, request)` and `@Deprecated shouldOverrideUrlLoading(view, url)`.
-      - Added specialized HTTP link interceptor (`tryOpenAppForHttpLink`) for in-page `t.me` and `wa.me` links when "Open links in app" is enabled.
-    - **Comprehensive Manifest Queries Registration (`AndroidManifest.xml`)**:
-      - Added `<queries>` declarations for all core schemes: `tg`, `telegram`, `whatsapp`, `twitter`, `x`, `instagram`, `fb`, `fb-messenger`, `discord`, `sgnl`, `viber`, `skype`, `tel`, `mailto`, `sms`, `smsto`, `geo`, `market`.
-      - Added package visibility declarations for primary messaging clients (`org.telegram.messenger`, `org.telegram.messenger.web`, `org.thunderdog.challegram`, `com.whatsapp`, `com.whatsapp.w4b`, `com.twitter.android`, `com.instagram.android`, `com.facebook.katana`, `com.discord`, `org.thoughtcrime.securesms`, `com.google.android.youtube`).
-    - **Resource Sanitization**:
-      - Resolved duplicate string resource `filters_update_failed` in `app/src/main/res/values/strings.xml`.
-  - [x] Passkey WebAuthn Origin Binding & Cryptographic Verification Overhaul:
-    - **Root Cause Resolved**:
-      - Passkeys previously failed authentication and registration on webauthn.io and passkey testers.
-      - Cause 1: WebAuthn origin mismatch. Android CredentialManager was called without specifying `origin`, causing Google Play Services / CredentialManager to tag credentials with `android:apk-key-hash:<sha256 of app signature>` instead of the relying party web domain (e.g. `https://webauthn.io`). When the web server verified `clientData.origin`, it rejected the authentication with "Authentication failed".
-      - Cause 2: Orphaned credentials. The server rejected registration, but Google Password Manager stored the credential locally under the app signature. Subsequent registration attempts failed with `InvalidStateError: This device already has a passkey for that user name`, and authentication attempts failed on the server with `That username has no registered credentials`.
-      - Cause 3: Missing Permission. Android 14+ requires `<uses-permission android:name="android.permission.CREDENTIAL_MANAGER_SET_ORIGIN" />` to set custom web origins in CredentialManager requests.
-      - Cause 4: Missing `toJSON()` serialization. Modern WebAuthn libraries (SimpleWebAuthn, webauthn-json) require `credential.toJSON()` and `response.toJSON()` for JSON transmission.
-    - **Architecture & Implementation Fixes**:
-      - **Permission**: Declared `android.permission.CREDENTIAL_MANAGER_SET_ORIGIN` in `AndroidManifest.xml`.
-      - **Origin & ClientDataHash Binding (`PasskeyWebAuthnBridge.kt`)**: Passed `window.location.origin` across JNI, computed W3C `clientDataJSON` (`{"type":..., "challenge":..., "origin":..., "crossOrigin":false}`) and exact SHA-256 `clientDataHash`, passing them to `CreatePublicKeyCredentialRequest` and `GetCredentialRequest.Builder().setOrigin(origin)` with fallback handling.
-      - **Response Enrichment**: Enriched responses with matching Base64URL-encoded `clientDataJSON` ensuring server-side cryptographic hash verification succeeds.
-      - **W3C Level 3 JS Polyfill**: Added `toJSON()` on `PublicKeyCredential` and responses, implemented robust `bufferToBase64Url` supporting `ArrayBuffer`, `Uint8Array`, and TypedArray buffer slices, added `AbortSignal` listener support, and configured full prototype chains for `PublicKeyCredential`, `AuthenticatorAttestationResponse`, and `AuthenticatorAssertionResponse`.
-      - **Document-Start Polyfill Injection**: Injected `PasskeyWebAuthnBridge.getWebAuthnPolyfillJs()` via `WebViewCompat.addDocumentStartJavaScript` and `onPageStarted` so WebAuthn APIs are active immediately as the DOM document initializes.
-  - [x] Universal Active Password Manager & Streamlined Autofill Settings:
-    - **Removed Cluttered Available Providers List**: Cleaned up the settings UI by removing the installed services list and `item_autofill_service.xml`.
-    - **Universal Dynamic Password Manager Action**:
-      - Replaced static "Open Google Password Manager" with a universal, context-aware action that dynamically inspects system settings (`credential_service_primary`, `autofill_service`, `credential_service`).
-      - Identifies the currently selected manager (Google Password Manager, Bitwarden, 1Password, Dashlane, Proton Pass, Samsung Pass, etc.), displays its authentic app icon, and shows "Open [Manager Name]".
-      - One-tap direct launch into the active password manager application or vault, with fallback to system autofill settings if none is selected.
-      - Dynamic status card informing the user exactly which provider is actively powering their device's autofill and credentials.
-  - [x] Adblocker Standard vs. Aggressive Architecture Overhaul (55% Standard -> 95%-100% Aggressive):
-    - **Root Cause of Identical 55% Scores Resolved**:
-      - In `OnyxWebViewClient.kt`, `blockedByKnown` was conditioned on `resourceType != "main_frame"`. Because `shouldInterceptRequest` returns early for main frame requests, `resourceType != "main_frame"` was evaluating to `true` for all subresource requests in both Standard and Aggressive modes, completely neutralizing mode differences.
-      - `AdBlockDocumentStart.kt` injected a single static script that lacked the blocking level parameter, applying the same limited regex (~240/482 hosts, exactly 52%-55% weighted score) in both modes.
-      - Synthesized responses in `shouldInterceptRequest` returned default HTTP 200 with 0 bytes. Under WHATWG fetch specifications for `mode: 'no-cors'`, HTTP 200 causes `fetch()` to resolve rather than reject.
-    - **Dual-Tier AdBlockDomainManager (`AdBlockDomainManager.kt`)**:
-      - Built a dedicated repository categorizing standard advertising/analytics domains vs. aggressive domains.
-      - Standard Tier (52%-55% benchmark): Blocks third-party ads, ad servers, and core web analytics (Google Ads, DoubleClick, Criteo, Taboola, Outbrain, Amazon AdSystem, PubMatic, OpenX, Rubicon, AppsFlyer, Sentry, Bugsnag, etc.).
-      - Aggressive Tier (95%-100% benchmark): Adds 105 dedicated root domains and 88 specific subdomains across OEM telemetry (Xiaomi, Huawei, Samsung, Vivo, Oppo, Realme, Apple metrics, LG, Roku, FireTV, Windows telemetry), Consent Management / CMP banners (OneTrust, Cookiebot, TrustArc, Usercentrics, Osano), affiliate tracking networks (CJ, LinkShare/Rakuten, ShareASale, Impact, Awin, Skimlinks, VigLink), product analytics (Cloudflare Insights, PostHog, RudderStack, Snowplow), A/B testing (Optimizely, DynamicYield, LaunchDarkly), email marketing trackers (HubSpot, Marketo, Mailchimp, Braze, OneSignal, Klaviyo, Customer.io), video ad networks, and cryptominers.
-    - **Dynamic Document-Start Script (`AdBlockDocumentStart.kt`)**:
-      - Parameterized script generation with `getScript(blockingLevel)`.
-      - Implemented `window.__onyx_blocking_level` and `window.__onyx_set_blocking_level(lvl)`.
-      - In Standard mode (`0`): Intercepts `fetch`, `XMLHttpRequest`, `WebSocket`, and bait containers against `stdTrackerPattern` and `adPathPattern`.
-      - In Aggressive mode (`1`): Intercepts against `stdTrackerPattern`, `adPathPattern`, `aggSubPattern`, and `aggRootPattern`.
-      - Added DOM probe interception on `Image.prototype.src` and `HTMLScriptElement.prototype.src` to immediately trigger `onerror` on bait probes.
-      - Added CMP stubs (`OneTrust`, `Cookiebot`, `__tcfapi`, `__cmp`) to neutralize consent modals and anti-adblock banners.
-    - **WebView & ServiceWorker Hardening**:
-      - Updated `OnyxWebViewClient.kt` and `AdBlockServiceWorkerHelper.kt` to return `WebResourceResponse` with HTTP 403 Forbidden, `reasonPhrase = "Blocked by Onyx Shields"`, and CORS headers (`Access-Control-Allow-Origin: *`).
-      - Added `OnyxWebView.updateShieldsLevel(level)` and synchronized shield settings dynamically on page load.
-  - [x] Brave-Style Updatable Filter Lists, 16 Core Community Lists & Content Filters Categorization:
-    - **16 Core & Famous Community Filter Lists**:
-      - Preceded the 54 Brave lists with 16 renowned core filter lists: EasyList, EasyPrivacy, uBlock Origin Filters (Base, Privacy, Badware, Quick Fixes, Unbreak), Brave Shields Filters (Default, First Party), AdGuard Filters (Base, Mobile Ads, Tracking Protection, Annoyances), Peter Lowe's Blocklist, Fanboy's Annoyance List, and Fanboy's Anti-Social List.
-      - Enabled essential core lists by default in `BrowserPreferences` (`easylist`, `easyprivacy`, `ublock_filters`, `brave_default`).
-    - **Brave-Style Auto-Update Engine (`FilterListManager.kt`)**:
-      - Added `checkAndAutoUpdateFilters(context, force)` checking user auto-update preference and interval (default 24 hours).
-      - Asynchronously downloads updated filter lists from upstream repositories in background IO coroutines.
-      - Merges upstream rules with base bundled assets (`easylist_rules.txt`) and user custom rules.
-      - Compiles rules into binary bytecode (`onyx_filters.bin`) and updates the active, running Rust NDK adblock engine in memory via `AdBlockEngine.initEngine(compiledBytes)` without requiring an application restart.
-      - Startup integration in `MainActivity.kt` performing non-blocking 24-hour interval freshness checks.
-    - **Content Filters Screen UI Overhaul (`ContentFiltersActivity` & `activity_content_filters.xml`)**:
-      - Auto-update toggle switch with dynamic last-updated status ("Last updated: Just now", "X hours ago", "Yesterday", "Never").
-      - Horizontal category filter chips: All, Core, Privacy, Annoyances, Social, Regional.
-      - Real-time combined filtering matching selected category and text search query.
-      - Real-time update progress indicator with active download status.
-- [x] **Unwanted tab creation fix** (`OnyxWebView.kt`, `MainActivity.kt`):
-  - Root cause: `javaScriptCanOpenWindowsAutomatically = true` meant ad scripts could directly spawn new tabs without going through our `onCreateWindow` callback. Even when the callback was hit, the original code didn't check `isUserGesture`, so ALL `window.open()` calls (ads, pop-unders, redirect scripts) created real browser tabs.
-  - Fix 1: Set `javaScriptCanOpenWindowsAutomatically = false` in `OnyxWebView` — forces ALL `window.open()` requests to route through `onCreateWindow`.
-  - Fix 2: Gated `onCreateWindowCallback` in `MainActivity` on `isUserGesture == true` — only explicit user taps/clicks on links open new tabs. Script-triggered opens silently return `false`.
-- [x] **Duplicate homepage shortcuts glitch fix** (`BrowserPreferences.kt`):
-  - Root cause: The `migrated_unified_shortcuts_v1` migration in `getShortcuts()` wrote the prefs flag AFTER mutating and saving the list. Any app kill between the `saveShortcuts()` and the `putBoolean` commit caused the migration to re-run on next cold start, prepending sys_ items again and again — creating Bookmarks/History/Downloads/QR duplicates.
-  - Fix: New `migrated_unified_shortcuts_v2` migration writes the flag **first** (atomically), then only inserts sys_ defaults that are absent by ID. The entire list is always passed through `distinctBy { it.id }` before being returned, cleaning up any pre-existing duplicates stored in SharedPreferences.
-- [x] **Homepage "Manage Shortcuts" button** (`fragment_home.xml`, `MainActivity.kt`):
-  - Added a "SHORTCUTS" section label row with a pencil (`ic_edit`) icon button (`btnManageShortcuts`) positioned between the guide center and the `rvShortcuts` grid.
-  - Wired `btnManageShortcuts.setOnClickListener` in `setupHomepageInteractions()` to open `ManageShortcutsBottomSheet`, giving users a permanent visible entry point to add, edit, delete, and reorder their homepage shortcuts.
-- [x] **Launcher Icon Smart Crop & Zoom**:
-  - Content-aware smart cropping using NumPy/Pillow bounding box detection to remove all surrounding white borders and zoom logo to fill 100% of icon bounds across all 5 mipmap densities (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`).
-- [x] **App Freeze Fix on App Switch (e.g. Bitwarden / Credential Manager)**:
-  - Added `resumeTimers()` and `requestFocus()` posted after window attachment in `MainActivity.onResume()`, plus implemented `onWindowFocusChanged(hasFocus: Boolean)` to unpause JavaScript execution and restore input focus when returning from external autofill or passkey managers.
-- [x] **Passkey Signing & Consistent Release Keystore**:
-  - Configured release `signingConfigs` in `app/build.gradle.kts` reading `KEYSTORE_BASE64`, `STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` env vars.
-  - Added workflow keystore decoding step in `.github/workflows/build.yml` and `scripts/generate_keystore.sh`.
-  - Added descriptive certificate mismatch error handling in `PasskeyWebAuthnBridge.kt`.
-- [x] **Shortcuts UI & Reordering Enhancement**:
-  - Removed "Shortcuts" title text from homepage, replaced pencil button with dedicated `+` (`ic_add`) button aligned to the right.
-  - Added drag-and-drop position reordering in `ManageShortcutsBottomSheet` with visual drag handle indicator and automatic order persistence.
-- [x] **Modern Tab Switcher Toggle & Download Manager Picker**:
-  - Replaced `TabLayout` with `MaterialButtonToggleGroup` in `bottom_sheet_tab_switcher.xml` to fix text hiding under blue indicator.
-  - Replaced old `AlertDialog` in settings with modern `DownloadManagerPickerSheet` bottom sheet using Material 3 cards and checkmark indicators.
-- [x] **Brave-Inspired Compact Context Menu, Image Preview & Reverse Image Search**:
-  - **Compact Link / Page Card**: Redesigned header card matching `/storage/emulated/0/1.png` with favicon on left (Google favicon service with letter fallback), bold title, URL underneath, and inline Share, Copy, and Edit (`ic_edit`) action buttons. Tapping Edit populates and focuses the URL in the main address bar with keyboard opened.
-  - **Image Preview**: Added 170dp rounded card preview with loading indicator and tap-to-expand badge, plus dedicated "Preview image" action row opening `ImagePreviewDialog` full-screen image viewer.
-  - **Reverse Image Search**: Added "Search by image" option with chevron opening `ImageSearchPickerSheet` supporting Google Lens, TinEye, Yandex Images, and Bing Visual Search.
-  - **Clean Actions Grouping**: Image actions (preview, open in new tab, save image, search by image, copy image URL, share image) cleanly organized together in the same bottom sheet.
-- [x] **QR Code Scanner Relocation (from Shortcuts to Searchbar)**:
-  - Removed `sys_qr` from `ShortcutItem.getDefaultShortcuts()` and filtered legacy entries out of `BrowserPreferences.getShortcuts()`.
-  - Added `btnQrScanner` (`ic_qr_code`) inside `searchBarContainer` beside the voice search microphone icon matching the Brave layout in screenshot `/storage/emulated/0/1.png`.
-  - Configured visibility lifecycle: normally hidden (`GONE`) during idle web browsing or home view; immediately revealed (`VISIBLE`) when user taps search bar to enter text or search.
-  - Tapping `btnQrScanner` launches `QrScannerActivity` directly for camera barcode and QR scanning.
-- [x] **Homepage Add Shortcut Tile & Modernized Edit UI**:
-  - **Grid-Integrated Add Tile**: Removed the standalone plus button header (`shortcutsSectionHeader`) located above shortcuts in `fragment_home.xml`. Placed a dedicated "Add" shortcut tile (`ICON_ADD`) directly inside the shortcuts grid beside normal shortcuts, matching screenshot `/storage/emulated/0/2.png` with squircle shape (`bg_box_tile.xml`), centered white `ic_add` icon, and "Add" label. Tapping it opens `ManageShortcutsBottomSheet`.
-  - **Simplified Long-Press Menu (Delete Only)**: Streamlined shortcut long-press in `MainActivity.kt` to remove "Open in new tab", "Edit shortcut", and "Share link", leaving exclusively the "Delete shortcut" action dialog as requested.
-  - **Material 3 Edit Shortcut Dialog Redesign**: Completely overhauled `EditShortcutDialog` (`dialog_edit_shortcut.xml`) with a modern Material 3 `MaterialCardView` layout:
-    - Responsive 90% dialog width (max 420dp) with transparent backdrop, completely eliminating the cramped "tiny window".
-    - Header with live-preview squircle tile that dynamically updates the website brand icon or capitalized letter badge in real time as the user edits title and URL.
-    - Material 3 outlined `TextInputLayout` widgets with floating labels, clear-text buttons, start icons (`ic_edit`, `ic_link`), and URL validation.
-    - Rounded action buttons (`btnCancelEdit`, `btnSaveEdit` with `ic_check` icon).
-- [x] **Homepage Shortcuts Drag-to-Reorder & Persistent Order Memory**:
-  - Enabled `ItemTouchHelper` on `home.rvShortcuts` with 4-way drag support (`UP | DOWN | START | END`).
-  - Anchored the trailing `Add` shortcut tile so it cannot be dragged or dropped over (`getDragDirs`, `canDropOver`).
-  - Added haptic feedback (`HapticFeedbackConstants.LONG_PRESS`) and interactive 1.1x scaling when dragging starts.
-  - Automatic persistent order saving via `preferences.saveShortcuts()` on drag completion (`clearView`).
-  - Seamless dual-gesture coexistence: Holding and dragging reorders and saves positions; holding and releasing without moving opens the Delete shortcut dialog.
-- [x] **Modern QR Code Scanner Overhaul & Status Bar Collision Fix**:
-  - **Status Bar Collision Fix**: Applied edge-to-edge `WindowCompat.setDecorFitsSystemWindows(window, false)` and `ViewCompat.setOnApplyWindowInsetsListener` to dynamically pad `topBarContainer` with `systemBars.top`, cleanly moving the close button (`btnQrClose`) below status bar icons, notches, and camera holes on all devices.
-  - **Modern Scanner Reticle & Laser**: Redesigned viewfinder (`viewfinderBox`) with rounded Google Blue frame (`bg_qr_frame.xml`) and smooth animated laser scanning beam (`bg_qr_laser.xml`) moving vertically.
-  - **Camera Controls**: Added frosted circular flashlight/torch toggle button (`btnToggleTorch`, `ic_flash_on` / `ic_flash_off`), tap-to-focus metering, and haptic feedback upon successful scan.
-  - **Scan from Gallery**: Added "Scan from Image" button (`btnScanFromGallery`) allowing users to pick screenshots or photos from their gallery to decode QR codes via ML Kit directly.
-- [x] **Modern Theme Picker Bottom Sheet**:
-  - Replaced the legacy `AlertDialog` single-choice radio popup with a modern Material 3 `ThemePickerSheet` bottom sheet ([`bottom_sheet_theme_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_theme_picker.xml) and [`ThemePickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/ThemePickerSheet.kt)).
-  - Interactive Material 3 cards for each mode: System Default ([`ic_theme_system.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_theme_system.xml)), Dark ([`ic_theme_dark.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_theme_dark.xml)), and Light ([`ic_theme_light.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_theme_light.xml)) with descriptions and dynamic checkmark indicators.
-  - Active selection highlighting with 2dp primary color stroke and instant theme application.
-- [x] **Web Video Playback Fix (YouTube & Streaming Sites)**:
-  - Fixed video playback on YouTube and streaming sites by removing `googlevideo.com`, `brightcove.com`, `jwpcdn.com`, and `jwpsrv.com` from `AdBlockDomainManager.kt` and `AdBlockDocumentStart.kt`.
-  - Enabled `mediaPlaybackRequiresUserGesture = false` in `OnyxWebView.configureSettings()` for seamless HTML5 video loading and playback across single-page applications.
-  - Enabled `mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE` to support mixed HTTP/HTTPS video segments, HLS (`.m3u8`), and DASH CDN streams.
-- [x] **Background Video & Audio Playback with Settings Toggle**:
-  - Implemented `MediaPlaybackManager.kt` providing lightweight JavaScript injection to spoof `document.hidden = false`, `document.visibilityState = 'visible'`, and intercept `visibilitychange` listeners so web players cannot detect when the browser is backgrounded.
-  - Injected background playback hooks at `onPageStarted` and `onPageFinished` in `OnyxWebViewClient.kt`.
-  - Gated `getActiveWebView()?.onPause()` in `MainActivity.kt` so media keeps playing in background or locked screen when `isBackgroundPlayEnabled` is enabled.
-  - Added `isBackgroundPlayEnabled` preference in `BrowserPreferences.kt` with modern Material 3 switch row in Settings under "Media & Playback".
-- [x] **Display Over Other Apps & Picture-in-Picture (PiP)**:
-  - Enabled `android:supportsPictureInPicture="true"` and `SYSTEM_ALERT_WINDOW` in `AndroidManifest.xml`.
-  - Implemented `enterPipMode()`, `onUserLeaveHint()`, and `onPictureInPictureModeChanged()` in `MainActivity.kt` with 16:9 aspect ratio and `setAutoEnterEnabled` for Android 12+.
-  - Designed modern frosted fullscreen video overlay controls pill with direct PiP button (`btnFullscreenPip`) and close button (`btnFullscreenClose`).
-  - Added "Picture-in-Picture" action in webpage 3-dot bottom sheet menu (`MenuBottomSheetDialogFragment`).
-  - Added PiP switch and "Display over other apps" system settings launcher in `SettingsActivity.kt`.
-- [x] **Shields & Privacy Modernization & Rebranding**:
-  - Replaced "Brave Shields & Privacy" title with "Shields & Privacy" in `strings.xml` (`shields_title`).
-  - Replaced all 4 legacy `AlertDialog` popups in `ShieldsActivity.kt` with modern Material 3 bottom sheets:
-    - **Ad & Tracker Blocking** ([`BlockingLevelPickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/BlockingLevelPickerSheet.kt) & [`bottom_sheet_blocking_level_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_blocking_level_picker.xml)): Standard vs. Aggressive cards with shield icons and descriptive subtitles.
-    - **Upgrade Connection to HTTPS** ([`HttpsModePickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/HttpsModePickerSheet.kt) & [`bottom_sheet_https_mode_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_https_mode_picker.xml)): Disabled vs. When possible (Recommended) vs. Strict (HTTPS-Only).
-    - **Cookie Blocking** ([`CookieModePickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/CookieModePickerSheet.kt) & [`bottom_sheet_cookie_mode_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_cookie_mode_picker.xml)): Allow all vs. Block third-party (Recommended) vs. Block all.
-    - **Secure DNS Provider** ([`DnsProviderPickerSheet.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/DnsProviderPickerSheet.kt) & [`bottom_sheet_dns_provider_picker.xml`](file:///root/onyx-browser/app/src/main/res/layout/bottom_sheet_dns_provider_picker.xml)): Cloudflare 1.1.1.1, Google 8.8.8.8, NextDNS, and Custom URL with inline Material 3 `TextInputLayout` and Save button.
-  - Consistent Material 3 bottom sheet design language: Drag handle, 16dp rounded card containers, 44dp squircle icon backgrounds, active 2dp accent stroke, dynamic checkmark indicators, and cancel buttons.
-- [x] **Content Filters Status Bar Collision Fix**:
-  - Resolved status bar, camera hole cutout, and navigation bar collision in [`ContentFiltersActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/ContentFiltersActivity.kt) and [`activity_content_filters.xml`](file:///root/onyx-browser/app/src/main/res/layout/activity_content_filters.xml).
-  - Configured edge-to-edge transparent system bars with `WindowCompat.setDecorFitsSystemWindows(window, false)` and dynamic `ViewCompat.setOnApplyWindowInsetsListener`.
-  - Applied `statusBarInsets.top` padding to `AppBarLayout` so the back navigation button, "Content filters" title, and "UPDATE" action button sit cleanly below the status bar on all devices.
-  - Added navigation bar inset bottom padding to `rvContentFilters` to prevent list items from being cut off by navigation gesture bars.
-  - Upgraded toolbar to Material 3 `MaterialToolbar` with `app:navigationIconTint="?attr/colorControlNormal"` and vertically centered title and update button.
-- [x] **About Screen & Developer Support**:
-  - Designed and implemented dedicated Material 3 [`AboutActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/AboutActivity.kt) and [`activity_about.xml`](file:///root/onyx-browser/app/src/main/res/layout/activity_about.xml).
-  - Added "About & Support" category and navigation row in [`activity_settings.xml`](file:///root/onyx-browser/app/src/main/res/layout/activity_settings.xml) and [`SettingsActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/SettingsActivity.kt).
-  - Displays comprehensive application details with one-tap clipboard copy:
-    - **App Version**: Version name, build code, release type, and ABI architecture.
-    - **Package Name**: `com.onyx.browser`.
-    - **Operating System**: Android release version, API level, manufacturer, model, and hardware details.
-    - **WebView Engine**: Current WebView package provider (`com.google.android.webview` / Chrome) and version number.
-  - Direct community & developer contact actions:
-    - **Contact Developer**: Launches official Telegram account [`t.me/abidhasansojib`](https://t.me/abidhasansojib).
-    - **Report Bug**: Opens official GitHub Issues tracker [`github.com/abidhasansojib/onyx-browser/issues`](https://github.com/abidhasansojib/onyx-browser/issues).
-  - Edge-to-edge transparent system bars integration with `WindowCompat` and dynamic cutout insets.
-- [x] **Modern WWW Globe Launcher Icon**:
-  - Processed and extracted the circular "WWW" globe emblem from `/storage/emulated/0/logo.png`.
-  - Rebuilt all density mipmap assets (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`):
-    - `ic_launcher_foreground.png`: Crisp white vector globe on transparent background, centered in the 72dp safe zone of the 108dp canvas to prevent clipping on any launcher mask.
-    - `ic_launcher.png`: Pure black (`#000000`) AMOLED background with centered white globe emblem.
-    - `ic_launcher_round.png`: Circular masked pure black icon with centered globe.
-  - Configured adaptive background to AMOLED Pure Black `#000000` in [`ic_launcher_background.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_launcher_background.xml).
-  - Updated Android 13+ Material You monochrome themed icon layer in [`ic_launcher.xml`](file:///root/onyx-browser/app/src/main/res/mipmap/ic_launcher.xml) and [`ic_launcher_round.xml`](file:///root/onyx-browser/app/src/main/res/mipmap/ic_launcher_round.xml).
-- [x] **Modern Custom Offline & Web Page Not Available Pages**:
-  - **Generative UI Design**: Created an interactive, responsive Generative UI preview widget ([`error_pages_widget.html`](file:///root/.gemini/antigravity-cli/brain/57371cad-7a74-4301-ab0c-1cc01cd1e821/error_pages_widget.html)) demonstrating both `net::ERR_INTERNET_DISCONNECTED` and `net::ERR_NAME_NOT_RESOLVED` error states with live tab switching, troubleshooting checklists, and an embedded offline runner arcade game.
-  - **Zero-Dependency Android Asset**: Created [`app/src/main/assets/error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html) supporting automatic Light/Dark mode via `@media (prefers-color-scheme: dark)`, dynamic error parameters and template replacement (`url`, `error`, `desc`), diagnostics panel, and an HTML5 canvas endless runner game playable offline.
-- [x] **Verified CI/CD Remote Build Run #35701023270**:
-  - Successfully compiled native Rust NDK `libadblock_bridge.so` across `arm64-v8a`, `armeabi-v7a`, and `x86_64`.
-  - Fixed TextInputLayout `helperTextColor` -> `helperTextTextColor` in [`dialog_edit_shortcut.xml`](file:///root/onyx-browser/app/src/main/res/layout/dialog_edit_shortcut.xml).
-  - Resolved `Settings.ACTION_PICTURE_IN_PICTURE_SETTINGS` action string and sanitized view references in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) and [`SettingsActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/SettingsActivity.kt).
-- [x] **Redesigned CI/CD Build Pipeline with Dynamic Branch/Type Selection, ABI Splits & GitHub Releases**:
-  - **Dynamic Branch & Build Type Selection**: Configured `workflow_dispatch` with automated branch selector and `build_type` dropdown (`Release`, `Debug`, `Both`).
-  - **Release Optimization & ABI Splits**: Enabled `splits.abi` (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`) generating ultra-compact ~14-16 MB APKs for 64-bit ARM devices alongside universal fallbacks.
-  - **R8 / ProGuard Minification**: Configured `isMinifyEnabled = true` and `isShrinkResources = true` in `build.gradle.kts` with production-grade keep rules in `proguard-rules.pro` protecting Brave `adblock-rust` JNI bindings, `@JavascriptInterface`, WebAuthn/Passkeys, Room, and SQLCipher.
-  - **Automated Monotonic Versioning**: Automatically computes `versionCode` and `versionName` per run based on `github.run_number` (`v1.0.${{ github.run_number }}`).
-- [x] **Eliminated Error Page Delay & Streamlined Error Screen**:
-  - **Eliminated Stock Error Flash**: Removed `super.onReceivedError()` delegation on main-frame errors and called `view?.stopLoading()` immediately so Chromium never renders its default stock error page.
-  - **Zero-Latency Template Caching**: Cached `error_page.html` in memory (`cachedErrorPageTemplate`) and execute `loadDataWithBaseURL` synchronously on the main thread, completely eliminating the 1-second delay.
-  - **Removed Mini-Game**: Stripped the offline runner game and canvas from [`app/src/main/assets/error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html) and [`error_pages_widget.html`](file:///root/.gemini/antigravity-cli/brain/57371cad-7a74-4301-ab0c-1cc01cd1e821/error_pages_widget.html), keeping the error screen clean, modern, and focused on troubleshooting and diagnostics.
-- [x] **Resolved Instant App Crash on Launch in Release Builds**:
-  - **Identified Root Causes**:
-    1. **Fatal `-repackageclasses 'com.onyx.browser.obf'` in `proguard-rules.pro`**: Repackaging classes caused Android's `ActivityThread` to fail locating `OnyxApplication` and `MainActivity`, throwing immediate fatal `ClassNotFoundException` at launch.
-    2. **Wrong SQLCipher Package in Proguard**: `proguard-rules.pro` kept `net.zetetic.**`, but SQLCipher's actual runtime package is `net.sqlcipher.**`. R8 stripped `SQLiteDatabase.loadLibs`, throwing `NoClassDefFoundError` upon startup.
-    3. **Missing Google Tink Cryptographic Provider Rules**: `androidx.security.crypto` relies on Google Tink (`com.google.crypto.tink.**`) which requires reflection rules for KeyStore cipher suites; without them, `EncryptedSharedPreferences.create()` threw security exceptions.
-    4. **Room Database Implementation Obfuscation**: Room reflects on `AppDatabase_Impl`. Repackaging broke database instantiation.
-    5. **Aggressive Resource Shrinking**: `isShrinkResources = true` stripped XML drawables and layouts referenced dynamically, risking `Resources.NotFoundException`.
-    6. **Premature `passphrase.fill(0)` in Database Provider**: Wiping passphrase before Room opened the database caused potential corrupted database states.
-  - **Comprehensive Fixes Applied**:
-    - Removed `-repackageclasses` and `-allowaccessmodification` from [`app/proguard-rules.pro`](file:///root/onyx-browser/app/proguard-rules.pro).
-    - Added explicit keep rules for Android manifest components (`Activity`, `Application`, `Service`, `BroadcastReceiver`, `ViewBinding`, `com.onyx.browser.OnyxApplication`, `com.onyx.browser.MainActivity`, `com.onyx.browser.ui.**`).
-    - Added comprehensive keep rules for `net.sqlcipher.**`, `com.google.crypto.tink.**`, `androidx.security.crypto.**`, and Room `*_Impl` classes.
-    - Set `isShrinkResources = false` in [`app/build.gradle.kts`](file:///root/onyx-browser/app/build.gradle.kts) for release builds.
-    - Added self-healing recovery and robust fallbacks to [`SecureDatabaseKeyProvider.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/local/SecureDatabaseKeyProvider.kt) and [`AppDatabase.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/local/AppDatabase.kt).
-    - Hardened [`OnyxApplication.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/OnyxApplication.kt) startup lifecycle with safe exception catching and logging.
-- [x] **Picture-in-Picture (PiP) Video Isolation, Background Play & Mini Player Notification**:
-  - **Pure PiP Video Isolation**:
-    - Extracted native `<video>` elements to fullscreen container before entering PiP, ensuring the PiP window displays **strictly the playing video** with 16:9 aspect ratio and ZERO browser UI, URL bars, or web page sidebars.
-    - Updated `onPictureInPictureModeChanged`: In PiP mode, completely hides `topBar`, `contentContainer`, `webViewContainer`, `homeLayout`, and overlay controls, leaving only `fullscreenCustomViewContainer` visible.
-    - Restrained `onUserLeaveHint`: Only enters PiP if a video is actively playing (`customVideoView != null` or active HTML5 video element), eliminating the bug where minimizing any regular website shrunk the entire browser page into PiP.
-  - **Uninterrupted Background Audio & Video Playback**:
-    - Enhanced [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt) to spoof Page Visibility (`document.hidden = false`, `document.visibilityState = 'visible'`) and intercept `visibilitychange`, `blur`, and `pagehide` listeners.
-    - Implemented `HTMLMediaElement.prototype.pause` interception when the app is in the background, preventing streaming sites (YouTube, SoundCloud, Spotify Web, Twitch) from auto-pausing audio when minimized or screen locked.
-    - Added `getSetBackgroundStateScript(inBackground)` to inform web players dynamically.
-  - **Foreground Media Service & Lockscreen Mini Player Notification**:
-    - Created [`MediaPlaybackService.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackService.kt) running as a Foreground Service with `foregroundServiceType="mediaPlayback"`.
-    - Integrated `MediaSessionCompat` and `NotificationCompat.MediaStyle` providing track/video title, website domain, rewind 10s (`ic_fast_rewind.xml`), play/pause toggle (`ic_play_arrow.xml` / `ic_pause.xml`), forward 10s (`ic_fast_forward.xml`), close button, and tap-to-relaunch intent.
-    - Created [`MediaPlaybackBridge.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackBridge.kt) registered via `addJavascriptInterface` across all tabs and `WebViewCompat.addDocumentStartJavaScript` to hook HTML5 media events and update the notification in real time.
-    - Configured ProGuard keep rules for `com.onyx.browser.media.**` and `androidx.media.**`.
-  - **Official App Logo Acquisition & Generation from `/storage/emulated/0/logo.png`**:
-    - Processed 1024x1024 high-resolution source logo from `/storage/emulated/0/logo.png`.
-    - Resized with Lanczos resampling across all mipmap densities (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) for `ic_launcher.png`, circular masked `ic_launcher_round.png`, and adaptive `ic_launcher_foreground.png`.
-    - Set adaptive background to `#080C14` in [`ic_launcher_background.xml`](file:///root/onyx-browser/app/src/main/res/drawable/ic_launcher_background.xml) to match the dark aesthetic of the logo perfectly.
-- [x] **Brave-Core Media Architecture Integration (Video-Only PiP, Background Play & Mini Music Player)**:
-  - Researched and extracted architectural techniques from `/root/brave-core`:
-    - Fullscreen Driver (`kYoutubeFullscreen` from `youtube_script_injector_tab_helper.cc`): triggers YouTube/HTML5 player fullscreen to isolate video into native custom view.
-    - YouTube `ytcfg` unblocking: overrides `html5_picture_in_picture_blocking_* = false` experiment flags.
-    - Page Visibility & IntersectionObserver: overrides `document.visibilityState`, `document.hidden`, `document.hasFocus()`, and `IntersectionObserver` so backgrounded/minimized video elements never pause.
-    - Media Suspension Bypass: avoids calling `webView.onPause()` on active media tabs when background playback is active.
-  - Video-Only PiP Mode:
-    - Implemented dynamic aspect ratio calculation from video dimensions (`Rational(w, h).coerceIn(Rational(1, 2), Rational(2, 1))`).
-    - Configured `setAutoEnterEnabled(true)` on Android 12+ for seamless gesture-to-PiP transitions.
-    - Completely stripped all browser chrome (`topBar`, `bottomBar`, search bar, overlays) during PiP mode, displaying strictly the video surface or fixed 100vw/100vh isolated video.
-  - Modern Lockscreen Mini Music Player Notification:
-    - Updated [`MediaPlaybackService.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackService.kt) with real-time `PlaybackStateCompat` reporting playback position and duration for Android SystemUI's native interactive seekbar.
-    - Implemented `onSeekTo(pos)` callback for notification scrub bar and Bluetooth devices.
-    - Implemented asynchronous artwork downloading from video poster / metadata URLs on `Dispatchers.IO`.
-    - Held CPU `WakeLock` during active background playback to prevent OS sleep.
-- [x] **Android System WebView Background Playback & Video-Only PiP Isolation Hardening**:
-  - **Android System WebView Background Keep-Alive**:
-    - Overrode `onWindowVisibilityChanged`, `dispatchWindowVisibilityChanged`, and `onWindowFocusChanged` in [`OnyxWebView.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebView.kt) to pass `View.VISIBLE` and `true` when `preferences.isBackgroundPlayEnabled` is enabled. This prevents Chromium's underlying `AwContents` C++ engine from freezing the video decoder and audio rendering pipeline when the Activity window is minimized or hidden.
-    - Updated `MainActivity.onPause()` and `onStop()`: only calls `webView.onPause()` if background playback is disabled in Settings (`!preferences.isBackgroundPlayEnabled`), ensuring media is never suspended during app minimization or screen lock.
-    - Enhanced [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt) `backgroundPlaybackScript`: added capture-phase propagation-stopping listeners on `visibilitychange`, `webkitvisibilitychange`, `blur`, `focusout`, and `pagehide`, and guarded `HTMLMediaElement.prototype.pause` against auto-pause when backgrounded or losing focus.
-    - Added immediate detection of already-playing media upon script injection to ensure `OnyxMediaBridge` and the mini player notification synchronize without requiring user pause/play churn.
-  - **True DOM Video Isolation for Picture-in-Picture (PiP)**:
-    - Resolved issue where PiP displayed the entire webpage UI (search bar, header, comments, sidebars).
-    - Overhauled `isolateVideoForPipScript` in [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt): tags the target video and its ancestor chain up to `<html>`, applies `display: none !important` to all non-ancestor body elements and sibling nodes, neutralizes ancestor CSS containment/transforms/overflow traps, fixes the `<video>` element to `100vw x 100vh` at `z-index: 2147483647` with `object-fit: contain !important; background: #000000 !important;`, and hides all YouTube overlay controls and headers.
-    - Guaranteed execution in `MainActivity.onPictureInPictureModeChanged(true)` and `enterPipMode()` before entering PiP, ensuring the isolation style is applied immediately regardless of whether PiP was entered via system gesture or UI action.
-  - **Settings PiP & Background Play Toggle Fixes**:
-    - Centralized `updatePipParams()` in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt): automatically synchronizes `setAutoEnterEnabled(shouldEnableAutoPip)` on Android 12+, where `shouldEnableAutoPip` requires `preferences.isPipEnabled && (customVideoView != null || isVideoPlaying)`.
-    - Called `updatePipParams()` in `MainActivity.onResume()`: when the user turns off PiP in Settings and returns to the browser, the OS is immediately notified with `setAutoEnterEnabled(false)`, completely eliminating unwanted PiP triggers on swipe-to-home.
-    - Added guard in `enterPipMode()` and `onUserLeaveHint()`: immediately exits if `!preferences.isPipEnabled`.
-    - Added `MediaPlaybackService.stop(this)` call in [`SettingsActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/settings/SettingsActivity.kt) when background play is toggled off.
-- [x] **Universal Modular Web Error Handling Subsystem**:
-  - Centralized, strongly-typed classification engine in [`WebErrorHandler.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/error/WebErrorHandler.kt) resolving all Chromium `WebResourceError` codes, HTTP status codes (400, 401, 403, 404, 429, 500, 502, 503, 504), SSL certificate errors, and local file failures into structured `OnyxWebError` objects with contextual titles, descriptions, diagnostic pills, troubleshooting checklists, and primary/secondary button actions.
-  - Universal Error Page Asset in [`error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html):
-    - Category-tailored SVG vector icons (WiFi disconnected for Offline, Globe with search for DNS lookup failures, Server rack with broken plug for connection refused/reset, Clock for timeouts, Danger shield for SSL certificate errors, Folder alert for file errors, and Onyx Shields emblem for privacy blocks).
-    - Authentic Google Dark (`#121212` / `#1E1E1E`) and Google Light (`#F8F9FA` / `#FFFFFF`) theme matching.
-    - Contextual troubleshooting checklist card with bullets tailored to the exact failure category.
-    - SSL Certificate Security details drawer with "Advanced" toggle and optional "Proceed to this site (unsafe)" bypass link.
-  - Native JavaScript Bridge in [`OnyxErrorBridge.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/error/OnyxErrorBridge.kt) bridging error page button interactions (`reload`, `goBack`, `goHome`, `search`, `openSettings`, `openShields`, `openDownloads`, `proceedSsl`) to native Android browser methods.
-  - Interception Integration in [`OnyxWebViewClient.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebViewClient.kt):
-    - `onReceivedError`: intercepts main-frame network errors, suppresses Chromium's default error page flashing, and loads the tailored error page via `loadDataWithBaseURL`.
-    - `onReceivedHttpError`: intercepts 4xx and 5xx responses for main-frame requests and displays custom error pages.
-    - `onReceivedSslError`: suppresses abrupt aborts, stores `pendingSslHandler` on `OnyxWebView`, and renders the SSL warning page with proceed/back options.
-- [x] **Local HTML & Markdown Document Viewer & Previewer**:
-  - Enabled `settings.allowFileAccess = true` and `settings.allowContentAccess = true` in [`OnyxWebView.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebView.kt) while preserving origin isolation (`allowFileAccessFromFileURLs = false` and `allowUniversalAccessFromFileURLs = false`).
-  - High-performance local file resolver in [`LocalFileLoader.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/LocalFileLoader.kt):
-    - Handles reading documents from `file://`, `content://`, or absolute paths (`/storage/...`, `/sdcard/...`) via `ContentResolver` and direct streams.
-    - For HTML (`.html`, `.htm`, `.xhtml`): reads content, computes parent directory base URL (`file://.../`) so relative stylesheets, scripts, and images resolve correctly, and loads via `loadDataWithBaseURL`.
-    - For Markdown (`.md`, `.markdown`): reads raw markdown, encodes UTF-8 Base64, injects into [`markdown_previewer.html`](file:///root/onyx-browser/app/src/main/assets/markdown_previewer.html), and renders GitHub-flavored Markdown.
-    - For missing or unreadable files: automatically presents the tailored `FILE_NOT_FOUND` error page.
-  - Offline GitHub-Flavored Markdown Previewer in [`markdown_previewer.html`](file:///root/onyx-browser/app/src/main/assets/markdown_previewer.html):
-    - Zero-dependency client-side parser supporting headings `#` to `######`, bold, italics, strikethrough, blockquotes, lists, task checkboxes (`- [ ]`, `- [x]`), tables with responsive cell styling, inline code, and fenced code blocks.
-    - Code blocks feature syntax highlighting, language badge, and a one-tap **Copy Code** button with feedback.
-    - Top sticky navigation bar with Markdown badge, file name, word count stats, Raw / Rendered toggle, and Copy All button.
-    - Automatic theme synchronization with Google Dark (`#202124`) and Google Light (`#FFFFFF`).
-  - Routing & System Intent Integration in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) & [`AndroidManifest.xml`](file:///root/onyx-browser/app/src/main/AndroidManifest.xml):
-    - Address bar smart routing in `performSearchOrLoad(input)`: automatically detects local file paths and URIs, bypassing search engines and routing to `LocalFileLoader`.
-    - Pull-to-refresh (`swipeRefreshLayout`) reloads local documents via `LocalFileLoader`.
-    - Address bar title formatting displays clean file display names for local documents.
-    - Registered complete `ACTION_VIEW` intent filters for `file` and `content` schemes across MIME types (`text/html`, `application/xhtml+xml`, `text/markdown`, `text/x-markdown`, `text/plain`) and file extensions (`.*\\.html`, `.*\\.htm`, `.*\\.md`, `.*\\.markdown`), enabling opening files directly from any Android file manager.
-- [x] **Chromium/Brave/Safari-Grade Synthetic Navigation Error Pipeline & Closed-Loop Recovery**:
-  - Implemented strongly-typed `SyntheticNavigationState` (`OFFLINE`, `SECURITY`, `SERVER_DOWN`, `SHIELDS_BLOCKED`, `FILE_ERROR`, `GENERIC`) treating error states as in-memory synthetic navigation states rather than file redirects.
-  - **Base URL Virtualization & History Isolation**:
-    - Synthetic error templates are injected into the WebView with `loadDataWithBaseURL` bound to the original destination URL, completely eliminating the "Back-Button Trap" and address bar path corruption.
-    - Excluded synthetic error states from being written into user browsing history (`HistoryDao`) in `onPageFinished`.
-    - Automatically cleared synthetic state on fresh navigations in `onPageStarted`.
-  - **Adblock & Frame Disambiguation**:
-    - Strictly suppressed all sub-resource, tracking script, and adblock drop failures (`if (request?.isForMainFrame != true) return`).
-  - **Closed-Loop Network Auto-Recovery**:
-    - Registered a lifecycle-aware Android `ConnectivityManager.NetworkCallback` with `NetworkCapabilities.NET_CAPABILITY_INTERNET`.
-    - In `onAvailable()`, if the active tab is displaying an `OFFLINE` synthetic error, automatically triggers active-tab reload to seamlessly recover the webpage as soon as Wi-Fi or cellular data reconnects.
-  - **Session-Scoped SSL Bypass & HSTS Guard**:
-    - In non-strict mode, user proceed actions store the host in an in-memory `sessionSslBypasses` set on `OnyxWebView`, automatically passing subsequent certificate checks during that tab session without persisting to disk.
-    - When "Strict HTTPS" mode is active, the bypass action is completely disabled and replaced with an HSTS security notice.
-  - **Universal Template Capabilities**:
-    - Integrated public web archive lookups via the **Wayback Machine** (`https://web.archive.org/web/*/{failingUrl}`) for HTTP 404 / 5xx responses.
-    - Integrated direct OS wireless settings dispatch (`Settings.ACTION_WIRELESS_SETTINGS`).
-    - Embedded zero-dependency HTML5 canvas **Offline Runner Mini-Game** with score, high score, obstacle collision detection, and tap/spacebar controls.
-  - **Compilation Hardening**:
-    - Fixed top-level `typealias` declarations in [`WebErrorHandler.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/error/WebErrorHandler.kt).
-    - Added `addWhitelistedDomain` & `removeWhitelistedDomain` convenience delegates in [`BrowserPreferences.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/preferences/BrowserPreferences.kt).
-- [x] **Codebase Bug Remediation & Subsystem Hardening**:
-  - [x] **PiP & Background Playback Stabilization**:
-    - Fixed PiP DOM isolation script in [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt) to use direct viewport-fixed styling rather than ancestor cascaded sizing, preventing UI leakage on complex single-page apps (YouTube, Twitch, etc.).
-    - Fixed system auto-PiP disengagement in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) by explicitly dispatching `setAutoEnterEnabled(false)` when PiP is toggled off in settings.
-    - Removed `!document.hasFocus()` pause blocking from [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt) so users can legitimately pause video on-screen.
-    - Prevented `ForegroundServiceStartNotAllowedException` in [`MediaPlaybackBridge.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackBridge.kt).
-  - [x] **Download Subsystem Modernization**:
-    - Handled `blob:` and `data:` URIs in [`DownloadHandler.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/DownloadHandler.kt) via [`OnyxBlobBridge.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxBlobBridge.kt) and Base64 stream decoding to prevent `IllegalArgumentException` crashes on PDF exports and canvas downloads.
-    - Implemented [`DownloadCompleteReceiver.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/DownloadCompleteReceiver.kt) and tracked system `downloadId` in [`DownloadItem.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/model/DownloadItem.kt) with Room schema migration `MIGRATION_2_3` to resolve permanent `STATUS_RUNNING` state.
-  - [x] **Error Pipeline & Local File Hardening**:
-    - Protected [`error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html) from backtick / `${}` JavaScript syntax breakage via Base64 JSON payload transport (`toBase64Json()`).
-    - Set `currentSyntheticState = onyxError` in [`LocalFileLoader.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/LocalFileLoader.kt) upon file-not-found errors to enable synthetic state recovery.
-  - [x] **Concurrency & Clean Architecture**:
-    - Fixed concurrent flow collection race condition in [`HistoryActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/history/HistoryActivity.kt) by cancelling `historyJob` before collecting new search queries.
-    - Migrated [`TabManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/browser/TabManager.kt) from `GlobalScope` to injected constructor `coroutineScope` and removed `@DelicateCoroutinesApi`.
-- [x] **PiP Video Bounds, Background Play Resilience, Local Files, Generative UI & Tab Snapshots**:
-  - [x] **Video-Only Picture-in-Picture (PiP) & Resilient Background Play**:
-    - **Element-Isolated PiP**: Injected `reportVideoBounds()` in [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt) calling `getBoundingClientRect()` on active HTML `<video>` elements and reporting coordinate dimensions to native Android via [`MediaPlaybackBridge.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackBridge.kt).
-    - **`setSourceRectHint` Integration**: In [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt), dynamically scaled and offset video bounds are passed to `PictureInPictureParams.Builder.setSourceRectHint()`, animating and cropping directly to the video element and eliminating full-browser toolbars/decorations in PiP.
-    - **Full-Screen PiP Fallback**: `requestInPageVideoPip()` requests WebKit fullscreen on the active video element before launching PiP to ensure proper aspect ratio and hardware overlay scaling.
-    - **Background Play Hardening**: Intercepted `HTMLMediaElement.prototype.pause` to reject automated pause invocations originating from `visibilitychange`, `pagehide`, `blur`, and `document.hidden` events.
-    - **Audio Focus & WakeLock Lifecycle**: [`MediaPlaybackService.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackService.kt) manages Android `AudioManager` focus requests (`AUDIOFOCUS_GAIN`) and `abandonAudioFocus()`, while holding a `PARTIAL_WAKE_LOCK` across lock screen and minimized states.
-  - [x] **Local HTML & Markdown Viewer Parity**:
-    - **File URL Permissions**: Configured `allowFileAccessFromFileURLs = true` and `allowUniversalAccessFromFileURLs = true` in [`OnyxWebView.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebView.kt).
-    - **Native Chromium HTML Loading**: In [`LocalFileLoader.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/LocalFileLoader.kt), readable local `file://` HTML files are loaded directly via `webView.loadUrl(uri.toString())`, allowing relative stylesheets, scripts, fonts, and images to resolve naturally.
-    - **Offline Marked.js Engine**: Bundled offline [`marked.min.js`](file:///root/onyx-browser/app/src/main/assets/marked.min.js) (35KB) in assets. Injected into [`markdown_previewer.html`](file:///root/onyx-browser/app/src/main/assets/markdown_previewer.html) with syntax highlighted code blocks, copy-code buttons, word counters, and raw/rendered view toggle.
-  - [x] **Generative UI Error Page (Mini-Game Removed)**:
-    - **Modern Generative UI**: Replaced [`error_page.html`](file:///root/onyx-browser/app/src/main/assets/error_page.html) with a card-based layout featuring category-tailored pulsing SVG glyphs, contextual diagnostics checklists, error badge tags, and expandable technical details drawer with one-tap copy button.
-    - **Game Elimination**: Completely purged the offline canvas runner mini-game per user request (`hasOfflineGame = false` in [`SyntheticNavigationState.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/error/SyntheticNavigationState.kt)).
-  - [x] **Shortcut Long-Click Streamlining**:
-    - Removed long-click delete prompt in [`ShortcutsAdapter.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/home/ShortcutsAdapter.kt) and [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) since smooth drag-and-drop position reordering is active and management is centralized in the plus (`+`) menu.
-  - [x] **Universal Favicon & Logo Fetching Engine (`FaviconManager`)**:
-    - Created [`FaviconManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/data/favicon/FaviconManager.kt) featuring a 3-tier architecture: In-memory `LruCache` (120 items), persistent disk cache (`cacheDir/favicons/{md5}.png`), and asynchronous 128px Google S2 CDN + `/favicon.ico` fetchers.
-    - Integrated across all browser UI surfaces:
-      - Homepage shortcut tiles (`ShortcutsAdapter`)
-      - Search overlay current webpage card (`MainActivity`)
-      - Long-press context menu link preview card (`ContextMenuBottomSheet`)
-      - Tab switcher tab cards (`TabsAdapter`)
-  - [x] **Reliable Proactive Tab Switcher Snapshotting**:
-    - Implemented `captureTabSnapshot(tabId, webView)` in [`TabManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/ui/browser/TabManager.kt) using hardware `PixelCopy` with synchronous `Canvas.draw` fallback and lossy WebP persistent compression (`cacheDir/tab_thumbnails/{tabId}.webp`).
-    - Proactive snapshot hooks:
-      - Tab detachment / tab switching in `displayTab(tab)`
-      - Tab switcher button tap in `MainActivity`
-      - Page commit visible (`onPageCommitVisibleCallback`) & page finish (`onPageFinishedCallback`)
-      - Browser backgrounding (`onPause()`)
-    - Added disk thumbnail cleanup on tab closure in `TabManager.closeTab()`.
-- [x] **W3C Picture-in-Picture Web API, Remote Actions, Video-Only Minimize PiP & Background Sound Restoration**:
-  - **W3C Picture-in-Picture Web API Polyfill**: Injected standard W3C Picture-in-Picture APIs (`document.pictureInPictureEnabled = true`, `document.pictureInPictureElement`, `HTMLVideoElement.prototype.requestPictureInPicture()`, `document.exitPictureInPicture()`) into [`MediaPlaybackManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/MediaPlaybackManager.kt), bridging web player PiP button taps to native Android via [`MediaPlaybackBridge.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackBridge.kt).
-  - **Background Audio Mute Blocker**: Intercepted `HTMLMediaElement.prototype.muted` setter to prevent websites from muting audio output when the browser is backgrounded (`window.__onyx_in_background == true`).
-  - **Background Play Sound Restoration**: Eliminated `requestAudioFocus()` and `abandonAudioFocus()` collisions in [`MediaPlaybackService.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/media/MediaPlaybackService.kt) that caused Chromium's internal `AudioTrack` to silence audio in background playback.
-  - **In-PiP Window Media Controls (RemoteActions)**: Built Android `RemoteAction` controls (Rewind 10s `ic_fast_rewind`, Play/Pause toggle `ic_pause`/`ic_play_arrow`, and Fast Forward 10s `ic_fast_forward`) registered with `PictureInPictureParams.Builder.setActions()` and bound to a dynamic `BroadcastReceiver` in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt).
-  - **Video-Only Minimization & Strict UI Isolation**: Gated OS `setAutoEnterEnabled` strictly to `customVideoView != null` to eliminate whole-page capture on swipe-to-home, routed portrait minimization in `onUserLeaveHint()` to `requestInPageVideoPip()`, traversed shadow roots in `requestVideoFullscreenScript` for direct `webkitRequestFullscreen()`, and hidden topBar and browser chrome prior to PiP transition.
-- [x] **Brave-Style In-Page Webpage Translation & Elimination of 429 Rate Limits**:
-  - **Eliminated Web Proxy Gateway**: Replaced old `translate.google.com/translate?u=...` navigation in [`MainActivity.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/MainActivity.kt) that triggered HTTP `429 - Rate Limit Exceeded` blocks and broke sessions/logins.
-  - **In-Page DOM Translation Engine**: Created [`PageTranslateManager.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/translate/PageTranslateManager.kt) injecting Google Translate Element client library and styles directly into the active DOM context without altering URL, session, or cookies.
-  - **Brave-Style In-Page Translation Bar**: Designed interactive toolbar (`translateBar`) in [`activity_main.xml`](file:///root/onyx-browser/app/src/main/res/layout/activity_main.xml) with:
-    - Language status and toggle between Original and Translated.
-    - Quick target language switcher (`LanguageSelectionDialog` supporting 20 languages).
-    - Progress loading indicator and dismiss button with back press handling.
-  - **CSS Styling & Layout Preservation**: Injected styles into pages to hide Google banner frames (`.goog-te-banner-frame`), balloon tooltips, and prevent body margin shifts (`body { top: 0px !important; }`).
-  - **Adblock & Security Whitelisting**: Whitelisted `translate.google.com` and `translate.googleapis.com` in [`OnyxWebViewClient.kt`](file:///root/onyx-browser/app/src/main/java/com/onyx/browser/web/OnyxWebViewClient.kt) so translation resources are never blocked by shield lists.
+## 5. Architectural Coding Standards for AI Agents
 
-- [x] **FIX 1 — Image Reverse Search URL Fixes & New Engines** (`ImageSearchPickerSheet.kt`, `bottom_sheet_image_search.xml`):
-  - Fixed TinEye URL: added required trailing slash → `https://tineye.com/search/?url=`.
-  - Fixed Bing Visual Search URL: added required `FORM=SBIIDP` parameter.
-  - Added **SauceNAO** engine: `https://saucenao.com/search.php?url=` (anime & illustration search).
-  - Added **ASCII2D** engine: `https://ascii2d.net/search/url/` (manga & artwork search).
-  - Updated layout `bottom_sheet_image_search.xml` with SauceNAO and ASCII2D card entries.
+1. **WebView Thread Safety**:
+   - `shouldInterceptRequest` executes on Chromium's background thread pool. Never access `view.url`, modify Android UI views, or call synchronous WebView methods from this callback.
+   - Use the `@Volatile currentPageUrl` tracked via `onPageStarted` and referer headers.
+2. **Vector Drawables**:
+   - Always sanitize SVG vector drawables to static `#FFFFFFFF` base colors. Dynamic theme attribute references inside `<path android:fillColor="?attr/...">` cause runtime crashes on Android 8-10.
+   - Always inflate vectors in layouts using `AppCompatImageView` or `AppCompatImageButton` with `app:srcCompat`.
+3. **Memory Leak Prevention**:
+   - When closing tabs, WebViews must be detached from `binding.webViewContainer`, stopped via `stopLoading()`, cleared of callbacks, and destroyed via `destroy()`.
+   - Inactive tabs must invoke `webView.onPause()` to halt background JavaScript timers and conserve battery; the active tab invokes `webView.onResume()`.
+4. **Data Encryption**:
+   - All Room database operations must route through SQLCipher with encrypted passphrase management (`SecureDatabaseKeyProvider`).
 
-- [x] **FIX 2 — Open in New Tab switches to new tab** (`MainActivity.kt`):
-  - Rewrote `openUrlInNewTab` to explicitly call `tabManager.selectTab(newTab)`, set `currentDisplayedTabId`, and call `showWebView(newTab, forceUrl=url, reloadIfChanged=true)` — preventing a race where the StateFlow observer could fire first with a stale `currentDisplayedTabId`.
+---
 
-- [x] **FIX 3 — Screen wake lock when video is playing** (`MainActivity.kt`):
-  - In `setupMediaPlaybackListener()`: `onMediaStateListener` now calls `window.addFlags(FLAG_KEEP_SCREEN_ON)` when `isVideo && isPlaying`, and `window.clearFlags` when `!isPlaying` (skipped if in PiP mode).
-  - In `onResume()`: Restores `FLAG_KEEP_SCREEN_ON` if `MediaPlaybackBridge.isVideoPlaying` is true when the activity resumes from background.
+## 6. Development Milestones & Roadmap
 
-- [x] **FIX 4 — Fullscreen stuck / webView not visible after PiP/fullscreen exit** (`MainActivity.kt`):
-  - Added `wasShowingWebViewBeforePip: Boolean` field to track WebView visibility before entering PiP.
-  - Set the field when entering PiP in `onPictureInPictureModeChanged`.
-  - On PiP exit, restores `webViewContainer` + `homeLayout` visibility based on `wasShowingWebViewBeforePip` and the active tab's URL state — replacing the stale `homeLayout.root.visibility` check that always read `GONE` (the value forced when entering PiP).
-
-- [x] **FIX 5 — Translation 'Original' button reliability** (`PageTranslateManager.kt`, `LanguageSelectionDialog.kt`):
-  - Replaced single-strategy `restoreOriginalScript` with a robust 4-step cascade:
-    1. Clears `googtrans` cookies for root and domain paths.
-    2. Tries `.goog-te-combo` combo element (set to empty / show original), with 1s verification + auto-reload.
-    3. Scans all iframes for a button whose text contains "original" or "restore" and clicks it.
-    4. Falls back to removing all injected translate elements (`onyx_translate_element`, `__onyx_translate_script`, `__onyx_translate_style`) and reloading the page.
-  - Expanded `LanguageSelectionDialog` from 20 to 44 supported languages (added Swedish, Danish, Finnish, Norwegian, Czech, Slovak, Romanian, Hungarian, Greek, Hebrew, Persian, Urdu, Malay, Filipino, Ukrainian, Bulgarian, Croatian, Serbian, Catalan, Lithuanian, Latvian, Estonian, Afrikaans, Swahili).
-
-- [x] **FIX 6 — Domain-type suggestions look different** (`SearchSuggestion.kt`, `SearchSuggestionRepository.kt`, `SuggestionsAdapter.kt`):
-  - Added `isDomain: Boolean` and `isUrl: Boolean` fields to `SearchSuggestion` data class.
-  - `SearchSuggestionRepository` marks remote suggestions containing a dot and no spaces (but not starting with http/https) as `isDomain = true`.
-  - `SuggestionsAdapter.bind()` now renders domain/URL suggestions with a globe icon (`ic_web`) and the full URL as subtext — matching Chrome's visual style.
-
-- [x] **FIX 7 — Back navigation improvements** (`MainActivity.kt`):
-  - Added PiP mode check at the top of `setupBackNavigation` callback: when `isInPictureInPictureMode` is true, the callback temporarily disables itself and re-dispatches the back press so the system handles PiP dismissal rather than the browser intercepting it.
-
-### Recent V2 Additions & Enhancements (Completed)
-- [x] **Launcher App Shortcuts** (`shortcuts.xml`, `AndroidManifest.xml`, `MainActivity.kt`):
-  - Long-pressing browser icon on Android launcher provides quick shortcuts: New Incognito Tab, Search, and Scan QR Code.
-- [x] **RegEx-Capable Find in Page** (`RegexFindBridge.kt`, `activity_main.xml`, `MainActivity.kt`):
-  - Injected JavaScript bridge supporting standard text matching and full regular expressions with real-time match count and highlighting.
-- [x] **Scroll-to-Top Floating Action Button** (`activity_main.xml`, `OnyxWebView.kt`, `SettingsActivity.kt`, `BrowserPreferences.kt`):
-  - Added optional floating action button in `Settings > Accessibility` that dynamically fades in when scrolling down and smoothly jumps to page top on click.
-- [x] **Non-Intrusive 2dp Top Progress Bar & Network Status Banner** (`activity_main.xml`, `MainActivity.kt`):
-  - Smooth 2dp accent loading line at the top with ObjectAnimator.
-  - Dynamic network banner above the search bar indicating offline / back online status.
-- [x] **Picture-in-Picture Privacy & AppOps Settings Integration** (`bottom_sheet_menu.xml`, `SettingsActivity.kt`):
-  - Removed PiP from the three-dot menu. Toggling PiP in Settings opens Android system AppOps settings for granular permission revocation.
-- [x] **Forced 120Hz / High Refresh Rate & Hardware Acceleration** (`MainActivity.kt`, `OnyxWebView.kt`):
-  - Configured `preferredDisplayModeId` to lock high refresh rate displays (90Hz/120Hz/144Hz).
-  - Configured hardware rendering flags (`LAYER_TYPE_HARDWARE`, `offscreenPreRaster`).
-- [x] **Biometric Incognito Protection** (`MainActivity.kt`, `TabSwitcherBottomSheet.kt`, `SettingsActivity.kt`, `BrowserPreferences.kt`):
-  - Setup fingerprint / biometric unlock requirement for private tabs.
-  - Obscures preview and title, blanking private tab content upon minimize/resume with `FLAG_SECURE` and auth overlay.
-- [x] **Save Page as MHTML / PDF** (`MainActivity.kt`, `MenuBottomSheetDialogFragment.kt`, `bottom_sheet_menu.xml`):
-  - Export complete web pages as offline `.mhtml` web archives or vector `.pdf` files.
-- [x] **Native Local File Handling & Markdown Interception** (`LocalFileLoader.kt`, `OnyxWebViewClient.kt`):
-  - Loads `content://` and `file://` URIs natively into WebView to preserve URL identity and support clean page reloads.
-  - Seamlessly intercepts Markdown files to compile and serve styled HTML while retaining native URI in address bar.
-- [x] **Smart Clipboard Interceptor** (`SuggestionsAdapter.kt`, `MainActivity.kt`, `item_search_clipboard_suggestion.xml`):
-  - Detects copied URLs on clipboard and offers a non-intrusive suggestion under search bar to load link in one tap.
-- [x] **User-Agent Spoofer Manager** (`SettingsActivity.kt`, `activity_settings.xml`, `OnyxWebView.kt`, `BrowserPreferences.kt`):
-  - Configurable UA templates (Default, iPad Safari, Windows PC Chrome, iPhone Safari) in Settings > Privacy & Security.
-- [x] **Auto-Archive / Sleep Idle Tabs** (`TabManager.kt`, `TabItem.kt`, `AppDatabase.kt`, `MainActivity.kt`):
-  - Database migration (version 3 -> 4) tracking `lastAccessedAt` and `isHibernated`.
-  - Hibernates background tabs inactive for 24+ hours by destroying underlying WebView instances to free RAM while keeping disk snapshots intact.
-- [x] **Cookie & Storage Autoclear on Tab Close** (`TabManager.kt`, `ShieldsActivity.kt`, `activity_shields.xml`, `BrowserPreferences.kt`):
-  - Setting in `Settings > Shields & Privacy` under Do Not Track. Cleans origin LocalStorage, IndexedDB, and invalidates session/domain cookies on individual or batch tab close.
-- [x] **Bug Fixes: Loading Bar Position, Biometric Incognito Auth, Page Export (.mhtml/.pdf), and Error Page URL Preservation**:
-  - **Loading Bar Position** (`activity_main.xml`): Re-anchored the 2dp loading progress bar directly beneath `topBarDivider` (under search bar) with elevation, fixing the regression where it appeared above the search bar.
-  - **Biometric Incognito Protection Fix** (`BiometricAuthHelper.kt`, `SettingsActivity.kt`, `TabSwitcherBottomSheet.kt`, `MainActivity.kt`, `TabsAdapter.kt`):
-    - Created `BiometricAuthHelper` with backwards-compatible support for `DEVICE_CREDENTIAL` and `BIOMETRIC_STRONG` across API 26-35.
-    - Wired `setupAccessibilitySettings()` in `SettingsActivity` with biometric prompt confirmation on both enable and disable.
-    - Prevented `onAuthenticationFailed()` from aborting auth or dismissing dialog on first misread.
-    - Masked locked incognito tabs in Tab Switcher (`"Protected Tab"`, `"Locked"`, lock icon, obscured preview bitmap).
-    - Fixed `switchToNormalTabOrNew()` to properly use `tabManager.selectTab(...)` instead of updating active incognito tab URL.
-  - **Save Page as .mhtml and .pdf Fix** (`MainActivity.kt`):
-    - Fixed .mhtml web archive saving by writing initially to app cache and then streaming into `MediaStore.Downloads` on Android Q+ (API 29+) or legacy downloads with MediaScanner on pre-Q.
-    - Fixed .pdf export by removing invalid custom `Resolution` from `PrintAttributes.Builder()`.
-  - **Error Page URL Preservation & Reload Fix** (`OnyxWebViewClient.kt`, `OnyxWebView.kt`, `MainActivity.kt`, `TabManager.kt`, `LocalFileLoader.kt`):
-    - Prevented `data:text/html...` or synthetic error asset URLs from overwriting `currentPageUrl`, triggering `onUrlChanged`, or corrupting `activeTab.url` and address bar.
-    - Overrode `OnyxWebView.reload()` and `swipeRefreshLayout.setOnRefreshListener` to reload `failingUrl` whenever synthetic error state is active.
-    - Created `getActivePageUrl()` helper in `MainActivity` to keep address bar, share, copy, and edit actions pointing to the true website URL even when displaying a custom error page.
-  - **Verified CI/CD Execution**: GitHub Actions workflow run `#35891912158` completed successfully in 7m13s, publishing release [`v1.0.136`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.136) with optimized APKs: `Onyx-Browser-v1.0.136-arm64-v8a-release.apk` (19MB), `universal` (39MB), `armeabi-v7a` (16MB), and `x86_64` (21MB).
-- [x] **Chrome-Style Home Screen Search Bar Widget** (`SearchWidgetProvider.kt`, `SearchWidgetManager.kt`, `SearchWidgetPinnedReceiver.kt`, `widget_search_bar.xml`, `search_widget_info.xml`, `MainActivity.kt`, `SettingsActivity.kt`, `MenuBottomSheetDialogFragment.kt`):
-  - **4x1 Pill-Shaped Android AppWidget**: Authentic Chrome-style search bar widget featuring the active search engine logo on the left, "Search or type URL" text hint, voice search microphone button, and incognito mode (fedora & glasses) button.
-  - **Interactive Actions**:
-    - Tapping search pill or engine icon launches `MainActivity` directly into full-page search overlay mode with soft keyboard immediately focused for typing (`ACTION_WIDGET_SEARCH`).
-    - Tapping microphone launches voice search immediately (`ACTION_WIDGET_VOICE_SEARCH`).
-    - Tapping incognito button opens a new incognito tab and enters search mode (`ACTION_WIDGET_INCOGNITO_SEARCH`).
-  - **Dynamic Theme & Engine Synchronization**:
-    - Automatically adapts to launcher / system dark and light modes via `@color/widget_background`, `@color/widget_stroke`, and system-aware vector bitmap icon rendering.
-    - Synchronizes search engine logo in real-time across home screen widgets when search engine changes in `SettingsActivity`, `SearchEngineSettingsActivity`, or `MainActivity`.
-  - **One-Tap Home Screen Pinning**:
-    - Programmatic home screen pinning via `AppWidgetManager.requestPinAppWidget` (Android 8.0+ / API 26+) accessible from:
-      - 3-Dot Menu (`MenuBottomSheetDialogFragment` on homepage and webpage).
-      - Settings (`SettingsActivity` under Search Engine category).
-- [x] **Desktop Mode Viewport Auto-Fit & Overview Scaling Fix** (`OnyxWebViewClient.kt`, `OnyxWebView.kt`):
-  - **Root Cause**: Previously, when desktop mode was active, `OnyxWebViewClient` injected `<meta name="viewport" content="width=1024, initial-scale=1">`. The hardcoded `initial-scale=1` locked the zoom to 100% on a 1024px canvas, forcing mobile devices (typically 360px–412px wide) into an awkward zoomed-in top-left crop where the user had to manually zoom out and horizontally scroll.
-  - **Dynamic Fitting Viewport Injection (`injectDesktopViewportAdjustment`)**:
-    - Dynamically computes the layout viewport width (`targetWidth = min(max(docWidth, 1024), 1280)`) and exact overview scale (`scale = min(1.0, screenWidth / targetWidth)`).
-    - Injects `width=<targetWidth>, initial-scale=<scale>, minimum-scale=0.1, maximum-scale=5.0, user-scalable=yes` on `onPageCommitVisible` and re-adjusts on `onPageFinished`.
-    - Handles screen rotation seamlessly via `orientationchange` listener.
-  - **Zoom Scale Reset & Overview Mode**:
-    - Invokes `setInitialScale(0)` on desktop toggle to clear retained zoom levels in Android WebView.
-    - Removed redundant `clearCache(true)` to preserve network cache and prevent reload stutter.
-- [x] **Universal Link & Media Detection on Long-Press ("Open in new tab")** (`OnyxTouchBridge.kt`, `OnyxWebView.kt`, `ContextMenuBottomSheet.kt`, `bottom_sheet_context_menu.xml`, `MainActivity.kt`):
-  - **Root Cause Resolved**: Previously, long-pressing only worked for raw `<img>` tags (`IMAGE_TYPE`). On modern websites (Google Search, Wikipedia, Reddit, Twitter, YouTube), hyperlinks wrap nested elements (`<a href="..."><span><h3>Text</h3></span></a>` or `<a><div>...</div></a>`), which caused `hitTestResult` to return `UNKNOWN_TYPE` or null extra. Additionally, on `SRC_IMAGE_ANCHOR_TYPE`, `hit.extra` contained only the image URL, mistakenly opening the image URL instead of the anchor link in new tabs.
-  - **Multi-Tier Detection Architecture**:
-    - **Tier 1 (Synchronous Touch Bridge - `OnyxTouchBridge.kt`)**: Pre-computes and caches element hierarchy (links, nested anchor spans, images, videos) on `touchstart` using a passive, high-performance DOM traversal script (`closest('a, img, video, audio')`). When `onLongClickListener` triggers at 500ms, all link and media metadata is already synchronously available in Kotlin memory with zero latency!
-    - **Tier 2 (Native Android HitTestResult)**: Handles direct anchors (`SRC_ANCHOR_TYPE`, `ANCHOR_TYPE`), images (`IMAGE_TYPE`), image links (`SRC_IMAGE_ANCHOR_TYPE` with `requestFocusNodeHref` to resolve the real anchor href), emails, phones, and geo links.
-    - **Tier 3 (DOM Fallback via `document.elementFromPoint`)**: Asynchronous fallback querying client viewport coordinates and `requestFocusNodeHref` to ensure 100% detection coverage on dynamic web frameworks.
-  - **Comprehensive Context Menu Options**:
-    - **Links**: Open in new tab, Open in incognito tab, Copy link address, Copy link text, Download link, Share link.
-    - **Image Links**: Dual presentation offering both Link actions and Image actions (Preview image, Open image in new tab, Save image, Search by image, Copy image link, Share image).
-    - **Videos (`<video>`)**: Open video in new tab, Save video, Copy video link, Share video.
-- [x] **"Open in App" Confirmation Prompt Dialog** (`OpenInAppPromptDialog.kt`, `dialog_open_in_app_prompt.xml`, `OnyxWebViewClient.kt`, `MainActivity.kt`):
-  - **User-Centric Redirection Gate**: Instead of abruptly launching external apps without notice when "Open links in app" is enabled, displays a clean Material 3 confirmation dialog before redirecting.
-  - **Dialog Specifications**:
-    - **Title**: "Open this page in App?" (`open_in_app_prompt_title`).
-    - **Description**: "The site is trying to redirect to its associated app. You can disable this permanently in settings." (`open_in_app_prompt_desc`).
-    - **Action Buttons**:
-      - **Left Button ("Stay In Onyx")**: Tonal button dismissing the prompt, canceling external app launch, and executing web fallback (e.g. `browser_fallback_url` or direct `http`/`https` intent data) to keep browsing within Onyx.
-      - **Right Button ("Open in app")**: Primary filled button launching the external intent (e.g. Telegram, WhatsApp, YouTube, Reddit, Twitter, etc.).
-    - **Target App Badge**: Dynamically resolves and displays the application name (e.g. "Telegram", "WhatsApp", "YouTube") using `PackageManager.resolveActivity`.
-- [x] **Search Widget Placement Consolidation**:
-  - Removed "Add Search Widget" button from 3-dot menu in homepage mode (above Settings).
-  - Removed "Add Search Widget" button from 3-dot menu in webpage mode (under Add to Home screen).
-  - Kept in Settings under Search Engine (`SettingsActivity` under Search Engine category and in `SearchEngineSettingsActivity`).
-- [x] **User-Agent Spoofer Manager Overhaul & Custom User-Agent Input Box**:
-  - **Universal Template Library (`UserAgentManager.kt`)**: Expanded preset library from 4 to 12 modern real-world user agent profiles across Mobile, Desktop, Tablet, and Crawler categories (Windows Chrome/Firefox/Edge, macOS Safari/Chrome, Linux Firefox, Chrome OS, iPhone Safari, iPad Safari, Android Chrome/Firefox, Googlebot).
-  - **Dedicated Custom User-Agent Input Box**:
-    - Material 3 card container with multiline input (`TextInputEditText`), floating label, and clear-text end button allowing user to type or paste any arbitrary User-Agent string.
-    - One-tap "Paste from Clipboard" action button.
-    - "Apply Custom" action saving custom string to `BrowserPreferences.customUserAgent` and setting template to `custom`.
-    - Real-time active status badge indicating when custom User-Agent mode is engaged.
-  - **Modern Material 3 Bottom Sheet (`UserAgentPickerSheet.kt` & `bottom_sheet_user_agent_picker.xml`)**:
-    - Replaced legacy single-choice alert dialog with responsive bottom sheet modal.
-    - Template cards with platform badges (DESKTOP, MOBILE, TABLET, BOT), device icons (`ic_desktop`, `ic_android`, `ic_phone`, `ic_tablet`, `ic_bot`), live string previews, and selection checkmarks.
-    - Real-time re-application of selected User-Agent string to active WebViews upon returning to `MainActivity`.
-- [x] **Adblocker Filter Lists UI Redesign & Custom Filter Subscriptions (`ContentFiltersActivity.kt`, `AddFilterUrlBottomSheet.kt`, `CreateCustomFilterBottomSheet.kt`, `FilterListManager.kt`, `BrowserPreferences.kt`)**:
-  - **Removed Custom Filter Rules Button**: Completely removed redundant `rowCustomRules` entry from `Settings > Shields & Privacy` above the Ad Blocker Filter Lists.
-  - **Toolbar Logo & Auto-Update Interval Picker**:
-    - Replaced the text "UPDATE" button with an animated refresh logo icon (`ic_refresh`).
-    - **Single Tap**: Instantly triggers filter list updates (`updateAllFilters()`) across enabled lists and custom subscriptions with rotation feedback.
-    - **Click & Hold (Long Press)**: Opens a Material 3 dialog allowing selection of auto-update intervals: Every 6 hours, Every 12 hours, Every 1 day (24 hours), Every 3 days, Every 7 days (1 week).
-    - Subtitle dynamically displays the configured interval and last-updated timestamp (`Auto-update: Every 24h • Updated: Just now`).
-  - **Auto-Update & Category Simplification**:
-    - Auto-update is permanently enabled under the hood without needing a manual toggle switch.
-    - Removed horizontal category filter chips ("All", "Core", "Privacy", "Annoyances", "Social", "Regional") to eliminate visual clutter.
-  - **`+ Add filter via URL` Action**:
-    - Tonal action button launching `AddFilterUrlBottomSheet.kt` with Filter Name and Filter URL inputs, clipboard paste helper, and instant validation.
-    - Automatically downloads the external filter list, registers it in the UI list with a toggle switch and delete action, and recompiles the native adblock engine.
-  - **`Create custom filters` Action**:
-    - Tonal action button launching `CreateCustomFilterBottomSheet.kt` with Filter Name input and multiline monospace rule editor.
-    - Persists user-authored rules, registers them with a toggle switch, and enables direct tapping on the item to edit rules at any time.
-  - **Unified Custom Filter Architecture**:
-    - Custom filters (both URL-based subscriptions and manual rule sets) are displayed at the top with a distinct "CUSTOM" badge pill and delete button.
-    - Deletion triggers a confirmation dialog and cleans up cached rules and preferences.
-    - The search box (`etSearchFilter`) remains fully functional with instant real-time filtering across built-in and custom lists.
-- [x] **Brave-Identical Error Page Redesign (`error_page.html`, `WebErrorHandler.kt`, `SyntheticNavigationState.kt`)**:
-  - **Left-Aligned Chromium / Brave Layout**:
-    - Replaced centered modal-style error layout with authentic left-aligned Chromium architecture (max-width 600px, 24px padding, adaptive to Light and Dark system modes).
-    - Authentic typography matching Brave (`font-size: 24px; font-weight: 500` headings, bold domain names, clean 14px suggestion bullet lists).
-  - **Authentic Vector Assets**:
-    - Embedded Chromium's vector `sadtab.svg` icon for connection and DNS errors.
-    - Red danger warning triangle for SSL/TLS security certificate warnings.
-    - Custom shields icon for tracker/malware blocks.
-  - **Offline 8-Bit Dino Runner Game**:
-    - Embedded an authentic 2D Canvas Dino runner game on the offline page (`ERR_INTERNET_DISCONNECTED`).
-    - Jumping physics, obstacles, live score counter, high score persistence (`localStorage`), collision detection, and full touch / keyboard spacebar support.
-  - **Brave Signature Wayback Machine Card**:
-    - Appears on 404, 5xx, or server down errors: "Check for saved version" with Internet Archive column logo and direct Wayback Machine lookup button.
-  - **Collapsible Diagnostic Details**:
-    - "Details" / "Advanced" button smoothly toggles technical network and certificate diagnostic information.
-    - SSL section with HSTS enforcement warning and "Proceed to site (unsafe)" link.
-    - Shields section with "Temporarily allow domain" bypass action.
-- [x] **Verified CI/CD Build & GitHub Release v1.0.144 (Run #35909601782)**:
-  - Verified full remote CI/CD execution compiling Rust NDK shared libraries (`libadblock_bridge.so`) across `arm64-v8a`, `armeabi-v7a`, `x86_64`.
-  - Built, signed, R8-minified, and verified production APKs:
-    - [`Onyx-Browser-v1.0.144-arm64-v8a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.144-arm64-v8a-release.apk) (18.92 MB)
-    - [`Onyx-Browser-v1.0.144-armeabi-v7a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.144-armeabi-v7a-release.apk) (15.10 MB)
-    - [`Onyx-Browser-v1.0.144-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.144-universal-release.apk) (38.79 MB)
-    - [`Onyx-Browser-v1.0.144-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.144-x86_64-release.apk) (20.37 MB)
-  - GitHub Release published: [Onyx Browser v1.0.144](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.144).
-- [x] **Error Page Reload Button Fix & Network State Retention (`OnyxWebView.kt`, `OnyxWebViewClient.kt`, `OnyxErrorBridge.kt`, `error_page.html`, `MainActivity.kt`)**:
-  - **Root Cause Resolved**:
-    - When `loadCustomErrorPage` invoked `view.loadDataWithBaseURL(baseUrl, populatedHtml, ...)`, `onPageStarted` fired with `url = baseUrl`.
-    - Because `baseUrl` is `https://...`, `isSyntheticOrDataUrl(url)` returned `false`. `onPageStarted` prematurely assumed a real navigation had started and cleared `currentSyntheticState` to `null`.
-    - When the user tapped "Reload", `bridge.reload()` found `currentSyntheticState?.failingUrl == null`, falling through to `webView.reload()`.
-    - In Android Chromium WebView, calling `super.reload()` on a page rendered with `loadDataWithBaseURL` merely re-parses the in-memory HTML buffer without creating a network request.
-  - **OnyxWebView State Retention & Target Reloading**:
-    - Added `lastFailingUrl` and `isLoadingSyntheticPage` flags to `OnyxWebView`.
-    - Centralized `isSyntheticOrDataUrl(url)` in `OnyxWebView.companion` to detect `data:`, `file:///android_asset/error_page`, and `about:blank`.
-    - Updated `OnyxWebView.reload()`: Checks `currentSyntheticState?.failingUrl ?: lastFailingUrl` and explicitly calls `loadUrl(failing)` to issue an actual HTTP GET network request.
-  - **Prevent Premature Clearing in `OnyxWebViewClient`**:
-    - In `loadCustomErrorPage()`: Sets `isLoadingSyntheticPage = true`, `lastFailingUrl = error.failingUrl`, and `currentSyntheticState = error`.
-    - In `onPageStarted()`: If `isLoadingSyntheticPage == true`, resets the flag and returns immediately, safeguarding `currentSyntheticState` from being cleared and preventing adblock/fingerprint injection into the local error template.
-    - In `onPageFinished()`: Only resets `lastFailingUrl` when a real, non-error HTTP/HTTPS page successfully finishes loading.
-  - **Bridge Overloads & MainActivity Integration (`OnyxErrorBridge.kt`)**:
-    - Added `@JavascriptInterface fun reload(targetUrl: String?)` and zero-arg `@JavascriptInterface fun reload()`.
-    - Resolves target URL through priority chain: `targetUrl` -> `currentSyntheticState?.failingUrl` -> `lastFailingUrl`.
-    - Dispatches navigation through `mainAct.performSearchOrLoad(target)` to update active tab state, address bar, and load the webpage.
-    - Similarly hardened `proceedSsl()` with `lastFailingUrl` fallback and `performSearchOrLoad`.
-  - **Instant Visual Feedback & JS Target Passing (`error_page.html`)**:
-    - When Reload is clicked, immediately changes primary button text to "Reloading…" and disables it to prevent duplicate clicks.
-    - Calls `bridge.reload(data.url)`. If bridge is absent, sets `window.location.href = data.url` rather than `window.location.reload()`.
-  - **Swipe-to-Refresh & Network Reconnection Support (`MainActivity.kt`)**:
-    - Updated `swipeRefreshLayout.setOnRefreshListener`: Pull-to-refresh on an error page falls back to `lastFailingUrl` and issues a fresh `loadUrl()`.
-    - Updated `networkCallback.onAvailable`: Auto-reloads using `lastFailingUrl` when internet connectivity is restored.
-- [x] **Local Documents, Offline MHT Web Archives & Downloads Integration (`LocalFileLoader.kt`, `OnyxWebViewClient.kt`, `MainActivity.kt`, `DownloadsActivity.kt`, `DownloadsAdapter.kt`, `AndroidManifest.xml`)**:
-  - **Root Cause Resolved**:
-    - Android 10+ (scoped storage) blocks Chromium WebView from directly accessing `/storage/` via `file://`, resulting in `net::ERR_ACCESS_DENIED`.
-    - `shouldInterceptRequest` previously only checked for `.md` URLs, ignoring `.html`, `.htm`, `.mhtml`, and `.mht`.
-    - When `content://` URIs were opened, Chromium WebView received unrecognized MIME types (`message/rfc822`, `application/octet-stream`) and triggered `DownloadListener` instead of rendering the document.
-    - `AndroidManifest.xml` lacked intent-filters for `.mht`, `.mhtml`, `multipart/related`, and `message/rfc822`.
-    - Saving a webpage generated `.mhtml` files instead of the popular `.mht` format, and failed to record an entry in the Room `downloads` database.
-  - **Universal Local File Interceptor & Renderer (`LocalFileLoader.kt`)**:
-    - Supports HTML (`.html`, `.htm`, `.xhtml`), MHTML Web Archives (`.mht`, `.mhtml`), Markdown (`.md`, `.markdown`), and Plain Text (`.txt`, `.log`).
-    - Added `detectFileType(context, uri)`: Inspects display names, ContentResolver MIME types, paths, and peeks stream header bytes (`multipart/related`, `Snapshot-Content-Location`, `<!DOCTYPE html>`).
-    - Added `openInputStream(context, uri)`: Safely bridges `content://`, `file://`, and raw filesystem paths to application-managed input streams.
-    - Added `interceptLocalFile(context, url)`: Serves MHTML as `multipart/related` directly activating Chromium's Blink `MHTMLArchive` engine; serves HTML as `text/html; charset=UTF-8`; serves Markdown as rendered HTML; serves text as `text/plain`.
-    - Added `interceptLocalSubResource(context, url)`: Intercepts local HTML assets (images, CSS, JS, fonts).
-    - Bundled and inlined `marked.min.js` directly into `markdown_previewer.html` for 100% offline, self-contained Markdown rendering.
-  - **Save Web Archive as `.mht` with Downloads Database Registration (`MainActivity.kt`)**:
-    - Updated dialog option to **"Save as Web Archive (.mht)"** matching popular Android browsers.
-    - Saves archives with `.mht` extension (e.g. `Title_1727123456.mht`) and MIME type `multipart/related`.
-    - Inserts `DownloadItem` into `AppDatabase.downloadDao().insertDownload(...)` with `STATUS_COMPLETED`, URL, file name, physical path, MIME type, and size.
-    - Guarded `webView.setDownloadListener`: Detects local files via `LocalFileLoader.isLocalFile(url)` and routes to `loadLocalFile()` rather than triggering re-download prompts.
-  - **Downloads Screen Integration & Direct Opening (`DownloadsActivity.kt`, `DownloadsAdapter.kt`)**:
-    - Added `isLocalWebDocument(item)`: Tapping `.mht`, `.mhtml`, `.html`, or `.md` in Downloads launches `MainActivity` with `ACTION_VIEW` and finishes `DownloadsActivity` to immediately open the document in a browser tab.
-    - Handled `content://` and `file://` URIs seamlessly.
-    - Added contextual icons in `DownloadsAdapter`: `ic_web` for web archives/HTML, `ic_file` for Markdown/text, and `ic_download` for general downloads.
-  - **Manifest File Associations (`AndroidManifest.xml`)**:
-    - Added `<intent-filter>` for MHTML/MHT by MIME types: `multipart/related`, `message/rfc822`, `application/x-mimearchive`, `application/mhtml`.
-    - Added `<intent-filter>` for MHTML/MHT by file extensions: `.*\\.mht`, `.*\\.mhtml`, `.*\\..*\\.mht`, `.*\\..*\\.mhtml`.
-- [x] **Fix Browser Chrome Disappearance (Search Bar & 3-Dot Menu) & Fullscreen Lockout (`MainActivity.kt`)**:
-  - **Root Cause Resolved**:
-    - `enterPipMode()` previously set `binding.topBar.visibility = View.GONE` and `binding.topBarDivider.visibility = View.GONE` before invoking `enterPictureInPictureMode()`. If system rejected PiP, PiP was disabled, or an exception occurred, `onPictureInPictureModeChanged` never fired, leaving the toolbar hidden forever.
-    - In `onUserLeaveHint()`, whenever `isVideoPlaying` was true, an asynchronous JS chain was launched to isolate the video DOM and request PiP. Because Android paused the activity immediately after `onUserLeaveHint()`, the async callback ran while paused and failed with `IllegalStateException`, leaving the webpage isolated in 100vw x 100vh fullscreen with no navigation controls.
-    - `onResume()` only called `requestLayout()` on `topBar` (which does nothing when `visibility == GONE`) and failed to evaluate `restoreVideoFromPipScript`.
-    - In `hideCustomFullscreenVideo()`, an early return `if (customVideoView == null) return` prevented clearing the container if `customVideoView` was null or detached, leaving a 100dp elevation black overlay covering the screen.
-  - **Defensive Toolbar & Layout Restoration**:
-    - Hardened `enterPipMode()`: Checks `lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)`. Inspects `enterPictureInPictureMode()` return boolean. If false or on any exception, immediately restores `binding.topBar.visibility = View.VISIBLE`, `binding.topBarDivider.visibility = View.VISIBLE`, and runs `restoreVideoFromPipScript`.
-    - Enforced toolbar visibility in `onResume()` and `onWindowFocusChanged()`: If not in PiP and `customVideoView == null`, guarantees `topBar` and `topBarDivider` are `VISIBLE`, hides `fullscreenCustomViewContainer`, and evaluates `restoreVideoFromPipScript`.
-    - Safeguarded `onUserLeaveHint()`: Only invokes `enterPipMode()` if `customVideoView != null`. Removed asynchronous in-page PiP triggering during activity pause.
-    - Updated `setupBackNavigation()`: If `customVideoView != null || binding.fullscreenCustomViewContainer.visibility == View.VISIBLE`, dismisses fullscreen; if `binding.topBar.visibility != View.VISIBLE`, immediately restores toolbar and DOM layout.
-    - Updated `showHomeScreen()` and `showWebView()`: Guarantees toolbar visibility when displaying home or web tabs.
-- [x] **Eliminate UI Freezes & Thread Bottlenecks (`MediaPlaybackManager.kt`, `BrowserPreferences.kt`, `OnyxTouchBridge.kt`, `OnyxWebViewClient.kt`, `MainActivity.kt`)**:
-  - **Root Cause Resolved**:
-    - In `MediaPlaybackManager.backgroundPlaybackScript`, every `.pause()` invocation generated `new Error().stack` to inspect call traces. Modern streaming video players (YouTube MSE, Twitch, HLS) call `.pause()` dozens of times during playback, track switches, and buffering. Serializing V8 stacks halted the JS thread and triggered severe GC pauses.
-    - `reportVideoBounds()` was firing on every 1-second `timeupdate` tick, causing `MainActivity` to invoke synchronous Binder IPC `setPictureInPictureParams()` with 3 new `RemoteAction`s and `PendingIntent` allocations continuously.
-    - `BrowserPreferences.incrementBlockedRequests()` called `prefs.edit().putLong(...).apply()` and updated `_blockedRequestsFlow` on every blocked subresource, causing disk write spam and main-thread Choreographer frame drops during page loads with 50-100 blocked trackers.
-    - In `OnyxTouchBridge.kt`, non-interactive touchstarts crossed the JNI bridge with `onTouchCleared()` on every scroll gesture.
-    - In `OnyxWebViewClient.kt`, `backgroundPlaybackScript` was redundantly evaluated 4 times per page navigation (`onPageStarted`, `doUpdateVisitedHistory`, `onPageCommitVisible`, `onPageFinished`).
-    - In `MainActivity.kt`, `SwipeRefreshLayout` used `webView.scrollY > 0` rather than `webView.canScrollVertically(-1)`, conflicting with nested web page scroll containers.
-  - **Performance Optimizations**:
-    - Removed `new Error().stack` trace generation from `HTMLMediaElement.prototype.pause` in `MediaPlaybackManager.kt`.
-    - Debounced video bounds reporting in `MediaPlaybackManager.kt` so `onVideoBoundsChanged` only fires when the bounding rectangle changes by more than 4px.
-    - In `MainActivity.kt`, restricted `onVideoBoundsListener` to only invoke `updatePipParams()` when `customVideoView != null`.
-    - Debounced blocked requests persistence in `BrowserPreferences.kt` via `Handler(Looper.getMainLooper())` with a 300ms window, eliminating disk write spam.
-    - Optimized `OnyxTouchBridge.kt` to return early on non-interactive touchstart without invoking JNI.
-    - Cleaned up redundant script injections from `onPageStarted` and `doUpdateVisitedHistory` in `OnyxWebViewClient.kt`.
-    - Updated `SwipeRefreshLayout` scroll callback to `(webView.canScrollVertically(-1) || webView.scrollY > 0)`.
-- [x] **Fix Chromium `libwebviewchromium.so` Re-entrant Navigation Crash (`OnyxWebViewClient.kt`)**:
-  - **Crash Log Analysis (`Redmi / HyperOS 3.0 / Android 16`)**:
-    - `AwContentsClientBridge.shouldOverrideUrlLoading` -> `OnyxWebViewClient.shouldOverrideUrlLoading` -> `OnyxWebViewClient.handleUrlLoading` -> `OnyxWebView.loadUrl` -> `WebViewChromium.loadUrl` -> `NavigationControllerImpl.b` -> `libwebviewchromium.so (Java_J_N_OIIIIJJJOOOOOOOOOOZZZZZZZ)` -> native abort/SIGSEGV in `libwebviewchromium.so`.
-  - **Root Cause Resolved**:
-    - In `shouldOverrideUrlLoading` / `handleUrlLoading`, when tracking parameters were stripped (`stripTrackingParams`), AMP URLs were resolved (`resolveAmpUrl`), or HTTP URLs were upgraded to HTTPS (`upgradedUrls`), `view?.loadUrl(...)` was called synchronously.
-    - Chromium's native navigation state machine (`NavigationControllerImpl`) is non-reentrant. Initiating a new `loadUrl` while the outer navigation throttle is still waiting on the Java `shouldOverrideUrlLoading` callback destroys or mutates the pending `NavigationRequest` in-place, causing a null pointer dereference or assertion failure in `libwebviewchromium.so`.
-  - **Fix Applied**:
-    - Replaced all synchronous `view?.loadUrl(...)` calls in `shouldOverrideUrlLoading`, `handleUrlLoading`, `handleIntentScheme`, `handleAppNotFoundFallback`, `onReceivedError`, and `onReceivedSslError` with asynchronous message posting: `view?.post { view.loadUrl(...) }`.
-    - This allows `shouldOverrideUrlLoading()` to return `true` immediately to Chromium, cleanly aborting and unwinding the previous navigation stack before the new URL is loaded on the next looper turn.
-    - Wrapped `handleUrlLoading` in an outer `try-catch` to ensure no uncaught exceptions escape into Chromium's native bridge.
-- [x] **Preserve Server HTTP Error Pages & Redesign Error UI Like Brave Without Games (`OnyxWebViewClient.kt`, `error_page.html`, `MainActivity.kt`, `OnyxWebView.kt`, `SyntheticNavigationState.kt`)**:
-  - **Preserve Server-Returned HTTP Error Pages (e.g. 403 Forbidden, 404 Not Found)**:
-    - Removed `loadCustomErrorPage` invocation from `onReceivedHttpError` in `OnyxWebViewClient.kt`.
-    - Standard browsers (Brave, Chrome) never overwrite HTTP 4xx/5xx responses because servers provide their own HTML error pages (e.g., `https://biology-school.com/assets/` 403 Forbidden, custom website 404s, Cloudflare gateway pages). Android WebView now naturally renders the server's own HTML payload.
-    - Synthetic error pages are strictly restricted to actual network stack failures (`onReceivedError`: offline, DNS resolution failure, connection refused, timed out) and cryptographic certificate issues (`onReceivedSslError`).
-  - **Brave-Style Minimal Error Page (No Games)**:
-    - Stripped the 8-bit Dino canvas runner game completely from `error_page.html` (removed `#runner-container`, canvas, 250+ lines of game loops, touch listeners, and localStorage hi-score tracking).
-    - Designed authentic, clean Brave error layout with crisp SVG vectors for Sad Tab (`iconSadTab`), Disconnected Offline (`iconOffline`), SSL Security (`iconSecurity`), and Shields Blocked (`iconShields`).
-    - Standardized typography, explanatory description with highlighted domain, checklist suggestions, subtle uppercase error code, and signature collapsible Wayback Machine card.
-    - Collapsible Details/Advanced section with technical diagnostics, SSL bypass link, HSTS warnings, and Shields temporary allow link.
-  - **Rock-Solid Error Page Reload Button**:
-    - Replaced buggy UTF-8 decoding in `error_page.html` with modern `TextDecoder` and `Uint8Array` base64 parsing plus fail-open fallbacks.
-    - Fixed reload button feedback: displays "Reloading…" and automatically restores text after 3 seconds instead of permanently disabling the button with `disabled = true`.
-    - Invoked `webView.stopLoading()` in `MainActivity.showWebView()` and `OnyxWebView.reload()` before re-loading the failing URL, preventing Chromium from hanging on cached synthetic base-URL data.
-- [x] **Full Tab Session & Navigation Footsteps Persistence Across Restarts (`TabManager.kt`, `MainActivity.kt`, `OnyxWebViewClient.kt`)**:
-  - **Root Cause**: Previously, tabs only persisted their single active URL in the Room database (`TabItem.url`). When reopening the browser or restoring hibernated tabs, `showWebView` instantiated a blank WebView and loaded `tab.url` anew. The WebView's entire back-forward navigation history stack (`WebBackForwardList`) was empty (`canGoBack() == false`), causing the back button to immediately abandon the site and jump straight to the browser homepage instead of stepping back through visited pages (`test.com/login` -> `test.com/feature` -> `test.com`).
-  - **Native State Serialization Engine (`TabManager.kt`)**:
-    - Serializes each tab's native Chromium `WebBackForwardList` via `webView.saveState(Bundle)` into binary parcel files (`context.filesDir/tab_states/state_<tabId>.bin`).
-    - Excludes incognito tabs, preserving strict privacy guarantees.
-    - Added automated state cleanup for closed tabs (`closeTab`, `closeAllTabs`, `closeTabsCreatedSince`) and orphaned states on startup (`cleanupOrphanedTabStates`).
-  - **Seamless Stack Restoration (`MainActivity.kt` & `TabManager.kt`)**:
-    - During `showWebView()`, checks `tabManager.restoreTabState(tab.id, webView)`. When a saved state exists, restores the entire Chromium back-forward stack (`restoreState(bundle)`) with current page index, SSL states, and scroll positions intact without overwriting history via `loadUrl`.
-    - Persists state continuously during navigation (`onUrlChanged`, `onPageFinishedCallback`), SPA history mutations (`doUpdateVisitedHistory`), tab switching (`displayTab`), app backgrounding (`onPause`, `onStop`), and configuration saving (`onSaveInstanceState`, `onDestroy`).
-    - Back button navigation (`setupBackNavigation()`) now faithfully steps back through all visited pages on that tab before returning to the browser homepage.
-- [x] **Relocate Search Widget Action to Accessibility Category Above Scroll to Top Button (`activity_settings.xml`, `SettingsActivity.kt`, `activity_search_engine_settings.xml`, `SearchEngineSettingsActivity.kt`)**:
-  - Removed Search Widget action row from under Search Engine in `activity_settings.xml` and from `activity_search_engine_settings.xml` / `SearchEngineSettingsActivity.kt`.
-  - Moved `settingSearchWidgetRow` into the Accessibility category in `activity_settings.xml`, positioned directly above the Scroll to Top button (`settingScrollToTopRow`).
-  - Wired click listener in `SettingsActivity.setupAccessibilitySettings()` to invoke `SearchWidgetManager.requestPinSearchWidget(this)`.
-- [x] **Remove Display Over Other Apps Row and Manage Permissions Directly via PiP Button (`activity_settings.xml`, `SettingsActivity.kt`)**:
-  - **Removed Redundant Setting**: Deleted `settingDisplayOverOtherAppsRow` from under Picture-in-Picture (PiP) in `activity_settings.xml`, eliminating UI clutter and consolidating system access under a single unified control.
-  - **Integrated PiP System Permission Management (`SettingsActivity.kt`)**:
-    - When user toggles Picture-in-Picture ON, checks system PiP permission (`AppOpsManager.OPSTR_PICTURE_IN_PICTURE` via `isPipPermissionAllowed()`).
-    - If system permission is not granted, prompts user with a Toast and guides them to Android's PiP settings (`android.settings.PICTURE_IN_PICTURE_SETTINGS` with overlay and application details fallback).
-    - Tracks `pendingPipEnable` across activity lifecycle and automatically synchronizes switch state in `onResume()`.
-    - Automatically syncs switch state if system PiP permission is revoked in system settings.
-    - Added long-press listener on `settingPipRow` to allow quick access to system PiP settings anytime without toggling the switch.
-- [x] **Lightweight Browser Internal Multi-Threaded Download Manager (`com.onyx.browser.download`)**:
-  - **Replaced Android System Downloader**: Built an in-house, multi-threaded internal downloader engine (`OnyxDownloadManager`, `DownloadEngine`, `OnyxDownloadService`) to replace Android's system `DownloadManager` for all normal/internal downloads while preserving external download managers (1DM, ADM, etc.) and download prompt dialogs.
-  - **Multi-Threaded Parallel Chunking & Single Pre-Allocated File**:
-    - Probes target server with `HEAD` (and `Range: bytes=0-0` fallback) to inspect `Accept-Ranges: bytes` and `Content-Length`.
-    - Automatically splits files into 2–6 concurrent range segments based on size (<5MB single stream; 5MB–20MB 2 chunks; 20MB–50MB 4 chunks; 50MB+ 6 chunks).
-    - Pre-allocates single destination file (`RandomAccessFile.setLength(totalBytes)`), allowing workers to seek and write directly into their designated segments without post-download concatenation overhead.
-    - Graceful single-stream fallback when servers omit `Accept-Ranges`, return `200 OK`, or use `Transfer-Encoding: chunked`.
-  - **Pause, Resume, Crash Recovery & Integrity Validation**:
-    - Tracks chunk offsets `[chunkId, startByte, currentByte, endByte, status]` and flushes state periodically to Room DB.
-    - Validates integrity on resume with `If-Match: "<etag>"` and `If-Unmodified-Since: "<lastModified>"`. If remote file changed (HTTP 412), wipes stale data and restarts automatically.
-  - **Network Resilience, Retry Policies & Wi-Fi Only Mode**:
-    - Exponential backoff retry (1s -> 2s -> 4s -> 8s) for transient network timeouts and drops, with immediate termination on fatal HTTP 4xx codes (401, 403, 404, 410).
-    - Integrated `NetworkMonitor` via `ConnectivityManager.NetworkCallback` to auto-pause on network drop and auto-resume when online.
-    - User setting "Download on Wi-Fi Only" in Settings under Downloads, automatically queueing downloads on cellular.
-  - **Bandwidth Allocation & Speed Limiter**:
-    - Implemented `TokenBucketLimiter` to throttle byte reads according to user-configured speed limits or run unthrottled when unlimited.
-  - **Security, MIME-Type, RFC 6266 & File Handling**:
-    - Mirrors active session cookies (`CookieManager.getCookie`), `User-Agent`, and `Referer` headers into all network requests.
-    - Parses RFC 6266 `Content-Disposition` (`filename*=` and `filename=`), sanitizes path traversal (`../`) and illegal characters, and automatically resolves filename collisions (`filename (1).ext`).
-    - Computes streaming SHA-256 and MD5 checksums on completion.
-    - Scoped Storage compliant: publishes completed files to `MediaStore.Downloads` on Android 10+ (`IS_PENDING = 0`) and moves to public Downloads on Android 8–9 with media scanner broadcast.
-  - **Persistent Foreground Notification & UI Integration**:
-    - Runs in foreground service (`OnyxDownloadService`, `foregroundServiceType="dataSync"`) across Android 12–16.
-    - Persistent notification displaying real-time speed (KB/s, MB/s), progress bar, ETA, and interactive "Pause", "Resume", and "Cancel" action buttons.
-    - Upgraded `DownloadsAdapter` and `DownloadsActivity` to display live progress bars, speed, and pause/resume buttons.
-    - Added long-press download details dialog in `DownloadsActivity` with one-tap hash copying (SHA-256 / MD5) and a real-time Checksum Verification input field.
-- [x] **Downloader Pipeline Comprehensive Bug Audit & Hardening**:
-  - **Segment Overrun Protection (`DownloadEngine.kt`)**: Enforced strict `remainingInChunk = (chunk.endByte - chunk.currentByte + 1).coerceAtLeast(0L)` and capped socket buffer writes so workers never write past their designated chunk boundaries if a server ignores range bounds.
-  - **Range 200 Fallback & RangeNotSupportedException (`DownloadEngine.kt`)**: Added detection for servers that advertise range support on HEAD but return HTTP 200 (full file) on range chunk requests (`chunk.startByte > 0L`), gracefully catching `RangeNotSupportedException` and falling back to single-stream download with reset offsets.
-  - **Deterministic File Naming (`OnyxDownloadManager.kt`)**: Swapped unpredictable timestamp-based temp filenames for deterministic `task_${id}.part`, eliminating orphaned cache clutter and allowing partial files to be cleanly resumed.
-  - **Seamless Resume from DB Across Restarts (`OnyxDownloadManager.kt`, `DownloadsActivity.kt`)**: Implemented `resumeExistingDownload(context, item)` so clicking Resume on paused or interrupted tasks in `DownloadsActivity` reuses the existing task ID and database entry rather than creating duplicates.
-  - **Notification ID Overflow & Collision Prevention (`DownloadTask.kt`, `DownloadNotificationHelper.kt`, `OnyxDownloadService.kt`, `OnyxDownloadManager.kt`)**: Guaranteed positive 32-bit notification IDs via `val notificationId: Int get() = (id.hashCode() and 0x3FFFFFFF)` and segmented PendingIntent request codes (`notificationId * 4 + N`), eliminating integer overflows and collisions.
-  - **Universal Content & File URI Handling (`DownloadNotificationHelper.kt`)**: Added direct support for `content://` MediaStore URIs in completed download notifications and expanded `file_paths.xml` with `external_root`, `files_root`, and `cache_root` to eliminate `FileProvider` exceptions across all Android versions.
-  - **Foreground Service Start Race Elimination (`OnyxDownloadService.kt`)**: Invoked `ensureForeground()` in `onCreate()` to eliminate timing races before `onStartCommand()`, preventing `ForegroundServiceDidNotStartInTimeException` on Android 12–16.
-  - **Token Bucket Initialization (`TokenBucketLimiter.kt`)**: Initialized `availableTokens = bytesPerSecond.toDouble()` to eliminate initial transfer stalls when rate-limiting is active.
-  - **Accurate Size for Indeterminate Downloads (`DownloadEngine.kt`)**: Updated `task.totalBytes = tempFile.length()` upon completion when remote `Content-Length` was unknown.
-  - **Snapshot Flow State Consistency (`OnyxDownloadManager.kt`)**: Fixed `onTaskCompleted` to remove tasks from active memory before emitting the final snapshot, preventing completed tasks from lingering indefinitely in active memory flows.
-  - **Scoped Storage for Data URI & Blob Downloads (`DownloadHandler.kt`)**: Replaced raw `FileOutputStream` directly targeting `/storage/emulated/0/Download/` (which crashed with `EACCES Permission denied` on Android 10–16) with `MediaStore.Downloads` resolver on Android 10+ and media scanner broadcast on Android 8–9. Added completion notification dispatch so data URI / blob downloads alert the user and can be tapped to open.
-  - **Duplicate Notification Elimination (`OnyxDownloadService.kt`)**: Linked the primary active download directly to the foreground service notification (`FOREGROUND_NOTIFICATION_ID`), completely eliminating the stuck duplicate "Initializing download…" notification.
-  - **Instant Coroutine Cancellation on OkHttp Sockets (`DownloadEngine.kt`)**: Bound `invokeOnCompletion { call.cancel() }` to OkHttp calls in chunk and single-stream loops, aborting blocking socket reads immediately in < 1ms upon pause/cancel rather than hanging until the 30-second socket timeout.
-  - **Final Redirect CDN Endpoint Resolution (`DownloadEngine.kt`)**: Updated `probeServer` to capture `res.request.url.toString()`, ensuring Range chunk requests bypass multi-hop redirects and query direct storage CDN endpoints. Added fallback filename & extension deduction from the redirected URL when Content-Disposition is absent.
-  - **Accurate MIME Type Resolution (`DownloadEngine.kt`)**: Derived MIME types from file extensions using `MimeTypeMap` when remote headers provide generic `application/octet-stream` or empty strings, ensuring external viewer apps can open files from notifications.
-  - **Database Total Size Preservation on Pause (`DownloadDao.kt`, `OnyxDownloadManager.kt`)**: Added `updateProgressAndSize` so discovered `fileSize` is retained in Room DB when pausing, avoiding "Unknown size" upon app relaunch.
-  - **Visual Resume Controls for Database Paused Items (`DownloadsAdapter.kt`)**: Rendered linear progress bars and Play/Resume action buttons for items paused from previous sessions even when no active memory snapshot exists.
-
-- [x] **Webpage 3-Dot Menu Top Quick Shortcuts Bar (Bookmarks, History, Downloads, Share)**:
-  - **Identical Layout Structure (`bottom_sheet_menu.xml`)**: Added `webQuickBar` directly to the top of `layoutWebpageMenu` with four equal-weighted columns (`webQuickBookmarks`, `webQuickHistory`, `webQuickDownloads`, `webQuickShare`), separated from the website header card by a subtle 1dp outline divider line, matching the homepage 3-dot menu appearance.
-  - **Interactive Bookmarks with Live State & Quick Toggling (`MenuBottomSheetDialogFragment.kt`)**:
-    - Checked `BookmarkDao.isBookmarked(currentUrl)` on menu open, automatically tinting `ivWebQuickBookmark` with `@color/primary` when the page is saved.
-    - Single tap launches `BookmarksActivity` to view and manage all bookmarks.
-    - Long tap toggles bookmark state for the current webpage with haptic feedback, updates the icon tint immediately, inserts/deletes from Room DB, and provides toast notifications ("Page bookmarked" / "Bookmark removed").
-  - **History & Downloads Fast Navigation**: Single tap on `webQuickHistory` or `webQuickDownloads` opens `HistoryActivity` or `DownloadsActivity` and dismisses the menu sheet.
-  - **Webpage URL Share Action**: Single tap on `webQuickShare` triggers Android's system share sheet (`Intent.ACTION_SEND`, `EXTRA_TEXT = currentUrl`) for the active webpage.
-  - **Activity Result Launcher Integration (`MainActivity.kt`)**: Added `bookmarksLauncher`, `openBookmarks()`, `openHistory()`, and `openDownloads()` to `MainActivity` so selecting an entry in `BookmarksActivity` or `HistoryActivity` returns `RESULT_OK` with `EXTRA_URL` and immediately navigates to that URL in the browser.
-
-- [x] **Compilation & Overload Hardening (Build Fix)**:
-  - **Null Safety in Swipe Refresh (`MainActivity.kt`)**: Added null-guard check `wv != null` alongside `!failingUrl.isNullOrBlank()` to satisfy Kotlin compiler type narrowing.
-  - **Consolidated `onStop()` Lifecycle Overload (`MainActivity.kt`)**: Merged duplicate `onStop()` definitions, combining `tabManager.saveAllTabStates()`, `unregisterNetworkRecoveryCallback()`, incognito lock reset, and background pause handling into a single override.
-  - **DownloadEngine Coroutine Context & Recursion (`DownloadEngine.kt`)**: Added `import kotlin.coroutines.coroutineContext` for OkHttp socket cancellation and specified explicit `: Unit` return type on recursive `executeDownload()`.
-  - **DownloadTask Mutability & Defaults (`DownloadTask.kt`)**: Converted `url` to mutable `var` for CDN endpoint capture and provided safe default arguments for secondary fields.
-
-- [x] **Local Document Viewer Architecture & MHTML/HTML/Markdown Fix**:
-  - **MHTML Black Screen & Lag Elimination (`LocalFileLoader.kt`, `OnyxWebViewClient.kt`)**:
-    - Discovered root cause: `shouldInterceptRequest` returning `WebResourceResponse("multipart/related", ...)` causes Chromium's DocumentLoader to abort navigation and render black screen because Chromium's C++ MHTMLArchive parser (`blink::MHTMLArchive`) ONLY operates on `file://` URLs where `shouldInterceptRequest` returns `null`.
-    - Implemented `prepareMhtmlFile(context, uri)`: Streams `content://` or Scoped Storage MHT files asynchronously on `Dispatchers.IO` into app cache (`cacheDir/web_archives/preview_*.mht`) and cleans up files older than 1 hour.
-    - Updated `OnyxWebViewClient.shouldInterceptRequest`: Explicitly returns `null` for `file://` URLs ending in `.mht` or `.mhtml`, enabling Chromium's native C++ MHTML parser to decode HTML, inline CSS, fonts, and embedded images natively with zero lag and zero black screens.
-  - **Instant HTML Document Loading (<10ms) (`LocalFileLoader.kt`)**:
-    - Replaced synchronous ContentResolver blocking queries with background `Dispatchers.IO` reads.
-    - Swapped `webView.loadUrl(contentUri)` with `webView.loadDataWithBaseURL(baseUrl, htmlContent, "text/html", "UTF-8", rawUriOrPath)`, completely bypassing ContentResolver IPC pipe stalls, MIME negotiation freezes, and opaque origin restrictions.
-  - **Markdown & Plain Text Previewers**:
-    - Previews markdown via `loadDataWithBaseURL("file:///android_asset/", previewHtml, "text/html", "UTF-8", rawUriOrPath)` with inlined `marked.min.js`, syntax highlighting, and GFM tables.
-    - Renders plain text files (`.txt`, `.log`, `.json`, `.xml`, etc.) inside a Google Dark/Light styled monospace `<pre>` viewer.
-  - **Scoped Storage & Permission Hardening (`LocalFileLoader.kt`, `DownloadsActivity.kt`, `MainActivity.kt`)**:
-    - Added MediaStore query fallback in `openInputStream()` for Scoped Storage on Android 10+ (`MediaStore.Files.getContentUri("external")` where `_data = path`).
-    - Added `FLAG_GRANT_READ_URI_PERMISSION` and `FLAG_ACTIVITY_SINGLE_TOP` in `DownloadsActivity.openFile()` so `MainActivity` can read `content://` URIs without task recreation.
-    - Updated `extractUrlFromIntent()` in `MainActivity.kt` to extract data URIs regardless of intent action.
-    - Excluded system asset paths (`file:///android_asset/`, `file:///android_res/`) from being misclassified as user documents.
-
-- [x] **Download Pause/Resume Restart Fix, Ongoing Cancel Button & Completed 3-Dot Context Menu**:
-  - **Pause/Resume Restart Root Cause Resolved (`DownloadEngine.kt`, `OnyxDownloadManager.kt`)**:
-    - Discovered root cause: Sending `If-Match: $etag` and `If-Unmodified-Since` headers during resumed range requests caused servers (especially CDNs like Cloudflare, AWS, Nginx with weak ETags `W/"..."`) to respond with `HTTP 412 Precondition Failed`. `DownloadEngine` caught `FileChangedException`, wiped the partial file, and restarted from byte 0.
-    - Removed `If-Match` headers and implemented robust `.chunks` offset state serialization (`saveChunksToFile` and `loadChunksFromFile` persisting `chunkId,startByte,currentByte,endByte,status` to `${task.tempFilePath}.chunks` periodically and on pause).
-    - For single-stream downloads: `allocateChunks()` now checks `existingLen in 1 until total` to set `currentByte = existingLen`. `runSingleStreamDownload()` requests `Range: bytes=${chunk.currentByte}-` and only truncates when the server returns 200 (does not support range); for 206 Partial Content, it seeks to `currentByte` and appends.
-    - Added chunk persistence cleanup on completion and cancellation.
-  - **Ongoing Download 'X' Cross Button & Cancel Confirmation (`DownloadsAdapter.kt`, `DownloadsActivity.kt`)**:
-    - For ongoing downloads (running, pending, paused, interrupted), renders an 'X' cross icon (`ic_close`) on the right side of the download item.
-    - Tapping 'X' displays a Material 3 confirmation dialog: *"Cancel Download? Are you sure you want to cancel downloading \"filename\"? The unfinished download file will be deleted."*
-    - Upon confirmation: cancels the download task, immediately purges partial files (`task_${id}.part` and `task_${id}.part.chunks`) from storage, deletes the entry from Room database, and updates the UI.
-  - **Completed Download 3-Dot Button & Context Menu (`DownloadsAdapter.kt`, `DownloadsActivity.kt`, `bottom_sheet_download_item_menu.xml`)**:
-    - For completed downloads, renders a 3-dot menu icon (`ic_more_vert`) on the right side.
-    - Tapping opens a Material 3 bottom sheet modal context menu with file header card (type icon, filename, formatted size, relative completion time) and 5 distinct actions:
-      1. **Open in file manager**: Direct launch to system Downloads folder (`DownloadManager.ACTION_VIEW_DOWNLOADS`) with fallback file chooser.
-      2. **Share**: Shares the downloaded file across apps via `Intent.ACTION_SEND` with FileProvider content URI and read permissions.
-      3. **Open original site**: Opens the original source URL directly in `MainActivity`.
-      4. **Rename**: Material 3 dialog with sanitized input to safely rename the file on physical disk / MediaStore and update Room database.
-      5. **Delete**: Displays Material 3 confirmation dialog: *"Delete Download? Are you sure you want to delete \"filename\"? The file will be permanently deleted from device storage and download history."* Upon confirmation, permanently deletes the physical file from disk/MediaStore, deletes temporary cache files, and removes from Room database and download history.
-  - **Verified End-to-End Build & Release (`v1.0.148`)**:
-    - Verified full end-to-end GitHub Actions build run ([#35974450751](https://github.com/abidhasansojib/onyx-browser/actions/runs/35974450751)) on commit `38496a2`.
-    - Generated, signed, and published release `v1.0.148`:
-      - [`Onyx-Browser-v1.0.148-arm64-v8a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.148-arm64-v8a-release.apk) (19.11 MB, recommended for 95%+ of modern Android devices)
-      - [`Onyx-Browser-v1.0.148-armeabi-v7a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.148-armeabi-v7a-release.apk) (15.29 MB, 32-bit ARM)
-      - [`Onyx-Browser-v1.0.148-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.148-universal-release.apk) (38.97 MB, all ABIs)
-      - [`Onyx-Browser-v1.0.148-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.148-x86_64-release.apk) (20.55 MB, emulators/x86_64)
-
-- [x] **Universal WebGL Compatibility Engine & Cleartext HTTP Network Security Architecture**:
-  - **WebGL Floating-Point Textures & Extension Support (`WebGLCompatibilityBridge.kt`, `OnyxWebView.kt`, `OnyxWebViewClient.kt`)**:
-    - Discovered root cause: Modern mobile GPUs running WebGL 1.0 do not expose the optional legacy 2011 extension `OES_texture_float` (or `OES_standard_derivatives`), causing classic WebGL applications (such as Evan Wallace's WebGL Water demo at `https://madebyevan.com/webgl-water/`) to crash immediately with `Uncaught Error: This demo requires the OES_texture_float extension`.
-    - Created `WebGLCompatibilityBridge.kt`: Intercepts `HTMLCanvasElement.prototype.getContext` and `OffscreenCanvas.prototype.getContext`. When `webgl` or `experimental-webgl` is requested, transparently upgrades to a modern hardware-accelerated `webgl2` context, polyfilling legacy WebGL 1 extensions (`OES_texture_float`, `OES_texture_float_linear`, `OES_texture_half_float`, `OES_standard_derivatives`, `WEBGL_depth_texture`, `ANGLE_instanced_arrays`, `WEBGL_draw_buffers`, `OES_vertex_array_object`).
-    - Maps WebGL 1 un-sized float texture parameters (`internalformat=RGBA, type=FLOAT`) to WebGL 2 sized formats (`RGBA32F`), handles `HALF_FLOAT_OES` to `HALF_FLOAT` mapping (`RGBA16F`), strips obsolete `#extension GL_OES_standard_derivatives : enable` declarations that trigger WebGL 2 compile errors, and enables `EXT_color_buffer_float` and `OES_texture_float_linear`.
-    - Configured direct GPU acceleration: Removed `setLayerType(View.LAYER_TYPE_HARDWARE, null)` in `OnyxWebView.kt` in favor of `setLayerType(View.LAYER_TYPE_NONE, null)`, eliminating expensive offscreen texture allocations and EGL context thrashing.
-    - Set `WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED` on `MainActivity` window and `android:hardwareAccelerated="true"` in `AndroidManifest.xml`.
-  - **Cleartext Traffic Policy & Error Page Resolution (`network_security_config.xml`, `AndroidManifest.xml`, `OnyxWebViewClient.kt`, `WebErrorHandler.kt`)**:
-    - Discovered root cause of `net::ERR_CLEARTEXT_NOT_PERMITTED`: Android 9+ (API 28+) strictly blocks cleartext `http://` network traffic by default unless explicitly permitted. When a user navigated to `http://...`, the OS rejected the connection. Furthermore, when `loadCustomErrorPage` attempted to load with `baseUrl = error.failingUrl` (which started with `http://`), the cleartext block prevented the custom error page itself from rendering, resulting in a raw WebView error screen.
-    - Configured `android:usesCleartextTraffic="true"` and `android:networkSecurityConfig="@xml/network_security_config"` in `AndroidManifest.xml`, permitting general HTTP web browsing.
-    - Normalized URL trailing slashes in `OnyxWebViewClient.shouldOverrideUrlLoading`, `onReceivedError`, and `onReceivedSslError` to ensure seamless HTTPS fallback regardless of whether a trailing slash is present.
-    - Decoupled synthetic error page `baseUrl` to `"https://onyx.browser/"` so error pages always load securely and reliably without being subject to cleartext or origin restrictions.
-    - Added dedicated `ERR_CLEARTEXT_NOT_PERMITTED` classification in `WebErrorHandler.kt`.
-
-- [x] **Minimal Domain & URL Suggestion Architecture & Touch-Event Resolution**:
-  - **Root Cause Analysis (Why Tapping Domain Suggestions Did Nothing)**:
-    - In `item_search_domain_suggestion.xml`, the outer `FrameLayout` (`binding.root`) contained a nested `MaterialCardView`, inside of which was a child `LinearLayout` with `android:clickable="true"` and `android:focusable="true"`.
-    - In Android's touch dispatch hierarchy, child views with `clickable="true"` consume `ACTION_DOWN` and `ACTION_UP` touch events. Because `binding.root.setOnClickListener` was attached to the outer `FrameLayout` while the inner child consumed the click without a listener, touches were swallowed and `onSuggestionClicked` was never triggered.
-    - Furthermore, the design was heavy and boxed (16dp rounded card with a 1dp high-contrast primary border and bold primary font), clashing with the sleek, flat Material 3 search interface.
-  - **Minimal Flat Row Redesign (`item_search_domain_suggestion.xml`, `SuggestionsAdapter.kt`)**:
-    - Replaced the bulky `MaterialCardView` hierarchy with a single, sleek `LinearLayout` row matching `item_search_suggestion.xml` (minHeight 52dp, paddingStart 16dp, paddingEnd 12dp, vertical padding 8dp, `?attr/selectableItemBackground`).
-    - Clean 36dp subtle circle container (`bg_circle_action`) with 20dp `ic_web` icon tinted `?attr/colorPrimary`.
-    - `tvSuggestionText` in `?android:attr/textColorPrimary` with `sans-serif-medium` typography.
-    - `tvSuggestionSubtext` in `?android:attr/textColorSecondary` displaying the destination URL dynamically.
-    - Added `btnInsertQuery` (`@drawable/ic_insert_query`, 36dp borderless ripple) allowing users to insert the URL into the search bar for quick editing without executing immediately.
-    - Attached `binding.root.setOnClickListener { onSuggestionClicked(item) }` and `binding.btnInsertQuery.setOnClickListener { onInsertClicked(item) }`. With no child view intercepting touches, tapping anywhere on the row immediately navigates to the target URL.
-  - **Instant Domain/URL Detection & Fast-Path Pipeline (`SearchSuggestionRepository.kt`, `MainActivity.kt`)**:
-    - Engineered `SearchSuggestionRepository.isLikelyDomainOrUrl(input)`: Parses domain names, ICANN TLDs, IPv4 addresses with ports/paths, localhost, and schemes (`http://`, `https://`, `www.`).
-    - Added Step 0 in `SearchSuggestionRepository.getSuggestions`: When the user types a domain or URL, it is immediately generated as the #1 suggestion at the top of the list, guaranteed to be a navigable URL (`queryOrUrl = fullNavUrl`).
-    - Added Fast-Path in `MainActivity.fetchSearchSuggestions`: Shows the direct domain suggestion instantly upon typing without waiting for the 300ms debounce delay.
-    - Enhanced URL scheme handling in `MainActivity.setupSearchOverlay.onSuggestionClicked`: Automatically prefixes `https://` if a domain is tapped, preventing fallback search queries and guaranteeing immediate WebView navigation.
-  - **Verified End-to-End Build & Release (`v1.0.149`)**:
-    - Verified full end-to-end GitHub Actions build run ([#35981141135](https://github.com/abidhasansojib/onyx-browser/actions/runs/35981141135)) on commit `907e21e`.
-    - Generated, signed, and published release `v1.0.149`:
-      - [`Onyx-Browser-v1.0.149-arm64-v8a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-arm64-v8a-release.apk) (19.11 MB, recommended for 95%+ of modern Android devices)
-      - [`Onyx-Browser-v1.0.149-armeabi-v7a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-armeabi-v7a-release.apk) (15.29 MB, 32-bit ARM)
-      - [`Onyx-Browser-v1.0.149-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-universal-release.apk) (38.97 MB, all ABIs)
-      - [`Onyx-Browser-v1.0.149-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.149-x86_64-release.apk) (20.55 MB, emulators/x86_64)
-
-- [x] **WebGL Standard Derivatives & Self-Healing Shader Compilation Architecture (`WebGLCompatibilityBridge.kt`)**:
-  - **Root Cause Analysis (`dFdx` / `dFdy` / `fwidth` compilation failure)**:
-    - On Evan Wallace's WebGL Water demo (`https://madebyevan.com/webgl-water/`), shaders failed to compile with:
-      `Uncaught Error: compile error: ERROR: 0:2: 'dFdx' : no matching overloaded function found`
-      `ERROR: 0:2: 'dFdy' : no matching overloaded function found`
-    - In commit `fbb3d6a`, `gl.shaderSource` was previously stripping `#extension GL_OES_standard_derivatives : enable` indiscriminately under the assumption that all WebGL 2 contexts provide standard derivatives natively.
-    - However, in Chromium WebView / ANGLE, shaders without `#version 300 es` are compiled according to the GLSL ES 1.00 specification. In GLSL ES 1.00, ANGLE strictly requires `#extension GL_OES_standard_derivatives : enable` to add `dFdx`, `dFdy`, and `fwidth` to the compiler symbol table. Stripping this directive caused ANGLE's GLSL ES 1.00 compiler to reject valid `dFdx` calls.
-  - **Multi-Tiered Shader Bridge & Self-Healing Compilation**:
-    - **Context-Aware Shader Adaptation**: In `gl.shaderSource`, when running on WebGL 2, `#extension GL_OES_standard_derivatives` is stripped with a comment to prevent ANGLE rejecting the legacy extension directive.
-    - **Proactive Orthogonal Derivative Injection**: For any GLSL ES 1.00 shader calling `dFdx`, `dFdy`, or `fwidth` on WebGL 2, Onyx proactively injects an overloaded, high-precision GLSL ES polyfill (`dFdx`, `dFdy`, `fwidth` across `float`, `vec2`, `vec3`, `vec4`) with orthogonal axes (`dFdx` along X, `dFdy` along Y), guaranteeing mathematical stability for cross products and normal normalization.
-    - **Self-Healing Fallback in `gl.compileShader`**: Intercepts `gl.compileShader`. If shader compilation fails on any driver quirk, Onyx injects the polyfill dynamically and transparently recompiles the shader.
-    - **Extended Framebuffer & Texture Formats**: Added `gl.texSubImage2D` mapping for `HALF_FLOAT_OES` (`0x8D61` -> `gl.HALF_FLOAT` / `0x140B`) and activated `EXT_color_buffer_float`, `EXT_color_buffer_half_float`, `WEBGL_color_buffer_float`, `OES_texture_float_linear`, and `OES_texture_half_float_linear` on WebGL 2 contexts.
-  - **Verified End-to-End Build & Release (`v1.0.153`)**:
-    - Verified full end-to-end GitHub Actions build run ([#36168663490](https://github.com/abidhasansojib/onyx-browser/actions/runs/36168663490)) on commit `21c4927`.
-    - Generated, signed, and published release `v1.0.153`:
-      - [`Onyx-Browser-v1.0.153-arm64-v8a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-arm64-v8a-release.apk) (19.11 MB, recommended for 95%+ of modern Android devices)
-      - [`Onyx-Browser-v1.0.153-armeabi-v7a-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-armeabi-v7a-release.apk) (15.29 MB, 32-bit ARM)
-      - [`Onyx-Browser-v1.0.153-universal-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-universal-release.apk) (38.97 MB, all ABIs)
-      - [`Onyx-Browser-v1.0.153-x86_64-release.apk`](file:///root/onyx-browser/release/Onyx-Browser-v1.0.153-x86_64-release.apk) (20.55 MB, emulators/x86_64)
-- [x] **Automated Git Commit Changelog for GitHub Releases (`.github/workflows/build.yml`)**:
-  - **Removed Static Release Notes Boilerplate**: Stripped static architectural download guide, generic APK descriptions, and redundant optimization text.
-  - **Dynamic Range-Based Git Changelog Engine**: Automatically discovers the previous release git tag (`PREV_TAG`), extracts all commits between `PREV_TAG..HEAD` (`git log --pretty=format:"* %s ([%h](commit_url))"`), and appends a direct GitHub compare link (`**Full Changelog**: https://github.com/abidhasansojib/onyx-browser/compare/${PREV_TAG}...${TAG}`).
-  - **Clean GitHub Release Notes**: GitHub releases now cleanly display the exact commit history and feature changes introduced in each respective build.
-
-- [x] **WebGL Derivative Polyfill Injection Order & Idempotency Resolution (`WebGLCompatibilityBridge.kt`)**:
-  - **Root Cause Analysis (`dFdx : function already has a body` & missing overload)**:
-    - In `insertAfterHeader`, an over-permissive condition (`line.indexOf('/*') !== -1`) matched inline comments within shader code and `main()`, erroneously advancing `insertIdx` to line 28 (after `main()`).
-    - Because GLSL requires functions to be declared before they are called, placing the polyfill after `main()` caused calls on line 2 to fail with `'dFdx' : no matching overloaded function found`.
-    - When compilation failed, the self-healing fallback in `gl.compileShader` re-injected the polyfill, resulting in duplicate definitions on lines 28-39 (`'dFdx' : function already has a body`).
-  - **Strict Preprocessor Header Detection & Idempotency Guard**:
-    - Re-engineered `insertAfterHeader` to strictly advance only over `#version`, `#extension`, blank lines, and leading `//` comments. As soon as any code statement appears, it terminates scanning immediately and injects the polyfill directly before all functions and `main()`.
-- [x] **Default Search Engine Migration to Google (`SearchEngine.kt`, `BrowserPreferences.kt`, `activity_main.xml`, `activity_settings.xml`)**:
-  - **Set Google as System Default**: Updated `SearchEngine.BUILT_IN` ordering to place `GOOGLE` first and set `SearchEngine.GOOGLE` as the primary fallback in `SearchEngine.fromId()` and `SearchEnginePickerDialog`.
-  - **Preference Architecture & One-Time Migration**: Updated `BrowserPreferences.searchEngine` default to `SearchEngine.GOOGLE.id`. Added `migrateDefaultSearchEngine()` to seamlessly upgrade existing user installations from the legacy default (`brave`) to `google` while preserving intentional user customizations.
-  - **UI Drawable Alignment**: Updated default toolbar and settings XML layouts to display `ic_engine_google` out of the box.
-
-- [x] **Quetta-Inspired Modular Home Screen Search Widget Redesign (`widget_search_bar.xml`, `SearchWidgetProvider.kt`, drawables, colors)**:
-  - **Modular 3-Element Card Architecture**:
-    - Replaced the monolithic search pill with a sleek, 3-element modular card layout matching `/storage/emulated/0/widget.png`.
-    - **Outer Rounded Card Container** (`bg_widget_container.xml`): Deep dark `#0D0E0E` container card (`#F1F3F4` in light mode) with rounded 22dp corners and subtle border stroke.
-    - **Search Capsule Pill** (`bg_widget_pill.xml`): 48dp height capsule (`layout_weight="1"`) with elevated dark surface (`#1B1C1E` in dark mode, `#FFFFFF` in light mode) and 24dp corner radius.
-      - **Brand Squircle Badge** (`bg_widget_badge.xml`): 32dp x 32dp rounded squircle tile (radius 8dp, `#26282C`) showcasing the active search engine (Google by default) in vibrant colors.
-      - **Clean Typography**: "Search" (`@string/search`) in 16sp `sans-serif-medium`, dynamically color-matched (`#E8EAED` in dark, `#202124` in light).
-    - **Voice Search Circular Button** (`bg_widget_circle_button.xml`): Independent 48dp x 48dp circular tile matching pill height and surface color, with centered crisp white microphone icon (`ic_mic`).
-    - **Incognito Search Circular Button** (`bg_widget_circle_button.xml`): Independent 48dp x 48dp circular tile with centered crisp white Fedora Hat & Spy Glasses icon (`ic_incognito`).
-  - **Dynamic Theme & Density Synchronization (`SearchWidgetProvider.kt`)**:
-    - Synchronized text color and icon tints with launcher night mode: `#F1F3F4` in dark mode, `#3C4043` in light mode.
-    - High-density vector and bitmap rendering adapting directly to device display metrics (`density`).
-    - Dedicated, non-interfering `PendingIntent`s for instant search mode, voice input, and incognito tab spawning.
-
-- [x] **Quetta-Inspired Tab Switcher Redesign (`bottom_sheet_tab_switcher.xml`, `item_tab.xml`, `TabsAdapter.kt`, `TabSwitcherBottomSheet.kt`, drawables, colors)**:
-  - **Reference Image Alignment (`/storage/emulated/0/x.png`)**:
-    - Transformed the Tab Switcher into an authentic, sleek dark interface (`#131314` background) with Quetta-style coral/crimson accent (`#DC4B64`).
-  - **Centered 2-Button Capsule Tab Mode Pill**:
-    - Replaced the wide text-based toggle group with a compact, centered capsule pill (`bg_tab_pill_container.xml`, 44dp height, 22dp radius).
-    - **1st Button (Normal Tabs)**: Features a tab count box (`bg_tab_count_box.xml`) displaying the live count of open normal tabs. When active, highlights with a rounded squircle accent background (`bg_tab_pill_selected.xml`, `#DC4B64`), white border, and white text.
-    - **2nd Button (Incognito Tabs)**: Features stylish sunglasses vector icon (`ic_incognito_glasses.xml`). When active, highlights with the squircle accent background (`#DC4B64`) and white sunglasses icon.
-    - **Omitted 3rd Button**: Tab groups / layers button omitted as requested.
-  - **Tab Card Sizing, Borders, and Theme (`item_tab.xml`, `TabsAdapter.kt`)**:
-    - **Elongated 3:4 Phone Portrait Sizing**: Expanded card height from 190dp to 225dp with generous 18dp corner radius and flat modern elevation (0dp).
-    - **Active Tab Accent Styling**: Active card features a 2.5dp solid border in vibrant accent (`#DC4B64`), an accent header background (`#DC4B64`), pure white tab title, and pure white close button.
-    - **Inactive Tab Subtle Contrast**: Unselected cards feature a subtle dark stroke (`#2C2D30`), sleek dark header (`#252628`), light gray title (`#E8EAED`), and subtle close button (`#9AA0A6`).
-    - **Bottom Action Alignment**: FAB New Tab (`fabNewTab`) background tinted with `@color/tab_switcher_accent` (`#DC4B64`) and white plus icon for seamless visual unity.
-
-- [x] **Chrome-Style APK Installation Flow & Android 8.0+ Unknown Sources Permission Architecture (`ApkInstallerHelper.kt`, `DownloadsActivity.kt`, `DownloadsAdapter.kt`, `DownloadNotificationHelper.kt`, `DownloadEngine.kt`, `AndroidManifest.xml`, `file_paths.xml`)**:
-  - **Permission Declaration & FileProvider Path Mapping**:
-    - Declared `<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />` in `AndroidManifest.xml`, enabling Android 8.0+ (API 26+) package installer integration and user toggling in system Settings.
-    - Added `<root-path name="root" path="." />` to `app/src/main/res/xml/file_paths.xml`, ensuring absolute paths across all device storage locations (`/storage/emulated/0/...`) resolve without `IllegalArgumentException`.
-  - **Dedicated APK Installation Helper (`ApkInstallerHelper.kt`)**:
-    - `isApkFile(fileName, mimeType)`: Comprehensive APK detection via `.apk` extension, `.apk?` query strings, and `application/vnd.android.package-archive` MIME type.
-    - `installApk`: Displays Material 3 confirmation dialog ("Install application: Do you want to install [App Name]?").
-    - Android 8.0+ Unknown Sources Permission Gate: When the user confirms installation, checks `packageManager.canRequestPackageInstalls()`. If ungranted, presents security dialog ("For your security, your phone currently isn't allowed to install unknown apps from this source. You can allow this in Settings.") and redirects via `Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES` targeting `package:com.onyx.browser`.
-    - Resilient Package Installer Launcher: Generates secure `FileProvider` URIs, sets `FLAG_GRANT_READ_URI_PERMISSION`, `FLAG_ACTIVITY_NEW_TASK`, and `EXTRA_NOT_UNKNOWN_SOURCE`, and launches `Intent.ACTION_VIEW` targeting `application/vnd.android.package-archive`. Handles both direct disk files and `content://` URIs seamlessly.
-  - **Seamless Download Activity Integration (`DownloadsActivity.kt`)**:
-    - Supports incoming intent `EXTRA_INSTALL_APK_PATH` via `onCreate` and `onNewIntent`.
-    - Automatically checks `pendingApkInstallPath` in `onResume()` when the user returns from system Settings with permission granted, launching package installation immediately without asking twice.
-    - Intercepts APK taps in `openFile()` and options bottom sheet to trigger `ApkInstallerHelper.installApk`.
-  - **Download Notification & UI Enhancements (`DownloadNotificationHelper.kt`, `DownloadsAdapter.kt`)**:
-    - Completed download notifications for APKs route directly to `DownloadsActivity` with `EXTRA_INSTALL_APK_PATH`, display `ic_android` icon, and show "Download complete • Tap to install".
-    - `DownloadsAdapter` and item options menu render the Android robot badge (`ic_android`) for all APK downloads.
-  - **MIME Type Enforcement (`DownloadEngine.kt`)**:
-    - Automatically forces `application/vnd.android.package-archive` for all `.apk` downloads, preventing servers from misclassifying APKs as generic binary streams.
-
-- [x] **In-App Update Checker & GitHub Releases Direct Installer (`AppUpdateManager.kt`, `AppUpdateDownloader.kt`, `AppUpdateModels.kt`, `AboutActivity.kt`, `activity_about.xml`, `dialog_update_available.xml`, `dialog_update_progress.xml`)**:
-  - **Location & UI Placement**:
-    - Added dedicated `rowCheckUpdates` directly under `rowWebViewVersion` inside the **Application & System** section in `Settings > About`.
-    - Features update icon (`ic_refresh`), title, subtitle indicating status, animated progress spinner during checks, and chevron.
-  - **GitHub Release Query & Rate-Limit-Free Architecture (`AppUpdateManager.kt`)**:
-    - **Tier 1 (Public Atom RSS Feed)**: Queries `https://github.com/abidhasansojib/onyx-browser/releases.atom` on GitHub's Fastly CDN, which is completely free of GitHub's 60 req/hr unauthenticated REST API rate limit. Parses latest release tag, release title, and unescaped HTML changelog.
-    - **Tier 2 (Public Web Redirect)**: Executes lightweight `HEAD` request to `https://github.com/abidhasansojib/onyx-browser/releases/latest` with `.followRedirects(false)`, resolving latest release tag directly from the HTTP 302 `Location` header in <100ms.
-    - **Tier 3 (REST API Fallback)**: Queries `https://api.github.com/repos/abidhasansojib/onyx-browser/releases/latest`, gracefully falling back without surfacing 403 Rate Limited errors to the user.
-    - **Asset Resolution**: Fetches release assets from `expanded_assets/{tag}` or deterministically constructs the official release asset URLs (`Onyx-Browser-${tag}-${abi}-release.apk`), then resolves file size via a lightweight `HEAD` request.
-    - **Semver & Architecture Matching**: Performs sequential semver comparison between remote tag (e.g. `v1.0.155`) and installed version (`BuildConfig.VERSION_NAME`). Automatically matches device CPU ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`) with fallback to the universal build.
-  - **Streaming Downloader with Progress (`AppUpdateDownloader.kt`)**:
-    - Streams APK into private sandboxed cache (`context.cacheDir/updates/`), eliminating storage permission requirements.
-    - Emits real-time progress callbacks (bytes downloaded, total bytes, transfer speed in MB/s) to update `LinearProgressIndicator`.
-    - Handles cancellation and cleans up stale/partial files.
-  - **Interactive Dialogs & Package Installation Hand-off**:
-    - `dialog_update_available.xml`: Displays version transition badge (`v1.0.153 ➜ v1.0.154`), architecture & size info, and scrollable markdown changelog from GitHub release `body`.
-    - `dialog_update_progress.xml`: Displays real-time progress bar, percentage, and download speed with safe cancel action.
-    - Directly bridges to `ApkInstallerHelper.installApk(...)` upon download completion, ensuring Unknown Sources security checks and seamless hand-off to the Android Package Installer.
-
-- [x] **Verified Remote CI/CD Build Run & Release Packaging (`v1.0.155`)**:
-  - GitHub Actions Workflow Run [#36176936061](https://github.com/abidhasansojib/onyx-browser/actions/runs/36176936061) completed successfully in 7m 57s.
-  - Successfully cross-compiled 32-bit and 64-bit Rust NDK binaries (`libadblock_bridge.so`) for `arm64-v8a`, `armeabi-v7a`, and `x86_64`.
-  - Built and digitally signed release APKs using the reconfigured release keystore credentials via GitHub Actions repository secrets.
-  - Automatically published GitHub Release **[`v1.0.155`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.155)** containing the official release APKs:
-    - `Onyx-Browser-v1.0.155-arm64-v8a-release.apk` (20.07 MB)
-    - `Onyx-Browser-v1.0.155-armeabi-v7a-release.apk` (16.07 MB)
-    - `Onyx-Browser-v1.0.155-universal-release.apk` (40.91 MB)
-    - `Onyx-Browser-v1.0.155-x86_64-release.apk` (21.59 MB)
-  - Verified local copy of all 4 signed release APKs in `/root/onyx-browser/release/`.
-
-- [x] **Tab Switcher Layout Polish, Incognito Fedora Logo Restoration & Pink Accent Theme Migration**:
-  - **Tab Switch Buttons Redesign & Centering (`bottom_sheet_tab_switcher.xml`, `TabSwitcherBottomSheet.kt`)**:
-    - Resolved asymmetrical positioning: Bound `tabModePillContainer` directly to `parent` start and end (`app:layout_constraintStart_toStartOf="parent"`, `app:layout_constraintEnd_toEndOf="parent"`), guaranteeing dead-center horizontal alignment on all screen sizes.
-    - Symmetrical Margins: Fixed search button start margin (8dp) and overflow menu end margin (8dp).
-    - Proportional Sizing: Refined capsule container height (42dp, 3dp padding, 21dp radius) and expanded buttons (54dp width x 36dp height, 18dp radius) for a balanced pill appearance.
-    - Touch Feedback: Added `bg_tab_pill_unselected.xml` ripple effect with 18dp rounded corners for instant tactile feedback when tapping unselected tabs.
-  - **Authentic Incognito Logo Restored (`bottom_sheet_tab_switcher.xml`, `TabsAdapter.kt`)**:
-    - Replaced `ic_incognito_glasses` with the iconic Fedora Hat & Glasses vector (`@drawable/ic_incognito`) in both the top bar incognito toggle and `TabsAdapter.kt` incognito tab favicon.
-  - **Universal Coral Pink (`#DC4B64`) Accent Migration (`colors.xml`, `error_page.html`, `markdown_previewer.html`, `LocalFileLoader.kt`, `activity_qr_scanner.xml`, `bg_qr_frame.xml`)**:
-    - Migrated `@color/primary` and `@color/secondary` from Google Blue (`#1A73E8` / `#8AB4F8`) to the tab switcher's signature coral pink (`#DC4B64` and `#C73A53` variant) across both Light and Dark themes (`values/colors.xml` and `values-night/colors.xml`).
-    - Configured `on_primary` to `#FFFFFF` for crisp contrast against `#DC4B64`.
-    - Applied pink accent across all primary and action buttons, floating action buttons (`fabNewTab`), progress bars (`pbWebLoading`), switch toggles, active tab highlight strokes, text input borders, QR scanner frames, and offline error / markdown previewer styles.
-
-- [x] **Universal In-Memory Blob Preserver & Multi-Tier Download Pipeline (`Blob download failed: TypeError: Failed to fetch` Resolution)**:
-  - **Root Cause Resolved**:
-    - Single-page web apps (such as GitHub React frontend, GitLab, Canva, Google Drive, Mega) generate files dynamically in JavaScript via `URL.createObjectURL(blob)`, click a temporary `<a download="filename" href="blob:...">`, and immediately invoke `URL.revokeObjectURL(url)` in the same synchronous execution turn.
-    - Android WebView's `DownloadListener` runs asynchronously; by the time WebView called `evaluateJavascript("fetch('$blobUrl')...")`, the blob URL was already revoked by the page, triggering `TypeError: Failed to fetch`.
-    - Strict Content Security Policies (CSP) like GitHub's (`connect-src 'self' ...` without `blob:`) also rejected JavaScript `fetch()` calls on `blob:` schemes.
-    - Standard `URLUtil.guessFileName` produced cryptic UUID filenames (`uuid.bin`) instead of preserving actual filenames like `README.md`.
-  - **Section 9 Document-Start Blob & ObjectURL Preserver (`AdBlockDocumentStart.kt`)**:
-    - Injected at `document_start` before any page script executes.
-    - **In-Memory Blob Store**: Intercepts `URL.createObjectURL(blob)` (and `webkitURL`), caching the in-memory `Blob`/`File` reference in `window.__onyxBlobStore = new Map()`, along with its name, MIME type, size, and timestamp.
-    - **Delayed Revocation**: Intercepts `URL.revokeObjectURL(url)` and delays actual browser destruction by 60,000ms (`setTimeout`), ensuring WebView's native download listener has sufficient time to read it.
-    - **Filename Capture**: Intercepts `HTMLAnchorElement.prototype.click` and document capture-phase click events on `<a download="..." href="blob:...">`, associating the genuine filename with the blob and storing in `window.__onyxLastBlobDownload`.
-    - **Adblock Exemptions**: Explicitly bypassed `blob:` and `data:` schemes in `isBlockedUrl()`, `window.fetch`, and `XMLHttpRequest.prototype.open`, exposing unproxied `_origFetch` and `_origXHR`.
-  - **Multi-Tier Extraction & Fallback Architecture (`DownloadHandler.kt`, `OnyxBlobBridge.kt`)**:
-    - **Tier 1 (In-Memory Blob Store via `FileReader`)**: Reads directly from `window.__onyxBlobStore.get(blobUrl)` via `FileReader.readAsDataURL(blob)`. Zero network calls, 100% CSP bypass, impervious to upstream revocation, and transfers exact filenames.
-    - **Tier 2 (Unproxied `window.fetch()`)**: Falls back to `fetch(blobUrl).then(r => r.blob())` if not found in memory store.
-    - **Tier 3 (`XMLHttpRequest` with `responseType = 'blob'`)**: Falls back to XHR if `fetch` is restricted by CSP policies.
-    - **Tier 4 (Native Android Repository Raw Fallback)**: If JavaScript extraction fails, native `handleBlobFallback` inspects the page URL and referer:
-      - GitHub blob URLs (`github.com/owner/repo/blob/branch/path`) are automatically translated to raw endpoints (`raw.githubusercontent.com/owner/repo/branch/path`).
-      - GitLab (`gitlab.com/.../-/raw/...`), Bitbucket (`bitbucket.org/.../raw/...`), and Codeberg/Gitea (`codeberg.org/.../raw/branch/...`) are similarly resolved and enqueued directly to `OnyxDownloadManager`.
-      - Extracted sensible filenames from page URL path (`extractFileNameFromPageUrl`) avoiding generic `uuid.bin` fallbacks.
-
-- [x] **Chrome & Pixel Style Stadium Capsule Search Widget Redesign (`widget_search_bar.xml`, `SearchWidgetProvider.kt`)**:
-  - **Replaced Clunky "Dummy" Layout**:
-    - Eliminated the box-in-a-box mockup appearance (the outer container card with awkward inner pill and separate floating circle buttons).
-    - Engineered a single, unified, floating Material 3 Stadium Capsule Pill (`56dp` height, `28dp` mathematical radius, `bg_widget_pill.xml`).
-  - **Sleek Brand & Action Layout**:
-    - **Clean Brand Logo**: Removed the bulky squircle badge background; the search engine logo (Google 4-color "G", Brave orange lion, DuckDuckGo, etc.) sits cleanly on the capsule surface scaled to 26dp with bilinear filtering.
-    - **Authentic Google Hint Typography**: Upgraded hint text to `"Search or type URL"` (`@string/search_or_type_url`, `16sp`, `fontFamily="sans-serif"`) styled with secondary hint colors (`#5F6368` in Light theme, `#9AA0A6` in Dark theme) instead of stark black.
-    - **Integrated Circular Action Buttons**: Embedded Voice Search (`ic_mic`) and Incognito Search (`ic_incognito` Fedora Hat & Glasses) directly inside the right end of the pill with dedicated 40dp circular touch ripples (`bg_widget_action.xml`).
-  - **Material 3 Widget Theming & Android 12+ Features**:
-    - **Light Theme**: Pure clean white `#FFFFFF` surface with subtle Google border `#DFE1E5` and soft ripple `#1F000000`.
-    - **Dark Theme**: Authentic Chrome dark gray `#303134` surface with subtle border `#3C4043`, light silver action icons (`#E8EAED`), and subtle ripple `#33FFFFFF`.
-    - **Metadata & Previews (`search_widget_info.xml`)**: Configured `56dp` cell height, `targetCellWidth="4"`, `targetCellHeight="1"`, `maxResizeWidth="600dp"`, and added Android 12+ `android:previewLayout="@layout/widget_search_bar"` for live layout previews in the launcher widget selector.
-
-- [x] **Auto-Redirect AMP Pages & Tracking URLs Enabled by Default (`BrowserPreferences.kt`)**:
-  - Configured `isAutoRedirectAmpEnabled` default to `true` (resolves canonical non-AMP pages for Google AMP cache `/amp/s/`, `amp.` subdomains, and `/amp/` paths).
-  - Configured `isAutoRedirectTrackingUrlsEnabled` default to `true` (automatically strips 25+ ad and analytics tracking query parameters including `utm_*`, `fbclid`, `gclid`, `msclkid`, `ttclid`, `li_fat_id`, `igshid`, etc.).
-  - Added `migrateAutoRedirectDefaults()` in `BrowserPreferences.init` ensuring both settings are enabled on launch for existing and new users while respecting manual user overrides.
-
-- [x] **Tab Switcher Selection Crash / NullPointerException Fix (`TabSwitcherBottomSheet.kt`, `ClearBrowsingDataDialog.kt`, `CloseAllTabsDialog.kt`)**:
-  - **Root Cause Resolved**: In `TabSwitcherBottomSheet.kt`, clicking a tab triggered `tabManager.selectTab(tab)`, then `onTabSelected(tab)`, and immediately `dismiss()`. The dismiss destroyed the view and cleared `_binding = null`. Simultaneously, the StateFlow updates triggered `adapter.submitList(...)` whose diffing callback on the main Handler accessed `binding.emptyTabsView.visibility`, calling `binding` (`_binding!!`), throwing `java.lang.NullPointerException at com.onyx.browser.ui.tabs.TabSwitcherBottomSheet.getBinding` and crashing the application.
-  - **Lifecycle-Safe Binding Guards**:
-    - Eliminated unsafe `_binding!!` property getter; converted `binding` to nullable `_binding` and passed safe non-null local references (`val b = _binding ?: return`) during `onViewCreated`.
-    - Added safe nullable guard `val currentBinding = _binding ?: return@submitList` inside `adapter.submitList` async commit callback.
-    - Added `isDismissing` state flag preventing redundant flow collections, layout re-renders, and list computations after dialog dismissal is requested.
-    - Hardened `onDestroyView()` to detach `b.rvTabs.adapter = null` and cancel pending animations before clearing `_binding`.
-    - Upgraded all `dismiss()` calls to `dismissAllowingStateLoss()` across `TabSwitcherBottomSheet`, `ClearBrowsingDataDialog`, and `CloseAllTabsDialog` to prevent crashes during lifecycle transitions.
-
-- [x] **Clear Browsing Data Dialog Smooth Rounded Card Redesign (`dialog_clear_browsing_data.xml`, `ClearBrowsingDataDialog.kt`, `bg_dropdown_popup.xml`, `item_dropdown_time_range.xml`)**:
-  - **Eliminated Sharp Dialog Core Corners**: Replaced raw un-rounded `LinearLayout` root with floating `MaterialCardView` featuring `24dp` smooth corner radius, `12dp` elevation, and subtle `?attr/colorOutline` border.
-  - **Transparent Dialog Window & Responsive Width**: Configured `ColorDrawable(Color.TRANSPARENT)` and `FEATURE_NO_TITLE` in `onCreateView`, with adaptive `0.92 * widthPixels` max 440dp width in `onStart()`.
-  - **Rounded Dropdown Menu Card**: Added `bg_dropdown_popup.xml` with `16dp` rounded corners and border outline for the `AutoCompleteTextView` popup menu, eliminating harsh square edges on dropdown lists.
-  - **Enhanced Visual Hierarchy**: Added modern broom icon badge (`ic_broom` tinted with `@color/tab_switcher_accent`) in a 48dp circular badge (`bg_circle_action`), centered title and subtitle, upgraded preview card to `18dp` corner radius, and modern 48dp pill action buttons (`app:cornerRadius="24dp"`) with pink accent clear button matching user theme preferences.
-
-- [x] **Build Workflow Switched to Manual Trigger Only (`.github/workflows/build.yml`)**:
-  - Removed automatic `push` and `pull_request` event triggers.
-  - Retained `workflow_dispatch` with `build_type` inputs (Release, Debug, Both).
-  - Pushing commits will no longer trigger automatic CI/CD builds; builds can only be started manually via the GitHub Actions UI or `gh workflow run build.yml`.
-
-- [x] **"Stay In Onyx" Web Navigation & App Intercept Bypass Fix (`OnyxWebViewClient.kt`, `OpenInAppPromptDialog.kt`)**:
-  - **Root Cause Resolved**: When clicking a search result for YouTube, Reddit, WhatsApp, or Telegram, `tryOpenAppForHttpLink()` detected the installed external app and displayed `OpenInAppPromptDialog`, but passed `fallback = null`. Because `fallback` was null and `shouldOverrideUrlLoading` had already returned `true`, clicking "Stay In Onyx" did nothing and left the browser stuck on the search results page without loading the website.
-  - **Web Navigation Fallback**: Implemented `stayInOnyxAction` in `tryOpenAppForHttpLink()` and `handleIntentScheme()`. Selecting "Stay In Onyx" adds the target URL to a thread-safe `bypassAppInterceptUrls` set and calls `view.loadUrl(url)`.
-  - **Infinite Loop Prevention**: In `shouldOverrideUrlLoading()`, if `bypassAppInterceptUrls.remove(url)` matches, the URL immediately bypasses external app interception and returns `false`, allowing Chromium WebView to load the webpage directly inside Onyx without re-prompting.
-  - **Dialog Lifecycle Hardening**: Converted `dismiss()` to `dismissAllowingStateLoss()` and null-safe view binding in `OpenInAppPromptDialog.kt`.
-
-- [x] **Tab Switcher Seamless Borderless Background (`bottom_sheet_tab_switcher.xml`)**:
-  - **Removed Top Divider Line**: Removed `topBarDivider` beneath the top buttons, allowing the top controls to blend into the background.
-  - **Removed Bottom Divider Line**: Removed `bottomBarDivider` above the bottom bar, creating a continuous edge-to-edge canvas with zero harsh cutting lines.
-  - **Direct Constraint Re-anchoring**: Connected `rvTabs` and `emptyTabsView` directly between `@id/tabSwitcherTopBar` and `@id/bottomBar`.
-
-- [x] **Clear Browsing Data Prompt Color Neutralization & Normal App Theme Alignment (`dialog_clear_browsing_data.xml`)**:
-  - **Color Retained Exclusively on Buttons**: Kept `@color/tab_switcher_accent` filled background exclusively on the `btnClearData` confirmation button, removing all extraneous pink/accent tinting across the rest of the dialog.
-  - **Clean Header**: Removed the artificial circular icon badge and secondary subtitle; restored the clean bold 20sp dialog title (`delete_browsing_data`).
-  - **Standard Dropdown Outlining**: Removed `app:boxStrokeColor="@color/tab_switcher_accent"` on `menuTimeRangeLayout`, returning to standard Material 3 / `?attr/colorOutline` border styling with neutral `?android:attr/textColorSecondary` chevron icon tint.
-  - **Neutral Warning Shield**: Tinted the preview warning shield icon with `?attr/colorControlNormal` rather than accent pink, maintaining uniform typography and iconography.
-  - **Authentic Black / Dark & Normal App Theme**: Dialog card is cleanly rendered with `app:cardBackgroundColor="?attr/colorSurface"` with `24dp` smooth rounded corners and `1dp` outline border, presenting as sleek black/dark in dark mode and clean white in light mode.
-
-- [x] **Local File Path Preservation & Rendered Markdown README Viewer (`LocalFileLoader.kt`, `MainActivity.kt`, `TabManager.kt`, `OnyxWebView.kt`, `DownloadNotificationHelper.kt`, `DownloadsActivity.kt`, `DownloadHandler.kt`)**:
-  - **Eliminated `file:///android_asset/` Path Exposure**:
-    - Replaced hardcoded `"file:///android_asset/"` `baseUrl` in `LocalFileLoader.loadLocalFile` and `showErrorPage` with the authentic parent folder URI (`file://${parent.absolutePath}/`) for filesystem paths or the raw content URI for SAF content providers, completely preventing Chromium navigation commits from adopting the asset scheme.
-    - Updated `OnyxWebView.isSyntheticOrDataUrl` to include `url.startsWith("file:///android_asset/")` and `file:///android_res/`, preventing WebView internal asset URLs from ever overwriting `currentPageUrl`, `tabManager.activeTab.url`, or browsing history.
-    - Sanitized `MainActivity.kt` URL listeners (`onUrlChanged`, `onPageFinishedCallback`, `updateAddressBarDisplay`, `getActivePageUrl`), URL sharing, and clipboard copying to always preserve and format proper filesystem paths (e.g. `/storage/emulated/0/Download/README.md`) and display the clean document name in the address bar.
-    - Guarded `TabManager.updateActiveTab` from ever overwriting active tab titles or URLs with internal asset paths.
-  - **Universal Markdown & README Detection**:
-    - Expanded `LocalFileLoader.detectFileType` to match `README`, `README.md`, `README.txt`, `.mdown`, `.mkd`, and case-insensitive filename patterns as `LocalFileType.MARKDOWN`.
-    - Added `isMarkdownContent(fileName, text)`: If an extensionless or plain text file starts with Markdown headings (`# `, `## `, `### `), blockquotes (`> `), or fenced code blocks (` ``` `), it is automatically processed through `renderMarkdownToHtml` with full syntax highlighting, styled tables, and code copy buttons rather than raw `<pre>` plaintext.
-    - Intercepted subresource and local file requests in `LocalFileLoader.interceptLocalFile` to dynamically render Markdown HTML with UTF-8 encoding.
-  - **Seamless Downloaded README & Document Click Routing**:
-    - In `DownloadNotificationHelper.buildCompletedNotification`: Added `isLocalDoc` detection (`LocalFileLoader.isLocalFile`, `.md`, `readme`, `.html`, `.txt`). Clicking the download completion notification directly fires an `ACTION_VIEW` intent targeting `MainActivity`, opening the file rendered inside Onyx Browser rather than delegating to an external plain-text viewer.
-    - In `DownloadsActivity.kt`: Expanded `isLocalWebDocument` to include `readme`, `.mdown`, `.mkd`, `.txt`, `.log`, `.json`, `.xml`, routing downloaded READMEs and local web documents directly to `MainActivity` with read URI permissions.
-    - In `DownloadHandler.kt`: Added `guessResolvedFileName` across internal downloads, external download managers, `DownloadPromptBottomSheet`, and `DownloadPromptActivity`, ensuring downloads from URLs ending with `README` (e.g. GitHub raw links or repository trees) resolve to `"README.md"` rather than `.bin` or `.txt`.
-
-- [x] **Unified Quetta-Inspired Homepage (`#1C1C1E`), Seamless Background, `#333439` Top Bar Box & Enlarged Shortcut Tiles**:
-  - **Seamless `#1C1C1E` Color Canvas**:
-    - Updated `colors.xml` and `values-night/colors.xml`: Set `background_dark` to `#1C1C1E`, `surface_dark` to `#1C1C1E`, `surface_variant_dark` to `#333439`, `top_bar_box_color` to `#333439`, `shortcut_tile_bg` to `#333439`, and `homepage_bg` to `#1C1C1E`.
-    - Window background, status bar, navigation bar, top bar, and homepage background flow in one continuous `#1C1C1E` canvas.
-    - Completely removed the dividing line under the search bar: Set `topBarDivider` to `height="0dp"` and `visibility="gone"`.
-  - **Unified `#333439` Top Bar Box Layout (`activity_main.xml`, `bg_top_bar_box.xml`)**:
-    - Wrapped all top bar controls (`flNavAction` [Home/Back], `btnSearchEngine`, `searchBarContainer` [`etUrl`, clear, QR, mic, SSL lock, incognito indicator], `btnTabSwitcher`, and `btnMenu` [3-dots]) inside a single `#333439` stadium capsule box (`topBarBox`) with `24dp` corners.
-    - Maintained exact ViewBinding IDs, event handlers, and search mode transitions.
-  - **Enlarged Shortcut Tiles & Website Logo Optimization (`item_home_shortcut.xml`, `bg_box_tile.xml`, `FaviconManager.kt`, `ShortcutsAdapter.kt`)**:
-    - Enlarged icon container from `52dp` to `62dp`, icon size from `26dp` to `34dp` with `scaleType="fitCenter"`, and title to `12sp`.
-    - Updated `bg_box_tile.xml` to `18dp` squircle radius with solid `#333439` fill and no harsh stroke outlines.
-    - Upgraded `FaviconManager.kt`: Added high-resolution `https://$host/apple-touch-icon.png` fetch before Google S2 fallback, and added `getRoundedBitmap(src, 0.22f)` with anti-aliased squircle corner clipping.
-    - In `ShortcutsAdapter.kt`, passed `isRounded = true` so website logos render as crisp rounded app icons, and styled system actions with dedicated vibrant colors matching reference screenshot (coral `#E57373` for Bookmarks, golden amber `#F4B400` for History, emerald `#34A853` for Downloads, blue `#4285F4` for QR).
-  - **GitHub Actions Clean State**:
-    - Cleared all historical workflow runs and action logs (`gh run delete`).
-    - Deleted all old releases and remote/local git tags, preserving only the latest stable release (`v1.0.167`).
-
-- [x] **Tab Switcher Square Toggle, Compact 42dp FAB, Redesigned Action Buttons, Incognito Watermark & Dialog Color Overhaul**:
-  - **Square Mode Toggle with Smooth Rounded Corners (`bg_tab_pill_container.xml`, `bg_tab_pill_selected.xml`, `bg_tab_pill_unselected.xml`, `bottom_sheet_tab_switcher.xml`)**:
-    - Replaced elongated pills with 38dp x 38dp square buttons with smooth 10dp rounded corners inside a 12dp rounded squircle container (`tabModePillContainer`).
-    - Maintained clear visual differentiation between normal tabs (tab count box) and incognito tabs (Fedora Hat & Glasses icon).
-  - **Compact 42dp FAB (`fabNewTab`)**:
-    - Reduced the New Tab FAB from 56dp (`fabSize="normal"`) to 42dp (`fabCustomSize="42dp"`) with 20dp icon and 2dp elevation for a much sleeker profile.
-  - **Redesigned Close All Tabs & Clear Browsing Data Buttons (`bg_tab_action_button.xml`)**:
-    - Created dedicated 44dp x 44dp squircle action buttons with 12dp smooth corners, `#202022` fill, and `#2E3033` stroke for both `btnCloseAllTabs` (with `ic_tab_close`) and `btnClearHistory` (with `ic_delete`).
-  - **Asking Prompt Dialog Color Overhaul (`dialog_confirm_close_all_tabs.xml`, `dialog_clear_browsing_data.xml`)**:
-    - "Close all tabs" confirmation prompt: Card background set to `#000000` (Pure Black), cancel button set to `#35363A`, clear button set to `#DC4B64`, danger badge updated to Onyx coral tint, completely eliminating any `#4D353C` hue.
-    - "Delete browsing data" dialog: Card background set to `#282A2D`, dropdown & preview cards set to `#202124`, cancel button set to `#35363A`, and clear button set to `#DC4B64`.
-  - **Incognito Background Watermark & State Emblem**:
-    - Added 180dp subtle incognito watermark (`ivIncognitoBackground`, `alpha="0.08"`) in the tab menu background behind the tab grid, visible when viewing incognito tabs.
-    - Updated empty tabs state (`emptyTabsView`) to dynamically show the Fedora Hat & Glasses icon, title "Incognito tabs", and privacy description when no incognito tabs are open.
-  - **Unified #131314 Tab Switcher Canvas**:
-    - Set `tab_switcher_bg` to `#131314` across `values/colors.xml` and `values-night/colors.xml`.
-    - Window status bar and navigation bar in `TabSwitcherBottomSheet` explicitly set to `#131314` for both normal and incognito modes.
-- [x] **Tab Switcher 3-Dot Overflow Menu Color & Smooth Corner Redesign (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
-  - Replaced standard Android platform `PopupMenu` (which defaulted to `#211F26` with sharp corners) with custom `PopupWindow` using `popup_tab_switcher_menu.xml`.
-  - Set card background to `#3B3B3B` with smooth `16dp` rounded corners (`app:cardCornerRadius="16dp"`), subtle `#4A4A4A` stroke outline, and `24f` elevation shadow.
-  - Implemented 4 refined menu items (New tab, New incognito tab, Close all tabs, Delete browsing data) with clean vector icons, ripple feedback, and seamless dispatching.
-  - Added strict rule to `AGENTS.md`: "IF I don't tell you to build app, then you won't trigger GitHub Actions build."
-
-- [x] **Settings Screen Redesign with Luxury Dark #0B0305 Canvas and Categorized #202020 Cards**:
-  - **Header & Navigation**:
-    - "Settings" title with down arrow navigation icon on the left (rotated 90° clockwise version of `>`, `ic_chevron_down.xml` with `pathData="M6,9l6,6 6,-6"`), finishing the activity cleanly.
-  - **Color Palette & Visual Geometry**:
-    - Entire Settings canvas set to `#0B0305` luxury dark background (`settings_canvas_bg`).
-    - Settings options grouped into distinct MaterialCardView card containers with smooth `18dp` rounded corners, `#202020` card background (`settings_card_bg`), and subtle `#2C2C2C` border stroke (`settings_card_stroke`).
-  - **Category 1: General**:
-    - **Search engine**: Displays current engine icon & name, launches `SearchEngineSettingsActivity`.
-    - **Appearance**: Renamed from Theme, displays current theme mode, launches `ThemePickerSheet` (System, Google Dark, Google Light).
-    - **Auto fill & passwords**: Displays Google Password Manager & autofill summary, launches `AutofillSettingsActivity`.
-    - **Video Options**: Launches new dedicated `VideoSettingsActivity` with toggles for Background play and Picture-in-picture (with Android appOps permission handling).
-    - **Download settings**: Launches new dedicated `DownloadSettingsActivity` with Download manager selector (Ask before download, Internal downloader, External download manager) and Wi-Fi only download toggle.
-    - **Accessibility**: Launches new dedicated `AccessibilitySettingsActivity` with Search widget home screen pinning, Scroll to top button toggle, and Biometric incognito protection toggle (with `BiometricPrompt` confirmation).
-  - **Category 2: Privacy & Security**:
-    - **Privacy & shields**: Launches comprehensive `ShieldsActivity`.
-    - **User agent spoofer**: Displays current active UA profile and launches `UserAgentPickerSheet`.
-    - **Manage personal data**: Launches new dedicated full-page dashboard `ManagePersonalDataActivity` with Chrome-style time range selector (15m, 1h, 24h, 7d, 4w, all time), live database statistics for history and tabs, selective checkboxes for History, Cookies, Cache, and Tabs, and `#DC4B64` clear button.
-  - **Category 3: About**:
-    - **About Onyx**: Launches `AboutActivity` with version, in-app update checker, and open-source licenses.
-  - **Manifest & Architecture**:
-    - Registered `VideoSettingsActivity`, `DownloadSettingsActivity`, `AccessibilitySettingsActivity`, and `ManagePersonalDataActivity` in `AndroidManifest.xml`.
-    - Cleaned up `SettingsActivity.kt` into a lightweight, high-performance controller.
-
-- [x] **Uneditable System Shortcuts, #202020 Edit Menu, and Muted Gray Homepage Icons**:
-  - **Uneditable Bookmarks, History, and Downloads Shortcuts (`ManageShortcutsAdapter.kt`, `BrowserPreferences.kt`, `ShortcutItem.kt`)**:
-    - In the Plus management menu (`ManageShortcutsBottomSheet`), Bookmarks, History, and Downloads shortcuts no longer display the edit pencil or delete bin icon (`btnEditShortcut.visibility = GONE`, `btnDeleteShortcut.visibility = GONE`).
-    - The drag handle (`ivDragHandle`) remains fully visible and active, allowing effortless position swapping across the shortcuts grid.
-    - Added data-layer guards in `BrowserPreferences.updateShortcut` and `deleteShortcut` to prevent accidental modification or deletion of built-in system shortcuts.
-    - Custom user-added websites retain their edit and delete buttons.
-  - **Refined #202020 Shortcut Edit Menu (`dialog_edit_shortcut.xml`)**:
-    - Dialog card background set to `#202020` with smooth `24dp` rounded corners and `#2C2C2C` border stroke.
-    - Title and inputs styled with clean `#FFFFFF` text and `#9AA0A6` hints.
-    - Action buttons: Cancel button placed on the left (`layout_weight="1"`, background `@color/btn_cancel_bg` `#35363A`, text `#E8EAED`), and Save button placed on the right (`layout_weight="1"`, background `@color/btn_clear_bg` `#DC4B64`, text `#FFFFFF`).
-  - **Homepage Muted Gray Shortcut Icons (`ShortcutsAdapter.kt`, `ManageShortcutsAdapter.kt`)**:
-    - Replaced bright colorful tints (`#E57373`, `#F4B400`, `#34A853`, `#4285F4`) for Bookmarks, History, and Downloads with the authentic, elegant secondary gray (`textColorSecondary` / `#9AA0A6`), restoring the cohesive dark aesthetic.
-  - **Verified End-to-End Build & Release v1.0.169**:
-    - Successfully verified full remote GitHub Actions build run [#36240076925](https://github.com/abidhasansojib/onyx-browser/actions/runs/36240076925) in 6m 28s.
-    - Published official [GitHub Release v1.0.169](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.169) packaging native Rust NDK `libadblock_bridge.so` libraries, bundled Brave filter lists, luxury dark Settings architecture, and new uneditable shortcuts.
-
-- [x] **Tab Switcher Visual Polish & Refinements**:
-  - **Fixed Duplicate Incognito Logo & Empty State Positioning (`bottom_sheet_tab_switcher.xml`, `TabSwitcherBottomSheet.kt`)**:
-    - Guarded `ivIncognitoBackground` watermark to only show when viewing incognito tabs AND tabs exist in the grid (`isViewingIncognito && !isEmpty`), completely resolving the duplicate incognito logo when there are no tabs.
-    - Symmetrically centered empty state container (`emptyTabsView`) with 64dp icon, bold 17sp `#FFFFFFFF` title, and formatted, centered 13sp `#9AA0A6` privacy description (`incognito_privacy_desc`) with comfortable 32dp horizontal padding.
-  - **Removed Glassy Border Around Bottom Action Buttons (`bg_tab_action_button.xml`)**:
-    - Removed stroke border from `bg_tab_action_button.xml`, rendering `btnClearHistory` and `btnCloseAllTabs` as clean solid `#202022` squircles with 12dp smooth corners.
-  - **Exact 2px Spacing Beneath Mode Switcher**:
-    - Configured `tabModePillContainer` with 2dp bottom margin and `rvTabs` with 0dp top padding, ensuring tabs begin exactly 2px beneath the tab switcher toggle.
-  - **Compact 180dp 3-Dot Overflow Menu (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
-    - Redesigned 3-dot overflow menu from 220dp down to a compact 180dp width with 12dp horizontal padding, 18dp crisp vector icons, and adjusted popup anchor xOffset (`-136dp`).
-  - **Enlarged New Tab Button to 48dp (`fabNewTab`)**:
-    - Resized the New Tab floating action button from 42dp to a balanced 48dp (`fabCustomSize="48dp"`, `maxImageSize="22dp"`).
-
-- [x] **Homepage Search Bar, Shortcut Sizing & Themed History Clear Dialog**:
-  - **Squarish Search Bar with Soft Corners (`bg_top_bar_box.xml`)**:
-    - Reduced corner radius from `24dp` (stadium capsule) to `12dp` for `topBarBox` (`bg_top_bar_box.xml`), giving the search bar container a modern squarish form factor with soft, smooth corners.
-    - Decoupled `tabCountPill` in `dialog_confirm_close_all_tabs.xml` to use its own `bg_tab_pill_container`.
-  - **Balanced Shortcut Tile Sizing (`item_home_shortcut.xml`, `bg_box_tile.xml`)**:
-    - Scaled down the homepage shortcut tile dimensions from `62dp x 62dp` to a balanced `54dp x 54dp`.
-    - Refined inner icon dimensions from `34dp x 34dp` to `28dp x 28dp`, and adjusted tile squircle radius from `18dp` to `15dp`.
-    - Scaled letter badge text size to `20sp` and tightened vertical padding (`8dp` top, `6dp` bottom).
-  - **Themed History Clear Browsing Data Prompt (`ClearHistoryDialog.kt`, `dialog_confirm_clear_history.xml`, `HistoryActivity.kt`)**:
-    - Replaced the generic platform `AlertDialog.Builder` popup in `HistoryActivity.kt` with a custom, beautifully themed `ClearHistoryDialog`.
-    - Styled with `@color/dialog_clear_data_bg` (`#282A2D`) surface, smooth `24dp` rounded corners, `#3C4043` border stroke, and centered 56dp danger icon badge (`@drawable/bg_circle_danger` with `ic_delete` tinted `#DC4B64`).
-    - Clear title (`@string/clear_browsing_data`) and descriptive confirmation message (`@string/confirm_clear_history`).
-    - Standardized action buttons matching Onyx design guidelines: Cancel button on the left (`layout_weight="1"`, background `@color/btn_cancel_bg` `#35363A`, text `#E8EAED`), and Clear button on the right (`layout_weight="1"`, background `@color/btn_clear_bg` `#DC4B64`, text `#FFFFFF`).
-
-- [x] **Dynamic Theme & State Synchronization & Deleted Download Safe Handling**:
-  - **Dynamic Theme & Settings Sync Without App Restart (`MainActivity.kt`, `AndroidManifest.xml`)**:
-    - Removed `uiMode` from `MainActivity`'s `android:configChanges` in `AndroidManifest.xml` to allow Android's day/night system to trigger activity recreation when themes or night modes change.
-    - Implemented theme mode and system night mode tracking (`lastThemeMode`, `lastNightMode`) in `MainActivity.kt`.
-    - In `onResume()`: detects changes in `preferences.themeMode` or system night mode and immediately triggers `recreate()`, updating colors, styles, and XML drawables seamlessly without requiring the user to restart the app.
-    - Added synchronization for search engine icons, home screen search widgets (`SearchWidgetProvider.updateAllWidgets(this)`), `fabScrollToTop` visibility (`preferences.isScrollToTopEnabled`), and WebView cookie/script settings on resume.
-    - Implemented `onConfigurationChanged` callback to handle live system dark mode switches.
-  - **Safe Handling of Deleted Downloaded Files (`FileUtils.kt`, `DownloadsAdapter.kt`, `DownloadsActivity.kt`, `LocalFileLoader.kt`)**:
-    - Created high-performance `FileUtils.kt` utility verifying physical file existence across `content://` URIs (via `openFileDescriptor`), `file://` URIs, raw filesystem paths, and Scoped Storage MediaStore queries.
-    - In `DownloadsAdapter.kt`: if a downloaded file is deleted externally by a file manager, displays `"File deleted • $details"`, dims the filename and icon to `alpha = 0.55f`, and preserves download history intact.
-    - In `DownloadsActivity.kt`: wrapped `openFile`, `openInFileManager`, `shareDownloadedFile`, and `showRenameFileDialog` with existence checks. Tapping a deleted item (including Markdown/README files) displays a friendly `"File not found or deleted"` Toast, updates the adapter, and exits safely without crashing the app.
-    - In `LocalFileLoader.kt`: added pre-flight existence verification preventing unhandled exceptions or crashes when attempting to render deleted local documents in WebView.
-  - **Verified End-to-End Build & Release v1.0.170**:
-    - Successfully verified full remote GitHub Actions build run [#36242446917](https://github.com/abidhasansojib/onyx-browser/actions/runs/36242446917) in 8m 27s.
-    - Published official [GitHub Release v1.0.170](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.170) packaging native Rust NDK `libadblock_bridge.so` libraries, bundled Brave filter lists, instant theme & state updating, zero-crash handling of deleted downloads, squarish search bar, and themed clear history dialog.
-
-- [x] **Compact Tab Menu 3-Dot Overflow & Homepage-Matching Search Engine Switcher**:
-  - **Compact Tab Menu 3-Dot Overflow (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
-    - Eliminated large empty space on the right of items by changing `layout_width` from fixed `180dp` to `wrap_content` (with `minWidth="140dp"`).
-    - Preserved 40dp row height ("not up to down") while reducing icon end margins to `8dp` and adding `android:singleLine="true"` to prevent multi-line wrapping.
-    - Implemented dynamic measurement in `TabSwitcherBottomSheet.kt` (`menuBinding.root.measure`) to calculate exact popup width and set `xOffset = anchorWidth - popupWidth`, ensuring the menu aligns flush with the right edge of the 3-dot button on all display densities.
-  - **Homepage-Matching Search Engine Switcher Menu (`popup_search_engine_picker.xml`, `SearchEnginePopupMenu.kt`, `bottom_sheet_search_engine_picker.xml`, `dialog_search_engine_picker.xml`, `colors.xml`)**:
-    - Set `app:cardBackgroundColor="@color/homepage_bg"` and `app:surfaceTintColor="@android:color/transparent"` on the quick search engine popup, matching the exact `#1C1C1E` dark mode / `#FFFFFF` light mode homepage background color without Material 3 elevation tint distortion.
-    - Defined semantic `@color/popup_menu_stroke` (`#2E3033` in dark mode, `#DFE1E5` in light mode) for matching subtle border and divider styling.
-    - Added `@color/primary` (#DC4B64) color filter to the active search engine checkmark icon in `SearchEnginePopupMenu.kt`.
-    - Applied matching `@color/homepage_bg` background and subtle strokes to `bottom_sheet_search_engine_picker.xml` and `dialog_search_engine_picker.xml`.
-
-- [x] **Universal Chromium `net::ERR_INVALID_URL` Error Handling Subsystem**:
-  - **Strongly-Typed Synthetic Navigation State (`SyntheticNavigationState.kt`)**:
-    - Added `ErrorCategory.INVALID_URL` to the sealed navigation state hierarchy.
-    - Implemented `SyntheticNavigationState.InvalidUrl` tailored for malformed, invalid, or unparseable URLs.
-    - Configured intelligent primary action button `"Search Web"` (`primaryButtonAction = "search"`) invoking search query resolution rather than futile page reloads.
-  - **Chromium Error Classification Engine (`WebErrorHandler.kt`)**:
-    - Intercepts `WebViewClient.ERROR_BAD_URL`, Chromium `net::ERR_INVALID_URL`, and descriptive `"INVALID_URL"` error codes.
-    - Formats clear user-facing titles and diagnostic messages with URL string truncation to prevent layout breaking.
-    - Generates actionable troubleshooting suggestions (checking for typos like `ww.example.com`, verifying schemes like `https://`, and search recommendations).
-  - **Dynamic Error Page Presentation (`error_page.html`)**:
-    - Integrated Lucide-style broken link vector SVG glyph (`#iconInvalidUrl`).
-    - Activated dynamic icon toggling for `INVALID_URL` category and bound `"Search Web"` button to native `OnyxErrorBridge.search(domain)`.
-
-- [x] **Full 105 Chromium Net Error Codes Classification & Resolution Engine**:
-  - **Comprehensive 105 Error Coverage (`WebErrorHandler.kt`)**:
-    - Built a complete, production-grade error classification matrix (`CHROMIUM_NET_ERRORS`) mapping all 105 Chromium network error codes with tailored, domain-interpolated titles, clear descriptions, technical diagnostics, and actionable suggestion checklists:
-      - *Android-Specific & Captive Portal (3)*: `ERR_CLEARTEXT_NOT_PERMITTED` (with HTTPS retry), `ERR_CAPTIVE_PORTAL_DETECTED` (with native Wi-Fi sign-in bridge), `ERR_NETWORK_ACCESS_DENIED` (with network settings shortcut).
-      - *Client-Side, Security Policy & Ad-Blocking (7)*: `ERR_BLOCKED_BY_CLIENT` (Onyx Shields), `ERR_BLOCKED_BY_RESPONSE`, `ERR_BLOCKED_BY_ORB`, `ERR_BLOCKED_BY_CSP`, `ERR_INSECURE_RESPONSE`, `ERR_UNSAFE_PORT`, `ERR_UNSAFE_REDIRECT`.
-      - *Connection & Network Issues (24)*: `ERR_INTERNET_DISCONNECTED`, `ERR_NETWORK_CHANGED`, `ERR_CONNECTION_TIMED_OUT`, `ERR_CONNECTION_CLOSED`, `ERR_CONNECTION_RESET`, `ERR_CONNECTION_REFUSED`, `ERR_CONNECTION_ABORTED`, `ERR_SOCKET_NOT_CONNECTED`, `ERR_NAME_NOT_RESOLVED`, `ERR_NAME_RESOLUTION_FAILED`, `ERR_DNS_TIMED_OUT`, `ERR_DNS_SERVER_FAILED`, `ERR_DNS_MALFORMED_RESPONSE`, `ERR_DNS_SERVER_REQUIRES_TCP`, `ERR_ADDRESS_UNREACHABLE`, `ERR_ADDRESS_IN_USE`, `ERR_ADDRESS_INVALID`, `ERR_HOST_RESOLVER_QUEUE_TOO_LARGE`, `ERR_EMPTY_RESPONSE`, `ERR_RESPONSE_HEADERS_TOO_BIG`, `ERR_RESPONSE_HEADERS_MULTIPLE_CONTENT_LENGTH`, `ERR_RESPONSE_HEADERS_MULTIPLE_CONTENT_DISPOSITION`, `ERR_RESPONSE_HEADERS_MULTIPLE_LOCATION`, `ERR_TOO_MANY_REDIRECTS`.
-      - *SSL / TLS & Certificate Errors (26)*: `ERR_CERT_COMMON_NAME_INVALID`, `ERR_CERT_DATE_INVALID`, `ERR_CERT_AUTHORITY_INVALID`, `ERR_CERT_CONTAINS_ERRORS`, `ERR_CERT_NO_REVOCATION_MECHANISM`, `ERR_CERT_UNABLE_TO_CHECK_REVOCATION`, `ERR_CERT_REVOKED`, `ERR_CERT_INVALID`, `ERR_CERT_WEAK_SIGNATURE_ALGORITHM`, `ERR_CERT_NON_UNIQUE_NAME`, `ERR_CERT_WEAK_KEY`, `ERR_CERT_NAME_CONSTRAINT_VIOLATION`, `ERR_CERT_VALIDITY_TOO_LONG`, `ERR_CERT_KNOWN_INTERCEPTION_BLOCKED`, `ERR_CERT_END`, `ERR_BAD_SSL_CLIENT_AUTH_CERT`, `ERR_SSL_CLIENT_AUTH_CERT_NEEDED`, `ERR_SSL_CLIENT_AUTH_PRIVATE_KEY_ACCESS_DENIED`, `ERR_SSL_PROTOCOL_ERROR`, `ERR_SSL_VERSION_OR_CIPHER_MISMATCH`, `ERR_SSL_FALLBACK_BEYOND_MINIMUM_VERSION`, `ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN`, `ERR_CERT_SYMANTEC_LEGACY`, `ERR_SSL_SERVER_CERT_BAD_FORMAT`, `ERR_SSL_UNRECOGNIZED_NAME_ALERT`, `ERR_SSL_OBSOLETE_VERSION`.
-      - *URL, Cache, & Request Errors (14)*: `ERR_INVALID_URL`, `ERR_DISALLOWED_URL_SCHEME`, `ERR_UNKNOWN_URL_SCHEME`, `ERR_INVALID_REDIRECT`, `ERR_CACHE_MISS`, `ERR_CACHE_READ_FAILURE`, `ERR_CACHE_WRITE_FAILURE`, `ERR_CACHE_OPERATION_NOT_SUPPORTED`, `ERR_CACHE_LOCK_TIMEOUT`, `ERR_CONTENT_DECODING_FAILED`, `ERR_CONTENT_LENGTH_MISMATCH`, `ERR_INCOMPLETE_CHUNKED_ENCODING`, `ERR_REQUEST_RANGE_NOT_SATISFIABLE`, `ERR_UPLOAD_FILE_CHANGED`.
-      - *Proxy, Tunnel, & Firewall Errors (9)*: `ERR_PROXY_CONNECTION_FAILED`, `ERR_TUNNEL_CONNECTION_FAILED`, `ERR_SOCKS_CONNECTION_FAILED`, `ERR_SOCKS_CONNECTION_HOST_UNREACHABLE`, `ERR_NO_SUPPORTED_PROXIES`, `ERR_MANDATORY_PROXY_CONFIGURATION_FAILED`, `ERR_PROXY_AUTH_REQUESTED`, `ERR_PROXY_AUTH_UNSUPPORTED`, `ERR_PAC_SCRIPT_FAILED`.
-      - *HTTP, Protocol & Streaming Errors (11)*: `ERR_INVALID_HTTP_RESPONSE`, `ERR_HTTP_RESPONSE_CODE_FAILURE` (with Wayback Machine integration), `ERR_H2_OR_QUIC_REQUIRED`, `ERR_HTTP2_PROTOCOL_ERROR`, `ERR_HTTP2_STREAM_ERROR`, `ERR_HTTP2_FRAME_SIZE_ERROR`, `ERR_HTTP2_COMPRESSION_ERROR`, `ERR_HTTP2_FLOW_CONTROL_ERROR`, `ERR_QUIC_PROTOCOL_ERROR`, `ERR_QUIC_HANDSHAKE_FAILED`, `ERR_ENCODING_CONVERSION_FAILED`.
-      - *File & Local System Errors (11)*: `ERR_FILE_NOT_FOUND`, `ERR_FILE_ACCESS_FAILED`, `ERR_FILE_TOO_LARGE`, `ERR_FILE_NO_SPACE`, `ERR_ACCESS_DENIED`, `ERR_NOT_IMPLEMENTED`, `ERR_INSUFFICIENT_RESOURCES`, `ERR_OUT_OF_MEMORY`, `ERR_TIMED_OUT`, `ERR_ABORTED`, `ERR_FAILED`.
-  - **Dynamic Resolution & Error Extraction**:
-    - Robust extraction supporting `net::ERR_*` strings, raw `ERR_*` tokens, case-insensitive substring matching, and fallback mappings from legacy Android `WebViewClient.ERROR_*` constants.
-    - Synchronized `resolveSslError` to look up corresponding `ERR_CERT_*` definitions for unified presentation.
-  - **Enhanced Navigation State & Error Page (`SyntheticNavigationState.kt`, `error_page.html`)**:
-    - Expanded `SyntheticNavigationState.Generic` constructor with `category`, `isDanger`, `primaryButtonText`, `primaryButtonAction`, `secondaryButtonText`, `secondaryButtonAction`, and `canCheckWayback` support.
-    - Added native bridge action dispatchers in `error_page.html`: `reload_https` (instant HTTPS protocol upgrade reload), `network_settings` (native Android wireless/network settings), and `settings` (browser settings).
-
-- [x] **Comprehensive UI Bug Audit & Theme Fix Pass (`dev` branch)**:
-  - Fixed 24 UI bugs across 4 phases on `dev` branch.
-  - Made all dialogs (`ClearBrowsingDataDialog`, `ClearHistoryDialog`, `CloseAllTabsDialog`, `EditShortcutDialog`) theme-aware across Light and Dark themes.
-  - Standardized settings text colors with `@color/settings_title_text` and `@color/settings_subtitle_text`.
-  - Fixed tab switcher popup menu and tab pill/count box drawable background and stroke colors.
-  - Resolved AAPT2 resource linking failure on `dev` branch by removing unsupported `app:surfaceTintColor` and duplicate night color definitions.
-
-- [x] **Video & Adblock Overhaul Subsystem (`dev` branch)**:
-  - **Synchronous Shield & Whitelist Engine (`OnyxShieldBridge.kt`, `AdBlockDocumentStart.kt`)**:
-    - Created synchronous `@JavascriptInterface` `OnyxShieldBridge` queried at document-start by JavaScript before HTML parsing.
-    - Fixed "Disable adblocker for this site" so that whitelisted domains bypass all adblock scripts, monkeypatching of `fetch`/`XMLHttpRequest`, and anti-adblock detection probes.
-    - Actively purges any previously injected cosmetic stylesheets (`onyx-universal-cosmetic`, `onyx-adblock-cosmetic`) when loading or toggling whitelisted sites.
-  - **Interstitial & Full-Screen Overlay Ad Blocker (`AdBlockDocumentStart.kt`)**:
-    - Built multi-layer interstitial ad suppression engine with extensive selector targeting (`[id*="interstitial"]`, `[class*="modal-ad"]`, `.prestitial-ad`, `[id*="adgate"]`, `tp-modal`, countdown overlays, and adblock walls).
-    - Added heuristic overlay detector evaluating z-index >= 999, fixed/absolute position, >50% screen coverage, and automatic scroll-unlocking (`overflow: visible`).
-    - Integrated `MutationObserver` on `document.documentElement` to instantly catch and purge dynamically inserted interstitial ads.
-  - **Smart Video Qualification & Demo Filtering (`MediaPlaybackManager.kt`)**:
-    - Engineered `isQualifyingMedia(elem)` to detect and filter out muted, looping, or autoplaying UI demo/hero videos (such as GitHub.com hero video and marketing animations).
-    - Added user interaction tracking (`click`, `touchstart`, and `volumechange`) on HTML5 media elements so background playback only engages for genuine user-intended media.
-  - **Universal Seek & Slider Controls for All Websites (`MediaPlaybackManager.kt`, `MediaPlaybackService.kt`, `MainActivity.kt`)**:
-    - Implemented deep recursive DOM search traversing Shadow DOM roots and accessible same-origin iframes.
-    - Fixed seek when paused so users can scrub the seekbar or skip 10s forward/backward even while media is paused.
-    - Dispatched `seeking`, `timeupdate`, and `seeked` DOM events to synchronize custom web player sliders (Plyr, Video.js, Twitch, Dailymotion).
-    - Wired `onSkipNextMedia` and `onSkipPreviousMedia` with automatic website button discovery (`.ytp-next-button`, `.next-track`, etc.).
-  - **Floating Video Action Menu (`FloatingVideoMenuManager.kt`, `view_floating_video_menu.xml`)**:
-    - Added on-screen draggable pill overlay showing 3 quick action buttons: Download (`ic_download`), PiP (`ic_picture_in_picture`), and Internal Player (`ic_player_box`).
-    - Automatically shows only when video is actively playing on web pages, with smooth fade/scale animations.
-    - Added toggle switch in Settings > Video options (`isFloatingVideoMenuEnabled`, `settingFloatingMenuSwitch`).
-  - **Dedicated Internal Media Player (`InternalPlayerActivity.kt`, `activity_internal_player.xml`)**:
-    - Immersive full-screen player with black background, auto-hiding controls, scrubbable seekbar, aspect ratio toggle, 10s seek buttons, and direct video download action.
-  - **Close All Tabs Prompt Color Fix (`values-night/colors.xml`)**:
-  - **Tab Switcher 3-Dot Overflow Menu Width Reduction (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
-    - Reduced menu width to 2/3 of current width (from ~225dp to 148dp) to eliminate empty horizontal whitespace.
-    - Optimized item padding to 10dp, icon size to 16dp, text size to 12sp with singleLine and ellipsis protection.
-  - **Search Engine Switcher Prompt Color Fix (`values/colors.xml`, `values-night/colors.xml`, `popup_search_engine_picker.xml`, `dialog_search_engine_picker.xml`, `bottom_sheet_search_engine_picker.xml`, `SearchEnginePopupMenu.kt`)**:
-    - Changed search engine switcher popup and dialog background color to `#282A2D` (via semantic `@color/dialog_search_engine_bg`).
-    - Resolved Material 3 surface tint bug where `cardElevation > 0` on `MaterialCardView` overlaid coral pink `@color/primary` onto dark surfaces resulting in `#392328`.
-    - Set `cardElevation = 0dp` on all search engine pickers so `#282A2D` renders purely without color tinting, with shadow depth provided directly by the window level.
-  - **Downloads 3-Dot Menu "Open in File Manager" APK Install Bug Fix (`DownloadsActivity.kt`, `bottom_sheet_download_item_menu.xml`, `AndroidManifest.xml`)**:
-    - Fixed critical bug where tapping "Open in file manager" from a downloaded APK's 3-dot menu triggered `ApkInstallerHelper.installApk()` and package installer `ACTION_VIEW` intent rather than opening the file manager.
-    - Decoupled open/install from folder navigation in `bottom_sheet_download_item_menu.xml` with dedicated `menuOpenOrInstall` ("Install" with `@drawable/ic_android` for APKs, "Open file" for other media) and `menuOpenInFolder` ("Open in file manager" with `@drawable/ic_folder`).
-    - Implemented robust multi-tier `openFileManagerFolder()` in `DownloadsActivity.kt` targeting the containing folder: `DownloadManager.ACTION_VIEW_DOWNLOADS`, DocumentsUI Downloads SAF URI (`vnd.android.document/directory`), parent folder directory view, direct OEM/third-party file manager app packages, and system document picker fallback.
-    - Added file manager directory MIME types and 14 major file manager package queries to `AndroidManifest.xml` under `<queries>` to ensure full Android 11+ package visibility.
-  - **Page Translation In-Place Restore & Multi-Language Switching Overhaul (`PageTranslateManager.kt`, `MainActivity.kt`, `LanguageSelectionDialog.kt`)**:
-    - **In-Place "Original" Restoration (Eliminated Unwanted Page Reload)**:
-      - Overhauled `restoreOriginalScript` to target Google Translate's native iframe restoration controls (`#goog-gt-tt button`, `[id*="restore"]`, `.goog-close-link`, `.goog-te-button`) and reset `.goog-te-combo` to index 0, triggering `change` and `input` events.
-      - Removed translation classes (`translated-ltr`, `translated-rtl`) from `document.documentElement` and `document.body` in-place.
-      - Eliminated the unconditional 1-second `window.location.reload()`, preserving all active webpage state, form inputs, scroll position, and tab memory.
-    - **Hierarchical `googtrans` Cookie Purging (Resolved Sticky/Defaulting to Bangla `bn`)**:
-      - Purged `googtrans` cookies across all domain levels (`.domain.com`, `sub.domain.com`, root domain, empty domain) and paths in both JavaScript `document.cookie` and Kotlin `CookieManager`.
-      - Purges old cookies before applying any target language, preventing old persistent cookies (e.g. `/auto/bn`) from overriding new user language selections.
-    - **Dynamic Language Switching & Self-Healing Re-injection**:
-      - Upgraded `getSwitchLanguageScript` with smart option matching (`applyComboTarget`) handling regional codes (`zh-CN`, `zh-TW`, `pt-BR`, `tl`/`fil`, `iw`/`he`).
-      - Returns `'reinitialize'` if the translation element is detached; `MainActivity.setupTranslateBar` automatically cascades into `getTranslateScript(targetCode)` for seamless re-injection without user interruption.
-      - Fixed duplicate Ukrainian entry in `LanguageSelectionDialog.kt`.
-  - **Facebook Login, CAPTCHA Verification & Social Media Shield Protection (`AdBlockDocumentStart.kt`, `OnyxWebViewClient.kt`, `AdBlockDomainManager.kt`, `BrowserPreferences.kt`, `OnyxShieldBridge.kt`)**:
-    - **Resolved CAPTCHA Disappearing / Hiding ("Hide the Captcha Box")**:
-      - Root cause: Heuristic interstitial overlay remover in `AdBlockDocumentStart.kt` evaluated all fixed/absolute containers with `z-index >= 999` and screen coverage >= 50% and invoked `el.remove()`. MutationObserver detected dynamic CAPTCHAs (Arkose Labs/FunCaptcha, reCAPTCHA, Cloudflare Turnstile, hCaptcha, Facebook checkpoints) and immediately purged the dialog from the DOM.
-      - Added `isSecurityOrAuthElement(el)` protecting any element containing forms, input fields, buttons, interactive controls, CAPTCHA iframes, or auth/security attributes from being removed.
-      - Completely disabled interstitial overlay remover on Meta/Facebook domains (`facebook.com`, `m.facebook.com`, `fb.com`, `messenger.com`, `instagram.com`) since Meta services do not serve third-party interstitial ads and all overlays are native checkpoints, 2FA, or lightboxes.
-    - **Resolved "Confirmation Failed" Error on CAPTCHA Submission**:
-      - Root cause: `static.xx.fbcdn.net` was erroneously included in `stdTrackerPattern` and `socialMediaTrackerDomains`, causing client-side verification scripts and assets to be rejected with `TypeError(ERR_BLOCKED_BY_CLIENT)` during fetch/XHR, and `connect.facebook.net` was blocked by `AdBlockDomainManager.standardDomains` even when Facebook logins were allowed.
-      - Removed `static.xx.fbcdn.net` from tracking patterns (it is Facebook's static CDN, not a tracking pixel).
-      - Added universal bypass for CAPTCHA challenge endpoints (`recaptcha`, `hcaptcha`, `arkoselabs`, `turnstile`, `geetest`, `/checkpoint/`, `/challenge/`) in both Kotlin and JavaScript network interceptors.
-      - Ensured first-party Meta assets on Meta domains and allowed Facebook content (`connect.facebook.net`, `static.xx.fbcdn.net`, `graph.facebook.com`) bypass ad and tracker blocking when `allowFacebookLogins` is enabled.
-    - **Aligned Default Social Media Settings with Brave**:
-      - Enabled `isSocialMediaBlockingEnabled` by default (`true`), blocking third-party tracking pixels (`pixel.facebook.com`, `an.facebook.com`, `analytics.twitter.com`, `snap.licdn.com`, `analytics.tiktok.com`) across the web.
-      - Defaulted `allowFacebookLogins = true`, `allowTwitterEmbeds = true`, and `allowLinkedInEmbeds = true` out-of-the-box so logins and embeds function reliably while protecting privacy.
-      - Exposed `isFacebookLoginAllowed()` and `isSocialMediaBlockingEnabled()` to `OnyxShieldBridge` for synchronous document-start awareness.
-  - **Background Play Notification Dismissal on Tab Closure (`MediaPlaybackBridge.kt`, `MediaPlaybackService.kt`, `TabManager.kt`, `OnyxWebView.kt`, `MainActivity.kt`, `OnyxWebViewClient.kt`)**:
-    - **Tab-Aware Playback Tracking**: Added `currentPlayingTabId` and `currentPlayingWebView` to `MediaPlaybackBridge` so background media sessions are bound to the specific originating tab.
-    - **Automatic Closure & Cleanup**: Linked `TabManager.closeTab()`, `closeAllTabs()`, `closeTabsCreatedSince()`, and `clearAllWebViews()` to `MediaPlaybackBridge.onTabClosed()`, automatically halting `MediaPlaybackService` and removing the media notification the instant the playing tab is closed.
-    - **WebView Safe Tear-Down**: Updated `OnyxWebView.destroySafely()` to pause media elements and reset playback if the destroyed view was playing media.
-    - **Foreground Service Clean Stop**: Hardened `MediaPlaybackService.stop()` and `onDestroy()` to cancel `NOTIFICATION_ID` via `NotificationManager`, release wakelocks, and call `stopForeground(STOP_FOREGROUND_REMOVE)` so no orphaned notifications remain in Android SystemUI.
-    - **Targeted Notification Actions**: Updated `MainActivity.mediaActionListener` to execute Play/Pause/Seek on the actual playing tab rather than the foreground tab, and call `resetMediaPlayback` when media is stopped.
-  - **Tab Switcher 3-Dot Overflow Menu Width Adjustment (`popup_tab_switcher_menu.xml`, `TabSwitcherBottomSheet.kt`)**:
-    - Expanded menu width from 148dp to 180dp to give comfortable breathing room for option labels ("New tab", "New incognito tab", "Close all tabs", "Delete browsing data") without any cramped text or ellipsis truncation.
-    - Adjusted item heights to 40dp, icon sizes to 18dp with 8dp end margins, and typography to 13sp with 12dp horizontal padding for optimal touch targets and clean visual balance.
-  - **Ongoing Incognito Tabs Notification & 1-Tap Close Action (`IncognitoNotificationHelper.kt`, `IncognitoNotificationReceiver.kt`, `TabManager.kt`, `MainActivity.kt`, `OnyxApplication.kt`, `AndroidManifest.xml`, `strings.xml`)**:
-    - **Chromium / Chrome-Style Ongoing Notification**: Implemented ongoing status notification (`onyx_incognito_tabs`, id `4041`) displaying whenever 1 or more incognito tabs are open, alerting the user to active private browsing sessions.
-    - **Notification Details**: Title `"Incognito tabs"`, body `"Close all incognito tabs"`, subText dynamic counter (`"1 incognito tab open"` / `"%1$d incognito tabs open"`), small icon `ic_incognito`, and action button `"Close all incognito tabs"`.
-    - **1-Tap Instant Dismissal**: Tapping the notification body or the action button sends a broadcast with `ACTION_CLOSE_ALL_INCOGNITO` to `IncognitoNotificationReceiver`.
-    - **Complete Cleanup & Safety**:
-      - `IncognitoNotificationReceiver` safely executes on the main thread, calling `TabManager.activeInstance?.closeAllTabs(incognitoOnly = true)`, which destroys private WebViews, cleans session cookies/cache, stops background media playback originating from incognito tabs, and emits an empty list on `incognitoTabs` StateFlow.
-      - Displays instant confirmation Toast (`"All incognito tabs closed"`).
-      - Automatically clears the ongoing notification via `IncognitoNotificationHelper.dismissNotification()`.
-    - **Reactive StateFlow Observation**: `TabManager` automatically observes `incognitoTabs` StateFlow on initialization, automatically posting/updating the notification when incognito tabs are opened/added, and automatically dismissing the notification whenever the last incognito tab is closed (via tab switcher swipe, tab close button, close all incognito tabs, or clear browsing data).
-    - **Channel & Lifecycle Management**: Notification channel initialized cleanly in `OnyxApplication.onCreate()` and `MainActivity.onCreate()`; ongoing notification and active instance safely dismissed and cleared in `MainActivity.onDestroy()` when finishing.
-  - **MediaPlaybackService Artwork Scope Fix (`MediaPlaybackService.kt`)**:
-    - Relocated `@Volatile var currentArtworkBitmap: Bitmap? = null` to `companion object` so it is accessible within `stop(context)` and `onDestroy()` without unresolved reference compiler errors.
-  - **TabManager Initialization Order Fix (`TabManager.kt`)**:
-    - Moved the `init` block below `incognitoTabs` and all other `StateFlow` property declarations. Previously, launching `coroutineScope.launch { incognitoTabs.collect { ... } }` in an `init` block placed above `incognitoTabs` executed before `val incognitoTabs` was instantiated, throwing `NullPointerException` on `collect()` on app startup.
-  - **Comprehensive Codebase Bug Audit & Fixes (`bug_fix_guide.md`)**:
-    - **BUG-01: Incognito CookieManager Isolation (`OnyxWebView.kt`)**: Removed global `CookieManager.getInstance().setAcceptCookie(false)` in `setIncognitoMode`. Because `CookieManager` is process-wide, this was inadvertently breaking cookies and authentication across all normal tabs whenever an incognito tab was open (fixing CAPTCHA confirmation and login failures). Third-party cookies remain blocked per-WebView via `setAcceptThirdPartyCookies(this, false)`.
-    - **BUG-02: Incognito Tab Disk Leak Guard (`TabManager.kt`)**: Prevented writing thumbnail snapshots of incognito tabs to disk storage in `saveSnapshot(tabId, bitmap)`.
-    - **BUG-03: Download Coroutine Cancellation Fix (`DownloadPromptBottomSheet.kt`)**: Introduced application-scoped `downloadScope` in companion object for `DownloadHandler.startSystemDownload`, replacing `lifecycleScope` which was prematurely cancelled upon bottom sheet dismissal.
-    - **BUG-04: Static Context Leak Prevention (`TabManager.kt`)**: Converted static `activeInstance` in `TabManager.companion object` to use `WeakReference<TabManager>` to prevent holding references to destroyed `MainActivity` contexts across configuration changes.
-    - **BUG-05: Media Playback Service Termination on End (`MediaPlaybackBridge.kt`)**: Updated `onMediaEnded()` to call `MediaPlaybackService.stop(context)` and clear playing tab/view references so ongoing media notifications dismiss when media finishes.
-    - **BUG-06: Shared Domain Cookie Auto-Clear Safeguard (`TabManager.kt`)**: Updated `autoclearTabData()` to verify no other open tabs share the target domain before purging WebStorage and cookies, and wrapped operations in `Handler(Looper.getMainLooper()).post`.
-    - **BUG-07: Detached Fragment Context Safety (`DownloadPromptBottomSheet.kt`)**: Added `isAdded` check prior to showing storage permission toasts in `storagePermissionLauncher`.
-    - **BUG-08: Coroutine Scope Leak Fix (`OnyxWebView.kt`)**: Replaced bare `CoroutineScope(Dispatchers.Main)` fallbacks with dedicated `webViewScope` that is cancelled in `destroySafely()`.
-    - **BUG-09: Active Tab Pointer Correction on Incognito Close (`TabManager.kt`)**: Ensured `closeAllTabs(incognitoOnly = true)` switches active tab to the last valid normal tab if the active tab was incognito.
-    - **BUG-11: Chromium Destroy Race Fix (`OnyxWebView.kt`)**: Removed redundant `loadUrl("about:blank")` immediately preceding `destroy()` in `destroySafely()`.
-    - **BUG-12: Incognito Fallback Consistency (`TabManager.kt`)**: Updated `closeTabsCreatedSince()` to keep the user in incognito mode if other incognito tabs remain open.
-    - **BUG-13: Explicit Dispatcher Initialization (`TabManager.kt`)**: Used `Dispatchers.Main` explicitly for the notification collector coroutine in `TabManager.init`.
-  - **Dynamic Clipboard Detection & Media/PiP Fixes (`MainActivity.kt`, `SuggestionsAdapter.kt`, `MediaPlaybackManager.kt`, `InternalPlayerActivity.kt`)**:
-    - **Dynamic Clipboard Text/Link Detection**: Upgraded `getClipboardSuggestion()` in `MainActivity.kt` to inspect copied content: if a URL or web domain is detected, displays `"Link you copied"` (`R.string.link_you_copied`) with link icon and direct URL navigation; if plain text is detected, displays `"Text you copied"` (`R.string.text_you_copied`) with search icon and triggers web search via the default search engine.
-    - **Removed In-Player Download Button**: Removed non-functional download button from `InternalPlayerActivity` and `activity_internal_player.xml`.
-    - **PiP Isolation & Multi-Platform Support**:
-      - Fixed bug where PiP button opened the entire app window instead of video-only by eliminating stale in-page video bounds and setting `sourceRectHint` to `activeWv.getGlobalVisibleRect()` on the black-letterboxed isolated WebView.
-      - Added 100ms render synchronization delay after DOM isolation to allow Chromium to paint the black letterboxed frame before Android OS captures the PiP snapshot.
-      - Hidden `floatingVideoMenuManager` immediately upon entering PiP to prevent floating pills inside the PiP viewport.
-      - Added iframe video player fallback in `isolateVideoForPipScript` supporting YouTube, Vimeo, and embedded web players across non-YouTube platforms.
-      - Added video presence verification: shows informative toast if no active video was found rather than shrinking the entire application into PiP.
-  - **Sample.png Compact Pill Webpage & Clipboard Card Redesign (`activity_main.xml`, `item_search_clipboard_suggestion.xml`, `MainActivity.kt`, `SuggestionsAdapter.kt`)**:
-    - Transformed `cardCurrentPage` into the exact single-row compact pill card from `sample.png` (`app:cardCornerRadius="24dp"`, single horizontal row, left site favicon, vertically stacked bold title and clean domain URL, right-aligned inline Share, Copy, and Edit `AppCompatImageButton`s).
-  - **Streaming Video Player Options & Brave-Inspired Background Playback Overhaul (`AdBlockDocumentStart.kt`, `MediaPlaybackManager.kt`, `MediaPlaybackBridge.kt`, `MediaPlaybackService.kt`, `MainActivity.kt`)**:
-    - **Streaming Video Player Options Fix (e.g. `animesalt.cx` / AbyssPlayer / JWPlayer / Plyr)**:
-      - **Root Cause Analysis**:
-        1. Nested multi-tier cross-origin iframes (`animesalt.cx` -> `multi-lang-plyr.php` -> `abyssplayer.com` / `iamcdn.net`) prevented top-level DOM queries (`document.querySelector('video')`) from detecting playing media, audio selection modals, or video streams.
-        2. Muted autoplay video filtering in `isQualifyingMedia` rejected streaming players when user interactions occurred on overlay elements (`div#overlay`, `.jw-display-icon`, `.plyr`) rather than direct `<video>` DOM nodes (which cannot have HTML children).
-        3. Interstitial overlay remover in `AdBlockDocumentStart.kt` deleted `#audioModal` and streaming player selectors because they were full-screen fixed overlays with high z-index and no `<input>` tags.
-        4. Anti-tamper extension checks in AbyssPlayer (`functionfetch(){[nativecode]}` regex comparison on `window.fetch.toString()`) detected hook tampering.
-      - **Native Function Masquerade (`makeNative`)**: Wraps proxied `window.fetch`, `window.XMLHttpRequest`, and other hook functions with a custom `toString()` prototype returning `function () { [native code] }`, passing anti-tamper tests on streaming sites.
-      - **Overlay Protection**: Extended `isSecurityOrAuthElement` to exempt media player controls, server switchers, quality pickers, episode selectors, audio modal containers (`#audioModal`), and player libraries (`/player|audio|server|stream|quality|episode|language|subtitle|modal-option|video-option|jw-|plyr/i`).
-      - **Media Interactivity Propagation**: Updated `markMediaInteracted` to qualify media when clicks/taps occur on any player container (`[class*="player"]`, `#overlay`, `.jw-wrapper`, `.plyr`).
-      - **Streaming Video Qualification**: Qualified videos with duration > 10s or playback progression `currentTime > 0.5s` even if started muted, preventing premature rejection of video streams.
-      - **Universal Cross-Frame Message Bus (`__onyx_cmd`)**: Implemented recursive postMessage bus bridging top-level frame and all child iframes for `play`, `pause`, `seek`, `seek_to`, `set_bg`, and `fullscreen`.
-      - **Iframe Stream Extraction & Fallbacks**: Updated floating download menu and internal player launcher to inspect `MediaPlaybackBridge.currentVideoSrc`, child iframe documents, and player iframe source URLs.
-    - **Brave-Core Inspired WebView Background Playback**:
-      - Modeled after Brave's `kDisableBackgroundMediaSuspend`, `BraveMediaSessionHelper`, and `kYoutubeBackgroundPlayback`:
-        - **Synthetic Pause Suppression**: In `MediaPlaybackBridge.onMediaPaused()`, suppresses automated/synthetic pauses when the app is in the background or the screen is locked unless explicitly paused by the user, automatically resuming playback.
-        - **Screen State Receiver & Wakelock Management**: Registered dynamic broadcast receiver in `MediaPlaybackService` for `ACTION_SCREEN_OFF`, `ACTION_SCREEN_ON`, and `ACTION_USER_PRESENT` to maintain `PARTIAL_WAKE_LOCK` across lock gaps.
-        - **WebView Lifecycle Throttling Shield**: Maintained active rendering without invoking `webView.onPause()` or `pauseTimers()` on playback WebViews when background play is enabled.
-        - **Background State Synchronization**: Synced `isAppInBackground` in `MainActivity.onPause()` / `onResume()` and broadcast `set_bg` to all nested iframe players via the postMessage bus.
-  - **Removal of Manual Heuristic Interstitial Overlay Cleaner (`AdBlockDocumentStart.kt`)**:
-    - Removed manual Section 9 heuristic DOM cleaner (`isInterstitialOverlay`, `removeInterstitialOverlays`, and `interstitialObserver`).
-    - Aligned with Brave AdBlock architecture: interstitial ads are blocked cleanly and reliably at the network layer, through scriptlets, and via declarative cosmetic selector rules compiled from EasyList, uBlock Annoyances, and Fanboy's lists, completely eliminating DOM breakage on CAPTCHAs, video player modals, and stream dialogs.
-  - **Brave Android Parity: Filter List Selection, Default Shields & Standard/Aggressive Enforcement Parity (`FilterListManager.kt`, `BrowserPreferences.kt`, `OnyxApplication.kt`, `OnyxWebViewClient.kt`)**:
-    - **Filter List Selection Parity**:
-      - Default core lists enabled: `easylist`, `easyprivacy`, `ublock_filters`, `ublock_privacy`, `ublock_badware`, `ublock_quick_fixes`, `ublock_unbreak`, and `brave_default`.
-      - First-party protection enabled by default (`brave_firstparty`): Blocks first-party tracking scripts, CNAME uncloaking, and ad injection.
-      - Cookie Notice blocker enabled by default (`cookie_notice` / Fanboy's Cookie Monster): Matches Brave Android `kCookieListUuid` default.
-      - Mobile App Promo blocker enabled by default (`mobile_app_promo` / Fanboy's Mobile Notifications): Matches Brave Android `kMobileNotificationsListUuid` default.
-    - **Automatic Device Locale Detection & Regional List Activation**:
-      - Implemented `FilterListManager.getRegionalListIdForLocale(locale)` and `autoEnableRegionalListsForLocale(context)` matching Brave's `FindAdBlockFilterListsByLocale` and `kAdBlockCheckedDefaultRegion`.
-      - On first launch / migration, inspects device ISO-639-1 language (e.g. `de` -> German EasyList, `fr` -> French AdGuard, `es` -> Spanish EasyList, `ar` -> Arabic, `hi` -> IndianList, `zh` -> Chinese, `ja` -> Japanese, `ru` -> Russian RU AdList, etc.) and auto-enables the matching regional filter list in `BrowserPreferences.enabledFilterLists`.
-      - Tracks `BrowserPreferences.hasCheckedDefaultRegion` so user customization is never overwritten on subsequent launches.
-      - Called asynchronously in `OnyxApplication` during background startup before `AdBlockEngine.initialize()`.
-    - **Standard vs. Aggressive Enforcement Parity**:
-      - In Standard mode (Brave `BLOCK_THIRD_PARTY`), `DomainBlockingType` is `kNone`: Main-frame top-level user navigations are never cancelled or 403-intercepted by adblock rules in `OnyxWebViewClient.shouldInterceptRequest` (`if (request.isForMainFrame && !isAggressive) return null`).
-      - In Aggressive mode (Brave `BLOCK`), `DomainBlockingType` is `kAggressive`: Blocks all ads, trackers, and first-party ad resources at the network level and cosmetic filtering.
-    - **Social Media Embed Controls Parity**:
-      - Configured `allowLinkedInEmbeds` default to `false` matching Brave's `kLinkedInEmbedControlType = false` (LinkedIn embedded posts allowed by default for professional sites).
-  - [x] **Verified Remote GitHub Actions Release Build & Deployment (#36269070187, Release `v1.0.181`)**:
-    - Workflow dispatched for **Release** build on `dev` branch with inputs `build_type=Release`.
-    - Native Rust NDK `libadblock_bridge.so` compiled across `arm64-v8a`, `armeabi-v7a`, `x86_64`.
-    - Release APKs assembled with ABI splits and R8 minification, packaged with official release keystore.
-    - Verified published GitHub Release [`v1.0.181`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.181):
-      - `Onyx-Browser-v1.0.181-arm64-v8a-release.apk` (20 MB)
-      - `Onyx-Browser-v1.0.181-armeabi-v7a-release.apk` (16 MB)
-      - `Onyx-Browser-v1.0.181-universal-release.apk` (40 MB)
-      - `Onyx-Browser-v1.0.181-x86_64-release.apk` (21 MB)
-    - Copied latest release binaries directly to `/storage/emulated/0/` and `/root/onyx-browser/release/` for immediate installation.
-
-
-
-
-  - [x] **Full Brave Scriptlet Injection Pipeline** (commit `35f84c5`):
-     - **Root Cause Analysis**: Onyx scored 48-50% on https://adblock.turtlecute.org/ vs Brave's 62-65% because `+js()` cosmetic filter rules (scriptlet rules) were completely ignored. The `adblock-rust` engine was returning an empty `injected_script` field because no scriptlet resource bundle was loaded — `engine.use_resources()` was never called.
-     - **Fix 1 — Bundle `brave-resources.json`** (`app/src/main/assets/brave-resources.json`): Copied from `external/adblock-rust/data/brave/brave-resources.json`. Contains 200+ scriptlet implementations: `abort-on-property-read`, `json-prune`, `set-constant`, `prevent-setTimeout`, `prevent-fetch`, etc.
-     - **Fix 2 — New `loadResources()` JNI** (`rust_engine/src/lib.rs`): Parses JSON via `serde_json::from_str::<Vec<Resource>>()`, calls `engine.use_resources()`. Added `serde_json = "1.0"` to Cargo.toml.
-     - **Fix 3 — Updated `getCosmeticResources()` JNI**: Returns JSON `{"css":"...","script":"...","generichide":bool}` with `serde_json::Value::String` escaping.
-     - **Fix 4 — Updated `AdBlockEngine.kt`**: `loadBraveResources()` auto-loads resources after init; `getCosmeticCss()` parses `css`; `getScriptletJs()` extracts `script`; `isGenericHide()` extracts `generichide`.
-     - **Fix 5 — Scriptlet injection in `OnyxWebViewClient.onPageStarted()`**: Base64-encodes scriptlet JS, decodes via `atob()`, executes via `new Function()` in try/catch. Runs before page JS for proper API interception.
-     - **Expected impact**: 10-15% benchmark improvement, from 48-50% up to 60-65% on https://adblock.turtlecute.org/.
-  - [x] **Verified Remote GitHub Actions Release Build & Deployment (#36291131104, Release `v1.0.182`)**:
-    - Workflow dispatched for **Release** build on `main` branch with inputs `build_type=Release`.
-    - Native Rust NDK `libadblock_bridge.so` compiled with full scriptlet pipeline support across `arm64-v8a`, `armeabi-v7a`, `x86_64`.
-    - Release APKs assembled with ABI splits and R8 minification, packaged with official release keystore.
-    - Verified published GitHub Release [`v1.0.182`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.182):
-      - `Onyx-Browser-v1.0.182-arm64-v8a-release.apk` (19.5 MB)
-      - `Onyx-Browser-v1.0.182-armeabi-v7a-release.apk` (15.7 MB)
-      - `Onyx-Browser-v1.0.182-universal-release.apk` (39.6 MB)
-      - `Onyx-Browser-v1.0.182-x86_64-release.apk` (21.0 MB)
-    - Copied latest release binaries directly to `/storage/emulated/0/` and `/root/onyx-browser/release/` for immediate installation.
-    - Successfully merged `dev` into `main` and deleted `dev` locally and remotely.
-  - [x] **Parent/Child Tab Navigation Hierarchy & Close Tab on Back Exhaustion**:
-    - **Purpose**: When navigating from a site (e.g. `example.com`) that redirects or opens a new page in a new tab (`target="_blank"`, `window.open()`, link context menu "Open in new tab", or intent dispatch), pressing the Back button steps backward 1-by-1 through the child tab's web history. Once all history steps in the child tab are exhausted, pressing Back immediately closes the child tab and returns directly to the original parent tab from which the redirect occurred.
-    - **Architecture & Implementation Details**:
-      - `TabItem`: Added `parentId: String? = null` field to track the originating tab ID.
-      - `AppDatabase`: Updated Room database schema from version 5 to 6 with `MIGRATION_5_6` executing `ALTER TABLE tabs ADD COLUMN parentId TEXT DEFAULT NULL`.
-      - `TabDao`: Added `updateParentIdForChildren(oldParentId, newParentId)` to avoid orphaned child tabs if an intermediate parent tab is closed early (grandparent adoption).
-      - `TabManager.createNewTab()`: Added optional `parentId: String? = null` parameter.
-      - `TabManager.getTabById()`: New helper to query open tabs across normal and incognito pools.
-      - `TabManager.closeTab()`: When closing the currently active tab, automatically prioritizes switching to `parentTab` if alive, remaps surviving children to `tab.parentId`, and deletes the closed tab.
-      - `MainActivity.onCreateWindowCallback`: Accurately resolves `sourceWebView`'s tab ID or active tab ID as `parentTab`, inherits incognito status, and sets `parentId`.
-      - `MainActivity.openUrlInNewTab` & `openUrlInIncognitoTab`: Sets `parentId = parentTab?.id`.
-      - `MainActivity.handleIncomingIntent`: Passes active tab as `parentId` when opening external links.
-      - `MainActivity.setupBackNavigation`: While `canGoBack()` is true, goes back 1-by-1; when history steps are gone, checks for `parentTab` and closes child tab to return to the original tab.
-      - `MainActivity.showWebView`: Preserves loaded state and scroll position without unnecessary reloading when switching back to the parent tab.
-  - [x] **Brave Parity Interstitial Ad & Generic Cosmetic Filtering Engine**:
-    - **Root Cause Analysis (Why Onyx couldn't block interstitial ads & scored lower on turtlecute.org)**:
-      1. *Generic Cosmetic Filters Were Never Injected*: `adblock-rust` only returns site-specific CSS from `url_cosmetic_resources()`. The vast majority of cosmetic rules in EasyList (e.g. `##.adsbox`, `##.banner_ads`, `##.textads`, `##.adbox`, `##.ad-overlay`, `##[class*="interstitial"]`) are generic rules evaluated via `hidden_class_id_selectors()`. Because Onyx never invoked `hidden_class_id_selectors()`, all generic cosmetic rules were completely skipped, failing both Static and Dynamic ad tests on `turtlecute.org` and allowing in-page interstitial overlays on streaming sites.
-      2. *Main-Frame Document Requests Bypassed Network Interception*: `OnyxWebViewClient.shouldInterceptRequest()` returned `null` for all `request.isForMainFrame` requests before checking the adblocker, and `shouldOverrideUrlLoading()` did not check `AdBlockEngine.shouldBlock()`. When an interstitial ad redirected via `location.href` or a popup tab navigated to an ad domain, Onyx allowed the navigation to proceed without running it against the engine.
-    - **Implementation Details**:
-      - **Rust Native JNI Bridge (`rust_engine/src/lib.rs`)**:
-        - Exported `Java_com_onyx_browser_nativebridge_AdBlockEngine_getHiddenClassIdSelectors`: Parses `classes`, `ids`, and `exceptions` JSON, invokes `engine.hidden_class_id_selectors(&classes, &ids, &exceptions)`, and serializes matching CSS selectors to JSON.
-        - Updated `Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosmeticResources`: Now extracts and returns `resources.exceptions` along with `css`, `script`, and `generichide`.
-      - **Kotlin Native Bridge (`AdBlockEngine.kt`)**:
-        - Declared `external fun getHiddenClassIdSelectors(classesJson, idsJson, exceptionsJson): String?`.
-        - Added `LruCache` for `exceptions` and `generichide` per URL.
-        - Implemented `getHiddenSelectors(classesJson, idsJson, url)` which respects `$generichide` and passes cached exceptions into the Rust engine.
-      - **JavaScript Interface Bridge (`OnyxShieldBridge.kt`)**:
-        - Added `@JavascriptInterface fun getHiddenSelectors(classesJson, idsJson, pageUrl): String`.
-      - **Dynamic DOM Cosmetic Engine (`AdBlockDocumentStart.kt`)**:
-        - Implemented `MutationObserver` on `[class]` and `[id]` with batched DOM extraction.
-        - Synchronously queries `window.OnyxShieldBridge.getHiddenSelectors()` and appends matching hide rules (`display: none !important;`) directly to `<style id="onyx-universal-cosmetic">`.
-        - Fully passes both Static Ad and Dynamic Ad tests on `adblock.turtlecute.org` and collapses in-page interstitial modals on streaming sites.
-      - **Main-Frame Ad & Popup Navigation Interception (`OnyxWebViewClient.kt` & `MainActivity.kt`)**:
-        - In `shouldInterceptRequest`: Checks main-frame requests against `AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")` and `AdBlockDomainManager`. Returns 403 `Blocked by Onyx Shields` and triggers closure of blank popup tabs.
-        - In `handleUrlLoading`: Checks top-level navigations against the adblock engine. If an ad/redirect URL is detected, cancels navigation (`return true`) and closes popup tabs (`closeTabById`) without user disruption.
-        - Added `MainActivity.closeTabById(tabId: String)`.
-      - **Standard Ad & Tracker List Expansion (`AdBlockDomainManager.kt`)**:
-        - Added standard ad and tracker networks tested by adblock suites (`googleanalytics.com`, `adfox`, `appmetrica`, `sentry-cdn`, `events.reddit.com`, `ads.youtube.com`, `ads-api.tiktok.com`, etc.) to `standardDomains`.
-  - [x] **Verified Remote GitHub Actions Release Build & Deployment (#36294401990, Release `v1.0.184`)**:
-    - Workflow dispatched for **Release** build on `main` branch with inputs `build_type=Release`.
-    - Native Rust NDK `libadblock_bridge.so` compiled with full `hidden_class_id_selectors` cosmetic filter and Brave scriptlet pipeline support across `arm64-v8a`, `armeabi-v7a`, `x86_64`.
-    - Release APKs assembled with ABI splits and R8 minification, packaged with official release keystore.
-    - Verified published GitHub Release [`v1.0.184`](https://github.com/abidhasansojib/onyx-browser/releases/tag/v1.0.184):
-      - `Onyx-Browser-v1.0.184-arm64-v8a-release.apk` (20.5 MB)
-      - `Onyx-Browser-v1.0.184-armeabi-v7a-release.apk` (16.5 MB)
-      - `Onyx-Browser-v1.0.184-universal-release.apk` (41.5 MB)
-      - `Onyx-Browser-v1.0.184-x86_64-release.apk` (22.0 MB)
-    - Copied latest release binaries directly to `/storage/emulated/0/` and `/root/onyx-browser/release/` for immediate installation.
-  - [x] **Video Playback Restoration & Ad-Preroll Pause Defusal**:
-    - **Problem**: On streaming and video sites, clicking play caused the video to immediately pause and fail to play.
-    - **Root Causes**:
-      1. *Immediate Tab Switching on Clickjack Popup*: Clicking play triggered a clickjack `window.open()`. `MainActivity.onCreateWindowCallback` immediately switched to the new tab and displayed it, calling `(sourceWebView as? OnyxWebView)?.onPause()` on the video tab. Chromium's `AwContents` media engine immediately halted the video playback. Then `OnyxWebViewClient` blocked the ad URL and closed the tab, returning the user to the video tab where the video was left paused.
-      2. *Destructive Generic CSS in `AdBlockDocumentStart.kt`*: The universal early stylesheet contained broad wildcards `[class*="ad-container"], [id*="ad-container"]`, `.ad-unit`, and `.ads-wrapper` styled with `display: none !important; width: 0 !important; height: 0 !important; position: absolute !important; left: -9999px !important;`. Popular video players (JW Player, VideoJS, Plyr) use internal ad wrapper modules matching these selectors. Forcing them to 0x0 at -9999px broke player initialization and caused instant playback pause.
-      3. *Dynamic Cosmetic Injection Hiding Media Elements*: Unfiltered selectors returned by `OnyxShieldBridge.getHiddenSelectors()` risked collapsing player wrapper elements and video containers.
-      4. *Ad-Preroll Pause Hijack*: Video player scripts (e.g. Google IMA, VAST, JW Player) call `video.pause()` right after user clicks play to show a preroll ad. When Onyx Shields blocked the ad network request, the ad never played and `video.play()` was never called again, freezing the video.
-      5. *Media Stream Subresource Interception*: HLS (`.m3u8`, `.ts`) and DASH (`.mpd`, `.m4s`) streams fetched via CORS were misclassified as `xmlhttprequest` and subjected to generic domain blocking.
-    - **Implemented Solution**:
-      - **Deferred Popup Display (`MainActivity.kt` & `OnyxWebView.kt`)**: Flagged new popups with `isPopupPendingDisplay = true` without calling `selectTab()` or `showWebView()` immediately. The video tab remains uninterrupted in the foreground. If the popup navigates to an ad, it is closed silently without ever switching or pausing the parent tab; if legitimate, `displayPopupTab()` smoothly switches to it.
-      - **Sanitized Cosmetic Stylesheet (`AdBlockDocumentStart.kt`)**: Removed `[class*="ad-container"], [id*="ad-container"]` and broad player wrappers from the baseline CSS while retaining targeted benchmark classes (`#cts_test`, `#ctd_test`, `#ad_ctd`, `.adsbox`, `.textads`, etc.). Added explicit protected media rule `video, audio, [class*="player" i] video, .html5-main-video, .video-stream { display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; }`.
-      - **Media Filter Safeguard in Dynamic Cosmetic Injections**: Filtered out any selector containing `video|audio|player|stream|media|vjs|jwplayer|html5|playing|paused` before appending to the stylesheet.
-      - **Media Stream Exemptions**: Exempted media streams (`.m3u8`, `.ts`, `.mpd`, `.m4s`, `.mp4`, `.webm`) from fetch/XHR proxy blocking in `AdBlockDocumentStart.kt` and prioritized media extensions in `OnyxWebViewClient.detectResourceType()`.
-      - **Ad-Preroll Pause Suppression (`MediaPlaybackManager.kt`)**: Tracked user interaction timestamps on media elements (`__onyx_last_user_play` and `__onyx_last_play_time`). In `HTMLMediaElement.prototype.pause`, suppressed script-initiated pause if called within 800ms of user play when `currentTime < 1.0`, allowing the content video to play through uninterrupted.
-  - [x] **Comprehensive Web Compatibility & Non-Invasive Ad-Blocking Overhaul (Brave Parity)**:
-    - **Problem**: Certain websites were breaking, throwing errors, freezing scrolling, failing WebGL rendering, or refusing to navigate in Onyx Browser, while functioning smoothly in Brave under standard settings.
-    - **Root Cause & Technical Resolution**:
-      1. **Elimination of Invasive JS Monkey-Patching (`AdBlockDocumentStart.kt`)**:
-         - Removed global proxying of `window.fetch`, `window.XMLHttpRequest`, `window.WebSocket`, and `HTMLImageElement.prototype.src`. Throwing synthetic `TypeError('net::ERR_BLOCKED_BY_CLIENT')` broke error boundaries in React/Vue/Angular SPAs, leaving blank screens, while incomplete XHR mocks hung pending Ajax calls. All network-level adblocking is now strictly handled at the native WebView network boundary (`shouldInterceptRequest`), exactly like Brave.
-         - Removed dummy stubs for `OneTrust`, `Cookiebot`, `__tcfapi`. These incomplete mocks threw `TypeError: OneTrust.loadGroup is not a function` and prevented consent handling.
-      2. **Removal of Hardcoded Domains from Standard Mode (`AdBlockDomainManager.kt` & `OnyxWebViewClient.kt`)**:
-         - Removed `t.co` and `googletagmanager.com` from `AdBlockDomainManager.standardDomains`.
-         - In `shouldInterceptRequest` for subresources, standard mode now delegates strictly to `AdBlockEngine.shouldBlock(url, pageUrl, resourceType)`. This honors thousands of EasyList site-specific unbreak exceptions (`@@...`), ensuring scripts like `gtm.js` on sites that depend on them for checkouts/forms load normally.
-      3. **Alignment of Main-Frame Navigation Policy (`OnyxWebViewClient.kt`)**:
-         - In both `shouldInterceptRequest` and `handleUrlLoading`: In Standard mode, main-frame top-level navigations are never cancelled or 403-intercepted (`DomainBlockingType::kNone` in Brave), UNLESS it is a child popup window (`isPopupTab`). Primary browsing tab navigations (e.g. clicking Twitter/X links, redirects, affiliate checkouts) are never blocked. Aggressive mode retains full top-level ad blocking.
-      4. **Safeguarding AMP Redirection (`OnyxWebViewClient.kt`)**:
-         - Removed naive `host.startsWith("amp.")` and `path.contains("/amp/")` string stripping that broke legitimate sites and subdomains (e.g. `amp.dev`, `amp.cisco.com`, `amp.spotify.com`, audio/amplifier product paths with 404s). Retained Google AMP cache (`google.com/amp/s/...`) and query param cleanup (`?amp=1`).
-      5. **Native WebGL 1 Prioritization & Shader Compiler Fix (`WebGLCompatibilityBridge.kt`)**:
-         - Intercepted `canvas.getContext` now attempts native WebGL 1 first when requested (`webgl` or `experimental-webgl`), falling back to WebGL 2 only if WebGL 1 is unavailable.
-         - Removed synthetic derivative polyfill (`dFdx`, `dFdy`, `fwidth`) that was causing GLSL shader compilation errors (`cannot overload built-in function`) on WebGL 2 engines (Three.js, Mapbox, Shadertoy).
-      6. **Event Listener & Form Validation Safeguards (`MediaPlaybackManager.kt`)**:
-         - Restricted `blur` and `focusout` event interception to `e.target === window || e.target === document`, restoring normal blur/focusout propagation for form inputs, textareas, selects, and dropdown menus across all websites.
-         - Restricted `visibilitychange` suppression strictly to background state (`window.__onyx_in_background`), allowing foreground SPAs to register and receive lifecycle updates cleanly. Removed `pagehide` suppression.
-      7. **Sanitized Baseline Cosmetic Stylesheet (`AdBlockDocumentStart.kt`)**:
-         - In Standard mode, suppressed hardcoded hiding of `#onetrust-banner-sdk`, `#CybotCookiebotDialog`, etc. This prevents pages from freezing with unscrollable `overflow: hidden` body styles while waiting for consent, moving CMP hiding strictly to Aggressive mode.
-         - Removed invasive `audio { display: block !important; }` which forced invisible audio elements to render empty boxes on pages.
-
-  - [x] **Media Floating Action Pill Redesign, Internal Player Removal, Background Play Defused by Default & Access-Checked Video Downloads**:
-    - **Internal Player Removal**:
-      - Deleted `InternalPlayerActivity.kt` and `activity_internal_player.xml`.
-      - Removed `InternalPlayerActivity` declaration from `AndroidManifest.xml`.
-    - **Floating Video Action Pill Overhaul**:
-      - Redesigned `view_floating_video_menu.xml` to feature 3 buttons in order:
-        1. **Download Video** (`btnFloatingDownload` with `ic_download`): Inspects active `<video>` and iframe stream URLs with access verification.
-        2. **Headphone Background Playback Toggle** (`btnFloatingHeadphones` with `ic_headphones`): One-tap toggle for `preferences.isBackgroundPlayEnabled` with dynamic Google Blue active state tinting and runtime script injection.
-        3. **Picture-in-Picture** (`btnFloatingPip` with `ic_picture_in_picture`): Triggers video-only PiP mode (`requestInPageVideoPip()`).
-    - **Strict Background Play Opt-In (No Background Audio/Video by Default)**:
-      - Changed default `isBackgroundPlayEnabled` in `BrowserPreferences.kt` from `true` to `false`.
-      - Web audio and video strictly pause when the browser is backgrounded or minimized, unless the user explicitly enables background playback via the floating headphone button or Video Settings.
-    - **Access & HTTP 403 Forbidden Download Verification**:
-      - In `MainActivity.kt`, before invoking the download sheet, the video stream URL is verified via asynchronous `HEAD` and partial `GET` (`bytes=0-1`) requests on `Dispatchers.IO` forwarding session `Cookie`, `User-Agent`, and `Referer` headers.
-      - If the server returns HTTP 403 Forbidden, displays toast: `"Can't download video: Access not permitted (403 Forbidden)"`.
-      - If the server returns HTTP 401 Unauthorized or other HTTP error codes, displays an informative error toast.
-    - **Redesigned Video Settings UI & Download Behavior Integration**:
-      - Overhauled `activity_video_settings.xml` and `VideoSettingsActivity.kt`.
-      - Grouped into two Material 3 cards:
-        - **Playback Controls**: Background playback toggle with headphone icon, Picture-in-picture switch, and Floating video controls switch.
-        - **Downloads & Access**: `settingVideoDownloadRow` showing current selection subtitle and opening `DownloadManagerPickerSheet` (Ask before download, Internal downloader, External download manager), alongside a Protected Media notice card explaining DRM (Widevine) and HTTP 403 restrictions.
-
-  - [x] **Brave-Core Media Detection, Background Playback Keep-Alive & Video-Only PiP Overhaul**:
-    - **In-Depth Inspection of Brave-Core Repository (`/root/brave-core`)**:
-      - Researched Brave's production media implementations across Android and iOS:
-        - `ios/browser/web/media/resources/media_backgrounding.ts` & `MediaBackgroundingScript.js` (`userHitPause`, `visibilityState` getter spoofing, and automatic unpause).
-        - `ios/brave-ios/.../PlaylistScript.js` (Property descriptor hooks on `HTMLMediaElement.prototype.src` and `setAttribute` for instant detection).
-        - `browser/android/youtube_script_injector/youtube_script_injector_tab_helper.cc` (`kYoutubeBackgroundPlayback`, `kYoutubePictureInPictureSupport`, `kYoutubeFullscreen`, `kYoutubeFullscreenVideoFitWorkaround`).
-        - `android/.../BraveYouTubePictureInPictureController.java` & `BraveFullscreenVideoPictureInPictureController.java` (Session lifecycle, media suspension vs background keep-alive).
-    - **Brave-Parity Media & Video Detection Engine (`MediaPlaybackManager.mediaMonitorScript`)**:
-      - Overhauled `mediaMonitorScript` to inject unconditionally at `document_start` across all frames:
-        - Hooked `HTMLMediaElement.prototype.src` getter/setter descriptors and `HTMLMediaElement.prototype.setAttribute('src', ...)` to detect video streams immediately upon assignment.
-        - Deployed a debounced `MutationObserver` (`requestAnimationFrame`) scanning for `<video>`, `<audio>`, and `<source>` elements across both light DOM and Shadow DOM roots.
-        - Directly bound lifecycle event listeners (`play`, `playing`, `pause`, `timeupdate`, `volumechange`, `loadedmetadata`, `ended`) on media elements, preventing website scripts from hiding playback states via `event.stopPropagation()`.
-        - Removed over-restrictive media disqualifiers (`currentTime < 0.5`, `duration < 10`, etc.) that prematurely discarded valid playing videos on mobile sites (YouTube Mobile, Twitter/X, Reddit).
-    - **Brave-Parity Background Playback Engine (`MediaPlaybackManager.backgroundPlaybackScript`)**:
-      - Modeled on Brave's `kYoutubeBackgroundPlayback`: Monkey-patched `document.addEventListener` to intercept and filter out `visibilitychange` and `webkitvisibilitychange` registrations from website scripts, neutralizing pause-on-hide event handlers at registration time.
-      - Modeled on Brave's `MediaBackgroundingScript`: Implemented `userHitPause` state machine on `HTMLMediaElement.prototype`. When an auto-pause occurs while `!element.userHitPause` and `!element.ended`, automatically triggers playback resumption.
-      - Spoofed `Document.prototype.visibilityState` to always return `"visible"` and `hidden = false`.
-      - Patched YouTube `ytcfg` serialized experiment flags (`html5_picture_in_picture_blocking_*=false`) with dynamic script load observation.
-      - Overrode `IntersectionObserver` so off-screen media elements always report `isIntersecting: true`.
-    - **True Video-Only Picture-in-Picture (PiP) Isolation & Geometry**:
-      - Fixed `MainActivity.enterPipMode()`: Replaced whole-WebView `sourceRectHint` with the exact aspect-ratio-corrected centered video rectangle (`Rect(left, top, right, bottom)`), instructing the Android OS Window Manager to crop strictly to the video content without capturing browser toolbars or webpage text.
-      - Enhanced `isolateAndEnterPip`: Dynamically extracted video dimensions from `isolateVideoForPipScript` to configure precise aspect ratios in `PictureInPictureParams`.
-      - Injected Brave's `kYoutubeFullscreenVideoFitWorkaround` style (`#player-container-id:fullscreen video.html5-main-video { width: 100% !important; height: 100dvh !important; object-fit: contain !important; }`).
-    - **Streaming Player API Synchronization (`playAllMediaScript`, `pauseAllMediaScript`, `getSeekMediaScript`)**:
-      - Added direct integration with the YouTube Player JavaScript API (`#movie_player.playVideo()`, `pauseVideo()`, `seekTo()`), synchronizing notification controls, PiP buttons, and headset commands with YouTube's internal player state machine.
-      - Updated `MainActivity.onPause()` and `MainActivity.onResume()` to broadcast background/foreground state changes to all active WebViews across tabs via `tabManager.getAllWebViews()`.
-    - **Floating Action Pill Robustness**:
-      - Elevated `view_floating_video_menu.xml` to `app:cardElevation="24dp"` and set `view.translationZ = 100f` with `bringToFront()`, ensuring the floating controls are never obscured by hardware-accelerated WebViews or swipe refresh containers.
-
-  - [x] **Adblock Resilience, Video Presence, MediaSession Sync & PiP Viewport Refinement**:
-    - **Content-Type-Aware Blocked Response Synthesis (`OnyxWebViewClient`)**:
-      - Replaced raw HTTP 403 error responses with safe 200 OK type-aware stubs (`createBlockedResponse`):
-        - `image`: Returns a 1×1 transparent Base64 PNG data stream with CORS headers, preventing broken image placeholders and distorted webpage layouts.
-        - `script`: Returns an empty JavaScript stream with CORS, preventing script fetch rejections from halting page execution.
-        - `stylesheet`: Returns an empty CSS stream, preventing missing-style layout flashes.
-        - `sub_frame`: Returns an empty HTML comment (`<!-- blocked subframe -->`), cleanly suppressing interstitial ad iframes without displaying browser error pages.
-    - **Video Presence & Floating Menu State Sync (`MediaPlaybackBridge` & `FloatingVideoMenuManager`)**:
-      - Added `isVideoPresent` and `isVideoAvailable` flags to decouple menu visibility from active playback, ensuring the floating pill appears whenever video elements exist on the page and persists across pause and buffering states.
-      - Added `onVideoPresenceChanged` JavaScript bridge call in `mediaMonitorScript`.
-      - Connected `updateFloatingVideoMenuVisibility()` across `showHomeScreen()`, `showWebView()`, `onResume()`, `enterSearchMode()`, and PiP state transitions.
-    - **Web Standards MediaSession Action Synchronization (`MediaPlaybackManager`)**:
-      - Intercepted `navigator.mediaSession.setActionHandler` to capture streaming websites' custom actions (`play`, `pause`, `seekto`, `seekforward`, `seekbackward`, `nexttrack`, `previoustrack`).
-      - Directed Android notification, lockscreen, and PiP transport commands to dispatch through the site's registered MediaSession handlers first, falling back to `#movie_player` and DOM media elements.
-    - **Shadow DOM PiP Video Isolation & Viewport Centering**:
-      - Enhanced `isolateVideoForPipScript` to traverse composed element paths across ShadowRoot boundaries, stripping CSS `transform`, `contain`, `filter`, and `clip-path` constraints from custom elements and hosts.
-      - Zeroed out `contentContainer` navigation bar padding during PiP transitions and restored it upon exit, ensuring centered, unclipped video playback.
-    - **High-Performance In-Memory Whitelist Cache (`BrowserPreferences`)**:
-      - Optimized `cleanDomain` with zero-allocation index slicing and added `cachedWhitelist` in-memory HashSet cache to accelerate adblock evaluations during heavy subresource request bursts.
-    - **Open-Source GPL-3.0 Licensing (`LICENSE`)**:
-      - Added the official GNU General Public License v3.0 (GPL-3.0) file in the root repository to formally license the project and activate GitHub license identification.
-    - **GitHub Issue Forms & Templates (`.github/ISSUE_TEMPLATE`)**:
-      - Modeled on `gki_kernel_builder`: migrated to modern YAML issue forms (`bug_report.yml` and `feature_request.yml`).
-      - Bug Report form includes Device Model, Android OS & ROM Version, Onyx Browser Version, Architecture dropdown (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`), Affected URL, Bug Description, Reproduction steps, Expected Behavior, Screenshots & Screen Recordings box, Crash logs & shell console output box, and confirmation checklist.
-      - Feature Request form includes Feature Description, Problem/Motivation, Proposed UI & Solution details, Screenshots/Mockups box, and checklist.
-      - Enforced strict template chooser via `config.yml` (`blank_issues_enabled: false`).
-    - **README Credits & Acknowledgements (`README.md`)**:
-      - Added dedicated Credits section honoring Brave Software (`adblock-rust`, filter lists, and privacy architecture) and Quetta Browser (modern UI/UX theme and box-type layout inspiration).
-
-
-
-
-
+- [x] **v1.0.188 — Core Architecture & Stability Milestone**:
+  - Compiled native Rust NDK `adblock-rust` engine (`libadblock_bridge.so`) across all 4 ABIs.
+  - 54 Brave content filter lists with binary FlatBuffers caching.
+  - Type-aware 200 OK adblock response synthesis (1×1 transparent PNG, empty JS/CSS/comment stubs).
+  - Brave-parity background playback (`userHitPause`, `visibilityState` spoofing, event filtering).
+  - True video-only Picture-in-Picture with Shadow DOM penetration and letterbox centering.
+  - Floating action pill with stream download, background play headphones toggle, and PiP controls.
+  - Bidirectional MediaSession and YouTube `#movie_player` API synchronization.
+  - Passkeys & WebAuthn support via AndroidX Credential Manager.
+  - CameraX + ML Kit QR code scanner.
+  - Multi-engine reverse image search (Google Lens, TinEye, Yandex, Bing).
+  - Pure Google Dark (`#202124`), Light, and AMOLED Black theme system.
+  - SQLCipher AES-256 encrypted database for tabs, history, and bookmarks.
+  - Streamlined `README.md` with official branding (`art/logo.png`), comprehensive `FEATURES.md`, and official GNU GPL-3.0 `LICENSE`.
+  - GitHub YAML issue forms (`bug_report.yml` and `feature_request.yml`) with strict template chooser policy.
+- [ ] **Upcoming Milestones**:
+  - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
+  - Enhanced desktop user-agent presets with custom site profile rules.
+  - P2P sync for encrypted bookmarks and history across Onyx instances.
