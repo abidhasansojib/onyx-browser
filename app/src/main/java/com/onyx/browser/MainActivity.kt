@@ -95,6 +95,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -2153,7 +2154,7 @@ class MainActivity : AppCompatActivity() {
                                 blobUrl = url,
                                 contentDisposition = "",
                                 mimeType = "video/mp4",
-                                pageUrl = pageUrl
+                                referer = pageUrl
                             )
                             return
                         }
