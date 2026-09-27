@@ -1,144 +1,91 @@
-# 🌐 Onyx Browser (`com.onyx.browser`)
+<div align="center">
+
+<img src="art/logo.png" alt="Onyx Browser Logo" width="128" height="128" style="border-radius: 28px;" />
+
+# Onyx Browser
+
+### Fast, Private, and Lightweight Android Web Browser with Native Rust Adblocking
 
 [![Build & Release](https://github.com/abidhasansojib/onyx-browser/actions/workflows/build.yml/badge.svg)](https://github.com/abidhasansojib/onyx-browser/actions/workflows/build.yml)
-[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-blue.svg)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.0-purple.svg)](https://kotlinlang.org)
-[![Rust](https://img.shields.io/badge/Rust-NDK%20Native%20Engine-orange.svg)](https://www.rust-lang.org)
-[![License](https://img.shields.io/badge/License-GPL%20v3-green.svg)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/abidhasansojib/onyx-browser?color=blue&label=Release)](https://github.com/abidhasansojib/onyx-browser/releases/latest)
+[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-3DDC84.svg?logo=android&logoColor=white)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF.svg?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Rust NDK](https://img.shields.io/badge/Rust-NDK%20Engine-DEA584.svg?logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
 
-**Onyx Browser** is a production-grade, ultra-fast, privacy-first Android web browser engineered from scratch for modern mobile devices. Combining native Kotlin with a compiled **Rust NDK ad-blocking engine** (Brave's `adblock-rust`), Onyx delivers instant cold starts, uncompromised tracking protection, encrypted on-disk storage, and a refined Google/Brave-inspired Material 3 user experience.
+<br />
 
----
+[**📥 Download Latest APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**📖 Comprehensive Feature Guide**](FEATURES.md) • [**🐛 Report Bug**](https://github.com/abidhasansojib/onyx-browser/issues)
 
-## ✨ Key Features
-
-### 🛡️ Dual-Tier Shields & Ad-Blocking Engine
-- **Compiled Rust NDK Subsystem**: High-performance JNI bridge (`libadblock_bridge.so`) compiling `adblock-rust` for 4 target ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`).
-- **95%–100% Score on d3ward Adblock Test**:
-  - **Standard Tier**: Blocks banner ads, analytics, tracking beacons, and ad servers.
-  - **Aggressive Tier**: Neutralizes OEM telemetry (Xiaomi, Huawei, Samsung, Vivo, Oppo), consent management banners (OneTrust, Cookiebot, TrustArc), affiliate networks, and behavioral heatmaps.
-- **Auto-Updating Filter Lists**: Daily background synchronization supporting 16+ core community blocklists (EasyList, EasyPrivacy, uBlock Filters, AdGuard Base, Fanboy Annoyance) plus Brave upstream lists.
-- **Cosmetic Filtering & Anti-Circumvention**: Injects DOM-start CSS rules and JavaScript stubs to collapse empty ad placeholders and bypass anti-adblock detection.
-
-### 🔑 Passkeys & WebAuthn Integration
-- Native support for passwordless authentication via the **AndroidX Credential Manager** API.
-- Injects standard W3C `navigator.credentials.create()` and `navigator.credentials.get()` bridges to authenticate with Google Password Manager, Bitwarden, 1Password, or YubiKeys.
-- **Deterministic Keystore Signing**: Hardened CI pipeline ensures consistent release certificate fingerprints across builds, preventing passkey signature mismatch errors.
-
-### 🖼️ Modern Context Menu & Image Tools
-- **Compact Card Design**: Brave-inspired header card featuring live website favicons, domain title, clean URL, and inline quick-action buttons (**Share**, **Copy**, and **Edit**).
-- **Edit in Address Bar**: Tapping the Edit button automatically populates and focuses the search bar with soft keyboard opened.
-- **Image Preview**: 170dp thumbnail card with tap-to-expand badge, plus a full-screen **ImagePreviewDialog** for high-resolution inspection, sharing, and saving.
-- **Reverse Image Search**: Instant multi-engine visual search supporting **Google Lens**, **TinEye**, **Yandex Images**, and **Bing Visual Search**.
-
-### 🔍 Smart Search Bar & Scanner
-- **Dynamic QR Code Scanner**: Hidden during normal browsing to maintain a clean address bar; automatically appears beside voice search when tapping the search bar to enter text. Powered by **CameraX** and **Google ML Kit Barcode Scanning**.
-- **Search Engine Switcher**: One-tap popup menu to switch between Google, Brave Search, DuckDuckGo, Bing, Yahoo, and Startpage.
-- **Debounced Suggestions**: Real-time multi-engine search suggestions with an encrypted offline query cache.
-
-### 📱 Reorderable Homepage & Modern Navigation
-- **Customizable Top Sites Grid**: Drag-and-drop shortcut reordering using Android `ItemTouchHelper` with automatic persistent JSON storage.
-- **Quick Action Bar**: Flat circular action buttons for Bookmarks, History, Downloads, and Shortcuts Manager with drag-and-drop ordering.
-- **Material 3 Tab Switcher**: Segmented toggle between **Normal** and **Incognito** tabs with dual-column preview cards and swipe-to-dismiss.
-- **Safe Intent Routing**: Manifest-configured `singleTask` launch mode correctly receives and handles links opened from WhatsApp, Telegram, Gmail, and external apps.
-
-### 🔒 Privacy & Local Encryption
-- **SQLCipher Encrypted Database**: All browsing history, saved bookmarks, open tabs, and download logs are encrypted with AES-256 (`net.zetetic:android-database-sqlcipher`).
-- **Cookie Policy Engine**: 3 modes — Allow All, Block 3rd-Party Cookies, or Block All Cookies.
-- **Anti-Fingerprinting**: Spoofs generic `en-US` language headers and overrides `navigator.languages` to prevent device tracking.
-- **Smart Download Routing**: Forward session cookies and user-agent headers directly to internal or external download managers (**1DM**, **1DM+**, **ADM**, **FDM**).
+</div>
 
 ---
 
-## 🏗️ Architecture & Directory Layout
+## 🌟 Overview
 
-```text
-onyx-browser/
-├── .github/workflows/
-│   ├── build.yml                 # Autonomous CI: Rust NDK compile, Lucide sync, APK packaging
-│   └── sync_upstream.yml         # Daily Brave filter list auto-sync
-├── app/
-│   ├── src/main/java/com/onyx/browser/
-│   │   ├── MainActivity.kt       # Primary browser controller & toolbar coordinator
-│   │   ├── OnyxApplication.kt    # Application entry point & encrypted DB initialization
-│   │   │
-│   │   ├── data/                 # Data Layer
-│   │   │   ├── filter/           # FilterListManager (dynamic rule compiler & downloader)
-│   │   │   ├── local/            # Room DAOs, entities & SQLCipher SecureDatabaseKeyProvider
-│   │   │   ├── model/            # Data models (ShortcutItem, TabItem, HistoryItem, BookmarkItem)
-│   │   │   ├── preferences/      # BrowserPreferences (StateFlow reactive settings)
-│   │   │   └── search/           # SearchSuggestionRepository
-│   │   │
-│   │   ├── nativebridge/         # AdBlockEngine.kt (JNI interface to Rust libadblock_bridge)
-│   │   │
-│   │   ├── ui/                   # Presentation Layer
-│   │   │   ├── bookmarks/        # Bookmarks manager activity & list adapter
-│   │   │   ├── browser/          # TabManager (tab session lifecycle)
-│   │   │   ├── downloads/        # DownloadsActivity, DownloadPromptBottomSheet, 1DM handoff
-│   │   │   ├── history/          # HistoryActivity & HistoryAdapter
-│   │   │   ├── home/             # Homepage shortcuts, quick actions & drag-to-reorder
-│   │   │   ├── menu/             # ContextMenuBottomSheet, ImagePreviewDialog, ImageSearchPicker
-│   │   │   ├── qr/               # QrScannerActivity (CameraX + ML Kit)
-│   │   │   ├── search/           # Search suggestions & engine picker
-│   │   │   ├── settings/         # SettingsActivity, ShieldsActivity, ContentFiltersActivity
-│   │   │   └── tabs/             # TabSwitcherBottomSheet (Normal / Incognito toggle)
-│   │   │
-│   │   └── web/                  # Web Subsystem
-│   │       ├── OnyxWebView.kt            # Hardened WebView with security policies
-│   │       ├── OnyxWebViewClient.kt      # Network interception, AMP redirect & tracker stripper
-│   │       ├── OnyxWebChromeClient.kt    # Fullscreen video, file chooser, progress tracking
-│   │       ├── AdBlockDocumentStart.kt   # Early script injection (anti-fingerprint & CMP stubs)
-│   │       ├── AdBlockDomainManager.kt   # 2-Tier domain blocklist (Standard vs Aggressive)
-│   │       └── PasskeyWebAuthnBridge.kt  # AndroidX Credential Manager bridge
-│   │
-│   ├── src/main/res/             # Google Theme styles (Light/Dark/System), layouts, vectors
-│   └── build.gradle.kts          # Dependencies, NDK configuration & deterministic release signing
-│
-├── keystore/
-│   └── release.keystore          # Deterministic release signing key for stable Passkey signatures
-├── rust_engine/                  # Native Rust crate (adblock-rust JNI bridge)
-│   ├── Cargo.toml
-│   └── src/lib.rs
-└── scripts/                      # Build automation scripts (fetch_icons.sh, update_filter_lists.sh)
-```
+**Onyx Browser** is a modern, high-performance Android web browser engineered from scratch for security, extreme responsiveness, and uncompromising privacy. Built entirely with native Kotlin XML ViewBinding and a compiled **Rust NDK ad-blocking engine** (`adblock-rust`), Onyx eliminates bloated web cruft, intrusive trackers, and interstitial ads while consuming minimal battery and RAM.
+
+> [!TIP]
+> Looking for an in-depth technical breakdown of all capabilities, adblock benchmarks, and architecture? Check out the [**Comprehensive Features Guide (FEATURES.md)**](FEATURES.md).
 
 ---
 
-## 🛠️ Tech Stack & Dependencies
+## ✨ Key Highlights
 
-| Component | Technology / Library | Purpose |
-|---|---|---|
-| **Language** | Kotlin 2.0 / Java 17 | Core application logic |
-| **Native Engine** | Rust 2021 / `cargo-ndk` | High-speed adblock filtering via JNI (`libadblock_bridge.so`) |
-| **WebView Engine** | AndroidX WebKit 1.12.1 | Modern hardware-accelerated web rendering |
-| **Encrypted Database**| SQLCipher 4.5.4 + Room 2.6.1 | 256-bit AES encrypted local data storage |
-| **Barcode / QR** | Google ML Kit Barcode 17.3.0 + CameraX 1.3.4 | Ultra-fast on-device QR code scanning |
-| **Credentials** | AndroidX Credential Manager 1.3.0 | WebAuthn / FIDO2 Passkey authentication |
-| **Asynchronous I/O** | Kotlin Coroutines & StateFlow | Non-blocking background network and DB operations |
-| **Design System** | Google Material Components 1.12.0 | Material 3 themes, bottom sheets, dialogs, and toggles |
+| Feature | Description |
+| :--- | :--- |
+| **🛡️ Native Rust Shields** | Compiled `adblock-rust` NDK bridge with 54 Brave content filter lists, type-aware 200 OK stubs, and cosmetic filtering. |
+| **🎬 Streaming Media Suite** | True video-only Picture-in-Picture (PiP), background playback keep-alive (`userHitPause`), and MediaSession lockscreen sync. |
+| **🎛️ Floating Action Pill** | One-tap floating menu for stream downloads, headphone background play toggle, and PiP controls. |
+| **🔑 Passkeys & WebAuthn** | Passwordless biometric sign-in via AndroidX Credential Manager, Google Password Manager, and Bitwarden. |
+| **📥 Smart Downloader** | Integrated stream inspector forwarding session cookies and headers directly to **1DM**, **ADM**, or **FDM**. |
+| **🔍 Smart Omnibox** | Full-page search mode, real-time multi-engine suggestions, keyword search shortcuts, and CameraX QR scanner. |
+| **🎨 Google Material 3 UI** | Pure Google Dark (`#202124`), Google Light, and AMOLED Black themes designed with responsive box-type containers. |
+| **🔒 Encrypted Storage** | Tabs, browsing history, and bookmarks secured on-device via **SQLCipher AES-256** encryption. |
 
 ---
 
-## 🚀 Building & Releasing
+## 📥 Download & Installation
 
-### Automated CI/CD (Recommended)
-Onyx Browser uses an automated GitHub Actions pipeline ([`.github/workflows/build.yml`](.github/workflows/build.yml)) to compile native Rust libraries for all Android architectures and assemble both **Release** and **Debug** APKs:
+Download the latest verified release APK directly from [**GitHub Releases**](https://github.com/abidhasansojib/onyx-browser/releases/latest):
 
-1. Push or merge changes to the `main` branch.
-2. Go to **Actions** ➔ **Build Onyx Browser**.
-3. Download the signed **`Onyx-Browser-APK`** bundle directly from the workflow artifacts.
+| Architecture | Recommended Device | Package |
+| :--- | :--- | :--- |
+| **`arm64-v8a`** *(Recommended)* | Modern phones & tablets (2017+) | `Onyx-Browser-v*-arm64-v8a-release.apk` |
+| **`armeabi-v7a`** | Legacy 32-bit Android devices | `Onyx-Browser-v*-armeabi-v7a-release.apk` |
+| **`x86_64`** | Android emulators & Chromebooks | `Onyx-Browser-v*-x86_64-release.apk` |
+| **`universal`** | All architectures bundled together | `Onyx-Browser-v*-universal-release.apk` |
 
-### Remote Keystore Configuration (Optional)
-By default, the repository contains a persistent release keystore ([`keystore/release.keystore`](keystore/release.keystore)) to guarantee consistent signing fingerprints. To sign with your own private production credentials, configure the following secrets in **GitHub Repository Settings ➔ Secrets and variables ➔ Actions**:
+---
 
-- `KEYSTORE_BASE64`: Base64 string of your private `.keystore` (`base64 -w 0 your.keystore`).
-- `KEYSTORE_PASSWORD`: Keystore store password.
-- `KEY_ALIAS`: Key alias name.
-- `KEY_PASSWORD`: Key password.
+## 🛠️ Technology Stack
+
+- **Application Language**: Kotlin 2.x
+- **UI Framework**: Classic Android XML Views with ViewBinding (Strictly zero Jetpack Compose for instantaneous cold starts and smooth 120Hz scrolling)
+- **Ad-Blocking Engine**: Brave `adblock-rust` cross-compiled with `cargo-ndk`
+- **Database**: Room Database with SQLCipher 256-bit encryption
+- **Authentication**: AndroidX Credential Manager (`androidx.credentials`)
+- **QR Code Scanning**: CameraX + Google ML Kit Barcode Scanning
+- **Developer Tools**: Bundled offline Eruda JavaScript mobile inspector
+
+---
+
+## 🏗️ Building from Source
+
+All official binaries are built via the autonomous GitHub Actions CI/CD workflow:
+
+1. Fork or clone this repository:
+   ```bash
+   git clone --recursive https://github.com/abidhasansojib/onyx-browser.git
+   ```
+2. Build via GitHub Actions:
+   - Navigate to the **Actions** tab in your GitHub repository.
+   - Select **Build Onyx Browser** and click **Run workflow**.
+   - Choose your build type (`Release`, `Debug`, or `Both`).
+   - The compiled and signed APKs will be published under Releases and Workflow Artifacts.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [GNU General Public License v3.0](LICENSE).
-Rust ad-blocking components incorporate code from Brave Software licensed under MPL-2.0.
+Onyx Browser is open-source software licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
