@@ -134,15 +134,9 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkUrl
             Err(_) => "other".to_string(),
         };
 
-        let effective_source = if source_str.is_empty() {
-            &url_str
-        } else {
-            &source_str
-        };
-
         if let Ok(lock) = ENGINE.read() {
             if let Some(ref engine) = *lock {
-                if let Ok(request) = Request::new(&url_str, effective_source, &type_str, "GET") {
+                if let Ok(request) = Request::new(&url_str, &source_str, &type_str, "GET") {
                     let blocker_result = engine.check_network_request(&request);
                     if blocker_result.should_block() {
                         return JNI_TRUE;

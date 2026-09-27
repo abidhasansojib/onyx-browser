@@ -287,9 +287,10 @@ class OnyxWebViewClient(
                         // In Aggressive mode (DomainBlockingType::kAggressive), main-frame ad domains can also be blocked.
                         if (isAggressive || isPopupTab) {
                             val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
+                            val blockedByStandard = isPopupTab && AdBlockDomainManager.isBlockedInStandard(reqDomain)
                             val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
 
-                            if (blockedByEngine || blockedByAggressive) {
+                            if (blockedByEngine || blockedByStandard || blockedByAggressive) {
                                 preferences.incrementBlockedRequests()
                                 if (isPopupTab && onyxWv != null) {
                                     onyxWv.post {
@@ -446,13 +447,14 @@ class OnyxWebViewClient(
                     return null // Allow media playback!
                 }
 
-                // Standard mode: use EasyList engine (adblock-rust) with full unbreak exceptions
+                // Dual-layer protection: check native Rust adblock engine and curated standard domains
                 val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
+                val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(reqDomain)
 
                 // Aggressive mode: also block OEM telemetry, consent CMPs, affiliate networks, product analytics, etc.
                 val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
 
-                if (blockedByEngine || blockedByAggressive) {
+                if (blockedByEngine || blockedByStandard || blockedByAggressive) {
                     preferences.incrementBlockedRequests()
                     return createBlockedResponse(resourceType)
                 }
@@ -533,9 +535,10 @@ class OnyxWebViewClient(
 
                     if (isAggressive || isPopupTab) {
                         val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
+                        val blockedByStandard = isPopupTab && AdBlockDomainManager.isBlockedInStandard(reqDomain)
                         val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
 
-                        if (blockedByEngine || blockedByAggressive) {
+                        if (blockedByEngine || blockedByStandard || blockedByAggressive) {
                             preferences.incrementBlockedRequests()
                             // If this WebView is a newly opened popup tab, close it!
                             if (isPopupTab && onyxWv != null) {

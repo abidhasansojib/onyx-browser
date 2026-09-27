@@ -72,6 +72,51 @@ try:
 except Exception as e:
     print('Notice: Peter Lowe list fetch skipped:', e)
 
+# Add explicit ABP network rules for standard ad network domains
+standard_domains = [
+    "doubleclick.net", "googlesyndication.com",
+    "googletagservices.com", "googleadservices.com", "google-analytics.com",
+    "analytics.google.com", "stats.g.doubleclick.net", "pagead2.googlesyndication.com",
+    "adservice.google.com", "tr.snapchat.com", "analytics.twitter.com", "ads.twitter.com",
+    "ads-twitter.com", "scorecardresearch.com", "quantserve.com", "quantcast.com",
+    "adsrvr.org", "casalemedia.com", "openx.net", "pubmatic.com", "adnxs.com",
+    "rubiconproject.com", "criteo.com", "criteo.net", "amazon-adsystem.com",
+    "ads.linkedin.com", "bat.bing.com", "adroll.com", "sentry.io", "bugsnag.com",
+    "newrelic.com", "nr-data.net", "hotjar.com", "clarity.ms", "mixpanel.com",
+    "amplitude.com", "appsflyer.com", "branch.io", "segment.com", "segment.io",
+    "mc.yandex.ru", "statcounter.com", "outbrain.com", "taboola.com",
+    "bluekai.com", "demdex.net", "optimizely.com", "crazyegg.com", "mouseflow.com",
+    "fullstory.com", "chartboost.com", "applovin.com", "vungle.com", "liftoff.io",
+    "inmobi.com", "ironsource.mobi", "unityads.unity3d.com", "adcolony.com",
+    "mgid.com", "propellerads.com", "propellerclick.com", "onclickads.net",
+    "media.net", "adservetx.media.net", "spotxchange.com", "indexexchange.com",
+    "htlbid.com", "fls-na.amazon.com", "advertising.com", "bidswitch.net",
+    "moatads.com", "smartadserver.com", "adsafeprotected.com", "doubleverify.com",
+    "connatix.com", "innovid.com", "tremorhub.com", "crwdcntrl.net", "fwmrm.net",
+    "jwpltx.com", "rlcdn.com", "impactradius-event.com", "shareasale.com",
+    "awin1.com", "partnerstack.com", "refersion.com", "fingerprintjs.com", "fpjs.io",
+    "adlog.vivo.com", "ads-api.vivo.com", "click.oneplus.cn", "open.oneplus.net",
+    "a.lenovo.com", "ad.mail.ru", "top-fwz1.mail.ru", "ads.vk.com", "pangleglobal.com",
+    "luckyorange.com", "luckyorange.net", "freshmarketer.com", "heapanalytics.com",
+    "stats.wp.com", "driftt.com", "intercom.io", "wzrkt.com", "zenaps.com",
+    "statdynamic.com", "datadoghq.com", "omtrdc.net", "stickyadstv.com", "3lift.com",
+    "sonobi.com", "gumgum.com", "teads.tv", "kargo.com", "metrics.adobe.com",
+    "lr-ingest.com", "googleanalytics.com", "adfox.yandex.ru", "appmetrica.yandex.ru",
+    "adfstat.yandex.ru", "metrika.yandex.ru", "offerwall.yandex.net", "adtech.yahooinc.com",
+    "gemini.yahoo.com", "partnerads.ysm.yahoo.com", "sentry-cdn.com", "getsentry.com",
+    "adtago.s3.amazonaws.com", "analyticsengine.s3.amazonaws.com", "analytics.s3.amazonaws.com",
+    "advice-ads.s3.amazonaws.com", "alb.reddit.com", "events.reddit.com", "events.redditmedia.com",
+    "ads.youtube.com", "ads-api.tiktok.com", "ads.tiktok.com", "ads-sg.tiktok.com",
+    "analytics-sg.tiktok.com", "business-api.tiktok.com", "log.byteoversea.com",
+    "trk.pinterest.com", "ads.pinterest.com", "log.pinterest.com", "an.facebook.com",
+    "pixel.facebook.com", "pointdrive.linkedin.com"
+]
+for d in standard_domains:
+    rule = f"||{d}^"
+    if rule not in seen:
+        seen.add(rule)
+        rules.append(rule)
+
 with open(output_path, 'w', encoding='utf-8') as f:
     f.write(header + '\n')
     for r in rules:
