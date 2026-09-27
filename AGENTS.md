@@ -1834,4 +1834,7 @@ onyx-browser/
       - Zeroed out `contentContainer` navigation bar padding during PiP transitions and restored it upon exit, ensuring centered, unclipped video playback.
     - **High-Performance In-Memory Whitelist Cache (`BrowserPreferences`)**:
       - Optimized `cleanDomain` with zero-allocation index slicing and added `cachedWhitelist` in-memory HashSet cache to accelerate adblock evaluations during heavy subresource request bursts.
+    - **Open-Source GPL-3.0 Licensing (`LICENSE`)**:
+      - Added the official GNU General Public License v3.0 (GPL-3.0) file in the root repository to formally license the project and activate GitHub license identification.
+
 
