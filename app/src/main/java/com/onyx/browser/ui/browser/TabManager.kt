@@ -327,13 +327,23 @@ class TabManager(
 
     fun getWebView(tabId: String): OnyxWebView? = webViewPool[tabId]
 
-    fun createNewTab(url: String = "", isIncognito: Boolean = false): TabItem {
+    fun getTabById(tabId: String): TabItem? {
+        return _normalTabs.value.firstOrNull { it.id == tabId }
+            ?: _incognitoTabs.value.firstOrNull { it.id == tabId }
+    }
+
+    fun createNewTab(
+        url: String = "",
+        isIncognito: Boolean = false,
+        parentId: String? = null
+    ): TabItem {
         val newTab = TabItem(
             id = UUID.randomUUID().toString(),
             url = url,
             title = if (url.isBlank()) "New Tab" else url,
             isIncognito = isIncognito,
-            position = if (isIncognito) _incognitoTabs.value.size else _normalTabs.value.size
+            position = if (isIncognito) _incognitoTabs.value.size else _normalTabs.value.size,
+            parentId = parentId
         )
 
         if (isIncognito) {
@@ -455,20 +465,35 @@ class TabManager(
             try { deleteTabState(tab.id) } catch (_: Exception) {}
         }
 
+        // If this tab was opened from a parent tab, find if the parent tab is still alive
+        val parentTab = tab.parentId?.let { pId ->
+            _normalTabs.value.firstOrNull { it.id == pId }
+                ?: _incognitoTabs.value.firstOrNull { it.id == pId }
+        }
+
+        val orphanParentId = tab.parentId
+
         if (tab.isIncognito) {
-            val updated = _incognitoTabs.value.filter { it.id != tab.id }
+            val updated = _incognitoTabs.value
+                .filter { it.id != tab.id }
+                .map { if (it.parentId == tab.id) it.copy(parentId = orphanParentId) else it }
             _incognitoTabs.value = updated
             if (_activeTab.value?.id == tab.id) {
-                _activeTab.value = updated.lastOrNull() ?: _normalTabs.value.lastOrNull()
+                _activeTab.value = parentTab ?: updated.lastOrNull() ?: _normalTabs.value.lastOrNull()
             }
         } else {
-            val updated = _normalTabs.value.filter { it.id != tab.id }
+            val updated = _normalTabs.value
+                .filter { it.id != tab.id }
+                .map { if (it.parentId == tab.id) it.copy(parentId = orphanParentId) else it }
             _normalTabs.value = updated
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().deleteTabById(tab.id)
+                database.tabDao().updateParentIdForChildren(tab.id, orphanParentId)
             }
             if (_activeTab.value?.id == tab.id) {
-                if (updated.isNotEmpty()) {
+                if (parentTab != null) {
+                    _activeTab.value = parentTab
+                } else if (updated.isNotEmpty()) {
                     _activeTab.value = updated.last()
                 } else {
                     // Always maintain at least one tab

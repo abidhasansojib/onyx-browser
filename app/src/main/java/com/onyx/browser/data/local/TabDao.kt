@@ -37,4 +37,7 @@ interface TabDao {
 
     @Query("SELECT COUNT(*) FROM tabs WHERE isIncognito = 0")
     suspend fun getNormalTabsCount(): Int
+
+    @Query("UPDATE tabs SET parentId = :newParentId WHERE parentId = :oldParentId")
+    suspend fun updateParentIdForChildren(oldParentId: String, newParentId: String?)
 }

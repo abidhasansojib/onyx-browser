@@ -807,7 +807,9 @@ class MainActivity : AppCompatActivity() {
 
         val targetUrl = forceUrl ?: tab.url
         if (targetUrl.isNotBlank()) {
-            if (forceUrl != null || reloadIfChanged || webView.url.isNullOrBlank() || webView.url == "about:blank") {
+            val isCurrentLoaded = !webView.url.isNullOrBlank() && webView.url != "about:blank"
+            val needsLoad = forceUrl != null || !isCurrentLoaded || (reloadIfChanged && webView.url != targetUrl)
+            if (needsLoad) {
                 try {
                     if (LocalFileLoader.isLocalFile(targetUrl)) {
                         LocalFileLoader.loadLocalFile(this, webView, targetUrl) { title ->
@@ -968,14 +970,21 @@ class MainActivity : AppCompatActivity() {
             onPermissionRequestCallback = { request ->
                 handleWebPermissionRequest(request)
             },
-            onCreateWindowCallback = { _, isDialog, isUserGesture, resultMsg ->
+            onCreateWindowCallback = { sourceWebView, isDialog, isUserGesture, resultMsg ->
                 // Only open a new tab when triggered by an explicit user gesture (tap/click).
                 // Script-driven window.open() calls (ads, pop-unders, redirect loops) have
                 // isUserGesture=false and must be silently blocked.
                 if (!isUserGesture || resultMsg == null) {
                     false
                 } else {
-                    val newTab = tabManager.createNewTab()
+                    val parentTab = (sourceWebView as? OnyxWebView)?.tabId?.let { tabManager.getTabById(it) }
+                        ?: tabManager.activeTab.value
+                    val isIncognito = parentTab?.isIncognito ?: false
+                    val newTab = tabManager.createNewTab(
+                        url = "",
+                        isIncognito = isIncognito,
+                        parentId = parentTab?.id
+                    )
                     val newWebView = tabManager.getOrCreateWebView(newTab)
 
                     // Pre-setup the clients before passing it back, so it instantly has download listeners
@@ -987,6 +996,7 @@ class MainActivity : AppCompatActivity() {
                         resultMsg.sendToTarget()
 
                         // Force show the WebView regardless of the URL being blank
+                        tabManager.selectTab(newTab)
                         currentDisplayedTabId = newTab.id
                         updateTabBadgeCount()
                         showWebView(newTab)
@@ -1235,7 +1245,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openUrlInNewTab(url: String) {
-        val newTab = tabManager.createNewTab(url = url, isIncognito = false)
+        val parentTab = tabManager.activeTab.value
+        val newTab = tabManager.createNewTab(url = url, isIncognito = false, parentId = parentTab?.id)
         // Explicitly set as active tab and navigate to it, ensuring currentDisplayedTabId
         // is updated before the StateFlow observer fires to avoid a no-op reload.
         tabManager.selectTab(newTab)
@@ -1245,7 +1256,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openUrlInIncognitoTab(url: String) {
-        val newTab = tabManager.createNewTab(url = url, isIncognito = true)
+        val parentTab = tabManager.activeTab.value
+        val newTab = tabManager.createNewTab(url = url, isIncognito = true, parentId = parentTab?.id)
         tabManager.selectTab(newTab)
         currentDisplayedTabId = newTab.id
         updateTabBadgeCount()
@@ -2563,11 +2575,26 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val activeTab = tabManager.activeTab.value
-                if (activeTab != null && activeTab.url.isNotBlank()) {
-                    // Navigate back to home screen on this tab
-                    tabManager.updateActiveTab("", "New Tab")
-                    showHomeScreen()
-                    return
+                if (activeTab != null) {
+                    val parentId = activeTab.parentId
+                    val parentTab = if (!parentId.isNullOrBlank()) {
+                        tabManager.getTabById(parentId)
+                    } else null
+
+                    if (parentTab != null) {
+                        // This tab was opened from another tab (e.g. redirected or opened in new tab).
+                        // Since all history steps in this tab are gone, pressing back closes this tab
+                        // and returns to the original tab from where the user was redirected.
+                        tabManager.closeTab(activeTab)
+                        return
+                    }
+
+                    if (activeTab.url.isNotBlank()) {
+                        // Navigate back to home screen on this tab
+                        tabManager.updateActiveTab("", "New Tab")
+                        showHomeScreen()
+                        return
+                    }
                 }
 
                 // Default activity back behavior
@@ -2928,7 +2955,7 @@ class MainActivity : AppCompatActivity() {
             showWebView(currentTab, forceUrl = targetUrl)
         } else {
             // Create a new normal tab for the incoming link so existing tabs remain intact
-            val newTab = tabManager.createNewTab(url = targetUrl, isIncognito = false)
+            val newTab = tabManager.createNewTab(url = targetUrl, isIncognito = false, parentId = currentTab?.id)
             displayTab(newTab)
         }
 

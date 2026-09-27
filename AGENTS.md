@@ -1679,3 +1679,17 @@ onyx-browser/
       - `Onyx-Browser-v1.0.182-x86_64-release.apk` (21.0 MB)
     - Copied latest release binaries directly to `/storage/emulated/0/` and `/root/onyx-browser/release/` for immediate installation.
     - Successfully merged `dev` into `main` and deleted `dev` locally and remotely.
+  - [x] **Parent/Child Tab Navigation Hierarchy & Close Tab on Back Exhaustion**:
+    - **Purpose**: When navigating from a site (e.g. `example.com`) that redirects or opens a new page in a new tab (`target="_blank"`, `window.open()`, link context menu "Open in new tab", or intent dispatch), pressing the Back button steps backward 1-by-1 through the child tab's web history. Once all history steps in the child tab are exhausted, pressing Back immediately closes the child tab and returns directly to the original parent tab from which the redirect occurred.
+    - **Architecture & Implementation Details**:
+      - `TabItem`: Added `parentId: String? = null` field to track the originating tab ID.
+      - `AppDatabase`: Updated Room database schema from version 5 to 6 with `MIGRATION_5_6` executing `ALTER TABLE tabs ADD COLUMN parentId TEXT DEFAULT NULL`.
+      - `TabDao`: Added `updateParentIdForChildren(oldParentId, newParentId)` to avoid orphaned child tabs if an intermediate parent tab is closed early (grandparent adoption).
+      - `TabManager.createNewTab()`: Added optional `parentId: String? = null` parameter.
+      - `TabManager.getTabById()`: New helper to query open tabs across normal and incognito pools.
+      - `TabManager.closeTab()`: When closing the currently active tab, automatically prioritizes switching to `parentTab` if alive, remaps surviving children to `tab.parentId`, and deletes the closed tab.
+      - `MainActivity.onCreateWindowCallback`: Accurately resolves `sourceWebView`'s tab ID or active tab ID as `parentTab`, inherits incognito status, and sets `parentId`.
+      - `MainActivity.openUrlInNewTab` & `openUrlInIncognitoTab`: Sets `parentId = parentTab?.id`.
+      - `MainActivity.handleIncomingIntent`: Passes active tab as `parentId` when opening external links.
+      - `MainActivity.setupBackNavigation`: While `canGoBack()` is true, goes back 1-by-1; when history steps are gone, checks for `parentTab` and closes child tab to return to the original tab.
+      - `MainActivity.showWebView`: Preserves loaded state and scroll position without unnecessary reloading when switching back to the parent tab.
