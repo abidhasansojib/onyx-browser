@@ -53,11 +53,6 @@ Get the latest APK from [**GitHub Releases**](https://github.com/abidhasansojib/
 
 ## Built With
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![Rust](https://img.shields.io/badge/Rust_NDK-DEA584?style=flat-square&logo=rust&logoColor=black)](https://www.rust-lang.org)
-[![SQLite](https://img.shields.io/badge/SQLCipher-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.zetetic.net/sqlcipher/)
-[![Android](https://img.shields.io/badge/CameraX-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
-
 - **Kotlin & Native Views** – Lightweight Android UI with ViewBinding
 - **Rust NDK** – Brave's native `adblock-rust` engine
 - **SQLCipher** – Local database encryption

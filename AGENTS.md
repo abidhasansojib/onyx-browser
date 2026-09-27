@@ -266,7 +266,7 @@ onyx-browser/
     - Rewrote `README.md` to remove robotic AI buzzwords, verbose marketing prose, and internal technical over-explanations.
     - Preserved visual branding (centered 128px logo, title, clean badges, quick links).
     - Simplified sections: natural "What is Onyx?", clear benefit-focused feature bullet points, straightforward download guide matching CPU architectures to everyday devices, minimal tech stack, and easy-to-follow source build instructions.
-    - Added official flat-square technology badges with white/black logos (Kotlin, Rust NDK, SQLCipher, CameraX) in the "Built With" section while eliminating artificial emoji clutter from headings and text for clean, human-developer typography.
+    - Streamlined the "Built With" section to clean, concise bullet points without redundant badge links, eliminating artificial clutter for a crisp, human-developer layout.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
