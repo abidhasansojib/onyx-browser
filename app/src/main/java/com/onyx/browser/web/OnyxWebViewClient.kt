@@ -142,8 +142,11 @@ class OnyxWebViewClient(
                 d.contains("arkose") || d.contains("arkoselabs") || d.contains("funcaptcha") ||
                 d.contains("turnstile") || d.contains("geetest") || d.contains("datadome") ||
                 d.contains("kasada") || d.contains("perimeterx") ||
+                d == "challenges.cloudflare.com" || d.endsWith(".challenges.cloudflare.com") ||
                 u.contains("recaptcha") || u.contains("hcaptcha") || u.contains("arkose") ||
                 u.contains("funcaptcha") || u.contains("turnstile") ||
+                u.contains("/cdn-cgi/challenge-platform") || u.contains("/cdn-cgi/cf-challenge") ||
+                u.contains("__cf_chl") ||
                 u.contains("/checkpoint/") || u.contains("/challenge/") ||
                 u.contains("/captcha/") || u.contains("/security-check") ||
                 u.contains("/waf/") || u.contains("/bot-detection") ||
@@ -882,19 +885,26 @@ class OnyxWebViewClient(
         }
 
         if (preferences.isAdBlockEnabled && preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE && !isWhitelisted) {
-            val js = """
-                (function() {
-                    window.ga = window.ga || function(){};
-                    window.ga.q = window.ga.q || [];
-                    window.ga.l = +new Date;
-                    window.fbq = window.fbq || function(){};
-                    window.gtag = window.gtag || function(){};
-                    window.google_ad_client = true;
-                    window.google_ad_width = window.innerWidth;
-                    window.google_ad_height = window.innerHeight;
-                })();
-            """.trimIndent()
-            view?.evaluateJavascript(js, null)
+            val urlLower = url.lowercase()
+            val isCloudflareChallengePage = urlLower.contains("__cf_chl") ||
+                    urlLower.contains("/cdn-cgi/challenge-platform") ||
+                    urlLower.contains("/cdn-cgi/cf-challenge") ||
+                    isCaptchaOrAuthUrl(url, preferences.cleanDomain(url))
+            if (!isCloudflareChallengePage) {
+                val js = """
+                    (function() {
+                        window.ga = window.ga || function(){};
+                        window.ga.q = window.ga.q || [];
+                        window.ga.l = +new Date;
+                        window.fbq = window.fbq || function(){};
+                        window.gtag = window.gtag || function(){};
+                        window.google_ad_client = true;
+                        window.google_ad_width = window.innerWidth;
+                        window.google_ad_height = window.innerHeight;
+                    })();
+                """.trimIndent()
+                view?.evaluateJavascript(js, null)
+            }
         }
 
         if (preferences.isDoNotTrackEnabled) {

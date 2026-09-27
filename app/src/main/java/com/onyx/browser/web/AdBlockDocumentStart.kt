@@ -25,14 +25,32 @@ object AdBlockDocumentStart {
             } catch(e) {}
 
             var host = (location.hostname || '').toLowerCase();
-            var isMetaOrAuthContext = host.endsWith('facebook.com') || host.endsWith('fb.com') ||
+            var href = (location.href || '').toLowerCase();
+            var path = (location.pathname || '').toLowerCase();
+
+            // Cloudflare challenge detection: managed challenge, JS challenge, Turnstile widget
+            var isCloudflareChallenge =
+                typeof window.__cf_chl_opt !== 'undefined' ||
+                typeof window.__cf_chl_ctx !== 'undefined' ||
+                host === 'challenges.cloudflare.com' ||
+                host.endsWith('.challenges.cloudflare.com') ||
+                path.startsWith('/cdn-cgi/challenge-platform') ||
+                path.startsWith('/cdn-cgi/cf-challenge') ||
+                href.indexOf('__cf_chl') !== -1 ||
+                href.indexOf('/cdn-cgi/') !== -1;
+
+            var isMetaOrAuthContext = isCloudflareChallenge ||
+                                      host.endsWith('facebook.com') || host.endsWith('fb.com') ||
                                       host.endsWith('messenger.com') || host.endsWith('instagram.com') ||
                                       host.endsWith('fbcdn.net') || host.indexOf('arkose') !== -1 ||
                                       host.indexOf('recaptcha') !== -1 || host.indexOf('hcaptcha') !== -1 ||
-                                      host.indexOf('turnstile') !== -1 || host.indexOf('funcaptcha') !== -1;
+                                      host.indexOf('turnstile') !== -1 || host.indexOf('funcaptcha') !== -1 ||
+                                      host.indexOf('datadome') !== -1 || host.indexOf('perimeterx') !== -1 ||
+                                      host.indexOf('kasada') !== -1;
 
             if (isMetaOrAuthContext || !isShieldActive || window.__onyx_shields_active === false || window.__onyxAdBlockEnabled === false) {
-                // Do not run adblock/cosmetic injections or stub globals on Meta login, CAPTCHA challenges, or whitelisted sites!
+                // Do not run adblock/cosmetic injections or stub globals on Cloudflare challenges,
+                // Meta login, CAPTCHA verifications, or whitelisted sites!
                 try {
                     var oldCosm = document.getElementById('onyx-universal-cosmetic');
                     if (oldCosm) oldCosm.remove();
