@@ -1119,6 +1119,15 @@ class OnyxWebViewClient(
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
             }
             view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
+
+            // DevTools auto-persistence across page navigations
+            if (!isSyntheticError && view != null && (onyxWv?.isDevToolsActive == true || preferences.isDevToolsEnabled)) {
+                coroutineScope.launch {
+                    val isDark = preferences.isDarkMode()
+                    DevToolsManager.autoReinjectDevTools(context, view, isDark)
+                }
+            }
+
             val isIncognito = onyxWv?.isIncognito ?: false
             if (!isIncognito && !isSyntheticError && !isSyntheticData && url.startsWith("http")) {
                 val title = view?.title ?: url

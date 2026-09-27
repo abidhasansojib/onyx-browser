@@ -2600,47 +2600,26 @@ class MainActivity : AppCompatActivity() {
             return
         }
         lifecycleScope.launch {
-            val erudaCode = try {
-                assets.open("eruda.min.js").bufferedReader().use { it.readText() }
-            } catch (_: Exception) {
-                null
+            val isDark = preferences.isDarkMode()
+            DevToolsManager.toggleDevTools(this@MainActivity, webView, isDark) { status ->
+                when (status) {
+                    "shown" -> {
+                        webView.isDevToolsActive = true
+                        Toast.makeText(this@MainActivity, "Developer tools opened", Toast.LENGTH_SHORT).show()
+                    }
+                    "hidden" -> {
+                        webView.isDevToolsActive = false
+                        Toast.makeText(this@MainActivity, "Developer tools minimized", Toast.LENGTH_SHORT).show()
+                    }
+                    "failed" -> {
+                        Toast.makeText(this@MainActivity, "Unable to load developer tools", Toast.LENGTH_SHORT).show()
+                    }
+                    else -> {
+                        webView.isDevToolsActive = true
+                        Toast.makeText(this@MainActivity, "Developer tools ready", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
-
-            val script = if (!erudaCode.isNullOrBlank()) {
-                """
-                (function() {
-                    if (window.eruda) {
-                        window.eruda.show();
-                        return;
-                    }
-                    $erudaCode
-                    if (window.eruda) {
-                        window.eruda.init();
-                        window.eruda.show();
-                    }
-                })();
-                """.trimIndent()
-            } else {
-                """
-                (function() {
-                    if (window.eruda) {
-                        window.eruda.show();
-                        return;
-                    }
-                    var s = document.createElement('script');
-                    s.src = 'https://cdn.jsdelivr.net/npm/eruda';
-                    s.onload = function() {
-                        if (window.eruda) {
-                            window.eruda.init();
-                            window.eruda.show();
-                        }
-                    };
-                    document.body.appendChild(s);
-                })();
-                """.trimIndent()
-            }
-            webView.evaluateJavascript(script, null)
-            Toast.makeText(this@MainActivity, "Eruda Developer Console activated", Toast.LENGTH_SHORT).show()
         }
     }
 

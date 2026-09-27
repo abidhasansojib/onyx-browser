@@ -70,6 +70,7 @@ class OnyxWebView @JvmOverloads constructor(
     fun setRegexFindListener(listener: (Int, Int) -> Unit) {
         findListener = listener
     }
+    var isDevToolsActive: Boolean = false
     val sessionSslBypasses: MutableSet<String> = mutableSetOf()
 
     fun clearSyntheticState() {
@@ -273,6 +274,12 @@ class OnyxWebView @JvmOverloads constructor(
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
                     MediaPlaybackManager.backgroundPlaybackScript,
+                    setOf("*")
+                )
+                // Pre-buffer console logs and unhandled errors for DevTools
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    DevToolsManager.consoleBufferScript,
                     setOf("*")
                 )
             }

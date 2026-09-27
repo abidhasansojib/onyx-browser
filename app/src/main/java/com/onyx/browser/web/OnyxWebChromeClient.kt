@@ -94,4 +94,21 @@ class OnyxWebChromeClient(
             super.onCloseWindow(window)
         }
     }
+
+    override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+        if (consoleMessage != null) {
+            val level = consoleMessage.messageLevel()
+            val src = consoleMessage.sourceId() ?: "unknown"
+            val line = consoleMessage.lineNumber()
+            val text = consoleMessage.message() ?: ""
+            val formatted = "[WebConsole] $text ($src:$line)"
+            when (level) {
+                android.webkit.ConsoleMessage.MessageLevel.ERROR -> android.util.Log.e("OnyxDevTools", formatted)
+                android.webkit.ConsoleMessage.MessageLevel.WARNING -> android.util.Log.w("OnyxDevTools", formatted)
+                android.webkit.ConsoleMessage.MessageLevel.DEBUG -> android.util.Log.d("OnyxDevTools", formatted)
+                else -> android.util.Log.i("OnyxDevTools", formatted)
+            }
+        }
+        return super.onConsoleMessage(consoleMessage)
+    }
 }

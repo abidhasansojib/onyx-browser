@@ -424,6 +424,21 @@ class BrowserPreferences private constructor(context: Context) {
         }
     }
 
+    var isDevToolsEnabled: Boolean
+        get() = prefs.getBoolean("pref_devtools_enabled", false)
+        set(value) = prefs.edit().putBoolean("pref_devtools_enabled", value).apply()
+
+    fun isDarkMode(): Boolean {
+        return when (themeMode) {
+            THEME_DARK, THEME_AMOLED -> true
+            THEME_LIGHT -> false
+            else -> {
+                val mode = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                mode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+        }
+    }
+
     fun getShortcuts(): List<ShortcutItem> {
         val jsonString = prefs.getString(KEY_HOMEPAGE_SHORTCUTS, null)
         if (jsonString.isNullOrBlank()) {

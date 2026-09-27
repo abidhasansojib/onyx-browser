@@ -181,6 +181,14 @@ onyx-browser/
   - Custom schemes (`tg://`, `whatsapp://`, `mailto:`, `intent://`) are dispatched directly via `context.startActivity(intent)` with `FLAG_ACTIVITY_NEW_TASK` wrapped in a clean `try ... catch (ActivityNotFoundException)`.
   - Do NOT gate intent resolution with `resolveActivity != null` on Android 11+ without explicit `<queries>` declarations.
 
+### 4.4. Developer Tools & Remote Debugging Subsystem (`DevToolsManager` & `OnyxWebChromeClient`)
+- **Remote WebContents Debugging**: `WebView.setWebContentsDebuggingEnabled(true)` enabled in `OnyxApplication`, granting desktop Chrome/Edge full DOM, Network, Profiler, and Source breakpoint access via `chrome://inspect` over USB/ADB.
+- **Console & Error Pre-Buffering**: `DevToolsManager.consoleBufferScript` injected at `document_start` across all frames. Records `console.log/warn/error/info/debug`, `window.onerror`, and `unhandledrejection` events prior to DevTools initialization and replays them into Eruda's console panel upon activation.
+- **In-Memory Engine Caching**: 489 KB `eruda.min.js` cached in-memory in `DevToolsManager` after first read, eliminating disk I/O latency.
+- **Theme Synchronization**: Eruda dynamically adopts `Dark` or `Light` theme based on the user's active browser palette (`THEME_DARK`, `THEME_AMOLED`, `THEME_LIGHT`).
+- **Session Persistence**: DevTools state (`isDevToolsActive`) preserved across page reloads and link navigations within the tab.
+- **Logcat Console Forwarding**: `OnyxWebChromeClient.onConsoleMessage` pipes formatted web console output directly to Android Logcat with tag `[OnyxDevTools]`.
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents
@@ -216,6 +224,7 @@ onyx-browser/
   - SQLCipher AES-256 encrypted database for tabs, history, and bookmarks.
   - Streamlined `README.md` with official branding (`art/logo.png`), comprehensive `FEATURES.md`, and official GNU GPL-3.0 `LICENSE`.
   - GitHub YAML issue forms (`bug_report.yml` and `feature_request.yml`) with strict template chooser policy.
+  - Enhanced Developer Tools subsystem: remote USB debugging via `WebView.setWebContentsDebuggingEnabled(true)`, document_start console & error pre-buffering, in-memory Eruda caching, dark/light theme sync, and session persistence.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

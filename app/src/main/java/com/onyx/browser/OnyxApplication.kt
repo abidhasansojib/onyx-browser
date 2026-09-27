@@ -68,5 +68,12 @@ class OnyxApplication : Application() {
         } catch (t: Throwable) {
             Log.e("OnyxApplication", "Failed to initialize Incognito notification channel", t)
         }
+
+        // Enable Chromium WebView remote debugging via chrome://inspect or edge://inspect over USB
+        try {
+            android.webkit.WebView.setWebContentsDebuggingEnabled(true)
+        } catch (t: Throwable) {
+            Log.e("OnyxApplication", "Failed to enable WebContentsDebugging", t)
+        }
     }
 }

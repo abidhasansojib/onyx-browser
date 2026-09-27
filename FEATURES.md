@@ -186,8 +186,16 @@ Designed strictly with classic Android XML ViewBinding (zero Jetpack Compose ove
 
 ## 10. 🛠️ Developer Tools & Web Utilities
 
-- **Offline Eruda Developer Console**: Bundled `eruda.min.js` in assets provides mobile web developers with an interactive DOM inspector, JavaScript console, network monitor, and local storage viewer without connecting to a desktop PC.
+- **Offline Eruda Developer Console**: Bundled `eruda.min.js` provides mobile web developers with an interactive DOM inspector, JavaScript console, network monitor, and local storage viewer without connecting to a desktop PC.
+  - **Console & Error Pre-Buffering**: Hooks `console.log/warn/error/info/debug` and `window.onerror` at `document_start` so all startup errors prior to opening DevTools are preserved and replayed.
+  - **In-Memory Caching**: Eliminates repeated asset reads, providing instant sub-millisecond console initialization.
+  - **Theme Synchronization**: Automatically adopts Dark or Light theme matching the user's active browser palette.
+  - **Session Persistence**: Maintains active DevTools across in-tab page navigations and reloads.
+- **Remote WebContents Debugging (Chrome DevTools)**:
+  - Enabled via `WebView.setWebContentsDebuggingEnabled(true)`, allowing full desktop Chrome/Edge DevTools inspection (`chrome://inspect`) over USB/ADB with live DOM tree editing, network waterfall graphs, timeline profiling, and JavaScript breakpoints.
+- **Logcat Console Forwarding**: Web console outputs automatically format with line number and source URL under the `[OnyxDevTools]` Logcat tag.
 - **Webpage Translation**: In-app Google Web Translate bar supporting 20 languages with target language persistence.
 - **In-Page Text Finder**: Interactive search bar with real-time match counts (`X/Y`) and next/previous match highlighting.
 - **Desktop Site Toggle**: Instant user-agent switching to request desktop-rendered web pages.
 - **Add to Home Screen**: Pins native progressive web app (PWA) launcher shortcuts with website titles and high-res favicons via `ShortcutManagerCompat`.
+
