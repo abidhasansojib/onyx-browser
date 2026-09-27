@@ -136,7 +136,8 @@ class SuggestionsAdapter(
         RecyclerView.ViewHolder(binding.root) {
         fun bind(item: SearchSuggestion) {
             binding.tvClipboardText.text = item.title
-            binding.tvClipboardUrl.text = item.queryOrUrl
+            val cleanDisplay = item.queryOrUrl.replace("\n", " ").replace("\r", " ").trim()
+            binding.tvClipboardUrl.text = cleanDisplay
             if (item.isUrl || item.isDomain) {
                 binding.ivClipboardIcon.setImageResource(R.drawable.ic_link)
             } else {

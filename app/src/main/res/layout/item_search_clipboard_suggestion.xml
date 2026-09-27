@@ -5,78 +5,94 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginStart="12dp"
-    android:layout_marginTop="6dp"
+    android:layout_marginTop="4dp"
     android:layout_marginEnd="12dp"
-    android:layout_marginBottom="6dp"
+    android:layout_marginBottom="4dp"
     app:cardBackgroundColor="?attr/colorSurfaceVariant"
-    app:cardCornerRadius="24dp"
+    app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
-    app:strokeColor="?attr/colorOutline"
-    app:strokeWidth="1dp">
+    app:strokeWidth="0dp">
 
     <LinearLayout
-        android:id="@+id/containerClipboardInfo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/selectableItemBackground"
-        android:clickable="true"
-        android:focusable="true"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingTop="10dp"
-        android:paddingEnd="10dp"
-        android:paddingBottom="10dp">
-
-        <androidx.appcompat.widget.AppCompatImageView
-            android:id="@+id/ivClipboardIcon"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:scaleType="fitCenter"
-            app:srcCompat="@drawable/ic_link"
-            app:tint="@color/primary" />
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="8dp">
 
         <LinearLayout
+            android:id="@+id/containerClipboardInfo"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="14dp"
-            android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:orientation="vertical">
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingEnd="6dp">
 
-            <TextView
-                android:id="@+id/tvClipboardText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                tools:text="Link you copied" />
+            <!-- Minimal Circular Icon Badge (Brave Style) -->
+            <FrameLayout
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/bg_circle_action">
 
-            <TextView
-                android:id="@+id/tvClipboardUrl"
-                android:layout_width="wrap_content"
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/ivClipboardIcon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Clipboard suggestion"
+                    app:srcCompat="@drawable/ic_link"
+                    app:tint="?attr/colorPrimary" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp"
-                tools:text="https://facebook.com/reel/1100..." />
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvClipboardText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="14sp"
+                    tools:text="Link you copied" />
+
+                <TextView
+                    android:id="@+id/tvClipboardUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="12sp"
+                    tools:text="https://github.com/..." />
+            </LinearLayout>
         </LinearLayout>
 
+        <!-- Insert into Omnibox Arrow (Chromium/Brave diagonal arrow) -->
         <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/btnClipboardInsert"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Insert into search bar"
-            android:padding="9dp"
+            android:contentDescription="@string/paste_clipboard"
+            android:padding="8dp"
             android:scaleType="fitCenter"
-            app:srcCompat="@drawable/ic_edit"
-            app:tint="?android:attr/textColorPrimary" />
+            app:srcCompat="@drawable/ic_insert_query"
+            app:tint="?attr/colorControlNormal" />
 
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

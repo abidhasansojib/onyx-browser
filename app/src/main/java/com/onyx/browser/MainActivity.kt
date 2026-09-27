@@ -1560,6 +1560,14 @@ class MainActivity : AppCompatActivity() {
         updateAddressBarDisplay(getActivePageUrl())
     }
 
+    private fun cleanUrlForComparison(url: String): String {
+        return url.trim()
+            .removePrefix("https://")
+            .removePrefix("http://")
+            .removePrefix("www.")
+            .trimEnd('/')
+    }
+
     private fun fetchSearchSuggestions(query: String) {
         suggestionJob?.cancel()
         val trimmed = query.trim()
@@ -1567,7 +1575,12 @@ class MainActivity : AppCompatActivity() {
         // wastes network bandwidth. Repository enforces the same guard.
         if (trimmed.length < 2) {
             val clipboardOpt = getClipboardSuggestion()
-            suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
+            val matches = if (trimmed.isEmpty()) {
+                clipboardOpt
+            } else {
+                if (clipboardOpt != null && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)) clipboardOpt else null
+            }
+            suggestionsAdapter.submitList(if (matches != null) listOf(matches) else emptyList())
             return
         }
 
@@ -1584,7 +1597,8 @@ class MainActivity : AppCompatActivity() {
                 isUrl = true
             )
             val clipboardOpt = getClipboardSuggestion()
-            val initialList = if (clipboardOpt != null) listOf(clipboardOpt, instantDomain) else listOf(instantDomain)
+            val includeClipboard = clipboardOpt != null && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)
+            val initialList = if (includeClipboard && clipboardOpt != null) listOf(clipboardOpt, instantDomain) else listOf(instantDomain)
             suggestionsAdapter.submitList(initialList)
         }
 
@@ -1595,7 +1609,8 @@ class MainActivity : AppCompatActivity() {
             val suggestions = suggestionRepository.getSuggestions(trimmed, preferences.searchEngine)
             if (isSearchMode) {
                 val clipboardOpt = getClipboardSuggestion()
-                val finalList = if (clipboardOpt != null) {
+                val includeClipboard = clipboardOpt != null && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)
+                val finalList = if (includeClipboard && clipboardOpt != null) {
                     val list = suggestions.toMutableList()
                     list.add(0, clipboardOpt)
                     list
@@ -1609,12 +1624,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun getClipboardSuggestion(): com.onyx.browser.data.model.SearchSuggestion? {
         try {
-            val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager ?: return null
             if (clipboard.hasPrimaryClip()) {
                 val clipData = clipboard.primaryClip
                 if (clipData != null && clipData.itemCount > 0) {
                     val rawText = clipData.getItemAt(0).text?.toString()?.trim()
                     if (!rawText.isNullOrBlank()) {
+                        // Suppress if identical to active page URL (Brave/Chromium standard)
+                        val activeUrl = getActivePageUrl().trim()
+                        if (activeUrl.isNotBlank()) {
+                            val cleanActive = cleanUrlForComparison(activeUrl)
+                            val cleanRaw = cleanUrlForComparison(rawText)
+                            if (cleanActive.equals(cleanRaw, ignoreCase = true)) {
+                                return null
+                            }
+                        }
+
                         val isLink = android.util.Patterns.WEB_URL.matcher(rawText).matches() ||
                                 rawText.startsWith("http://", ignoreCase = true) ||
                                 rawText.startsWith("https://", ignoreCase = true) ||
