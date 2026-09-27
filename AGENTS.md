@@ -1741,4 +1741,26 @@ onyx-browser/
       - **Media Filter Safeguard in Dynamic Cosmetic Injections**: Filtered out any selector containing `video|audio|player|stream|media|vjs|jwplayer|html5|playing|paused` before appending to the stylesheet.
       - **Media Stream Exemptions**: Exempted media streams (`.m3u8`, `.ts`, `.mpd`, `.m4s`, `.mp4`, `.webm`) from fetch/XHR proxy blocking in `AdBlockDocumentStart.kt` and prioritized media extensions in `OnyxWebViewClient.detectResourceType()`.
       - **Ad-Preroll Pause Suppression (`MediaPlaybackManager.kt`)**: Tracked user interaction timestamps on media elements (`__onyx_last_user_play` and `__onyx_last_play_time`). In `HTMLMediaElement.prototype.pause`, suppressed script-initiated pause if called within 800ms of user play when `currentTime < 1.0`, allowing the content video to play through uninterrupted.
+  - [x] **Comprehensive Web Compatibility & Non-Invasive Ad-Blocking Overhaul (Brave Parity)**:
+    - **Problem**: Certain websites were breaking, throwing errors, freezing scrolling, failing WebGL rendering, or refusing to navigate in Onyx Browser, while functioning smoothly in Brave under standard settings.
+    - **Root Cause & Technical Resolution**:
+      1. **Elimination of Invasive JS Monkey-Patching (`AdBlockDocumentStart.kt`)**:
+         - Removed global proxying of `window.fetch`, `window.XMLHttpRequest`, `window.WebSocket`, and `HTMLImageElement.prototype.src`. Throwing synthetic `TypeError('net::ERR_BLOCKED_BY_CLIENT')` broke error boundaries in React/Vue/Angular SPAs, leaving blank screens, while incomplete XHR mocks hung pending Ajax calls. All network-level adblocking is now strictly handled at the native WebView network boundary (`shouldInterceptRequest`), exactly like Brave.
+         - Removed dummy stubs for `OneTrust`, `Cookiebot`, `__tcfapi`. These incomplete mocks threw `TypeError: OneTrust.loadGroup is not a function` and prevented consent handling.
+      2. **Removal of Hardcoded Domains from Standard Mode (`AdBlockDomainManager.kt` & `OnyxWebViewClient.kt`)**:
+         - Removed `t.co` and `googletagmanager.com` from `AdBlockDomainManager.standardDomains`.
+         - In `shouldInterceptRequest` for subresources, standard mode now delegates strictly to `AdBlockEngine.shouldBlock(url, pageUrl, resourceType)`. This honors thousands of EasyList site-specific unbreak exceptions (`@@...`), ensuring scripts like `gtm.js` on sites that depend on them for checkouts/forms load normally.
+      3. **Alignment of Main-Frame Navigation Policy (`OnyxWebViewClient.kt`)**:
+         - In both `shouldInterceptRequest` and `handleUrlLoading`: In Standard mode, main-frame top-level navigations are never cancelled or 403-intercepted (`DomainBlockingType::kNone` in Brave), UNLESS it is a child popup window (`isPopupTab`). Primary browsing tab navigations (e.g. clicking Twitter/X links, redirects, affiliate checkouts) are never blocked. Aggressive mode retains full top-level ad blocking.
+      4. **Safeguarding AMP Redirection (`OnyxWebViewClient.kt`)**:
+         - Removed naive `host.startsWith("amp.")` and `path.contains("/amp/")` string stripping that broke legitimate sites and subdomains (e.g. `amp.dev`, `amp.cisco.com`, `amp.spotify.com`, audio/amplifier product paths with 404s). Retained Google AMP cache (`google.com/amp/s/...`) and query param cleanup (`?amp=1`).
+      5. **Native WebGL 1 Prioritization & Shader Compiler Fix (`WebGLCompatibilityBridge.kt`)**:
+         - Intercepted `canvas.getContext` now attempts native WebGL 1 first when requested (`webgl` or `experimental-webgl`), falling back to WebGL 2 only if WebGL 1 is unavailable.
+         - Removed synthetic derivative polyfill (`dFdx`, `dFdy`, `fwidth`) that was causing GLSL shader compilation errors (`cannot overload built-in function`) on WebGL 2 engines (Three.js, Mapbox, Shadertoy).
+      6. **Event Listener & Form Validation Safeguards (`MediaPlaybackManager.kt`)**:
+         - Restricted `blur` and `focusout` event interception to `e.target === window || e.target === document`, restoring normal blur/focusout propagation for form inputs, textareas, selects, and dropdown menus across all websites.
+         - Restricted `visibilitychange` suppression strictly to background state (`window.__onyx_in_background`), allowing foreground SPAs to register and receive lifecycle updates cleanly. Removed `pagehide` suppression.
+      7. **Sanitized Baseline Cosmetic Stylesheet (`AdBlockDocumentStart.kt`)**:
+         - In Standard mode, suppressed hardcoded hiding of `#onetrust-banner-sdk`, `#CybotCookiebotDialog`, etc. This prevents pages from freezing with unscrollable `overflow: hidden` body styles while waiting for consent, moving CMP hiding strictly to Aggressive mode.
+         - Removed invasive `audio { display: block !important; }` which forced invisible audio elements to render empty boxes on pages.
 

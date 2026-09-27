@@ -84,40 +84,24 @@ object MediaPlaybackManager {
                     }
                 } catch (e) {}
 
-                // 4. Capture-phase interception of visibilitychange, blur, focusout, and pagehide
-                var stopProp = function(e) {
-                    e.stopImmediatePropagation();
+                // 4. Window-only blur and background visibility suppression
+                var stopWindowBlur = function(e) {
+                    if (e.target === window || e.target === document) {
+                        e.stopImmediatePropagation();
+                    }
                 };
-                window.addEventListener('visibilitychange', stopProp, true);
-                document.addEventListener('visibilitychange', stopProp, true);
-                window.addEventListener('webkitvisibilitychange', stopProp, true);
-                document.addEventListener('webkitvisibilitychange', stopProp, true);
-                window.addEventListener('blur', stopProp, true);
-                window.addEventListener('focusout', stopProp, true);
-                window.addEventListener('pagehide', stopProp, true);
+                window.addEventListener('blur', stopWindowBlur, true);
+                window.addEventListener('focusout', stopWindowBlur, true);
 
-                // Intercept future event listener registrations for visibilitychange
-                var origDocAdd = document.addEventListener;
-                document.addEventListener = function(type, listener, options) {
-                    if (type === 'visibilitychange' || type === 'webkitvisibilitychange') {
-                        return;
+                var stopVisibilityInBg = function(e) {
+                    if (window.__onyx_in_background) {
+                        e.stopImmediatePropagation();
                     }
-                    return origDocAdd.apply(this, arguments);
                 };
-                var origWinAdd = window.addEventListener;
-                window.addEventListener = function(type, listener, options) {
-                    if (type === 'visibilitychange' || type === 'webkitvisibilitychange') {
-                        return;
-                    }
-                    return origWinAdd.apply(this, arguments);
-                };
-                var origTargetAdd = EventTarget.prototype.addEventListener;
-                EventTarget.prototype.addEventListener = function(type, listener, options) {
-                    if (type === 'visibilitychange' || type === 'webkitvisibilitychange') {
-                        return;
-                    }
-                    return origTargetAdd.apply(this, arguments);
-                };
+                window.addEventListener('visibilitychange', stopVisibilityInBg, true);
+                document.addEventListener('visibilitychange', stopVisibilityInBg, true);
+                window.addEventListener('webkitvisibilitychange', stopVisibilityInBg, true);
+                document.addEventListener('webkitvisibilitychange', stopVisibilityInBg, true);
 
                 // 5. Nullify document.onvisibilitychange property setter
                 try {

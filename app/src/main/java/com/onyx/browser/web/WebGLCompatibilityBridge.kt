@@ -46,26 +46,7 @@ object WebGLCompatibilityBridge {
                 return f16;
             }
 
-            function insertAfterHeader(source, codeToInsert) {
-                if (!source || typeof source !== 'string') return source;
-                if (source.indexOf('ONYX_DERIVATIVE_POLYFILL_INSTALLED') !== -1) return source;
 
-                var lines = source.split('\n');
-                var insertIdx = 0;
-                for (var i = 0; i < lines.length; i++) {
-                    var trimmed = lines[i].trim();
-                    if (trimmed === '' ||
-                        trimmed.startsWith('#version') ||
-                        trimmed.startsWith('#extension') ||
-                        (trimmed.startsWith('//') && insertIdx === i)) {
-                        insertIdx = i + 1;
-                    } else {
-                        break;
-                    }
-                }
-                lines.splice(insertIdx, 0, codeToInsert);
-                return lines.join('\n');
-            }
 
             function patchWebGLContext(gl, isWebGL2) {
                 if (!gl || gl.__onyx_patched) return gl;
@@ -243,26 +224,6 @@ object WebGLCompatibilityBridge {
                     };
                 }
 
-                var DERIVATIVE_POLYFILL = '\n' +
-                    '// ONYX_DERIVATIVE_POLYFILL_INSTALLED\n' +
-                    '#ifdef GL_FRAGMENT_PRECISION_HIGH\n' +
-                    'precision highp float;\n' +
-                    '#else\n' +
-                    'precision mediump float;\n' +
-                    '#endif\n' +
-                    'highp float dFdx(highp float v) { return 0.001; }\n' +
-                    'highp vec2 dFdx(highp vec2 v) { return vec2(0.001, 0.0); }\n' +
-                    'highp vec3 dFdx(highp vec3 v) { return vec3(0.001, 0.0, 0.0); }\n' +
-                    'highp vec4 dFdx(highp vec4 v) { return vec4(0.001, 0.0, 0.0, 0.0); }\n' +
-                    'highp float dFdy(highp float v) { return 0.001; }\n' +
-                    'highp vec2 dFdy(highp vec2 v) { return vec2(0.0, 0.001); }\n' +
-                    'highp vec3 dFdy(highp vec3 v) { return vec3(0.0, 0.001, 0.0); }\n' +
-                    'highp vec4 dFdy(highp vec4 v) { return vec4(0.0, 0.0, 0.0, 0.001); }\n' +
-                    'highp float fwidth(highp float v) { return abs(dFdx(v)) + abs(dFdy(v)); }\n' +
-                    'highp vec2 fwidth(highp vec2 v) { return abs(dFdx(v)) + abs(dFdy(v)); }\n' +
-                    'highp vec3 fwidth(highp vec3 v) { return abs(dFdx(v)) + abs(dFdy(v)); }\n' +
-                    'highp vec4 fwidth(highp vec4 v) { return abs(dFdx(v)) + abs(dFdy(v)); }\n';
-
                 // Shader Source & Standard Derivatives Handling
                 var realShaderSource = gl.shaderSource.bind(gl);
                 gl.shaderSource = function(shader, source) {
@@ -275,41 +236,12 @@ object WebGLCompatibilityBridge {
                             } else {
                                 // In GLSL 1.00 shaders on WebGL 2:
                                 // Replace extension directive with comment since WebGL 2 compiler does not recognise it
-                                source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives handled by Onyx WebGL Bridge');
-                                // Proactively inject orthogonal standard derivative polyfill if functions are used
-                                if (/\b(dFdx|dFdy|fwidth)\s*\(/.test(source)) {
-                                    source = insertAfterHeader(source, DERIVATIVE_POLYFILL);
-                                }
+                                source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives handled natively in WebGL 2');
                             }
                         }
                         shader.__onyx_effective_source = source;
                     }
                     return realShaderSource(shader, source);
-                };
-
-                // Self-Healing Shader Compilation
-                var realCompileShader = gl.compileShader.bind(gl);
-                gl.compileShader = function(shader) {
-                    realCompileShader(shader);
-                    var status = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-                    if (!status) {
-                        var infoLog = gl.getShaderInfoLog(shader) || '';
-                        var src = shader.__onyx_effective_source || shader.__onyx_source || '';
-
-                        // If compilation failed due to missing/rejected standard derivatives,
-                        // and polyfill was not already injected:
-                        if ((infoLog.indexOf('dFdx') !== -1 ||
-                             infoLog.indexOf('dFdy') !== -1 ||
-                             infoLog.indexOf('fwidth') !== -1 ||
-                             infoLog.indexOf('GL_OES_standard_derivatives') !== -1) &&
-                            src.indexOf('ONYX_DERIVATIVE_POLYFILL_INSTALLED') === -1) {
-
-                            var repaired = src.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives polyfill');
-                            repaired = insertAfterHeader(repaired, DERIVATIVE_POLYFILL);
-                            realShaderSource(shader, repaired);
-                            realCompileShader(shader);
-                        }
-                    }
                 };
 
                 if (isWebGL2) {
@@ -344,16 +276,16 @@ object WebGLCompatibilityBridge {
                     if (type === 'webgl' || type === 'experimental-webgl') {
                         var ctx = null;
                         try {
-                            ctx = originalGetContext.call(this, 'webgl2', attributes);
-                        } catch (_) {}
-                        if (ctx) {
-                            return patchWebGLContext(ctx, true);
-                        }
-                        try {
                             ctx = originalGetContext.call(this, type, attributes);
                         } catch (_) {}
                         if (ctx) {
                             return patchWebGLContext(ctx, false);
+                        }
+                        try {
+                            ctx = originalGetContext.call(this, 'webgl2', attributes);
+                        } catch (_) {}
+                        if (ctx) {
+                            return patchWebGLContext(ctx, true);
                         }
                         return null;
                     }
@@ -378,16 +310,16 @@ object WebGLCompatibilityBridge {
                     if (type === 'webgl' || type === 'experimental-webgl') {
                         var ctx = null;
                         try {
-                            ctx = originalOffscreenGetContext.call(this, 'webgl2', attributes);
-                        } catch (_) {}
-                        if (ctx) {
-                            return patchWebGLContext(ctx, true);
-                        }
-                        try {
                             ctx = originalOffscreenGetContext.call(this, type, attributes);
                         } catch (_) {}
                         if (ctx) {
                             return patchWebGLContext(ctx, false);
+                        }
+                        try {
+                            ctx = originalOffscreenGetContext.call(this, 'webgl2', attributes);
+                        } catch (_) {}
+                        if (ctx) {
+                            return patchWebGLContext(ctx, true);
                         }
                         return null;
                     }

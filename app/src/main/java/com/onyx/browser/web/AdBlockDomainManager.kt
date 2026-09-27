@@ -14,11 +14,11 @@ object AdBlockDomainManager {
      * Standard advertising & core analytics tracker domains.
      */
     val standardDomains: Set<String> = setOf(
-        "doubleclick.net", "googlesyndication.com", "googletagmanager.com",
+        "doubleclick.net", "googlesyndication.com",
         "googletagservices.com", "googleadservices.com", "google-analytics.com",
         "analytics.google.com", "stats.g.doubleclick.net", "pagead2.googlesyndication.com",
         "adservice.google.com",
-        "tr.snapchat.com", "analytics.twitter.com", "t.co", "ads.twitter.com",
+        "tr.snapchat.com", "analytics.twitter.com", "ads.twitter.com",
         "ads-twitter.com", "scorecardresearch.com", "quantserve.com", "quantcast.com",
         "adsrvr.org", "casalemedia.com", "openx.net", "pubmatic.com", "adnxs.com",
         "rubiconproject.com", "criteo.com", "criteo.net", "amazon-adsystem.com",

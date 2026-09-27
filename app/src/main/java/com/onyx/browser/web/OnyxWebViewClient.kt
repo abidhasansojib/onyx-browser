@@ -138,7 +138,7 @@ class OnyxWebViewClient(
         "utm_id", "utm_source_platform", "utm_creative_format", "utm_marketing_tactic",
         "fbclid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid",
         "mc_eid", "mc_cid", "oly_enc_id", "oly_anon_id",
-        "_openstat", "ref_", "vero_id", "mkt_tok",
+        "_openstat", "vero_id", "mkt_tok",
         "twclid", "msclkid", "ttclid", "li_fat_id",
         "igshid", "s_cid", "srsltid", "epik"
     )
@@ -184,36 +184,39 @@ class OnyxWebViewClient(
 
                     if (preferences.isAdBlockEnabled && !isWhitelisted) {
                         val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
-                        val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
-                        val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(reqDomain)
-                        val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
+                        val onyxWv = view as? OnyxWebView
+                        val isPopupTab = onyxWv != null && (onyxWv.isPopupPendingDisplay || (findMainActivity(onyxWv.context)?.tabManager?.getTabById(onyxWv.tabId)?.parentId != null))
 
-                        if (blockedByEngine || blockedByStandard || blockedByAggressive) {
-                            preferences.incrementBlockedRequests()
-                            if (view is OnyxWebView) {
-                                val onyxWv = view
-                                onyxWv.post {
-                                    val tabId = onyxWv.tabId
-                                    if (tabId.isNotBlank()) {
-                                        val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
-                                        val tab = act?.tabManager?.getTabById(tabId)
-                                        if (tab?.parentId != null || onyxWv.isPopupPendingDisplay) {
+                        // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
+                        // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave), UNLESS it is a child popup tab.
+                        // In Aggressive mode (DomainBlockingType::kAggressive), main-frame ad domains can also be blocked.
+                        if (isAggressive || isPopupTab) {
+                            val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
+                            val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
+
+                            if (blockedByEngine || blockedByAggressive) {
+                                preferences.incrementBlockedRequests()
+                                if (isPopupTab && onyxWv != null) {
+                                    onyxWv.post {
+                                        val tabId = onyxWv.tabId
+                                        if (tabId.isNotBlank()) {
+                                            val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
                                             act?.closeTabById(tabId)
                                         }
                                     }
                                 }
+                                return WebResourceResponse(
+                                    "text/html",
+                                    "UTF-8",
+                                    403,
+                                    "Blocked by Onyx Shields",
+                                    mapOf(
+                                        "Access-Control-Allow-Origin" to "*",
+                                        "Content-Type" to "text/html; charset=utf-8"
+                                    ),
+                                    ByteArrayInputStream("<!DOCTYPE html><html><head><title>Blocked by Onyx Shields</title></head><body></body></html>".toByteArray())
+                                )
                             }
-                            return WebResourceResponse(
-                                "text/html",
-                                "UTF-8",
-                                403,
-                                "Blocked by Onyx Shields",
-                                mapOf(
-                                    "Access-Control-Allow-Origin" to "*",
-                                    "Content-Type" to "text/html; charset=utf-8"
-                                ),
-                                ByteArrayInputStream("<!DOCTYPE html><html><head><title>Blocked by Onyx Shields</title></head><body></body></html>".toByteArray())
-                            )
                         }
                     }
                 }
@@ -357,14 +360,13 @@ class OnyxWebViewClient(
                     return null // Allow media playback!
                 }
 
-                // Standard mode: use EasyList engine + standard ad/tracker domains
+                // Standard mode: use EasyList engine (adblock-rust) with full unbreak exceptions
                 val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
-                val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(reqDomain)
 
                 // Aggressive mode: also block OEM telemetry, consent CMPs, affiliate networks, product analytics, etc.
                 val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
 
-                if (blockedByEngine || blockedByStandard || blockedByAggressive) {
+                if (blockedByEngine || blockedByAggressive) {
                     preferences.incrementBlockedRequests()
                     return WebResourceResponse(
                         "text/plain",
@@ -446,27 +448,27 @@ class OnyxWebViewClient(
 
                 if (preferences.isAdBlockEnabled && !isWhitelisted) {
                     val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
-                    val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
-                    val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(reqDomain)
-                    val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
+                    val onyxWv = view as? OnyxWebView
+                    val isPopupTab = onyxWv != null && (onyxWv.isPopupPendingDisplay || (findMainActivity(onyxWv.context)?.tabManager?.getTabById(onyxWv.tabId)?.parentId != null))
 
-                    if (blockedByEngine || blockedByStandard || blockedByAggressive) {
-                        preferences.incrementBlockedRequests()
-                        // If this WebView is a newly opened popup tab, close it!
-                        if (view is OnyxWebView) {
-                            val onyxWv = view
-                            onyxWv.post {
-                                val tabId = onyxWv.tabId
-                                if (tabId.isNotBlank()) {
-                                    val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
-                                    val tab = act?.tabManager?.getTabById(tabId)
-                                    if (tab?.parentId != null || onyxWv.isPopupPendingDisplay) {
+                    if (isAggressive || isPopupTab) {
+                        val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
+                        val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
+
+                        if (blockedByEngine || blockedByAggressive) {
+                            preferences.incrementBlockedRequests()
+                            // If this WebView is a newly opened popup tab, close it!
+                            if (isPopupTab && onyxWv != null) {
+                                onyxWv.post {
+                                    val tabId = onyxWv.tabId
+                                    if (tabId.isNotBlank()) {
+                                        val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
                                         act?.closeTabById(tabId)
                                     }
                                 }
                             }
+                            return true // Cancel the ad navigation!
                         }
-                        return true // Cancel the ad navigation!
                     }
                 }
 
@@ -761,25 +763,7 @@ class OnyxWebViewClient(
                 return canonical
             }
 
-            // AMP subdomain: amp.example.com -> example.com
-            if (host.startsWith("amp.")) {
-                val canonical = uri.buildUpon()
-                    .authority(host.removePrefix("amp."))
-                    .build().toString()
-                return canonical
-            }
-
-            // AMP path segment: example.com/amp/article
-            if (path.contains("/amp/") || path.endsWith("/amp")) {
-                val newPath = path
-                    .replace("/amp/", "/")
-                    .replace("/amp", "")
-                    .ifEmpty { "/" }
-                val canonical = uri.buildUpon().path(newPath).build().toString()
-                return canonical
-            }
-
-            // ?amp=1 query param
+            // ?amp=1 query param (clean AMP query parameter)
             if (uri.getQueryParameter("amp") == "1") {
                 val builder = uri.buildUpon().clearQuery()
                 for (param in uri.queryParameterNames) {
