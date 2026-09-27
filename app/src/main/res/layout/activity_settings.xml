@@ -22,6 +22,7 @@
             app:navigationIcon="@drawable/ic_chevron_down"
             app:navigationIconTint="@color/settings_title_text"
             app:title="@string/settings"
+            app:titleCentered="true"
             app:titleTextColor="@color/settings_title_text" />
     </com.google.android.material.appbar.AppBarLayout>
 

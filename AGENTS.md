@@ -243,6 +243,7 @@ onyx-browser/
     - Search query filtering: only blends clipboard suggestion during active typing if it contains the user query, preventing clipboard clutter over relevant search suggestions.
   - One-Tap Active Webpage Card Navigation (Matching Brave-Core):
     - Tapping the current webpage card (or its site info container) in the omnibox search overlay directly navigates/reloads the page via `performSearchOrLoad()` and dismisses the keyboard in one tap, while preserving the dedicated edit pencil button (`btnCurrentPageEdit`) for customizing the URL in the omnibox.
+  - Settings Activity Toolbar Title Alignment: Centered the "Settings" title at the top of `activity_settings.xml` via `app:titleCentered="true"` on `MaterialToolbar`.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
