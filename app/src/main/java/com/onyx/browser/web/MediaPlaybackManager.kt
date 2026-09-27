@@ -491,9 +491,6 @@ object MediaPlaybackManager {
                             var v = vids.find(function(i) { return !i.paused && !i.ended; }) || vids[0];
                             if (v) {
                                 reportVideoBounds(v);
-                                if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.requestVideoPip === 'function') {
-                                    window.OnyxMediaBridge.requestVideoPip();
-                                }
                             }
                         }
 
@@ -1378,6 +1375,13 @@ object MediaPlaybackManager {
     val restoreVideoFromPipScript: String = """
         (function() {
             try {
+                if (typeof currentPipElem !== 'undefined' && currentPipElem) {
+                    var old = currentPipElem;
+                    currentPipElem = null;
+                    try {
+                        old.dispatchEvent(new Event('leavepictureinpicture', { bubbles: true }));
+                    } catch (_) {}
+                }
                 var style = document.getElementById('__onyx_pip_style');
                 if (style) style.remove();
                 document.querySelectorAll('[data-onyx-pip-target]').forEach(function(el) {

@@ -52,6 +52,7 @@ class TabManager(
 
     private val webViewPool = mutableMapOf<String, OnyxWebView>()
     var isIncognitoUnlocked: Boolean = false
+    var onTabClosedListener: ((TabItem) -> Unit)? = null
     
     val snapshotCache = object : android.util.LruCache<String, Bitmap>(30) {
         override fun entryRemoved(evicted: Boolean, key: String?, oldValue: Bitmap?, newValue: Bitmap?) {
@@ -458,6 +459,7 @@ class TabManager(
 
         // If the closed tab was currently playing media, stop background play & dismiss notification immediately
         com.onyx.browser.media.MediaPlaybackBridge.onTabClosed(tab.id, context)
+        onTabClosedListener?.invoke(tab)
 
         // Safe destruction of associated WebView
         val webView = webViewPool.remove(tab.id)
@@ -513,6 +515,7 @@ class TabManager(
                 com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
             }
             _incognitoTabs.value.forEach { tab ->
+                onTabClosedListener?.invoke(tab)
                 autoclearTabData(tab)
                 webViewPool.remove(tab.id)?.destroySafely()
             }
@@ -523,6 +526,7 @@ class TabManager(
         } else {
             com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
             _normalTabs.value.forEach { tab ->
+                onTabClosedListener?.invoke(tab)
                 autoclearTabData(tab)
                 webViewPool.remove(tab.id)?.destroySafely()
                 deleteTabState(tab.id)
@@ -540,6 +544,8 @@ class TabManager(
         val normalToClose = _normalTabs.value.filter { it.createdAt >= sinceTime }
         val incognitoToClose = _incognitoTabs.value.filter { it.createdAt >= sinceTime }
         val allClosing = normalToClose + incognitoToClose
+
+        allClosing.forEach { onTabClosedListener?.invoke(it) }
 
         if (allClosing.any { it.id == com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId }) {
             com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)

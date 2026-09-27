@@ -209,6 +209,13 @@ class FloatingVideoMenuManager(
         val view = binding?.root ?: return
         view.translationX = 0f
         view.translationY = 0f
+        val lp = view.layoutParams as? FrameLayout.LayoutParams
+        if (lp != null) {
+            lp.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
+            lp.bottomMargin = (80 * context.resources.displayMetrics.density).toInt()
+            lp.marginEnd = (16 * context.resources.displayMetrics.density).toInt()
+            view.layoutParams = lp
+        }
         view.scaleX = 1f
         view.scaleY = 1f
         isDragging = false

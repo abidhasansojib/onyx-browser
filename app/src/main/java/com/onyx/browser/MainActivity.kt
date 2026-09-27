@@ -334,7 +334,13 @@ class MainActivity : AppCompatActivity() {
         lastThemeMode = preferences.themeMode
         lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         com.onyx.browser.download.OnyxDownloadManager.init(this)
-        tabManager = TabManager(this, lifecycleScope)
+        tabManager = TabManager(this, lifecycleScope).apply {
+            onTabClosedListener = {
+                runOnUiThread {
+                    resetFloatingVideoMenuState()
+                }
+            }
+        }
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -734,17 +740,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun resetFloatingVideoMenuState() {
+        com.onyx.browser.media.MediaPlaybackBridge.temporaryBackgroundPlayOverride = null
+        com.onyx.browser.media.MediaPlaybackBridge.lastVideoBounds = null
+        floatingVideoMenuManager?.resetToDefault(preferences.isBackgroundPlayEnabled)
+        updateFloatingVideoMenuVisibility()
+    }
+
     private fun displayTab(tab: TabItem) {
         updateTabBadgeCount()
 
         val previousTabId = currentDisplayedTabId
         val tabChanged = (previousTabId != tab.id)
-        if (tabChanged && previousTabId != null) {
-            val outgoingWebView = tabManager.getWebView(previousTabId)
-            if (outgoingWebView != null) {
-                tabManager.captureTabSnapshot(previousTabId, outgoingWebView)
-                tabManager.saveTabState(previousTabId, outgoingWebView)
+        if (tabChanged) {
+            if (previousTabId != null) {
+                val outgoingWebView = tabManager.getWebView(previousTabId)
+                if (outgoingWebView != null) {
+                    tabManager.captureTabSnapshot(previousTabId, outgoingWebView)
+                    tabManager.saveTabState(previousTabId, outgoingWebView)
+                }
             }
+            resetFloatingVideoMenuState()
+            exitSearchMode()
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         currentDisplayedTabId = tab.id
 
@@ -752,18 +770,6 @@ class MainActivity : AppCompatActivity() {
             showHomeScreen()
         } else {
             showWebView(tab, reloadIfChanged = tabChanged)
-        }
-
-        // If we switch to a tab, reset temporary floating menu overrides and state.
-        // Clear the KEEP_SCREEN_ON flag and exit search mode.
-        if (tabChanged) {
-            com.onyx.browser.media.MediaPlaybackBridge.temporaryBackgroundPlayOverride = null
-            floatingVideoMenuManager?.resetToDefault(preferences.isBackgroundPlayEnabled)
-            com.onyx.browser.media.MediaPlaybackBridge.isVideoPresent = false
-            com.onyx.browser.media.MediaPlaybackBridge.lastVideoBounds = null
-            updateFloatingVideoMenuVisibility()
-            exitSearchMode()
-            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
@@ -1289,10 +1295,8 @@ class MainActivity : AppCompatActivity() {
 
     fun closeTabById(tabId: String) {
         val tab = tabManager.getTabById(tabId) ?: return
-        com.onyx.browser.media.MediaPlaybackBridge.temporaryBackgroundPlayOverride = null
-        floatingVideoMenuManager?.resetToDefault(preferences.isBackgroundPlayEnabled)
+        resetFloatingVideoMenuState()
         tabManager.closeTab(tab)
-        updateFloatingVideoMenuVisibility()
     }
 
     fun displayPopupTab(tab: TabItem) {
@@ -1765,7 +1769,7 @@ class MainActivity : AppCompatActivity() {
             hideCustomFullscreenVideo()
         }
 
-        updatePipParams(isVideoPlaying = true, shouldAutoEnter = true)
+        updatePipParams(isVideoPlaying = true, shouldAutoEnter = false)
     }
 
     private fun hideCustomFullscreenVideo() {
@@ -1870,8 +1874,6 @@ class MainActivity : AppCompatActivity() {
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
-                // Only enable OS autoEnterEnabled when explicitly requested, custom fullscreen video view is active, and not exiting PiP.
-                val shouldEnableAutoPip = shouldAutoEnter && preferences.isPipEnabled && (customVideoView != null) && !justExitedPip && !isCurrentlyInPip
                 val rational = Rational(width.coerceAtLeast(1), height.coerceAtLeast(1))
                     .coerceIn(Rational(1, 2), Rational(2, 1))
                 val builder = PictureInPictureParams.Builder()
@@ -1909,7 +1911,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    builder.setAutoEnterEnabled(shouldEnableAutoPip)
+                    builder.setAutoEnterEnabled(false)
                 }
                 setPictureInPictureParams(builder.build())
             } catch (_: Exception) {}
@@ -1918,6 +1920,8 @@ class MainActivity : AppCompatActivity() {
 
     fun requestInPageVideoPip() {
         if (!preferences.isPipEnabled) return
+        val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
+        if (inPip || justExitedPip) return
         if (customVideoView != null) {
             enterPipMode()
             return
@@ -1933,8 +1937,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isolateAndEnterPip(activeWv: com.onyx.browser.web.OnyxWebView) {
+        val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
+        if (inPip || justExitedPip) return
         floatingVideoMenuManager?.hideImmediately()
         activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) { res ->
+            val inPipNow = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
+            if (inPipNow || justExitedPip) return@evaluateJavascript
             val hasVideo = res?.contains("\"found\":true") == true || res?.contains("\"found\": true") == true
             if (hasVideo) {
                 try {
@@ -1949,13 +1957,19 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) {}
                 // Allow Chromium compositor 100ms to paint the isolated video layout before OS PiP snapshot
                 activeWv.postDelayed({
-                    enterPipMode()
+                    val inPipLater = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
+                    if (!justExitedPip && !inPipLater) {
+                        enterPipMode()
+                    }
                 }, 100)
             } else if (MediaPlaybackBridge.isVideoAvailable || MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isVideoPresent) {
                 // Resilient Brave-parity fallback: Stream was already confirmed available by MediaPlaybackBridge
                 // (e.g. nested cross-origin iframe). Enter PiP mode directly with known bounds!
                 activeWv.postDelayed({
-                    enterPipMode()
+                    val inPipLater = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
+                    if (!justExitedPip && !inPipLater) {
+                        enterPipMode()
+                    }
                 }, 50)
             } else {
                 Toast.makeText(this, "No active video found to enter Picture-in-Picture", Toast.LENGTH_SHORT).show()
@@ -1965,6 +1979,8 @@ class MainActivity : AppCompatActivity() {
 
     fun enterPipMode() {
         if (!preferences.isPipEnabled) return
+        val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
+        if (inPip || justExitedPip) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
@@ -2334,7 +2350,10 @@ class MainActivity : AppCompatActivity() {
 
         MediaPlaybackBridge.onPipRequestedListener = {
             runOnUiThread {
-                requestInPageVideoPip()
+                val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
+                if (!inPip && !justExitedPip) {
+                    requestInPageVideoPip()
+                }
             }
         }
 
@@ -2349,7 +2368,8 @@ class MainActivity : AppCompatActivity() {
 
     fun updateFloatingVideoMenuVisibility() {
         val isWvVisible = binding.webViewContainer.visibility == View.VISIBLE && binding.searchOverlay.visibility != View.VISIBLE
-        val hasVideo = com.onyx.browser.media.MediaPlaybackBridge.isVideoAvailable
+        val activeTabId = tabManager.activeTab.value?.id
+        val hasVideo = com.onyx.browser.media.MediaPlaybackBridge.isVideoAvailableForTab(activeTabId)
         floatingVideoMenuManager?.onVideoStateChanged(hasVideo, isWvVisible)
     }
 
@@ -2835,10 +2855,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (!preferences.isPipEnabled || justExitedPip || isCurrentlyInPip) return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && customVideoView != null) {
-            enterPipMode()
-        }
+        // Do not auto-enter PiP on user leave to prevent unwanted PiP re-entry loops
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -2870,8 +2887,9 @@ class MainActivity : AppCompatActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             // Exiting PiP — set cooldown to prevent immediate re-entry loop
+            isCurrentlyInPip = false
             justExitedPip = true
-            binding.root.postDelayed({ justExitedPip = false }, 1500)
+            binding.root.postDelayed({ justExitedPip = false }, 2500)
 
             // CRITICAL: Explicitly tell Android to disable autoEnterEnabled so returning to app NEVER bounces back into PiP
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
