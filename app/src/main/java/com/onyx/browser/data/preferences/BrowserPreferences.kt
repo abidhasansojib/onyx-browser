@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import java.util.concurrent.atomic.AtomicLong
 
-class BrowserPreferences private constructor(context: Context) {
+class BrowserPreferences private constructor(private val context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -430,7 +430,7 @@ class BrowserPreferences private constructor(context: Context) {
 
     fun isDarkMode(): Boolean {
         return when (themeMode) {
-            THEME_DARK, THEME_AMOLED -> true
+            THEME_DARK -> true
             THEME_LIGHT -> false
             else -> {
                 val mode = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK

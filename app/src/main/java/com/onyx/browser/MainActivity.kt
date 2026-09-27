@@ -88,6 +88,7 @@ import com.onyx.browser.web.OnyxWebViewClient
 import com.onyx.browser.data.filter.FilterListManager
 import com.onyx.browser.media.MediaPlaybackBridge
 import com.onyx.browser.media.MediaPlaybackService
+import com.onyx.browser.web.DevToolsManager
 import com.onyx.browser.web.MediaPlaybackManager
 import com.onyx.browser.web.translate.PageTranslateManager
 import kotlinx.coroutines.Dispatchers
@@ -2607,7 +2608,7 @@ class MainActivity : AppCompatActivity() {
         }
         lifecycleScope.launch {
             val isDark = preferences.isDarkMode()
-            DevToolsManager.toggleDevTools(this@MainActivity, webView, isDark) { status ->
+            DevToolsManager.toggleDevTools(this@MainActivity, webView, isDark) { status: String ->
                 when (status) {
                     "shown" -> {
                         webView.isDevToolsActive = true
