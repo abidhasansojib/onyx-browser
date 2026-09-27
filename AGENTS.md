@@ -5,16 +5,16 @@
 
 ---
 
-## 1. Project Summary & Architectural Mission
+## 1. Project Summary & Purpose
 
-**Onyx Browser** (`com.onyx.browser`) is a production-grade, ultra-lightweight, high-performance, and privacy-first Android web browser engineered from scratch for modern Android devices (Min SDK 26 / Android 8.0+, Compile & Target SDK 35 / Android 15).
+**Onyx Browser** (`com.onyx.browser`) is a fast, lightweight, and privacy-focused Android browser (Min SDK 26 / Android 8.0+, Target SDK 35 / Android 15).
 
-### Core Goals & Technical Philosophy
-- **Zero Overhead Native Architecture**: Built with idiomatic Kotlin 2.x and classic Android XML Views with ViewBinding. **Strictly NO Jetpack Compose** to preserve sub-millisecond cold starts, eliminate UI framework overhead, minimize memory consumption, and guarantee 120Hz hardware-accelerated WebView compositing.
-- **Native Rust Adblock Engine (`adblock-rust`)**: Brave's high-performance adblocking engine compiled via `cargo-ndk` into native `.so` shared libraries (`libadblock_bridge.so`) across all 4 Android ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`).
-- **54 Brave Content Filter Lists**: Production filter list management with background compilation into binary FlatBuffers (`onyx_filters.bin`).
-- **Brave-Parity Media & Background Playback**: Streaming background audio/video keep-alive (`userHitPause`, `visibilityState` spoofing, event suppression) and true video-only Picture-in-Picture (PiP) penetrating Shadow DOM hosts.
-- **Modern Standards**: Passkeys & WebAuthn via AndroidX Credential Manager, Google Password Manager integration, CameraX + ML Kit QR scanning, SQLCipher AES-256 database encryption, and multi-engine reverse image search.
+### Architecture & Tech Stack
+- **Native Android UI**: Built with Kotlin and XML Views with ViewBinding (no Jetpack Compose for fast startup and low memory usage).
+- **Adblocking**: Brave's `adblock-rust` engine compiled via NDK into `libadblock_bridge.so` across all 4 ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`).
+- **Filter Lists**: 54 Brave content filter lists with FlatBuffers binary caching (`onyx_filters.bin`).
+- **Media Playback**: Background audio/video playback and Picture-in-Picture.
+- **Storage & Security**: SQLCipher local database encryption, AndroidX Credential Manager for passkeys, and CameraX for QR scanning.
 
 ---
 
