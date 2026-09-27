@@ -42,7 +42,15 @@ object AdBlockDomainManager {
         "stats.wp.com", "driftt.com", "intercom.io", "wzrkt.com", "zenaps.com",
         "statdynamic.com", "datadoghq.com", "omtrdc.net", "stickyadstv.com", "3lift.com",
         "sonobi.com", "gumgum.com", "teads.tv", "kargo.com", "metrics.adobe.com",
-        "lr-ingest.com"
+        "lr-ingest.com", "googleanalytics.com", "adfox.yandex.ru", "appmetrica.yandex.ru",
+        "adfstat.yandex.ru", "metrika.yandex.ru", "offerwall.yandex.net", "adtech.yahooinc.com",
+        "gemini.yahoo.com", "partnerads.ysm.yahoo.com", "sentry-cdn.com", "getsentry.com",
+        "adtago.s3.amazonaws.com", "analyticsengine.s3.amazonaws.com", "analytics.s3.amazonaws.com",
+        "advice-ads.s3.amazonaws.com", "alb.reddit.com", "events.reddit.com", "events.redditmedia.com",
+        "ads.youtube.com", "ads-api.tiktok.com", "ads.tiktok.com", "ads-sg.tiktok.com",
+        "analytics-sg.tiktok.com", "business-api.tiktok.com", "log.byteoversea.com",
+        "trk.pinterest.com", "ads.pinterest.com", "log.pinterest.com", "an.facebook.com",
+        "pixel.facebook.com", "pointdrive.linkedin.com"
     )
 
     /**

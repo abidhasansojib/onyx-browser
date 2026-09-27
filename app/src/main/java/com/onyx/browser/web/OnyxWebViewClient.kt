@@ -142,7 +142,7 @@ class OnyxWebViewClient(
         return try {
             val url = request.url?.toString() ?: return null
 
-            // Track current page URL; never block the main frame document
+            // Track current page URL and check main frame document against ad/domain blocklists
             if (request.isForMainFrame) {
                 if (!isSyntheticOrDataUrl(url)) {
                     currentPageUrl = url
@@ -163,6 +163,44 @@ class OnyxWebViewClient(
                     val localResponse = LocalFileLoader.interceptLocalFile(context, url)
                     if (localResponse != null) {
                         return localResponse
+                    }
+                }
+
+                // Check main frame ad blocking (Domain Blocking / Interstitial Redirection - Brave Parity)
+                if (url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)) {
+                    val pageDomain = preferences.cleanDomain(currentPageUrl)
+                    val reqDomain = preferences.cleanDomain(url)
+                    val isWhitelisted = preferences.isDomainWhitelisted(pageDomain) || preferences.isDomainWhitelisted(reqDomain)
+
+                    if (preferences.isAdBlockEnabled && !isWhitelisted) {
+                        val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
+                        val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
+                        val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(reqDomain)
+                        val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
+
+                        if (blockedByEngine || blockedByStandard || blockedByAggressive) {
+                            preferences.incrementBlockedRequests()
+                            if (view is OnyxWebView && !view.canGoBack()) {
+                                val onyxWv = view
+                                onyxWv.post {
+                                    val tabId = onyxWv.tabId
+                                    if (tabId.isNotBlank()) {
+                                        (context as? MainActivity)?.closeTabById(tabId)
+                                    }
+                                }
+                            }
+                            return WebResourceResponse(
+                                "text/html",
+                                "UTF-8",
+                                403,
+                                "Blocked by Onyx Shields",
+                                mapOf(
+                                    "Access-Control-Allow-Origin" to "*",
+                                    "Content-Type" to "text/html; charset=utf-8"
+                                ),
+                                ByteArrayInputStream("<!DOCTYPE html><html><head><title>Blocked by Onyx Shields</title></head><body></body></html>".toByteArray())
+                            )
+                        }
                     }
                 }
                 
@@ -361,6 +399,35 @@ class OnyxWebViewClient(
                     val httpsUrl = url.replaceFirst("http://", "https://")
                     view?.post { view.loadUrl(httpsUrl) }
                     return true
+                }
+            }
+
+            // ── Main-frame Ad & Popup Navigation Interception (Brave Parity) ───────
+            if (isForMainFrame && (scheme == "http" || scheme == "https")) {
+                val pageDomain = preferences.cleanDomain(currentPageUrl)
+                val reqDomain = preferences.cleanDomain(url)
+                val isWhitelisted = preferences.isDomainWhitelisted(pageDomain) || preferences.isDomainWhitelisted(reqDomain)
+
+                if (preferences.isAdBlockEnabled && !isWhitelisted) {
+                    val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
+                    val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
+                    val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(reqDomain)
+                    val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
+
+                    if (blockedByEngine || blockedByStandard || blockedByAggressive) {
+                        preferences.incrementBlockedRequests()
+                        // If this WebView is a newly opened popup tab without back history, close it!
+                        if (view is OnyxWebView && !view.canGoBack()) {
+                            val onyxWv = view
+                            onyxWv.post {
+                                val tabId = onyxWv.tabId
+                                if (tabId.isNotBlank()) {
+                                    (context as? MainActivity)?.closeTabById(tabId)
+                                }
+                            }
+                        }
+                        return true // Cancel the ad navigation!
+                    }
                 }
             }
 

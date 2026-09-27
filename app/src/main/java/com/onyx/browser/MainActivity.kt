@@ -1264,6 +1264,11 @@ class MainActivity : AppCompatActivity() {
         showWebView(newTab, forceUrl = url, reloadIfChanged = true)
     }
 
+    fun closeTabById(tabId: String) {
+        val tab = tabManager.getTabById(tabId) ?: return
+        tabManager.closeTab(tab)
+    }
+
     private fun startQrScanner() {
         qrScannerLauncher.launch(Intent(this, com.onyx.browser.ui.qr.QrScannerActivity::class.java))
     }

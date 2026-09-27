@@ -42,4 +42,16 @@ class OnyxShieldBridge(private val context: Context) {
     fun isSocialMediaBlockingEnabled(): Boolean {
         return preferences.isSocialMediaBlockingEnabled
     }
+
+    @JavascriptInterface
+    fun getHiddenSelectors(classesJson: String?, idsJson: String?, pageUrl: String?): String {
+        if (!preferences.isAdBlockEnabled || !preferences.isCosmeticFilteringEnabled) return "[]"
+        val url = pageUrl?.takeIf { it.isNotBlank() } ?: return "[]"
+        val domain = preferences.cleanDomain(url)
+        if (preferences.isDomainWhitelisted(domain)) return "[]"
+
+        val cJson = classesJson?.takeIf { it.isNotBlank() } ?: "[]"
+        val iJson = idsJson?.takeIf { it.isNotBlank() } ?: "[]"
+        return com.onyx.browser.nativebridge.AdBlockEngine.getHiddenSelectors(cJson, iJson, url)
+    }
 }

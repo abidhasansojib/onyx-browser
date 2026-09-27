@@ -5,6 +5,7 @@ use adblock::resources::Resource;
 use jni::objects::{JByteArray, JClass, JString};
 use jni::sys::{jboolean, jbyteArray, jstring, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
+use std::collections::HashSet;
 use std::panic::catch_unwind;
 use std::ptr;
 use std::sync::RwLock;
@@ -176,6 +177,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
         let mut css = String::new();
         let mut script = String::new();
         let mut generichide = false;
+        let mut exceptions_vec: Vec<String> = Vec::new();
 
         if !url_str.is_empty() {
             if let Ok(lock) = ENGINE.read() {
@@ -194,6 +196,9 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
 
                     // Propagate generichide flag
                     generichide = resources.generichide;
+
+                    // Propagate exceptions for generic rules
+                    exceptions_vec = resources.exceptions.into_iter().collect();
                 }
             }
         }
@@ -202,19 +207,87 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
         // (handles newlines, tabs, control chars, quotes — all common in scriptlet code)
         let css_val = serde_json::Value::String(css);
         let script_val = serde_json::Value::String(script);
+        let exceptions_val = serde_json::to_value(&exceptions_vec).unwrap_or(serde_json::Value::Array(Vec::new()));
         format!(
-            "{{\"css\":{},\"script\":{},\"generichide\":{}}}",
+            "{{\"css\":{},\"script\":{},\"generichide\":{},\"exceptions\":{}}}",
             css_val,
             script_val,
-            generichide
+            generichide,
+            exceptions_val
         )
     }));
 
-    let json_out = result.unwrap_or_else(|_| "{\"css\":\"\",\"script\":\"\",\"generichide\":false}".to_string());
+    let json_out = result.unwrap_or_else(|_| "{\"css\":\"\",\"script\":\"\",\"generichide\":false,\"exceptions\":[]}".to_string());
     match env.new_string(json_out) {
         Ok(s) => s.into_raw(),
         Err(_) => env
-            .new_string("{\"css\":\"\",\"script\":\"\",\"generichide\":false}")
+            .new_string("{\"css\":\"\",\"script\":\"\",\"generichide\":false,\"exceptions\":[]}")
+            .map(|s| s.into_raw())
+            .unwrap_or(ptr::null_mut()),
+    }
+}
+
+/// Queries the active adblock engine for generic CSS hide selectors matching
+/// the provided DOM classes and IDs, respecting exceptions.
+/// - classes_json: JSON array of string class names, e.g. "[\"adsbox\",\"banner_ads\"]"
+/// - ids_json: JSON array of string IDs, e.g. "[\"cts_test\",\"interstitial-overlay\"]"
+/// - exceptions_json: JSON array of string exceptions, e.g. "[\"allowed-banner\"]"
+/// Returns a JSON array of matching CSS selector strings, e.g. "[\".adsbox\",\".banner_ads\"]"
+#[no_mangle]
+pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getHiddenClassIdSelectors(
+    mut env: JNIEnv,
+    _class: JClass,
+    classes_json: JString,
+    ids_json: JString,
+    exceptions_json: JString,
+) -> jstring {
+    let classes_str: String = match env.get_string(&classes_json) {
+        Ok(s) => s.into(),
+        Err(_) => String::new(),
+    };
+    let ids_str: String = match env.get_string(&ids_json) {
+        Ok(s) => s.into(),
+        Err(_) => String::new(),
+    };
+    let exceptions_str: String = match env.get_string(&exceptions_json) {
+        Ok(s) => s.into(),
+        Err(_) => String::new(),
+    };
+
+    let result = catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let classes: Vec<String> = if classes_str.is_empty() {
+            Vec::new()
+        } else {
+            serde_json::from_str(&classes_str).unwrap_or_default()
+        };
+
+        let ids: Vec<String> = if ids_str.is_empty() {
+            Vec::new()
+        } else {
+            serde_json::from_str(&ids_str).unwrap_or_default()
+        };
+
+        let exceptions_vec: Vec<String> = if exceptions_str.is_empty() {
+            Vec::new()
+        } else {
+            serde_json::from_str(&exceptions_str).unwrap_or_default()
+        };
+        let exceptions: HashSet<String> = exceptions_vec.into_iter().collect();
+
+        if let Ok(lock) = ENGINE.read() {
+            if let Some(ref engine) = *lock {
+                let matching = engine.hidden_class_id_selectors(&classes, &ids, &exceptions);
+                return serde_json::to_string(&matching).unwrap_or_else(|_| "[]".to_string());
+            }
+        }
+        "[]".to_string()
+    }));
+
+    let json_out = result.unwrap_or_else(|_| "[]".to_string());
+    match env.new_string(json_out) {
+        Ok(s) => s.into_raw(),
+        Err(_) => env
+            .new_string("[]")
             .map(|s| s.into_raw())
             .unwrap_or(ptr::null_mut()),
     }

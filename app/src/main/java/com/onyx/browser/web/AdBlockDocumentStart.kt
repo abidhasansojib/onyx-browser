@@ -266,44 +266,179 @@ object AdBlockDocumentStart {
                 }
             } catch(e) {}
 
-            // ── 8. Universal Generic Cosmetic CSS Sheet ──────────────────────────────
+            // ── 8. Brave Parity Generic Cosmetic Filter Engine (hidden_class_id_selectors) ───────
             try {
-                var injectCosmeticStyle = function() {
-                    if (document.getElementById('onyx-universal-cosmetic')) return;
-                    var style = document.createElement('style');
-                    style.id = 'onyx-universal-cosmetic';
-                    style.type = 'text/css';
-                    style.textContent = [
-                        '.ad-banner, .adsbox, .textads, .banner-ad, .ad-unit, .ads-wrapper,',
-                        '[class*="ad-container"], [id*="ad-container"], ins.adsbygoogle,',
-                        '[id*="google_ads"], [class*="google-ads"], [class*="sponsor-ad"],',
-                        '.afs_ads, .sponsor-content, .commercial-unit, #banner-ad, #ad-banner,',
-                        '.dfp-ad-container, [data-ad-unit], [data-ad-slot], .taboola-ad, .outbrain-ad,',
-                        '[class*="native-ad"], [id*="native-ad"], .ad-placeholder, .advertisement-box,',
-                        '.adblockHostDiv_probe, [id*="ad_banner"], [id*="ad_unit"], [class*="sponsored-item"],',
-                        '#onetrust-banner-sdk, #cookie-law-info-bar, .cc-window, .qc-cmp2-container, #CybotCookiebotDialog {',
-                        '  display: none !important;',
-                        '  visibility: hidden !important;',
-                        '  height: 0 !important;',
-                        '  width: 0 !important;',
-                        '  opacity: 0 !important;',
-                        '  pointer-events: none !important;',
-                        '  position: absolute !important;',
-                        '  left: -9999px !important;',
-                        '}'
-                    ].join('\n');
-                    var target = document.head || document.documentElement;
-                    if (target) {
-                        target.appendChild(style);
-                    } else {
-                        document.addEventListener('DOMContentLoaded', function() {
-                            (document.head || document.documentElement).appendChild(style);
-                        });
+                var seenSelectors = new Set();
+                var pendingClasses = new Set();
+                var pendingIds = new Set();
+                var queryTimer = null;
+                var cosmeticStyleEl = null;
+
+                function getOrCreateCosmeticStyle() {
+                    if (cosmeticStyleEl && document.contains(cosmeticStyleEl)) return cosmeticStyleEl;
+                    cosmeticStyleEl = document.getElementById('onyx-universal-cosmetic');
+                    if (!cosmeticStyleEl) {
+                        cosmeticStyleEl = document.createElement('style');
+                        cosmeticStyleEl.id = 'onyx-universal-cosmetic';
+                        cosmeticStyleEl.type = 'text/css';
+                        var target = document.head || document.documentElement;
+                        if (target) target.appendChild(cosmeticStyleEl);
                     }
-                };
-                injectCosmeticStyle();
+                    return cosmeticStyleEl;
+                }
+
+                function flushPendingSelectors() {
+                    if (pendingClasses.size === 0 && pendingIds.size === 0) return;
+                    if (!window.OnyxShieldBridge || typeof window.OnyxShieldBridge.getHiddenSelectors !== 'function') return;
+
+                    var classesArr = Array.from(pendingClasses);
+                    var idsArr = Array.from(pendingIds);
+                    pendingClasses.clear();
+                    pendingIds.clear();
+
+                    try {
+                        var resJson = window.OnyxShieldBridge.getHiddenSelectors(
+                            JSON.stringify(classesArr),
+                            JSON.stringify(idsArr),
+                            location.href
+                        );
+                        if (!resJson || resJson === '[]') return;
+                        var selectors = JSON.parse(resJson);
+                        if (selectors && selectors.length > 0) {
+                            var styleTag = getOrCreateCosmeticStyle();
+                            if (styleTag) {
+                                var cssRule = selectors.join(', ') + ' { display: none !important; }\n';
+                                styleTag.appendChild(document.createTextNode(cssRule));
+                                var target = document.head || document.documentElement || document.body;
+                                if (target && !document.contains(styleTag)) {
+                                    target.appendChild(styleTag);
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+
+                function scheduleQuery() {
+                    if (queryTimer) return;
+                    queryTimer = setTimeout(function() {
+                        queryTimer = null;
+                        flushPendingSelectors();
+                    }, 50);
+                }
+
+                function inspectElement(el) {
+                    if (!el || el.nodeType !== 1) return;
+                    var id = el.id;
+                    if (id && typeof id === 'string') {
+                        var idSel = '#' + id;
+                        if (!seenSelectors.has(idSel)) {
+                            seenSelectors.add(idSel);
+                            pendingIds.add(id);
+                        }
+                    }
+                    var classList = el.classList;
+                    if (classList && classList.length > 0) {
+                        for (var i = 0; i < classList.length; i++) {
+                            var cls = classList[i];
+                            if (cls) {
+                                var clsSel = '.' + cls;
+                                if (!seenSelectors.has(clsSel)) {
+                                    seenSelectors.add(clsSel);
+                                    pendingClasses.add(cls);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                function inspectSubtree(root) {
+                    if (!root || root.nodeType !== 1) return;
+                    inspectElement(root);
+                    var elms = root.querySelectorAll('[id], [class]');
+                    for (var i = 0; i < elms.length; i++) {
+                        inspectElement(elms[i]);
+                    }
+                    if (pendingClasses.size > 0 || pendingIds.size > 0) {
+                        scheduleQuery();
+                    }
+                }
+
+                // Initial baseline collapsed styles
+                var initStyle = getOrCreateCosmeticStyle();
+                initStyle.textContent = [
+                    '.ad-banner, .adsbox, .textads, .banner-ad, .ad-unit, .ads-wrapper,',
+                    '[class*="ad-container"], [id*="ad-container"], ins.adsbygoogle,',
+                    '[id*="google_ads"], [class*="google-ads"], [class*="sponsor-ad"],',
+                    '.afs_ads, .sponsor-content, .commercial-unit, #banner-ad, #ad-banner,',
+                    '.dfp-ad-container, [data-ad-unit], [data-ad-slot], .taboola-ad, .outbrain-ad,',
+                    '[class*="native-ad"], [id*="native-ad"], .ad-placeholder, .advertisement-box,',
+                    '.adblockHostDiv_probe, [id*="ad_banner"], [id*="ad_unit"], [class*="sponsored-item"],',
+                    '#onetrust-banner-sdk, #cookie-law-info-bar, .cc-window, .qc-cmp2-container, #CybotCookiebotDialog {',
+                    '  display: none !important;',
+                    '  visibility: hidden !important;',
+                    '  height: 0 !important;',
+                    '  width: 0 !important;',
+                    '  opacity: 0 !important;',
+                    '  pointer-events: none !important;',
+                    '  position: absolute !important;',
+                    '  left: -9999px !important;',
+                    '}'
+                ].join('\n');
+
+                // Inspect any DOM elements currently available
+                if (document.documentElement) {
+                    inspectSubtree(document.documentElement);
+                    flushPendingSelectors();
+                }
+
+                // MutationObserver for dynamic insertions, interstitials, and dynamic ads
+                var cosmeticObserver = new MutationObserver(function(mutations) {
+                    var hasNew = false;
+                    for (var i = 0; i < mutations.length; i++) {
+                        var m = mutations[i];
+                        if (m.type === 'childList') {
+                            for (var j = 0; j < m.addedNodes.length; j++) {
+                                var node = m.addedNodes[j];
+                                if (node.nodeType === 1) {
+                                    inspectElement(node);
+                                    if (node.firstElementChild) {
+                                        var nodes = node.querySelectorAll('[id], [class]');
+                                        for (var k = 0; k < nodes.length; k++) {
+                                            inspectElement(nodes[k]);
+                                        }
+                                    }
+                                    hasNew = true;
+                                }
+                            }
+                        } else if (m.type === 'attributes') {
+                            inspectElement(m.target);
+                            hasNew = true;
+                        }
+                    }
+                    if (hasNew && (pendingClasses.size > 0 || pendingIds.size > 0)) {
+                        scheduleQuery();
+                    }
+                });
+
+                function startCosmeticObserver() {
+                    var target = document.documentElement || document.body;
+                    if (target) {
+                        try {
+                            cosmeticObserver.observe(target, {
+                                subtree: true,
+                                childList: true,
+                                attributeFilter: ['id', 'class']
+                            });
+                        } catch(e) {}
+                        inspectSubtree(target);
+                        flushPendingSelectors();
+                    }
+                }
+
                 if (document.readyState === 'loading') {
-                    document.addEventListener('readystatechange', injectCosmeticStyle);
+                    document.addEventListener('DOMContentLoaded', startCosmeticObserver);
+                } else {
+                    startCosmeticObserver();
                 }
             } catch(e) {}
 

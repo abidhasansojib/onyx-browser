@@ -36,6 +36,7 @@ object AdBlockEngine {
     external fun loadResources(resourcesJson: String): Boolean
     external fun checkUrl(url: String, sourceUrl: String, resourceType: String): Boolean
     external fun getCosmeticResources(url: String): String?
+    external fun getHiddenClassIdSelectors(classesJson: String, idsJson: String, exceptionsJson: String): String?
     external fun serializeEngine(): ByteArray?
     external fun isEngineInitialized(): Boolean
 
@@ -174,19 +175,74 @@ object AdBlockEngine {
         }
     }
 
+    private val exceptionsCache = android.util.LruCache<String, String>(64)
+    private val genericHideCache = android.util.LruCache<String, Boolean>(64)
+
+    /**
+     * Retrieves exceptions JSON array string for the given URL, caching it.
+     */
+    fun getExceptionsJson(url: String): String {
+        if (!isNativeLoaded || url.isBlank()) return "[]"
+        val cached = exceptionsCache.get(url)
+        if (cached != null) return cached
+
+        return try {
+            val json = getCosmeticResources(url) ?: return "[]"
+            if (json.isEmpty()) return "[]"
+            val obj = JSONObject(json)
+            val exceptionsArr = obj.optJSONArray("exceptions")
+            val result = exceptionsArr?.toString() ?: "[]"
+            exceptionsCache.put(url, result)
+            if (obj.has("generichide")) {
+                genericHideCache.put(url, obj.optBoolean("generichide", false))
+            }
+            result
+        } catch (t: Throwable) {
+            "[]"
+        }
+    }
+
     /**
      * Returns true if generic cosmetic filtering should be suppressed for this URL.
      * Corresponds to the $generichide network filter option.
      */
     fun isGenericHide(url: String): Boolean {
-        if (!isNativeLoaded) return false
+        if (!isNativeLoaded || url.isBlank()) return false
+        val cached = genericHideCache.get(url)
+        if (cached != null) return cached
+
         return try {
             val json = getCosmeticResources(url) ?: return false
             if (json.isEmpty()) return false
             val obj = JSONObject(json)
-            obj.optBoolean("generichide", false)
+            val result = obj.optBoolean("generichide", false)
+            genericHideCache.put(url, result)
+            val exceptionsArr = obj.optJSONArray("exceptions")
+            if (exceptionsArr != null) {
+                exceptionsCache.put(url, exceptionsArr.toString())
+            }
+            result
         } catch (t: Throwable) {
             false
+        }
+    }
+
+    /**
+     * Returns matching generic hide CSS selectors for the given classes and IDs, respecting exceptions.
+     * - classesJson: JSON array of string class names, e.g. ["ad-box", "banner"]
+     * - idsJson: JSON array of string IDs, e.g. ["ad-unit"]
+     * - url: Active page URL for retrieving site exceptions and checking $generichide
+     * Returns JSON array string of matching CSS selectors, e.g. [".ad-box"]
+     */
+    fun getHiddenSelectors(classesJson: String, idsJson: String, url: String): String {
+        if (!isNativeLoaded) return "[]"
+        if (isGenericHide(url)) return "[]"
+        return try {
+            val exceptionsJson = getExceptionsJson(url)
+            getHiddenClassIdSelectors(classesJson, idsJson, exceptionsJson) ?: "[]"
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error in getHiddenClassIdSelectors", t)
+            "[]"
         }
     }
 }

@@ -1693,3 +1693,27 @@ onyx-browser/
       - `MainActivity.handleIncomingIntent`: Passes active tab as `parentId` when opening external links.
       - `MainActivity.setupBackNavigation`: While `canGoBack()` is true, goes back 1-by-1; when history steps are gone, checks for `parentTab` and closes child tab to return to the original tab.
       - `MainActivity.showWebView`: Preserves loaded state and scroll position without unnecessary reloading when switching back to the parent tab.
+  - [x] **Brave Parity Interstitial Ad & Generic Cosmetic Filtering Engine**:
+    - **Root Cause Analysis (Why Onyx couldn't block interstitial ads & scored lower on turtlecute.org)**:
+      1. *Generic Cosmetic Filters Were Never Injected*: `adblock-rust` only returns site-specific CSS from `url_cosmetic_resources()`. The vast majority of cosmetic rules in EasyList (e.g. `##.adsbox`, `##.banner_ads`, `##.textads`, `##.adbox`, `##.ad-overlay`, `##[class*="interstitial"]`) are generic rules evaluated via `hidden_class_id_selectors()`. Because Onyx never invoked `hidden_class_id_selectors()`, all generic cosmetic rules were completely skipped, failing both Static and Dynamic ad tests on `turtlecute.org` and allowing in-page interstitial overlays on streaming sites.
+      2. *Main-Frame Document Requests Bypassed Network Interception*: `OnyxWebViewClient.shouldInterceptRequest()` returned `null` for all `request.isForMainFrame` requests before checking the adblocker, and `shouldOverrideUrlLoading()` did not check `AdBlockEngine.shouldBlock()`. When an interstitial ad redirected via `location.href` or a popup tab navigated to an ad domain, Onyx allowed the navigation to proceed without running it against the engine.
+    - **Implementation Details**:
+      - **Rust Native JNI Bridge (`rust_engine/src/lib.rs`)**:
+        - Exported `Java_com_onyx_browser_nativebridge_AdBlockEngine_getHiddenClassIdSelectors`: Parses `classes`, `ids`, and `exceptions` JSON, invokes `engine.hidden_class_id_selectors(&classes, &ids, &exceptions)`, and serializes matching CSS selectors to JSON.
+        - Updated `Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosmeticResources`: Now extracts and returns `resources.exceptions` along with `css`, `script`, and `generichide`.
+      - **Kotlin Native Bridge (`AdBlockEngine.kt`)**:
+        - Declared `external fun getHiddenClassIdSelectors(classesJson, idsJson, exceptionsJson): String?`.
+        - Added `LruCache` for `exceptions` and `generichide` per URL.
+        - Implemented `getHiddenSelectors(classesJson, idsJson, url)` which respects `$generichide` and passes cached exceptions into the Rust engine.
+      - **JavaScript Interface Bridge (`OnyxShieldBridge.kt`)**:
+        - Added `@JavascriptInterface fun getHiddenSelectors(classesJson, idsJson, pageUrl): String`.
+      - **Dynamic DOM Cosmetic Engine (`AdBlockDocumentStart.kt`)**:
+        - Implemented `MutationObserver` on `[class]` and `[id]` with batched DOM extraction.
+        - Synchronously queries `window.OnyxShieldBridge.getHiddenSelectors()` and appends matching hide rules (`display: none !important;`) directly to `<style id="onyx-universal-cosmetic">`.
+        - Fully passes both Static Ad and Dynamic Ad tests on `adblock.turtlecute.org` and collapses in-page interstitial modals on streaming sites.
+      - **Main-Frame Ad & Popup Navigation Interception (`OnyxWebViewClient.kt` & `MainActivity.kt`)**:
+        - In `shouldInterceptRequest`: Checks main-frame requests against `AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")` and `AdBlockDomainManager`. Returns 403 `Blocked by Onyx Shields` and triggers closure of blank popup tabs.
+        - In `handleUrlLoading`: Checks top-level navigations against the adblock engine. If an ad/redirect URL is detected, cancels navigation (`return true`) and closes popup tabs (`closeTabById`) without user disruption.
+        - Added `MainActivity.closeTabById(tabId: String)`.
+      - **Standard Ad & Tracker List Expansion (`AdBlockDomainManager.kt`)**:
+        - Added standard ad and tracker networks tested by adblock suites (`googleanalytics.com`, `adfox`, `appmetrica`, `sentry-cdn`, `events.reddit.com`, `ads.youtube.com`, `ads-api.tiktok.com`, etc.) to `standardDomains`.
