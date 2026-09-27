@@ -58,9 +58,8 @@ This document tracks all features of Onyx Browser, their current implementation 
 45. [x] Desktop Site Toggle (per-tab desktop viewport switch)
 46. [-] WebGL 1/2 Complex Shader Polyfills (Evan Wallace water works; older GPUs may lack hardware float texture targets)
 47. [ ] Custom Userscript Manager (Tampermonkey / Violentmonkey scriptlet support)
-48. [ ] P2P Encrypted Sync (bookmarks and history sync across Onyx devices)
-49. [ ] Built-in Reader Mode (distraction-free text view for articles)
-50. [ ] DNS-over-HTTPS (DoH) Provider Selection (Cloudflare, Quad9, AdGuard DNS)
+48. [ ] Built-in Reader Mode (distraction-free text view for articles)
+49. [ ] DNS-over-HTTPS (DoH) Provider Selection (Cloudflare, Quad9, AdGuard DNS)
 
 ---
 

@@ -289,4 +289,5 @@ onyx-browser/
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
-  - P2P sync for encrypted bookmarks and history across Onyx instances.
+  - Built-in Reader Mode (distraction-free text view for articles).
+  - DNS-over-HTTPS (DoH) provider selection.
