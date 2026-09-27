@@ -259,6 +259,9 @@ onyx-browser/
     - Redesigned `app/src/main/res/drawable/ic_shield_lock.xml` to match the browser's Lucide outline vector design system (`strokeWidth="2"`, `strokeLineCap="round"`, `strokeLineJoin="round"`).
     - Replaced the outdated jagged Android 5.0 silhouette with an elegant Lucide crest shield and a geometrically centered, perfectly balanced padlock with rounded corners and arched shackle.
     - Preserved `#FFFFFFFF` static vector coloring for reliable runtime tinting across Android 8-15.
+  - Settings Category Icons Dynamic Theme Tinting:
+    - Fixed an issue where the left category icons in `activity_settings.xml` (Appearance, Autofill, Video options, Download settings, Accessibility, Privacy & shields, User agent spoofer, Manage personal data, and About Onyx) were invisible in light mode due to hardcoded white tint (`app:tint="#FFFFFFFF"` blending into white cards).
+    - Replaced hardcoded tint with `@color/settings_title_text`, dynamically rendering in `#202124` charcoal in light mode and retaining crisp `#FFFFFFFF` white in dark mode, matching the existing standard used in sub-settings activities.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
