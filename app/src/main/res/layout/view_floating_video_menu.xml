@@ -27,7 +27,7 @@
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/download"
-            android:padding="9dp"
+            android:padding="8dp"
             android:scaleType="fitCenter"
             app:srcCompat="@drawable/ic_download"
             app:tint="?android:attr/textColorPrimary" />
@@ -46,7 +46,7 @@
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Background Playback"
-            android:padding="9dp"
+            android:padding="8dp"
             android:scaleType="fitCenter"
             app:srcCompat="@drawable/ic_headphones"
             app:tint="?android:attr/textColorPrimary" />
@@ -65,7 +65,7 @@
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Picture in Picture"
-            android:padding="9dp"
+            android:padding="8dp"
             android:scaleType="fitCenter"
             app:srcCompat="@drawable/ic_picture_in_picture"
             app:tint="?android:attr/textColorPrimary" />

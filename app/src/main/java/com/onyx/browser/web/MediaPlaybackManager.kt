@@ -511,18 +511,19 @@ object MediaPlaybackManager {
      */
     val backgroundPlaybackScript: String = """
         (function() {
-            if (window.__onyx_bg_play_active) return;
             window.__onyx_bg_play_active = true;
+            if (window.__onyx_bg_script_installed) return;
+            window.__onyx_bg_script_installed = true;
 
             try {
                 // ── 1. Brave kYoutubeBackgroundPlayback: Filter visibilitychange listeners ──
                 if (document._addEventListener === undefined) {
                     document._addEventListener = document.addEventListener;
                     document.addEventListener = function(type, listener, options) {
-                        if (type === 'visibilitychange' || type === 'webkitvisibilitychange') {
-                            return; // Filter out website pause-on-hide listeners!
+                        if (window.__onyx_bg_play_active && (type === 'visibilitychange' || type === 'webkitvisibilitychange')) {
+                            return; // Filter out website pause-on-hide listeners only while active!
                         }
-                        document._addEventListener(type, listener, options);
+                        return document._addEventListener.call(this, type, listener, options);
                     };
                 }
 
@@ -536,6 +537,7 @@ object MediaPlaybackManager {
                             configurable: true,
                             get: function() {
                                 var res = origGet.call(this);
+                                if (!window.__onyx_bg_play_active) return res;
                                 return (res !== 'visible') ? 'visible' : res;
                             }
                         });
@@ -543,21 +545,37 @@ object MediaPlaybackManager {
                 } catch (_) {}
 
                 try {
+                    var origDocVis = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+                    var origDocVisGet = origDocVis ? origDocVis.get : null;
                     Object.defineProperty(document, 'visibilityState', {
                         configurable: true,
-                        get: function() { return 'visible'; }
+                        get: function() {
+                            if (!window.__onyx_bg_play_active) {
+                                return origDocVisGet ? origDocVisGet.call(document) : 'visible';
+                            }
+                            return 'visible';
+                        }
                     });
                     Object.defineProperty(document, 'hidden', {
                         configurable: true,
-                        get: function() { return false; }
+                        get: function() {
+                            if (!window.__onyx_bg_play_active) return false;
+                            return false;
+                        }
                     });
                     Object.defineProperty(document, 'webkitHidden', {
                         configurable: true,
-                        get: function() { return false; }
+                        get: function() {
+                            if (!window.__onyx_bg_play_active) return false;
+                            return false;
+                        }
                     });
                     Object.defineProperty(document, 'webkitVisibilityState', {
                         configurable: true,
-                        get: function() { return 'visible'; }
+                        get: function() {
+                            if (!window.__onyx_bg_play_active) return 'visible';
+                            return 'visible';
+                        }
                     });
                     document.hasFocus = function() { return true; };
                     if (typeof Document !== 'undefined' && Document.prototype) {
@@ -567,6 +585,7 @@ object MediaPlaybackManager {
 
                 // Suppress window blur & focusout events during background transitions
                 var stopWindowBlur = function(e) {
+                    if (!window.__onyx_bg_play_active) return;
                     if (e.target === window || e.target === document) {
                         e.stopImmediatePropagation();
                     }
@@ -575,6 +594,7 @@ object MediaPlaybackManager {
                 window.addEventListener('focusout', stopWindowBlur, true);
 
                 var stopVisibilityInBg = function(e) {
+                    if (!window.__onyx_bg_play_active) return;
                     if (window.__onyx_in_background) {
                         e.stopImmediatePropagation();
                     }
@@ -593,6 +613,9 @@ object MediaPlaybackManager {
                 // ── 3. Brave MediaBackgrounding: userHitPause & Auto-Resume ────────────────
                 var origPause = HTMLMediaElement.prototype.pause;
                 HTMLMediaElement.prototype.pause = function() {
+                    if (!window.__onyx_bg_play_active) {
+                        return origPause.apply(this, arguments);
+                    }
                     if (window.__onyx_allow_explicit_pause) {
                         this.userHitPause = true;
                         return origPause.apply(this, arguments);
@@ -606,6 +629,9 @@ object MediaPlaybackManager {
 
                 var origPlay = HTMLMediaElement.prototype.play;
                 HTMLMediaElement.prototype.play = function() {
+                    if (!window.__onyx_bg_play_active) {
+                        return origPlay.apply(this, arguments);
+                    }
                     this.userHitPause = false;
                     return origPlay.apply(this, arguments);
                 };
@@ -615,6 +641,7 @@ object MediaPlaybackManager {
                     element.__onyx_bg_bound = true;
 
                     element.addEventListener('pause', function() {
+                        if (!window.__onyx_bg_play_active) return;
                         if (!element.userHitPause && !element.ended) {
                             // Video paused by page visibility or blur: auto-resume!
                             origPlay.call(element).catch(function(){});
@@ -622,6 +649,7 @@ object MediaPlaybackManager {
                     }, false);
 
                     element.addEventListener('webkitpresentationmodechanged', function(e) {
+                        if (!window.__onyx_bg_play_active) return;
                         e.stopPropagation();
                     }, true);
                 }
@@ -672,7 +700,7 @@ object MediaPlaybackManager {
                     window.IntersectionObserver = function(cb, opts) {
                         return new OrigIO(function(entries, obs) {
                             return cb(entries.map(function(entry) {
-                                if (entry.target instanceof HTMLMediaElement || entry.target?.querySelector('video, audio')) {
+                                if (window.__onyx_bg_play_active && (entry.target instanceof HTMLMediaElement || entry.target?.querySelector('video, audio'))) {
                                     return new Proxy(entry, {
                                         get: function(t, p) {
                                             if (p === 'isIntersecting') return true;
@@ -695,7 +723,7 @@ object MediaPlaybackManager {
                         Object.defineProperty(HTMLMediaElement.prototype, 'muted', {
                             get: function() { return origMuted.get.call(this); },
                             set: function(val) {
-                                if (val && (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden')) {
+                                if (window.__onyx_bg_play_active && val && (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden')) {
                                     return;
                                 }
                                 return origMuted.set.call(this, val);

@@ -87,7 +87,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
                 onVideoAvailabilityListener?.invoke(false)
-                MediaPlaybackService.stop(context)
+                MediaPlaybackService.stopNotificationOnly(context)
             }
         }
     }
@@ -174,6 +174,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         currentArtworkUrl = artworkUrl?.takeIf { it.isNotBlank() }
 
         if (isPlaying) {
+            isExplicitUserPause = false
             val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
             if (myTabId != null) {
                 currentPlayingTabId = myTabId
@@ -221,6 +222,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaPlaying(title: String?, artist: String?, isVideo: Boolean) {
+        isExplicitUserPause = false
         if (isVideo) {
             isVideoPresent = true
         }

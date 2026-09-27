@@ -65,7 +65,7 @@ class VideoSettingsActivity : AppCompatActivity() {
             binding.settingBackgroundPlaySwitch.isChecked = newState
             preferences.isBackgroundPlayEnabled = newState
             if (!newState) {
-                com.onyx.browser.media.MediaPlaybackService.stop(this)
+                com.onyx.browser.media.MediaPlaybackService.stopNotificationOnly(this)
             }
         }
 

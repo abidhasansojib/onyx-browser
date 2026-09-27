@@ -128,6 +128,7 @@ class FloatingVideoMenuManager(
      */
     fun updateHeadphonesState(enabled: Boolean) {
         val btn = binding?.btnFloatingHeadphones ?: return
+        ImageViewCompat.setImageTintMode(btn, android.graphics.PorterDuff.Mode.SRC_IN)
         if (enabled) {
             val activeColor = ContextCompat.getColor(context, R.color.google_blue)
             ImageViewCompat.setImageTintList(btn, ColorStateList.valueOf(activeColor))
@@ -136,8 +137,10 @@ class FloatingVideoMenuManager(
             val typedValue = TypedValue()
             val defaultColor = if (context.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)) {
                 typedValue.data
+            } else if (preferences.isDarkMode()) {
+                ContextCompat.getColor(context, R.color.text_primary_dark)
             } else {
-                Color.WHITE
+                ContextCompat.getColor(context, R.color.text_primary_light)
             }
             ImageViewCompat.setImageTintList(btn, ColorStateList.valueOf(defaultColor))
             btn.contentDescription = "Background Playback: Off"

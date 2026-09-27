@@ -219,6 +219,16 @@ class MediaPlaybackService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
+            ACTION_DISMISS -> {
+                isMediaPlaying = false
+                releaseWakeLock()
+                stopForegroundCompat()
+                try {
+                    notificationManager.cancel(NOTIFICATION_ID)
+                } catch (_: Exception) {}
+                stopSelf()
+                return START_NOT_STICKY
+            }
             ACTION_UPDATE_STATE -> {
                 val playing = intent.getBooleanExtra(EXTRA_IS_PLAYING, true)
                 isMediaPlaying = playing
@@ -505,6 +515,7 @@ class MediaPlaybackService : Service() {
         const val ACTION_REWIND = "com.onyx.browser.action.MEDIA_REWIND"
         const val ACTION_FORWARD = "com.onyx.browser.action.MEDIA_FORWARD"
         const val ACTION_STOP = "com.onyx.browser.action.MEDIA_STOP"
+        const val ACTION_DISMISS = "com.onyx.browser.action.MEDIA_DISMISS"
         const val ACTION_UPDATE_STATE = "com.onyx.browser.action.MEDIA_UPDATE_STATE"
         const val ACTION_UPDATE_PROGRESS = "com.onyx.browser.action.MEDIA_UPDATE_PROGRESS"
 
@@ -653,6 +664,29 @@ class MediaPlaybackService : Service() {
 
             val intent = Intent(context, MediaPlaybackService::class.java).apply {
                 action = ACTION_STOP
+            }
+            try {
+                context.startService(intent)
+            } catch (_: Exception) {
+                try {
+                    context.stopService(intent)
+                } catch (_: Exception) {}
+            }
+            try {
+                context.stopService(Intent(context, MediaPlaybackService::class.java))
+            } catch (_: Exception) {}
+            try {
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+                nm?.cancel(NOTIFICATION_ID)
+            } catch (_: Exception) {}
+        }
+
+        fun stopNotificationOnly(context: Context) {
+            isMediaPlaying = false
+            currentArtworkBitmap = null
+
+            val intent = Intent(context, MediaPlaybackService::class.java).apply {
+                action = ACTION_DISMISS
             }
             try {
                 context.startService(intent)

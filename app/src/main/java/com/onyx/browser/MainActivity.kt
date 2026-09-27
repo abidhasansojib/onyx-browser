@@ -2313,11 +2313,11 @@ class MainActivity : AppCompatActivity() {
                         }
                         Toast.makeText(this@MainActivity, "Background playback enabled", Toast.LENGTH_SHORT).show()
                     } else {
-                        // Disable background playback on all tabs
+                        // Disable background playback on all tabs without pausing active playback
                         tabManager.getAllWebViews().forEach { wv ->
                             wv.evaluateJavascript("window.__onyx_bg_play_active = false; window.__onyx_in_background = false;", null)
                         }
-                        com.onyx.browser.media.MediaPlaybackService.stop(this@MainActivity)
+                        com.onyx.browser.media.MediaPlaybackService.stopNotificationOnly(this@MainActivity)
                         Toast.makeText(this@MainActivity, "Background playback disabled", Toast.LENGTH_SHORT).show()
                     }
                 }

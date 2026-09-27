@@ -225,6 +225,8 @@ onyx-browser/
   - Streamlined `README.md` with official branding (`art/logo.png`), comprehensive `FEATURES.md`, and official GNU GPL-3.0 `LICENSE`.
   - GitHub YAML issue forms (`bug_report.yml` and `feature_request.yml`) with strict template chooser policy.
   - Enhanced Developer Tools subsystem: remote USB debugging via `WebView.setWebContentsDebuggingEnabled(true)`, document_start console & error pre-buffering, in-memory Eruda caching, dark/light theme sync, and session persistence.
+  - Background Playback Stability & Auto-Resume Fix: Decoupled service notification dismissal (`stopNotificationOnly` / `ACTION_DISMISS`) from foreground video playback, eliminating the recursive `pauseAllMediaScript` loop; gated all JavaScript keep-alive monkey-patches (`pause`, `play`, `visibilityState`, `listeners`) behind dynamic `window.__onyx_bg_play_active` checks; auto-reset `isExplicitUserPause = false` on playback start.
+  - Floating Video Menu Headphone Icon Overhaul: Replaced thin unclosed stroke with Google Material Design filled headset vector (`#FFFFFFFF` base), added explicit `PorterDuff.Mode.SRC_IN` tinting, adjusted button padding to 8dp for prominent 24dp rendering, and ensured crisp contrast in both light and dark/AMOLED themes.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
