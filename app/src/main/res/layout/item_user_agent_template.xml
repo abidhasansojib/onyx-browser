@@ -9,10 +9,10 @@
     android:clickable="true"
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground"
-    app:cardBackgroundColor="?attr/colorSurface"
-    app:cardCornerRadius="14dp"
+    app:cardBackgroundColor="@color/settings_card_bg"
+    app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
-    app:strokeColor="?attr/colorOutline"
+    app:strokeColor="@color/settings_card_stroke"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -26,9 +26,9 @@
         android:paddingBottom="12dp">
 
         <FrameLayout
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:background="@drawable/bg_circle_frosted">
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_box_tile">
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/ivTemplateIcon"
@@ -36,7 +36,7 @@
                 android:layout_height="22dp"
                 android:layout_gravity="center"
                 app:srcCompat="@drawable/ic_desktop"
-                app:tint="@color/primary" />
+                app:tint="?android:attr/textColorPrimary" />
         </FrameLayout>
 
         <LinearLayout
@@ -61,7 +61,7 @@
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="14sp"
+                    android:textSize="14.5sp"
                     android:textStyle="bold"
                     tools:text="Windows PC (Google Chrome)" />
 
@@ -70,12 +70,12 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="6dp"
-                    android:background="@drawable/bg_pill_frosted"
-                    android:paddingStart="7dp"
+                    android:background="@drawable/bg_pill_badge"
+                    android:paddingStart="8dp"
                     android:paddingTop="2dp"
-                    android:paddingEnd="7dp"
+                    android:paddingEnd="8dp"
                     android:paddingBottom="2dp"
-                    android:textColor="@color/primary"
+                    android:textColor="?android:attr/textColorSecondary"
                     android:textSize="10sp"
                     android:textStyle="bold"
                     tools:text="DESKTOP" />
@@ -100,7 +100,7 @@
             android:layout_height="22dp"
             android:visibility="gone"
             app:srcCompat="@drawable/ic_check"
-            app:tint="@color/primary"
+            app:tint="@color/google_blue"
             tools:visibility="visible" />
 
     </LinearLayout>

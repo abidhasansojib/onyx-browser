@@ -244,6 +244,12 @@ onyx-browser/
   - One-Tap Active Webpage Card Navigation (Matching Brave-Core):
     - Tapping the current webpage card (or its site info container) in the omnibox search overlay directly navigates/reloads the page via `performSearchOrLoad()` and dismisses the keyboard in one tap, while preserving the dedicated edit pencil button (`btnCurrentPageEdit`) for customizing the URL in the omnibox.
   - Settings Activity Toolbar Title Alignment: Centered the "Settings" title at the top of `activity_settings.xml` via `app:titleCentered="true"` on `MaterialToolbar`.
+  - User Agent Spoofer Manager UI & Theme Overhaul:
+    - Redesigned `bottom_sheet_user_agent_picker.xml` and `item_user_agent_template.xml` to seamlessly match the Onyx Google Dark/Light luxury theme, completely eliminating all hardcoded coral pink accents.
+    - Standardized drag handle (`bg_drag_handle`), squircle icon tiles (`bg_box_tile`), and pill badges (`bg_pill_badge`).
+    - Adopted `@color/settings_card_bg` and `@color/settings_card_stroke` matching SettingsActivity cards.
+    - Updated active template and custom UA states to use `@color/google_blue` borders, checkmarks, and badges.
+    - Redesigned action buttons: Outlined Paste button and Google Blue Apply button with contrast-optimized `btn_apply_text`.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
@@ -54,11 +55,11 @@ class UserAgentPickerSheet(
 
     private fun setupCustomCard() {
         val isCustomActive = preferences.userAgentSpoofTemplate == UserAgentManager.KEY_CUSTOM
-        val colorPrimary = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorPrimary)
-        val colorOutline = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorOutline)
+        val colorActive = ContextCompat.getColor(requireContext(), R.color.google_blue)
+        val colorCardStroke = ContextCompat.getColor(requireContext(), R.color.settings_card_stroke)
 
         binding.tvCustomActiveBadge.visibility = if (isCustomActive) View.VISIBLE else View.GONE
-        binding.cardCustomUa.strokeColor = if (isCustomActive) colorPrimary else colorOutline
+        binding.cardCustomUa.strokeColor = if (isCustomActive) colorActive else colorCardStroke
         binding.cardCustomUa.strokeWidth = dpToPx(if (isCustomActive) 2 else 1)
 
         val savedCustomUa = preferences.customUserAgent
@@ -149,16 +150,20 @@ class UserAgentPickerSheet(
             val context = binding.root.context
             val isSelected = template.key == currentSelectedKey
 
-            val colorPrimary = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorPrimary)
-            val colorOutline = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorOutline)
+            val colorActive = ContextCompat.getColor(context, R.color.google_blue)
+            val colorCardStroke = ContextCompat.getColor(context, R.color.settings_card_stroke)
+            val colorTextPrimary = MaterialColors.getColor(binding.root, android.R.attr.textColorPrimary)
+            val colorTextSecondary = MaterialColors.getColor(binding.root, android.R.attr.textColorSecondary)
 
             binding.tvTemplateTitle.text = template.title
             binding.tvCategoryBadge.text = template.category.uppercase()
+            binding.tvCategoryBadge.setTextColor(if (isSelected) colorActive else colorTextSecondary)
             binding.tvTemplateUaPreview.text = template.userAgentString
             binding.ivTemplateIcon.setImageResource(template.iconResId)
+            binding.ivTemplateIcon.setColorFilter(if (isSelected) colorActive else colorTextPrimary)
 
             binding.ivSelectedCheck.visibility = if (isSelected) View.VISIBLE else View.GONE
-            binding.cardTemplate.strokeColor = if (isSelected) colorPrimary else colorOutline
+            binding.cardTemplate.strokeColor = if (isSelected) colorActive else colorCardStroke
             binding.cardTemplate.strokeWidth = ((if (isSelected) 2 else 1) * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
 
             binding.cardTemplate.setOnClickListener {

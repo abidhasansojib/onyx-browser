@@ -41,6 +41,7 @@
     <color name="dialog_search_engine_bg">#282A2D</color>
     <color name="btn_cancel_bg">#35363A</color>
     <color name="btn_clear_bg">#DC4B64</color>
+    <color name="btn_apply_text">#1C1C1E</color>
     <color name="google_blue">#8AB4F8</color>
 
     <!-- Settings Screen (#0B0305 luxury dark theme & #202020 card containers) -->

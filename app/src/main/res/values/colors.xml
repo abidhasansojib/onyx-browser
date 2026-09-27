@@ -67,6 +67,7 @@
     <color name="dialog_search_engine_bg">#FFFFFF</color>
     <color name="btn_cancel_bg">#E8EAED</color>
     <color name="btn_clear_bg">#DC4B64</color>
+    <color name="btn_apply_text">#FFFFFF</color>
 
     <!-- Settings Screen — Light mode uses clean white canvas -->
     <color name="settings_canvas_bg">#F1F3F4</color>
