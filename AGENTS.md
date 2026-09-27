@@ -266,6 +266,7 @@ onyx-browser/
     - Rewrote `README.md` to remove robotic AI buzzwords, verbose marketing prose, and internal technical over-explanations.
     - Preserved visual branding (centered 128px logo, title, clean badges, quick links).
     - Simplified sections: natural "What is Onyx?", clear benefit-focused feature bullet points, straightforward download guide matching CPU architectures to everyday devices, minimal tech stack, and easy-to-follow source build instructions.
+    - Added crisp iconography and official tech badges with logos (Kotlin, Rust NDK, SQLCipher, CameraX) across features, downloads table, tech stack, and credits for a polished visual aesthetic.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
