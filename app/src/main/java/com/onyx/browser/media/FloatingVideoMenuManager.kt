@@ -145,10 +145,10 @@ class FloatingVideoMenuManager(
     }
 
     /**
-     * Updates visibility of the floating menu based on video playback state and user preference.
+     * Updates visibility of the floating menu based on video presence/playback and user preference.
      */
-    fun onVideoPlaybackStateChanged(isVideoPlaying: Boolean, isWebViewVisible: Boolean) {
-        val shouldShow = isVideoPlaying && isWebViewVisible && preferences.isFloatingVideoMenuEnabled
+    fun onVideoStateChanged(hasVideo: Boolean, isWebViewVisible: Boolean) {
+        val shouldShow = hasVideo && isWebViewVisible && preferences.isFloatingVideoMenuEnabled
         val view = binding?.root ?: return
 
         updateHeadphonesState(preferences.isBackgroundPlayEnabled)
@@ -182,6 +182,13 @@ class FloatingVideoMenuManager(
                     .start()
             }
         }
+    }
+
+    /**
+     * Compatibility overload for legacy playback-only updates.
+     */
+    fun onVideoPlaybackStateChanged(isVideoPlaying: Boolean, isWebViewVisible: Boolean) {
+        onVideoStateChanged(isVideoPlaying, isWebViewVisible)
     }
 
     fun hideImmediately() {

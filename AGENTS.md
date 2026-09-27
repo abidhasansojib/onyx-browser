@@ -1814,3 +1814,24 @@ onyx-browser/
       - Updated `MainActivity.onPause()` and `MainActivity.onResume()` to broadcast background/foreground state changes to all active WebViews across tabs via `tabManager.getAllWebViews()`.
     - **Floating Action Pill Robustness**:
       - Elevated `view_floating_video_menu.xml` to `app:cardElevation="24dp"` and set `view.translationZ = 100f` with `bringToFront()`, ensuring the floating controls are never obscured by hardware-accelerated WebViews or swipe refresh containers.
+
+  - [x] **Adblock Resilience, Video Presence, MediaSession Sync & PiP Viewport Refinement**:
+    - **Content-Type-Aware Blocked Response Synthesis (`OnyxWebViewClient`)**:
+      - Replaced raw HTTP 403 error responses with safe 200 OK type-aware stubs (`createBlockedResponse`):
+        - `image`: Returns a 1×1 transparent Base64 PNG data stream with CORS headers, preventing broken image placeholders and distorted webpage layouts.
+        - `script`: Returns an empty JavaScript stream with CORS, preventing script fetch rejections from halting page execution.
+        - `stylesheet`: Returns an empty CSS stream, preventing missing-style layout flashes.
+        - `sub_frame`: Returns an empty HTML comment (`<!-- blocked subframe -->`), cleanly suppressing interstitial ad iframes without displaying browser error pages.
+    - **Video Presence & Floating Menu State Sync (`MediaPlaybackBridge` & `FloatingVideoMenuManager`)**:
+      - Added `isVideoPresent` and `isVideoAvailable` flags to decouple menu visibility from active playback, ensuring the floating pill appears whenever video elements exist on the page and persists across pause and buffering states.
+      - Added `onVideoPresenceChanged` JavaScript bridge call in `mediaMonitorScript`.
+      - Connected `updateFloatingVideoMenuVisibility()` across `showHomeScreen()`, `showWebView()`, `onResume()`, `enterSearchMode()`, and PiP state transitions.
+    - **Web Standards MediaSession Action Synchronization (`MediaPlaybackManager`)**:
+      - Intercepted `navigator.mediaSession.setActionHandler` to capture streaming websites' custom actions (`play`, `pause`, `seekto`, `seekforward`, `seekbackward`, `nexttrack`, `previoustrack`).
+      - Directed Android notification, lockscreen, and PiP transport commands to dispatch through the site's registered MediaSession handlers first, falling back to `#movie_player` and DOM media elements.
+    - **Shadow DOM PiP Video Isolation & Viewport Centering**:
+      - Enhanced `isolateVideoForPipScript` to traverse composed element paths across ShadowRoot boundaries, stripping CSS `transform`, `contain`, `filter`, and `clip-path` constraints from custom elements and hosts.
+      - Zeroed out `contentContainer` navigation bar padding during PiP transitions and restored it upon exit, ensuring centered, unclipped video playback.
+    - **High-Performance In-Memory Whitelist Cache (`BrowserPreferences`)**:
+      - Optimized `cleanDomain` with zero-allocation index slicing and added `cachedWhitelist` in-memory HashSet cache to accelerate adblock evaluations during heavy subresource request bursts.
+

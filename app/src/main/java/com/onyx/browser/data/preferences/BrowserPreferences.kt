@@ -232,10 +232,17 @@ class BrowserPreferences private constructor(context: Context) {
 
     // ── Per-domain Script Blocking ───────────────────────────────────────────
 
+    @Volatile
+    private var cachedScriptBlockingDomains: Set<String>? = null
+
     fun isScriptBlockingEnabledForDomain(domainOrUrl: String): Boolean {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return false
-        val set = prefs.getStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, emptySet()) ?: emptySet()
+        val set = cachedScriptBlockingDomains ?: run {
+            val s = prefs.getStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, emptySet()) ?: emptySet()
+            cachedScriptBlockingDomains = s
+            s
+        }
         return set.contains(domain)
     }
 
@@ -244,6 +251,7 @@ class BrowserPreferences private constructor(context: Context) {
         if (domain.isBlank()) return
         val current = prefs.getStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
         if (block) current.add(domain) else current.remove(domain)
+        cachedScriptBlockingDomains = current
         prefs.edit().putStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, current).apply()
     }
 
@@ -321,23 +329,40 @@ class BrowserPreferences private constructor(context: Context) {
             prefs.edit().putString(KEY_TRANSLATE_TARGET_NAME, value).apply()
         }
 
+    @Volatile
+    private var cachedWhitelist: Set<String>? = null
+
     fun cleanDomain(domainOrUrl: String): String {
-        return try {
-            val uri = if (!domainOrUrl.startsWith("http://") && !domainOrUrl.startsWith("https://")) {
-                java.net.URI("https://$domainOrUrl")
-            } else {
-                java.net.URI(domainOrUrl)
-            }
-            (uri.host ?: domainOrUrl).lowercase().removePrefix("www.")
-        } catch (_: Exception) {
-            domainOrUrl.lowercase().removePrefix("www.")
+        if (domainOrUrl.isBlank()) return ""
+        val startIdx = if (domainOrUrl.startsWith("http://", ignoreCase = true)) {
+            7
+        } else if (domainOrUrl.startsWith("https://", ignoreCase = true)) {
+            8
+        } else {
+            val schemeIdx = domainOrUrl.indexOf("://")
+            if (schemeIdx != -1) schemeIdx + 3 else 0
         }
+        var endIdx = domainOrUrl.length
+        for (i in startIdx until domainOrUrl.length) {
+            val c = domainOrUrl[i]
+            if (c == '/' || c == ':' || c == '?' || c == '#') {
+                endIdx = i
+                break
+            }
+        }
+        val host = if (startIdx < endIdx) domainOrUrl.substring(startIdx, endIdx) else domainOrUrl
+        val clean = host.lowercase()
+        return if (clean.startsWith("www.")) clean.substring(4) else clean
     }
 
     fun isDomainWhitelisted(domainOrUrl: String): Boolean {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return false
-        val set = prefs.getStringSet(KEY_ADBLOCK_WHITELIST, emptySet()) ?: emptySet()
+        val set = cachedWhitelist ?: run {
+            val s = prefs.getStringSet(KEY_ADBLOCK_WHITELIST, emptySet()) ?: emptySet()
+            cachedWhitelist = s
+            s
+        }
         return set.contains(domain)
     }
 
@@ -350,6 +375,7 @@ class BrowserPreferences private constructor(context: Context) {
         } else {
             currentSet.remove(domain)
         }
+        cachedWhitelist = currentSet
         prefs.edit().putStringSet(KEY_ADBLOCK_WHITELIST, currentSet).apply()
     }
 

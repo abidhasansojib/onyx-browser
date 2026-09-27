@@ -153,6 +153,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var floatingVideoMenuManager: com.onyx.browser.media.FloatingVideoMenuManager? = null
+    private var lastNavBarBottomInset: Int = 0
 
     // Permission Launchers
     private var pendingStorageAction: (() -> Unit)? = null
@@ -349,6 +350,7 @@ class MainActivity : AppCompatActivity() {
                 WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
             )
             val navBarInsets = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            lastNavBarBottomInset = navBarInsets.bottom
 
             val bottomPaddingPx = (8 * resources.displayMetrics.density).toInt()
             val topPaddingPx = (4 * resources.displayMetrics.density).toInt()
@@ -773,6 +775,7 @@ class MainActivity : AppCompatActivity() {
 
         val isIncognito = tabManager.activeTab.value?.isIncognito == true
         updateIncognitoUI(isIncognito)
+        updateFloatingVideoMenuVisibility()
     }
 
     private fun updateIncognitoUI(isIncognito: Boolean) {
@@ -833,6 +836,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         updateAddressBarDisplay(if (LocalFileLoader.isLocalFile(targetUrl)) targetUrl else (webView.url ?: targetUrl))
+        updateFloatingVideoMenuVisibility()
     }
 
     private fun attachWebViewToContainer(webView: OnyxWebView) {
@@ -1479,6 +1483,7 @@ class MainActivity : AppCompatActivity() {
     private fun enterSearchMode() {
         if (isSearchMode) return
         isSearchMode = true
+        floatingVideoMenuManager?.hideImmediately()
 
         // 1. Transform top toolbar into search mode
         binding.btnHome.visibility = View.GONE
@@ -1536,6 +1541,9 @@ class MainActivity : AppCompatActivity() {
 
         // 4. Restore address bar host display
         updateAddressBarDisplay(getActivePageUrl())
+
+        // 5. Sync floating video menu
+        updateFloatingVideoMenuVisibility()
     }
 
     private fun fetchSearchSuggestions(query: String) {
@@ -2006,6 +2014,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     // Hide floating overlay and browser UI before transition so only the isolated video is captured
                     floatingVideoMenuManager?.hideImmediately()
+                    binding.contentContainer.setPadding(0, 0, 0, 0)
                     binding.topBar.visibility = View.GONE
                     binding.topBarDivider.visibility = View.GONE
                     binding.fullscreenControlsOverlay.visibility = View.GONE
@@ -2149,8 +2158,13 @@ class MainActivity : AppCompatActivity() {
                         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     }
                 }
-                val isWvVisible = binding.webViewContainer.visibility == View.VISIBLE && binding.searchOverlay.visibility != View.VISIBLE
-                floatingVideoMenuManager?.onVideoPlaybackStateChanged(isVideo && isPlaying, isWvVisible)
+                updateFloatingVideoMenuVisibility()
+            }
+        }
+
+        MediaPlaybackBridge.onVideoAvailabilityListener = { _ ->
+            runOnUiThread {
+                updateFloatingVideoMenuVisibility()
             }
         }
 
@@ -2312,6 +2326,7 @@ class MainActivity : AppCompatActivity() {
                     requestInPageVideoPip()
                 }
             }
+            updateFloatingVideoMenuVisibility()
         }
 
         MediaPlaybackBridge.onVideoBoundsListener = { _, _, _, _ ->
@@ -2335,6 +2350,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    fun updateFloatingVideoMenuVisibility() {
+        val isWvVisible = binding.webViewContainer.visibility == View.VISIBLE && binding.searchOverlay.visibility != View.VISIBLE
+        val hasVideo = com.onyx.browser.media.MediaPlaybackBridge.isVideoAvailable
+        floatingVideoMenuManager?.onVideoStateChanged(hasVideo, isWvVisible)
     }
 
     private fun showSoftKeyboard() {
@@ -2841,6 +2862,7 @@ class MainActivity : AppCompatActivity() {
         if (isInPictureInPictureMode) {
             // Video-Only PiP: Strip all browser UI and chrome
             floatingVideoMenuManager?.hideImmediately()
+            binding.contentContainer.setPadding(0, 0, 0, 0)
             binding.topBar.visibility = View.GONE
             binding.topBarDivider.visibility = View.GONE
             binding.homeLayout.root.visibility = View.GONE
@@ -2862,6 +2884,7 @@ class MainActivity : AppCompatActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             // Exiting PiP — restore browser chrome
+            binding.contentContainer.setPadding(0, 0, 0, lastNavBarBottomInset)
             if (!MediaPlaybackBridge.isVideoPlaying) {
                 window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
@@ -2888,6 +2911,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 activeWv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
             }
+            updateFloatingVideoMenuVisibility()
             updatePipParams()
         }
     }
@@ -2961,6 +2985,7 @@ class MainActivity : AppCompatActivity() {
                 binding.fullscreenControlsOverlay.visibility = View.VISIBLE
             }
         }
+        updateFloatingVideoMenuVisibility()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

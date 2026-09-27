@@ -268,15 +268,13 @@ class OnyxWebView @JvmOverloads constructor(
                     MediaPlaybackManager.mediaMonitorScript,
                     setOf("*")
                 )
-                // Only inject the background playback suppression script when the user has enabled it.
-                // This handles: visibility spoofing, pause interception, IntersectionObserver override.
-                if (prefs.isBackgroundPlayEnabled) {
-                    androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
-                        this,
-                        MediaPlaybackManager.backgroundPlaybackScript,
-                        setOf("*")
-                    )
-                }
+                // Always inject the background playback suppression script at document start:
+                // Pre-hooks visibilitychange listeners, ytcfg experiment flags, and unblocks background playback
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    MediaPlaybackManager.backgroundPlaybackScript,
+                    setOf("*")
+                )
             }
         } catch (_: Exception) {}
 

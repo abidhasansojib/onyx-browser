@@ -43,6 +43,10 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             return isScreenOff || isLocked
         }
 
+        @Volatile var isVideoPresent: Boolean = false
+        val isVideoAvailable: Boolean
+            get() = isVideoPresent || isVideoPlaying
+
         @Volatile var lastVideoBounds: android.graphics.RectF? = null
 
         @Volatile var currentPlayingTabId: String? = null
@@ -52,6 +56,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         var onMediaPlaybackStartedListener: ((playingWebView: android.webkit.WebView) -> Unit)? = null
         var onVideoBoundsListener: ((left: Float, top: Float, right: Float, bottom: Float) -> Unit)? = null
         var onVideoSourceListener: ((src: String) -> Unit)? = null
+        var onVideoAvailabilityListener: ((isAvailable: Boolean) -> Unit)? = null
         var onPipRequestedListener: (() -> Unit)? = null
         var onPipExitListener: (() -> Unit)? = null
 
@@ -66,6 +71,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         }
 
         fun resetMediaPlayback(context: Context) {
+            isVideoPresent = false
             isVideoPlaying = false
             isAudioOrVideoPlaying = false
             currentPlayingTabId = null
@@ -80,8 +86,24 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
+                onVideoAvailabilityListener?.invoke(false)
                 MediaPlaybackService.stop(context)
             }
+        }
+    }
+
+    @JavascriptInterface
+    fun onVideoPresenceChanged(hasVideo: Boolean, src: String?, width: Int, height: Int) {
+        isVideoPresent = hasVideo
+        if (!src.isNullOrBlank()) {
+            currentVideoSrc = src
+        }
+        if (width > 0 && height > 0) {
+            lastVideoWidth = width
+            lastVideoHeight = height
+        }
+        mainHandler.post {
+            onVideoAvailabilityListener?.invoke(isVideoAvailable)
         }
     }
 
@@ -89,8 +111,10 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     fun onVideoSourceDetected(src: String?) {
         if (!src.isNullOrBlank()) {
             currentVideoSrc = src
+            isVideoPresent = true
             mainHandler.post {
                 onVideoSourceListener?.invoke(src)
+                onVideoAvailabilityListener?.invoke(isVideoAvailable)
             }
         }
     }
@@ -129,6 +153,9 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         videoWidth: Int,
         videoHeight: Int
     ) {
+        if (isVideo) {
+            isVideoPresent = true
+        }
         isVideoPlaying = isVideo && isPlaying
         isAudioOrVideoPlaying = isPlaying
 
@@ -158,6 +185,9 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
         mainHandler.post {
             onMediaStateListener?.invoke(isPlaying, isVideo, lastVideoWidth, lastVideoHeight)
+            if (isVideo) {
+                onVideoAvailabilityListener?.invoke(isVideoAvailable)
+            }
             if (isPlaying && webView != null) {
                 onMediaPlaybackStartedListener?.invoke(webView)
             }
@@ -191,6 +221,9 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaPlaying(title: String?, artist: String?, isVideo: Boolean) {
+        if (isVideo) {
+            isVideoPresent = true
+        }
         isVideoPlaying = isVideo
         isAudioOrVideoPlaying = true
 
@@ -209,6 +242,9 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
         mainHandler.post {
             onMediaStateListener?.invoke(true, isVideo, lastVideoWidth, lastVideoHeight)
+            if (isVideo) {
+                onVideoAvailabilityListener?.invoke(isVideoAvailable)
+            }
             if (webView != null) {
                 onMediaPlaybackStartedListener?.invoke(webView)
             }

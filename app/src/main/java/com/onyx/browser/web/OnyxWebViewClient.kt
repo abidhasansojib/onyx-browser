@@ -143,6 +143,73 @@ class OnyxWebViewClient(
         "igshid", "s_cid", "srsltid", "epik"
     )
 
+    companion object {
+        private val TRANSPARENT_1X1_PNG: ByteArray = Base64.decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+            Base64.DEFAULT
+        )
+    }
+
+    private fun createBlockedResponse(resourceType: String): WebResourceResponse {
+        val corsHeaders = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers" to "*"
+        )
+        return when (resourceType) {
+            "image" -> {
+                WebResourceResponse(
+                    "image/png",
+                    "UTF-8",
+                    200,
+                    "OK",
+                    corsHeaders + ("Content-Type" to "image/png"),
+                    ByteArrayInputStream(TRANSPARENT_1X1_PNG)
+                )
+            }
+            "script" -> {
+                WebResourceResponse(
+                    "application/javascript",
+                    "UTF-8",
+                    200,
+                    "OK",
+                    corsHeaders + ("Content-Type" to "application/javascript; charset=utf-8"),
+                    ByteArrayInputStream(ByteArray(0))
+                )
+            }
+            "stylesheet" -> {
+                WebResourceResponse(
+                    "text/css",
+                    "UTF-8",
+                    200,
+                    "OK",
+                    corsHeaders + ("Content-Type" to "text/css; charset=utf-8"),
+                    ByteArrayInputStream(ByteArray(0))
+                )
+            }
+            "sub_frame" -> {
+                WebResourceResponse(
+                    "text/html",
+                    "UTF-8",
+                    200,
+                    "OK",
+                    corsHeaders + ("Content-Type" to "text/html; charset=utf-8"),
+                    ByteArrayInputStream("<!-- blocked subframe -->".toByteArray())
+                )
+            }
+            else -> {
+                WebResourceResponse(
+                    "text/plain",
+                    "UTF-8",
+                    200,
+                    "OK",
+                    corsHeaders + ("Content-Type" to "text/plain; charset=utf-8"),
+                    ByteArrayInputStream(ByteArray(0))
+                )
+            }
+        }
+    }
+
     override fun shouldInterceptRequest(
         view: WebView?,
         request: WebResourceRequest?
@@ -315,7 +382,7 @@ class OnyxWebViewClient(
 
                 if (isSocialTrackerDomain) {
                     preferences.incrementBlockedRequests()
-                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+                    return createBlockedResponse(resourceType)
                 }
             }
 
@@ -323,7 +390,7 @@ class OnyxWebViewClient(
             if (!isWhitelisted && (preferences.isGlobalScriptBlockingEnabled ||
                     preferences.isScriptBlockingEnabledForDomain(pageDomain))) {
                 if (resourceType == "script") {
-                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+                    return createBlockedResponse("script")
                 }
             }
 
@@ -344,18 +411,7 @@ class OnyxWebViewClient(
                     val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, "media")
                     if (blockedByEngine) {
                         preferences.incrementBlockedRequests()
-                        return WebResourceResponse(
-                            "text/plain",
-                            "UTF-8",
-                            403,
-                            "Blocked by Onyx Shields",
-                            mapOf(
-                                "Access-Control-Allow-Origin" to "*",
-                                "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
-                                "Access-Control-Allow-Headers" to "*"
-                            ),
-                            ByteArrayInputStream(ByteArray(0))
-                        )
+                        return createBlockedResponse("media")
                     }
                     return null // Allow media playback!
                 }
@@ -368,18 +424,7 @@ class OnyxWebViewClient(
 
                 if (blockedByEngine || blockedByAggressive) {
                     preferences.incrementBlockedRequests()
-                    return WebResourceResponse(
-                        "text/plain",
-                        "UTF-8",
-                        403,
-                        "Blocked by Onyx Shields",
-                        mapOf(
-                            "Access-Control-Allow-Origin" to "*",
-                            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
-                            "Access-Control-Allow-Headers" to "*"
-                        ),
-                        ByteArrayInputStream(ByteArray(0))
-                    )
+                    return createBlockedResponse(resourceType)
                 }
             }
 
