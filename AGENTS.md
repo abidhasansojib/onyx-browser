@@ -92,7 +92,6 @@ onyx-browser/
 │   │   │   │   └── search/         # SearchSuggestionRepository & OpenSearch engine queries
 │   │   │   │
 │   │   │   ├── media/              # Media & Playback Subsystem
-│   │   │   │   ├── FloatingVideoMenuManager.kt # Draggable floating action pill (download, bg play, PiP)
 │   │   │   │   ├── MediaPlaybackBridge.kt      # Thread-safe JS/JNI bridge & video presence flags
 │   │   │   │   └── MediaPlaybackService.kt     # Foreground MediaSession service for lockscreen controls
 │   │   │   │
@@ -162,18 +161,20 @@ onyx-browser/
   - `media`/`other`: Returns an empty stream with CORS headers.
 - **Fast Domain Parsing**: Use zero-allocation index scanning in `BrowserPreferences.cleanDomain` and cache the whitelist in an in-memory `HashSet<String>` to prevent disk I/O bottlenecks during request bursts.
 
-### 4.2. Media & Playback Subsystem (`MediaPlaybackManager` & `FloatingVideoMenuManager`)
-- **Video Presence vs Playback**: The floating action pill must remain visible whenever HTML5 video elements exist on the page, not solely when actively playing. Use `MediaPlaybackBridge.isVideoAvailable` (`isVideoPresent || isVideoPlaying`) to govern visibility.
+### 4.2. Media & Playback Subsystem (`MediaPlaybackManager` & `MediaPlaybackBridge`)
 - **Brave `userHitPause` Architecture**:
   - The script monkey-patches `HTMLMediaElement.prototype.pause` and `play` to maintain a `userHitPause` flag.
+  - Distinguishes genuine user interactions (pointer/touch/click events within 600ms) from background or visibility change auto-pauses.
   - If a website fires a pause event while `!element.userHitPause` (e.g. on window blur or tab visibility change), the engine immediately auto-resumes playback via `origPlay.call(element)`.
 - **MediaSession Synchronization**:
   - Intercept `navigator.mediaSession.setActionHandler` to capture streaming websites' custom actions (`play`, `pause`, `seekto`, `seekforward`, `seekbackward`, `nexttrack`, `previoustrack`).
   - Direct lockscreen and notification transport commands to dispatch through the site's registered MediaSession handlers first, falling back to YouTube's `#movie_player` and DOM media elements.
 - **True Video-Only PiP Isolation**:
   - Traverses the composed ancestor path across ShadowRoot boundaries to remove CSS `transform`, `contain`, `filter`, and `clip-path` constraints up to `<html>`.
-  - Zeroes out `contentContainer` navigation bar padding during PiP transitions and restores it upon exit.
-  - Supplies an aspect-ratio-corrected `setSourceRectHint` so the Android Window Manager crops strictly to the video viewport.
+  - Non-destructive viewport isolation: applies `position: fixed; z-index: 2147483647; width: 100vw; height: 100vh; background: #000; object-fit: contain;` directly to the target element without destructive `display: none` on siblings, preserving React/Vue/WebGL DOM state.
+  - Unblocks YouTube native PiP button via `ytcfg` serialized experiment flags (`kYoutubePictureInPictureSupport`).
+  - Cross-origin iframe postMessage bus (`pip_request`, `pip_exit`) allows embeds to request and release PiP seamlessly.
+  - Dispatches W3C `leavepictureinpicture` event upon PiP exit and zeroes out navigation bar padding during transitions.
 
 ### 4.3. Navigation, Schemes & Intent Routing (`AndroidManifest.xml`)
 - **SingleTask Launch Mode**: `MainActivity` has `android:launchMode="singleTask"` to prevent duplicate activity stacks when links are clicked from external apps (WhatsApp, Telegram, Gmail, SMS).
@@ -232,7 +233,7 @@ onyx-browser/
   - PiP Auto-Re-entry Loop & Temporary Floating Menu Reset Fix: Eliminated the auto-PiP re-entry trap when exiting or maximizing PiP by directly isolating in-page video DOM without synthetic `requestFullscreen`, setting `setAutoEnterEnabled(false)` upon PiP exit, adding a 1500ms exit cooldown, and pausing/dismissing video on 'X' close in `onStop`; converted floating headphone background playback into a temporary per-tab override (`MediaPlaybackBridge.temporaryBackgroundPlayOverride`) that resets to user default preferences along with pill position and video presence whenever switching or closing tabs.
   - WebGL Floating-Point Texture & Color Buffer Architecture Fix: Resolved "Rendering to floating-point textures is required but not supported" error across complex WebGL simulations (e.g. Evan Wallace's WebGL Water) by upgrading WebGL 1 context requests to WebGL 2 first, enabling `EXT_color_buffer_float` and `EXT_color_buffer_half_float` render targets, mapping internal formats to sized formats (`gl.RGBA32F`, `gl.RGBA16F`) in 9-arg and 6-arg `texImage2D`, returning truthful hardware linear filtering capabilities, and providing automatic `gl.NEAREST` fallback recovery in `checkFramebufferStatus`.
   - WebGL Standard Derivatives & Caustics Shader Compilation Fix: Resolved "extension is not supported" and "'dFdx' / 'dFdy' : no matching overloaded function found" shader compilation errors in WebGL 2 by adhering to WebGL 2 specification (returning `null` for `OES_standard_derivatives` so legacy WebGL 1 shaders select valid fallback paths) and injecting overloaded polyfill function definitions (`float`, `vec2`, `vec3`, `vec4` for `dFdx`, `dFdy`, `fwidth`) into GLSL 1.00 shaders while safely replacing the unsupported `#extension` directive.
-  - PiP Re-entry Trap & Per-Tab Floating Menu Reset Architecture: Completely eliminated the persistent PiP re-entry loop when closing or maximizing PiP by removing recursive `window.OnyxMediaBridge.requestVideoPip()` from child iframe message handlers, enforcing `isCurrentlyInPip` and `justExitedPip` state guards across all PiP entry points, disabling `setAutoEnterEnabled` globally to prevent OS Window Manager auto-bounce, and dispatching W3C `leavepictureinpicture` on exit; implemented strict per-tab video state isolation (`currentVideoPresentTabId`, `currentPlayingTabId`, `isVideoAvailableForTab`) and global `onTabClosedListener` on `TabManager`, ensuring the floating action pill is only visible for the tab currently hosting media, and that position, headphone overrides, and buttons reset completely to default on every tab switch or closure.
+  - Brave-Parity Media Engine, Picture-in-Picture & Floating Buttons Removal: Completely eliminated all floating buttons (`FloatingVideoMenuManager.kt`, `view_floating_video_menu.xml`) and settings switch; implemented 100% Brave-parity universal background playback engine via `kYoutubeBackgroundPlayback` (`visibilitychange` listener filtering), `visibilityState`/`hidden` property spoofing, `userHitPause` pattern on `HTMLMediaElement.prototype.pause`/`play`, touch/click event timing checks (600ms threshold), synthetic pause auto-resume, `window.onblur` neutralization, and `IntersectionObserver` proxying; implemented true video-only Picture-in-Picture (PiP) with W3C `requestPictureInPicture` polyfill, cross-frame `pip_request` postMessage bus, YouTube `ytcfg` experiment flag patching (`kYoutubePictureInPictureSupport`), YouTube fullscreen 100dvh styling (`kYoutubeFullscreenVideoFitWorkaround`), and non-destructive element isolation (`display: none` on siblings eliminated); maintained WebView timers via `resumeTimers()` during background playback and cleanly dispatched `leavepictureinpicture` across all frames upon PiP exit.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

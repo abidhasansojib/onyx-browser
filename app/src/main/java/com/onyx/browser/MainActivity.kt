@@ -154,9 +154,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private var floatingVideoMenuManager: com.onyx.browser.media.FloatingVideoMenuManager? = null
     private var lastNavBarBottomInset: Int = 0
-
     // Permission Launchers
     private var pendingStorageAction: (() -> Unit)? = null
     private val storagePermissionLauncher = registerForActivityResult(
@@ -334,13 +332,7 @@ class MainActivity : AppCompatActivity() {
         lastThemeMode = preferences.themeMode
         lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         com.onyx.browser.download.OnyxDownloadManager.init(this)
-        tabManager = TabManager(this, lifecycleScope).apply {
-            onTabClosedListener = {
-                runOnUiThread {
-                    resetFloatingVideoMenuState()
-                }
-            }
-        }
+        tabManager = TabManager(this, lifecycleScope)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -740,13 +732,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun resetFloatingVideoMenuState() {
-        com.onyx.browser.media.MediaPlaybackBridge.temporaryBackgroundPlayOverride = null
-        com.onyx.browser.media.MediaPlaybackBridge.lastVideoBounds = null
-        floatingVideoMenuManager?.resetToDefault(preferences.isBackgroundPlayEnabled)
-        updateFloatingVideoMenuVisibility()
-    }
-
     private fun displayTab(tab: TabItem) {
         updateTabBadgeCount()
 
@@ -760,7 +745,6 @@ class MainActivity : AppCompatActivity() {
                     tabManager.saveTabState(previousTabId, outgoingWebView)
                 }
             }
-            resetFloatingVideoMenuState()
             exitSearchMode()
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
@@ -788,7 +772,6 @@ class MainActivity : AppCompatActivity() {
 
         val isIncognito = tabManager.activeTab.value?.isIncognito == true
         updateIncognitoUI(isIncognito)
-        updateFloatingVideoMenuVisibility()
     }
 
     private fun updateIncognitoUI(isIncognito: Boolean) {
@@ -849,7 +832,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         updateAddressBarDisplay(if (LocalFileLoader.isLocalFile(targetUrl)) targetUrl else (webView.url ?: targetUrl))
-        updateFloatingVideoMenuVisibility()
         webView.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.mediaMonitorScript, null)
     }
 
@@ -1295,7 +1277,6 @@ class MainActivity : AppCompatActivity() {
 
     fun closeTabById(tabId: String) {
         val tab = tabManager.getTabById(tabId) ?: return
-        resetFloatingVideoMenuState()
         tabManager.closeTab(tab)
     }
 
@@ -1498,7 +1479,6 @@ class MainActivity : AppCompatActivity() {
     private fun enterSearchMode() {
         if (isSearchMode) return
         isSearchMode = true
-        floatingVideoMenuManager?.hideImmediately()
 
         // 1. Transform top toolbar into search mode
         binding.btnHome.visibility = View.GONE
@@ -1556,9 +1536,6 @@ class MainActivity : AppCompatActivity() {
 
         // 4. Restore address bar host display
         updateAddressBarDisplay(getActivePageUrl())
-
-        // 5. Sync floating video menu
-        updateFloatingVideoMenuVisibility()
     }
 
     private fun fetchSearchSuggestions(query: String) {
@@ -1939,7 +1916,6 @@ class MainActivity : AppCompatActivity() {
     private fun isolateAndEnterPip(activeWv: com.onyx.browser.web.OnyxWebView) {
         val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
         if (inPip || justExitedPip) return
-        floatingVideoMenuManager?.hideImmediately()
         activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) { res ->
             val inPipNow = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
             if (inPipNow || justExitedPip) return@evaluateJavascript
@@ -2024,8 +2000,7 @@ class MainActivity : AppCompatActivity() {
                         paramsBuilder.setSourceRectHint(rect)
                     }
                 } else {
-                    // Hide floating overlay and browser UI before transition so only the isolated video is captured
-                    floatingVideoMenuManager?.hideImmediately()
+                    // Hide browser UI before transition so only the isolated video is captured
                     binding.contentContainer.setPadding(0, 0, 0, 0)
                     binding.topBar.visibility = View.GONE
                     binding.topBarDivider.visibility = View.GONE
@@ -2173,171 +2148,7 @@ class MainActivity : AppCompatActivity() {
                         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     }
                 }
-                updateFloatingVideoMenuVisibility()
             }
-        }
-
-        MediaPlaybackBridge.onVideoAvailabilityListener = { _ ->
-            runOnUiThread {
-                updateFloatingVideoMenuVisibility()
-            }
-        }
-
-        // Initialize Floating Video Action Menu Overlay
-        if (floatingVideoMenuManager == null) {
-            floatingVideoMenuManager = com.onyx.browser.media.FloatingVideoMenuManager(this, binding.contentContainer).apply {
-                onDownloadClickListener = {
-                    val activeWv = tabManager.getActiveWebView()
-                    val userAgent = activeWv?.settings?.userAgentString ?: ""
-                    val pageUrl = activeWv?.url ?: ""
-                    val videoSrc = com.onyx.browser.media.MediaPlaybackBridge.currentVideoSrc
-
-                    fun executeDownloadCheck(url: String) {
-                        if (url.isBlank()) {
-                            Toast.makeText(this@MainActivity, "Can't download video: No stream detected", Toast.LENGTH_SHORT).show()
-                            return
-                        }
-                        if (url.startsWith("blob:", ignoreCase = true)) {
-                            com.onyx.browser.web.DownloadHandler.handleBlobUriDownload(
-                                activity = this@MainActivity,
-                                coroutineScope = lifecycleScope,
-                                blobUrl = url,
-                                contentDisposition = "",
-                                mimeType = "video/mp4",
-                                referer = pageUrl
-                            )
-                            return
-                        }
-
-                        val cookies = try {
-                            android.webkit.CookieManager.getInstance().getCookie(url) ?: ""
-                        } catch (_: Exception) { "" }
-
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            var isForbidden = false
-                            var errorMessage: String? = null
-
-                            try {
-                                val urlObj = java.net.URL(url)
-                                val connection = (urlObj.openConnection() as? java.net.HttpURLConnection)?.apply {
-                                    requestMethod = "HEAD"
-                                    connectTimeout = 4000
-                                    readTimeout = 4000
-                                    setRequestProperty("User-Agent", userAgent)
-                                    if (cookies.isNotBlank()) setRequestProperty("Cookie", cookies)
-                                    if (pageUrl.isNotBlank()) setRequestProperty("Referer", pageUrl)
-                                    instanceFollowRedirects = true
-                                }
-                                val responseCode = connection?.responseCode ?: -1
-                                connection?.disconnect()
-
-                                if (responseCode == 403) {
-                                    isForbidden = true
-                                } else if (responseCode == 401) {
-                                    errorMessage = "Access not permitted (HTTP 401 Unauthorized)"
-                                } else if (responseCode in 400..599 && responseCode != 405) {
-                                    try {
-                                        val getConn = (urlObj.openConnection() as? java.net.HttpURLConnection)?.apply {
-                                            requestMethod = "GET"
-                                            setRequestProperty("Range", "bytes=0-1")
-                                            connectTimeout = 4000
-                                            readTimeout = 4000
-                                            setRequestProperty("User-Agent", userAgent)
-                                            if (cookies.isNotBlank()) setRequestProperty("Cookie", cookies)
-                                            if (pageUrl.isNotBlank()) setRequestProperty("Referer", pageUrl)
-                                            instanceFollowRedirects = true
-                                        }
-                                        val getCode = getConn?.responseCode ?: -1
-                                        getConn?.disconnect()
-                                        if (getCode == 403) {
-                                            isForbidden = true
-                                        } else if (getCode == 401) {
-                                            errorMessage = "Access not permitted (HTTP 401 Unauthorized)"
-                                        } else if (getCode in 400..599) {
-                                            errorMessage = "Server returned error (HTTP $getCode)"
-                                        }
-                                    } catch (_: Exception) {}
-                                }
-                            } catch (e: Exception) {
-                                val msg = e.message ?: ""
-                                if (msg.contains("403") || msg.contains("Forbidden", ignoreCase = true)) {
-                                    isForbidden = true
-                                }
-                            }
-
-                            withContext(Dispatchers.Main) {
-                                if (isForbidden) {
-                                    Toast.makeText(this@MainActivity, "Can't download video: Access not permitted (403 Forbidden)", Toast.LENGTH_LONG).show()
-                                } else if (errorMessage != null) {
-                                    Toast.makeText(this@MainActivity, "Can't download video: $errorMessage", Toast.LENGTH_LONG).show()
-                                } else {
-                                    val sheet = com.onyx.browser.ui.downloads.DownloadPromptBottomSheet.newInstance(
-                                        url = url,
-                                        userAgent = userAgent,
-                                        contentDisposition = "",
-                                        mimeType = "video/*",
-                                        contentLength = 0L,
-                                        cookies = cookies,
-                                        referer = pageUrl
-                                    )
-                                    sheet.show(supportFragmentManager, "DownloadPromptSheet")
-                                }
-                            }
-                        }
-                    }
-
-                    if (!videoSrc.isNullOrBlank() && !videoSrc.startsWith("blob:")) {
-                        executeDownloadCheck(videoSrc)
-                    } else {
-                        activeWv?.evaluateJavascript("""
-                            (function() {
-                                var v = Array.from(document.querySelectorAll('video')).find(function(v) { return !v.paused; }) || document.querySelector('video');
-                                if (v && (v.currentSrc || v.src)) return (v.currentSrc || v.src);
-                                var iframes = Array.from(document.querySelectorAll('iframe'));
-                                for (var i = 0; i < iframes.length; i++) {
-                                    try {
-                                        var iv = iframes[i].contentDocument ? iframes[i].contentDocument.querySelector('video') : null;
-                                        if (iv && (iv.currentSrc || iv.src)) return (iv.currentSrc || iv.src);
-                                    } catch (_) {}
-                                    var isrc = iframes[i].src || '';
-                                    if (isrc.includes('.mp4') || isrc.includes('.m3u8') || isrc.includes('.webm')) return isrc;
-                                }
-                                return '';
-                            })();
-                        """.trimIndent()) { result ->
-                            val cleanUrl = result?.trim('"', '\'')?.replace("\\", "") ?: ""
-                            if (cleanUrl.isNotBlank() && cleanUrl != "null") {
-                                executeDownloadCheck(cleanUrl)
-                            } else if (!videoSrc.isNullOrBlank()) {
-                                executeDownloadCheck(videoSrc)
-                            } else {
-                                Toast.makeText(this@MainActivity, "Can't download video: No direct stream detected", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                }
-
-                onHeadphonesClickListener = {
-                    val currentActive = com.onyx.browser.media.MediaPlaybackBridge.isBackgroundPlayActive(preferences)
-                    val newState = !currentActive
-                    com.onyx.browser.media.MediaPlaybackBridge.temporaryBackgroundPlayOverride = newState
-                    floatingVideoMenuManager?.updateHeadphonesState(newState)
-                    val activeWv = tabManager.getActiveWebView()
-                    if (newState) {
-                        activeWv?.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.backgroundPlaybackScript, null)
-                        Toast.makeText(this@MainActivity, "Background playback enabled for this tab", Toast.LENGTH_SHORT).show()
-                    } else {
-                        activeWv?.evaluateJavascript("window.__onyx_bg_play_active = false; window.__onyx_in_background = false;", null)
-                        com.onyx.browser.media.MediaPlaybackService.stopNotificationOnly(this@MainActivity)
-                        Toast.makeText(this@MainActivity, "Background playback disabled for this tab", Toast.LENGTH_SHORT).show()
-                    }
-                }
-
-                onPipClickListener = {
-                    requestInPageVideoPip()
-                }
-            }
-            updateFloatingVideoMenuVisibility()
         }
 
         MediaPlaybackBridge.onVideoBoundsListener = { _, _, _, _ ->
@@ -2364,13 +2175,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    fun updateFloatingVideoMenuVisibility() {
-        val isWvVisible = binding.webViewContainer.visibility == View.VISIBLE && binding.searchOverlay.visibility != View.VISIBLE
-        val activeTabId = tabManager.activeTab.value?.id
-        val hasVideo = com.onyx.browser.media.MediaPlaybackBridge.isVideoAvailableForTab(activeTabId)
-        floatingVideoMenuManager?.onVideoStateChanged(hasVideo, isWvVisible)
     }
 
     private fun showSoftKeyboard() {
@@ -2731,6 +2535,7 @@ class MainActivity : AppCompatActivity() {
                     null
                 )
             }
+            tabManager.getActiveWebView()?.resumeTimers()
         }
         if (!isPip && !preferences.isBackgroundPlayEnabled) {
             tabManager.getActiveWebView()?.onPause()
@@ -2850,6 +2655,8 @@ class MainActivity : AppCompatActivity() {
 
         if (!isPip && !MediaPlaybackBridge.isBackgroundPlayActive(preferences)) {
             tabManager.getActiveWebView()?.onPause()
+        } else if (preferences.isBackgroundPlayEnabled) {
+            tabManager.getActiveWebView()?.resumeTimers()
         }
     }
 
@@ -2864,7 +2671,6 @@ class MainActivity : AppCompatActivity() {
         isCurrentlyInPip = isInPictureInPictureMode
         if (isInPictureInPictureMode) {
             // Video-Only PiP: Strip all browser UI and chrome
-            floatingVideoMenuManager?.hideImmediately()
             binding.contentContainer.setPadding(0, 0, 0, 0)
             binding.topBar.visibility = View.GONE
             binding.topBarDivider.visibility = View.GONE
@@ -2930,7 +2736,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 activeWv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
             }
-            updateFloatingVideoMenuVisibility()
             updatePipParams(shouldAutoEnter = false)
         }
     }
@@ -3004,7 +2809,6 @@ class MainActivity : AppCompatActivity() {
                 binding.fullscreenControlsOverlay.visibility = View.VISIBLE
             }
         }
-        updateFloatingVideoMenuVisibility()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -3315,8 +3119,6 @@ class MainActivity : AppCompatActivity() {
             unregisterReceiver(pipReceiver)
         } catch (_: Exception) {}
         MediaPlaybackService.mediaActionListener = null
-        floatingVideoMenuManager?.hideImmediately()
-        floatingVideoMenuManager = null
         if (isFinishing) {
             tabManager.closeAllTabs(incognitoOnly = true)
             com.onyx.browser.incognito.IncognitoNotificationHelper.dismissNotification(this)

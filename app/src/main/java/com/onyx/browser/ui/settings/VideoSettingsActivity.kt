@@ -94,13 +94,6 @@ class VideoSettingsActivity : AppCompatActivity() {
             true
         }
 
-        // Floating video action menu switch
-        binding.settingFloatingMenuSwitch.isChecked = preferences.isFloatingVideoMenuEnabled
-        binding.settingFloatingMenuRow.setOnClickListener {
-            val newState = !binding.settingFloatingMenuSwitch.isChecked
-            binding.settingFloatingMenuSwitch.isChecked = newState
-            preferences.isFloatingVideoMenuEnabled = newState
-        }
 
         // Video download behavior selector
         val downloadOptions = arrayOf(

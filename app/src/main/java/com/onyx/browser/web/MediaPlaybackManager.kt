@@ -74,10 +74,21 @@ object MediaPlaybackManager {
                                 return;
                             }
                             currentPipElem = self;
+                            window.__onyx_current_pip_element = self;
                             reportVideoBounds(self);
 
                             if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.requestVideoPip === 'function') {
                                 window.OnyxMediaBridge.requestVideoPip();
+                            }
+
+                            if (window.top && window.top !== window) {
+                                try {
+                                    window.top.postMessage({
+                                        __onyx_cmd: 'pip_request',
+                                        width: self.videoWidth || self.clientWidth || 320,
+                                        height: self.videoHeight || self.clientHeight || 180
+                                    }, '*');
+                                } catch (_) {}
                             }
 
                             try {
@@ -492,6 +503,32 @@ object MediaPlaybackManager {
                             if (v) {
                                 reportVideoBounds(v);
                             }
+                        } else if (cmd === 'pip_request') {
+                            var matchingIframe = Array.from(document.querySelectorAll('iframe')).find(function(f) {
+                                return f.contentWindow === e.source;
+                            });
+                            if (!matchingIframe) {
+                                matchingIframe = document.querySelector('iframe');
+                            }
+                            if (matchingIframe) {
+                                window.__onyx_current_pip_element = matchingIframe;
+                                try {
+                                    var r = matchingIframe.getBoundingClientRect();
+                                    if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.onVideoBoundsChanged === 'function') {
+                                        window.OnyxMediaBridge.onVideoBoundsChanged(r.left, r.top, r.right, r.bottom);
+                                    }
+                                } catch (_) {}
+                            }
+                            if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.requestVideoPip === 'function') {
+                                window.OnyxMediaBridge.requestVideoPip();
+                            }
+                        } else if (cmd === 'pip_exit') {
+                            if (currentPipElem) {
+                                var oldPip = currentPipElem;
+                                currentPipElem = null;
+                                try { oldPip.dispatchEvent(new Event('leavepictureinpicture', { bubbles: true })); } catch (_) {}
+                            }
+                            window.__onyx_current_pip_element = null;
                         }
 
                         // Recursively forward to child iframes
@@ -599,6 +636,14 @@ object MediaPlaybackManager {
                 window.addEventListener('blur', stopWindowBlur, true);
                 window.addEventListener('focusout', stopWindowBlur, true);
 
+                try {
+                    Object.defineProperty(window, 'onblur', {
+                        get: function() { return null; },
+                        set: function() {},
+                        configurable: true
+                    });
+                } catch (_) {}
+
                 var stopVisibilityInBg = function(e) {
                     if (!window.__onyx_bg_play_active) return;
                     if (window.__onyx_in_background) {
@@ -616,18 +661,25 @@ object MediaPlaybackManager {
                     });
                 } catch (_) {}
 
+                // Track user interaction to differentiate manual pauses from background auto-pauses
+                window.__onyx_last_user_touch = 0;
+                window.addEventListener('pointerdown', function() { window.__onyx_last_user_touch = Date.now(); }, true);
+                window.addEventListener('touchstart', function() { window.__onyx_last_user_touch = Date.now(); }, true);
+                window.addEventListener('click', function() { window.__onyx_last_user_touch = Date.now(); }, true);
+
                 // ── 3. Brave MediaBackgrounding: userHitPause & Auto-Resume ────────────────
                 var origPause = HTMLMediaElement.prototype.pause;
                 HTMLMediaElement.prototype.pause = function() {
                     if (!window.__onyx_bg_play_active) {
                         return origPause.apply(this, arguments);
                     }
-                    if (window.__onyx_allow_explicit_pause) {
+                    var isUserClick = (Date.now() - (window.__onyx_last_user_touch || 0)) < 600;
+                    if (window.__onyx_allow_explicit_pause || isUserClick) {
                         this.userHitPause = true;
                         return origPause.apply(this, arguments);
                     }
                     if (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden') {
-                        return; // Prevent background script pauses!
+                        return; // Prevent background script auto-pauses!
                     }
                     this.userHitPause = true;
                     return origPause.apply(this, arguments);
@@ -649,7 +701,7 @@ object MediaPlaybackManager {
                     element.addEventListener('pause', function() {
                         if (!window.__onyx_bg_play_active) return;
                         if (!element.userHitPause && !element.ended) {
-                            // Video paused by page visibility or blur: auto-resume!
+                            // Video paused by page visibility, blur, or OS suspend: auto-resume!
                             origPlay.call(element).catch(function(){});
                         }
                     }, false);
@@ -699,6 +751,16 @@ object MediaPlaybackManager {
                         modifyYtcfgFlags();
                     }
                 }, true);
+
+                // Brave kYoutubeFullscreenVideoFitWorkaround: Fit mobile video to viewport
+                try {
+                    if (location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be')) {
+                        var ytFitStyle = document.createElement('style');
+                        ytFitStyle.id = '__onyx_yt_fit_style';
+                        ytFitStyle.textContent = '#player-container-id:fullscreen video.html5-main-video { width: 100% !important; height: 100dvh !important; left: 0 !important; top: 0 !important; object-fit: contain !important; }';
+                        (document.head || document.documentElement).appendChild(ytFitStyle);
+                    }
+                } catch (_) {}
 
                 // ── 5. IntersectionObserver Override for Media Elements ────────────────────
                 if (window.IntersectionObserver) {
@@ -1161,7 +1223,13 @@ object MediaPlaybackManager {
     val isolateVideoForPipScript: String = """
         (function() {
             try {
-                // 1. Recursive search across light DOM and shadow roots
+                // 1. Check if a specific video or iframe was designated by requestPictureInPicture or postMessage
+                var activeVid = window.__onyx_current_pip_element;
+                if (activeVid && !document.contains(activeVid)) {
+                    activeVid = null;
+                }
+
+                // 2. Recursive search across light DOM and shadow roots
                 function findVideos(root) {
                     var list = [];
                     if (!root) return list;
@@ -1180,23 +1248,25 @@ object MediaPlaybackManager {
                     return list;
                 }
 
-                var vids = findVideos(document);
-                document.querySelectorAll('iframe').forEach(function(f) {
-                    try {
-                        if (f.contentDocument) {
-                            var subVids = findVideos(f.contentDocument);
-                            vids = vids.concat(subVids);
-                        }
-                    } catch (_) {}
-                });
+                if (!activeVid) {
+                    var vids = findVideos(document);
+                    document.querySelectorAll('iframe').forEach(function(f) {
+                        try {
+                            if (f.contentDocument) {
+                                var subVids = findVideos(f.contentDocument);
+                                vids = vids.concat(subVids);
+                            }
+                        } catch (_) {}
+                    });
 
-                // Prioritize video elements: actively playing > recently played > has source > any video
-                var activeVid = vids.find(function(v) { return !v.paused && !v.ended; })
-                    || vids.find(function(v) { return v.currentTime > 0; })
-                    || vids.find(function(v) { return (v.currentSrc || v.src); })
-                    || vids[0];
+                    // Prioritize video elements: actively playing > recently played > has source > any video
+                    activeVid = vids.find(function(v) { return !v.paused && !v.ended; })
+                        || vids.find(function(v) { return v.currentTime > 0; })
+                        || vids.find(function(v) { return (v.currentSrc || v.src); })
+                        || vids[0];
+                }
 
-                // 2. If no direct HTML5 video found (e.g. cross-origin iframe streaming player),
+                // 3. If no direct HTML5 video found (e.g. cross-origin iframe streaming player),
                 // score all candidate iframes to isolate the streaming player iframe!
                 if (!activeVid) {
                     var iframes = Array.from(document.querySelectorAll('iframe'));
@@ -1250,7 +1320,7 @@ object MediaPlaybackManager {
                     }
                 }
 
-                // 3. Fallback to common player containers if activeVid still not set
+                // 4. Fallback to common player containers if activeVid still not set
                 if (!activeVid) {
                     activeVid = document.querySelector('#movie_player, .html5-video-player, ytm-player, #player-container-id, #player, .video-js, .jwplayer, .plyr, .video-container');
                 }
@@ -1271,7 +1341,7 @@ object MediaPlaybackManager {
                 target.setAttribute('data-onyx-pip-target', 'true');
                 activeVid.setAttribute('data-onyx-pip-target', 'true');
 
-                // Tag every ancestor up to documentElement
+                // Tag every ancestor up to documentElement and remove constraints non-destructively
                 var cur = target;
                 while (cur && cur !== document.documentElement) {
                     if (cur.setAttribute) {
@@ -1306,12 +1376,6 @@ object MediaPlaybackManager {
                         padding: 0 !important;
                         width: 100vw !important;
                         height: 100vh !important;
-                    }
-                    body > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-target]) {
-                        display: none !important;
-                    }
-                    [data-onyx-pip-ancestor] > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-target]) {
-                        display: none !important;
                     }
                     [data-onyx-pip-target] {
                         display: block !important;
@@ -1375,6 +1439,12 @@ object MediaPlaybackManager {
     val restoreVideoFromPipScript: String = """
         (function() {
             try {
+                if (window.__onyx_current_pip_element) {
+                    try {
+                        window.__onyx_current_pip_element.dispatchEvent(new Event('leavepictureinpicture', { bubbles: true }));
+                    } catch (_) {}
+                    window.__onyx_current_pip_element = null;
+                }
                 if (typeof currentPipElem !== 'undefined' && currentPipElem) {
                     var old = currentPipElem;
                     currentPipElem = null;
@@ -1382,6 +1452,12 @@ object MediaPlaybackManager {
                         old.dispatchEvent(new Event('leavepictureinpicture', { bubbles: true }));
                     } catch (_) {}
                 }
+                try {
+                    var msg = { __onyx_cmd: 'pip_exit' };
+                    document.querySelectorAll('iframe').forEach(function(f) {
+                        try { f.contentWindow.postMessage(msg, '*'); } catch (_) {}
+                    });
+                } catch (_) {}
                 var style = document.getElementById('__onyx_pip_style');
                 if (style) style.remove();
                 document.querySelectorAll('[data-onyx-pip-target]').forEach(function(el) {

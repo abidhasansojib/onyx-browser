@@ -64,18 +64,14 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         var onMediaPlaybackStartedListener: ((playingWebView: android.webkit.WebView) -> Unit)? = null
         var onVideoBoundsListener: ((left: Float, top: Float, right: Float, bottom: Float) -> Unit)? = null
         var onVideoSourceListener: ((src: String) -> Unit)? = null
-        var onVideoAvailabilityListener: ((isAvailable: Boolean) -> Unit)? = null
         var onPipRequestedListener: (() -> Unit)? = null
         var onPipExitListener: (() -> Unit)? = null
 
-        @Volatile var temporaryBackgroundPlayOverride: Boolean? = null
-
         fun isBackgroundPlayActive(preferences: BrowserPreferences): Boolean {
-            return temporaryBackgroundPlayOverride ?: preferences.isBackgroundPlayEnabled
+            return preferences.isBackgroundPlayEnabled
         }
 
         fun onTabClosed(tabId: String, context: Context) {
-            temporaryBackgroundPlayOverride = null
             if (currentVideoPresentTabId == tabId) {
                 currentVideoPresentTabId = null
                 isVideoPresent = false
@@ -92,7 +88,6 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         }
 
         fun resetMediaPlayback(context: Context) {
-            temporaryBackgroundPlayOverride = null
             currentVideoPresentTabId = null
             isVideoPresent = false
             isVideoPlaying = false
@@ -109,7 +104,6 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
-                onVideoAvailabilityListener?.invoke(false)
                 MediaPlaybackService.stopNotificationOnly(context)
             }
         }
@@ -139,9 +133,6 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
                 isVideoPresent = false
             }
         }
-        mainHandler.post {
-            onVideoAvailabilityListener?.invoke(isVideoAvailable)
-        }
     }
 
     @JavascriptInterface
@@ -155,7 +146,6 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             isVideoPresent = true
             mainHandler.post {
                 onVideoSourceListener?.invoke(src)
-                onVideoAvailabilityListener?.invoke(isVideoAvailable)
             }
         }
     }
@@ -235,9 +225,6 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
         mainHandler.post {
             onMediaStateListener?.invoke(isPlaying, isVideo, lastVideoWidth, lastVideoHeight)
-            if (isVideo) {
-                onVideoAvailabilityListener?.invoke(isVideoAvailable)
-            }
             if (isPlaying && webView != null) {
                 onMediaPlaybackStartedListener?.invoke(webView)
             }
@@ -296,9 +283,6 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
         mainHandler.post {
             onMediaStateListener?.invoke(true, isVideo, lastVideoWidth, lastVideoHeight)
-            if (isVideo) {
-                onVideoAvailabilityListener?.invoke(isVideoAvailable)
-            }
             if (webView != null) {
                 onMediaPlaybackStartedListener?.invoke(webView)
             }
