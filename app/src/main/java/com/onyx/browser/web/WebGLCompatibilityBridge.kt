@@ -4,10 +4,11 @@ package com.onyx.browser.web
  * High-performance WebGL and WebGL 2 Compatibility Engine for Onyx Browser.
  *
  * Resolves missing legacy WebGL 1 extensions on mobile GPUs (such as OES_texture_float,
- * OES_texture_float_linear, OES_standard_derivatives, OES_texture_half_float) by upgrading
- * contexts to modern WebGL 2 when available, shimming legacy extension APIs and texture
- * upload formats transparently, and ensuring standard derivatives (dFdx, dFdy, fwidth)
- * compile and execute with full hardware acceleration and bulletproof fallback.
+ * OES_texture_float_linear, OES_standard_derivatives, OES_texture_half_float, WEBGL_color_buffer_float)
+ * by upgrading WebGL 1 contexts to modern WebGL 2 when available, shimming legacy extension APIs and texture
+ * upload formats transparently, activating float/half-float color render targets, enforcing fallback
+ * texture filtering for framebuffers, and ensuring standard derivatives (dFdx, dFdy, fwidth)
+ * compile and execute with full hardware acceleration.
  */
 object WebGLCompatibilityBridge {
 
@@ -46,8 +47,6 @@ object WebGLCompatibilityBridge {
                 return f16;
             }
 
-
-
             function patchWebGLContext(gl, isWebGL2) {
                 if (!gl || gl.__onyx_patched) return gl;
                 gl.__onyx_patched = true;
@@ -55,10 +54,30 @@ object WebGLCompatibilityBridge {
                 if (!gl.HALF_FLOAT_OES) {
                     gl.HALF_FLOAT_OES = 0x8D61;
                 }
+                if (!gl.FRAGMENT_SHADER_DERIVATIVE_HINT_OES) {
+                    gl.FRAGMENT_SHADER_DERIVATIVE_HINT_OES = 0x8B8B;
+                }
 
                 var realGetExtension = gl.getExtension ? gl.getExtension.bind(gl) : function() { return null; };
                 var realGetSupportedExtensions = gl.getSupportedExtensions ? gl.getSupportedExtensions.bind(gl) : function() { return []; };
                 var extCache = {};
+
+                // Proactively activate hardware color buffer and float extensions
+                if (isWebGL2) {
+                    try { realGetExtension('EXT_color_buffer_float'); } catch (_) {}
+                    try { realGetExtension('EXT_color_buffer_half_float'); } catch (_) {}
+                    try { realGetExtension('WEBGL_color_buffer_float'); } catch (_) {}
+                    try { realGetExtension('OES_texture_float_linear'); } catch (_) {}
+                    try { realGetExtension('OES_texture_half_float_linear'); } catch (_) {}
+                } else {
+                    try { realGetExtension('OES_texture_float'); } catch (_) {}
+                    try { realGetExtension('OES_texture_float_linear'); } catch (_) {}
+                    try { realGetExtension('OES_texture_half_float'); } catch (_) {}
+                    try { realGetExtension('OES_texture_half_float_linear'); } catch (_) {}
+                    try { realGetExtension('WEBGL_color_buffer_float'); } catch (_) {}
+                    try { realGetExtension('EXT_color_buffer_half_float'); } catch (_) {}
+                    try { realGetExtension('OES_standard_derivatives'); } catch (_) {}
+                }
 
                 gl.getExtension = function(name) {
                     if (!name) return null;
@@ -80,13 +99,33 @@ object WebGLCompatibilityBridge {
                     if (name === 'OES_texture_float') {
                         ext = {};
                     } else if (name === 'OES_texture_float_linear') {
-                        ext = {};
+                        ext = realGetExtension('OES_texture_float_linear') || null;
                     } else if (name === 'OES_texture_half_float') {
                         ext = { HALF_FLOAT_OES: 0x8D61 };
                     } else if (name === 'OES_texture_half_float_linear') {
-                        ext = {};
+                        ext = realGetExtension('OES_texture_half_float_linear') || null;
                     } else if (name === 'OES_standard_derivatives') {
                         ext = { FRAGMENT_SHADER_DERIVATIVE_HINT_OES: 0x8B8B };
+                    } else if (name === 'WEBGL_color_buffer_float') {
+                        var cbf = null;
+                        try { cbf = realGetExtension('EXT_color_buffer_float') || realGetExtension('WEBGL_color_buffer_float'); } catch (_) {}
+                        ext = cbf || {
+                            RGBA32F_EXT: 0x8814,
+                            RGB32F_EXT: 0x8815,
+                            FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE_EXT: 0x8211,
+                            UNSIGNED_NORMALIZED_EXT: 0x8C17
+                        };
+                    } else if (name === 'EXT_color_buffer_half_float') {
+                        var hbf = null;
+                        try { hbf = realGetExtension('EXT_color_buffer_half_float') || realGetExtension('EXT_color_buffer_float'); } catch (_) {}
+                        ext = hbf || {
+                            RGBA16F_EXT: 0x881A,
+                            RGB16F_EXT: 0x881B,
+                            FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE_EXT: 0x8211,
+                            UNSIGNED_NORMALIZED_EXT: 0x8C17
+                        };
+                    } else if (name === 'EXT_color_buffer_float') {
+                        try { ext = realGetExtension('EXT_color_buffer_float'); } catch (_) {}
                     } else if (name === 'WEBGL_depth_texture') {
                         ext = { UNSIGNED_INT_24_8_WEBGL: 0x84FA };
                     } else if (name === 'OES_element_index_uint') {
@@ -147,14 +186,20 @@ object WebGLCompatibilityBridge {
 
                     var additions = [
                         'OES_texture_float',
-                        'OES_texture_float_linear',
                         'OES_texture_half_float',
-                        'OES_texture_half_float_linear',
                         'OES_standard_derivatives',
                         'WEBGL_depth_texture',
                         'OES_element_index_uint',
-                        'EXT_shader_texture_lod'
+                        'EXT_shader_texture_lod',
+                        'WEBGL_color_buffer_float',
+                        'EXT_color_buffer_half_float'
                     ];
+                    try {
+                        if (realGetExtension('OES_texture_float_linear')) additions.push('OES_texture_float_linear');
+                    } catch (_) {}
+                    try {
+                        if (realGetExtension('OES_texture_half_float_linear')) additions.push('OES_texture_half_float_linear');
+                    } catch (_) {}
                     if (isWebGL2) {
                         additions.push('ANGLE_instanced_arrays', 'WEBGL_draw_buffers', 'OES_vertex_array_object');
                     }
@@ -167,89 +212,152 @@ object WebGLCompatibilityBridge {
                 };
 
                 // Patch texImage2D for seamless float/half-float texture compatibility
-                var realTexImage2D = gl.texImage2D.bind(gl);
-                gl.texImage2D = function() {
-                    var args = Array.prototype.slice.call(arguments);
-                    if (isWebGL2) {
-                        if (args.length >= 8) {
-                            var internalformat = args[2];
-                            var type = args[7];
-                            if (type === gl.FLOAT || type === 0x1406) {
-                                if (internalformat === gl.RGBA || internalformat === 0x1908) {
-                                    args[2] = 0x8814; // gl.RGBA32F
-                                } else if (internalformat === gl.RGB || internalformat === 0x1907) {
-                                    args[2] = 0x8815; // gl.RGB32F
-                                } else if (internalformat === gl.LUMINANCE || internalformat === 0x1909 || internalformat === gl.ALPHA || internalformat === 0x1906) {
-                                    args[2] = 0x8229; // gl.R32F
-                                    args[6] = gl.RED || 0x1903;
+                if (gl.texImage2D) {
+                    var realTexImage2D = gl.texImage2D.bind(gl);
+                    gl.texImage2D = function() {
+                        var args = Array.prototype.slice.call(arguments);
+                        if (isWebGL2) {
+                            if (args.length >= 8) {
+                                var internalformat = args[2];
+                                var type = args[7];
+                                if (type === gl.FLOAT || type === 0x1406) {
+                                    if (internalformat === gl.RGBA || internalformat === 0x1908) {
+                                        args[2] = 0x8814; // gl.RGBA32F
+                                    } else if (internalformat === gl.RGB || internalformat === 0x1907) {
+                                        args[2] = 0x8815; // gl.RGB32F
+                                    } else if (internalformat === gl.LUMINANCE || internalformat === 0x1909 || internalformat === gl.ALPHA || internalformat === 0x1906) {
+                                        args[2] = 0x8229; // gl.R32F
+                                        args[6] = gl.RED || 0x1903;
+                                    } else if (internalformat === gl.LUMINANCE_ALPHA || internalformat === 0x190A) {
+                                        args[2] = 0x822B; // gl.RG32F
+                                        args[6] = gl.RG || 0x8227;
+                                    }
+                                } else if (type === 0x8D61) { // HALF_FLOAT_OES
+                                    args[7] = gl.HALF_FLOAT || 0x140B;
+                                    if (internalformat === gl.RGBA || internalformat === 0x1908) {
+                                        args[2] = 0x881A; // gl.RGBA16F
+                                    } else if (internalformat === gl.RGB || internalformat === 0x1907) {
+                                        args[2] = 0x881B; // gl.RGB16F
+                                    } else if (internalformat === gl.LUMINANCE || internalformat === 0x1909 || internalformat === gl.ALPHA || internalformat === 0x1906) {
+                                        args[2] = 0x822D; // gl.R16F
+                                        args[6] = gl.RED || 0x1903;
+                                    } else if (internalformat === gl.LUMINANCE_ALPHA || internalformat === 0x190A) {
+                                        args[2] = 0x822F; // gl.RG16F
+                                        args[6] = gl.RG || 0x8227;
+                                    }
                                 }
-                            } else if (type === 0x8D61) { // HALF_FLOAT_OES
-                                args[7] = gl.HALF_FLOAT || 0x140B;
-                                if (internalformat === gl.RGBA || internalformat === 0x1908) {
-                                    args[2] = 0x881A; // gl.RGBA16F
-                                } else if (internalformat === gl.RGB || internalformat === 0x1907) {
-                                    args[2] = 0x881B; // gl.RGB16F
+                            } else if (args.length === 6) {
+                                var internalformat6 = args[2];
+                                var type6 = args[4];
+                                if (type6 === gl.FLOAT || type6 === 0x1406) {
+                                    if (internalformat6 === gl.RGBA || internalformat6 === 0x1908) {
+                                        args[2] = 0x8814;
+                                    } else if (internalformat6 === gl.RGB || internalformat6 === 0x1907) {
+                                        args[2] = 0x8815;
+                                    } else if (internalformat6 === gl.LUMINANCE || internalformat6 === 0x1909 || internalformat6 === gl.ALPHA || internalformat6 === 0x1906) {
+                                        args[2] = 0x8229;
+                                        args[3] = gl.RED || 0x1903;
+                                    } else if (internalformat6 === gl.LUMINANCE_ALPHA || internalformat6 === 0x190A) {
+                                        args[2] = 0x822B;
+                                        args[3] = gl.RG || 0x8227;
+                                    }
+                                } else if (type6 === 0x8D61) {
+                                    args[4] = gl.HALF_FLOAT || 0x140B;
+                                    if (internalformat6 === gl.RGBA || internalformat6 === 0x1908) {
+                                        args[2] = 0x881A;
+                                    } else if (internalformat6 === gl.RGB || internalformat6 === 0x1907) {
+                                        args[2] = 0x881B;
+                                    } else if (internalformat6 === gl.LUMINANCE || internalformat6 === 0x1909 || internalformat6 === gl.ALPHA || internalformat6 === 0x1906) {
+                                        args[2] = 0x822D;
+                                        args[3] = gl.RED || 0x1903;
+                                    } else if (internalformat6 === gl.LUMINANCE_ALPHA || internalformat6 === 0x190A) {
+                                        args[2] = 0x822F;
+                                        args[3] = gl.RG || 0x8227;
+                                    }
+                                }
+                            }
+                        } else {
+                            if (args.length >= 8 && (args[7] === gl.FLOAT || args[7] === 0x1406)) {
+                                try {
+                                    return realTexImage2D.apply(gl, args);
+                                } catch (e) {
+                                    var halfExt = gl.getExtension('OES_texture_half_float');
+                                    var halfType = (halfExt && halfExt.HALF_FLOAT_OES) ? halfExt.HALF_FLOAT_OES : 0x8D61;
+                                    args[7] = halfType;
+                                    if (args[8] instanceof Float32Array) {
+                                        args[8] = float32ToFloat16(args[8]);
+                                    }
+                                    return realTexImage2D.apply(gl, args);
                                 }
                             }
                         }
-                    } else {
-                        if (args.length >= 8 && (args[7] === gl.FLOAT || args[7] === 0x1406)) {
-                            try {
-                                return realTexImage2D.apply(gl, args);
-                            } catch (e) {
-                                var halfExt = gl.getExtension('OES_texture_half_float');
-                                var halfType = (halfExt && halfExt.HALF_FLOAT_OES) ? halfExt.HALF_FLOAT_OES : 0x8D61;
-                                args[7] = halfType;
-                                if (args[8] instanceof Float32Array) {
-                                    args[8] = float32ToFloat16(args[8]);
-                                }
-                                return realTexImage2D.apply(gl, args);
-                            }
-                        }
-                    }
-                    return realTexImage2D.apply(gl, args);
-                };
+                        return realTexImage2D.apply(gl, args);
+                    };
+                }
 
                 // Patch texSubImage2D for half-float mapping
                 if (gl.texSubImage2D) {
                     var realTexSubImage2D = gl.texSubImage2D.bind(gl);
                     gl.texSubImage2D = function() {
                         var args = Array.prototype.slice.call(arguments);
-                        if (isWebGL2 && args.length >= 8) {
-                            if (args[7] === 0x8D61) { // HALF_FLOAT_OES
+                        if (isWebGL2) {
+                            if (args.length >= 8 && args[7] === 0x8D61) {
                                 args[7] = gl.HALF_FLOAT || 0x140B;
+                            } else if (args.length === 7 && args[5] === 0x8D61) {
+                                args[5] = gl.HALF_FLOAT || 0x140B;
                             }
                         }
                         return realTexSubImage2D.apply(gl, args);
                     };
                 }
 
-                // Shader Source & Standard Derivatives Handling
-                var realShaderSource = gl.shaderSource.bind(gl);
-                gl.shaderSource = function(shader, source) {
-                    if (typeof source === 'string') {
-                        shader.__onyx_source = source;
-                        if (isWebGL2) {
-                            if (/^\s*#version\s+300\s+es/m.test(source)) {
-                                // In GLSL 3.00 ES, standard derivatives are core; extension directive is obsolete
-                                source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives built-in in ESSL 3.00');
-                            } else {
-                                // In GLSL 1.00 shaders on WebGL 2:
-                                // Replace extension directive with comment since WebGL 2 compiler does not recognise it
-                                source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives handled natively in WebGL 2');
-                            }
+                // Check and recover framebuffer status for float attachments
+                if (gl.checkFramebufferStatus) {
+                    var realCheckFramebufferStatus = gl.checkFramebufferStatus.bind(gl);
+                    gl.checkFramebufferStatus = function(target) {
+                        var status = realCheckFramebufferStatus(target);
+                        if (status === gl.FRAMEBUFFER_COMPLETE) {
+                            return status;
                         }
-                        shader.__onyx_effective_source = source;
-                    }
-                    return realShaderSource(shader, source);
-                };
+                        // Attempt recovery if framebuffer is incomplete due to linear filtering on float attachment
+                        try {
+                            var attachment = gl.getFramebufferAttachmentParameter(target, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
+                            if (attachment && gl.isTexture(attachment)) {
+                                var prevBinding = gl.getParameter(gl.TEXTURE_BINDING_2D);
+                                gl.bindTexture(gl.TEXTURE_2D, attachment);
+                                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                                status = realCheckFramebufferStatus(target);
+                                if (prevBinding) {
+                                    gl.bindTexture(gl.TEXTURE_2D, prevBinding);
+                                } else {
+                                    gl.bindTexture(gl.TEXTURE_2D, null);
+                                }
+                            }
+                        } catch (_) {}
+                        return status;
+                    };
+                }
 
-                if (isWebGL2) {
-                    try { realGetExtension('EXT_color_buffer_float'); } catch (_) {}
-                    try { realGetExtension('EXT_color_buffer_half_float'); } catch (_) {}
-                    try { realGetExtension('WEBGL_color_buffer_float'); } catch (_) {}
-                    try { realGetExtension('OES_texture_float_linear'); } catch (_) {}
-                    try { realGetExtension('OES_texture_half_float_linear'); } catch (_) {}
+                // Shader Source & Standard Derivatives Handling
+                if (gl.shaderSource) {
+                    var realShaderSource = gl.shaderSource.bind(gl);
+                    gl.shaderSource = function(shader, source) {
+                        if (typeof source === 'string') {
+                            shader.__onyx_source = source;
+                            if (isWebGL2) {
+                                if (/^\s*#version\s+300\s+es/m.test(source)) {
+                                    source = source.replace(/#extension\s+GL_OES_standard_derivatives\s*:\s*(enable|require)/g, '// derivatives built-in in ESSL 3.00');
+                                } else {
+                                    if (/\b(dFdx|dFdy|fwidth)\b/.test(source) && !/#extension\s+GL_OES_standard_derivatives/.test(source)) {
+                                        source = '#extension GL_OES_standard_derivatives : enable\n' + source;
+                                    }
+                                }
+                            }
+                            shader.__onyx_effective_source = source;
+                        }
+                        return realShaderSource(shader, source);
+                    };
                 }
 
                 return gl;
@@ -269,23 +377,23 @@ object WebGLCompatibilityBridge {
                 } catch (_) {}
             }
 
-            // Hook canvas.getContext
+            // Hook canvas.getContext: Upgrade WebGL 1 to WebGL 2 first for full mobile float framebuffer support
             if (typeof HTMLCanvasElement !== 'undefined' && HTMLCanvasElement.prototype.getContext) {
                 var originalGetContext = HTMLCanvasElement.prototype.getContext;
                 HTMLCanvasElement.prototype.getContext = function(type, attributes) {
                     if (type === 'webgl' || type === 'experimental-webgl') {
                         var ctx = null;
                         try {
-                            ctx = originalGetContext.call(this, type, attributes);
-                        } catch (_) {}
-                        if (ctx) {
-                            return patchWebGLContext(ctx, false);
-                        }
-                        try {
                             ctx = originalGetContext.call(this, 'webgl2', attributes);
                         } catch (_) {}
                         if (ctx) {
                             return patchWebGLContext(ctx, true);
+                        }
+                        try {
+                            ctx = originalGetContext.call(this, type, attributes);
+                        } catch (_) {}
+                        if (ctx) {
+                            return patchWebGLContext(ctx, false);
                         }
                         return null;
                     }
@@ -310,16 +418,16 @@ object WebGLCompatibilityBridge {
                     if (type === 'webgl' || type === 'experimental-webgl') {
                         var ctx = null;
                         try {
-                            ctx = originalOffscreenGetContext.call(this, type, attributes);
-                        } catch (_) {}
-                        if (ctx) {
-                            return patchWebGLContext(ctx, false);
-                        }
-                        try {
                             ctx = originalOffscreenGetContext.call(this, 'webgl2', attributes);
                         } catch (_) {}
                         if (ctx) {
                             return patchWebGLContext(ctx, true);
+                        }
+                        try {
+                            ctx = originalOffscreenGetContext.call(this, type, attributes);
+                        } catch (_) {}
+                        if (ctx) {
+                            return patchWebGLContext(ctx, false);
                         }
                         return null;
                     }
