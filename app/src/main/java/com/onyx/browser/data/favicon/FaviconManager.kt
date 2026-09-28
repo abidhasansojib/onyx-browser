@@ -256,7 +256,7 @@ object FaviconManager {
                 connectTimeout = 3500
                 readTimeout = 3500
                 instanceFollowRedirects = true
-                setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14; Pixel 8) OnyxBrowser/1.0")
+                setRequestProperty("User-Agent", com.onyx.browser.web.UserAgentManager.DEFAULT_MOBILE_UA)
             }
             conn.connect()
             if (conn.responseCode in 200..299) {

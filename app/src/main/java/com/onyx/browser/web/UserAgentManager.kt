@@ -27,9 +27,9 @@ object UserAgentManager {
     const val KEY_GOOGLEBOT = "googlebot"
     const val KEY_CUSTOM = "custom"
 
-    // Default Mobile Android (Pixel 8 / Chrome 131)
+    // Default Mobile Android (Android 10; K / Chrome 154 - Chromium UA Reduction)
     const val DEFAULT_MOBILE_UA =
-        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36"
+        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36"
 
     // Windows Chrome Desktop
     const val DESKTOP_CHROME_UA =
