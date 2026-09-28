@@ -359,6 +359,7 @@ onyx-browser/
       - Removed legacy video download stream sniffing and monkey-patching on `HTMLMediaElement.prototype.src` and `setAttribute` in `MediaPlaybackManager.kt`.
       - Pruned orphaned `currentVideoSrc`, `onVideoSourceListener`, and `onVideoSourceDetected` from `MediaPlaybackBridge.kt`.
       - Removed dead `KEY_ASK_BEFORE_DOWNLOAD` constant from `BrowserPreferences.kt`, unused `wasShowingWebViewBeforePip` from `MainActivity.kt`, redundant `mobileUserAgent` from `OnyxWebView.kt`, unreferenced `firstPartyAdDomains` from `OnyxWebViewClient.kt`, and unused `getCircularBitmap` with associated graphics imports from `ContextMenuBottomSheet.kt`.
+    - About Menu Footer Cleanup: Simplified the footer text in `activity_about.xml` to `"Powered by Brave adblock-rust & Chromium WebView"`.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

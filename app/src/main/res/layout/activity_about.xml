@@ -633,7 +633,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="Designed &amp; Developed by Abid Hasan Sojib\nPowered by Brave adblock-rust &amp; Chromium WebView"
+                android:text="Powered by Brave adblock-rust &amp; Chromium WebView"
                 android:textColor="?android:attr/textColorSecondary"
                 android:textSize="12sp"
                 android:lineSpacingExtra="3dp" />
