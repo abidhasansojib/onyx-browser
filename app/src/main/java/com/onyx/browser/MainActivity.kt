@@ -2519,6 +2519,18 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val activeWebView = tabManager.getActiveWebView()
+                val isErrorPage = activeWebView != null && (
+                    activeWebView.currentSyntheticState != null ||
+                    activeWebView.url?.startsWith("https://onyx.browser/", ignoreCase = true) == true ||
+                    activeWebView.url?.startsWith("file:///android_asset/error_page.html", ignoreCase = true) == true
+                )
+
+                if (isErrorPage && activeWebView != null) {
+                    if (handleErrorPageBack(activeWebView)) {
+                        return
+                    }
+                }
+
                 if (activeWebView != null && activeWebView.canGoBack()) {
                     activeWebView.goBack()
                     return
@@ -2551,6 +2563,78 @@ class MainActivity : AppCompatActivity() {
                 finish()
             }
         })
+    }
+
+    fun handleErrorPageBack(webView: OnyxWebView): Boolean {
+        val activeTab = tabManager.activeTab.value
+        val steps = findPreviousValidHistoryStep(webView)
+
+        if (steps != null) {
+            webView.clearSyntheticState()
+            webView.goBackOrForward(steps)
+            return true
+        }
+
+        // No valid previous history step in this tab — return to home screen or parent tab
+        webView.clearSyntheticState()
+        webView.stopLoading()
+        webView.loadUrl("about:blank")
+
+        if (activeTab != null) {
+            val parentId = activeTab.parentId
+            val parentTab = if (!parentId.isNullOrBlank()) {
+                tabManager.getTabById(parentId)
+            } else null
+
+            if (parentTab != null) {
+                tabManager.closeTab(activeTab)
+                return true
+            }
+
+            tabManager.updateActiveTab("", "New Tab")
+            showHomeScreen()
+            return true
+        }
+
+        showHomeScreen()
+        return true
+    }
+
+    private fun findPreviousValidHistoryStep(webView: OnyxWebView): Int? {
+        val list = try { webView.copyBackForwardList() } catch (_: Throwable) { return null }
+        val currentIndex = list.currentIndex
+        if (currentIndex <= 0) return null
+
+        val failingUrl = webView.currentSyntheticState?.failingUrl ?: webView.lastFailingUrl ?: ""
+        val normalizedFailing = failingUrl.trimEnd('/')
+        val failingWithoutScheme = normalizedFailing.removePrefix("https://").removePrefix("http://")
+
+        for (i in currentIndex - 1 downTo 0) {
+            val item = list.getItemAtIndex(i) ?: continue
+            val itemUrl = item.url ?: continue
+            val normalizedItem = itemUrl.trimEnd('/')
+            val itemWithoutScheme = normalizedItem.removePrefix("https://").removePrefix("http://")
+
+            // Skip blank, data, or synthetic error page URLs
+            if (itemUrl.isBlank() ||
+                itemUrl == "about:blank" ||
+                OnyxWebView.isSyntheticOrDataUrl(itemUrl) ||
+                itemUrl.startsWith("https://onyx.browser/", ignoreCase = true) ||
+                itemUrl.startsWith("file:///android_asset/error_page.html", ignoreCase = true)
+            ) {
+                continue
+            }
+
+            // Skip the failing URL itself (or redirects between http/https)
+            if (failingWithoutScheme.isNotBlank() && itemWithoutScheme.equals(failingWithoutScheme, ignoreCase = true)) {
+                continue
+            }
+
+            // Valid previous webpage found!
+            return i - currentIndex
+        }
+
+        return null
     }
 
     override fun onPause() {

@@ -49,11 +49,16 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun goBack() {
         webView.post {
-            webView.clearSyntheticState()
-            if (webView.canGoBack()) {
-                webView.goBack()
+            val mainAct = activity as? MainActivity
+            if (mainAct != null) {
+                mainAct.handleErrorPageBack(webView)
             } else {
-                (activity as? MainActivity)?.showHomeScreen()
+                webView.clearSyntheticState()
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    webView.loadUrl("about:blank")
+                }
             }
         }
     }
@@ -62,7 +67,13 @@ class OnyxErrorBridge(
     fun goHome() {
         webView.post {
             webView.clearSyntheticState()
-            (activity as? MainActivity)?.showHomeScreen()
+            webView.stopLoading()
+            webView.loadUrl("about:blank")
+            val mainAct = activity as? MainActivity
+            if (mainAct != null) {
+                mainAct.tabManager.updateActiveTab("", "New Tab")
+                mainAct.showHomeScreen()
+            }
         }
     }
 

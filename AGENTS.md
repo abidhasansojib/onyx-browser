@@ -326,6 +326,12 @@ onyx-browser/
     - Resolved `net::ERR_CERT_COMMON_NAME_INVALID` error page hijack across adblocker testing suites (e.g. d3ward, adblock-tester.com). Previously, when a test suite probed an ad/tracker domain with an invalid/expired/mismatched SSL certificate, `onReceivedSslError` mistook the subresource failure for a main-frame error, called `view.stopLoading()`, and replaced the active webpage with a synthetic SSL error page for the main site URL.
     - Implemented `isMainFrameSslError(view, failingUrl)` in `OnyxWebViewClient.kt` and tracked `pendingMainFrameUrl` and `isMainFrameDocumentLoaded` across `OnyxWebView` and `OnyxWebViewClient`.
     - When an SSL error occurs on any subresource, tracking probe, iframe, or fetch request, `onReceivedSslError` now cleanly calls `handler.cancel()` without aborting the parent webpage or displaying an error screen. This triggers fetch rejection into the test suite's `catch(e)` block as expected, allowing tests to run uninterrupted and achieve full scores.
+  - Error Page Smart Back Navigation Restoration:
+    - Resolved issue where pressing the Android system back button/gesture or clicking "Back to safety" / "Go back" on an error page failed to return to the previous stage or got stuck in a reload loop.
+    - Implemented `handleErrorPageBack(webView)` and `findPreviousValidHistoryStep(webView)` in `MainActivity.kt`.
+    - Automatically traverses `copyBackForwardList()` backwards to locate the most recent valid webpage, skipping any entries matching the failing URL, HTTP/HTTPS redirect variants, `about:blank`, or synthetic URLs, and jumps directly to that valid step via `goBackOrForward(steps)`.
+    - If no prior valid webpage exists in the tab (e.g. navigation initiated from a fresh tab/home screen), cleanly unloads the error page, resets tab state, and transitions directly back to the Home Screen (or closes the tab if opened from a parent tab).
+    - Wired both Android `onBackPressedDispatcher` in `MainActivity.kt` and JavaScript `OnyxErrorBridge.goBack()` / `goHome()` to use this unified back navigation logic.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
