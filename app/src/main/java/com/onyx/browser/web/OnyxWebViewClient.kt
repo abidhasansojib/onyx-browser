@@ -190,6 +190,25 @@ class OnyxWebViewClient(
             "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
             "Access-Control-Allow-Headers" to "*"
         )
+
+        // When Adblocker Spoofing is disabled (default):
+        // Return standard HTTP 403 Forbidden with empty stream, identical to previous releases.
+        // This ensures script.onerror and img.onerror fire normally, and adblock test sites
+        // (e.g. d3ward, adblock-tester) detect and score the adblocker properly.
+        if (!preferences.isAntiAdblockDetectionEnabled) {
+            return WebResourceResponse(
+                "text/plain",
+                "UTF-8",
+                403,
+                "Blocked by Onyx Shields",
+                corsHeaders + ("Content-Type" to "text/plain; charset=utf-8"),
+                ByteArrayInputStream(ByteArray(0))
+            )
+        }
+
+        // When Adblocker Spoofing is enabled:
+        // Return safe, type-aware HTTP 200 OK stubs with CORS headers to spoof ad scripts as loaded
+        // and bypass anti-adblock detection walls without breaking page layout.
         return when (resourceType) {
             "image" -> {
                 WebResourceResponse(

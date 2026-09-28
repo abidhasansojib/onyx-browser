@@ -69,7 +69,7 @@ object AdBlockDocumentStart {
             window.__onyx_shields_active = true;
 
             // ── 1. Preemptive Anti-Adblock, Analytics & Consent Stubs ─────────────────
-            // Only injected when the user has enabled "Ad Detection Spoofing" in Privacy & Shields.
+            // Only injected when the user has enabled "Adblocker Spoofing" in Privacy & Shields.
             // Off by default — allows adblock test sites and Cloudflare challenges to function correctly.
             var isAntiDetectEnabled = false;
             try {

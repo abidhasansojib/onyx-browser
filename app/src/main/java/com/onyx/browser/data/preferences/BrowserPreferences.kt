@@ -232,14 +232,18 @@ class BrowserPreferences private constructor(private val context: Context) {
 
     // ── Anti-Adblock Detection Spoofing ──────────────────────────────────────
     /**
-     * When enabled, injects JS stubs (adsbygoogle.loaded, window.ga, window.gtag, fbq, etc.)
-     * at document-start to spoof ad scripts as loaded, preventing "Please disable your adblocker"
-     * overlays on many sites. Disabled by default so adblock-test sites report correctly and
-     * Cloudflare challenges are not disrupted.
+     * When enabled (Adblocker Spoofing), injects JS stubs (adsbygoogle.loaded, window.ga, window.gtag, fbq, etc.)
+     * and synthesizes safe 200 OK stubs for blocked ad/tracker network requests, preventing
+     * "Please disable your adblocker" overlays and script crash walls.
+     * Disabled by default so standard adblocking (403 Forbidden on ads) works and adblock-test sites report correctly.
      */
     var isAntiAdblockDetectionEnabled: Boolean
         get() = prefs.getBoolean(KEY_ANTI_ADBLOCK_DETECTION, false)
         set(value) = prefs.edit().putBoolean(KEY_ANTI_ADBLOCK_DETECTION, value).apply()
+
+    var isAdblockerSpoofingEnabled: Boolean
+        get() = isAntiAdblockDetectionEnabled
+        set(value) { isAntiAdblockDetectionEnabled = value }
 
     // ── Per-domain Script Blocking ───────────────────────────────────────────
 

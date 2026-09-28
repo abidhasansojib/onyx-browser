@@ -147,7 +147,7 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Ad Detection Spoofing Row -->
+            <!-- Adblocker Spoofing Row -->
             <LinearLayout
                 android:id="@+id/rowAntiAdblockDetection"
                 android:layout_width="match_parent"

@@ -168,12 +168,14 @@ onyx-browser/
 ## 4. Deep Dive: Core Subsystems & Implementation Guidelines
 
 ### 4.1. Ad-Blocking Subsystem (`OnyxWebViewClient` & `AdBlockEngine`)
-- **Type-Aware Response Synthesis**: Never return raw HTTP 403 errors when blocking resources. Websites use JavaScript promises that crash or halt rendering upon receiving HTTP error statuses. Always synthesize safe 200 OK stubs via `createBlockedResponse`:
-  - `image`: Returns 1×1 transparent PNG (`iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=`) with CORS headers.
-  - `script`: Returns an empty JavaScript stream with CORS headers.
-  - `stylesheet`: Returns an empty CSS stream with CORS headers.
-  - `sub_frame`: Returns an empty HTML comment (`<!-- blocked subframe -->`).
-  - `media`/`other`: Returns an empty stream with CORS headers.
+- **Adblocker Spoofing Mode vs Standard Blocking (`createBlockedResponse`)**:
+  - **Standard Blocking (Default / Spoofing OFF)**: Returns standard HTTP 403 Forbidden with an empty stream and `text/plain`. This ensures `script.onerror` and `img.onerror` fire normally, `fetch()` checks fail, and adblock testing sites (e.g. d3ward, adblock-tester) detect blocked ads and report accurate, high scores.
+  - **Adblocker Spoofing (Spoofing ON)**: Synthesizes type-aware safe 200 OK stubs with CORS headers to spoof ad scripts/images as loaded and bypass aggressive anti-adblock detection walls:
+    - `image`: Returns 1×1 transparent PNG (`iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=`) with CORS headers.
+    - `script`: Returns an empty JavaScript stream with CORS headers.
+    - `stylesheet`: Returns an empty CSS stream with CORS headers.
+    - `sub_frame`: Returns an empty HTML comment (`<!-- blocked subframe -->`).
+    - `media`/`other`: Returns an empty stream with CORS headers.
 - **Fast Domain Parsing**: Use zero-allocation index scanning in `BrowserPreferences.cleanDomain` and cache the whitelist in an in-memory `HashSet<String>` to prevent disk I/O bottlenecks during request bursts.
 
 ### 4.2. Media & Playback Subsystem (`MediaPlaybackManager` & `MediaPlaybackBridge`)
@@ -312,8 +314,13 @@ onyx-browser/
     - Added `isAntiAdblockDetectionEnabled` preference (`KEY_ANTI_ADBLOCK_DETECTION`, default `false`) to `BrowserPreferences.kt`.
     - Added `isAntiAdblockDetectionEnabled()` `@JavascriptInterface` to `OnyxShieldBridge.kt` for synchronous JS → Kotlin preference reads at document-start.
     - Gated the anti-adblock JS stubs (`window.ga`, `window.gtag`, `window.adsbygoogle.loaded`, `fbq`, `outbrain`, `taboola`, `dataLayer`) in `AdBlockDocumentStart.getScript()` behind a runtime bridge call so they only inject when the user enables the toggle. **Default OFF** — lets adblock test sites (superadblocktest.com, etc.) report accurately and prevents disrupting Cloudflare Turnstile challenges.
-    - Added "Ad Detection Spoofing" toggle row (`rowAntiAdblockDetection` / `switchAntiAdblockDetection`) in `activity_shields.xml` under the Trackers & Ads section; wired in `ShieldsActivity.setupTrackersAds()`.
+    - Added "Adblocker Spoofing" toggle row (`rowAntiAdblockDetection` / `switchAntiAdblockDetection`) in `activity_shields.xml` under the Trackers & Ads section; wired in `ShieldsActivity.setupTrackersAds()`.
     - Expanded `isCaptchaOrAuthUrl()` in `OnyxWebViewClient.kt` to cover additional anti-bot and auth URL patterns: PerimeterX, `/two_step_verification`, `/save-device/`, `/trusted-devices/`, `/login_attempt`.
+  - Adblocker Spoofing & Standard 403 Blocking Alignment:
+    - Renamed feature in UI strings and layouts from "Ad Detection Spoofing" to "Adblocker Spoofing" (`anti_adblock_detection_title`, `anti_adblock_detection_desc`).
+    - Added `isAdblockerSpoofingEnabled` alias in `BrowserPreferences.kt`.
+    - Decoupled `createBlockedResponse` in `OnyxWebViewClient.kt`: when Adblocker Spoofing is **OFF** (default), returns standard HTTP 403 Forbidden with empty stream identical to previous releases, enabling `script.onerror`, `img.onerror`, and failing fetch checks so adblock test websites (d3ward, adblock-tester) detect blocked ads and report full scores.
+    - When Adblocker Spoofing is **ON**, synthesizes type-aware safe HTTP 200 OK stubs (1x1 PNG, empty JS/CSS) and injects anti-adblock JS stubs (`adsbygoogle.loaded`, `ga`, `gtag`) to bypass anti-adblock walls and prevent script crashes.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
