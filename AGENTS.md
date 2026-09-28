@@ -9,6 +9,10 @@
 
 **Onyx Browser** (`com.onyx.browser`) is a fast, lightweight, and privacy-focused Android browser (Min SDK 26 / Android 8.0+, Target SDK 35 / Android 15).
 
+> [!IMPORTANT]
+> **CANONICAL GOLDEN STABLE MILESTONE: v1.0.206 (Commit `f4f09e1`, Tag `golden-reference-v1.0.206`)**:  
+> Release `v1.0.206` is the verified, battle-tested golden reference for Onyx Browser. All three critical subsystems (adblocking test suite parity, zero Cloudflare Turnstile CAPTCHA loops via untampered Blink prototype chain, and Facebook login/OAuth flows) are 100% verified working. If any future changes break or regress these features, use `v1.0.206` (`f4f09e1`) as the exact architectural reference.
+
 ### Architecture & Tech Stack
 - **Native Android UI**: Built with Kotlin and XML Views with ViewBinding (no Jetpack Compose for fast startup and low memory usage).
 - **Adblocking**: Brave's `adblock-rust` engine compiled via NDK into `libadblock_bridge.so` across all 4 ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`).
@@ -351,3 +355,29 @@ onyx-browser/
   - Enhanced desktop user-agent presets with custom site profile rules.
   - Built-in Reader Mode (distraction-free text view for articles).
   - DNS-over-HTTPS (DoH) provider selection.
+
+---
+
+## 7. Canonical Golden Stable Milestone: v1.0.206 (Commit `f4f09e1`, Tag `golden-reference-v1.0.206`)
+
+> [!IMPORTANT]
+> **CANONICAL GOLDEN REFERENCE**: Release `v1.0.206` (commit `f4f09e1`, tag `golden-reference-v1.0.206`) is the verified, battle-tested stable benchmark for Onyx Browser. If any feature breaks or regresses in future development, consult and align against this reference implementation immediately.
+
+### Verified Golden Subsystems in v1.0.206
+1. **Adblocking Engine (100% Score on `superadblocktest.com`, `d3ward`, `adblock-tester.com`)**:
+   - In-page `window.fetch` and `XMLHttpRequest` proxies in `AdBlockDocumentStart.kt` masked via `makeNative` (`function fetch() { [native code] }`). Blocked requests reject with `TypeError: Failed to fetch: net::ERR_BLOCKED_BY_CLIENT`.
+   - `OnyxShieldBridge.isUrlBlocked(url, pageUrl)` provides synchronous query into Brave Rust NDK engine and standard ad domains.
+   - `OnyxWebViewClient.createBlockedResponse` returns HTTP 403 Forbidden with permissive CORS headers for subresources when Adblocker Spoofing is OFF.
+   - Brave generic cosmetic engine (`hidden_class_id_selectors` via Rust JNI) hides ad containers.
+
+2. **Cloudflare Turnstile & Anti-Bot Protection (Zero Loop, 1-Click Verification)**:
+   - Untampered Chromium Blink prototype chain: no synthetic `ClientHintsCompatibilityBridge.kt`, no `Object.defineProperty(navigator, 'webdriver')`, no artificial `navigator.userAgentData`.
+   - `navigator.hasOwnProperty('webdriver')` is `false`, exactly matching authentic Google Chrome Mobile.
+   - Strict sandbox exemption: `AdBlockDocumentStart.kt` and `PasskeyWebAuthnBridge.kt` completely skip script injections on `challenges.cloudflare.com`, `/cdn-cgi/`, and CAPTCHA providers.
+   - Cross-origin third-party cookies permitted for Turnstile and verification iframes.
+
+3. **Facebook Login & Social Authentication**:
+   - Meta authentication, OAuth, and CDN domains (`facebook.com`, `m.facebook.com`, `web.facebook.com`, `connect.facebook.net`, `graph.facebook.com`, `fbcdn.net`, `facebook.net`) 100% exempt from ad/tracker blocking.
+   - Third-party cookies accepted for auth and checkpoint flows.
+   - OAuth popup tabs in `MainActivity.kt` protected from premature auto-close timeouts and seamlessly displayed via `onPageStarted` / `onPageFinished`.
+

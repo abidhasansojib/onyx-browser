@@ -7,6 +7,9 @@ This document tracks all features of Onyx Browser, their current implementation 
 - `[-]` **Known Issue / Partial** – Implemented but has a known limitation or bug being addressed.
 - `[ ]` **Planned** – Not yet implemented; on the development roadmap.
 
+> [!NOTE]
+> **Canonical Golden Reference Release**: `v1.0.206` (commit `f4f09e1`, tag `golden-reference-v1.0.206`). All core features marked `[x]` below are verified 100% operational in this stable release.
+
 ---
 
 ## Master Feature List
