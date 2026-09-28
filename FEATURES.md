@@ -19,7 +19,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 3. [x] Dual-Tier Adblocking (Standard vs Aggressive shields)
 4. [x] Per-Site Shields & Domain Whitelist (toggle adblocking on/off per site)
 5. [x] Custom Filter Rules & Subscriptions (add custom EasyList-syntax rules & URLs)
-6. [x] Type-Aware Responses & Benchmark Compatibility (transparent 1×1 PNG, empty JS/CSS when Adblocker Spoofing is ON; stealth window.fetch/XHR rejection with net::ERR_BLOCKED_BY_CLIENT and 403 Forbidden with CORS headers when OFF, ensuring 100% on superadblocktest.com, d3ward, and adblock-tester)
+6. [x] Type-Aware Responses & Benchmark Compatibility (transparent 1×1 PNG, empty JS/CSS when Adblocker Spoofing is ON; stealth window.fetch/XHR rejection with net::ERR_BLOCKED_BY_CLIENT and 403 Forbidden with CORS headers when OFF, ensuring 100% on superadblocktest.com, d3ward, and adblock-tester; DOM honeypot & bait element defuser spoofing offsetHeight, offsetWidth, clientHeight, and offsetParent to defeat anti-adblock detection walls)
 7. [x] Anti-Fingerprinting Protections (language spoofing, canvas/audio normalization)
 8. [x] Social Tracker & Cookie Notice Stripping
 9. [x] Background Audio & Video Playback (Brave `userHitPause`, visibilityState spoofing, event filtering)

@@ -360,6 +360,8 @@ onyx-browser/
       - Pruned orphaned `currentVideoSrc`, `onVideoSourceListener`, and `onVideoSourceDetected` from `MediaPlaybackBridge.kt`.
       - Removed dead `KEY_ASK_BEFORE_DOWNLOAD` constant from `BrowserPreferences.kt`, unused `wasShowingWebViewBeforePip` from `MainActivity.kt`, redundant `mobileUserAgent` from `OnyxWebView.kt`, unreferenced `firstPartyAdDomains` from `OnyxWebViewClient.kt`, and unused `getCircularBitmap` with associated graphics imports from `ContextMenuBottomSheet.kt`.
     - About Menu Footer Cleanup: Simplified the footer text in `activity_about.xml` to `"Powered by Brave adblock-rust & Chromium WebView"`.
+    - Verified Release Build `v1.0.207`: Workflow run `36419009859` compiled successfully. Release APKs published and downloaded to `/storage/emulated/0/`.
+    - Anti-Adblock DOM Bait & Honeypot Defuser (`AdBlockDocumentStart.kt`): Enhanced "Adblocker Spoofing" to defeat DOM-based anti-adblock detection scripts (e.g. BlockAdBlock, honeypot bait elements on sites like `rodaemotor.com`). Intercepts `offsetHeight`, `offsetWidth`, `clientHeight`, `clientWidth`, and `offsetParent` getters on bait elements (`.ad`, `.adsbygoogle`, `.ad-banner`, `.adzone`, `.google-ad`) returning non-zero dimensions and `document.body` instead of `null`, preventing anti-adblock popups from triggering while preserving complete cosmetic ad removal.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

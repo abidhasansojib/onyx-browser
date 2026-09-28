@@ -224,6 +224,100 @@ object AdBlockDocumentStart {
                     window.dataLayer = window.dataLayer || [];
                     window.outbrain = window.outbrain || { ready: function() {} };
                     window.taboola = window.taboola || { push: function() {} };
+
+                    // ── Honeypot / Bait Defuser (Defuses BlockAdBlock, FuckAdBlock & DOM Honeypots) ──
+                    var baitPattern = /(?:^|[\s\-_])(?:ad|ads|adsbygoogle|adzone|google-ad|google_ad|advert|advertising|advertisement|pub_300x250|pub_728x90|textads|GoogleActiveViewInnerContainer)(?:[\s\-_]|$)/i;
+
+                    function isBait(el) {
+                        if (!el) return false;
+                        var c = typeof el.className === 'string' ? el.className : (el.className && el.className.baseVal ? el.className.baseVal : '');
+                        var i = typeof el.id === 'string' ? el.id : '';
+                        return (c && baitPattern.test(c)) || (i && baitPattern.test(i));
+                    }
+
+                    var origDescH = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+                    if (origDescH && origDescH.get) {
+                        var origGetH = origDescH.get;
+                        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+                            get: makeNative(function() {
+                                var val = origGetH.call(this);
+                                if (val === 0 && isBait(this)) {
+                                    var p = this.style && parseInt(this.style.height, 10);
+                                    return (p && p > 0) ? p : 10;
+                                }
+                                return val;
+                            }, 'get offsetHeight'),
+                            configurable: true,
+                            enumerable: origDescH.enumerable
+                        });
+                    }
+
+                    var origDescW = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+                    if (origDescW && origDescW.get) {
+                        var origGetW = origDescW.get;
+                        Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+                            get: makeNative(function() {
+                                var val = origGetW.call(this);
+                                if (val === 0 && isBait(this)) {
+                                    var p = this.style && parseInt(this.style.width, 10);
+                                    return (p && p > 0) ? p : 10;
+                                }
+                                return val;
+                            }, 'get offsetWidth'),
+                            configurable: true,
+                            enumerable: origDescW.enumerable
+                        });
+                    }
+
+                    var origDescP = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
+                    if (origDescP && origDescP.get) {
+                        var origGetP = origDescP.get;
+                        Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
+                            get: makeNative(function() {
+                                var val = origGetP.call(this);
+                                if (val === null && isBait(this)) {
+                                    return this.parentElement || (document && (document.body || document.documentElement)) || null;
+                                }
+                                return val;
+                            }, 'get offsetParent'),
+                            configurable: true,
+                            enumerable: origDescP.enumerable
+                        });
+                    }
+
+                    var origDescCH = Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight');
+                    if (origDescCH && origDescCH.get) {
+                        var origGetCH = origDescCH.get;
+                        Object.defineProperty(Element.prototype, 'clientHeight', {
+                            get: makeNative(function() {
+                                var val = origGetCH.call(this);
+                                if (val === 0 && isBait(this)) {
+                                    var p = this.style && parseInt(this.style.height, 10);
+                                    return (p && p > 0) ? p : 10;
+                                }
+                                return val;
+                            }, 'get clientHeight'),
+                            configurable: true,
+                            enumerable: origDescCH.enumerable
+                        });
+                    }
+
+                    var origDescCW = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth');
+                    if (origDescCW && origDescCW.get) {
+                        var origGetCW = origDescCW.get;
+                        Object.defineProperty(Element.prototype, 'clientWidth', {
+                            get: makeNative(function() {
+                                var val = origGetCW.call(this);
+                                if (val === 0 && isBait(this)) {
+                                    var p = this.style && parseInt(this.style.width, 10);
+                                    return (p && p > 0) ? p : 10;
+                                }
+                                return val;
+                            }, 'get clientWidth'),
+                            configurable: true,
+                            enumerable: origDescCW.enumerable
+                        });
+                    }
                 } catch(e) {}
             }
 
