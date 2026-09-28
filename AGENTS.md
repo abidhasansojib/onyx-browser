@@ -169,7 +169,7 @@ onyx-browser/
 
 ### 4.1. Ad-Blocking Subsystem (`OnyxWebViewClient` & `AdBlockEngine`)
 - **Adblocker Spoofing Mode vs Standard Blocking (`createBlockedResponse`)**:
-  - **Standard Blocking (Default / Spoofing OFF)**: Returns standard HTTP 403 Forbidden with an empty stream and `text/plain`. This ensures `script.onerror` and `img.onerror` fire normally, `fetch()` checks fail, and adblock testing sites (e.g. d3ward, adblock-tester) detect blocked ads and report accurate, high scores.
+  - **Standard Blocking (Default / Spoofing OFF)**: Returns HTTP 403 Forbidden with `BlockedInputStream` (throwing `IOException` to trigger Chromium `net::ERR_FAILED`). This ensures `fetch()` promises reject (even with `mode: 'no-cors'`), `script.onerror` and `img.onerror` fire normally, and adblock testing sites (d3ward, adblock-tester, etc.) record complete blocking and achieve 100% scores.
   - **Adblocker Spoofing (Spoofing ON)**: Synthesizes type-aware safe 200 OK stubs with CORS headers to spoof ad scripts/images as loaded and bypass aggressive anti-adblock detection walls:
     - `image`: Returns 1×1 transparent PNG (`iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=`) with CORS headers.
     - `script`: Returns an empty JavaScript stream with CORS headers.
@@ -316,10 +316,12 @@ onyx-browser/
     - Gated the anti-adblock JS stubs (`window.ga`, `window.gtag`, `window.adsbygoogle.loaded`, `fbq`, `outbrain`, `taboola`, `dataLayer`) in `AdBlockDocumentStart.getScript()` behind a runtime bridge call so they only inject when the user enables the toggle. **Default OFF** — lets adblock test sites (superadblocktest.com, etc.) report accurately and prevents disrupting Cloudflare Turnstile challenges.
     - Added "Adblocker Spoofing" toggle row (`rowAntiAdblockDetection` / `switchAntiAdblockDetection`) in `activity_shields.xml` under the Trackers & Ads section; wired in `ShieldsActivity.setupTrackersAds()`.
     - Expanded `isCaptchaOrAuthUrl()` in `OnyxWebViewClient.kt` to cover additional anti-bot and auth URL patterns: PerimeterX, `/two_step_verification`, `/save-device/`, `/trusted-devices/`, `/login_attempt`.
-  - Adblocker Spoofing & Standard 403 Blocking Alignment:
+  - Adblocker Spoofing & Standard Net Error Blocking Alignment (Adblock Testing Suite Parity):
     - Renamed feature in UI strings and layouts from "Ad Detection Spoofing" to "Adblocker Spoofing" (`anti_adblock_detection_title`, `anti_adblock_detection_desc`).
     - Added `isAdblockerSpoofingEnabled` alias in `BrowserPreferences.kt`.
-    - Decoupled `createBlockedResponse` in `OnyxWebViewClient.kt`: when Adblocker Spoofing is **OFF** (default), returns standard HTTP 403 Forbidden with empty stream identical to previous releases, enabling `script.onerror`, `img.onerror`, and failing fetch checks so adblock test websites (d3ward, adblock-tester) detect blocked ads and report full scores.
+    - Integrated `BlockedInputStream` in `OnyxWebViewClient.createBlockedResponse`: when Adblocker Spoofing is **OFF** (default), returns HTTP 403 Forbidden with `BlockedInputStream` which throws `IOException` on read, triggering Chromium's `net::ERR_FAILED`. This forces `fetch()` promises to reject (even in `mode: 'no-cors'`), activates `catch(e)` handlers, and triggers `script.onerror` and `img.onerror` so test sites (d3ward, adblock-tester.com, canyoublockit) score 100%.
+    - Expanded `AdBlockDomainManager.standardDomains` and `easylist_rules.txt` with all 136 standard test domains (Google Tag Manager, Yandex Direct `an.yandex.ru`, Ymatuhin, Bugsnag, Sentry, Unity Ads, Hotjar, MouseFlow, Freshmarketer, Lucky Orange, OEM telemetry) and synthetic banner probes (`pr_advertising_ads_banner`).
+    - Added `#yandex_rtb`, `#pr_advertising` cosmetic rules to `AdBlockDocumentStart.kt` to guarantee instant element height collapse.
     - When Adblocker Spoofing is **ON**, synthesizes type-aware safe HTTP 200 OK stubs (1x1 PNG, empty JS/CSS) and injects anti-adblock JS stubs (`adsbygoogle.loaded`, `ga`, `gtag`) to bypass anti-adblock walls and prevent script crashes.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).

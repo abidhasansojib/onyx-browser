@@ -215,7 +215,8 @@ object AdBlockDocumentStart {
                     '.afs_ads, .sponsor-content, .commercial-unit, #banner-ad, #ad-banner,',
                     '.dfp-ad-container, .taboola-ad, .outbrain-ad,',
                     '[class*="native-ad"], [id*="native-ad"], .ad-placeholder, .advertisement-box,',
-                    '.adblockHostDiv_probe, [id*="ad_banner"], [id*="ad_unit"], [class*="sponsored-item"]' +
+                    '.adblockHostDiv_probe, [id*="ad_banner"], [id*="ad_unit"], [class*="sponsored-item"],',
+                    '[id*="yandex_rtb"], [class*="yandex_rtb"], [id*="pr_advertising"], [class*="pr_advertising"]' +
                     (window.__onyx_blocking_level === 1 ? ', #onetrust-banner-sdk, #cookie-law-info-bar, .cc-window, .qc-cmp2-container, #CybotCookiebotDialog' : '') + ' {',
                     '  display: none !important;',
                     '  visibility: hidden !important;',

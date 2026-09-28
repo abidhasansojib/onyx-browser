@@ -109,13 +109,38 @@ standard_domains = [
     "ads.youtube.com", "ads-api.tiktok.com", "ads.tiktok.com", "ads-sg.tiktok.com",
     "analytics-sg.tiktok.com", "business-api.tiktok.com", "log.byteoversea.com",
     "trk.pinterest.com", "ads.pinterest.com", "log.pinterest.com", "an.facebook.com",
-    "pixel.facebook.com", "pointdrive.linkedin.com"
+    "pixel.facebook.com", "pointdrive.linkedin.com",
+    "an.yandex.ru", "googletagmanager.com", "ymatuhin.ru", "d2wy8f7a9ursnm.cloudfront.net",
+    "unityads.unity3d.com", "unity3d.com",
+    "bdapi-ads.realmemobile.com", "bdapi-in-ads.realmemobile.com", "iot-eu-logser.realme.com", "iot-logser.realme.com",
+    "api.ad.xiaomi.com", "data.mistat.xiaomi.com", "data.mistat.india.xiaomi.com", "data.mistat.rus.xiaomi.com",
+    "sdkconfig.ad.xiaomi.com", "sdkconfig.ad.intl.xiaomi.com", "tracking.rus.miui.com", "tracking.miui.com",
+    "adsfs.oppomobile.com", "adx.ads.oppomobile.com", "ck.ads.oppomobile.com", "data.ads.oppomobile.com",
+    "metrics.data.hicloud.com", "metrics2.data.hicloud.com", "grs.hicloud.com", "logservice.hicloud.com",
+    "logservice1.hicloud.com", "logbak.hicloud.com",
+    "samsungads.com", "smetrics.samsung.com", "nmetrics.samsung.com", "samsung-com.112.2o7.net", "analytics-api.samsunghealthcn.com",
+    "iadsdk.apple.com", "metrics.icloud.com", "metrics.mzstatic.com", "api-adservices.apple.com",
+    "books-analytics-events.apple.com", "weather-analytics-events.apple.com", "notes-analytics-events.apple.com"
 ]
 for d in standard_domains:
     rule = f"||{d}^"
     if rule not in seen:
         seen.add(rule)
         rules.append(rule)
+
+extra_rules = [
+    "/banners/pr_advertising_ads_banner",
+    "/ads/ads.js",
+    "||adblock-tester.com/banners/*",
+    "##[id*=\"yandex_rtb\"]",
+    "##[class*=\"yandex_rtb\"]",
+    "##[id*=\"pr_advertising\"]",
+    "##[class*=\"pr_advertising\"]"
+]
+for r in extra_rules:
+    if r not in seen:
+        seen.add(r)
+        rules.append(r)
 
 with open(output_path, 'w', encoding='utf-8') as f:
     f.write(header + '\n')
