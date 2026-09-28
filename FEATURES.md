@@ -16,7 +16,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 3. [x] Dual-Tier Adblocking (Standard vs Aggressive shields)
 4. [x] Per-Site Shields & Domain Whitelist (toggle adblocking on/off per site)
 5. [x] Custom Filter Rules & Subscriptions (add custom EasyList-syntax rules & URLs)
-6. [x] Type-Aware 200 OK Stubs (transparent 1×1 PNG, empty JS/CSS/subframe responses)
+6. [x] Type-Aware 200 OK Stubs (transparent 1×1 PNG, empty JS/CSS when Adblocker Spoofing is ON; standard net::ERR_FAILED when OFF)
 7. [x] Anti-Fingerprinting Protections (language spoofing, canvas/audio normalization)
 8. [x] Social Tracker & Cookie Notice Stripping
 9. [x] Background Audio & Video Playback (Brave `userHitPause`, visibilityState spoofing, event filtering)
@@ -69,7 +69,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 ### 1. Adblocking & Privacy Shields
 - **Rust NDK Engine**: Compiled `adblock-rust` performs token-bucket and Bloom filter matching in native C/Rust.
 - **Filter Lists**: Bundles 54 official Brave filter lists and compiles them into binary FlatBuffers (`onyx_filters.bin`) for instant startup.
-- **Type-Aware Responses**: Blocked resources receive valid 200 OK responses (empty JS, 1×1 transparent PNG, or blank CSS) with CORS headers to keep page scripts and media players from crashing.
+- **Type-Aware Responses**: When Adblocker Spoofing is enabled, blocked resources receive valid 200 OK responses (empty JS, 1×1 transparent PNG, or blank CSS) with CORS headers to keep page scripts and media players from crashing. When disabled (default), returns HTTP 403 Forbidden with `BlockedInputStream` (throwing `IOException` to abort with `net::ERR_FAILED`), ensuring adblock testing suites register 100% blocked status.
 - **Two Protection Tiers**:
   - *Standard*: Blocks advertisements, tracking scripts, web beacons, and cryptominers.
   - *Aggressive*: Strips OEM telemetry, third-party widgets, and cookie consent modals.
