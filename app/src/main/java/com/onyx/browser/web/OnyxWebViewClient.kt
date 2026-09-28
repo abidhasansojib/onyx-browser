@@ -196,24 +196,17 @@ class OnyxWebViewClient(
         )
 
         // When Adblocker Spoofing is disabled (default):
-        // In Chromium Blink, fetch() promises with mode: 'no-cors' resolve whenever ANY HTTP response
-        // headers (including HTTP 403 or 200) are received. Under W3C Fetch specification,
-        // no-cors fetch only rejects on genuine network-level errors.
-        // Returning a 307 Temporary Redirect to 'data:text/plain,blocked' triggers Blink's unsafe redirect
-        // check ("Cross-origin redirect to data: URL is prohibited"), causing:
-        // 1. fetch() promises to immediately REJECT with TypeError: Failed to fetch across all modes ('cors' and 'no-cors').
-        // 2. script.onerror and img.onerror to fire normally.
-        // 3. Adblock testing suites (superadblocktest.com, d3ward, adblock-tester, etc.) to detect 100% blocking.
+        // Return HTTP 403 Forbidden with permissive CORS headers.
+        // In-page fetch() and XMLHttpRequest calls are intercepted by the stealth client proxies
+        // in AdBlockDocumentStart (throwing TypeError: net::ERR_BLOCKED_BY_CLIENT / onerror),
+        // while DOM subresources (<script>, <img>, <iframe>) receive HTTP 403 and trigger onerror.
         if (!preferences.isAntiAdblockDetectionEnabled) {
             return WebResourceResponse(
                 "text/plain",
                 "UTF-8",
-                307,
-                "Temporary Redirect",
-                mapOf(
-                    "Location" to "data:text/plain,blocked",
-                    "Access-Control-Allow-Origin" to "*"
-                ),
+                403,
+                "Blocked by Onyx Shields",
+                corsHeaders,
                 ByteArrayInputStream(ByteArray(0))
             )
         }
@@ -1226,6 +1219,13 @@ class OnyxWebViewClient(
             }
             if (effectiveUrl.isNotBlank() && !isSyntheticOrDataUrl(effectiveUrl)) {
                 onPageFinishedCallback(effectiveUrl)
+            }
+            if (onyxWv?.isPopupPendingDisplay == true && !isSyntheticData && effectiveUrl != "about:blank") {
+                val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
+                val tab = act?.tabManager?.getTabById(onyxWv.tabId)
+                if (tab != null) {
+                    act.displayPopupTab(tab)
+                }
             }
             // Media Monitor — always inject so OnyxMediaBridge events fire and floating pill works
             if (!isSyntheticError) {

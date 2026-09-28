@@ -68,4 +68,30 @@ class OnyxShieldBridge(private val context: Context) {
         val iJson = idsJson?.takeIf { it.isNotBlank() } ?: "[]"
         return com.onyx.browser.nativebridge.AdBlockEngine.getHiddenSelectors(cJson, iJson, url)
     }
+
+    @JavascriptInterface
+    fun isUrlBlocked(url: String?, pageUrl: String?): Boolean {
+        if (!preferences.isAdBlockEnabled) return false
+        val reqUrl = url?.takeIf { it.isNotBlank() } ?: return false
+        val page = pageUrl?.takeIf { it.isNotBlank() } ?: ""
+        if (preferences.isDomainWhitelisted(reqUrl)) return false
+        val reqDomain = preferences.cleanDomain(reqUrl)
+        val d = reqDomain.lowercase()
+        val u = reqUrl.lowercase()
+        // Never block CAPTCHAs, bot challenges, or auth endpoints
+        if (d.contains("recaptcha") || d.contains("hcaptcha") || d.contains("arkose") ||
+            d.contains("turnstile") || d.contains("funcaptcha") || d.contains("datadome") ||
+            d.contains("challenges.cloudflare.com") || u.contains("/cdn-cgi/") ||
+            u.contains("/checkpoint/") || u.contains("/challenge/") ||
+            d == "facebook.com" || d.endsWith(".facebook.com") || d == "fb.com" || d.endsWith(".fb.com") ||
+            d == "facebook.net" || d.endsWith(".facebook.net") || d == "fbcdn.net" || d.endsWith(".fbcdn.net")
+        ) {
+            return false
+        }
+        val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
+        return com.onyx.browser.nativebridge.AdBlockEngine.shouldBlock(reqUrl, page, "other") ||
+                AdBlockDomainManager.isBlockedInStandard(reqDomain) ||
+                (isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain))
+    }
 }
+

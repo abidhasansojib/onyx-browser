@@ -334,6 +334,23 @@ class PasskeyWebAuthnBridge(
                 (function() {
                     if (window.__onyxPasskeyInstalled) return;
                     if (!window._OnyxPasskeyBridge || !window._OnyxPasskeyBridge.isPasskeySupported()) return;
+
+                    var host = (location.hostname || '').toLowerCase();
+                    var href = (location.href || '').toLowerCase();
+                    var path = (location.pathname || '').toLowerCase();
+
+                    // Never tamper with navigator.credentials on Cloudflare challenges, Turnstile, or CAPTCHA pages
+                    var isSecurityOrChallenge =
+                        typeof window.__cf_chl_opt !== 'undefined' ||
+                        typeof window.__cf_chl_ctx !== 'undefined' ||
+                        host === 'challenges.cloudflare.com' ||
+                        host.endsWith('.challenges.cloudflare.com') ||
+                        path.indexOf('/cdn-cgi/') !== -1 ||
+                        href.indexOf('__cf_chl') !== -1 ||
+                        /recaptcha|hcaptcha|arkose|turnstile|funcaptcha|datadome|perimeterx|kasada|geetest/i.test(host + href);
+
+                    if (isSecurityOrChallenge) return;
+
                     window.__onyxPasskeyInstalled = true;
 
                     var pendingCallbacks = {};

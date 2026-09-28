@@ -1010,6 +1010,11 @@ class MainActivity : AppCompatActivity() {
                     )
                     val newWebView = tabManager.getOrCreateWebView(newTab)
                     newWebView.isPopupPendingDisplay = true
+                    if (!isIncognito) {
+                        try {
+                            android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(newWebView, true)
+                        } catch (_: Exception) {}
+                    }
 
                     // Pre-setup the clients before passing it back, so it instantly has download listeners
                     setupWebViewClients(newWebView)
@@ -1028,11 +1033,15 @@ class MainActivity : AppCompatActivity() {
                         newWebView.postDelayed({
                             if (newWebView.isPopupPendingDisplay) {
                                 val current = tabManager.getTabById(newTab.id)
-                                if (current != null && currentDisplayedTabId != newTab.id) {
+                                val currentUrl = (newWebView.url ?: "").lowercase()
+                                val isAuth = currentUrl.contains("login") || currentUrl.contains("auth") ||
+                                        currentUrl.contains("oauth") || currentUrl.contains("facebook") ||
+                                        currentUrl.contains("google") || currentUrl.contains("checkpoint")
+                                if (!isAuth && current != null && currentDisplayedTabId != newTab.id) {
                                     closeTabById(newTab.id)
                                 }
                             }
-                        }, 5000)
+                        }, 8000)
 
                         true
                     } else {

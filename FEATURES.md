@@ -16,7 +16,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 3. [x] Dual-Tier Adblocking (Standard vs Aggressive shields)
 4. [x] Per-Site Shields & Domain Whitelist (toggle adblocking on/off per site)
 5. [x] Custom Filter Rules & Subscriptions (add custom EasyList-syntax rules & URLs)
-6. [x] Type-Aware Responses & Benchmark Compatibility (transparent 1×1 PNG, empty JS/CSS when Adblocker Spoofing is ON; standard network-level rejection via unsafe redirect when OFF, ensuring 100% on superadblocktest.com and d3ward)
+6. [x] Type-Aware Responses & Benchmark Compatibility (transparent 1×1 PNG, empty JS/CSS when Adblocker Spoofing is ON; stealth window.fetch/XHR rejection with net::ERR_BLOCKED_BY_CLIENT and 403 Forbidden with CORS headers when OFF, ensuring 100% on superadblocktest.com, d3ward, and adblock-tester)
 7. [x] Anti-Fingerprinting Protections (language spoofing, canvas/audio normalization)
 8. [x] Social Tracker & Cookie Notice Stripping
 9. [x] Background Audio & Video Playback (Brave `userHitPause`, visibilityState spoofing, event filtering)
@@ -69,7 +69,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 ### 1. Adblocking & Privacy Shields
 - **Rust NDK Engine**: Compiled `adblock-rust` performs token-bucket and Bloom filter matching in native C/Rust.
 - **Filter Lists**: Bundles 54 official Brave filter lists and compiles them into binary FlatBuffers (`onyx_filters.bin`) for instant startup.
-- **Type-Aware Responses**: When Adblocker Spoofing is enabled, blocked resources receive valid 200 OK responses (empty JS, 1×1 transparent PNG, or blank CSS) with CORS headers to keep page scripts and media players from crashing. When disabled (default), returns HTTP 307 Temporary Redirect to `data:text/plain,blocked`, which triggers Chromium's unsafe redirect check (`net::ERR_UNSAFE_REDIRECT`), guaranteeing that `fetch()` promises reject (even in `mode: 'no-cors'`), `<script onerror>` and `<img onerror>` fire, and benchmark test suites (`superadblocktest.com`, `d3ward`, `adblock-tester.com`) achieve 100% blocked status.
+- **Type-Aware Responses**: When Adblocker Spoofing is enabled, blocked resources receive valid 200 OK responses (empty JS, 1×1 transparent PNG, or blank CSS) with CORS headers to keep page scripts and media players from crashing. When disabled (default), blocked requests are intercepted at document-start via stealth native-masked fetch/XHR proxies (`TypeError: Failed to fetch: net::ERR_BLOCKED_BY_CLIENT` / `onerror`) and HTTP 403 Forbidden with CORS headers, guaranteeing that benchmark test suites (`superadblocktest.com`, `d3ward`, `adblock-tester.com`) achieve 100% blocked status while preserving Cloudflare, Facebook, and CAPTCHA integrity.
 - **Two Protection Tiers**:
   - *Standard*: Blocks advertisements, tracking scripts, web beacons, and cryptominers.
   - *Aggressive*: Strips OEM telemetry, third-party widgets, and cookie consent modals.
@@ -89,7 +89,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 ### 4. Authentication & Security
 - **Passkeys (WebAuthn)**: Polyfills `window.PublicKeyCredential` to allow passwordless biometric authentication through AndroidX Credential Manager.
 - **Autofill Compatibility**: Supports Google Password Manager, Bitwarden, 1Password, and hardware security keys.
-- **Anti-Bot & Social Login Integrity**: Client hints (`navigator.userAgentData`), `window.chrome`, and automation flag spoofing ensure anti-bot engines (Arkose Labs / FunCaptcha, reCAPTCHA, Turnstile, Meta Risk Engine) recognise Onyx as an authentic mobile browser. Third-party cookies are accepted for cross-origin verification iframes during authentication flows, resolving 'Confirmation failed in captcha'.
+- **Anti-Bot & Social Login Integrity**: Authentic Chromium Blink environment without prototype tampering (`navigator.webdriver` left unmolested, no synthetic `userAgentData` object) ensures anti-bot engines (Arkose Labs / FunCaptcha, reCAPTCHA, Cloudflare Turnstile, Meta Risk Engine) recognise Onyx as a genuine browser without CAPTCHA loops. Third-party cookies are accepted for cross-origin verification iframes during authentication flows, resolving 'Confirmation failed in captcha' and perpetual Turnstile challenges.
 - **SQLCipher Encryption**: Uses 256-bit AES encryption (`net.zetetic:android-database-sqlcipher`) for Room database storage containing tabs, history, and bookmarks.
 - **Sandboxed WebView**: Disables third-party cookies by default in Incognito, disables `file://` scheme access, and requires explicit user permission for microphone, camera, and location.
 

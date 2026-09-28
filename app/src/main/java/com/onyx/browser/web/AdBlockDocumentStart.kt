@@ -42,11 +42,13 @@ object AdBlockDocumentStart {
             var isMetaOrAuthContext = isCloudflareChallenge ||
                                       host.endsWith('facebook.com') || host.endsWith('fb.com') ||
                                       host.endsWith('messenger.com') || host.endsWith('instagram.com') ||
-                                      host.endsWith('fbcdn.net') || host.indexOf('arkose') !== -1 ||
-                                      host.indexOf('recaptcha') !== -1 || host.indexOf('hcaptcha') !== -1 ||
-                                      host.indexOf('turnstile') !== -1 || host.indexOf('funcaptcha') !== -1 ||
-                                      host.indexOf('datadome') !== -1 || host.indexOf('perimeterx') !== -1 ||
-                                      host.indexOf('kasada') !== -1;
+                                      host.endsWith('fbcdn.net') || host.endsWith('facebook.net') ||
+                                      host.indexOf('arkose') !== -1 || host.indexOf('recaptcha') !== -1 ||
+                                      host.indexOf('hcaptcha') !== -1 || host.indexOf('turnstile') !== -1 ||
+                                      host.indexOf('funcaptcha') !== -1 || host.indexOf('datadome') !== -1 ||
+                                      host.indexOf('perimeterx') !== -1 || host.indexOf('kasada') !== -1 ||
+                                      path.indexOf('/checkpoint/') !== -1 || path.indexOf('/challenge/') !== -1 ||
+                                      path.indexOf('/captcha/') !== -1 || href.indexOf('/checkpoint/') !== -1;
 
             if (isMetaOrAuthContext || !isShieldActive || window.__onyx_shields_active === false || window.__onyxAdBlockEnabled === false) {
                 // Do not run adblock/cosmetic injections or stub globals on Cloudflare challenges,
@@ -68,7 +70,129 @@ object AdBlockDocumentStart {
             if (window.__onyx_shields_active) return;
             window.__onyx_shields_active = true;
 
-            // ── 1. Preemptive Anti-Adblock, Analytics & Consent Stubs ─────────────────
+            // ── Function signature masking helper ──────────────────────────────────
+            function makeNative(fn, name) {
+                try {
+                    fn.toString = function() { return 'function ' + name + '() { [native code] }'; };
+                    Object.defineProperty(fn, 'name', { value: name, configurable: true });
+                } catch(_) {}
+                return fn;
+            }
+
+            // ── Standard Ad & Tracker URL Detection Patterns ──────────────────────
+            var stdTrackerPattern = /(\.|\/)(doubleclick\.net|googlesyndication\.com|googleadservices\.com|googletagservices\.com|googletagmanager\.com|google-analytics\.com|criteo\.(com|net)|taboola\.com|outbrain\.com|rubiconproject\.com|casalemedia\.com|openx\.net|pubmatic\.com|adnxs\.com|amazon-adsystem\.com|adroll\.com|scorecardresearch\.com|quantserve\.com|quantcast\.com|advertising\.com|bidswitch\.net|moatads\.com|smartadserver\.com|adsafeprotected\.com|doubleverify\.com|hotjar\.com|clarity\.ms|mixpanel\.com|amplitude\.com|segment\.(io|com)|chartboost\.com|applovin\.com|vungle\.com|inmobi\.com|ironsource\.mobi|unityads\.unity3d\.com|adcolony\.com|mgid\.com|propellerads\.com|propellerclick\.com|onclickads\.net|media\.net|fls-na\.amazon\.com|bat\.bing\.com|claritybt\.freshmarketer\.com|fwtracks\.freshmarketer\.com|mouseflow\.com|luckyorange\.(com|net)|heapanalytics\.com|fullstory\.com|newrelic\.com|nr-data\.net|datadoghq\.com|sentry\.io|bugsnag\.com|branch\.io|appsflyer\.com|stats\.wp\.com|connatix\.com|innovid\.com|tremorhub\.com|crwdcntrl\.net|fwmrm\.net|jwpltx\.com|rlcdn\.com|impactradius-event\.com|shareasale\.com|awin1\.com|partnerstack\.com|refersion\.com|fingerprintjs\.com|fpjs\.io|adlog\.vivo\.com|ads-api\.vivo\.com|click\.oneplus\.cn|open\.oneplus\.net|a\.lenovo\.com|ad\.mail\.ru|top-fwz1\.mail\.ru|ads\.vk\.com|mc\.yandex\.ru|adfox\.yandex\.ru|adfstat\.yandex\.ru|appmetrica\.yandex\.ru|driftt\.com|intercom\.io|wzrkt\.com|zenaps\.com|statdynamic\.com|srvcs\.tumblr\.com|quora\.com\/qevents|redditmedia\.com\/pixel|events\.reddit\.com|d\.reddit\.com|ct\.pinterest\.com|analytics\.tiktok\.com|an\.facebook\.com|pixel\.facebook\.com|analytics\.twitter\.com|ads-api\.twitter\.com|snap\.licdn\.com|analytics\.linkedin\.com|liftoff\.io|pangleglobal\.com|adservetx\.media\.net|spotxchange\.com|htlbid\.com|stickyadstv\.com|3lift\.com|sonobi\.com|gumgum\.com|teads\.tv|kargo\.com|omtrdc\.net|metrics\.adobe\.com|lr-ingest\.com|brightcove\.com\/metrics)(\/|\?|:|$)/i;
+
+            var adPathPattern = /\/(pagead\/|adservice\/|google-analytics\.com\/g\/collect|collect\?|telemetry|analytics\.js|gtm\.js|ads\.js|prebid|show_ads\.js)/i;
+
+            var aggRootPattern = /(\.|\/)(2o7\.net|ad\.gt|adjust\.com|adobe\.io|ads-twitter\.com|adsrvr\.org|anrdoezrs\.net|appspot\.com|bluekai\.com|bnc\.lt|braze\.com|browser-intake-datadoghq\.com|byteoversea\.com|clickadu\.com|cloudflareinsights\.com|coinimp\.com|consensu\.org|contextweb\.com|cookiebot\.com|cookielaw\.org|customer\.io|dpbolvw\.net|dynamicyield\.com|everesttech\.net|exoclick\.com|fyber\.com|getsentry\.com|googleanalytics\.com|hotjar\.io|hubspot\.com|icloud\.com|id5-sync\.com|indexexchange\.com|insightexpressai\.com|juicyads\.com|klaviyo\.com|kochava\.com|launchdarkly\.com|lgappstv\.com|lge\.com|lgsmartad\.com|linkedin\.com|linksynergy\.com|list-manage\.com|mailchimp\.com|marketo\.net|mathtag\.com|mineralt\.io|minero\.cc|monerominer\.rocks|mzstatic\.com|onesignal\.com|onetag-sys\.com|onetrust\.com|oppomobile\.com|optimizely\.com|osano\.com|pepperjamnetwork\.com|permutive\.com|pippio\.com|popads\.net|popcash\.net|popmyads\.com|posthog\.com|prf\.hn|privacy-center\.org|privacy-mgmt\.com|realmemobile\.com|redditmedia\.com|redirectingat\.com|roku\.com|rudderlabs\.com|rudderstack\.com|samsungads\.com|samsunghealthcn\.com|sc-static\.net|sentry-cdn\.com|sharethrough\.com|siftscience\.com|singular\.net|skimresources\.com|smartclip\.com|smartclip\.net|smartyads\.com|snapchat\.com|snowplowanalytics\.com|stackadapt\.com|supersonicads\.com|tiktokv\.com|tkqlhce\.com|trafficjunky\.net|trustarc\.com|tvinteractive\.tv|tvpixel\.com|uidapi\.com|usercentrics\.eu|viglink\.com|vizio\.com|webminepool\.com|yumenetworks\.com)(\/|\?|:|$)/i;
+
+            var aggSubPattern = /(aan\.amazon\.com|ads-api\.tiktok\.com|ads-api\.x\.com|ads-sg\.tiktok\.com|ads\.huawei\.com|ads\.microsoft\.com|ads\.pinterest\.com|ads\.tiktok\.com|ads\.x\.com|ads\.yahoo\.com|ads\.youtube\.com|adservice\.google\.com|adtago\.s3\.amazonaws\.com|adtech\.yahooinc\.com|advertising-api-eu\.amazon\.com|advertising\.apple\.com|advertising\.yahoo\.com|advertising\.yandex\.ru|advice-ads\.s3\.amazonaws\.com|analytics-sg\.tiktok\.com|analytics\.google\.com|analytics\.pinterest\.com|analytics\.query\.yahoo\.com|analytics\.x\.com|analytics\.yahoo\.com|analyticsengine\.s3\.amazonaws\.com|api-adservices\.apple\.com|api\.ad\.xiaomi\.com|bingads\.microsoft\.com|books-analytics-events\.apple\.com|browser\.events\.data\.msn\.com|business-api\.tiktok\.com|c\.bing\.com|dai\.google\.com|data\.mistat\.india\.xiaomi\.com|data\.mistat\.rus\.xiaomi\.com|data\.mistat\.xiaomi\.com|device-metrics-us-2\.amazon\.com|device-metrics-us\.amazon\.com|extmaps-api\.yandex\.net|firebase-settings\.crashlytics\.com|fundingchoicesmessages\.google\.com|gemini\.yahoo\.com|geo\.yahoo\.com|globalapi\.ad\.xiaomi\.com|graph\.facebook\.com|graph\.instagram\.com|grs\.hicloud\.com|i\.instagram\.com|iadsdk\.apple\.com|iot-eu-logser\.realme\.com|iot-logser\.realme\.com|log\.fc\.yahoo\.com|log\.pinterest\.com|logbak\.hicloud\.com|logservice\.hicloud\.com|logservice1\.hicloud\.com|mads-eu\.amazon\.com|metrics\.apple\.com|metrics\.data\.hicloud\.com|metrics2\.data\.hicloud\.com|metrika\.yandex\.ru|nmetrics\.samsung\.com|notes-analytics-events\.apple\.com|offerwall\.yandex\.net|partnerads\.ysm\.yahoo\.com|pixel\.quora\.com|qevents\.quora\.com|s\.youtube\.com|sdkconfig\.ad\.intl\.xiaomi\.com|sdkconfig\.ad\.xiaomi\.com|settings-win\.data\.microsoft\.com|smetrics\.samsung\.com|tagmanager\.google\.com|telemetry\.microsoft\.com|tr\.facebook\.com|tr\.iadsdk\.apple\.com|tracking\.miui\.com|tracking\.rus\.miui\.com|trk\.pinterest\.com|udc\.yahoo\.com|udcm\.yahoo\.com|vk\.com|vortex-win\.data\.microsoft\.com|vortex\.data\.microsoft\.com|watson\.telemetry\.microsoft\.com|widgets\.pinterest\.com|xp\.apple\.com)/i;
+
+            function isBlockedUrl(rawUrl, level) {
+                if (!rawUrl || typeof rawUrl !== 'string') return false;
+                if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:') || rawUrl.startsWith('javascript:')) return false;
+
+                // Never block CAPTCHAs, bot challenges, or checkpoint verification
+                if (/recaptcha|hcaptcha|arkose|turnstile|checkpoint|challenge|geetest|funcaptcha|datadome|perimeterx/i.test(rawUrl)) {
+                    return false;
+                }
+
+                // Authentication and Facebook endpoints are never blocked
+                if (/(facebook\.com|facebook\.net|fbcdn\.net|fb\.com|instagram\.com|messenger\.com)/i.test(rawUrl)) {
+                    return false;
+                }
+
+                try {
+                    if (stdTrackerPattern.test(rawUrl) || adPathPattern.test(rawUrl)) return true;
+                    if (level === 1) {
+                        if (aggSubPattern.test(rawUrl) || aggRootPattern.test(rawUrl)) return true;
+                    }
+                    if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isUrlBlocked === 'function') {
+                        return window.OnyxShieldBridge.isUrlBlocked(rawUrl, location.href);
+                    }
+                    return false;
+                } catch(e) {
+                    return false;
+                }
+            }
+
+            // ── 1. Proxy window.fetch (Throws TypeError net::ERR_BLOCKED_BY_CLIENT) ───
+            try {
+                if (window.fetch) {
+                    var _origFetch = window.fetch;
+                    window._origFetch = _origFetch;
+                    window.fetch = makeNative(function(input, init) {
+                        var targetUrl = '';
+                        if (typeof input === 'string') {
+                            targetUrl = input;
+                        } else if (input && typeof input.url === 'string') {
+                            targetUrl = input.url;
+                        }
+                        if (!targetUrl || targetUrl.startsWith('blob:') || targetUrl.startsWith('data:') || targetUrl.startsWith('javascript:')) {
+                            return _origFetch.apply(this, arguments);
+                        }
+                        var lvl = window.__onyx_blocking_level || 0;
+                        if (isBlockedUrl(targetUrl, lvl)) {
+                            return Promise.reject(new TypeError('Failed to fetch: net::ERR_BLOCKED_BY_CLIENT'));
+                        }
+                        return _origFetch.apply(this, arguments);
+                    }, 'fetch');
+                }
+            } catch(e) {}
+
+            // ── 2. Proxy window.XMLHttpRequest ───────────────────────────────────────
+            try {
+                if (window.XMLHttpRequest) {
+                    var _origOpen = XMLHttpRequest.prototype.open;
+                    var _origSend = XMLHttpRequest.prototype.send;
+                    window._origXHR = { open: _origOpen, send: _origSend };
+                    XMLHttpRequest.prototype.open = makeNative(function(method, url) {
+                        this._onyxTargetUrl = url;
+                        var isBlobOrData = typeof url === 'string' && (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('javascript:'));
+                        var lvl = window.__onyx_blocking_level || 0;
+                        this._onyxBlocked = !isBlobOrData && isBlockedUrl(url, lvl);
+                        return _origOpen.apply(this, arguments);
+                    }, 'open');
+                    XMLHttpRequest.prototype.send = makeNative(function() {
+                        if (this._onyxBlocked) {
+                            var self = this;
+                            setTimeout(function() {
+                                if (typeof self.onerror === 'function') {
+                                    self.onerror(new ProgressEvent('error'));
+                                }
+                            }, 0);
+                            return;
+                        }
+                        return _origSend.apply(this, arguments);
+                    }, 'send');
+                }
+            } catch(e) {}
+
+            // ── 3. Proxy window.WebSocket ────────────────────────────────────────────
+            try {
+                var OriginalWebSocket = window.WebSocket;
+                if (OriginalWebSocket) {
+                    var PatchedWebSocket = makeNative(function(url, protocols) {
+                        var lvl = window.__onyx_blocking_level || 0;
+                        if (typeof url === 'string' && (isBlockedUrl(url, lvl) || /ad|track|telemetry|analytics|stat|pixel|beacon|counter/i.test(url))) {
+                            throw new Error('Blocked by Onyx Shields');
+                        }
+                        if (arguments.length === 1) {
+                            return new OriginalWebSocket(url);
+                        } else {
+                            return new OriginalWebSocket(url, protocols);
+                        }
+                    }, 'WebSocket');
+                    PatchedWebSocket.prototype = OriginalWebSocket.prototype;
+                    PatchedWebSocket.CONNECTING = OriginalWebSocket.CONNECTING;
+                    PatchedWebSocket.OPEN = OriginalWebSocket.OPEN;
+                    PatchedWebSocket.CLOSING = OriginalWebSocket.CLOSING;
+                    PatchedWebSocket.CLOSED = OriginalWebSocket.CLOSED;
+                    window.WebSocket = PatchedWebSocket;
+                }
+            } catch(e) {}
+
+            // ── 4. Preemptive Anti-Adblock, Analytics & Consent Stubs ─────────────────
             // Only injected when the user has enabled "Adblocker Spoofing" in Privacy & Shields.
             // Off by default — allows adblock test sites and Cloudflare challenges to function correctly.
             var isAntiDetectEnabled = false;
@@ -103,7 +227,7 @@ object AdBlockDocumentStart {
                 } catch(e) {}
             }
 
-            // ── 2. Brave Parity Generic Cosmetic Filter Engine (hidden_class_id_selectors) ───────
+            // ── 5. Brave Parity Generic Cosmetic Filter Engine (hidden_class_id_selectors) ───────
             try {
                 var seenSelectors = new Set();
                 var pendingClasses = new Set();
