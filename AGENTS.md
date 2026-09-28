@@ -345,6 +345,7 @@ onyx-browser/
     - Replaced 307 redirects in `OnyxWebViewClient.createBlockedResponse` with HTTP 403 Forbidden + CORS headers when Adblocker Spoofing is OFF (matching commit `41074d2`), and safe 200 OK stubs when Adblocker Spoofing is ON.
     - Protected `PasskeyWebAuthnBridge.kt` from injecting `navigator.credentials` overrides on Cloudflare challenge pages, Turnstile widgets, or CAPTCHA providers.
     - Ensured non-incognito popup WebViews in `MainActivity.kt` enable third-party cookies (`CookieManager.setAcceptThirdPartyCookies(newWebView, true)`) and prevented premature 5-second auto-close on authentication and OAuth tabs (`facebook.com`, `google.com`, `auth`, `login`, `checkpoint`), allowing Facebook login flows to complete naturally.
+    - Verified Release Build `v1.0.206`: Workflow run `36407031187` compiled successfully. APKs downloaded to `/storage/emulated/0/`.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
