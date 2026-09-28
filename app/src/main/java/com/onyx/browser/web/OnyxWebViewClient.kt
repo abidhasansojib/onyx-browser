@@ -97,9 +97,6 @@ class OnyxWebViewClient(
         java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     )
 
-    // Known ad/tracker domains (referenced from AdBlockDomainManager)
-    private val firstPartyAdDomains = AdBlockDomainManager.standardDomains
-
     // Social media tracker domains (analytics/pixel only, not content)
     private val socialMediaTrackerDomains = setOf(
         // Facebook/Meta pixels and analytics

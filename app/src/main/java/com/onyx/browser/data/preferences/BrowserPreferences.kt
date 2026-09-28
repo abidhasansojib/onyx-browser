@@ -721,7 +721,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_BLOCK_THIRD_PARTY_COOKIES = "pref_block_third_party_cookies"
         const val KEY_DO_NOT_TRACK = "pref_do_not_track"
         const val KEY_SCRIPT_BLOCKING_DOMAINS = "pref_script_blocking_domains"
-        const val KEY_ASK_BEFORE_DOWNLOAD = "pref_ask_before_download"
         const val KEY_DESKTOP_MODE = "pref_desktop_mode"
         const val KEY_JAVASCRIPT_ENABLED = "pref_javascript_enabled"
         const val KEY_BLOCKED_REQUESTS_COUNT = "pref_blocked_requests_count"

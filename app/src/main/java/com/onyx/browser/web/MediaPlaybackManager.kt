@@ -185,19 +185,6 @@ object MediaPlaybackManager {
                     var pos = (elem.currentTime && !isNaN(elem.currentTime)) ? elem.currentTime : 0;
                     var w = isVid ? (elem.videoWidth || elem.clientWidth || 0) : 0;
                     var h = isVid ? (elem.videoHeight || elem.clientHeight || 0) : 0;
-                    var vsrc = elem.currentSrc || elem.src || '';
-                    if (!vsrc && elem.children) {
-                        for (var i = 0; i < elem.children.length; i++) {
-                            var ch = elem.children[i];
-                            if (ch.tagName === 'SOURCE' && (ch.src || ch.getAttribute('src'))) {
-                                vsrc = ch.src || ch.getAttribute('src');
-                                break;
-                            }
-                        }
-                    }
-                    if (vsrc && typeof window.OnyxMediaBridge.onVideoSourceDetected === 'function') {
-                        window.OnyxMediaBridge.onVideoSourceDetected(vsrc);
-                    }
                     window.OnyxMediaBridge.onMediaStateChanged(
                         extractTitle(),
                         extractArtist(),
@@ -300,39 +287,7 @@ object MediaPlaybackManager {
                     }
                 }
 
-                // ── 6. Intercept Media src (Brave PlaylistScript.js parity) ─────────
-                try {
-                    var srcDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
-                    if (srcDescriptor && srcDescriptor.set) {
-                        Object.defineProperty(HTMLMediaElement.prototype, 'src', {
-                            enumerable: srcDescriptor.enumerable,
-                            configurable: srcDescriptor.configurable,
-                            get: function() { return srcDescriptor.get.call(this); },
-                            set: function(val) {
-                                srcDescriptor.set.call(this, val);
-                                bindMediaElement(this);
-                                if (val && typeof window.OnyxMediaBridge?.onVideoSourceDetected === 'function') {
-                                    window.OnyxMediaBridge.onVideoSourceDetected(val);
-                                }
-                            }
-                        });
-                    }
-                } catch (_) {}
-
-                try {
-                    var origSetAttr = HTMLMediaElement.prototype.setAttribute;
-                    HTMLMediaElement.prototype.setAttribute = function(key, val) {
-                        origSetAttr.call(this, key, val);
-                        if (key && key.toLowerCase() === 'src') {
-                            bindMediaElement(this);
-                            if (val && typeof window.OnyxMediaBridge?.onVideoSourceDetected === 'function') {
-                                window.OnyxMediaBridge.onVideoSourceDetected(val);
-                            }
-                        }
-                    };
-                } catch (_) {}
-
-                // ── 7. MutationObserver & Shadow DOM Media Scanning ─────────────────
+                // ── 6. MutationObserver & Shadow DOM Media Scanning ─────────────────
                 function scanNodeForMedia(node) {
                     if (node instanceof HTMLMediaElement) {
                         bindMediaElement(node);

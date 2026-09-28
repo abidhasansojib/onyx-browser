@@ -122,7 +122,6 @@ class MainActivity : AppCompatActivity() {
     private var currentDisplayedTabId: String? = null
     private var isTabsRestored = false
     private var pendingIntent: Intent? = null
-    private var wasShowingWebViewBeforePip = false
     private var lastThemeMode: Int = -1
     private var lastNightMode: Int = -1
 

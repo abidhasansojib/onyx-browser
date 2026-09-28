@@ -113,7 +113,6 @@ class OnyxWebView @JvmOverloads constructor(
         return UserAgentManager.getUserAgentForTemplate(prefs.userAgentSpoofTemplate, prefs)
     }
 
-    private val mobileUserAgent = UserAgentManager.DEFAULT_MOBILE_UA
     private val desktopUserAgent = UserAgentManager.DESKTOP_CHROME_UA
 
     // Desktop domains are now persisted globally in BrowserPreferences

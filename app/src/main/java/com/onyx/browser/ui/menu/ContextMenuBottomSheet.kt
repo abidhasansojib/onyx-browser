@@ -7,12 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
-import android.graphics.Rect
-import android.graphics.RectF
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -434,24 +428,6 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
                 }
             }
         }
-    }
-
-    private fun getCircularBitmap(bitmap: Bitmap): Bitmap {
-        val size = Math.min(bitmap.width, bitmap.height)
-        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
-        val paint = Paint().apply { isAntiAlias = true }
-        val rect = Rect(
-            (bitmap.width - size) / 2,
-            (bitmap.height - size) / 2,
-            (bitmap.width + size) / 2,
-            (bitmap.height + size) / 2
-        )
-        val rectF = RectF(0f, 0f, size.toFloat(), size.toFloat())
-        canvas.drawOval(rectF, paint)
-        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-        canvas.drawBitmap(bitmap, rect, rectF, paint)
-        return output
     }
 
     override fun onDestroyView() {
