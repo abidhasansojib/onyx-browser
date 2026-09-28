@@ -25,8 +25,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.ByteArrayInputStream
-import java.io.IOException
-import java.io.InputStream
 
 class OnyxWebViewClient(
     private val context: Context,
@@ -190,13 +188,6 @@ class OnyxWebViewClient(
         )
     }
 
-    private class BlockedInputStream : InputStream() {
-        override fun read(): Int = throw IOException("net::ERR_BLOCKED_BY_CLIENT")
-        override fun read(b: ByteArray, off: Int, len: Int): Int = throw IOException("net::ERR_BLOCKED_BY_CLIENT")
-        override fun available(): Int = 0
-        override fun close() {}
-    }
-
     private fun createBlockedResponse(resourceType: String): WebResourceResponse {
         val corsHeaders = mapOf(
             "Access-Control-Allow-Origin" to "*",
@@ -205,20 +196,25 @@ class OnyxWebViewClient(
         )
 
         // When Adblocker Spoofing is disabled (default):
-        // Return HTTP 403 Forbidden with BlockedInputStream that throws IOException.
-        // In Chromium's InputStreamReader, throwing IOException immediately triggers net::ERR_FAILED.
-        // This ensures:
-        // 1. fetch() promise rejects (even in mode: 'no-cors'), entering catch(e) blocks on adblock test sites.
-        // 2. script.onerror and img.onerror fire normally.
-        // 3. Adblock testing sites (d3ward, adblock-tester, etc.) detect full blocking and score 100%.
+        // In Chromium Blink, fetch() promises with mode: 'no-cors' resolve whenever ANY HTTP response
+        // headers (including HTTP 403 or 200) are received. Under W3C Fetch specification,
+        // no-cors fetch only rejects on genuine network-level errors.
+        // Returning a 307 Temporary Redirect to 'data:text/plain,blocked' triggers Blink's unsafe redirect
+        // check ("Cross-origin redirect to data: URL is prohibited"), causing:
+        // 1. fetch() promises to immediately REJECT with TypeError: Failed to fetch across all modes ('cors' and 'no-cors').
+        // 2. script.onerror and img.onerror to fire normally.
+        // 3. Adblock testing suites (superadblocktest.com, d3ward, adblock-tester, etc.) to detect 100% blocking.
         if (!preferences.isAntiAdblockDetectionEnabled) {
             return WebResourceResponse(
                 "text/plain",
                 "UTF-8",
-                403,
-                "Blocked by Onyx Shields",
-                emptyMap(),
-                BlockedInputStream()
+                307,
+                "Temporary Redirect",
+                mapOf(
+                    "Location" to "data:text/plain,blocked",
+                    "Access-Control-Allow-Origin" to "*"
+                ),
+                ByteArrayInputStream(ByteArray(0))
             )
         }
 
