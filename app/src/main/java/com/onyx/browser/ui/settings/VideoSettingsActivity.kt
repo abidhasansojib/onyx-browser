@@ -93,28 +93,6 @@ class VideoSettingsActivity : AppCompatActivity() {
             openPipSystemSettings()
             true
         }
-
-
-        // Video download behavior selector
-        val downloadOptions = arrayOf(
-            "Ask before download",
-            "Internal downloader",
-            "External download manager"
-        )
-        fun updateDownloadLabel() {
-            val idx = preferences.downloadManagerBehavior.coerceIn(0, 2)
-            binding.tvVideoDownloadBehaviorSubtitle.text = downloadOptions[idx]
-        }
-        updateDownloadLabel()
-
-        binding.settingVideoDownloadRow.setOnClickListener {
-            val currentIndex = preferences.downloadManagerBehavior.coerceIn(0, 2)
-            val sheet = DownloadManagerPickerSheet(currentIndex) { which ->
-                preferences.downloadManagerBehavior = which
-                updateDownloadLabel()
-            }
-            sheet.show(supportFragmentManager, DownloadManagerPickerSheet.TAG)
-        }
     }
 
     private fun updatePipSwitchState() {

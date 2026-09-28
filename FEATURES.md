@@ -79,10 +79,11 @@ This document tracks all features of Onyx Browser, their current implementation 
 - **Domain Whitelist**: Allows users to disable shields for individual sites directly from the toolbar menu.
 
 ### 2. Media & Playback Subsystem
-- **Background Playback**: Employs Brave's `userHitPause` pattern to distinguish user pauses from background tab switches. Overrides `document.visibilityState` to remain `"visible"`, intercepts `visibilitychange` listeners, and auto-resumes suppressed playback.
+- **Background Playback**: Employs Brave's `userHitPause` pattern to distinguish user pauses from background tab switches. Overrides `document.visibilityState` to remain `"visible"`, intercepts `visibilitychange` listeners, and auto-resumes suppressed playback. Avoids native View/Window focus spoofing to guarantee 100% responsive Android touch input handling without UI freezes.
 - **Picture-in-Picture (PiP)**: Isolates the `<video>` element across Shadow DOM boundaries, removes CSS transforms/clipping, centers the video in black letterbox bounds, and sets source rect hints for Android Window Manager.
 - **Foreground Media Service**: `MediaPlaybackService` maintains persistent lockscreen playback controls, notification artwork, track title, and MediaSession actions.
 - **YouTube API Sync**: Direct integration with YouTube `#movie_player` and W3C MediaSession handlers keeps Bluetooth headsets and lockscreen buttons in sync.
+- **Streamlined Video Options**: `Settings > Video options` provides a focused, uncluttered dashboard featuring "Playback & Display" (Background playback and Picture-in-Picture controls) with obsolete video download options removed.
 
 ### 3. Downloads & External Downloaders
 - **In-App Downloads**: Native background download manager handles pause, resume, progress reporting, and system notification updates.
