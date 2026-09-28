@@ -36,6 +36,8 @@ class OnyxWebView @JvmOverloads constructor(
     var lastFailingUrl: String? = null
     var isLoadingSyntheticPage: Boolean = false
     @Volatile var isPopupPendingDisplay: Boolean = false
+    @Volatile var pendingMainFrameUrl: String? = null
+    @Volatile var isMainFrameDocumentLoaded: Boolean = false
     
     val touchBridge = OnyxTouchBridge()
     var lastTouchX: Float = 0f
@@ -89,6 +91,10 @@ class OnyxWebView @JvmOverloads constructor(
         val currentUrl = url
         if (currentUrl != null && isSyntheticOrDataUrl(currentUrl)) {
             return
+        }
+        if (currentUrl != null) {
+            pendingMainFrameUrl = currentUrl
+            isMainFrameDocumentLoaded = false
         }
         super.reload()
     }
@@ -448,6 +454,10 @@ class OnyxWebView @JvmOverloads constructor(
     }
 
     override fun loadUrl(url: String) {
+        if (!isSyntheticOrDataUrl(url)) {
+            pendingMainFrameUrl = url
+            isMainFrameDocumentLoaded = false
+        }
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         if (prefs.isDoNotTrackEnabled) {
             val headers = mutableMapOf<String, String>()
@@ -459,6 +469,10 @@ class OnyxWebView @JvmOverloads constructor(
     }
 
     override fun loadUrl(url: String, additionalHttpHeaders: MutableMap<String, String>) {
+        if (!isSyntheticOrDataUrl(url)) {
+            pendingMainFrameUrl = url
+            isMainFrameDocumentLoaded = false
+        }
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         if (prefs.isDoNotTrackEnabled) {
             additionalHttpHeaders["DNT"] = "1"

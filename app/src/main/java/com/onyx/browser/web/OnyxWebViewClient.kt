@@ -89,6 +89,10 @@ class OnyxWebViewClient(
 
     @Volatile
     private var currentPageUrl: String = ""
+    @Volatile
+    private var pendingMainFrameUrl: String? = null
+    @Volatile
+    private var isMainFrameDocumentLoaded: Boolean = false
 
     // Set of URLs where user explicitly chose "Stay in Onyx", bypassing external app interception
     private val bypassAppInterceptUrls = java.util.Collections.newSetFromMap(
@@ -288,6 +292,10 @@ class OnyxWebViewClient(
             if (request.isForMainFrame) {
                 if (!isSyntheticOrDataUrl(url)) {
                     currentPageUrl = url
+                    pendingMainFrameUrl = url
+                    (view as? OnyxWebView)?.let {
+                        it.pendingMainFrameUrl = url
+                    }
                 }
                 
                 // Intercept local files (HTML, MHTML, MHT, Markdown, Plain Text) for main frame
@@ -526,6 +534,15 @@ class OnyxWebViewClient(
             val url = uri.toString()
             val normalizedUrl = url.trimEnd('/')
             val scheme = uri.scheme?.lowercase() ?: ""
+
+            if (isForMainFrame && url.isNotBlank() && !isSyntheticOrDataUrl(url)) {
+                pendingMainFrameUrl = url
+                isMainFrameDocumentLoaded = false
+                (view as? OnyxWebView)?.let {
+                    it.pendingMainFrameUrl = url
+                    it.isMainFrameDocumentLoaded = false
+                }
+            }
 
             // ── Tracking URL Cleanup (strip tracking query params) ─────────────────
             if (isForMainFrame && preferences.isAutoRedirectTrackingUrlsEnabled &&
@@ -1101,6 +1118,12 @@ class OnyxWebViewClient(
             }
             val previousUrl = currentPageUrl
             currentPageUrl = url
+            pendingMainFrameUrl = url
+            isMainFrameDocumentLoaded = false
+            onyxWv?.let {
+                it.pendingMainFrameUrl = url
+                it.isMainFrameDocumentLoaded = false
+            }
             if (previousUrl.isNotBlank() && previousUrl != url &&
                 com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId == onyxWv?.tabId) {
                 com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
@@ -1242,6 +1265,12 @@ class OnyxWebViewClient(
             }
             if (!isSyntheticError && !isSyntheticData && (url.startsWith("http://") || url.startsWith("https://"))) {
                 onyxWv?.lastFailingUrl = null
+                isMainFrameDocumentLoaded = true
+                pendingMainFrameUrl = null
+                onyxWv?.let {
+                    it.isMainFrameDocumentLoaded = true
+                    it.pendingMainFrameUrl = null
+                }
             }
         }
     }
@@ -1441,8 +1470,22 @@ class OnyxWebViewClient(
         handler: android.webkit.SslErrorHandler?,
         error: android.net.http.SslError?
     ) {
-        val url = view?.url ?: error?.url ?: ""
-        val host = try { Uri.parse(url).host } catch (_: Exception) { null }
+        val failingUrl = error?.url?.trim()
+        if (failingUrl.isNullOrBlank()) {
+            handler?.cancel()
+            return
+        }
+
+        // Subresource SSL Protection:
+        // Do NOT abort the main page navigation or display a full-page SSL error screen
+        // if this SSL error originated from a subresource (ad probe, tracking script, image, iframe, fetch).
+        // Only main-frame document failures should show the custom SSL error page.
+        if (!isMainFrameSslError(view, failingUrl)) {
+            handler?.cancel()
+            return
+        }
+
+        val host = try { Uri.parse(failingUrl).host } catch (_: Exception) { null }
 
         // Phase 5: Check session-scoped SSL bypass
         if (!host.isNullOrBlank() && (view as? OnyxWebView)?.sessionSslBypasses?.contains(host) == true) {
@@ -1450,7 +1493,7 @@ class OnyxWebViewClient(
             return
         }
 
-        val fallbackUrl = url.replaceFirst("https://", "http://")
+        val fallbackUrl = failingUrl.replaceFirst("https://", "http://")
         val normalizedFallback = fallbackUrl.trimEnd('/')
         if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT &&
             (upgradedUrls.contains(fallbackUrl) || upgradedUrls.contains(normalizedFallback))) {
@@ -1464,8 +1507,54 @@ class OnyxWebViewClient(
 
         try { view?.stopLoading() } catch (_: Throwable) {}
         val isHsts = preferences.httpsUpgradeMode == BrowserPreferences.HTTPS_MODE_STRICT
-        val onyxError = WebErrorHandler.resolveSslError(url, error, isHstsEnforced = isHsts)
+        val onyxError = WebErrorHandler.resolveSslError(failingUrl, error, isHstsEnforced = isHsts)
         loadCustomErrorPage(view, onyxError)
+    }
+
+    private fun isMainFrameSslError(view: WebView?, failingUrl: String): Boolean {
+        val onyxWv = view as? OnyxWebView
+        val isDocLoaded = isMainFrameDocumentLoaded || (onyxWv?.isMainFrameDocumentLoaded == true)
+
+        // If the main document has already completed loading, any incoming SSL error
+        // is guaranteed to be for a subresource (e.g. ad probe, test suite fetch, tracking pixel, iframe).
+        if (isDocLoaded) {
+            return false
+        }
+
+        val failingUri = try { Uri.parse(failingUrl) } catch (_: Throwable) { null } ?: return false
+        val failingHost = failingUri.host?.lowercase() ?: return false
+
+        // Gather all known candidate main-frame URLs
+        val candidateMainUrls = listOfNotNull(
+            onyxWv?.pendingMainFrameUrl,
+            pendingMainFrameUrl,
+            currentPageUrl.takeIf { it.isNotBlank() },
+            view?.url?.takeIf { !isSyntheticOrDataUrl(it) }
+        )
+
+        // If we have no candidate URLs at all (e.g. initial navigation in blank tab),
+        // then this error is indeed for the first main-frame request.
+        if (candidateMainUrls.isEmpty()) {
+            return true
+        }
+
+        for (candidate in candidateMainUrls) {
+            val candidateUri = try { Uri.parse(candidate) } catch (_: Throwable) { null } ?: continue
+            val candidateHost = candidateUri.host?.lowercase() ?: continue
+
+            // If the host matches, verify that it's actually the main document path
+            // (not an asset like /ad.js, /pixel.png, etc.)
+            if (failingHost == candidateHost) {
+                val failingPath = (failingUri.path ?: "").trimEnd('/')
+                val candidatePath = (candidateUri.path ?: "").trimEnd('/')
+                if (failingPath.equals(candidatePath, ignoreCase = true)) {
+                    return true
+                }
+            }
+        }
+
+        // Host does not match any candidate main-frame navigation URL -> subresource
+        return false
     }
 
     private fun isNetworkConnected(): Boolean {
