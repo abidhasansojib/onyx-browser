@@ -69,7 +69,7 @@ object UserAgentManager {
 
     // Android Firefox Mobile
     const val ANDROID_FIREFOX_UA =
-        "Mozilla/5.0 (Android 14; Mobile; rv:133.0) Gecko/133.0 Firefox/133.0"
+        "Mozilla/5.0 (Android 16; Mobile; rv:156.0) Gecko/156.0 Firefox/156.0"
 
     // Googlebot Crawler
     const val GOOGLEBOT_UA =
