@@ -337,6 +337,7 @@ onyx-browser/
     - Updated `createBlockedResponse` (when Adblocker Spoofing is OFF): returns an HTTP 307 Temporary Redirect to `data:text/plain,blocked`. Chromium's URL loader detects the cross-origin non-HTTP(S) redirect and terminates it with `net::ERR_UNSAFE_REDIRECT`, forcing `fetch()` to reject with `TypeError: Failed to fetch`, firing `script.onerror` and `img.onerror`, and allowing `superadblocktest.com` to record 100% blocked status.
     - Expanded `AdBlockDomainManager.standardDomains` to 538 domains covering all 476 test domains from `superadblocktest.com` (Ads, Analytics, OEM Telemetry, Trackers), ensuring comprehensive standard blocking parity.
     - Updated bundled `easylist_rules.txt` (35,822 rules) with ABP domain rules (`||domain^`) for all benchmark domains.
+    - Verified Release Build `v1.0.205`: Workflow run `36401971227` compiled successfully. APKs downloaded to `/storage/emulated/0/`.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
