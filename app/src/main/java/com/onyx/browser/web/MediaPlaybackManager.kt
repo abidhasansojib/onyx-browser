@@ -527,12 +527,14 @@ object MediaPlaybackManager {
      * 2. Overrides Document.prototype.visibilityState to always return 'visible'.
      * 3. Implements userHitPause tracking to automatically neutralize script/blur/background auto-pauses.
      * 4. Patches YouTube ytcfg serializedExperimentFlags to disable PiP blocking flags.
-     * 5. Overrides IntersectionObserver so offscreen video elements are never frozen.
-     * 6. Blocks background audio muting.
+     * 5. Blocks background audio muting.
      */
     val backgroundPlaybackScript: String = """
         (function() {
             window.__onyx_bg_play_active = true;
+            if (typeof window.__onyx_in_background === 'undefined') {
+                window.__onyx_in_background = false;
+            }
             if (window.__onyx_bg_script_installed) return;
             window.__onyx_bg_script_installed = true;
 
@@ -663,9 +665,9 @@ object MediaPlaybackManager {
                     element.__onyx_bg_bound = true;
 
                     element.addEventListener('pause', function() {
-                        if (!window.__onyx_bg_play_active) return;
+                        if (!window.__onyx_bg_play_active || !window.__onyx_in_background) return;
                         if (!element.userHitPause && !element.ended) {
-                            // Video paused by page visibility, blur, or OS suspend: auto-resume!
+                            // Video paused by page visibility, blur, or OS suspend while in background: auto-resume!
                             origPlay.call(element).catch(function(){});
                         }
                     }, false);
@@ -731,29 +733,7 @@ object MediaPlaybackManager {
                     }
                 } catch (_) {}
 
-                // ── 5. IntersectionObserver Override for Media Elements ────────────────────
-                if (window.IntersectionObserver) {
-                    var OrigIO = window.IntersectionObserver;
-                    window.IntersectionObserver = function(cb, opts) {
-                        return new OrigIO(function(entries, obs) {
-                            return cb(entries.map(function(entry) {
-                                if (window.__onyx_bg_play_active && (entry.target instanceof HTMLMediaElement || entry.target?.querySelector('video, audio'))) {
-                                    return new Proxy(entry, {
-                                        get: function(t, p) {
-                                            if (p === 'isIntersecting') return true;
-                                            if (p === 'intersectionRatio') return 1.0;
-                                            return t[p];
-                                        }
-                                    });
-                                }
-                                return entry;
-                            }), obs);
-                        }, opts);
-                    };
-                    window.IntersectionObserver.prototype = OrigIO.prototype;
-                }
-
-                // ── 6. Prevent Site Scripts From Muting in Background ─────────────────────
+                // ── 5. Prevent Site Scripts From Muting in Background ─────────────────────
                 try {
                     var origMuted = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'muted');
                     if (origMuted && origMuted.set) {

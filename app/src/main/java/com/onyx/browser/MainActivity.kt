@@ -409,8 +409,18 @@ class MainActivity : AppCompatActivity() {
         binding.swipeRefreshLayout.setOnChildScrollUpCallback { _, _ ->
             // Block pull-to-refresh on homepage and when webview can't scroll up
             if (binding.homeLayout.root.visibility == View.VISIBLE) return@setOnChildScrollUpCallback true
-            val webView = tabManager.getActiveWebView()
-            webView != null && (webView.canScrollVertically(-1) || webView.scrollY > 0)
+            val webView = tabManager.getActiveWebView() ?: return@setOnChildScrollUpCallback true
+            if (webView.canScrollVertically(-1) || webView.scrollY > 0) return@setOnChildScrollUpCallback true
+
+            // Block pull-to-refresh on immersive reels, shorts, and video feeds
+            val url = (webView.url ?: "").lowercase()
+            if (isReelOrFeedUrl(url)) return@setOnChildScrollUpCallback true
+
+            // Block pull-to-refresh if inner container is scrolled, overscroll-behavior is none/contain,
+            // or body is overflow-hidden
+            if (!webView.touchBridge.isPullToRefreshAllowed) return@setOnChildScrollUpCallback true
+
+            false
         }
 
         val database = AppDatabase.getInstance(this)
@@ -1389,6 +1399,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun isLikelyUrl(input: String): Boolean {
         return com.onyx.browser.data.search.SearchSuggestionRepository.isLikelyDomainOrUrl(input)
+    }
+
+    private fun isReelOrFeedUrl(url: String): Boolean {
+        if (url.isBlank()) return false
+        if (url.contains("facebook.com") && (url.contains("/reel") || url.contains("/watch") || url.contains("/videos"))) {
+            return true
+        }
+        if (url.contains("instagram.com") && (url.contains("/reel") || url.contains("/reels") || url.contains("/stories"))) {
+            return true
+        }
+        if (url.contains("youtube.com/shorts") || url.contains("tiktok.com")) {
+            return true
+        }
+        return false
     }
 
     private fun setupSearchOverlay() {

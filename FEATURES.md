@@ -64,6 +64,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 48. [ ] Custom Userscript Manager (Tampermonkey / Violentmonkey scriptlet support)
 49. [ ] Built-in Reader Mode (distraction-free text view for articles)
 50. [ ] DNS-over-HTTPS (DoH) Provider Selection (Cloudflare, Quad9, AdGuard DNS)
+51. [x] Feed & Reel Navigation Architecture (overscroll-aware pull-to-refresh & truthful Blink intersection tracking for Facebook Reels, Instagram Reels, TikTok, YouTube Shorts)
 
 ---
 
@@ -121,3 +122,8 @@ This document tracks all features of Onyx Browser, their current implementation 
 - **User Agent Spoofer**: Select from built-in presets (Chrome Mobile, Chrome Desktop, Safari iOS, Safari macOS, Edge, Firefox) or input a custom UA string.
 - **Accessibility Settings**: Toggle the Search widget, toggle the "Add to Home screen" option in the webpage 3-dot menu, adjust text scaling, and force dark mode on web content.
 - **Home Screen Shortcuts**: Pin progressive web app shortcuts directly to the Android launcher via `ShortcutManagerCompat`.
+
+### 9. Feed & Reel Navigation Architecture
+- **Upward Scroll & Pull-To-Refresh Coordination**: In virtualized video feeds (Facebook Reels, Instagram Reels, TikTok, YouTube Shorts), the root document `window.scrollY` remains at 0. `MainActivity.kt` and `OnyxTouchBridge.kt` inspect CSS `overscroll-behavior: none | contain`, `overflow-y: hidden`, inner container `scrollTop > 0`, and active reel/video feed elements on `touchstart`. When browsing reels, `SwipeRefreshLayout` never steals downward swipes, allowing seamless upward scrolling to previous reels without triggering accidental page refreshes.
+- **Truthful IntersectionObserver & Clean Audio Handoff**: Removed synthetic `IntersectionObserver` mock from `MediaPlaybackManager.kt`. Native Blink intersection engine accurately informs web players when an offscreen video leaves the viewport and the new video enters, immediately muting/pausing previous reels and automatically starting the active reel without manual taps. Background auto-resume listeners are isolated strictly to background state (`window.__onyx_in_background === true`).
+

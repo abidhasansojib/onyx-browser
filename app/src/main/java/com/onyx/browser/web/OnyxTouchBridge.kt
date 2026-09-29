@@ -27,6 +27,15 @@ class OnyxTouchBridge {
     var lastTouchedElement: TouchedElement = TouchedElement()
         private set
 
+    @Volatile
+    var isPullToRefreshAllowed: Boolean = true
+        private set
+
+    @JavascriptInterface
+    fun setPullToRefreshAllowed(allowed: Boolean) {
+        isPullToRefreshAllowed = allowed
+    }
+
     @JavascriptInterface
     fun onInteractiveElementTouched(
         linkUrl: String?,
@@ -49,6 +58,7 @@ class OnyxTouchBridge {
 
     fun clear() {
         lastTouchedElement = TouchedElement()
+        isPullToRefreshAllowed = true
     }
 
     companion object {
@@ -69,6 +79,51 @@ class OnyxTouchBridge {
                         if (!e.touches || e.touches.length === 0) return;
                         var t = e.touches[0];
                         var el = document.elementFromPoint(t.clientX, t.clientY);
+
+                        // ── 1. Evaluate Pull-To-Refresh Eligibility ──────────────────────
+                        var canPull = true;
+                        try {
+                            var docStyle = window.getComputedStyle(document.documentElement);
+                            var bodyStyle = document.body ? window.getComputedStyle(document.body) : null;
+                            if (docStyle.overflowY === 'hidden' || (bodyStyle && bodyStyle.overflowY === 'hidden')) {
+                                canPull = false;
+                            } else {
+                                var docOverscroll = docStyle.overscrollBehaviorY || docStyle.overscrollBehavior;
+                                var bodyOverscroll = bodyStyle ? (bodyStyle.overscrollBehaviorY || bodyStyle.overscrollBehavior) : '';
+                                if (docOverscroll === 'none' || docOverscroll === 'contain' || bodyOverscroll === 'none' || bodyOverscroll === 'contain') {
+                                    canPull = false;
+                                }
+                            }
+
+                            if (canPull && el) {
+                                if (el.closest('video, audio, [role="feed"], [data-pagelet*="Reel"], [aria-label*="Reel"], [class*="reel" i], [class*="Reel"], [class*="Shorts" i], [class*="shorts" i]')) {
+                                    canPull = false;
+                                } else {
+                                    var p = el;
+                                    while (p && p !== document.body && p !== document.documentElement) {
+                                        var s = window.getComputedStyle(p);
+                                        if (s.overflowY === 'scroll' || s.overflowY === 'auto') {
+                                            if (p.scrollTop > 0) {
+                                                canPull = false;
+                                                break;
+                                            }
+                                        }
+                                        var ob = s.overscrollBehaviorY || s.overscrollBehavior;
+                                        if (ob === 'none' || ob === 'contain') {
+                                            canPull = false;
+                                            break;
+                                        }
+                                        p = p.parentElement;
+                                    }
+                                }
+                            }
+                        } catch (_) { canPull = true; }
+
+                        if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(canPull);
+                        }
+
+                        // ── 2. Interactive Element Metadata Extraction ────────────────────
                         if (!el) {
                             return;
                         }
@@ -119,12 +174,18 @@ class OnyxTouchBridge {
 
                 document.addEventListener('touchend', function() {
                     setTimeout(function() {
-                        if (window.OnyxTouchBridge) window.OnyxTouchBridge.onTouchCleared();
+                        if (window.OnyxTouchBridge) {
+                            window.OnyxTouchBridge.onTouchCleared();
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                        }
                     }, 800);
                 }, { passive: true });
 
                 document.addEventListener('touchcancel', function() {
-                    if (window.OnyxTouchBridge) window.OnyxTouchBridge.onTouchCleared();
+                    if (window.OnyxTouchBridge) {
+                        window.OnyxTouchBridge.onTouchCleared();
+                        window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                    }
                 }, { passive: true });
             })();
         """

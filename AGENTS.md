@@ -401,3 +401,10 @@ onyx-browser/
    - Third-party cookies accepted for auth and checkpoint flows.
    - OAuth popup tabs in `MainActivity.kt` protected from premature auto-close timeouts and seamlessly displayed via `onPageStarted` / `onPageFinished`.
 
+5. **Facebook Reels & Video Feed Navigation Architecture**:
+   - Resolved upward scroll reload trap: `MainActivity.kt` gates `SwipeRefreshLayout` against known immersive video feeds (`facebook.com/.../reel/`, `/watch`, `/videos`, Instagram Reels, TikTok, YouTube Shorts) and queries `touchBridge.isPullToRefreshAllowed`.
+   - `OnyxTouchBridge.kt` DOM overscroll evaluation: Pre-checks `overflow: hidden`, `overscroll-behavior: none/contain`, inner container `scrollTop > 0`, and reel/video containers on `touchstart`, ensuring `SwipeRefreshLayout` never intercepts gestures intended for inner virtualized feeds.
+   - Resolved video audio bleed & failed autoplay: Removed artificial `IntersectionObserver` override from `MediaPlaybackManager.kt` so Blink's native compositor truthfully reports element visibility to Facebook's feed controller, pausing offscreen reels immediately and triggering automatic playback on the next reel.
+   - Gated `pause` auto-resume listener behind `window.__onyx_in_background` to prevent synthetic foreground resume loops.
+
+
