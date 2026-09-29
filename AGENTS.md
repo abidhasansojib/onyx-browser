@@ -10,8 +10,8 @@
 **Onyx Browser** (`com.onyx.browser`) is a fast, lightweight, and privacy-focused Android browser (Min SDK 26 / Android 8.0+, Target SDK 35 / Android 15).
 
 > [!IMPORTANT]
-> **CANONICAL GOLDEN STABLE MILESTONE: v1.0.208 (Commit `94e6076`, Tag `golden-reference-v1.0.208`)**:  
-> Release `v1.0.208` is the verified, battle-tested golden reference for Onyx Browser. All four critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops via untampered Blink prototype chain, and Facebook login/OAuth flows) are 100% verified working. If any future changes break or regress these features, use `v1.0.208` (`94e6076`) as the exact architectural reference.
+> **CANONICAL GOLDEN STABLE MILESTONE: v1.0.210 (Commit `f362a7d`, Tag `golden-reference-v1.0.210`)**:  
+> Release `v1.0.210` is the verified, battle-tested golden reference for Onyx Browser. All five critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops via untampered Blink prototype chain, Facebook login/OAuth flows, and Facebook Reels/Shorts seamless feed navigation & autoplay without scroll refresh loops) are 100% verified working. If any future changes break or regress these features, use `v1.0.210` (`f362a7d`) as the exact architectural reference.
 
 ### Architecture & Tech Stack
 - **Native Android UI**: Built with Kotlin and XML Views with ViewBinding (no Jetpack Compose for fast startup and low memory usage).
@@ -364,6 +364,11 @@ onyx-browser/
 - [x] **v1.0.208 — DOM Honeypot & Anti-Adblock Bait Defuser**:
     - Anti-Adblock DOM Bait & Honeypot Defuser (`AdBlockDocumentStart.kt`): Enhanced "Adblocker Spoofing" to defeat DOM-based anti-adblock detection scripts (e.g. BlockAdBlock, honeypot bait elements on sites like `rodaemotor.com`). Intercepts `offsetHeight`, `offsetWidth`, `clientHeight`, `clientWidth`, and `offsetParent` getters on bait elements (`.ad`, `.adsbygoogle`, `.ad-banner`, `.adzone`, `.google-ad`) returning non-zero dimensions and `document.body` instead of `null`, preventing anti-adblock popups from triggering while preserving complete cosmetic ad removal.
     - Verified Release Build `v1.0.208`: Workflow run `36420727173` compiled successfully in 7m48s. Release APKs published and downloaded to `/storage/emulated/0/`.
+- [x] **v1.0.210 — Facebook Reels Navigation & Video Feed Autoplay**:
+    - Upward Scroll Refresh Trap Elimination: Integrated DOM overscroll evaluation into `OnyxTouchBridge.kt` and `MainActivity.kt`. Pre-checks CSS `overflow-y: hidden`, `overscroll-behavior: none | contain`, inner container `scrollTop > 0`, and active reel/feed URLs (`isReelOrFeedUrl`). Gated `SwipeRefreshLayout` so swiping down to view previous reels never triggers an accidental page reload.
+    - Truthful Blink Intersection Tracking & Audio Bleed Fix: Removed artificial `IntersectionObserver` override from `MediaPlaybackManager.kt`. Native Blink now accurately reports element visibility to feed controllers, pausing offscreen reels immediately and triggering automatic playback on the upcoming reel without manual taps.
+    - Gated media auto-resume listeners strictly behind `window.__onyx_in_background === true`.
+    - Verified Release Build `v1.0.210`: Workflow run `36568589046` compiled successfully in 6m9s. Release APKs published and downloaded to `/storage/emulated/0/Download/`.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
@@ -372,12 +377,12 @@ onyx-browser/
 
 ---
 
-## 7. Canonical Golden Stable Milestone: v1.0.208 (Commit `94e6076`, Tag `golden-reference-v1.0.208`)
+## 7. Canonical Golden Stable Milestone: v1.0.210 (Commit `f362a7d`, Tag `golden-reference-v1.0.210`)
 
 > [!IMPORTANT]
-> **CANONICAL GOLDEN REFERENCE**: Release `v1.0.208` (commit `94e6076`, tag `golden-reference-v1.0.208`) is the verified, battle-tested stable benchmark for Onyx Browser. If any feature breaks or regresses in future development, consult and align against this reference implementation immediately.
+> **CANONICAL GOLDEN REFERENCE**: Release `v1.0.210` (commit `f362a7d`, tag `golden-reference-v1.0.210`) is the verified, battle-tested stable benchmark for Onyx Browser. If any feature breaks or regresses in future development, consult and align against this reference implementation immediately.
 
-### Verified Golden Subsystems in v1.0.208
+### Verified Golden Subsystems in v1.0.210
 1. **Adblocking Engine & DOM Bait Defuser (100% Score on `superadblocktest.com`, `d3ward`, `adblock-tester.com` + Zero Anti-Adblock Bait Walls)**:
    - In-page `window.fetch` and `XMLHttpRequest` proxies in `AdBlockDocumentStart.kt` masked via `makeNative` (`function fetch() { [native code] }`). Blocked requests reject with `TypeError: Failed to fetch: net::ERR_BLOCKED_BY_CLIENT`.
    - `OnyxShieldBridge.isUrlBlocked(url, pageUrl)` provides synchronous query into Brave Rust NDK engine and standard ad domains.

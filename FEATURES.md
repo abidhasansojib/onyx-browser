@@ -8,7 +8,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 - `[ ]` **Planned** – Not yet implemented; on the development roadmap.
 
 > [!NOTE]
-> **Canonical Golden Reference Release**: `v1.0.208` (commit `94e6076`, tag `golden-reference-v1.0.208`). All core features marked `[x]` below are verified 100% operational in this stable release.
+> **Canonical Golden Reference Release**: `v1.0.210` (commit `f362a7d`, tag `golden-reference-v1.0.210`). All core features marked `[x]` below are verified 100% operational in this stable release.
 
 ---
 
