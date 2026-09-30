@@ -463,47 +463,62 @@ class TabManager(
         val autoCreatedTabId: String? = null
     )
 
-    private val closedTabsStack = ArrayDeque<ClosedTabState>()
+    data class ClosedTabBatch(
+        val states: List<ClosedTabState>,
+        val autoCreatedTabId: String? = null,
+        val isIncognito: Boolean
+    )
 
-    private fun finalizeClosedTab(state: ClosedTabState) {
-        val tabId = state.tab.id
-        snapshotCache.remove(tabId)
-        coroutineScope.launch(Dispatchers.IO) {
-            try { getThumbnailFile(tabId).delete() } catch (_: Exception) {}
-            try { deleteTabState(tabId) } catch (_: Exception) {}
+    private val closedBatchesStack = ArrayDeque<ClosedTabBatch>()
+
+    private fun finalizeClosedBatch(batch: ClosedTabBatch) {
+        for (state in batch.states) {
+            val tabId = state.tab.id
+            snapshotCache.remove(tabId)
+            coroutineScope.launch(Dispatchers.IO) {
+                try { getThumbnailFile(tabId).delete() } catch (_: Exception) {}
+                try { deleteTabState(tabId) } catch (_: Exception) {}
+            }
         }
     }
 
     fun finalizeAllClosedTabs() {
-        while (closedTabsStack.isNotEmpty()) {
-            finalizeClosedTab(closedTabsStack.removeFirst())
+        while (closedBatchesStack.isNotEmpty()) {
+            finalizeClosedBatch(closedBatchesStack.removeFirst())
         }
     }
 
-    fun undoCloseTab(): TabItem? {
-        val closedState = closedTabsStack.removeLastOrNull() ?: return null
-        val restoredTab = closedState.tab
+    fun undoCloseTab(): ClosedTabBatch? {
+        val batch = closedBatchesStack.removeLastOrNull() ?: return null
 
-        if (restoredTab.isIncognito) {
-            if (_incognitoTabs.value.any { it.id == restoredTab.id }) return null
+        if (batch.isIncognito) {
             val current = _incognitoTabs.value.toMutableList()
-            val targetIdx = closedState.index.coerceIn(0, current.size)
-            current.add(targetIdx, restoredTab)
+            val toRestore = batch.states.map { it.tab }.filter { tab -> current.none { it.id == tab.id } }
+
+            val sortedStates = batch.states.sortedBy { it.index }
+            for (state in sortedStates) {
+                if (toRestore.any { it.id == state.tab.id }) {
+                    val targetIdx = state.index.coerceIn(0, current.size)
+                    current.add(targetIdx, state.tab)
+                    if (state.snapshot != null) {
+                        snapshotCache.put(state.tab.id, state.snapshot)
+                    }
+                }
+            }
             _incognitoTabs.value = current
-            if (closedState.snapshot != null) {
-                snapshotCache.put(restoredTab.id, closedState.snapshot)
+
+            val activeState = batch.states.firstOrNull { it.wasActive }
+            if (activeState != null && current.any { it.id == activeState.tab.id }) {
+                _activeTab.value = activeState.tab
+            } else if (_activeTab.value == null || _activeTab.value?.isIncognito == false) {
+                _activeTab.value = current.lastOrNull()
             }
-            if (closedState.wasActive || _activeTab.value == null) {
-                _activeTab.value = restoredTab
-            }
-            return restoredTab
+            return batch
         }
 
-        if (_normalTabs.value.any { it.id == restoredTab.id }) return null
-
-        // If an empty placeholder was auto-created because this was the last tab, cleanly remove it
-        if (closedState.autoCreatedTabId != null) {
-            val autoTab = _normalTabs.value.firstOrNull { it.id == closedState.autoCreatedTabId }
+        // If an empty placeholder was auto-created because tabs were cleared, cleanly remove it
+        if (batch.autoCreatedTabId != null) {
+            val autoTab = _normalTabs.value.firstOrNull { it.id == batch.autoCreatedTabId }
             if (autoTab != null && autoTab.url.isBlank() && autoTab.title == "New Tab") {
                 _normalTabs.value = _normalTabs.value.filter { it.id != autoTab.id }
                 coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
@@ -513,38 +528,52 @@ class TabManager(
         }
 
         val current = _normalTabs.value.toMutableList()
-        val targetIdx = closedState.index.coerceIn(0, current.size)
-        current.add(targetIdx, restoredTab)
+        val toRestore = batch.states.map { it.tab }.filter { tab -> current.none { it.id == tab.id } }
+
+        val sortedStates = batch.states.sortedBy { it.index }
+        for (state in sortedStates) {
+            if (toRestore.any { it.id == state.tab.id }) {
+                val targetIdx = state.index.coerceIn(0, current.size)
+                current.add(targetIdx, state.tab)
+
+                if (state.savedStateBundle != null) {
+                    try {
+                        saveBundleToFile(state.savedStateBundle, getStateFile(state.tab.id))
+                    } catch (_: Exception) {}
+                }
+
+                if (state.snapshot != null) {
+                    snapshotCache.put(state.tab.id, state.snapshot)
+                    saveSnapshot(state.tab.id, state.snapshot)
+                }
+            }
+        }
         _normalTabs.value = current
 
         coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
-            database.tabDao().insertTab(restoredTab)
+            database.tabDao().insertTabs(toRestore)
         }
 
-        if (closedState.savedStateBundle != null) {
-            try {
-                saveBundleToFile(closedState.savedStateBundle, getStateFile(restoredTab.id))
-            } catch (_: Exception) {}
+        val activeState = batch.states.firstOrNull { it.wasActive }
+        if (activeState != null && current.any { it.id == activeState.tab.id }) {
+            _activeTab.value = activeState.tab
+        } else if (_activeTab.value == null || _activeTab.value?.id == batch.autoCreatedTabId) {
+            _activeTab.value = current.lastOrNull()
         }
 
-        if (closedState.snapshot != null) {
-            snapshotCache.put(restoredTab.id, closedState.snapshot)
-            saveSnapshot(restoredTab.id, closedState.snapshot)
-        }
+        return batch
+    }
 
-        if (closedState.wasActive || _activeTab.value == null || _activeTab.value?.id == closedState.autoCreatedTabId) {
-            _activeTab.value = restoredTab
+    fun peekLastClosedBatch(isIncognito: Boolean? = null): ClosedTabBatch? {
+        return if (isIncognito == null) {
+            closedBatchesStack.lastOrNull()
+        } else {
+            closedBatchesStack.lastOrNull { it.isIncognito == isIncognito }
         }
-
-        return restoredTab
     }
 
     fun peekLastClosedTab(isIncognito: Boolean? = null): TabItem? {
-        return if (isIncognito == null) {
-            closedTabsStack.lastOrNull()?.tab
-        } else {
-            closedTabsStack.lastOrNull { it.tab.isIncognito == isIncognito }?.tab
-        }
+        return peekLastClosedBatch(isIncognito)?.states?.firstOrNull()?.tab
     }
 
     fun closeTab(tab: TabItem) {
@@ -622,49 +651,131 @@ class TabManager(
             wasActive = wasActive,
             autoCreatedTabId = autoCreatedTabId
         )
-        closedTabsStack.addLast(state)
-        if (closedTabsStack.size > 10) {
-            val oldest = closedTabsStack.removeFirst()
-            finalizeClosedTab(oldest)
+        val batch = ClosedTabBatch(
+            states = listOf(state),
+            autoCreatedTabId = autoCreatedTabId,
+            isIncognito = tab.isIncognito
+        )
+        closedBatchesStack.addLast(batch)
+        if (closedBatchesStack.size > 10) {
+            val oldest = closedBatchesStack.removeFirst()
+            finalizeClosedBatch(oldest)
         }
     }
 
-    fun closeAllTabs(incognitoOnly: Boolean) {
+    fun closeAllTabs(incognitoOnly: Boolean, canUndo: Boolean = true) {
         if (incognitoOnly) {
-            val closedPlayingTab = _incognitoTabs.value.any { it.id == com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId }
+            val tabsToClose = _incognitoTabs.value
+            if (tabsToClose.isEmpty()) return
+
+            val closedPlayingTab = tabsToClose.any { it.id == com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId }
             if (closedPlayingTab) {
                 com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
             }
-            closedTabsStack.removeAll { state ->
-                if (state.tab.isIncognito) {
-                    finalizeClosedTab(state)
-                    true
-                } else false
-            }
-            _incognitoTabs.value.forEach { tab ->
+
+            val states = mutableListOf<ClosedTabState>()
+            tabsToClose.forEachIndexed { index, tab ->
                 onTabClosedListener?.invoke(tab)
                 autoclearTabData(tab)
+                val snapshot = snapshotCache.get(tab.id)
+                val wasActive = (_activeTab.value?.id == tab.id)
                 webViewPool.remove(tab.id)?.destroySafely()
+                if (canUndo) {
+                    states.add(
+                        ClosedTabState(
+                            tab = tab,
+                            index = index,
+                            savedStateBundle = null,
+                            snapshot = snapshot,
+                            wasActive = wasActive
+                        )
+                    )
+                } else {
+                    snapshotCache.remove(tab.id)
+                }
             }
+
             _incognitoTabs.value = emptyList()
             if (_activeTab.value?.isIncognito == true) {
                 _activeTab.value = _normalTabs.value.lastOrNull() ?: createNewTab(isIncognito = false)
             }
+
+            if (canUndo && states.isNotEmpty()) {
+                val batch = ClosedTabBatch(
+                    states = states,
+                    autoCreatedTabId = null,
+                    isIncognito = true
+                )
+                closedBatchesStack.addLast(batch)
+                if (closedBatchesStack.size > 10) {
+                    val oldest = closedBatchesStack.removeFirst()
+                    finalizeClosedBatch(oldest)
+                }
+            } else {
+                closedBatchesStack.removeAll { it.isIncognito }
+            }
         } else {
-            finalizeAllClosedTabs()
+            val tabsToClose = _normalTabs.value
+            if (tabsToClose.isEmpty()) return
+
             com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
-            _normalTabs.value.forEach { tab ->
+
+            val states = mutableListOf<ClosedTabState>()
+            tabsToClose.forEachIndexed { index, tab ->
                 onTabClosedListener?.invoke(tab)
                 autoclearTabData(tab)
-                webViewPool.remove(tab.id)?.destroySafely()
-                deleteTabState(tab.id)
+                val webView = webViewPool.remove(tab.id)
+                var savedBundle: Bundle? = null
+                if (webView != null) {
+                    try {
+                        val b = Bundle()
+                        val list = webView.saveState(b)
+                        if (list != null && list.size > 0) {
+                            savedBundle = b
+                        }
+                    } catch (_: Throwable) {}
+                }
+                val snapshot = snapshotCache.get(tab.id)
+                val wasActive = (_activeTab.value?.id == tab.id)
+                webView?.destroySafely()
+
+                if (canUndo) {
+                    states.add(
+                        ClosedTabState(
+                            tab = tab,
+                            index = index,
+                            savedStateBundle = savedBundle,
+                            snapshot = snapshot,
+                            wasActive = wasActive
+                        )
+                    )
+                } else {
+                    snapshotCache.remove(tab.id)
+                    deleteTabState(tab.id)
+                }
             }
+
             _normalTabs.value = emptyList()
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().clearNormalTabs()
             }
             val newTab = createNewTab(isIncognito = false)
             _activeTab.value = newTab
+
+            if (canUndo && states.isNotEmpty()) {
+                val batch = ClosedTabBatch(
+                    states = states,
+                    autoCreatedTabId = newTab.id,
+                    isIncognito = false
+                )
+                closedBatchesStack.addLast(batch)
+                if (closedBatchesStack.size > 10) {
+                    val oldest = closedBatchesStack.removeFirst()
+                    finalizeClosedBatch(oldest)
+                }
+            } else {
+                finalizeAllClosedTabs()
+            }
         }
     }
 

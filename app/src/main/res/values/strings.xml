@@ -484,6 +484,7 @@
     <!-- Tab Switcher Undo Toast -->
     <string name="undo">Undo</string>
     <string name="tab_closed_toast">Closed %s</string>
+    <string name="tabs_closed_toast">Closed %1$d tabs</string>
 </resources>
 
 

@@ -23,6 +23,9 @@ interface TabDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTab(tab: TabItem)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTabs(tabs: List<TabItem>)
+
     @Update
     suspend fun updateTab(tab: TabItem)
 

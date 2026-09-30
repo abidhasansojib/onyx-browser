@@ -136,7 +136,7 @@ class TabSwitcherBottomSheet(
             onTabClosed = { tab ->
                 if (isDismissing) return@TabsAdapter
                 tabManager.closeTab(tab)
-                showUndoToast(tab)
+                showUndoToastForTab(tab)
             },
             getSnapshot = { tabId ->
                 tabManager.getSnapshot(tabId)
@@ -164,7 +164,7 @@ class TabSwitcherBottomSheet(
                 if (position != RecyclerView.NO_POSITION && position < adapter.currentList.size) {
                     val tab = adapter.currentList[position]
                     tabManager.closeTab(tab)
-                    showUndoToast(tab)
+                    showUndoToastForTab(tab)
                 }
             }
         })
@@ -442,14 +442,14 @@ class TabSwitcherBottomSheet(
             if (!isDismissing) confirmCloseAllTabs()
         }
 
-        // Undo Button: Restore last closed tab
+        // Undo Button: Restore last closed tab or batch of tabs
         b.btnUndoCloseTab.setOnClickListener {
-            val restored = tabManager.undoCloseTab()
-            if (restored != null) {
+            val restoredBatch = tabManager.undoCloseTab()
+            if (restoredBatch != null && restoredBatch.states.isNotEmpty()) {
                 refreshTabsList()
-                val nextClosed = tabManager.peekLastClosedTab(isViewingIncognito)
-                if (nextClosed != null) {
-                    showUndoToast(nextClosed)
+                val nextBatch = tabManager.peekLastClosedBatch(isViewingIncognito)
+                if (nextBatch != null) {
+                    showUndoToastForBatch(nextBatch)
                 } else {
                     dismissUndoToast(animate = true)
                 }
@@ -459,12 +459,7 @@ class TabSwitcherBottomSheet(
         }
     }
 
-    private fun showUndoToast(tab: TabItem) {
-        val b = _binding ?: return
-        val context = context ?: return
-
-        undoDismissRunnable?.let { undoToastHandler.removeCallbacks(it) }
-
+    private fun showUndoToastForTab(tab: TabItem) {
         val rawTitle = tab.title.trim()
         val displayTitle = if (rawTitle.isNotBlank() && rawTitle != "New Tab") {
             rawTitle
@@ -478,8 +473,24 @@ class TabSwitcherBottomSheet(
         } else {
             getString(R.string.new_tab)
         }
+        showUndoToastWithMessage(getString(R.string.tab_closed_toast, displayTitle))
+    }
 
-        b.tvUndoToastMessage.text = getString(R.string.tab_closed_toast, displayTitle)
+    private fun showUndoToastForBatch(batch: TabManager.ClosedTabBatch) {
+        if (batch.states.size == 1) {
+            showUndoToastForTab(batch.states.first().tab)
+        } else {
+            showUndoToastWithMessage(getString(R.string.tabs_closed_toast, batch.states.size))
+        }
+    }
+
+    private fun showUndoToastWithMessage(message: String) {
+        val b = _binding ?: return
+        val context = context ?: return
+
+        undoDismissRunnable?.let { undoToastHandler.removeCallbacks(it) }
+
+        b.tvUndoToastMessage.text = message
 
         val density = context.resources.displayMetrics.density
         if (b.layoutUndoToast.visibility != View.VISIBLE) {
@@ -567,8 +578,12 @@ class TabSwitcherBottomSheet(
         val dialog = CloseAllTabsDialog(
             tabManager = tabManager,
             isIncognito = isViewingIncognito,
-            onTabsClosed = {
+            onTabsClosed = { count ->
                 refreshTabsList()
+                val batch = tabManager.peekLastClosedBatch(isViewingIncognito)
+                if (batch != null) {
+                    showUndoToastForBatch(batch)
+                }
             }
         )
         dialog.show(childFragmentManager, CloseAllTabsDialog.TAG)

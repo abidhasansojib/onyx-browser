@@ -15,7 +15,7 @@ import com.onyx.browser.ui.browser.TabManager
 class CloseAllTabsDialog(
     private val tabManager: TabManager,
     private val isIncognito: Boolean,
-    private val onTabsClosed: () -> Unit
+    private val onTabsClosed: (closedCount: Int) -> Unit = {}
 ) : DialogFragment() {
 
     private var _binding: DialogConfirmCloseAllTabsBinding? = null
@@ -67,8 +67,8 @@ class CloseAllTabsDialog(
         }
 
         binding.btnConfirmCloseTabs.setOnClickListener {
-            tabManager.closeAllTabs(incognitoOnly = isIncognito)
-            onTabsClosed()
+            tabManager.closeAllTabs(incognitoOnly = isIncognito, canUndo = true)
+            onTabsClosed(count)
             dismissAllowingStateLoss()
         }
     }
