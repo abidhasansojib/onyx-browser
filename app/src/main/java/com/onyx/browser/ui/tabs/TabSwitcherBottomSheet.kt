@@ -1,6 +1,10 @@
 package com.onyx.browser.ui.tabs
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -45,6 +49,8 @@ class TabSwitcherBottomSheet(
     private lateinit var adapter: TabsAdapter
     private var isViewingIncognito = false
     private var isDismissing = false
+    private val undoToastHandler = Handler(Looper.getMainLooper())
+    private var undoDismissRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -130,6 +136,7 @@ class TabSwitcherBottomSheet(
             onTabClosed = { tab ->
                 if (isDismissing) return@TabsAdapter
                 tabManager.closeTab(tab)
+                showUndoToast(tab)
             },
             getSnapshot = { tabId ->
                 tabManager.getSnapshot(tabId)
@@ -157,6 +164,7 @@ class TabSwitcherBottomSheet(
                 if (position != RecyclerView.NO_POSITION && position < adapter.currentList.size) {
                     val tab = adapter.currentList[position]
                     tabManager.closeTab(tab)
+                    showUndoToast(tab)
                 }
             }
         })
@@ -173,6 +181,7 @@ class TabSwitcherBottomSheet(
 
         b.btnNormalTabs.setOnClickListener {
             if (isViewingIncognito && !isDismissing) {
+                dismissUndoToast(animate = false)
                 isViewingIncognito = false
                 updateTabModePillUI()
                 refreshTabsList()
@@ -184,11 +193,13 @@ class TabSwitcherBottomSheet(
                 val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
                 if (prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
                     promptBiometricAuth {
+                        dismissUndoToast(animate = false)
                         isViewingIncognito = true
                         updateTabModePillUI()
                         refreshTabsList()
                     }
                 } else {
+                    dismissUndoToast(animate = false)
                     isViewingIncognito = true
                     updateTabModePillUI()
                     refreshTabsList()
@@ -430,6 +441,107 @@ class TabSwitcherBottomSheet(
         b.btnCloseAllTabs.setOnClickListener {
             if (!isDismissing) confirmCloseAllTabs()
         }
+
+        // Undo Button: Restore last closed tab
+        b.btnUndoCloseTab.setOnClickListener {
+            val restored = tabManager.undoCloseTab()
+            if (restored != null) {
+                refreshTabsList()
+                val nextClosed = tabManager.peekLastClosedTab(isViewingIncognito)
+                if (nextClosed != null) {
+                    showUndoToast(nextClosed)
+                } else {
+                    dismissUndoToast(animate = true)
+                }
+            } else {
+                dismissUndoToast(animate = true)
+            }
+        }
+    }
+
+    private fun showUndoToast(tab: TabItem) {
+        val b = _binding ?: return
+        val context = context ?: return
+
+        undoDismissRunnable?.let { undoToastHandler.removeCallbacks(it) }
+
+        val rawTitle = tab.title.trim()
+        val displayTitle = if (rawTitle.isNotBlank() && rawTitle != "New Tab") {
+            rawTitle
+        } else if (tab.url.isNotBlank()) {
+            try {
+                val host = android.net.Uri.parse(tab.url).host
+                if (!host.isNullOrBlank()) host else tab.url
+            } catch (_: Exception) {
+                tab.url
+            }
+        } else {
+            getString(R.string.new_tab)
+        }
+
+        b.tvUndoToastMessage.text = getString(R.string.tab_closed_toast, displayTitle)
+
+        val density = context.resources.displayMetrics.density
+        if (b.layoutUndoToast.visibility != View.VISIBLE) {
+            b.layoutUndoToast.alpha = 0f
+            b.layoutUndoToast.translationY = 32f * density
+            b.layoutUndoToast.visibility = View.VISIBLE
+            b.layoutUndoToast.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(220)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        } else {
+            b.layoutUndoToast.animate()
+                .scaleX(1.02f)
+                .scaleY(1.02f)
+                .setDuration(90)
+                .withEndAction {
+                    _binding?.layoutUndoToast?.animate()
+                        ?.scaleX(1f)
+                        ?.scaleY(1f)
+                        ?.setDuration(90)
+                        ?.start()
+                }
+                .start()
+        }
+
+        val runnable = Runnable {
+            dismissUndoToast(animate = true)
+        }
+        undoDismissRunnable = runnable
+        undoToastHandler.postDelayed(runnable, 4500)
+    }
+
+    private fun dismissUndoToast(animate: Boolean) {
+        undoDismissRunnable?.let {
+            undoToastHandler.removeCallbacks(it)
+            undoDismissRunnable = null
+        }
+        val b = _binding ?: return
+        if (b.layoutUndoToast.visibility != View.VISIBLE) return
+
+        val density = b.root.context.resources.displayMetrics.density
+        if (animate && isAdded) {
+            b.layoutUndoToast.animate()
+                .alpha(0f)
+                .translationY(32f * density)
+                .setDuration(180)
+                .setInterpolator(AccelerateInterpolator())
+                .withEndAction {
+                    _binding?.layoutUndoToast?.visibility = View.GONE
+                    _binding?.layoutUndoToast?.translationY = 0f
+                    _binding?.layoutUndoToast?.alpha = 1f
+                    tabManager.finalizeAllClosedTabs()
+                }
+                .start()
+        } else {
+            b.layoutUndoToast.visibility = View.GONE
+            b.layoutUndoToast.translationY = 0f
+            b.layoutUndoToast.alpha = 1f
+            tabManager.finalizeAllClosedTabs()
+        }
     }
 
     private fun showClearBrowsingDataDialog() {
@@ -464,6 +576,9 @@ class TabSwitcherBottomSheet(
 
     override fun onDestroyView() {
         isDismissing = true
+        undoDismissRunnable?.let { undoToastHandler.removeCallbacks(it) }
+        undoDismissRunnable = null
+        dismissUndoToast(animate = false)
         _binding?.rvTabs?.adapter = null
         super.onDestroyView()
         _binding = null

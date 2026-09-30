@@ -454,21 +454,126 @@ class TabManager(
         }
     }
 
+    data class ClosedTabState(
+        val tab: TabItem,
+        val index: Int,
+        val savedStateBundle: Bundle? = null,
+        val snapshot: Bitmap? = null,
+        val wasActive: Boolean = false,
+        val autoCreatedTabId: String? = null
+    )
+
+    private val closedTabsStack = ArrayDeque<ClosedTabState>()
+
+    private fun finalizeClosedTab(state: ClosedTabState) {
+        val tabId = state.tab.id
+        snapshotCache.remove(tabId)
+        coroutineScope.launch(Dispatchers.IO) {
+            try { getThumbnailFile(tabId).delete() } catch (_: Exception) {}
+            try { deleteTabState(tabId) } catch (_: Exception) {}
+        }
+    }
+
+    fun finalizeAllClosedTabs() {
+        while (closedTabsStack.isNotEmpty()) {
+            finalizeClosedTab(closedTabsStack.removeFirst())
+        }
+    }
+
+    fun undoCloseTab(): TabItem? {
+        val closedState = closedTabsStack.removeLastOrNull() ?: return null
+        val restoredTab = closedState.tab
+
+        if (restoredTab.isIncognito) {
+            if (_incognitoTabs.value.any { it.id == restoredTab.id }) return null
+            val current = _incognitoTabs.value.toMutableList()
+            val targetIdx = closedState.index.coerceIn(0, current.size)
+            current.add(targetIdx, restoredTab)
+            _incognitoTabs.value = current
+            if (closedState.snapshot != null) {
+                snapshotCache.put(restoredTab.id, closedState.snapshot)
+            }
+            if (closedState.wasActive || _activeTab.value == null) {
+                _activeTab.value = restoredTab
+            }
+            return restoredTab
+        }
+
+        if (_normalTabs.value.any { it.id == restoredTab.id }) return null
+
+        // If an empty placeholder was auto-created because this was the last tab, cleanly remove it
+        if (closedState.autoCreatedTabId != null) {
+            val autoTab = _normalTabs.value.firstOrNull { it.id == closedState.autoCreatedTabId }
+            if (autoTab != null && autoTab.url.isBlank() && autoTab.title == "New Tab") {
+                _normalTabs.value = _normalTabs.value.filter { it.id != autoTab.id }
+                coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                    database.tabDao().deleteTabById(autoTab.id)
+                }
+            }
+        }
+
+        val current = _normalTabs.value.toMutableList()
+        val targetIdx = closedState.index.coerceIn(0, current.size)
+        current.add(targetIdx, restoredTab)
+        _normalTabs.value = current
+
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            database.tabDao().insertTab(restoredTab)
+        }
+
+        if (closedState.savedStateBundle != null) {
+            try {
+                saveBundleToFile(closedState.savedStateBundle, getStateFile(restoredTab.id))
+            } catch (_: Exception) {}
+        }
+
+        if (closedState.snapshot != null) {
+            snapshotCache.put(restoredTab.id, closedState.snapshot)
+            saveSnapshot(restoredTab.id, closedState.snapshot)
+        }
+
+        if (closedState.wasActive || _activeTab.value == null || _activeTab.value?.id == closedState.autoCreatedTabId) {
+            _activeTab.value = restoredTab
+        }
+
+        return restoredTab
+    }
+
+    fun peekLastClosedTab(isIncognito: Boolean? = null): TabItem? {
+        return if (isIncognito == null) {
+            closedTabsStack.lastOrNull()?.tab
+        } else {
+            closedTabsStack.lastOrNull { it.tab.isIncognito == isIncognito }?.tab
+        }
+    }
+
     fun closeTab(tab: TabItem) {
+        val originalIndex = (if (tab.isIncognito) _incognitoTabs.value else _normalTabs.value)
+            .indexOfFirst { it.id == tab.id }
+        val wasActive = _activeTab.value?.id == tab.id
+
         autoclearTabData(tab)
 
         // If the closed tab was currently playing media, stop background play & dismiss notification immediately
         com.onyx.browser.media.MediaPlaybackBridge.onTabClosed(tab.id, context)
         onTabClosedListener?.invoke(tab)
 
-        // Safe destruction of associated WebView
+        // Capture state before destroying webview
         val webView = webViewPool.remove(tab.id)
-        webView?.destroySafely()
-        snapshotCache.remove(tab.id)
-        coroutineScope.launch(Dispatchers.IO) {
-            try { getThumbnailFile(tab.id).delete() } catch (_: Exception) {}
-            try { deleteTabState(tab.id) } catch (_: Exception) {}
+        var savedBundle: Bundle? = null
+        if (webView != null && !tab.isIncognito) {
+            try {
+                val b = Bundle()
+                val list = webView.saveState(b)
+                if (list != null && list.size > 0) {
+                    savedBundle = b
+                }
+            } catch (_: Throwable) {}
         }
+        val snapshot = snapshotCache.get(tab.id)
+
+        // Safe destruction of associated WebView
+        webView?.destroySafely()
 
         // If this tab was opened from a parent tab, find if the parent tab is still alive
         val parentTab = tab.parentId?.let { pId ->
@@ -477,6 +582,7 @@ class TabManager(
         }
 
         val orphanParentId = tab.parentId
+        var autoCreatedTabId: String? = null
 
         if (tab.isIncognito) {
             val updated = _incognitoTabs.value
@@ -502,9 +608,24 @@ class TabManager(
                     _activeTab.value = updated.last()
                 } else {
                     // Always maintain at least one tab
-                    createNewTab(isIncognito = false)
+                    val newTab = createNewTab(isIncognito = false)
+                    autoCreatedTabId = newTab.id
                 }
             }
+        }
+
+        val state = ClosedTabState(
+            tab = tab,
+            index = if (originalIndex >= 0) originalIndex else 0,
+            savedStateBundle = savedBundle,
+            snapshot = snapshot,
+            wasActive = wasActive,
+            autoCreatedTabId = autoCreatedTabId
+        )
+        closedTabsStack.addLast(state)
+        if (closedTabsStack.size > 10) {
+            val oldest = closedTabsStack.removeFirst()
+            finalizeClosedTab(oldest)
         }
     }
 
@@ -513,6 +634,12 @@ class TabManager(
             val closedPlayingTab = _incognitoTabs.value.any { it.id == com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId }
             if (closedPlayingTab) {
                 com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
+            }
+            closedTabsStack.removeAll { state ->
+                if (state.tab.isIncognito) {
+                    finalizeClosedTab(state)
+                    true
+                } else false
             }
             _incognitoTabs.value.forEach { tab ->
                 onTabClosedListener?.invoke(tab)
@@ -524,6 +651,7 @@ class TabManager(
                 _activeTab.value = _normalTabs.value.lastOrNull() ?: createNewTab(isIncognito = false)
             }
         } else {
+            finalizeAllClosedTabs()
             com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
             _normalTabs.value.forEach { tab ->
                 onTabClosedListener?.invoke(tab)

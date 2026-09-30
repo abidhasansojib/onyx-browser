@@ -40,7 +40,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 24. [x] Context Menu Bottom Sheet (open in new tab, open in background, copy link, download)
 25. [x] Image Preview Inspector (tap thumbnail to zoom, save image, share image)
 26. [x] Multi-Engine Reverse Image Search (Google Lens, TinEye, Yandex, Bing)
-27. [x] Visual Tab Switcher (grid previews, swipe-to-dismiss, close all tabs prompt)
+27. [x] Visual Tab Switcher (grid previews, swipe-to-dismiss, undo closed tab toast notification, close all tabs prompt)
 28. [x] Incognito / Private Browsing Mode (separate in-memory cookie jar, no history logging)
 29. [x] Tab Memory Optimization (suspends JS timers on inactive tabs via `onPause()`)
 30. [x] Time-Range Data Cleaning (clear 15 min, 1 hr, 24 hr, 7 days, 4 weeks, or all time)

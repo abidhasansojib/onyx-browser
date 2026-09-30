@@ -480,6 +480,10 @@
     <string name="incognito_tabs_open_single">1 incognito tab open</string>
     <string name="incognito_tabs_open_multi">%1$d incognito tabs open</string>
     <string name="all_incognito_tabs_closed">All incognito tabs closed</string>
+
+    <!-- Tab Switcher Undo Toast -->
+    <string name="undo">Undo</string>
+    <string name="tab_closed_toast">Closed %s</string>
 </resources>
 
 
