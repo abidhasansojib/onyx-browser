@@ -36,10 +36,31 @@ object FaviconManager {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    // Memory cache holding up to 120 decoded Bitmaps
-    private val memoryCache = object : LruCache<String, Bitmap>(120) {
+    private val maxMem = (Runtime.getRuntime().maxMemory() / 1024).toInt()
+    private val cacheSize = (maxMem / 16).coerceIn(1024, 8192)
+
+    // Memory cache holding up to 8MB of decoded Bitmaps
+    private val memoryCache = object : LruCache<String, Bitmap>(cacheSize) {
+        override fun sizeOf(key: String, value: Bitmap): Int {
+            return value.byteCount / 1024
+        }
         override fun entryRemoved(evicted: Boolean, key: String?, oldValue: Bitmap?, newValue: Bitmap?) {
             // Let GC collect recycled bitmaps safely
+        }
+    }
+
+    /**
+     * Purges both memory and disk favicon caches.
+     */
+    fun clearCache(context: Context) {
+        memoryCache.evictAll()
+        scope.launch(Dispatchers.IO) {
+            try {
+                val dir = getDiskCacheDir(context)
+                dir.listFiles()?.forEach { file ->
+                    try { file.delete() } catch (_: Exception) {}
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -94,7 +115,8 @@ object FaviconManager {
         fallbackLetterView: View? = null,
         isCircular: Boolean = false,
         isRounded: Boolean = false,
-        cornerRadiusRatio: Float = 0.22f
+        cornerRadiusRatio: Float = 0.22f,
+        saveToDisk: Boolean = true
     ) {
         val trimmed = urlOrHost.trim()
         if (trimmed.isBlank() || trimmed.startsWith("about:") || trimmed.startsWith("chrome:") || trimmed.startsWith("onyx:")) {
@@ -128,7 +150,7 @@ object FaviconManager {
 
         // 2. Asynchronous Disk & Remote Fetch
         scope.launch {
-            val bitmap = loadFaviconInternal(context, trimmed, key)
+            val bitmap = loadFaviconInternal(context, trimmed, key, saveToDisk)
             if (bitmap != null) {
                 val finalBmp = when {
                     isCircular -> getCircularBitmap(bitmap)
@@ -154,6 +176,7 @@ object FaviconManager {
     fun loadFavicon(
         context: Context,
         urlOrHost: String,
+        saveToDisk: Boolean = true,
         onLoaded: (Bitmap?) -> Unit
     ) {
         val trimmed = urlOrHost.trim()
@@ -170,25 +193,27 @@ object FaviconManager {
         }
 
         scope.launch {
-            val bitmap = loadFaviconInternal(context, trimmed, key)
+            val bitmap = loadFaviconInternal(context, trimmed, key, saveToDisk)
             withContext(Dispatchers.Main) {
                 onLoaded(bitmap)
             }
         }
     }
 
-    private suspend fun loadFaviconInternal(context: Context, rawUrlOrHost: String, key: String): Bitmap? = withContext(Dispatchers.IO) {
-        // A. Check Disk Cache
-        try {
-            val diskFile = File(getDiskCacheDir(context), "$key.png")
-            if (diskFile.exists() && diskFile.length() > 0) {
-                val diskBitmap = BitmapFactory.decodeFile(diskFile.absolutePath)
-                if (diskBitmap != null) {
-                    memoryCache.put(key, diskBitmap)
-                    return@withContext diskBitmap
+    private suspend fun loadFaviconInternal(context: Context, rawUrlOrHost: String, key: String, saveToDisk: Boolean = true): Bitmap? = withContext(Dispatchers.IO) {
+        // A. Check Disk Cache (only if disk persistence is allowed)
+        if (saveToDisk) {
+            try {
+                val diskFile = File(getDiskCacheDir(context), "$key.png")
+                if (diskFile.exists() && diskFile.length() > 0) {
+                    val diskBitmap = BitmapFactory.decodeFile(diskFile.absolutePath)
+                    if (diskBitmap != null) {
+                        memoryCache.put(key, diskBitmap)
+                        return@withContext diskBitmap
+                    }
                 }
-            }
-        } catch (_: Exception) {}
+            } catch (_: Exception) {}
+        }
 
         // B. Resolve Domain Host
         val host = try {
@@ -233,14 +258,16 @@ object FaviconManager {
             // Save to memory cache
             memoryCache.put(key, scaled)
 
-            // Save to disk cache
-            try {
-                val diskFile = File(getDiskCacheDir(context), "$key.png")
-                FileOutputStream(diskFile).use { out ->
-                    scaled.compress(Bitmap.CompressFormat.PNG, 90, out)
-                    out.flush()
-                }
-            } catch (_: Exception) {}
+            // Save to disk cache if allowed
+            if (saveToDisk) {
+                try {
+                    val diskFile = File(getDiskCacheDir(context), "$key.png")
+                    FileOutputStream(diskFile).use { out ->
+                        scaled.compress(Bitmap.CompressFormat.PNG, 90, out)
+                        out.flush()
+                    }
+                } catch (_: Exception) {}
+            }
 
             return@withContext scaled
         }

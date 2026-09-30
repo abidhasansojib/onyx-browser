@@ -321,9 +321,17 @@ class BrowserPreferences private constructor(private val context: Context) {
             prefs.edit().putLong(KEY_FILTER_UPDATED, value).apply()
         }
 
+    @Volatile
+    private var cachedDesktopDomains: Set<String>? = null
+
     var desktopDomains: Set<String>
-        get() = prefs.getStringSet("desktop_domains", emptySet()) ?: emptySet()
+        get() = cachedDesktopDomains ?: run {
+            val s = prefs.getStringSet("desktop_domains", emptySet()) ?: emptySet()
+            cachedDesktopDomains = s
+            s
+        }
         set(value) {
+            cachedDesktopDomains = value
             prefs.edit().putStringSet("desktop_domains", value).apply()
         }
 

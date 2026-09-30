@@ -314,7 +314,6 @@ class OnyxWebView @JvmOverloads constructor(
         if (incognito) {
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
             settings.domStorageEnabled = false
-            clearCache(true)
             clearHistory()
             clearFormData()
             // Do NOT call CookieManager.setAcceptCookie(false) globally — it breaks all normal tabs!

@@ -819,10 +819,23 @@ object FilterListManager {
         conn.connect()
 
         if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-            conn.inputStream.use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output)
+            val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
+            try {
+                conn.inputStream.use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        input.copyTo(output)
+                    }
                 }
+                if (tempFile.exists() && tempFile.length() > 0) {
+                    if (targetFile.exists()) targetFile.delete()
+                    if (!tempFile.renameTo(targetFile)) {
+                        tempFile.copyTo(targetFile, overwrite = true)
+                        tempFile.delete()
+                    }
+                }
+            } catch (e: Exception) {
+                try { tempFile.delete() } catch (_: Exception) {}
+                throw e
             }
         } else {
             throw Exception("HTTP ${conn.responseCode}")

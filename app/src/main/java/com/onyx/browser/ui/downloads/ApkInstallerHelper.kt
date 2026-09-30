@@ -115,6 +115,9 @@ object ApkInstallerHelper {
                 } else {
                     // Copy to temp cache file for reliable PackageInstaller cross-process access
                     val tempApk = File(activity.cacheDir, "install_pending.apk")
+                    if (tempApk.exists()) {
+                        try { tempApk.delete() } catch (_: Exception) {}
+                    }
                     val parsed = Uri.parse(filePath)
                     activity.contentResolver.openInputStream(parsed)?.use { input ->
                         tempApk.outputStream().use { output ->

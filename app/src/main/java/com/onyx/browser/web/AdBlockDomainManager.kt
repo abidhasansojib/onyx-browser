@@ -220,16 +220,33 @@ object AdBlockDomainManager {
         "watson.telemetry.microsoft.com", "widgets.pinterest.com", "xp.apple.com"
     )
 
+    private val standardCache = object : android.util.LruCache<String, Boolean>(1024) {}
+    private val aggressiveCache = object : android.util.LruCache<String, Boolean>(1024) {}
+
     fun isBlockedInStandard(domain: String): Boolean {
         val d = domain.lowercase().trim()
-        return standardDomains.any { d == it || d.endsWith(".$it") }
+        if (d.isBlank()) return false
+        val cached = standardCache.get(d)
+        if (cached != null) return cached
+        val result = standardDomains.any { d == it || d.endsWith(".$it") }
+        standardCache.put(d, result)
+        return result
     }
 
     fun isBlockedInAggressive(domain: String): Boolean {
         val d = domain.lowercase().trim()
-        if (isBlockedInStandard(d)) return true
-        if (aggressiveSubdomains.any { d == it || d.endsWith(".$it") }) return true
-        return aggressiveRootDomains.any { d == it || d.endsWith(".$it") }
+        if (d.isBlank()) return false
+        val cached = aggressiveCache.get(d)
+        if (cached != null) return cached
+        val result = if (isBlockedInStandard(d)) {
+            true
+        } else if (aggressiveSubdomains.any { d == it || d.endsWith(".$it") }) {
+            true
+        } else {
+            aggressiveRootDomains.any { d == it || d.endsWith(".$it") }
+        }
+        aggressiveCache.put(d, result)
+        return result
     }
 
     fun shouldBlock(domain: String, isAggressive: Boolean): Boolean {

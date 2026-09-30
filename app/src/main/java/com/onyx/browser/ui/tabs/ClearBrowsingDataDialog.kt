@@ -185,7 +185,29 @@ class ClearBrowsingDataDialog(
                 CookieManager.getInstance().removeAllCookies(null)
                 CookieManager.getInstance().flush()
                 WebStorage.getInstance().deleteAllData()
-            } catch (_: Exception) {
+            } catch (_: Exception) {}
+
+            withContext(Dispatchers.Main) {
+                try {
+                    android.webkit.WebView(context).clearCache(true)
+                } catch (_: Exception) {}
+            }
+
+            withContext(Dispatchers.IO) {
+                if (cutoff == 0L) {
+                    try {
+                        com.onyx.browser.data.favicon.FaviconManager.clearCache(context)
+                    } catch (_: Exception) {}
+                    try {
+                        tabManager.clearAllThumbnailsAndCache()
+                    } catch (_: Exception) {}
+                    try {
+                        File(context.cacheDir, "web_archives").deleteRecursively()
+                    } catch (_: Exception) {}
+                    try {
+                        File(context.cacheDir, "install_pending.apk").delete()
+                    } catch (_: Exception) {}
+                }
             }
 
             Toast.makeText(context, getString(R.string.browsing_data_cleared), Toast.LENGTH_SHORT).show()

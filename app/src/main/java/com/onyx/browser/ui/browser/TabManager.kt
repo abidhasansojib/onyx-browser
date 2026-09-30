@@ -54,9 +54,24 @@ class TabManager(
     var isIncognitoUnlocked: Boolean = false
     var onTabClosedListener: ((TabItem) -> Unit)? = null
     
-    val snapshotCache = object : android.util.LruCache<String, Bitmap>(30) {
+    private val maxMem = (Runtime.getRuntime().maxMemory() / 1024).toInt()
+    private val cacheSize = (maxMem / 8).coerceIn(4096, 32768)
+
+    val snapshotCache = object : android.util.LruCache<String, Bitmap>(cacheSize) {
+        override fun sizeOf(key: String, value: Bitmap): Int {
+            return value.byteCount / 1024
+        }
         override fun entryRemoved(evicted: Boolean, key: String?, oldValue: Bitmap?, newValue: Bitmap?) {
             // Let GC reclaim memory smoothly
+        }
+    }
+
+    fun clearAllThumbnailsAndCache() {
+        snapshotCache.evictAll()
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                getThumbnailDir().listFiles()?.forEach { it.delete() }
+            } catch (_: Exception) {}
         }
     }
 
@@ -165,10 +180,17 @@ class TabManager(
 
     fun cleanupOrphanedTabStates() {
         try {
-            val dir = getStateDir()
             val validIds = _normalTabs.value.map { it.id }.toSet()
+            val dir = getStateDir()
             dir.listFiles()?.forEach { file ->
                 val tabId = file.name.removePrefix("state_").removeSuffix(".bin")
+                if (tabId !in validIds) {
+                    file.delete()
+                }
+            }
+            val thumbDir = getThumbnailDir()
+            thumbDir.listFiles()?.forEach { file ->
+                val tabId = file.name.removeSuffix(".webp")
                 if (tabId !in validIds) {
                     file.delete()
                 }
@@ -752,6 +774,7 @@ class TabManager(
                 } else {
                     snapshotCache.remove(tab.id)
                     deleteTabState(tab.id)
+                    try { getThumbnailFile(tab.id).delete() } catch (_: Exception) {}
                 }
             }
 
@@ -793,6 +816,8 @@ class TabManager(
         for (tab in allClosing) {
             webViewPool.remove(tab.id)?.destroySafely()
             deleteTabState(tab.id)
+            snapshotCache.remove(tab.id)
+            try { getThumbnailFile(tab.id).delete() } catch (_: Exception) {}
         }
 
         val remainingNormal = _normalTabs.value.filter { it.createdAt < sinceTime }

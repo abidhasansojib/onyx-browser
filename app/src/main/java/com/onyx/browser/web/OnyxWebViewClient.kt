@@ -189,7 +189,9 @@ class OnyxWebViewClient(
         val corsHeaders = mapOf(
             "Access-Control-Allow-Origin" to "*",
             "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers" to "*"
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma" to "no-cache"
         )
 
         // When Adblocker Spoofing is disabled (default):

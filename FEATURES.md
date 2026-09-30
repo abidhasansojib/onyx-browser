@@ -107,10 +107,10 @@ This document tracks all features of Onyx Browser, their current implementation 
 
 ### 6. Tab Management & Data Clearing
 - **Visual Tab Grid**: Responsive card grid with live favicons, page titles, close buttons, and swipe-to-dismiss.
-- **Incognito Tabs**: Isolated in-memory browsing session that leaves no history, cache, or cookies on device.
-- **Resource Management**: Calls `webView.onPause()` on background tabs to halt JavaScript timers and save battery, and `webView.onResume()` on the active tab.
+- **Incognito Tabs**: Isolated in-memory browsing session (`LOAD_NO_CACHE`, DOM storage disabled). Preserves normal tabs' cache upon launch, prevents favicon forensic disk leaks, and never leaks search queries into suggestions or history.
+- **Resource Management**: Calls `webView.onPause()` on background tabs to halt JavaScript timers and save battery, and `webView.onResume()` on the active tab. Memory-bounded heap LRU cache for tab snapshots prevents OOM.
 - **Strict Tab ID Isolation**: Scopes all asynchronous WebView callbacks (`onUrlChanged`, `onPageFinished`, `onTitleReceived`, `onProgressChanged`, `onPageCommitVisible`) strictly by `webView.tabId` via `updateTabUrlAndTitle`. Prevents background-loading tabs or restored tabs from overwriting active tab state, mutating the address bar, or hijacking newly created blank tabs.
-- **Selective Data Clearing**: Time-range selection (15 minutes, 1 hour, 24 hours, 7 days, 4 weeks, all time) with live summary of items to be removed.
+- **Selective Data Clearing**: Time-range selection (15 minutes, 1 hour, 24 hours, 7 days, 4 weeks, all time) with live summary of items to be removed. Genuinely purges WebView HTTP/network cache and disk cache files (`favicons`, `tab_thumbnails`, `web_archives`, `onyx_downloads`, `install_pending.apk`).
 
 ### 7. Developer Tools
 - **Offline Mobile DevTools**: Bundles `eruda.min.js` to provide a full DOM inspector, console, network activity log, and local storage editor without a PC.

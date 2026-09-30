@@ -1539,11 +1539,13 @@ class MainActivity : AppCompatActivity() {
                 curUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.")
             }
             binding.tvCurrentPageUrl.text = displayUrlText
+            val isIncog = tabManager.activeTab.value?.isIncognito == true
             com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
                 context = this,
                 imageView = binding.ivCurrentPageFavicon,
                 urlOrHost = curUrl,
-                isCircular = true
+                isCircular = true,
+                saveToDisk = !isIncog
             )
         } else {
             binding.cardCurrentPage.visibility = View.GONE
@@ -1658,7 +1660,8 @@ class MainActivity : AppCompatActivity() {
             // 300ms debounce: waits for user to briefly pause typing
             // before firing the network request and DB query.
             delay(300)
-            val suggestions = suggestionRepository.getSuggestions(trimmed, preferences.searchEngine)
+            val isIncog = tabManager.activeTab.value?.isIncognito == true
+            val suggestions = suggestionRepository.getSuggestions(trimmed, preferences.searchEngine, isIncognito = isIncog)
             if (isSearchMode) {
                 val clipboardOpt = getClipboardSuggestion()
                 val includeClipboard = clipboardOpt != null && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)

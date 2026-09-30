@@ -57,14 +57,18 @@ class SearchSuggestionRepository(
         }
     }
 
-    // In-memory result cache keyed by (trimmed_query|engine_id).
-    // Prevents flicker when the user repositions the cursor without changing text.
-    @Volatile private var cacheKey: String = ""
-    @Volatile private var cacheResult: List<SearchSuggestion> = emptyList()
+    // Thread-safe in-memory result cache keyed by (trimmed_query|engine_id).
+    // Bounded to 50 entries to handle backspacing and re-typing smoothly.
+    private val queryCache = object : android.util.LruCache<String, List<SearchSuggestion>>(50) {}
+
+    fun clearCache() {
+        queryCache.evictAll()
+    }
 
     suspend fun getSuggestions(
         query: String,
-        engine: SearchEngine
+        engine: SearchEngine,
+        isIncognito: Boolean = false
     ): List<SearchSuggestion> = withContext(Dispatchers.IO) {
         val trimmed = query.trim()
 
@@ -72,7 +76,10 @@ class SearchSuggestionRepository(
         if (trimmed.length < 2) return@withContext emptyList()
 
         val key = "${trimmed}|${engine.id}"
-        if (key == cacheKey) return@withContext cacheResult
+        if (!isIncognito) {
+            val cached = queryCache.get(key)
+            if (cached != null) return@withContext cached
+        }
 
         val results = mutableListOf<SearchSuggestion>()
         val seenKeys = mutableSetOf<String>()
@@ -115,26 +122,27 @@ class SearchSuggestionRepository(
             }
         } catch (_: Exception) {}
 
-        // 2. Local history (max 3 items total with bookmarks)
-
-        try {
-            val historyMatches = historyDao.searchHistory(trimmed, limit = 5)
-            for (item in historyMatches) {
-                val norm = normalizeUrl(item.url)
-                if (seenKeys.add(norm)) {
-                    val isHttpUrl = item.url.startsWith("http://") || item.url.startsWith("https://")
-                    results.add(
-                        SearchSuggestion(
-                            title = item.title.ifBlank { item.url },
-                            queryOrUrl = item.url,
-                            isHistory = true,
-                            isUrl = isHttpUrl
+        // 2. Local history (max 3 items total with bookmarks) - excluded in Incognito mode for privacy
+        if (!isIncognito) {
+            try {
+                val historyMatches = historyDao.searchHistory(trimmed, limit = 5)
+                for (item in historyMatches) {
+                    val norm = normalizeUrl(item.url)
+                    if (seenKeys.add(norm)) {
+                        val isHttpUrl = item.url.startsWith("http://") || item.url.startsWith("https://")
+                        results.add(
+                            SearchSuggestion(
+                                title = item.title.ifBlank { item.url },
+                                queryOrUrl = item.url,
+                                isHistory = true,
+                                isUrl = isHttpUrl
+                            )
                         )
-                    )
-                    if (results.size >= 3) break
+                        if (results.size >= 3) break
+                    }
                 }
-            }
-        } catch (_: Exception) {}
+            } catch (_: Exception) {}
+        }
 
         // 3. Remote suggestions to fill up to 10 total
         val remoteNeeded = 10 - results.size
@@ -167,8 +175,9 @@ class SearchSuggestionRepository(
         }
 
         val final = results.take(10)
-        cacheKey = key
-        cacheResult = final
+        if (!isIncognito) {
+            queryCache.put(key, final)
+        }
         final
     }
 

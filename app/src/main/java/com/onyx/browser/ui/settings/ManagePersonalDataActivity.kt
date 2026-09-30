@@ -191,6 +191,33 @@ class ManagePersonalDataActivity : AppCompatActivity() {
                     try {
                         WebStorage.getInstance().deleteAllData()
                     } catch (_: Exception) {}
+
+                    withContext(Dispatchers.Main) {
+                        try {
+                            android.webkit.WebView(this@ManagePersonalDataActivity).clearCache(true)
+                        } catch (_: Exception) {}
+                    }
+
+                    withContext(Dispatchers.IO) {
+                        try {
+                            com.onyx.browser.data.favicon.FaviconManager.clearCache(this@ManagePersonalDataActivity)
+                        } catch (_: Exception) {}
+                        try {
+                            File(cacheDir, "favicons").deleteRecursively()
+                        } catch (_: Exception) {}
+                        try {
+                            File(cacheDir, "tab_thumbnails").deleteRecursively()
+                        } catch (_: Exception) {}
+                        try {
+                            File(cacheDir, "web_archives").deleteRecursively()
+                        } catch (_: Exception) {}
+                        try {
+                            File(cacheDir, "onyx_downloads").deleteRecursively()
+                        } catch (_: Exception) {}
+                        try {
+                            File(cacheDir, "install_pending.apk").delete()
+                        } catch (_: Exception) {}
+                    }
                 }
 
                 Toast.makeText(this@ManagePersonalDataActivity, getString(R.string.browsing_data_cleared), Toast.LENGTH_SHORT).show()
