@@ -395,6 +395,7 @@ onyx-browser/
 - [x] **v1.0.218 — Security Hardening: ADB/Cloud Backup & Cross-Origin File Access Elimination**:
     - **Disabled Android Cloud & ADB Backups**: Set `android:allowBackup="false"` in `AndroidManifest.xml`. Prevents unauthorized extraction of application cache, preferences, and session tokens via physical ADB backup commands or cloud backup dumps.
     - **Eliminated Cross-Origin Local File Access**: Set `allowFileAccessFromFileURLs = false` and `allowUniversalAccessFromFileURLs = false` in `OnyxWebView.kt`. Closes the classic Android WebView vulnerability where JavaScript in a locally downloaded/opened file could read and exfiltrate other files on the device filesystem. Local document rendering (HTML/Markdown/MHTML) continues to function safely via `LocalFileLoader.kt`'s memory streams and `loadDataWithBaseURL`.
+    - **Verified Release Build**: Workflow run `36698278091` compiled successfully in 6m54s. Release APKs published to GitHub Release `v1.0.218`.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
