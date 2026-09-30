@@ -11,7 +11,6 @@ on:
         options:
           - 'Release'
           - 'Debug'
-          - 'Both'
 
 permissions:
   contents: write
@@ -126,7 +125,7 @@ jobs:
       # RELEASE BUILD: ABI Splits + R8 Minification + Multi-Architecture APKs
       # ------------------------------------------------------------------------
       - name: Build Release APKs (ABI Splits & R8 Minified)
-        if: env.BUILD_TYPE == 'Release' || env.BUILD_TYPE == 'Both'
+        if: env.BUILD_TYPE == 'Release'
         env:
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
@@ -144,7 +143,7 @@ jobs:
           ls -lh app/build/outputs/apk/release/
 
       - name: Organize and Label Release APKs
-        if: env.BUILD_TYPE == 'Release' || env.BUILD_TYPE == 'Both'
+        if: env.BUILD_TYPE == 'Release'
         run: |
           mkdir -p release_apks
           cd app/build/outputs/apk/release/
@@ -160,7 +159,7 @@ jobs:
           ls -lh release_apks/
 
       - name: Publish GitHub Release
-        if: env.BUILD_TYPE == 'Release' || env.BUILD_TYPE == 'Both'
+        if: env.BUILD_TYPE == 'Release'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -197,7 +196,7 @@ jobs:
 
 
       - name: Upload Release APKs to Workflow Artifacts
-        if: env.BUILD_TYPE == 'Release' || env.BUILD_TYPE == 'Both'
+        if: env.BUILD_TYPE == 'Release'
         uses: actions/upload-artifact@v4
         with:
           name: Onyx-Browser-Release-APKs
@@ -207,7 +206,7 @@ jobs:
       # DEBUG BUILD: Single Universal APK, No Minification, Actions Artifact Only
       # ------------------------------------------------------------------------
       - name: Build Debug APK
-        if: env.BUILD_TYPE == 'Debug' || env.BUILD_TYPE == 'Both'
+        if: env.BUILD_TYPE == 'Debug'
         run: |
           ./gradlew assembleDebug \
             -PenableAbiSplits=false \
@@ -219,7 +218,7 @@ jobs:
           ls -lh app/build/outputs/apk/debug/
 
       - name: Upload Debug APK Artifact
-        if: env.BUILD_TYPE == 'Debug' || env.BUILD_TYPE == 'Both'
+        if: env.BUILD_TYPE == 'Debug'
         uses: actions/upload-artifact@v4
         with:
           name: Onyx-Browser-Debug-APK

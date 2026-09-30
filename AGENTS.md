@@ -29,24 +29,35 @@
 - **Reason**: The host system is a lightweight agent environment not configured or resourced to run heavy mobile compilation pipelines.
 - **Permitted Operations**: Lightweight CLI utilities, file editing, Python/Bash scripting, code analysis, Git operations, and GitHub CLI (`gh`) are fully permitted.
 
-### RULE 2: Explicit User Build Gate ("build app now")
+### RULE 2: Explicit User Build Gate & Build Type Clarification
 - **Default State**: Do **NOT** trigger GitHub Actions CI/CD workflows, compile code, or trigger remote builds during regular conversation.
 - **Clean Commits**: The build workflow (`.github/workflows/build.yml`) is triggered strictly via manual `workflow_dispatch` (there are no automatic push triggers). Therefore, `[skip ci]` is **not** required in commit messages. Use clean, standard semantic commit messages:
   ```bash
   git commit -m "fix(media): resolve video bounds calculation"
   ```
-- **The Gate Command**: Only when the user explicitly commands **"build app now"** (or specifies release/debug build) are you permitted to initiate a CI/CD build run.
+- **Build Type Clarification**: When the user says **"build app now"** without specifying the build type, you **MUST ask the user** whether they want a **Release** or **Debug** build before triggering any workflow. Never guess or trigger prematurely.
+- **Specific Build Commands**:
+  - If the user specifies **"build release app"** (or chooses Release), build **Release only** (`gh workflow run build.yml -f build_type=Release`).
+  - If the user specifies **"build debug app"** (or chooses Debug), build **Debug only** (`gh workflow run build.yml -f build_type=Debug`).
+  - The `Both` option is permanently removed from the build workflow and prohibited.
 
 ### RULE 3: Autonomous Remote Build & Auto-Fix Loop
-When the user explicitly issues the command **"build app now"**, the agent must execute the following autonomous loop:
+When triggered for a build (after user confirms or explicitly requests Release or Debug):
 1. **Push & Trigger**: Ensure all changes are committed and pushed to `origin main`, then trigger the workflow:
-   ```bash
-   gh workflow run build.yml -f build_type=Both
-   ```
+   - **Release**: `gh workflow run build.yml -f build_type=Release`
+   - **Debug**: `gh workflow run build.yml -f build_type=Debug`
 2. **Monitor Execution**: Track the active workflow run to completion using `schedule` timers and `gh run view <run_id>`. Do NOT poll in a busy while-loop; use the `schedule` tool.
 3. **If Build Succeeds**:
-   - Download the generated release APKs to `/storage/emulated/0/` via `gh release download`.
-   - Report the release version, file sizes, and download links to the user.
+   - **Release Build**:
+     - **DO NOT download artifacts to the device**.
+     - Release APKs are published directly to GitHub Releases.
+     - Report the release version tag, changelog, and GitHub release download links to the user.
+   - **Debug Build**:
+     - **Download artifact to device ONLY for Debug builds**:
+       ```bash
+       gh run download <run_id> -n Onyx-Browser-Debug-APK --dir /storage/emulated/0/Download
+       ```
+     - Save the APK in `/storage/emulated/0/Download/` and report its local path and size to the user.
 4. **If Build Fails (CRITICAL AUTO-REPAIR REQUIREMENT)**:
    - **DO NOT STOP OR REPORT FAILURE TO USER WITHOUT FIXING!**
    - Retrieve the failed step logs:
@@ -56,7 +67,7 @@ When the user explicitly issues the command **"build app now"**, the agent must 
    - Analyze the compiler error, Kotlin syntax error, resource collision, or ProGuard/R8 exception.
    - Apply the necessary code fixes directly in the repository.
    - Commit the fix and push to `origin main`.
-   - Re-trigger the build workflow and monitor again.
+   - Re-trigger the build workflow for the same build type and monitor again.
    - **Repeat this loop autonomously until a 100% successful build is achieved.**
 
 ### RULE 4: Mandatory `AGENTS.md` Maintenance
