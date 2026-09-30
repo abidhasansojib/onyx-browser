@@ -820,27 +820,41 @@ class TabManager(
         }
     }
 
-    fun updateActiveTab(url: String, title: String) {
-        val current = _activeTab.value ?: return
+    fun updateTabUrlAndTitle(tabId: String, url: String, title: String) {
         if (url.startsWith("data:") || url.startsWith("file:///android_asset/") || url.startsWith("file:///android_res/")) {
             return
         }
+        val current = getTabById(tabId) ?: return
         val cleanTitle = if (title.startsWith("data:") || title.startsWith("file:///android_asset/") || title.startsWith("file:///android_res/")) {
             current.title.ifBlank { url }
         } else {
             title.ifBlank { url }
         }
-        val updatedTab = current.copy(url = url, title = cleanTitle, lastAccessedAt = System.currentTimeMillis(), isHibernated = false)
-        _activeTab.value = updatedTab
+        val updatedTab = current.copy(
+            url = url,
+            title = cleanTitle,
+            lastAccessedAt = System.currentTimeMillis(),
+            isHibernated = false
+        )
 
         if (updatedTab.isIncognito) {
-            _incognitoTabs.value = _incognitoTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
+            _incognitoTabs.value = _incognitoTabs.value.map { if (it.id == tabId) updatedTab else it }
         } else {
-            _normalTabs.value = _normalTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
+            _normalTabs.value = _normalTabs.value.map { if (it.id == tabId) updatedTab else it }
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().updateTab(updatedTab)
             }
         }
+
+        // Strictly guard: only update _activeTab if this specific tab is currently active
+        if (_activeTab.value?.id == tabId) {
+            _activeTab.value = updatedTab
+        }
+    }
+
+    fun updateActiveTab(url: String, title: String) {
+        val current = _activeTab.value ?: return
+        updateTabUrlAndTitle(current.id, url, title)
     }
 
     fun getOpenTabCount(): Int {

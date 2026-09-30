@@ -772,6 +772,7 @@ class MainActivity : AppCompatActivity() {
             if (previousTabId != null) {
                 val outgoingWebView = tabManager.getWebView(previousTabId)
                 if (outgoingWebView != null) {
+                    outgoingWebView.onPause()
                     tabManager.captureTabSnapshot(previousTabId, outgoingWebView)
                     tabManager.saveTabState(previousTabId, outgoingWebView)
                 }
@@ -803,6 +804,10 @@ class MainActivity : AppCompatActivity() {
 
         val isIncognito = tabManager.activeTab.value?.isIncognito == true
         updateIncognitoUI(isIncognito)
+
+        val child = if (binding.webViewContainer.childCount > 0) binding.webViewContainer.getChildAt(0) as? OnyxWebView else null
+        child?.onPause()
+        binding.webViewContainer.removeAllViews()
     }
 
     private fun updateIncognitoUI(isIncognito: Boolean) {
@@ -889,8 +894,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupWebViewClients(webView: OnyxWebView) {
+        val tabId = webView.tabId
         webView.onScrollChangedCallback = { _, t, _, oldt ->
-            if (preferences.isScrollToTopEnabled && currentDisplayedTabId == tabManager.activeTab.value?.id) {
+            if (preferences.isScrollToTopEnabled && currentDisplayedTabId == tabId && tabManager.activeTab.value?.id == tabId) {
                 if (t > 500 && t > oldt) {
                     binding.fabScrollToTop.visibility = android.view.View.VISIBLE
                 } else if (t < 10) {
@@ -904,46 +910,58 @@ class MainActivity : AppCompatActivity() {
             coroutineScope = lifecycleScope,
             onUrlChanged = { newUrl ->
                 val cleanUrl = if (newUrl.startsWith("data:") || newUrl.startsWith("file:///android_asset/") || newUrl.startsWith("file:///android_res/")) {
-                    webView.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url ?: ""
+                    webView.currentSyntheticState?.failingUrl ?: tabManager.getTabById(tabId)?.url ?: ""
                 } else {
                     newUrl
                 }
                 if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:") && !cleanUrl.startsWith("file:///android_asset/") && !cleanUrl.startsWith("file:///android_res/")) {
-                    tabManager.updateActiveTab(cleanUrl, webView.title ?: cleanUrl)
-                    updateAddressBarDisplay(cleanUrl)
-                    val activeTab = tabManager.activeTab.value
-                    if (activeTab != null && !activeTab.isIncognito) {
-                        tabManager.saveTabState(activeTab.id, webView)
+                    tabManager.updateTabUrlAndTitle(tabId, cleanUrl, webView.title ?: cleanUrl)
+                    if (currentDisplayedTabId == tabId && tabManager.activeTab.value?.id == tabId) {
+                        updateAddressBarDisplay(cleanUrl)
+                        val activeTab = tabManager.activeTab.value
+                        if (activeTab != null && !activeTab.isIncognito) {
+                            tabManager.saveTabState(activeTab.id, webView)
+                        }
                     }
                 }
             },
             onPageFinishedCallback = { finishedUrl ->
                 val cleanUrl = if (finishedUrl.startsWith("data:") || finishedUrl.startsWith("file:///android_asset/") || finishedUrl.startsWith("file:///android_res/")) {
-                    webView.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url ?: ""
+                    webView.currentSyntheticState?.failingUrl ?: tabManager.getTabById(tabId)?.url ?: ""
                 } else {
                     finishedUrl
                 }
                 if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:") && !cleanUrl.startsWith("file:///android_asset/") && !cleanUrl.startsWith("file:///android_res/")) {
-                    tabManager.updateActiveTab(cleanUrl, webView.title ?: cleanUrl)
-                    updateAddressBarDisplay(cleanUrl)
+                    tabManager.updateTabUrlAndTitle(tabId, cleanUrl, webView.title ?: cleanUrl)
+                    if (currentDisplayedTabId == tabId && tabManager.activeTab.value?.id == tabId) {
+                        updateAddressBarDisplay(cleanUrl)
+                    }
                 }
-                binding.progressBar.visibility = View.GONE
-                val activeTab = tabManager.activeTab.value
-                if (activeTab != null && !activeTab.isIncognito) {
-                    tabManager.saveTabState(activeTab.id, webView)
-                }
-                if (activeTab != null && (webView.url == finishedUrl || webView.currentSyntheticState != null)) {
-                    webView.postDelayed({
-                        tabManager.captureTabSnapshot(activeTab.id, webView)
-                    }, 400)
+                if (currentDisplayedTabId == tabId) {
+                    binding.progressBar.visibility = View.GONE
+                    val activeTab = tabManager.activeTab.value
+                    if (activeTab != null && !activeTab.isIncognito) {
+                        tabManager.saveTabState(activeTab.id, webView)
+                    }
+                    if (activeTab != null && (webView.url == finishedUrl || webView.currentSyntheticState != null)) {
+                        webView.postDelayed({
+                            if (currentDisplayedTabId == tabId) {
+                                tabManager.captureTabSnapshot(activeTab.id, webView)
+                            }
+                        }, 400)
+                    }
                 }
             },
             onPageCommitVisibleCallback = { view, _ ->
-                val activeTab = tabManager.activeTab.value
-                if (activeTab != null && view is OnyxWebView) {
-                    view.postDelayed({
-                        tabManager.captureTabSnapshot(activeTab.id, view)
-                    }, 300)
+                if (view is OnyxWebView && view.tabId == currentDisplayedTabId && tabManager.activeTab.value?.id == tabId) {
+                    val activeTab = tabManager.activeTab.value
+                    if (activeTab != null) {
+                        view.postDelayed({
+                            if (currentDisplayedTabId == tabId) {
+                                tabManager.captureTabSnapshot(activeTab.id, view)
+                            }
+                        }, 300)
+                    }
                 }
             }
         )
@@ -962,6 +980,7 @@ class MainActivity : AppCompatActivity() {
 
         webView.webChromeClient = OnyxWebChromeClient(
             onProgressChangedCallback = { progress ->
+                if (currentDisplayedTabId != tabId) return@OnyxWebChromeClient
                 if (binding.progressBar.visibility != android.view.View.VISIBLE && progress < 100) {
                     binding.progressBar.visibility = android.view.View.VISIBLE
                     binding.progressBar.alpha = 1f
@@ -988,7 +1007,7 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onTitleReceivedCallback = { title ->
-                tabManager.updateActiveTab(webView.url ?: "", title)
+                tabManager.updateTabUrlAndTitle(tabId, webView.url ?: "", title)
             },
             onShowCustomViewCallback = { view, callback ->
                 showCustomFullscreenVideo(view, callback)
