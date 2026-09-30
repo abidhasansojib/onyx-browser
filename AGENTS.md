@@ -381,6 +381,9 @@ onyx-browser/
     - **Client Hints (`navigator.userAgentData`) Spoofing**: Injects desktop `navigator.userAgentData` (`mobile: false`, `platform: 'Windows'`, Chromium brands) and `navigator.platform: 'Win32'`, preventing modern sites (Google, YouTube, Reddit) from falling back to mobile layouts based on JavaScript Client Hints.
     - **Synchronous Shield Bridge Query (`OnyxShieldBridge.kt`)**: Added `@JavascriptInterface fun isDesktopModeActive(domainOrUrl: String?): Boolean` for zero-latency, synchronous verification of per-domain desktop status at `document_start`.
     - **Verified Release Build**: Workflow run `36692096709` compiled successfully in 6m48s. Release APKs published to GitHub Release `v1.0.217` and downloaded to `/storage/emulated/0/`.
+- [x] **v1.0.218 — Security Hardening: ADB/Cloud Backup & Cross-Origin File Access Elimination**:
+    - **Disabled Android Cloud & ADB Backups**: Set `android:allowBackup="false"` in `AndroidManifest.xml`. Prevents unauthorized extraction of application cache, preferences, and session tokens via physical ADB backup commands or cloud backup dumps.
+    - **Eliminated Cross-Origin Local File Access**: Set `allowFileAccessFromFileURLs = false` and `allowUniversalAccessFromFileURLs = false` in `OnyxWebView.kt`. Closes the classic Android WebView vulnerability where JavaScript in a locally downloaded/opened file could read and exfiltrate other files on the device filesystem. Local document rendering (HTML/Markdown/MHTML) continues to function safely via `LocalFileLoader.kt`'s memory streams and `loadDataWithBaseURL`.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

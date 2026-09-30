@@ -149,8 +149,8 @@ class OnyxWebView @JvmOverloads constructor(
             // Local File & Content Access for HTML / Markdown Previews
             allowFileAccess = true
             allowContentAccess = true
-            allowFileAccessFromFileURLs = true
-            allowUniversalAccessFromFileURLs = true
+            allowFileAccessFromFileURLs = false
+            allowUniversalAccessFromFileURLs = false
 
             // Media & Streaming Support (YouTube, Twitch, Video players)
             mediaPlaybackRequiresUserGesture = false

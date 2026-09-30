@@ -52,7 +52,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 36. [x] Accessibility Settings (search widget toggle, webpage menu "Add to Home screen" toggle, text scaling)
 37. [x] Add to Home Screen (PWA launcher shortcuts via `ShortcutManagerCompat`)
 38. [x] Theme System (Google Light, Google Dark `#202124`, and pure AMOLED Black)
-39. [x] Hardened WebView Sandboxing (third-party cookies enabled for web auth/CAPTCHAs, blocked in Incognito, file scheme disabled, safe intent routing)
+39. [x] Hardened WebView Sandboxing (cloud backups disabled with `android:allowBackup="false"`, `allowFileAccessFromFileURLs`/`Universal` disabled, third-party cookies enabled for web auth/CAPTCHAs, blocked in Incognito, safe intent routing)
 40. [x] Offline Eruda Developer Tools (bundled mobile DOM inspector, console, network monitor)
 41. [x] Console & Error Pre-Buffering (captures startup logs & JS errors before DevTools opens)
 42. [x] Remote USB Debugging (Chrome DevTools `chrome://inspect` over USB/ADB)
