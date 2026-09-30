@@ -35021,6 +35021,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||theadex.com^
 ||theadhost.com^
 ||theadsparks.com^
+||thebicyclehut.com^
 ||thebugs.ws^
 ||thecrazychili.com^
 ||themangotea.com^
