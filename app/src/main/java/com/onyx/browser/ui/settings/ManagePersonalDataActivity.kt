@@ -17,6 +17,7 @@ import com.onyx.browser.databinding.ActivityManagePersonalDataBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.net.URI
 
 class ManagePersonalDataActivity : AppCompatActivity() {
