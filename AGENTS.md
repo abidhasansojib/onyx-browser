@@ -31,15 +31,15 @@
 
 ### RULE 2: Explicit User Build Gate ("build app now")
 - **Default State**: Do **NOT** trigger GitHub Actions CI/CD workflows, compile code, or trigger remote builds during regular conversation.
-- **Intermediate Commits**: All routine code changes, bug fixes, refactors, and documentation updates must include `[skip ci]` in the commit message to prevent accidental CI triggers:
+- **Clean Commits**: The build workflow (`.github/workflows/build.yml`) is triggered strictly via manual `workflow_dispatch` (there are no automatic push triggers). Therefore, `[skip ci]` is **not** required in commit messages. Use clean, standard semantic commit messages:
   ```bash
-  git commit -m "fix(media): resolve video bounds calculation [skip ci]"
+  git commit -m "fix(media): resolve video bounds calculation"
   ```
-- **The Gate Command**: Only when the user explicitly commands **"build app now"** are you permitted to initiate a CI/CD build run.
+- **The Gate Command**: Only when the user explicitly commands **"build app now"** (or specifies release/debug build) are you permitted to initiate a CI/CD build run.
 
 ### RULE 3: Autonomous Remote Build & Auto-Fix Loop
 When the user explicitly issues the command **"build app now"**, the agent must execute the following autonomous loop:
-1. **Push & Trigger**: Commit all pending changes (without `[skip ci]`) and push to `origin main`, or trigger the workflow:
+1. **Push & Trigger**: Ensure all changes are committed and pushed to `origin main`, then trigger the workflow:
    ```bash
    gh workflow run build.yml -f build_type=Both
    ```
