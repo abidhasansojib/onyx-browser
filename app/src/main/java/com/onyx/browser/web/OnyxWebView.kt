@@ -287,6 +287,12 @@ class OnyxWebView @JvmOverloads constructor(
                     DevToolsManager.consoleBufferScript,
                     setOf("*")
                 )
+                // Desktop Mode Viewport Scaling & Client Hints spoofing
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    DesktopModeManager.DESKTOP_VIEWPORT_SCRIPT,
+                    setOf("*")
+                )
             }
         } catch (_: Exception) {}
 
@@ -373,7 +379,6 @@ class OnyxWebView @JvmOverloads constructor(
         }
         prefs.desktopDomains = currentDomains
         
-        setInitialScale(0)
         applyUserAgentForUrl(pageUrl, forceRefreshLayout = true)
     }
 
@@ -399,6 +404,13 @@ class OnyxWebView @JvmOverloads constructor(
         } else {
             getBaseUserAgent(prefs)
         }
+
+        val scalePercent = if (wantsDesktop) {
+            DesktopModeManager.calculateDesktopScalePercent(context)
+        } else {
+            0
+        }
+        setInitialScale(scalePercent)
         
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
@@ -407,7 +419,6 @@ class OnyxWebView @JvmOverloads constructor(
         
         if (currentUaMatchesTarget) {
             if (forceRefreshLayout) {
-                setInitialScale(0)
                 this.loadUrl(this.url ?: urlString)
             }
             return
@@ -416,7 +427,6 @@ class OnyxWebView @JvmOverloads constructor(
         settings.userAgentString = targetUa
         
         if (forceRefreshLayout) {
-            setInitialScale(0)
             this.loadUrl(this.url ?: urlString)
         }
     }

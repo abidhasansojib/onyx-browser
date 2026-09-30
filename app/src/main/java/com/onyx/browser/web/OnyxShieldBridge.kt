@@ -49,6 +49,14 @@ class OnyxShieldBridge(private val context: Context) {
     }
 
     @JavascriptInterface
+    fun isDesktopModeActive(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return false
+        val clean = preferences.cleanDomain(target)
+        val desktopDomains = preferences.desktopDomains
+        return desktopDomains.any { clean == it || clean.endsWith(".$it") }
+    }
+
+    @JavascriptInterface
     fun getHiddenSelectors(classesJson: String?, idsJson: String?, pageUrl: String?): String {
         if (!preferences.isAdBlockEnabled || !preferences.isCosmeticFilteringEnabled) return "[]"
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return "[]"

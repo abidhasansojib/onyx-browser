@@ -58,7 +58,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 42. [x] Remote USB Debugging (Chrome DevTools `chrome://inspect` over USB/ADB)
 43. [x] In-Page Text Search (find in page with match count and next/previous navigation)
 44. [x] Webpage Translation Bar (Google Translate integration for 20 languages)
-45. [x] Desktop Site Toggle (per-tab desktop viewport switch)
+45. [x] Desktop Mode Automatic Viewport Scaling & Zoom-Out Parity (Brave/Chrome standard 980px layout viewport, document-start MutationObserver viewport rewrite, calculated overview scaling to fit mobile displays, Client Hints spoofing, and full pinch-to-zoom)
 46. [-] WebGL 1/2 Complex Shader Polyfills (Evan Wallace water works; older GPUs may lack hardware float texture targets)
 47. [x] Adblocker Spoofing Toggle (Settings → Privacy & Shields — when enabled, returns safe 200 OK stubs and injects `adsbygoogle`, `ga`, `gtag` stubs to bypass anti-adblock walls; **OFF by default** so adblock test sites like superadblocktest.com and d3ward reject blocked requests and report 100% scores)
 48. [ ] Custom Userscript Manager (Tampermonkey / Violentmonkey scriptlet support)
@@ -127,4 +127,10 @@ This document tracks all features of Onyx Browser, their current implementation 
 ### 9. Feed & Reel Navigation Architecture
 - **Upward Scroll & Pull-To-Refresh Coordination**: In virtualized video feeds (Facebook Reels, Instagram Reels, TikTok, YouTube Shorts), the root document `window.scrollY` remains at 0. `MainActivity.kt` and `OnyxTouchBridge.kt` inspect CSS `overscroll-behavior: none | contain`, `overflow-y: hidden`, inner container `scrollTop > 0`, and active reel/video feed elements on `touchstart`. When browsing reels, `SwipeRefreshLayout` never steals downward swipes, allowing seamless upward scrolling to previous reels without triggering accidental page refreshes.
 - **Truthful IntersectionObserver & Clean Audio Handoff**: Removed synthetic `IntersectionObserver` mock from `MediaPlaybackManager.kt`. Native Blink intersection engine accurately informs web players when an offscreen video leaves the viewport and the new video enters, immediately muting/pausing previous reels and automatically starting the active reel without manual taps. Background auto-resume listeners are isolated strictly to background state (`window.__onyx_in_background === true`).
+
+### 10. Desktop Mode & Automatic Viewport Scaling
+- **Brave/Chrome Parity 980px Layout Viewport**: Replicates Chromium's desktop site rendering by standardizing the layout viewport to 980 CSS pixels, eliminating cramped mobile responsive breakpoints and displaying full multi-column desktop layouts.
+- **Document-Start Viewport Interception**: Injects a `MutationObserver` at `document_start` via `WebViewCompat.addDocumentStartJavaScript` to capture `<meta name="viewport">` elements as they are created in `<head>` by the HTML parser, rewriting them to `width=980, initial-scale=${scale}, minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes` before initial layout calculation begins.
+- **Calculated Overview Scaling**: Dynamically computes `scalePercent = (screenWidthDp / 980) * 100` (~40% on standard mobile displays) and passes it to `WebView.setInitialScale()`, rendering pages already zoomed out to fit the display width without initial horizontal overflow.
+- **Client Hints (`navigator.userAgentData`) Spoofing**: Overrides `navigator.userAgentData` with `mobile: false`, `platform: 'Windows'`, and authentic desktop Chromium brands, alongside `navigator.platform: 'Win32'`, preventing modern sites (Google, YouTube, Reddit) from falling back to mobile layouts based on JavaScript Client Hints.
 
