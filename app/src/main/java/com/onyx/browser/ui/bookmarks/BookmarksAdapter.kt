@@ -26,8 +26,11 @@ class BookmarksAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: BookmarkItem) {
-            binding.tvBookmarkTitle.text = item.title.ifBlank { item.url }
-            binding.tvBookmarkUrl.text = item.url
+            val context = binding.root.context
+            val isLocal = com.onyx.browser.web.LocalFileLoader.isLocalFile(context, item.url) ||
+                          com.onyx.browser.web.LocalFileLoader.isPreviewUrl(item.url)
+            binding.tvBookmarkTitle.text = item.title.ifBlank { if (isLocal) "Local Document" else item.url }
+            binding.tvBookmarkUrl.text = if (isLocal) item.title.ifBlank { "Local Document" } else item.url
 
             binding.root.setOnClickListener { onItemClicked(item) }
             binding.btnDeleteBookmarkItem.setOnClickListener { onItemDeleted(item) }

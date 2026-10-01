@@ -119,7 +119,8 @@ object FaviconManager {
         saveToDisk: Boolean = true
     ) {
         val trimmed = urlOrHost.trim()
-        if (trimmed.isBlank() || trimmed.startsWith("about:") || trimmed.startsWith("chrome:") || trimmed.startsWith("onyx:")) {
+        if (trimmed.isBlank() || trimmed.startsWith("about:") || trimmed.startsWith("chrome:") || trimmed.startsWith("onyx:") ||
+            trimmed.startsWith("file:", ignoreCase = true) || trimmed.startsWith("content:", ignoreCase = true) || trimmed.startsWith("data:", ignoreCase = true)) {
             fallbackLetterView?.visibility = View.VISIBLE
             imageView.visibility = View.GONE
             return
@@ -180,7 +181,8 @@ object FaviconManager {
         onLoaded: (Bitmap?) -> Unit
     ) {
         val trimmed = urlOrHost.trim()
-        if (trimmed.isBlank() || trimmed.startsWith("about:") || trimmed.startsWith("chrome:") || trimmed.startsWith("onyx:")) {
+        if (trimmed.isBlank() || trimmed.startsWith("about:") || trimmed.startsWith("chrome:") || trimmed.startsWith("onyx:") ||
+            trimmed.startsWith("file:", ignoreCase = true) || trimmed.startsWith("content:", ignoreCase = true) || trimmed.startsWith("data:", ignoreCase = true)) {
             onLoaded(null)
             return
         }

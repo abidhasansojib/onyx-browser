@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <title>Markdown Preview</title>
+  <title>{{FILE_NAME}}</title>
   <style>
     :root {
       --bg: #FFFFFF;
@@ -462,7 +462,7 @@
   <script>
     // Embedded or Injected Markdown Source via Base64 UTF-8
     const B64_SOURCE = `{{MARKDOWN_B64}}`;
-    const FILE_NAME = `{{FILE_NAME}}`;
+    const FILE_NAME = document.title || `{{FILE_NAME}}`;
 
     let markdownText = "";
     if (!B64_SOURCE.startsWith("{{") && B64_SOURCE.trim().length > 0) {
@@ -481,9 +481,8 @@
     }
 
     const titleEl = document.getElementById("docTitle");
-    if (!FILE_NAME.startsWith("{{") && FILE_NAME.trim().length > 0) {
+    if (FILE_NAME && !FILE_NAME.startsWith("{{") && FILE_NAME.trim().length > 0) {
       titleEl.innerText = FILE_NAME;
-      document.title = FILE_NAME + " - Onyx Browser";
     }
 
     // Update word count stats

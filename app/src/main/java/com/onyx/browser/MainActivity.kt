@@ -400,7 +400,7 @@ class MainActivity : AppCompatActivity() {
                 wv.clearSyntheticState()
                 wv.loadUrl(failingUrl)
                 binding.swipeRefreshLayout.isRefreshing = false
-            } else if (activeTab != null && wv != null && LocalFileLoader.isLocalFile(activeTab.url)) {
+            } else if (activeTab != null && wv != null && LocalFileLoader.isLocalFile(this, activeTab.url)) {
                 LocalFileLoader.loadLocalFile(this, wv, activeTab.url)
                 binding.swipeRefreshLayout.isRefreshing = false
             } else {
@@ -849,7 +849,7 @@ class MainActivity : AppCompatActivity() {
             val needsLoad = forceUrl != null || !isCurrentLoaded || (reloadIfChanged && webView.url != targetUrl)
             if (needsLoad) {
                 try {
-                    if (LocalFileLoader.isLocalFile(targetUrl)) {
+                    if (LocalFileLoader.isLocalFile(this, targetUrl)) {
                         LocalFileLoader.loadLocalFile(this, webView, targetUrl) { title ->
                             tabManager.updateActiveTab(targetUrl, title)
                         }
@@ -869,7 +869,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        updateAddressBarDisplay(if (LocalFileLoader.isLocalFile(targetUrl)) targetUrl else (webView.url ?: targetUrl))
+        updateAddressBarDisplay(if (LocalFileLoader.isLocalFile(this, targetUrl)) targetUrl else (webView.url ?: targetUrl))
         webView.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.mediaMonitorScript, null)
     }
 
@@ -1102,7 +1102,7 @@ class MainActivity : AppCompatActivity() {
         )
 
         webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
-            if (LocalFileLoader.isLocalFile(url)) {
+            if (LocalFileLoader.isLocalFile(this, url)) {
                 LocalFileLoader.loadLocalFile(this, webView, url)
                 return@setDownloadListener
             }
@@ -1522,7 +1522,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnCurrentPageEdit.setOnClickListener {
             val url = getActivePageUrl()
             if (url.isNotBlank()) {
-                val cleanUrl = if (LocalFileLoader.isLocalFile(url)) {
+                val cleanUrl = if (LocalFileLoader.isLocalFile(this, url)) {
                     try {
                         val parsed = Uri.parse(url)
                         if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else url
@@ -1757,7 +1757,8 @@ class MainActivity : AppCompatActivity() {
             return failingUrl
         }
         val tabUrl = tabManager.activeTab.value?.url ?: ""
-        if (tabUrl.startsWith("data:") || tabUrl.startsWith("file:///android_asset/") || tabUrl.startsWith("file:///android_res/") || LocalFileLoader.isPreviewUrl(tabUrl)) {
+        if (tabUrl.startsWith("data:") || tabUrl.startsWith("file:///android_asset/") || tabUrl.startsWith("file:///android_res/") ||
+            LocalFileLoader.isPreviewUrl(tabUrl) || LocalFileLoader.isSensitiveOrRestrictedPath(this, tabUrl)) {
             return ""
         }
         return tabUrl
@@ -2476,7 +2477,7 @@ class MainActivity : AppCompatActivity() {
     private fun translateCurrentPage(langCode: String) {
         val activeTab = tabManager.activeTab.value ?: return
         val currentUrl = activeTab.url
-        if (currentUrl.isBlank() || currentUrl.startsWith("onyx://") || currentUrl.startsWith("about:") || LocalFileLoader.isLocalFile(currentUrl)) {
+        if (currentUrl.isBlank() || currentUrl.startsWith("onyx://") || currentUrl.startsWith("about:") || LocalFileLoader.isLocalFile(this, currentUrl)) {
             Toast.makeText(this, "Cannot translate internal page", Toast.LENGTH_SHORT).show()
             return
         }
@@ -2776,7 +2777,7 @@ class MainActivity : AppCompatActivity() {
                     if (state?.category == com.onyx.browser.web.error.SyntheticNavigationState.ErrorCategory.OFFLINE) {
                         val url = state.failingUrl.ifBlank { wv.lastFailingUrl ?: "" }
                         wv.clearSyntheticState()
-                        if (url.isNotBlank() && !LocalFileLoader.isLocalFile(url)) {
+                        if (url.isNotBlank() && !LocalFileLoader.isLocalFile(this, url)) {
                             wv.loadUrl(url)
                         } else {
                             wv.reload()

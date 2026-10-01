@@ -265,10 +265,22 @@
                 <data android:pathPattern=".*\\.htm" />
                 <data android:pathPattern=".*\\.md" />
                 <data android:pathPattern=".*\\.markdown" />
+                <data android:pathPattern=".*\\.mdown" />
+                <data android:pathPattern=".*\\.mkd" />
+                <data android:pathPattern=".*\\.txt" />
                 <data android:pathPattern=".*\\..*\\.html" />
                 <data android:pathPattern=".*\\..*\\.htm" />
                 <data android:pathPattern=".*\\..*\\.md" />
                 <data android:pathPattern=".*\\..*\\.markdown" />
+                <data android:pathPattern=".*\\..*\\.mdown" />
+                <data android:pathPattern=".*\\..*\\.mkd" />
+                <data android:pathPattern=".*\\..*\\.txt" />
+                <data android:pathPattern=".*README" />
+                <data android:pathPattern=".*readme" />
+                <data android:pathPattern=".*Readme" />
+                <data android:pathPattern=".*README\\..*" />
+                <data android:pathPattern=".*readme\\..*" />
+                <data android:pathPattern=".*Readme\\..*" />
             </intent-filter>
 
             <!-- Local MHTML/MHT Web Archive Handler (by file extension) -->

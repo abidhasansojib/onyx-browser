@@ -33,7 +33,10 @@ class TabsAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: TabItem) {
+            val context = binding.root.context
             val locked = isTabLocked?.invoke(item) == true
+            val isLocal = com.onyx.browser.web.LocalFileLoader.isLocalFile(context, item.url) ||
+                          com.onyx.browser.web.LocalFileLoader.isPreviewUrl(item.url)
 
             if (locked) {
                 binding.tvTabTitle.text = "Protected Tab"
@@ -42,7 +45,13 @@ class TabsAdapter(
                 binding.tvTabTitle.text = item.title.ifBlank { "New Tab" }
 
                 val domain = try {
-                    if (item.url.isNotBlank()) Uri.parse(item.url).host ?: item.url else "New Tab"
+                    if (isLocal) {
+                        item.title.ifBlank { "Local Document" }
+                    } else if (item.url.isNotBlank()) {
+                        Uri.parse(item.url).host ?: item.url
+                    } else {
+                        "New Tab"
+                    }
                 } catch (e: Exception) {
                     item.url
                 }
@@ -50,7 +59,6 @@ class TabsAdapter(
             }
 
             val isActive = item.id == activeTabId
-            val context = binding.root.context
             val density = context.resources.displayMetrics.density
 
             if (isActive) {
@@ -82,6 +90,9 @@ class TabsAdapter(
             } else if (item.isIncognito) {
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_incognito)
                 binding.ivTabFavicon.setColorFilter(if (isActive) android.graphics.Color.WHITE else ContextCompat.getColor(context, R.color.incognito_purple))
+            } else if (isLocal) {
+                binding.ivTabFavicon.setImageResource(R.drawable.ic_file)
+                binding.ivTabFavicon.clearColorFilter()
             } else {
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_web)
                 binding.ivTabFavicon.clearColorFilter()

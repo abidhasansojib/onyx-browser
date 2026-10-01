@@ -26,8 +26,11 @@ class HistoryAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: HistoryItem) {
-            binding.tvHistoryTitle.text = item.title.ifBlank { item.url }
-            binding.tvHistoryUrl.text = item.url
+            val context = binding.root.context
+            val isLocal = com.onyx.browser.web.LocalFileLoader.isLocalFile(context, item.url) ||
+                          com.onyx.browser.web.LocalFileLoader.isPreviewUrl(item.url)
+            binding.tvHistoryTitle.text = item.title.ifBlank { if (isLocal) "Local Document" else item.url }
+            binding.tvHistoryUrl.text = if (isLocal) item.title.ifBlank { "Local Document" } else item.url
 
             binding.root.setOnClickListener { onItemClicked(item) }
             binding.btnDeleteHistoryItem.setOnClickListener { onItemDeleted(item) }

@@ -421,6 +421,9 @@ object LocalFileLoader {
             name.startsWith("readme.", ignoreCase = true) ||
             name.contains("readme", ignoreCase = true) ||
             path.contains("readme", ignoreCase = true) ||
+            name.contains("changelog", ignoreCase = true) ||
+            name.contains("contributing", ignoreCase = true) ||
+            name.contains("license", ignoreCase = true) ||
             mimeType == "text/markdown" || mimeType == "text/x-markdown"
         ) {
             return LocalFileType.MARKDOWN
@@ -696,26 +699,8 @@ object LocalFileLoader {
             return null
         }
 
-        // For file:// sub-resources, canonicalize path to detect directory traversal attempts.
-        if (url.startsWith("file://", ignoreCase = true)) {
-            try {
-                val uri = Uri.parse(url)
-                val rawPath = uri.path
-                if (!rawPath.isNullOrBlank()) {
-                    val canonical = java.io.File(rawPath).canonicalPath
-                    // Block access to sensitive directories
-                    val blockedPrefixes = listOf("/data/", "/proc/", "/sys/")
-                    if (blockedPrefixes.any { canonical.startsWith(it) }) {
-                        return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
-                    }
-                    // Block access to the app's own private data dir
-                    val appDataPath = context.dataDir?.canonicalPath
-                    if (appDataPath != null && canonical.startsWith(appDataPath)) {
-                        return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
-                    }
-                }
-            } catch (_: Exception) {
-                // If canonicalization fails, deny the request
+        if (url.startsWith("file://", ignoreCase = true) || url.startsWith("content://", ignoreCase = true)) {
+            if (isSensitiveOrRestrictedPath(context, url)) {
                 return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
             }
         }
@@ -791,7 +776,8 @@ object LocalFileLoader {
      */
     fun isMarkdownContent(fileName: String, content: String): Boolean {
         val lower = fileName.lowercase()
-        if (lower.contains("readme") || lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".mdown") || lower.endsWith(".mkd")) {
+        if (lower.contains("readme") || lower.contains("changelog") || lower.contains("contributing") || lower.contains("license") ||
+            lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".mdown") || lower.endsWith(".mkd")) {
             return true
         }
         val firstLines = content.lineSequence().take(30).toList()
