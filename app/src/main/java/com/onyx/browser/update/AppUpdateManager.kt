@@ -272,7 +272,9 @@ object AppUpdateManager {
                 val assetName = assetObj.optString("name", "")
                 val assetSize = assetObj.optLong("size", 0L)
                 val downloadUrl = assetObj.optString("browser_download_url", "")
-                if (assetName.endsWith(".apk", ignoreCase = true) && downloadUrl.isNotBlank()) {
+                if (assetName.endsWith(".apk", ignoreCase = true) &&
+                    downloadUrl.isNotBlank() &&
+                    isAllowedUpdateUrl(downloadUrl)) {
                     assetsList.add(ReleaseAsset(name = assetName, size = assetSize, downloadUrl = downloadUrl))
                 }
             }
@@ -322,7 +324,10 @@ object AppUpdateManager {
                 val name = matcher.group(2) ?: continue
                 if (seenNames.add(name)) {
                     val fullUrl = "https://github.com$path"
-                    assets.add(ReleaseAsset(name = name, size = 0L, downloadUrl = fullUrl))
+                    // Ensure the constructed URL is still on github.com (sanity check)
+                    if (isAllowedUpdateUrl(fullUrl)) {
+                        assets.add(ReleaseAsset(name = name, size = 0L, downloadUrl = fullUrl))
+                    }
                 }
             }
             assets
@@ -337,6 +342,24 @@ object AppUpdateManager {
             val fileName = "Onyx-Browser-$tagName-$abi-release.apk"
             val downloadUrl = "https://github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases/download/$tagName/$fileName"
             ReleaseAsset(name = fileName, size = 0L, downloadUrl = downloadUrl)
+        }
+    }
+
+    /**
+     * Validates that a download URL is from an expected trusted host.
+     * APK update URLs must only come from github.com or GitHub's CDN hosts.
+     * This prevents MITM/compromised feeds from redirecting to malicious hosts.
+     */
+    private fun isAllowedUpdateUrl(url: String): Boolean {
+        if (url.isBlank()) return false
+        return try {
+            val host = android.net.Uri.parse(url).host?.lowercase() ?: return false
+            host == "github.com" ||
+                host.endsWith(".github.com") ||
+                host == "objects.githubusercontent.com" ||
+                host.endsWith(".githubusercontent.com")
+        } catch (_: Exception) {
+            false
         }
     }
 

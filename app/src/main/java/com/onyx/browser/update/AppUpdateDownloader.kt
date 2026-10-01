@@ -31,6 +31,12 @@ class AppUpdateDownloader(private val context: Context) {
         onProgress: (bytesRead: Long, totalBytes: Long, bytesPerSec: Long) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
         isCancelled.set(false)
+
+        // Only allow HTTPS download URLs for APK updates.
+        if (!downloadUrl.startsWith("https://", ignoreCase = true)) {
+            return@withContext Result.failure(IOException("Update download URL must use HTTPS"))
+        }
+
         val updateDir = File(context.cacheDir, "updates").apply {
             if (!exists()) mkdirs()
         }
@@ -55,6 +61,17 @@ class AppUpdateDownloader(private val context: Context) {
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
                 return@withContext Result.failure(IOException("Server returned HTTP ${response.code}"))
+            }
+
+            // Validate the response Content-Type is an APK before writing to disk.
+            // This prevents a MITM or misconfigured server from serving a different file type.
+            val contentType = response.header("Content-Type")?.lowercase() ?: ""
+            val isApkMimeType = contentType.contains("vnd.android.package-archive") ||
+                contentType.contains("application/octet-stream") ||
+                contentType.contains("application/zip") ||
+                targetFileName.endsWith(".apk", ignoreCase = true)
+            if (!isApkMimeType) {
+                return@withContext Result.failure(IOException("Unexpected Content-Type: $contentType. Expected an APK."))
             }
 
             val body = response.body ?: return@withContext Result.failure(IOException("Empty response body"))

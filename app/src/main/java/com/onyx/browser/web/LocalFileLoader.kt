@@ -53,14 +53,21 @@ object LocalFileLoader {
             trimmed.startsWith("file:///android_res/", ignoreCase = true)) {
             return false
         }
+        // Block sensitive system/internal paths — these should never be opened in the browser.
+        // /data/ contains Android app internal storage and private app data.
+        // /proc/ and /sys/ expose Linux kernel internals.
+        val lower = trimmed.lowercase()
+        if (lower.startsWith("/data/") || lower.startsWith("file:///data/") ||
+            lower.startsWith("/proc/") || lower.startsWith("file:///proc/") ||
+            lower.startsWith("/sys/") || lower.startsWith("file:///sys/")) {
+            return false
+        }
         if (trimmed.startsWith("file://", ignoreCase = true) ||
             trimmed.startsWith("content://", ignoreCase = true) ||
             trimmed.startsWith("/storage/", ignoreCase = true) ||
-            trimmed.startsWith("/sdcard/", ignoreCase = true) ||
-            trimmed.startsWith("/data/", ignoreCase = true)) {
+            trimmed.startsWith("/sdcard/", ignoreCase = true)) {
             return true
         }
-        val lower = trimmed.lowercase()
         if (lower.endsWith(".html") || lower.endsWith(".htm") || lower.endsWith(".xhtml") ||
             lower.endsWith(".mht") || lower.endsWith(".mhtml") ||
             lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".mdown") ||
@@ -553,12 +560,38 @@ object LocalFileLoader {
 
     /**
      * Intercepts sub-resource requests made by local HTML pages (images, CSS, JS, fonts).
+     * Enforces path restrictions to prevent traversal into sensitive system directories.
      */
     fun interceptLocalSubResource(context: Context, url: String): WebResourceResponse? {
         if (url.startsWith("file:///android_asset/", ignoreCase = true) ||
             url.startsWith("file:///android_res/", ignoreCase = true)) {
             return null
         }
+
+        // For file:// sub-resources, canonicalize path to detect directory traversal attempts.
+        if (url.startsWith("file://", ignoreCase = true)) {
+            try {
+                val uri = Uri.parse(url)
+                val rawPath = uri.path
+                if (!rawPath.isNullOrBlank()) {
+                    val canonical = java.io.File(rawPath).canonicalPath
+                    // Block access to sensitive directories
+                    val blockedPrefixes = listOf("/data/", "/proc/", "/sys/")
+                    if (blockedPrefixes.any { canonical.startsWith(it) }) {
+                        return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+                    }
+                    // Block access to the app's own private data dir
+                    val appDataPath = context.dataDir?.canonicalPath
+                    if (appDataPath != null && canonical.startsWith(appDataPath)) {
+                        return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+                    }
+                }
+            } catch (_: Exception) {
+                // If canonicalization fails, deny the request
+                return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+            }
+        }
+
         val uri = try { Uri.parse(url) } catch (_: Exception) { return null }
         val stream = openInputStream(context, uri) ?: return null
         val ext = MimeTypeMap.getFileExtensionFromUrl(url).lowercase()

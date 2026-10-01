@@ -37,7 +37,22 @@ import java.net.URLDecoder
 object DownloadHandler {
 
     fun sanitizeFileName(name: String): String {
-        val clean = name.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
+        // Strip null bytes (path truncation attacks) and path separators / traversal sequences
+        var clean = name
+            .replace("\u0000", "")             // null bytes
+            .replace(Regex("[/\\\\:*?\"<>|]"), "_")  // reserved filesystem chars
+            .trim()
+            .trimStart('.')                    // no hidden files (leading dots)
+        // Collapse any remaining "../" traversal attempts that survived char replacement
+        while (clean.contains("..")) {
+            clean = clean.replace("..", "_")
+        }
+        // Hard cap: filenames > 255 chars can exceed most filesystem limits
+        if (clean.length > 240) {
+            val ext = clean.substringAfterLast('.', "")
+            val base = clean.substringBeforeLast('.').take(230)
+            clean = if (ext.isNotBlank()) "$base.$ext" else base
+        }
         return if (clean.isBlank()) "download_${System.currentTimeMillis()}" else clean
     }
 
@@ -153,6 +168,17 @@ object DownloadHandler {
         mimeType: String = "",
         suggestedFileName: String? = null
     ) {
+        // Guard: reject suspiciously large data URIs before decoding them into memory.
+        // A 256 MB data URI after base64 decoding (~192 MB raw) is already unreasonably large
+        // for a browser download trigger. Malicious pages could craft multi-GB URIs to OOM.
+        val MAX_DATA_URI_BYTES = 256 * 1024 * 1024 // 256 MB
+        if (dataUri.length > MAX_DATA_URI_BYTES) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                Toast.makeText(context, "Download file is too large to process this way", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val commaIndex = dataUri.indexOf(',')
@@ -388,17 +414,19 @@ object DownloadHandler {
             extractFileNameFromPageUrl(pageUrl) ?: "download_${System.currentTimeMillis()}"
         }
 
-        val escapedBlobUrl = blobUrl.replace("'", "\\'")
-        val escapedFileName = initialFileName.replace("'", "\\'")
-        val escapedMimeType = mimeType.replace("'", "\\'")
-        val escapedPageUrl = pageUrl.replace("'", "\\'")
+        // Encode all values as Base64 and decode in JS via atob() to prevent JS injection.
+        // Single-quote escaping is insufficient (backslash, newline, or unicode escapes can break out).
+        val b64BlobUrl = android.util.Base64.encodeToString(blobUrl.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+        val b64FileName = android.util.Base64.encodeToString(initialFileName.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+        val b64MimeType = android.util.Base64.encodeToString(mimeType.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+        val b64PageUrl = android.util.Base64.encodeToString(pageUrl.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
 
         val script = """
             (function() {
-                var blobUrl = '$escapedBlobUrl';
-                var defaultFileName = '$escapedFileName';
-                var defaultMime = '$escapedMimeType';
-                var pageUrl = '$escapedPageUrl';
+                var blobUrl = atob('$b64BlobUrl');
+                var defaultFileName = atob('$b64FileName');
+                var defaultMime = atob('$b64MimeType');
+                var pageUrl = atob('$b64PageUrl');
 
                 function sendSuccess(dataUrl, resolvedName, resolvedMime) {
                     if (window.OnyxBlobBridge && window.OnyxBlobBridge.onBlobDownloaded) {
