@@ -476,3 +476,16 @@ onyx-browser/
    - **Update URL Allowlist** (`AppUpdateManager`): `isAllowedUpdateUrl()` restricts all APK asset download URLs to `github.com` and `*.githubusercontent.com`. Applied to HTML scraper, Atom feed parser, and REST API asset lists to prevent MITM-redirected update URLs.
    - **APK Download Hardening** (`AppUpdateDownloader`): Enforces HTTPS-only URLs; validates HTTP response `Content-Type` is an APK MIME type before writing bytes to disk.
 
+
+7. **Developer Tools Overhaul** (commit `99e7e0b`):
+   - **Mutex-guarded cache**: Replaced `synchronized()` inside coroutine context with `kotlinx.coroutines.sync.Mutex` for thread-safe `eruda.min.js` loading.
+   - **Result parsing fix**: `evaluateJavascript()` returns JSON-quoted strings; now correctly unwrapped with `removeSurrounding()`.
+   - **Status handler fix in `MainActivity`**: Error result no longer incorrectly sets `isDevToolsActive = true`. "hidden" now keeps `isDevToolsActive = true` so auto-reinject fires correctly on next navigation (Eruda icon stays visible).
+   - **Console buffer: object serialization**: Complex objects/arrays serialized with `JSON.stringify`; `Error` instances capture `.stack` for full stack traces. Buffer cap raised from 250 → 500.
+   - **Live Eruda forwarding**: Patched `console.log/warn/error/info/debug` in `consoleBufferScript` now immediately push messages into Eruda's panel when it is open.
+   - **Adaptive panel height**: `displaySize` scales from 38% (small phones < 600dp) to 55% (tablets) instead of hardcoded 55%.
+   - **New `updateTheme()` API**: Dynamically switch Eruda Light/Dark theme without re-initializing.
+   - **New `forwardConsoleMessage()` API**: Entry point for native WebCore → Eruda live forwarding.
+   - **Code deduplication**: Extracted `buildInitScript()` shared between `toggleDevTools` and `autoReinjectDevTools`.
+   - **Cleaner `destroyDevTools`**: Also resets `__onyx_eruda_init_attempted` flag.
+   - **Removed redundant toasts**: Eruda panel appearing/disappearing is its own feedback; toasts only shown on actual failures.
