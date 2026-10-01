@@ -2358,30 +2358,28 @@ class MainActivity : AppCompatActivity() {
 
     private var currentTranslateTargetCode: String = ""
 
+    fun setTranslateLoading(isLoading: Boolean) {
+        runOnUiThread {
+            binding.pbTranslateLoading.visibility = if (isLoading) View.VISIBLE else View.GONE
+        }
+    }
+
     private fun setupTranslateBar() {
         binding.toggleTranslateMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
             val wv = tabManager.getActiveWebView() ?: return@addOnButtonCheckedListener
-            val activeTab = tabManager.activeTab.value
             when (checkedId) {
                 R.id.btnTranslateOriginal -> {
-                    if (activeTab != null && activeTab.url.isNotBlank()) {
-                        PageTranslateManager.clearCookies(activeTab.url)
-                    }
                     wv.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
+                    binding.pbTranslateLoading.visibility = View.GONE
                 }
                 R.id.btnTranslateTarget -> {
                     val code = currentTranslateTargetCode.ifBlank { preferences.targetTranslateLanguage }
-                    if (activeTab != null && activeTab.url.isNotBlank()) {
-                        PageTranslateManager.setupCookies(activeTab.url, code)
-                    }
                     binding.pbTranslateLoading.visibility = View.VISIBLE
-                    wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(code)) { result ->
+                    wv.evaluateJavascript(PageTranslateManager.toggleTranslatedScript) { result ->
                         val res = result?.trim('"')
-                        if (res == "reinitialize" || res == "pending" || res == null) {
-                            wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code)) {
-                                binding.pbTranslateLoading.visibility = View.GONE
-                            }
+                        if (res != "translated") {
+                            wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code), null)
                         } else {
                             binding.pbTranslateLoading.visibility = View.GONE
                         }
@@ -2398,21 +2396,8 @@ class MainActivity : AppCompatActivity() {
                 binding.btnTranslateTarget.text = name
                 binding.toggleTranslateMode.check(R.id.btnTranslateTarget)
                 val wv = tabManager.getActiveWebView() ?: return@LanguageSelectionDialog
-                val activeTab = tabManager.activeTab.value
-                if (activeTab != null && activeTab.url.isNotBlank()) {
-                    PageTranslateManager.setupCookies(activeTab.url, code)
-                }
                 binding.pbTranslateLoading.visibility = View.VISIBLE
-                wv.evaluateJavascript(PageTranslateManager.getSwitchLanguageScript(code)) { result ->
-                    val res = result?.trim('"')
-                    if (res == "reinitialize" || res == "pending" || res == null) {
-                        wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code)) {
-                            binding.pbTranslateLoading.visibility = View.GONE
-                        }
-                    } else {
-                        binding.pbTranslateLoading.visibility = View.GONE
-                    }
-                }
+                wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code), null)
             }
             dialog.show(supportFragmentManager, "LanguageSelectionDialog")
         }
@@ -2433,11 +2418,6 @@ class MainActivity : AppCompatActivity() {
         binding.translateBar.visibility = View.GONE
         binding.pbTranslateLoading.visibility = View.GONE
         if (restoreOriginal) {
-            val activeTab = tabManager.activeTab.value
-            if (activeTab != null && activeTab.url.isNotBlank()) {
-                PageTranslateManager.clearCookies(activeTab.url)
-            }
-            // Try JS restore first; JS will reload on its own if needed
             tabManager.getActiveWebView()?.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
         }
     }
@@ -2462,10 +2442,7 @@ class MainActivity : AppCompatActivity() {
         showTranslateBar(targetCode, targetName)
         binding.pbTranslateLoading.visibility = View.VISIBLE
 
-        PageTranslateManager.setupCookies(currentUrl, targetCode)
-        webView.evaluateJavascript(PageTranslateManager.getTranslateScript(targetCode)) { _ ->
-            binding.pbTranslateLoading.visibility = View.GONE
-        }
+        webView.evaluateJavascript(PageTranslateManager.getTranslateScript(targetCode), null)
     }
 
     private fun addCurrentPageToHomeScreen() {

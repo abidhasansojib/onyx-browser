@@ -3,380 +3,322 @@ package com.onyx.browser.web.translate
 import android.webkit.CookieManager
 import java.net.URI
 
+/**
+ * High-performance Native DOM Translation Manager for Onyx Browser.
+ * Replaces deprecated external Google Translate script injection with a CSP-immune,
+ * in-process native translation pipeline. Works uniformly across ALL search engines
+ * (Google, Bing, DuckDuckGo, Brave Search, Yahoo, Startpage) and strict CSP websites.
+ */
 object PageTranslateManager {
 
-    /**
-     * Injects the in-page DOM translation engine into the active webpage.
-     * Thoroughly purges previous googtrans cookies to prevent language sticking (e.g. defaulting to Bangla),
-     * applies off-screen (instead of display:none) styling so Google's iframe initializes cleanly,
-     * and sets the new language accurately.
-     */
-    fun getTranslateScript(targetLang: String): String = """
-        (function() {
-            var targetLang = '$targetLang';
-            var host = window.location.hostname || '';
-
-            function normalizeLang(code) {
-                if (!code) return '';
-                var c = code.toLowerCase().trim();
-                if (c === 'fil') return 'tl';
-                if (c === 'he') return 'iw';
-                if (c === 'jv') return 'jw';
-                if (c === 'zh-cn' || c === 'zh_cn' || c === 'zh-hans') return 'zh-CN';
-                if (c === 'zh-tw' || c === 'zh_tw' || c === 'zh-hant') return 'zh-TW';
-                return code;
-            }
-
-            // 1. Thoroughly purge old googtrans cookies across all domains & paths
-            var domains = ['', host, '.' + host];
-            var parts = host.split('.');
-            while (parts.length > 1) {
-                domains.push('.' + parts.join('.'));
-                domains.push(parts.join('.'));
-                parts.shift();
-            }
-            var paths = ['/', '', window.location.pathname];
-            for (var d = 0; d < domains.length; d++) {
-                for (var p = 0; p < paths.length; p++) {
-                    var domainStr = domains[d] ? '; domain=' + domains[d] : '';
-                    var pathStr = paths[p] ? '; path=' + paths[p] : '';
-                    document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC' + pathStr + domainStr;
-                }
-            }
-
-            // 2. Set Google Translate cookies for root domain and current host
-            var rootDomain = parts.length > 1 ? parts.slice(-2).join('.') : host;
-            document.cookie = 'googtrans=/auto/' + targetLang + '; path=/;';
-            if (rootDomain) {
-                document.cookie = 'googtrans=/auto/' + targetLang + '; domain=.' + rootDomain + '; path=/;';
-            }
-            if (host && host !== rootDomain) {
-                document.cookie = 'googtrans=/auto/' + targetLang + '; domain=.' + host + '; path=/;';
-            }
-
-            // 3. Inject CSS to hide Google banner frame off-screen (never display:none so iframes stay active)
-            if (!document.getElementById('__onyx_translate_style')) {
-                var style = document.createElement('style');
-                style.id = '__onyx_translate_style';
-                style.textContent = `
-                    .goog-te-banner-frame, .goog-te-banner-frame.skiptranslate,
-                    iframe.goog-te-banner-frame, #goog-gt-tt, .goog-te-balloon-frame {
-                        position: absolute !important;
-                        top: -9999px !important;
-                        left: -9999px !important;
-                        width: 1px !important;
-                        height: 1px !important;
-                        opacity: 0 !important;
-                        pointer-events: none !important;
-                        visibility: hidden !important;
-                    }
-                    body {
-                        top: 0px !important;
-                        position: static !important;
-                    }
-                    .goog-text-highlight {
-                        background: transparent !important;
-                        box-shadow: none !important;
-                    }
-                    #onyx_translate_element {
-                        display: none !important;
-                        visibility: hidden !important;
-                    }
-                    .skiptranslate:not(.goog-te-gadget) {
-                        display: none !important;
-                    }
-                `;
-                (document.head || document.documentElement).appendChild(style);
-            }
-
-            function applyComboTarget(c, lang) {
-                if (!c || !c.options) return false;
-                var normTarget = normalizeLang(lang).toLowerCase();
-                var rawTarget = lang.toLowerCase();
-                var baseLang = rawTarget.split('-')[0].split('_')[0];
-                var foundIndex = -1;
-
-                for (var i = 0; i < c.options.length; i++) {
-                    var optVal = (c.options[i].value || '').toLowerCase();
-                    if (optVal === normTarget || optVal === rawTarget) {
-                        foundIndex = i;
-                        break;
-                    }
-                }
-                if (foundIndex === -1) {
-                    for (var i = 0; i < c.options.length; i++) {
-                        var optVal = (c.options[i].value || '').toLowerCase();
-                        if (optVal === baseLang || optVal.startsWith(baseLang + '-')) {
-                            foundIndex = i;
-                            break;
-                        }
-                    }
-                }
-
-                if (foundIndex !== -1) {
-                    c.selectedIndex = foundIndex;
-                    c.value = c.options[foundIndex].value;
-                } else {
-                    c.value = lang;
-                }
-                c.dispatchEvent(new Event('change', { bubbles: true }));
-                c.dispatchEvent(new Event('input', { bubbles: true }));
-                return true;
-            }
-
-            // 4. If combo already exists, trigger change immediately
-            var combo = document.querySelector('.goog-te-combo');
-            if (combo) {
-                applyComboTarget(combo, targetLang);
-                return 'switched';
-            }
-
-            // 5. Create hidden translate container
-            if (!document.getElementById('onyx_translate_element')) {
-                var div = document.createElement('div');
-                div.id = 'onyx_translate_element';
-                div.style.display = 'none';
-                (document.body || document.documentElement).appendChild(div);
-            }
-
-            // 6. Define initialization hook
-            window.onyxTranslateInit = function() {
-                try {
-                    new google.translate.TranslateElement({
-                        pageLanguage: 'auto',
-                        autoDisplay: false,
-                        multilanguagePage: true
-                    }, 'onyx_translate_element');
-
-                    var attempts = 0;
-                    var interval = setInterval(function() {
-                        var c = document.querySelector('.goog-te-combo');
-                        if (c && c.options && c.options.length > 1) {
-                            clearInterval(interval);
-                            applyComboTarget(c, targetLang);
-                        } else if (++attempts > 50) {
-                            clearInterval(interval);
-                            if (c) applyComboTarget(c, targetLang);
-                        }
-                    }, 80);
-                } catch (e) {}
-            };
-
-            // 7. Inject Google Translate Element script if not already present
-            if (!document.getElementById('__onyx_translate_script')) {
-                var s = document.createElement('script');
-                s.id = '__onyx_translate_script';
-                s.src = 'https://translate.google.com/translate_a/element.js?cb=onyxTranslateInit';
-                (document.head || document.documentElement).appendChild(s);
-            } else {
-                if (typeof window.onyxTranslateInit === 'function') {
-                    window.onyxTranslateInit();
-                }
-            }
-
-            return 'initialized';
-        })();
-    """.trimIndent()
+    fun normalizeLang(code: String): String {
+        if (code.isBlank()) return "en"
+        val c = code.lowercase().trim()
+        return when {
+            c == "fil" -> "tl"
+            c == "he" -> "iw"
+            c == "jv" -> "jw"
+            c == "zh-cn" || c == "zh_cn" || c == "zh-hans" -> "zh-CN"
+            c == "zh-tw" || c == "zh_tw" || c == "zh-hant" -> "zh-TW"
+            c.startsWith("pt") -> if (c.contains("br")) "pt" else "pt"
+            else -> code
+        }
+    }
 
     /**
-     * Switches the active in-page translation to another target language.
-     * Clears old cookies to prevent sticking, updates the combo element, and
-     * if the combo is not present in the DOM (e.g. after restore or page navigation),
-     * returns 'reinitialize' so the caller can reinject the translation engine.
+     * JavaScript that performs DOM traversal, preserves original text and whitespace,
+     * tags text nodes into XML batches, and delegates network translation to OnyxTranslateBridge.
+     * Also initializes a MutationObserver to translate dynamically loaded search results (infinite scroll).
      */
-    fun getSwitchLanguageScript(targetLang: String): String = """
-        (function() {
-            var targetLang = '$targetLang';
-            var host = window.location.hostname || '';
-
-            function normalizeLang(code) {
-                if (!code) return '';
-                var c = code.toLowerCase().trim();
-                if (c === 'fil') return 'tl';
-                if (c === 'he') return 'iw';
-                if (c === 'jv') return 'jw';
-                if (c === 'zh-cn' || c === 'zh_cn' || c === 'zh-hans') return 'zh-CN';
-                if (c === 'zh-tw' || c === 'zh_tw' || c === 'zh-hant') return 'zh-TW';
-                return code;
-            }
-
-            // 1. Thoroughly purge old googtrans cookies across all domains & paths
-            var domains = ['', host, '.' + host];
-            var parts = host.split('.');
-            while (parts.length > 1) {
-                domains.push('.' + parts.join('.'));
-                domains.push(parts.join('.'));
-                parts.shift();
-            }
-            var paths = ['/', '', window.location.pathname];
-            for (var d = 0; d < domains.length; d++) {
-                for (var p = 0; p < paths.length; p++) {
-                    var domainStr = domains[d] ? '; domain=' + domains[d] : '';
-                    var pathStr = paths[p] ? '; path=' + paths[p] : '';
-                    document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC' + pathStr + domainStr;
+    fun getTranslateScript(targetLang: String): String {
+        val normLang = normalizeLang(targetLang)
+        return """
+            (function() {
+                var targetLang = '$normLang';
+                if (!window.__onyx_translate_state) {
+                    window.__onyx_translate_state = {
+                        nodes: {},
+                        nextId: 0,
+                        isTranslating: false,
+                        activeLang: '',
+                        origDir: undefined,
+                        observer: null
+                    };
                 }
-            }
+                var state = window.__onyx_translate_state;
+                var langChanged = (state.activeLang !== targetLang && state.activeLang !== '');
+                state.activeLang = targetLang;
+                state.isTranslating = true;
 
-            // 2. Set new cookie
-            var rootDomain = parts.length > 1 ? parts.slice(-2).join('.') : host;
-            document.cookie = 'googtrans=/auto/' + targetLang + '; path=/;';
-            if (rootDomain) {
-                document.cookie = 'googtrans=/auto/' + targetLang + '; domain=.' + rootDomain + '; path=/;';
-            }
-            if (host && host !== rootDomain) {
-                document.cookie = 'googtrans=/auto/' + targetLang + '; domain=.' + host + '; path=/;';
-            }
-
-            // 3. Find combo and switch
-            var combo = document.querySelector('.goog-te-combo');
-            if (combo && combo.options && combo.options.length > 1) {
-                var normTarget = normalizeLang(targetLang).toLowerCase();
-                var rawTarget = targetLang.toLowerCase();
-                var baseLang = rawTarget.split('-')[0].split('_')[0];
-                var foundIndex = -1;
-
-                for (var i = 0; i < combo.options.length; i++) {
-                    var optVal = (combo.options[i].value || '').toLowerCase();
-                    if (optVal === normTarget || optVal === rawTarget) {
-                        foundIndex = i;
-                        break;
+                // Handle RTL language direction
+                var isRtl = (targetLang === 'ar' || targetLang === 'he' || targetLang === 'iw' || targetLang === 'fa' || targetLang === 'ur');
+                if (isRtl) {
+                    if (state.origDir === undefined) {
+                        state.origDir = document.documentElement.getAttribute('dir') || '';
                     }
-                }
-                if (foundIndex === -1) {
-                    for (var i = 0; i < combo.options.length; i++) {
-                        var optVal = (combo.options[i].value || '').toLowerCase();
-                        if (optVal === baseLang || optVal.startsWith(baseLang + '-')) {
-                            foundIndex = i;
-                            break;
-                        }
+                    document.documentElement.setAttribute('dir', 'rtl');
+                } else if (state.origDir !== undefined) {
+                    if (state.origDir) {
+                        document.documentElement.setAttribute('dir', state.origDir);
+                    } else {
+                        document.documentElement.removeAttribute('dir');
                     }
                 }
 
-                if (foundIndex !== -1) {
-                    combo.selectedIndex = foundIndex;
-                    combo.value = combo.options[foundIndex].value;
-                } else {
-                    combo.value = targetLang;
+                function escapeXml(str) {
+                    return str.replace(/&/g, '&amp;')
+                              .replace(/</g, '&lt;')
+                              .replace(/>/g, '&gt;')
+                              .replace(/"/g, '&quot;');
                 }
 
-                combo.dispatchEvent(new Event('change', { bubbles: true }));
-                combo.dispatchEvent(new Event('input', { bubbles: true }));
-                return 'switched';
-            }
+                var skipTags = {
+                    SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, INPUT: 1,
+                    SELECT: 1, OPTION: 1, CODE: 1, PRE: 1, SVG: 1, CANVAS: 1,
+                    AUDIO: 1, VIDEO: 1, IFRAME: 1, OBJECT: 1, EMBED: 1
+                };
 
-            return 'reinitialize';
-        })();
-    """.trimIndent()
-
-    /**
-     * Restores the page's original untranslated text directly in the DOM without reloading the webpage.
-     * 1. Clears googtrans cookies across all domains & paths.
-     * 2. Triggers Google's native restore button in the off-screen banner iframe.
-     * 3. Sets combo to option 0 (empty / original) and dispatches events.
-     * 4. Cleans translation classes from html and body.
-     * 5. Avoids force reloading the page unless in-place restore fails.
-     */
-    val restoreOriginalScript: String = """
-        (function() {
-            var host = window.location.hostname || '';
-            // 1. Clear googtrans cookies across all domains and paths
-            var domains = ['', host, '.' + host];
-            var parts = host.split('.');
-            while (parts.length > 1) {
-                domains.push('.' + parts.join('.'));
-                domains.push(parts.join('.'));
-                parts.shift();
-            }
-            var paths = ['/', '', window.location.pathname];
-            for (var d = 0; d < domains.length; d++) {
-                for (var p = 0; p < paths.length; p++) {
-                    var domainStr = domains[d] ? '; domain=' + domains[d] : '';
-                    var pathStr = paths[p] ? '; path=' + paths[p] : '';
-                    document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC' + pathStr + domainStr;
+                function shouldSkipElement(el) {
+                    if (!el || el.nodeType !== 1) return false;
+                    var tag = el.tagName;
+                    if (skipTags[tag]) return true;
+                    if (el.hasAttribute('translate') && el.getAttribute('translate') === 'no') return true;
+                    if (el.classList && (el.classList.contains('notranslate') || el.classList.contains('skiptranslate'))) return true;
+                    return false;
                 }
-            }
 
-            // 2. Try the native Google Translate restore button in iframes
-            try {
-                var iframes = document.querySelectorAll('iframe.goog-te-banner-frame, iframe[id*="goog"], .skiptranslate iframe, iframe');
-                for (var i = 0; i < iframes.length; i++) {
-                    try {
-                        var doc = iframes[i].contentDocument || iframes[i].contentWindow.document;
-                        if (doc) {
-                            var restoreBtn = doc.querySelector('[id*="restore"], .goog-close-link, .goog-te-button');
-                            if (restoreBtn) {
-                                restoreBtn.click();
-                                return 'restored_iframe_btn';
+                function isPurePunctuationOrNumber(str) {
+                    var s = str.trim();
+                    if (!s || s.length === 0) return true;
+                    return /^[\d\s\.,;:!?'"()\[\]{}\/\\@#$%^&*+=<>~`\-_|]+$/.test(s);
+                }
+
+                function collectTextNodes(root) {
+                    var eligible = [];
+                    var walker = document.createTreeWalker(
+                        root,
+                        NodeFilter.SHOW_TEXT,
+                        {
+                            acceptNode: function(node) {
+                                var parent = node.parentElement;
+                                if (!parent) return NodeFilter.FILTER_REJECT;
+                                var cur = parent;
+                                while (cur && cur !== document.documentElement) {
+                                    if (shouldSkipElement(cur)) return NodeFilter.FILTER_REJECT;
+                                    cur = cur.parentElement;
+                                }
+                                var val = node.nodeValue;
+                                if (!val || !val.trim() || isPurePunctuationOrNumber(val)) return NodeFilter.FILTER_REJECT;
+                                return NodeFilter.FILTER_ACCEPT;
                             }
-                            var allElements = doc.querySelectorAll('button, a, span, div');
-                            for (var j = 0; j < allElements.length; j++) {
-                                var t = (allElements[j].textContent || allElements[j].innerText || '').toLowerCase();
-                                if (t.indexOf('original') !== -1 || t.indexOf('restore') !== -1) {
-                                    allElements[j].click();
-                                    return 'restored_iframe_text';
+                        },
+                        false
+                    );
+
+                    var n;
+                    while ((n = walker.nextNode())) {
+                        eligible.push(n);
+                    }
+                    return eligible;
+                }
+
+                function processNodes(nodeList, isInitial) {
+                    var batchXml = '';
+                    var batchCount = 0;
+                    var batchId = state.nextId;
+
+                    for (var i = 0; i < nodeList.length; i++) {
+                        var node = nodeList[i];
+                        var id;
+                        if (node.__onyx_id !== undefined) {
+                            id = node.__onyx_id;
+                        } else {
+                            id = state.nextId++;
+                            node.__onyx_id = id;
+                            node.__onyx_orig = node.nodeValue;
+                            state.nodes[id] = node;
+                        }
+
+                        // Use original text for translation source
+                        var text = node.__onyx_orig || node.nodeValue;
+                        var match = text.match(/^(\s*)([\s\S]*?)(\s*)$/);
+                        var content = match ? match[2] : text;
+
+                        if (content.length > 0 && !isPurePunctuationOrNumber(content)) {
+                            batchXml += '<t id="' + id + '">' + escapeXml(content) + '</t>';
+                            batchCount++;
+                        }
+
+                        if (batchCount >= 35 || batchXml.length >= 2500) {
+                            if (window.OnyxTranslateBridge && window.OnyxTranslateBridge.translateBatch) {
+                                window.OnyxTranslateBridge.translateBatch(batchId, batchXml, targetLang, isInitial);
+                            }
+                            batchXml = '';
+                            batchCount = 0;
+                            batchId = state.nextId;
+                        }
+                    }
+
+                    if (batchCount > 0) {
+                        if (window.OnyxTranslateBridge && window.OnyxTranslateBridge.translateBatch) {
+                            window.OnyxTranslateBridge.translateBatch(batchId, batchXml, targetLang, isInitial);
+                        }
+                    }
+                }
+
+                window.__onyx_apply_batch = function(batchId, translations) {
+                    for (var id in translations) {
+                        var node = state.nodes[id];
+                        if (node) {
+                            var transText = translations[id];
+                            var orig = node.__onyx_orig || node.nodeValue;
+                            var match = orig.match(/^(\s*)([\s\S]*?)(\s*)$/);
+                            var leading = match ? match[1] : '';
+                            var trailing = match ? match[3] : '';
+                            node.__onyx_trans = leading + transText + trailing;
+                            node.nodeValue = node.__onyx_trans;
+                        }
+                    }
+                };
+
+                // If language changed on an already collected page, re-translate all existing nodes
+                if (langChanged && Object.keys(state.nodes).length > 0) {
+                    var existingNodes = [];
+                    for (var id in state.nodes) {
+                        existingNodes.push(state.nodes[id]);
+                    }
+                    processNodes(existingNodes, true);
+                } else {
+                    var allNodes = collectTextNodes(document.body || document.documentElement);
+                    processNodes(allNodes, true);
+                }
+
+                // Setup MutationObserver for dynamic pagination & infinite scrolling
+                if (!state.observer) {
+                    var debounceTimer = null;
+                    var pendingRoots = [];
+                    state.observer = new MutationObserver(function(mutations) {
+                        if (!state.isTranslating) return;
+                        for (var m = 0; m < mutations.length; m++) {
+                            var added = mutations[m].addedNodes;
+                            for (var a = 0; a < added.length; a++) {
+                                var el = added[a];
+                                if (el.nodeType === 1 && !shouldSkipElement(el)) {
+                                    pendingRoots.push(el);
                                 }
                             }
                         }
-                    } catch (_) {}
+                        if (pendingRoots.length > 0) {
+                            if (debounceTimer) clearTimeout(debounceTimer);
+                            debounceTimer = setTimeout(function() {
+                                var newNodes = [];
+                                while (pendingRoots.length > 0) {
+                                    var root = pendingRoots.shift();
+                                    var collected = collectTextNodes(root);
+                                    for (var k = 0; k < collected.length; k++) {
+                                        if (collected[k].__onyx_id === undefined) {
+                                            newNodes.push(collected[k]);
+                                        }
+                                    }
+                                }
+                                if (newNodes.length > 0) {
+                                    processNodes(newNodes, false);
+                                }
+                            }, 350);
+                        }
+                    });
+                    state.observer.observe(document.body || document.documentElement, {
+                        childList: true,
+                        subtree: true
+                    });
                 }
-            } catch (_) {}
 
-            // 3. Try combo element (set to show original)
-            var combo = document.querySelector('.goog-te-combo');
-            if (combo) {
-                combo.selectedIndex = 0;
-                combo.value = '';
-                combo.dispatchEvent(new Event('change', { bubbles: true }));
-                combo.dispatchEvent(new Event('input', { bubbles: true }));
+                return 'started';
+            })();
+        """.trimIndent()
+    }
+
+    /**
+     * Restores original untranslated text directly across all modified text nodes with 0ms latency
+     * and zero page reload, preserving form inputs, scroll position, and tab memory.
+     */
+    val restoreOriginalScript: String = """
+        (function() {
+            var state = window.__onyx_translate_state;
+            if (!state) return 'not_initialized';
+            state.isTranslating = false;
+            for (var id in state.nodes) {
+                var node = state.nodes[id];
+                if (node && node.__onyx_orig !== undefined) {
+                    node.nodeValue = node.__onyx_orig;
+                }
             }
-
-            // 4. Clean translation classes from html and body
-            try {
-                document.documentElement.classList.remove('translated-ltr', 'translated-rtl');
-                document.body.classList.remove('translated-ltr', 'translated-rtl');
-            } catch (_) {}
-
-            // 5. In-place check: do not reload if text was restored
-            setTimeout(function() {
-                var isStillTranslated = document.documentElement.classList.contains('translated-ltr') ||
-                                         document.documentElement.classList.contains('translated-rtl') ||
-                                         (document.documentElement.getAttribute('class') || '').indexOf('translated') !== -1;
-                if (isStillTranslated) {
-                    window.location.reload();
+            if (state.origDir !== undefined) {
+                if (state.origDir) {
+                    document.documentElement.setAttribute('dir', state.origDir);
+                } else {
+                    document.documentElement.removeAttribute('dir');
                 }
-            }, 800);
-
+            }
             return 'restored';
         })();
     """.trimIndent()
 
     /**
-     * Pre-configures Android CookieManager with the googtrans cookie before injecting scripts.
-     * Clears all conflicting domain cookies first.
+     * Toggles already translated text back into view without making network requests.
+     * Returns 'reinitialize' if translations are not yet available for the target language.
+     */
+    val toggleTranslatedScript: String = """
+        (function() {
+            var state = window.__onyx_translate_state;
+            if (!state || Object.keys(state.nodes).length === 0) return 'reinitialize';
+            state.isTranslating = true;
+            var hasTrans = false;
+            for (var id in state.nodes) {
+                var node = state.nodes[id];
+                if (node && node.__onyx_trans !== undefined) {
+                    node.nodeValue = node.__onyx_trans;
+                    hasTrans = true;
+                }
+            }
+            if (!hasTrans) return 'reinitialize';
+            var isRtl = (state.activeLang === 'ar' || state.activeLang === 'he' || state.activeLang === 'iw' || state.activeLang === 'fa' || state.activeLang === 'ur');
+            if (isRtl) {
+                document.documentElement.setAttribute('dir', 'rtl');
+            }
+            return 'translated';
+        })();
+    """.trimIndent()
+
+    /**
+     * Cleans up observers and memory references on tab close or page reload.
+     */
+    val cleanupScript: String = """
+        (function() {
+            var state = window.__onyx_translate_state;
+            if (state) {
+                if (state.observer) {
+                    try { state.observer.disconnect(); } catch (_) {}
+                    state.observer = null;
+                }
+                state.nodes = {};
+                state.isTranslating = false;
+                delete window.__onyx_translate_state;
+            }
+            return 'cleaned';
+        })();
+    """.trimIndent()
+
+    /**
+     * Legacy method preserved for compatibility with existing callers.
+     * With Native DOM Translation, cookies are no longer used for page translation.
      */
     fun setupCookies(url: String, targetLang: String) {
-        try {
-            val uri = URI(url)
-            val host = uri.host ?: return
-            val cm = CookieManager.getInstance()
-            cm.setAcceptCookie(true)
-
-            // Clear old googtrans first across domains
-            clearCookies(url)
-
-            cm.setCookie(url, "googtrans=/auto/$targetLang; path=/")
-            val parts = host.split(".").toMutableList()
-            while (parts.size > 1) {
-                val d = "." + parts.joinToString(".")
-                cm.setCookie(url, "googtrans=/auto/$targetLang; domain=$d; path=/")
-                parts.removeAt(0)
-            }
-            cm.flush()
-        } catch (_: Exception) {}
+        clearCookies(url)
     }
 
     /**
-     * Clears googtrans cookies for restoring original text across all domain permutations.
+     * Cleans legacy googtrans cookies across all domains to ensure no residual cookies stick.
      */
     fun clearCookies(url: String) {
         try {

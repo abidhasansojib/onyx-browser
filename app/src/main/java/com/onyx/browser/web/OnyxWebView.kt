@@ -242,6 +242,15 @@ class OnyxWebView @JvmOverloads constructor(
             addJavascriptInterface(OnyxShieldBridge(context.applicationContext), "OnyxShieldBridge")
         } catch (_: Exception) {}
 
+        // Native DOM Translation Bridge (CSP-immune page translation)
+        try {
+            val translateScope = (activity as? LifecycleOwner)?.lifecycleScope ?: webViewScope
+            addJavascriptInterface(
+                com.onyx.browser.web.translate.OnyxTranslateBridge(this, translateScope),
+                com.onyx.browser.web.translate.OnyxTranslateBridge.INTERFACE_NAME
+            )
+        } catch (_: Exception) {}
+
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
         try {
             val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
@@ -446,6 +455,7 @@ class OnyxWebView @JvmOverloads constructor(
                 com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
             }
             evaluateJavascript("try { var v = document.querySelectorAll('video, audio'); for(var i=0; i<v.length; i++) { v[i].pause(); v[i].src = ''; } } catch(e){}", null)
+            evaluateJavascript("try { " + com.onyx.browser.web.translate.PageTranslateManager.cleanupScript + " } catch(e){}", null)
             stopLoading()
             clearHistory()
             (parent as? ViewGroup)?.removeView(this)
