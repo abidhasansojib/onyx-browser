@@ -11,6 +11,7 @@ import com.onyx.browser.data.model.SearchEngine
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivitySearchEngineSettingsBinding
 import com.onyx.browser.databinding.ItemSearchEngineSettingBinding
+import com.onyx.browser.ui.common.SearchEngineIconHelper
 
 class SearchEngineSettingsActivity : AppCompatActivity() {
 
@@ -53,7 +54,7 @@ class SearchEngineSettingsActivity : AppCompatActivity() {
 
             itemBinding.tvEngineName.text = engine.displayName
             itemBinding.tvEngineUrl.text = engine.homeUrl
-            itemBinding.ivEngineIcon.setImageResource(engine.iconResId)
+            SearchEngineIconHelper.loadSearchEngineIcon(this, itemBinding.ivEngineIcon, engine)
             itemBinding.ivEngineIcon.visibility = View.VISIBLE
             itemBinding.tvLetterAvatar.visibility = View.GONE
 

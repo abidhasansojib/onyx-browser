@@ -83,9 +83,9 @@ class SearchEnginePopupMenu(
                 layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
                     marginEnd = iconMarginEnd
                 }
-                setImageResource(engine.iconResId)
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
+            SearchEngineIconHelper.loadSearchEngineIcon(context, ivIcon, engine)
             row.addView(ivIcon)
 
             // Engine Display Name

@@ -50,7 +50,7 @@ class SearchEnginePickerDialog : BottomSheetDialogFragment() {
         inner class ViewHolder(private val b: ItemSearchEngineBinding) : RecyclerView.ViewHolder(b.root) {
             fun bind(item: SearchEngine) {
                 b.tvEngineName.text = item.displayName
-                b.ivEngineIcon.setImageResource(item.iconResId)
+                SearchEngineIconHelper.loadSearchEngineIcon(b.root.context, b.ivEngineIcon, item)
                 b.rbSelected.isChecked = (item.id == currentEngine.id)
                 b.root.setOnClickListener { onSelect(item) }
             }

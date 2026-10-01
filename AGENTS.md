@@ -418,6 +418,10 @@ onyx-browser/
   - **Zero-Latency In-Place Restore**: In-page `restoreOriginalScript` instantly resets `node.nodeValue = node.__onyx_orig` in 0ms with zero network requests and zero page reloads, preserving form data, video playback, and scroll position.
   - **RTL Support & Clean Lifecycle**: Manages `dir="rtl"` attribute for Arabic, Hebrew, Persian, and Urdu. Cleaned up observers and state in `OnyxWebView.destroySafely()`.
   - **Verified Debug Build**: Workflow run `36853591053` compiled in 5m27s. Debug APK downloaded to `/storage/emulated/0/Download/app-debug.apk` (46 MB).
+- [x] **v1.0.222 — Dynamic Search Engine Logo Fetching & Non-Square Shape Architecture**:
+  - **Dynamic Logo Fetching & Multi-Tier Caching (`SearchEngineIconHelper.kt`)**: Asynchronously fetches high-resolution official logos from search engine domains using `FaviconManager` (apple-touch-icon, Google S2 CDN), with in-memory `LruCache` and persistent disk storage.
+  - **Anti-Square Circular & Organic Shape Normalization**: Eliminated harsh solid white square box artifacts on DuckDuckGo, Startpage, Bing, and Yahoo. Transformed all bundled drawables into 128x128 32-bit transparent PNGs and applies circular anti-aliased masking to dynamically fetched icons, ensuring all search engine logos match Google and Brave's organic aesthetic.
+  - **Omnibox & Quick Switcher Parity**: Integrated `SearchEngineIconHelper` across search bar selector (`binding.btnSearchEngine`), quick switcher popup (`SearchEnginePopupMenu`), search engine settings, and engine picker dialogs.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

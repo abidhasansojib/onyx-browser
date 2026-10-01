@@ -11,6 +11,7 @@ import androidx.core.view.updatePadding
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivitySettingsBinding
+import com.onyx.browser.ui.common.SearchEngineIconHelper
 import com.onyx.browser.web.UserAgentManager
 
 class SettingsActivity : AppCompatActivity() {
@@ -126,7 +127,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updateSearchEngineDisplay() {
         val current = preferences.searchEngine
-        binding.ivCurrentSearchEngineIcon.setImageResource(current.iconResId)
+        SearchEngineIconHelper.loadSearchEngineIcon(this, binding.ivCurrentSearchEngineIcon, current)
         binding.tvCurrentSearchEngineName.text = current.displayName
     }
 

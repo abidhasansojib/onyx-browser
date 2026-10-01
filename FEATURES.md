@@ -33,7 +33,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 17. [x] Password Autofill Support (Google Password Manager, Bitwarden, 1Password)
 18. [x] Full-Page Omnibox Search Mode (soft keyboard autofocus, distraction-free overlay)
 19. [x] Real-Time Multi-Engine Search Suggestions (Brave, Google, DuckDuckGo, Bing, Yahoo, Startpage)
-20. [x] Custom Search Engines & Keyword Shortcuts (e.g. `w <query>` for Wikipedia)
+20. [x] Custom Search Engines & Keyword Shortcuts (e.g. `w <query>` for Wikipedia; dynamic logo fetching, multi-tier disk/memory caching, and non-square circular shape normalization across omnibox and quick switcher)
 21. [x] Smart Clipboard Suggestion Card ("Link you copied" / "Text you copied" with query insert arrow)
 22. [x] One-Tap Active Webpage Card (direct reload/navigate, share sheet, copy URL, edit URL)
 23. [x] CameraX + ML Kit QR Code & Barcode Scanner (scanner integrated in omnibox)

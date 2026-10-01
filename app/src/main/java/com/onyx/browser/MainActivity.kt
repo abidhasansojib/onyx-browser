@@ -91,6 +91,7 @@ import com.onyx.browser.media.MediaPlaybackService
 import com.onyx.browser.web.DevToolsManager
 import com.onyx.browser.web.MediaPlaybackManager
 import com.onyx.browser.web.translate.PageTranslateManager
+import com.onyx.browser.ui.common.SearchEngineIconHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -1766,7 +1767,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateSearchEngineIcon() {
-        binding.btnSearchEngine.setImageResource(preferences.searchEngine.iconResId)
+        SearchEngineIconHelper.loadSearchEngineIcon(this, binding.btnSearchEngine, preferences.searchEngine)
     }
 
     private fun updateTabBadgeCount() {
