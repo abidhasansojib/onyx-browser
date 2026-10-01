@@ -50,7 +50,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 34. [x] Homepage Shortcuts Grid (customizable tiles, favicons, drag-and-drop reordering)
 35. [x] User Agent Spoofer Manager (custom UA strings, presets for Chrome, Safari, Edge, Firefox)
 36. [x] Accessibility Settings (search widget toggle, webpage menu "Add to Home screen" toggle, text scaling)
-37. [x] Add to Home Screen (PWA launcher shortcuts via `ShortcutManagerCompat`)
+37. [x] Add to Home Screen & App Launcher Shortcuts (PWA launcher shortcuts via `ShortcutManagerCompat`, and launcher icon long-press quick shortcuts ordered: 1st Search web, 2nd New Incognito tab, 3rd Scan QR code via `shortcuts.xml`)
 38. [x] Theme System (Google Light, Google Dark `#202124`, and pure AMOLED Black)
 39. [x] Hardened WebView Sandboxing (cloud backups disabled with `android:allowBackup="false"`, `allowFileAccessFromFileURLs`/`Universal` disabled, third-party cookies enabled for web auth/CAPTCHAs, blocked in Incognito, safe intent routing)
 40. [x] Offline Eruda Developer Tools (bundled mobile DOM inspector, console, network monitor)

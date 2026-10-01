@@ -422,6 +422,7 @@ onyx-browser/
   - **Dynamic Logo Fetching & Multi-Tier Caching (`SearchEngineIconHelper.kt`)**: Asynchronously fetches high-resolution official logos from search engine domains using `FaviconManager` (apple-touch-icon, Google S2 CDN), with in-memory `LruCache` and persistent disk storage.
   - **Anti-Square Circular & Organic Shape Normalization**: Eliminated harsh solid white square box artifacts on DuckDuckGo, Startpage, Bing, and Yahoo. Transformed all bundled drawables into 128x128 32-bit transparent PNGs and applies circular anti-aliased masking to dynamically fetched icons, ensuring all search engine logos match Google and Brave's organic aesthetic.
   - **Omnibox & Quick Switcher Parity**: Integrated `SearchEngineIconHelper` across search bar selector (`binding.btnSearchEngine`), quick switcher popup (`SearchEnginePopupMenu`), search engine settings, and engine picker dialogs.
+  - **App Launcher Shortcuts Reordering (`shortcuts.xml`)**: Realigned long-press app launcher quick shortcuts to the requested order: 1st Search web (`shortcut_search`), 2nd New Incognito tab (`shortcut_incognito`), 3rd Scan QR code (`shortcut_qr`).
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
