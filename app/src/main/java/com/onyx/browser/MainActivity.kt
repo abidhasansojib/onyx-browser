@@ -48,6 +48,7 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.core.view.ViewCompat
 import android.content.ClipData
 import android.content.ClipboardManager
+import java.io.File
 import com.onyx.browser.ui.home.AdjustQuickActionsBottomSheet
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -2777,7 +2778,7 @@ class MainActivity : AppCompatActivity() {
                     if (state?.category == com.onyx.browser.web.error.SyntheticNavigationState.ErrorCategory.OFFLINE) {
                         val url = state.failingUrl.ifBlank { wv.lastFailingUrl ?: "" }
                         wv.clearSyntheticState()
-                        if (url.isNotBlank() && !LocalFileLoader.isLocalFile(this, url)) {
+                        if (url.isNotBlank() && !LocalFileLoader.isLocalFile(this@MainActivity, url)) {
                             wv.loadUrl(url)
                         } else {
                             wv.reload()
