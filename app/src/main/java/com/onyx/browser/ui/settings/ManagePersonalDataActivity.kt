@@ -179,6 +179,24 @@ class ManagePersonalDataActivity : AppCompatActivity() {
                             }
                         }
                     }
+
+                    if (clearHistory || clearCache) {
+                        try {
+                            val archivesDir = File(cacheDir, "web_archives")
+                            if (archivesDir.exists()) {
+                                if (cutoff == 0L) {
+                                    archivesDir.deleteRecursively()
+                                    com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(this@ManagePersonalDataActivity)
+                                } else {
+                                    archivesDir.listFiles()?.forEach { f ->
+                                        if (f.lastModified() >= cutoff) {
+                                            f.delete()
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (_: Exception) {}
+                    }
                 }
 
                 if (clearCookies) {
@@ -208,9 +226,6 @@ class ManagePersonalDataActivity : AppCompatActivity() {
                         } catch (_: Exception) {}
                         try {
                             File(cacheDir, "tab_thumbnails").deleteRecursively()
-                        } catch (_: Exception) {}
-                        try {
-                            File(cacheDir, "web_archives").deleteRecursively()
                         } catch (_: Exception) {}
                         try {
                             File(cacheDir, "onyx_downloads").deleteRecursively()

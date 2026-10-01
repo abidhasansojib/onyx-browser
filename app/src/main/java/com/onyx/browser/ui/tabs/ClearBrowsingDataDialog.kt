@@ -195,15 +195,28 @@ class ClearBrowsingDataDialog(
             }
 
             withContext(Dispatchers.IO) {
+                try {
+                    val archivesDir = File(context.cacheDir, "web_archives")
+                    if (archivesDir.exists()) {
+                        if (cutoff == 0L) {
+                            archivesDir.deleteRecursively()
+                            com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(context)
+                        } else {
+                            archivesDir.listFiles()?.forEach { f ->
+                                if (f.lastModified() >= cutoff) {
+                                    f.delete()
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+
                 if (cutoff == 0L) {
                     try {
                         com.onyx.browser.data.favicon.FaviconManager.clearCache(context)
                     } catch (_: Exception) {}
                     try {
                         tabManager.clearAllThumbnailsAndCache()
-                    } catch (_: Exception) {}
-                    try {
-                        File(context.cacheDir, "web_archives").deleteRecursively()
                     } catch (_: Exception) {}
                     try {
                         File(context.cacheDir, "install_pending.apk").delete()

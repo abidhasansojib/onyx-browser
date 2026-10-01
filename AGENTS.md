@@ -489,3 +489,10 @@ onyx-browser/
    - **Code deduplication**: Extracted `buildInitScript()` shared between `toggleDevTools` and `autoReinjectDevTools`.
    - **Cleaner `destroyDevTools`**: Also resets `__onyx_eruda_init_attempted` flag.
    - **Removed redundant toasts**: Eruda panel appearing/disappearing is its own feedback; toasts only shown on actual failures.
+
+8. **Web Archive (.mht/.mhtml) Cache Management, History Deletion & Filesystem Security Hardening**:
+   - **Tab-Scoped Preview Lifecycle**: `prepareMhtmlFile` generates temporary files scoped by tab ID (`preview_${tabId}_${timestamp}.mht`) and registers them in an in-memory tracking map. Closing a tab (`tabManager.closeTab`) immediately purges all preview files created for that tab from disk.
+   - **URL Sanitization & Privacy**: `MainActivity.kt` and `TabManager.kt` guard `onUrlChanged`, `onPageFinishedCallback`, `updateTabUrlAndTitle`, and omnibox rendering against internal preview URLs. The UI and database retain the user's authentic document URI and display title, eliminating any exposure of internal cache paths (`file:///data/user/0/...`) in the searchbar, tab database, or clipboard.
+   - **History Deletion Cache Purging**: "Clear Browsing Data" and single-item history deletion in `HistoryActivity.kt`, time-range deletion in `ClearBrowsingDataDialog.kt`, and `ManagePersonalDataActivity.kt` immediately purge `web_archives` and clear WebView disk cache.
+   - **Private Filesystem Security Guard**: Direct navigation, omnibox loading, and subresource access to Android app private data (`/data/`, `/proc/`, `/sys/`, `/system/`, `/apex/`, `/vendor/`, `context.applicationInfo.dataDir`, `cacheDir`, `filesDir`) is blocked with HTTP 403 Forbidden and user-facing security alerts across `performSearchOrLoad`, `shouldOverrideUrlLoading`, `shouldInterceptRequest`, and `LocalFileLoader.interceptLocalFile`.
+   - **Startup Cleanup**: `OnyxApplication.kt` purges any orphaned web archive preview files on startup in background IO.

@@ -20,6 +20,8 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * High-performance resolver, preparer, interceptor, and renderer for local documents:
@@ -43,23 +45,78 @@ object LocalFileLoader {
 
     private var cachedMarkdownTemplate: String? = null
 
+    // Thread-safe map tracking generated preview file paths keyed by tabId
+    private val activePreviewFiles = ConcurrentHashMap<String, MutableSet<String>>()
+
+    /**
+     * Determines whether the given URL or path points to a sensitive, private, or restricted
+     * system/app filesystem location that must NEVER be exposed or navigated to.
+     */
+    fun isSensitiveOrRestrictedPath(context: Context?, urlOrPath: String): Boolean {
+        val trimmed = urlOrPath.trim()
+        val lower = trimmed.lowercase()
+
+        // System assets and resources are safe and managed internally
+        if (lower.startsWith("file:///android_asset/") || lower.startsWith("file:///android_res/")) {
+            return false
+        }
+
+        // Sensitive Linux & Android root directories
+        if (lower.startsWith("/data/") || lower.startsWith("file:///data/") ||
+            lower.startsWith("/proc/") || lower.startsWith("file:///proc/") ||
+            lower.startsWith("/sys/") || lower.startsWith("file:///sys/") ||
+            lower.startsWith("/system/") || lower.startsWith("file:///system/") ||
+            lower.startsWith("/apex/") || lower.startsWith("file:///apex/") ||
+            lower.startsWith("/vendor/") || lower.startsWith("file:///vendor/")) {
+            return true
+        }
+
+        if (context != null) {
+            try {
+                val path = when {
+                    trimmed.startsWith("file://", ignoreCase = true) -> Uri.parse(trimmed).path ?: ""
+                    trimmed.startsWith("/") -> trimmed
+                    else -> ""
+                }
+                if (path.isNotBlank()) {
+                    val canonical = File(path).canonicalPath
+                    val blockedPrefixes = listOf("/data/", "/proc/", "/sys/", "/system/", "/apex/", "/vendor/")
+                    if (blockedPrefixes.any { canonical.startsWith(it) }) {
+                        return true
+                    }
+                    val dataDir = context.applicationInfo.dataDir
+                    if (!dataDir.isNullOrBlank() && canonical.startsWith(File(dataDir).canonicalPath)) {
+                        return true
+                    }
+                    val cacheDir = context.cacheDir?.canonicalPath
+                    if (!cacheDir.isNullOrBlank() && canonical.startsWith(cacheDir)) {
+                        return true
+                    }
+                    val filesDir = context.filesDir?.canonicalPath
+                    if (!filesDir.isNullOrBlank() && canonical.startsWith(filesDir)) {
+                        return true
+                    }
+                }
+            } catch (_: Exception) {
+                return true // Fail safe: reject if canonicalization fails
+            }
+        }
+        return false
+    }
+
     /**
      * Determines whether the given string represents a local file URI or path.
-     * Excludes system asset/resource schemes (file:///android_asset/ and file:///android_res/).
+     * Excludes system asset/resource schemes (file:///android_asset/ and file:///android_res/)
+     * and strictly blocks private app storage or sensitive system partitions.
      */
-    fun isLocalFile(input: String): Boolean {
+    fun isLocalFile(context: Context?, input: String): Boolean {
         val trimmed = input.trim()
         if (trimmed.startsWith("file:///android_asset/", ignoreCase = true) ||
             trimmed.startsWith("file:///android_res/", ignoreCase = true)) {
             return false
         }
         // Block sensitive system/internal paths — these should never be opened in the browser.
-        // /data/ contains Android app internal storage and private app data.
-        // /proc/ and /sys/ expose Linux kernel internals.
-        val lower = trimmed.lowercase()
-        if (lower.startsWith("/data/") || lower.startsWith("file:///data/") ||
-            lower.startsWith("/proc/") || lower.startsWith("file:///proc/") ||
-            lower.startsWith("/sys/") || lower.startsWith("file:///sys/")) {
+        if (isSensitiveOrRestrictedPath(context, trimmed)) {
             return false
         }
         if (trimmed.startsWith("file://", ignoreCase = true) ||
@@ -68,6 +125,7 @@ object LocalFileLoader {
             trimmed.startsWith("/sdcard/", ignoreCase = true)) {
             return true
         }
+        val lower = trimmed.lowercase()
         if (lower.endsWith(".html") || lower.endsWith(".htm") || lower.endsWith(".xhtml") ||
             lower.endsWith(".mht") || lower.endsWith(".mhtml") ||
             lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".mdown") ||
@@ -79,6 +137,68 @@ object LocalFileLoader {
             return true
         }
         return false
+    }
+
+    fun isLocalFile(input: String): Boolean = isLocalFile(null, input)
+
+    fun registerPreviewFile(tabId: String, filePath: String) {
+        if (tabId.isBlank() || filePath.isBlank()) return
+        activePreviewFiles.getOrPut(tabId) { Collections.synchronizedSet(mutableSetOf()) }.add(filePath)
+    }
+
+    fun isAuthorizedPreviewForTab(tabId: String?, url: String): Boolean {
+        if (tabId.isNullOrBlank() || url.isBlank()) return false
+        val path = try {
+            if (url.startsWith("file://", ignoreCase = true)) {
+                Uri.parse(url).path ?: ""
+            } else url
+        } catch (_: Exception) { "" }
+        if (path.isBlank()) return false
+        val canonical = try { File(path).canonicalPath } catch (_: Exception) { path }
+        val registeredPaths = activePreviewFiles[tabId] ?: return false
+        return registeredPaths.any { registered ->
+            try {
+                File(registered).canonicalPath == canonical
+            } catch (_: Exception) {
+                registered == path
+            }
+        }
+    }
+
+    fun isPreviewUrl(url: String): Boolean {
+        if (url.isBlank()) return false
+        return url.contains("/cache/web_archives/preview_")
+    }
+
+    fun cleanupTabPreviews(context: Context, tabId: String) {
+        if (tabId.isBlank()) return
+        val registered = activePreviewFiles.remove(tabId)
+        registered?.forEach { path ->
+            try {
+                val f = File(path)
+                if (f.exists()) f.delete()
+            } catch (_: Exception) {}
+        }
+        try {
+            val archivesDir = File(context.cacheDir, "web_archives")
+            if (archivesDir.exists()) {
+                archivesDir.listFiles()?.forEach { file ->
+                    if (file.name.startsWith("preview_${tabId}_")) {
+                        file.delete()
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun cleanupAllPreviews(context: Context) {
+        activePreviewFiles.clear()
+        try {
+            val archivesDir = File(context.cacheDir, "web_archives")
+            if (archivesDir.exists()) {
+                archivesDir.deleteRecursively()
+            }
+        } catch (_: Exception) {}
     }
 
     /**
@@ -126,7 +246,7 @@ object LocalFileLoader {
                 LocalFileType.MHTML -> {
                     // Chromium's native C++ MHTMLArchive parser handles .mht/.mhtml files directly,
                     // but ONLY via file:// URLs in readable storage and when shouldInterceptRequest returns null.
-                    val preparedFile = prepareMhtmlFile(context, uri)
+                    val preparedFile = prepareMhtmlFile(context, uri, webView.tabId)
                     withContext(Dispatchers.Main) {
                         if (preparedFile != null && preparedFile.exists() && preparedFile.length() > 0) {
                             webView.stopLoading()
@@ -225,7 +345,7 @@ object LocalFileLoader {
      * Prepares an MHTML file on disk so that Chromium's native Blink MHTMLArchive
      * parser can parse and render it with full CSS/images fidelity and zero black screens.
      */
-    fun prepareMhtmlFile(context: Context, uri: Uri): File? {
+    fun prepareMhtmlFile(context: Context, uri: Uri, tabId: String? = null): File? {
         val archivesDir = File(context.cacheDir, "web_archives").apply {
             if (!exists()) mkdirs()
         }
@@ -240,21 +360,13 @@ object LocalFileLoader {
             }
         } catch (_: Exception) {}
 
-        // If it's already a readable file within app's own cache/files, we can use it directly
-        if (uri.scheme == "file") {
-            val path = uri.path
-            if (!path.isNullOrBlank()) {
-                val f = File(path)
-                if (f.exists() && f.canRead() &&
-                    (f.absolutePath.startsWith(context.cacheDir.absolutePath) ||
-                     f.absolutePath.startsWith(context.filesDir.absolutePath))) {
-                    return f
-                }
-            }
+        // Copy stream into dedicated app cache file ending with .mht scoped to this tab
+        val fileName = if (!tabId.isNullOrBlank()) {
+            "preview_${tabId}_${System.currentTimeMillis()}.mht"
+        } else {
+            "preview_${System.currentTimeMillis()}.mht"
         }
-
-        // Copy stream into dedicated app cache file ending with .mht
-        val tempFile = File(archivesDir, "preview_${System.currentTimeMillis()}.mht")
+        val tempFile = File(archivesDir, fileName)
         val stream = openInputStream(context, uri) ?: return null
         return try {
             stream.use { input ->
@@ -262,7 +374,12 @@ object LocalFileLoader {
                     input.copyTo(output)
                 }
             }
-            if (tempFile.exists() && tempFile.length() > 0) tempFile else null
+            if (tempFile.exists() && tempFile.length() > 0) {
+                if (!tabId.isNullOrBlank()) {
+                    registerPreviewFile(tabId, tempFile.absolutePath)
+                }
+                tempFile
+            } else null
         } catch (e: Exception) {
             try { tempFile.delete() } catch (_: Exception) {}
             null
@@ -400,6 +517,17 @@ object LocalFileLoader {
         if (url.startsWith("file:///android_asset/", ignoreCase = true) ||
             url.startsWith("file:///android_res/", ignoreCase = true)) {
             return null
+        }
+
+        if (isSensitiveOrRestrictedPath(context, url)) {
+            return WebResourceResponse(
+                "text/plain",
+                "UTF-8",
+                403,
+                "Forbidden",
+                emptyMap(),
+                ByteArrayInputStream("Access to private app storage is blocked.".toByteArray(StandardCharsets.UTF_8))
+            )
         }
 
         val uri = try { Uri.parse(url) } catch (_: Exception) { return null }

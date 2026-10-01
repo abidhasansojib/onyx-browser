@@ -911,13 +911,20 @@ class MainActivity : AppCompatActivity() {
             context = this,
             coroutineScope = lifecycleScope,
             onUrlChanged = { newUrl ->
-                val cleanUrl = if (newUrl.startsWith("data:") || newUrl.startsWith("file:///android_asset/") || newUrl.startsWith("file:///android_res/")) {
-                    webView.currentSyntheticState?.failingUrl ?: tabManager.getTabById(tabId)?.url ?: ""
+                val isPreview = LocalFileLoader.isPreviewUrl(newUrl)
+                val currentTab = tabManager.getTabById(tabId)
+                val realTabUrl = currentTab?.url ?: ""
+                val cleanUrl = if (isPreview) {
+                    realTabUrl
+                } else if (newUrl.startsWith("data:") || newUrl.startsWith("file:///android_asset/") || newUrl.startsWith("file:///android_res/")) {
+                    webView.currentSyntheticState?.failingUrl ?: realTabUrl
                 } else {
                     newUrl
                 }
                 if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:") && !cleanUrl.startsWith("file:///android_asset/") && !cleanUrl.startsWith("file:///android_res/")) {
-                    tabManager.updateTabUrlAndTitle(tabId, cleanUrl, webView.title ?: cleanUrl)
+                    val finalTitle = webView.title?.takeIf { it.isNotBlank() }
+                        ?: if (isPreview) currentTab?.title?.takeIf { it.isNotBlank() } ?: "Web Archive" else cleanUrl
+                    tabManager.updateTabUrlAndTitle(tabId, cleanUrl, finalTitle)
                     if (currentDisplayedTabId == tabId && tabManager.activeTab.value?.id == tabId) {
                         updateAddressBarDisplay(cleanUrl)
                         val activeTab = tabManager.activeTab.value
@@ -928,13 +935,20 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onPageFinishedCallback = { finishedUrl ->
-                val cleanUrl = if (finishedUrl.startsWith("data:") || finishedUrl.startsWith("file:///android_asset/") || finishedUrl.startsWith("file:///android_res/")) {
-                    webView.currentSyntheticState?.failingUrl ?: tabManager.getTabById(tabId)?.url ?: ""
+                val isPreview = LocalFileLoader.isPreviewUrl(finishedUrl)
+                val currentTab = tabManager.getTabById(tabId)
+                val realTabUrl = currentTab?.url ?: ""
+                val cleanUrl = if (isPreview) {
+                    realTabUrl
+                } else if (finishedUrl.startsWith("data:") || finishedUrl.startsWith("file:///android_asset/") || finishedUrl.startsWith("file:///android_res/")) {
+                    webView.currentSyntheticState?.failingUrl ?: realTabUrl
                 } else {
                     finishedUrl
                 }
                 if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:") && !cleanUrl.startsWith("file:///android_asset/") && !cleanUrl.startsWith("file:///android_res/")) {
-                    tabManager.updateTabUrlAndTitle(tabId, cleanUrl, webView.title ?: cleanUrl)
+                    val finalTitle = webView.title?.takeIf { it.isNotBlank() }
+                        ?: if (isPreview) currentTab?.title?.takeIf { it.isNotBlank() } ?: "Web Archive" else cleanUrl
+                    tabManager.updateTabUrlAndTitle(tabId, cleanUrl, finalTitle)
                     if (currentDisplayedTabId == tabId && tabManager.activeTab.value?.id == tabId) {
                         updateAddressBarDisplay(cleanUrl)
                     }
@@ -1380,13 +1394,28 @@ class MainActivity : AppCompatActivity() {
         }
 
         val url = when {
-            LocalFileLoader.isLocalFile(trimmed) -> trimmed
+            LocalFileLoader.isSensitiveOrRestrictedPath(this, trimmed) -> {
+                Toast.makeText(this, "Access to private or restricted files is blocked", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            LocalFileLoader.isLocalFile(this, trimmed) -> trimmed
 
             trimmed.startsWith("http://", ignoreCase = true) ||
             trimmed.startsWith("https://", ignoreCase = true) ||
-            trimmed.startsWith("file://", ignoreCase = true) ||
             trimmed.startsWith("about:", ignoreCase = true) ||
             trimmed.startsWith("data:", ignoreCase = true) -> trimmed
+
+            trimmed.startsWith("file://", ignoreCase = true) -> {
+                val parsed = try { Uri.parse(trimmed) } catch (_: Exception) { null }
+                val path = parsed?.path
+                if (path != null && File(path).exists()) {
+                    trimmed
+                } else {
+                    Toast.makeText(this, "File not found: $trimmed", Toast.LENGTH_SHORT).show()
+                    return
+                }
+            }
 
             isLikelyUrl(trimmed) -> "https://$trimmed"
 
@@ -1527,17 +1556,19 @@ class MainActivity : AppCompatActivity() {
     private fun updateCurrentPageCard(curUrl: String) {
         if (curUrl.isNotBlank()) {
             binding.cardCurrentPage.visibility = View.VISIBLE
+            val isLocal = LocalFileLoader.isLocalFile(this, curUrl) || LocalFileLoader.isPreviewUrl(curUrl)
+            val host = if (isLocal) {
+                LocalFileLoader.getDisplayName(this, LocalFileLoader.parseUri(curUrl))
+            } else {
+                try { Uri.parse(curUrl).host?.removePrefix("www.") ?: curUrl } catch (_: Exception) { curUrl }
+            }
             val currentTab = tabManager.activeTab.value
-            val host = try { Uri.parse(curUrl).host?.removePrefix("www.") ?: curUrl } catch (_: Exception) { curUrl }
             val displayTitle = currentTab?.title?.takeIf {
                 it.isNotBlank() && !it.startsWith("data:") && !it.startsWith("net::") && it != "Page Not Available"
             } ?: host
             binding.tvCurrentPageTitle.text = displayTitle
-            val displayUrlText = if (LocalFileLoader.isLocalFile(curUrl)) {
-                try {
-                    val parsed = Uri.parse(curUrl)
-                    if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else curUrl
-                } catch (_: Exception) { curUrl }
+            val displayUrlText = if (isLocal) {
+                displayTitle
             } else {
                 curUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.")
             }
@@ -1726,7 +1757,7 @@ class MainActivity : AppCompatActivity() {
             return failingUrl
         }
         val tabUrl = tabManager.activeTab.value?.url ?: ""
-        if (tabUrl.startsWith("data:") || tabUrl.startsWith("file:///android_asset/") || tabUrl.startsWith("file:///android_res/")) {
+        if (tabUrl.startsWith("data:") || tabUrl.startsWith("file:///android_asset/") || tabUrl.startsWith("file:///android_res/") || LocalFileLoader.isPreviewUrl(tabUrl)) {
             return ""
         }
         return tabUrl
@@ -1737,6 +1768,9 @@ class MainActivity : AppCompatActivity() {
         val displayUrl = when {
             url.isBlank() || url.startsWith("data:") || url.startsWith("file:///android_asset/") || url.startsWith("file:///android_res/") -> {
                 activeWv?.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url ?: ""
+            }
+            LocalFileLoader.isPreviewUrl(url) -> {
+                tabManager.activeTab.value?.url ?: ""
             }
             else -> url
         }
@@ -1751,8 +1785,11 @@ class MainActivity : AppCompatActivity() {
         binding.ivSslLock.visibility = if (isHttps) View.VISIBLE else View.GONE
 
         val host = when {
-            LocalFileLoader.isLocalFile(displayUrl) -> {
+            LocalFileLoader.isLocalFile(this, displayUrl) -> {
                 LocalFileLoader.getDisplayName(this, LocalFileLoader.parseUri(displayUrl))
+            }
+            LocalFileLoader.isPreviewUrl(displayUrl) -> {
+                tabManager.activeTab.value?.title?.takeIf { it.isNotBlank() } ?: "Web Archive"
             }
             else -> try {
                 Uri.parse(displayUrl).host ?: displayUrl
@@ -3122,7 +3159,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun parseUrlOrExtract(text: String): String {
         val trimmed = text.trim()
-        if (LocalFileLoader.isLocalFile(trimmed) ||
+        if (LocalFileLoader.isSensitiveOrRestrictedPath(this, trimmed)) {
+            return preferences.searchEngine.buildSearchUrl(trimmed)
+        }
+        if (LocalFileLoader.isLocalFile(this, trimmed) ||
             trimmed.startsWith("http://", ignoreCase = true) ||
             trimmed.startsWith("https://", ignoreCase = true) ||
             trimmed.startsWith("file://", ignoreCase = true) ||

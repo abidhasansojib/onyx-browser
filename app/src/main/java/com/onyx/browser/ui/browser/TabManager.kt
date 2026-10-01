@@ -68,6 +68,7 @@ class TabManager(
 
     fun clearAllThumbnailsAndCache() {
         snapshotCache.evictAll()
+        com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(context)
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 getThumbnailDir().listFiles()?.forEach { it.delete() }
@@ -605,6 +606,9 @@ class TabManager(
 
         autoclearTabData(tab)
 
+        // Cleanup any temporary preview files associated with this tab
+        com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
+
         // If the closed tab was currently playing media, stop background play & dismiss notification immediately
         com.onyx.browser.media.MediaPlaybackBridge.onTabClosed(tab.id, context)
         onTabClosedListener?.invoke(tab)
@@ -699,6 +703,7 @@ class TabManager(
             tabsToClose.forEachIndexed { index, tab ->
                 onTabClosedListener?.invoke(tab)
                 autoclearTabData(tab)
+                com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
                 val snapshot = snapshotCache.get(tab.id)
                 val wasActive = (_activeTab.value?.id == tab.id)
                 webViewPool.remove(tab.id)?.destroySafely()
@@ -746,6 +751,7 @@ class TabManager(
             tabsToClose.forEachIndexed { index, tab ->
                 onTabClosedListener?.invoke(tab)
                 autoclearTabData(tab)
+                com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
                 val webView = webViewPool.remove(tab.id)
                 var savedBundle: Bundle? = null
                 if (webView != null) {
@@ -850,13 +856,20 @@ class TabManager(
             return
         }
         val current = getTabById(tabId) ?: return
-        val cleanTitle = if (title.startsWith("data:") || title.startsWith("file:///android_asset/") || title.startsWith("file:///android_res/")) {
-            current.title.ifBlank { url }
+        val targetUrl = if (com.onyx.browser.web.LocalFileLoader.isPreviewUrl(url)) {
+            current.url.ifBlank { url }
         } else {
-            title.ifBlank { url }
+            url
+        }
+        val cleanTitle = if (title.startsWith("data:") || title.startsWith("file:///android_asset/") || title.startsWith("file:///android_res/")) {
+            current.title.ifBlank { targetUrl }
+        } else if (com.onyx.browser.web.LocalFileLoader.isPreviewUrl(title)) {
+            current.title.ifBlank { "Web Archive" }
+        } else {
+            title.ifBlank { targetUrl }
         }
         val updatedTab = current.copy(
-            url = url,
+            url = targetUrl,
             title = cleanTitle,
             lastAccessedAt = System.currentTimeMillis(),
             isHibernated = false

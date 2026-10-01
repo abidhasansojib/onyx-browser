@@ -292,6 +292,19 @@ class OnyxWebViewClient(
                     if (url.startsWith("file:///android_asset/", ignoreCase = true) || url.startsWith("file:///android_res/", ignoreCase = true)) {
                         return null
                     }
+                    val onyxWv = view as? OnyxWebView
+                    if (url.startsWith("file://", ignoreCase = true) && LocalFileLoader.isSensitiveOrRestrictedPath(context, url)) {
+                        if (!LocalFileLoader.isAuthorizedPreviewForTab(onyxWv?.tabId, url)) {
+                            return WebResourceResponse(
+                                "text/plain",
+                                "UTF-8",
+                                403,
+                                "Forbidden",
+                                emptyMap(),
+                                ByteArrayInputStream("Access to private app storage is blocked.".toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+                            )
+                        }
+                    }
                     val lower = url.lowercase()
                     // CRITICAL: Chromium native Blink MHTML parser handles file:// .mht/.mhtml URLs.
                     // Returning null allows Chromium to parse multipart/related natively without black screens!
@@ -359,6 +372,12 @@ class OnyxWebViewClient(
                     return null
                 }
                 if (url.startsWith("file://", ignoreCase = true) || url.startsWith("content://", ignoreCase = true)) {
+                    val onyxWv = view as? OnyxWebView
+                    if (url.startsWith("file://", ignoreCase = true) && LocalFileLoader.isSensitiveOrRestrictedPath(context, url)) {
+                        if (!LocalFileLoader.isAuthorizedPreviewForTab(onyxWv?.tabId, url)) {
+                            return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+                        }
+                    }
                     return LocalFileLoader.interceptLocalSubResource(context, url)
                 }
                 return null
@@ -611,6 +630,16 @@ class OnyxWebViewClient(
                     val tab = act?.tabManager?.getTabById(tabId)
                     if (tab != null) {
                         act.displayPopupTab(tab)
+                    }
+                }
+            }
+
+            // Block navigation to sensitive or restricted private app/system filesystem paths
+            if (scheme == "file") {
+                val onyxWv = view as? OnyxWebView
+                if (LocalFileLoader.isSensitiveOrRestrictedPath(context, url)) {
+                    if (!LocalFileLoader.isAuthorizedPreviewForTab(onyxWv?.tabId, url)) {
+                        return true // Abort navigation!
                     }
                 }
             }

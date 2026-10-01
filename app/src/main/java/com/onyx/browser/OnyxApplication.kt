@@ -53,6 +53,9 @@ class OnyxApplication : Application() {
             } catch (t: Throwable) {
                 Log.e("OnyxApplication", "Failed to initialize AdBlockEngine in background", t)
             }
+            try {
+                com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(applicationContext)
+            } catch (_: Exception) {}
         }
 
         // Initialize ServiceWorker ad/tracker interception

@@ -51,6 +51,10 @@ class HistoryActivity : AppCompatActivity() {
             onItemDeleted = { item ->
                 lifecycleScope.launch(Dispatchers.IO) {
                     database.historyDao().deleteHistory(item)
+                    if (com.onyx.browser.web.LocalFileLoader.isPreviewUrl(item.url) ||
+                        com.onyx.browser.web.LocalFileLoader.isLocalFile(this@HistoryActivity, item.url)) {
+                        com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(this@HistoryActivity)
+                    }
                 }
             }
         )
@@ -74,8 +78,19 @@ class HistoryActivity : AppCompatActivity() {
     private fun setupClearDataButton() {
         binding.btnClearBrowsingData.setOnClickListener {
             ClearHistoryDialog {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    database.historyDao().clearAllHistory()
+                lifecycleScope.launch {
+                    kotlinx.coroutines.withContext(Dispatchers.IO) {
+                        database.historyDao().clearAllHistory()
+                        com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(this@HistoryActivity)
+                        try {
+                            java.io.File(cacheDir, "web_archives").deleteRecursively()
+                        } catch (_: Exception) {}
+                    }
+                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                        try {
+                            android.webkit.WebView(this@HistoryActivity).clearCache(true)
+                        } catch (_: Exception) {}
+                    }
                 }
             }.show(supportFragmentManager, ClearHistoryDialog.TAG)
         }
