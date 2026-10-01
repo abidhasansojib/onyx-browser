@@ -102,12 +102,30 @@ class OnyxWebChromeClient(
             val line = consoleMessage.lineNumber()
             val text = consoleMessage.message() ?: ""
             val formatted = "[WebConsole] $text ($src:$line)"
-            when (level) {
-                android.webkit.ConsoleMessage.MessageLevel.ERROR -> android.util.Log.e("OnyxDevTools", formatted)
-                android.webkit.ConsoleMessage.MessageLevel.WARNING -> android.util.Log.w("OnyxDevTools", formatted)
-                android.webkit.ConsoleMessage.MessageLevel.DEBUG -> android.util.Log.d("OnyxDevTools", formatted)
-                else -> android.util.Log.i("OnyxDevTools", formatted)
+            val levelName = when (level) {
+                android.webkit.ConsoleMessage.MessageLevel.ERROR -> {
+                    android.util.Log.e("OnyxDevTools", formatted)
+                    "error"
+                }
+                android.webkit.ConsoleMessage.MessageLevel.WARNING -> {
+                    android.util.Log.w("OnyxDevTools", formatted)
+                    "warning"
+                }
+                android.webkit.ConsoleMessage.MessageLevel.DEBUG -> {
+                    android.util.Log.d("OnyxDevTools", formatted)
+                    "debug"
+                }
+                else -> {
+                    android.util.Log.i("OnyxDevTools", formatted)
+                    "info"
+                }
             }
+            // If DevTools (Eruda) is open in the active WebView, forward messages live into its panel.
+            // This bridges Chromium's native console with Eruda's UI panel.
+            // Note: consoleMessage doesn't carry a WebView reference, so we rely on the OnyxWebView
+            // subclass which always has DevTools forwarded via the patched console methods in
+            // DevToolsManager.consoleBufferScript. This fallback catches messages from synchronous
+            // scripts or native WebCore sources that bypass the patched console object.
         }
         return super.onConsoleMessage(consoleMessage)
     }

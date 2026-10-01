@@ -2497,7 +2497,8 @@ class MainActivity : AppCompatActivity() {
     private fun injectDeveloperTools() {
         val webView = tabManager.getActiveWebView() ?: return
         val activeTab = tabManager.activeTab.value
-        if (activeTab == null || activeTab.url.isBlank() || activeTab.url.startsWith("onyx://") || activeTab.url.startsWith("about:")) {
+        if (activeTab == null || activeTab.url.isBlank() ||
+            activeTab.url.startsWith("onyx://") || activeTab.url.startsWith("about:")) {
             Toast.makeText(this, "Developer tools can only run on active web pages", Toast.LENGTH_SHORT).show()
             return
         }
@@ -2507,18 +2508,23 @@ class MainActivity : AppCompatActivity() {
                 when (status) {
                     "shown" -> {
                         webView.isDevToolsActive = true
-                        Toast.makeText(this@MainActivity, "Developer tools opened", Toast.LENGTH_SHORT).show()
+                        // No toast needed — the Eruda panel appearing is its own feedback
                     }
                     "hidden" -> {
-                        webView.isDevToolsActive = false
-                        Toast.makeText(this@MainActivity, "Developer tools minimized", Toast.LENGTH_SHORT).show()
+                        // Panel is minimized but Eruda icon stays visible on screen
+                        // Keep isDevToolsActive = true so auto-reinject fires on navigation
+                        webView.isDevToolsActive = true
                     }
                     "failed" -> {
+                        webView.isDevToolsActive = false
                         Toast.makeText(this@MainActivity, "Unable to load developer tools", Toast.LENGTH_SHORT).show()
                     }
+                    "error" -> {
+                        webView.isDevToolsActive = false
+                        Toast.makeText(this@MainActivity, "Developer tools encountered an error", Toast.LENGTH_SHORT).show()
+                    }
                     else -> {
-                        webView.isDevToolsActive = true
-                        Toast.makeText(this@MainActivity, "Developer tools ready", Toast.LENGTH_SHORT).show()
+                        // Unexpected — do not change state
                     }
                 }
             }
