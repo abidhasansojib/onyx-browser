@@ -466,4 +466,13 @@ onyx-browser/
    - Resolved video audio bleed & failed autoplay: Removed artificial `IntersectionObserver` override from `MediaPlaybackManager.kt` so Blink's native compositor truthfully reports element visibility to Facebook's feed controller, pausing offscreen reels immediately and triggering automatic playback on the next reel.
    - Gated `pause` auto-resume listener behind `window.__onyx_in_background` to prevent synthetic foreground resume loops.
 
+6. **Security Hardening — File Handling & Download Subsystem** (commit `6122060`):
+   - **`sanitizeFileName`**: Strips null bytes (path truncation attack vector), collapses `..` traversal sequences, removes leading dots (hidden files), and caps filename length at 240 characters.
+   - **Data URI OOM Guard**: `handleDataUriDownload` rejects data URIs larger than 256 MB before decoding. `OnyxBlobBridge.onBlobDownloaded` enforces the same guard at the JS bridge entry point.
+   - **JS Injection Fix in Blob Downloads**: `handleBlobUriDownload` replaced unsafe single-quote escaping with Base64/`atob()` encoding for all four dynamic JS parameters (blob URL, filename, MIME type, page URL). Single-quote escaping was insufficient against backslash, newline, or Unicode escape sequences from web-controlled inputs.
+   - **`OnyxBlobBridge` Input Hardening**: `onBlobDownloaded` sanitizes JS-provided filenames via `sanitizeFileName`. `onBlobFailedWithContext` sanitizes filenames and validates that `pageUrl` is `http://` or `https://` before passing to the download fallback handler.
+   - **`LocalFileLoader` Internal Path Blocking**: `isLocalFile()` now explicitly blocks `/data/`, `/proc/`, and `/sys/` prefixes so internal Android app data and kernel interfaces cannot be served as local browser files.
+   - **`LocalFileLoader` Sub-Resource Path Traversal Fix**: `interceptLocalSubResource()` canonicalizes `file://` paths via `java.io.File.canonicalPath` and rejects requests targeting `/data/`, `/proc/`, `/sys/`, or the app's own private data directory.
+   - **Update URL Allowlist** (`AppUpdateManager`): `isAllowedUpdateUrl()` restricts all APK asset download URLs to `github.com` and `*.githubusercontent.com`. Applied to HTML scraper, Atom feed parser, and REST API asset lists to prevent MITM-redirected update URLs.
+   - **APK Download Hardening** (`AppUpdateDownloader`): Enforces HTTPS-only URLs; validates HTTP response `Content-Type` is an APK MIME type before writing bytes to disk.
 
