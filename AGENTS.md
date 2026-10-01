@@ -417,6 +417,7 @@ onyx-browser/
   - **Infinite-Scroll Dynamic Translation**: Added `MutationObserver` on `document.body` that debounces and translates dynamically loaded search engine results and pagination on the fly.
   - **Zero-Latency In-Place Restore**: In-page `restoreOriginalScript` instantly resets `node.nodeValue = node.__onyx_orig` in 0ms with zero network requests and zero page reloads, preserving form data, video playback, and scroll position.
   - **RTL Support & Clean Lifecycle**: Manages `dir="rtl"` attribute for Arabic, Hebrew, Persian, and Urdu. Cleaned up observers and state in `OnyxWebView.destroySafely()`.
+  - **Verified Debug Build**: Workflow run `36853591053` compiled in 5m27s. Debug APK downloaded to `/storage/emulated/0/Download/app-debug.apk` (46 MB).
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
