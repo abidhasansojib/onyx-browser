@@ -778,6 +778,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             exitSearchMode()
+            hideTranslateBar(restoreOriginal = false)
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         currentDisplayedTabId = tab.id
@@ -1411,6 +1412,7 @@ class MainActivity : AppCompatActivity() {
         val activeTab = tabManager.activeTab.value ?: tabManager.createNewTab()
         tabManager.updateActiveTab(url, url)
         showWebView(activeTab, forceUrl = url)
+        hideTranslateBar(restoreOriginal = false)
         if (isSearchMode) {
             exitSearchMode()
         }
@@ -2357,6 +2359,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var currentTranslateTargetCode: String = ""
+    private var isUpdatingTranslateUi = false
 
     fun setTranslateLoading(isLoading: Boolean) {
         runOnUiThread {
@@ -2366,7 +2369,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupTranslateBar() {
         binding.toggleTranslateMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (!isChecked) return@addOnButtonCheckedListener
+            if (isUpdatingTranslateUi || !isChecked) return@addOnButtonCheckedListener
             val wv = tabManager.getActiveWebView() ?: return@addOnButtonCheckedListener
             when (checkedId) {
                 R.id.btnTranslateOriginal -> {
@@ -2394,7 +2397,12 @@ class MainActivity : AppCompatActivity() {
                 preferences.targetTranslateLanguage = code
                 preferences.targetTranslateLanguageName = name
                 binding.btnTranslateTarget.text = name
-                binding.toggleTranslateMode.check(R.id.btnTranslateTarget)
+                isUpdatingTranslateUi = true
+                try {
+                    binding.toggleTranslateMode.check(R.id.btnTranslateTarget)
+                } finally {
+                    isUpdatingTranslateUi = false
+                }
                 val wv = tabManager.getActiveWebView() ?: return@LanguageSelectionDialog
                 binding.pbTranslateLoading.visibility = View.VISIBLE
                 wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code), null)
@@ -2410,7 +2418,12 @@ class MainActivity : AppCompatActivity() {
     private fun showTranslateBar(targetCode: String, targetName: String) {
         currentTranslateTargetCode = targetCode
         binding.btnTranslateTarget.text = targetName
-        binding.toggleTranslateMode.check(R.id.btnTranslateTarget)
+        isUpdatingTranslateUi = true
+        try {
+            binding.toggleTranslateMode.check(R.id.btnTranslateTarget)
+        } finally {
+            isUpdatingTranslateUi = false
+        }
         binding.translateBar.visibility = View.VISIBLE
     }
 

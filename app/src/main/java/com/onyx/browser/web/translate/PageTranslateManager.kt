@@ -46,6 +46,13 @@ object PageTranslateManager {
                     };
                 }
                 var state = window.__onyx_translate_state;
+                var isSameLang = (state.activeLang === targetLang);
+
+                // Prevent duplicate concurrent scans for the same language
+                if (state.isTranslating && isSameLang && Object.keys(state.nodes).length > 0) {
+                    return 'already_translating';
+                }
+
                 var langChanged = (state.activeLang !== targetLang && state.activeLang !== '');
                 state.activeLang = targetLang;
                 state.isTranslating = true;
@@ -126,6 +133,7 @@ object PageTranslateManager {
                     var batchXml = '';
                     var batchCount = 0;
                     var batchId = state.nextId;
+                    var totalDispatched = 0;
 
                     for (var i = 0; i < nodeList.length; i++) {
                         var node = nodeList[i];
@@ -149,9 +157,10 @@ object PageTranslateManager {
                             batchCount++;
                         }
 
-                        if (batchCount >= 35 || batchXml.length >= 2500) {
+                        if (batchCount >= 45 || batchXml.length >= 3000) {
                             if (window.OnyxTranslateBridge && window.OnyxTranslateBridge.translateBatch) {
                                 window.OnyxTranslateBridge.translateBatch(batchId, batchXml, targetLang, isInitial);
+                                totalDispatched++;
                             }
                             batchXml = '';
                             batchCount = 0;
@@ -162,11 +171,28 @@ object PageTranslateManager {
                     if (batchCount > 0) {
                         if (window.OnyxTranslateBridge && window.OnyxTranslateBridge.translateBatch) {
                             window.OnyxTranslateBridge.translateBatch(batchId, batchXml, targetLang, isInitial);
+                            totalDispatched++;
+                        }
+                    }
+
+                    if (totalDispatched === 0 && isInitial) {
+                        state.isTranslating = false;
+                        if (window.OnyxTranslateBridge && window.OnyxTranslateBridge.onTranslationFinished) {
+                            window.OnyxTranslateBridge.onTranslationFinished();
                         }
                     }
                 }
 
                 window.__onyx_apply_batch = function(batchId, translations) {
+                    if (typeof translations === 'string') {
+                        try {
+                            translations = JSON.parse(translations);
+                        } catch (_) {
+                            return;
+                        }
+                    }
+                    if (!translations || typeof translations !== 'object') return;
+
                     for (var id in translations) {
                         var node = state.nodes[id];
                         if (node) {
@@ -176,7 +202,10 @@ object PageTranslateManager {
                             var leading = match ? match[1] : '';
                             var trailing = match ? match[3] : '';
                             node.__onyx_trans = leading + transText + trailing;
-                            node.nodeValue = node.__onyx_trans;
+                            // Only update rendered DOM text if translation is still active
+                            if (state.isTranslating) {
+                                node.nodeValue = node.__onyx_trans;
+                            }
                         }
                     }
                 };
@@ -190,6 +219,13 @@ object PageTranslateManager {
                     processNodes(existingNodes, true);
                 } else {
                     var allNodes = collectTextNodes(document.body || document.documentElement);
+                    if (allNodes.length === 0) {
+                        state.isTranslating = false;
+                        if (window.OnyxTranslateBridge && window.OnyxTranslateBridge.onTranslationFinished) {
+                            window.OnyxTranslateBridge.onTranslationFinished();
+                        }
+                        return 'empty';
+                    }
                     processNodes(allNodes, true);
                 }
 

@@ -141,4 +141,5 @@ This document tracks all features of Onyx Browser, their current implementation 
 - **Infinite-Scroll & Dynamic Content Support**: In-page `MutationObserver` on `document.body` detects newly appended elements and automatically translates dynamic pagination and infinite-scrolling search results on the fly.
 - **Zero-Latency In-Place Restore**: Restoring original text runs in 0ms with zero network requests and zero page reloads, preserving form data, video playback, and scroll position.
 - **Right-To-Left (RTL) Adaptation**: Automatically manages HTML `dir="rtl"` attributes when translating to or from Arabic, Hebrew, Persian, and Urdu.
+- **Concurrency Throttling & Cyrillic Tag Support**: Employs `Semaphore(2)` network request throttling to prevent HTTP 429 rate limiting, supports transliterated Cyrillic tags (`(?:id|ид)`), safe JSON escaping, and main-thread toast error routing.
 

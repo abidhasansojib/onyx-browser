@@ -11,6 +11,8 @@ import com.onyx.browser.web.OnyxWebView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -34,6 +36,7 @@ class OnyxTranslateBridge(
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val activeBatchCount = AtomicInteger(0)
+    private val requestLimiter = Semaphore(2)
     private var lastToastTime = 0L
 
     companion object {
@@ -47,6 +50,13 @@ class OnyxTranslateBridge(
                 .retryOnConnectionFailure(true)
                 .build()
         }
+
+        // Regex supporting standard Latin XML (<t id="0">), Cyrillic transliterations (<т ид="0"> in Serbian),
+        // flexible whitespace, and attribute casing.
+        private val TAG_PATTERN: Pattern = Pattern.compile(
+            "<[^>]*?\\b(?:id|ид)\\s*=\\s*[\"']?\\s*(\\d+)\\s*[\"']?[^>]*>(.*?)</[^>]+>",
+            Pattern.DOTALL or Pattern.CASE_INSENSITIVE
+        )
 
         private fun findMainActivity(ctx: Context?): MainActivity? {
             var current: Context? = ctx
@@ -82,7 +92,10 @@ class OnyxTranslateBridge(
                     .post(formBody)
                     .build()
 
-                val response = HTTP_CLIENT.newCall(request).execute()
+                val response = requestLimiter.withPermit {
+                    HTTP_CLIENT.newCall(request).execute()
+                }
+
                 if (!response.isSuccessful) {
                     onBatchFailed(batchId, "HTTP ${response.code}")
                     return@launch
@@ -99,9 +112,7 @@ class OnyxTranslateBridge(
                     }
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    onBatchFailed(batchId, e.message ?: "Network error")
-                }
+                onBatchFailed(batchId, e.message ?: "Network error")
             }
         }
     }
@@ -131,7 +142,8 @@ class OnyxTranslateBridge(
                 jsonObj.put(id.toString(), text)
             }
             val jsonString = jsonObj.toString()
-            webView.evaluateJavascript("if (window.__onyx_apply_batch) { window.__onyx_apply_batch($batchId, $jsonString); }", null)
+            val quotedJson = JSONObject.quote(jsonString)
+            webView.evaluateJavascript("if (window.__onyx_apply_batch) { window.__onyx_apply_batch($batchId, $quotedJson); }", null)
         } catch (_: Exception) {}
     }
 
@@ -150,10 +162,12 @@ class OnyxTranslateBridge(
     }
 
     private fun showErrorToast(msg: String) {
-        val now = System.currentTimeMillis()
-        if (now - lastToastTime > 3000) {
-            lastToastTime = now
-            Toast.makeText(webView.context, msg, Toast.LENGTH_SHORT).show()
+        mainHandler.post {
+            val now = System.currentTimeMillis()
+            if (now - lastToastTime > 3000) {
+                lastToastTime = now
+                Toast.makeText(webView.context, msg, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -170,8 +184,7 @@ class OnyxTranslateBridge(
             }
             val fullTranslatedXml = sb.toString()
 
-            val pattern = Pattern.compile("<t\\s+id=[\"']?(\\d+)[\"']?>(.*?)</t>", Pattern.DOTALL)
-            val matcher = pattern.matcher(fullTranslatedXml)
+            val matcher = TAG_PATTERN.matcher(fullTranslatedXml)
             while (matcher.find()) {
                 val id = matcher.group(1)?.toIntOrNull() ?: continue
                 val rawText = matcher.group(2) ?: ""
