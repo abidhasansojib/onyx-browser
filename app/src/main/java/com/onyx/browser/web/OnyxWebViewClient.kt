@@ -156,6 +156,69 @@ class OnyxWebViewClient(
                 u.contains("/trusted-devices/") || u.contains("/login_attempt")
     }
 
+    /**
+     * Returns true if the given domain is a known OAuth/SSO/identity/payment provider that
+     * requires third-party cookies for login flows to work correctly.
+     *
+     * Based on Brave's approach: these are exempted from BLOCK_THIRD_PARTY cookie mode
+     * because they are cross-site by design (OAuth redirects, embedded login iframes,
+     * payment processors). Blocking third-party cookies on these breaks:
+     *   - Google Sign-In / Apple Sign-In / GitHub OAuth
+     *   - PayPal / Stripe / payment confirmation pages
+     *   - Microsoft/Azure AD authentication
+     *   - Auth0, Okta, Keycloak, Firebase Auth
+     */
+    private fun isOAuthOrLoginProvider(domain: String): Boolean {
+        val d = domain.lowercase()
+        return // Google identity and auth
+               d == "accounts.google.com" || d.endsWith(".accounts.google.com") ||
+               d == "oauth2.googleapis.com" || d == "apis.google.com" ||
+               d == "ssl.gstatic.com" || d == "www.gstatic.com" ||
+               // Apple Sign-In
+               d == "appleid.apple.com" || d.endsWith(".apple.com") && (d.contains("auth") || d.contains("appleid")) ||
+               d == "idmsa.apple.com" || d == "signin.apple.com" ||
+               // Microsoft / Azure AD / MSAL
+               d == "login.microsoftonline.com" || d == "login.microsoft.com" ||
+               d == "login.live.com" || d == "account.microsoft.com" ||
+               d == "aadcdn.msftauth.net" || d == "aadcdn.msauth.net" ||
+               d == "msauth.net" || d.endsWith(".msauth.net") ||
+               // GitHub OAuth
+               d == "github.com" || d == "api.github.com" ||
+               // Twitter/X OAuth
+               d == "api.twitter.com" || d == "api.x.com" ||
+               // PayPal payment flows
+               d == "paypal.com" || d == "www.paypal.com" || d.endsWith(".paypal.com") ||
+               d == "paypalobjects.com" || d.endsWith(".paypalobjects.com") ||
+               // Stripe payment flows
+               d == "stripe.com" || d.endsWith(".stripe.com") ||
+               d == "js.stripe.com" || d == "m.stripe.network" || d.endsWith(".stripe.network") ||
+               // Auth0
+               d.endsWith(".auth0.com") || d == "auth0.com" ||
+               d.endsWith(".us.auth0.com") || d.endsWith(".eu.auth0.com") ||
+               // Okta
+               d.endsWith(".okta.com") || d == "okta.com" ||
+               d.endsWith(".oktapreview.com") ||
+               // Keycloak / generic auth subdomains
+               d.startsWith("auth.") || d.startsWith("login.") || d.startsWith("sso.") ||
+               d.startsWith("id.") || d.startsWith("identity.") || d.startsWith("account.") ||
+               d.startsWith("accounts.") || d.startsWith("signin.") || d.startsWith("oauth.") ||
+               // Firebase Auth
+               d.endsWith(".firebaseapp.com") || d == "securetoken.googleapis.com" ||
+               // Amazon / AWS Cognito
+               d.endsWith(".amazoncognito.com") || d == "cognito-identity.amazonaws.com" ||
+               d == "amazon.com" || d == "www.amazon.com" ||
+               // LinkedIn OAuth
+               d == "linkedin.com" || d == "www.linkedin.com" ||
+               // Twitch OAuth
+               d == "id.twitch.tv" ||
+               // Discord OAuth
+               d == "discord.com" || d == "discordapp.com" ||
+               // Cloudflare Access
+               d.endsWith(".cloudflareaccess.com") ||
+               // Generic OAuth indicators in path
+               d.contains("oauth") || d.contains("openid") || d.contains("saml")
+    }
+
     // Twitter/X content domains (embeds)
     private val twitterContentDomains = setOf(
         "platform.twitter.com", "cdn.syndication.twimg.com",
@@ -458,6 +521,19 @@ class OnyxWebViewClient(
             // Anti-bot verifications and checkpoints must never be blocked on any website
             val isCaptchaResource = isCaptchaOrAuthUrl(url, reqDomain)
             if (isCaptchaResource) {
+                if (!isIncognitoView && view != null) {
+                    try { CookieManager.getInstance().setAcceptThirdPartyCookies(view, true) } catch (_: Exception) {}
+                }
+                return null
+            }
+
+            // ── OAuth / SSO / Identity & Payment Provider Exemption ───────────────
+            // Brave exempts known identity providers from BLOCK_THIRD_PARTY cookie mode because
+            // they are legitimately cross-site (Google Sign-In iframes, Stripe payment forms, etc.).
+            // Re-enable third-party cookies for this WebView when the resource is from such a provider.
+            val isOAuthResource = isOAuthOrLoginProvider(reqDomain) ||
+                    isOAuthOrLoginProvider(pageDomain)
+            if (isOAuthResource) {
                 if (!isIncognitoView && view != null) {
                     try { CookieManager.getInstance().setAcceptThirdPartyCookies(view, true) } catch (_: Exception) {}
                 }
@@ -1176,10 +1252,17 @@ class OnyxWebViewClient(
             onUrlChanged(url)
 
             val pageDomain = preferences.cleanDomain(url)
-            val isAuthOrMeta = isMetaDomain(pageDomain) || isCaptchaOrAuthUrl(url, pageDomain)
+            val isAuthOrMeta = isMetaDomain(pageDomain) || isCaptchaOrAuthUrl(url, pageDomain) ||
+                    isOAuthOrLoginProvider(pageDomain)
             if (isAuthOrMeta && !(onyxWv?.isIncognito ?: false)) {
                 try {
                     CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
+                } catch (_: Exception) {}
+            } else if (!(onyxWv?.isIncognito ?: false) &&
+                       preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY) {
+                // Restore third-party blocking when navigating away from an OAuth/login page
+                try {
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(view, false)
                 } catch (_: Exception) {}
             }
 
