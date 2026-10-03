@@ -581,6 +581,18 @@ onyx-browser/
         - In sync_upstream.yml, restricted automated build triggers exclusively to native Rust engine changes (external/adblock-rust or rust_engine).
         - Filter list updates (easylist_rules.txt, external/adblock-lists) are committed and pushed to keep bundled baseline rules up-to-date, but skip triggering APK builds because the app dynamically updates filter lists on-device every 24 hours.
 
+17. **Inbuilt Headless PDF Generation & Web Archive Download Parity (`v1.0.232`)**:
+    - **Inbuilt Headless PDF Export (`PdfPrintHelper.java`)**:
+      - Encapsulates Chromium's `PrintDocumentAdapter` within `package android.print` to cleanly inherit and instantiate package-private `LayoutResultCallback` and `WriteResultCallback`.
+      - Automatically sets up standard A4 vector layout at 300 DPI, writes the vector PDF directly into a `ParcelFileDescriptor` cache file on background threads, and executes `publishSavedPageToDownloads` upon completion without opening Android's system printer dialog.
+    - **Unified Downloads & Notification Parity**:
+      - Exports both `.pdf` and `.mht` pages directly to public Downloads (`/storage/emulated/0/Download/`) with MediaStore `DISPLAY_NAME` and `DATA` reconciliation.
+      - Inserts each export into Room `downloadDao` as a completed `DownloadItem` so saved pages appear in the in-app Downloads screen with accurate file size, origin URL, and timestamp.
+      - Posts system download completion notifications via `DownloadNotificationHelper.postDownloadCompletedNotification`. Tapping the notification opens web archives (`.mht`) in Onyx Browser and opens PDFs via external PDF viewers through `FileProvider`.
+    - **System Print Fallback**:
+      - Retains the "Print / System Print…" option in `showSavePageDialog` invoking Android's `PrintManager.print()` for users who need physical or network printing.
+
+
 16. **Adblock Engine, JNI Bridge & Rule Optimization Milestone**:
     - **Lock-Free Rust Engine Readers (`arc-swap = "1.7"`)**: Replaced `RwLock<Option<Engine>>` with `ArcSwapOption<Engine>` in `rust_engine/src/lib.rs`. Readers load engine pointers atomically without reader lock contention during bursts of concurrent network requests across Chromium background threads. Dynamic filter list reloads swap the engine pointer atomically via serialized buffer re-deserialization.
     - **Integer-Mapped JNI Resource Types**: Introduced `checkRequestNative` passing resource types as `jint` (0 to 7), directly mapped to `adblock::request::Request`, eliminating UTF-8 string heap allocation and string parsing on every intercepted network request.
