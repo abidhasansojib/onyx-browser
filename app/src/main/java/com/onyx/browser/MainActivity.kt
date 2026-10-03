@@ -351,12 +351,20 @@ class MainActivity : AppCompatActivity() {
     fun isLocalFileView(tab: TabItem?): Boolean {
         if (tab == null) return false
         val activeWv = tabManager.getActiveWebView()
+        val currentWvUrl = activeWv?.url
+        if (currentWvUrl != null && (currentWvUrl.startsWith("http://", ignoreCase = true) || currentWvUrl.startsWith("https://", ignoreCase = true))) {
+            return false
+        }
+        val tabUrl = tab.url
+        if (tabUrl.startsWith("http://", ignoreCase = true) || tabUrl.startsWith("https://", ignoreCase = true)) {
+            return false
+        }
         return localFileViewTabs.contains(tab.id) ||
                 previewTabsFromDownloads.contains(tab.id) ||
                 previewTabsFromExternal.contains(tab.id) ||
-                com.onyx.browser.web.LocalFileLoader.isLocalFile(this, tab.url) ||
-                com.onyx.browser.web.LocalFileLoader.isPreviewUrl(tab.url) ||
-                (activeWv?.url != null && (com.onyx.browser.web.LocalFileLoader.isLocalFile(this, activeWv.url!!) || com.onyx.browser.web.LocalFileLoader.isPreviewUrl(activeWv.url!!)))
+                com.onyx.browser.web.LocalFileLoader.isLocalFile(this, tabUrl) ||
+                com.onyx.browser.web.LocalFileLoader.isPreviewUrl(tabUrl) ||
+                (currentWvUrl != null && (com.onyx.browser.web.LocalFileLoader.isLocalFile(this, currentWvUrl) || com.onyx.browser.web.LocalFileLoader.isPreviewUrl(currentWvUrl)))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -521,7 +529,7 @@ class MainActivity : AppCompatActivity() {
             val currentTab = tabManager.activeTab.value
             if (isLocalFileView(currentTab)) {
                 onBackPressedDispatcher.onBackPressed()
-            } else if (currentTab != null) {
+            } else {
                 tabManager.updateActiveTab("", "New Tab")
                 showHomeScreen()
             }
@@ -810,7 +818,7 @@ class MainActivity : AppCompatActivity() {
         }
         currentDisplayedTabId = tab.id
 
-        if (tab.url.isBlank()) {
+        if (tab.url.isBlank() || tab.url == "about:blank") {
             showHomeScreen()
         } else {
             showWebView(tab, reloadIfChanged = tabChanged)
@@ -872,7 +880,7 @@ class MainActivity : AppCompatActivity() {
         attachWebViewToContainer(webView)
 
         val targetUrl = forceUrl ?: tab.url
-        if (targetUrl.isNotBlank()) {
+        if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
             val isCurrentLoaded = !webView.url.isNullOrBlank() && webView.url != "about:blank"
             val needsLoad = forceUrl != null || !isCurrentLoaded || (reloadIfChanged && webView.url != targetUrl)
             if (needsLoad) {
@@ -895,10 +903,11 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "Failed to load URL: ${t.message}", Toast.LENGTH_SHORT).show()
                 }
             }
+            updateAddressBarDisplay(if (LocalFileLoader.isLocalFile(this, targetUrl)) targetUrl else (webView.url ?: targetUrl))
+            webView.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.mediaMonitorScript, null)
+        } else {
+            showHomeScreen()
         }
-
-        updateAddressBarDisplay(if (LocalFileLoader.isLocalFile(this, targetUrl)) targetUrl else (webView.url ?: targetUrl))
-        webView.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.mediaMonitorScript, null)
     }
 
     private fun attachWebViewToContainer(webView: OnyxWebView) {
@@ -949,7 +958,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     newUrl
                 }
-                if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:") && !cleanUrl.startsWith("file:///android_asset/") && !cleanUrl.startsWith("file:///android_res/")) {
+                if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("about:blank", ignoreCase = true) && !cleanUrl.startsWith("data:") && !cleanUrl.startsWith("file:///android_asset/") && !cleanUrl.startsWith("file:///android_res/")) {
                     val finalTitle = webView.title?.takeIf { it.isNotBlank() }
                         ?: if (isPreview) currentTab?.title?.takeIf { it.isNotBlank() } ?: "Web Archive" else cleanUrl
                     tabManager.updateTabUrlAndTitle(tabId, cleanUrl, finalTitle)
@@ -973,7 +982,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     finishedUrl
                 }
-                if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("data:") && !cleanUrl.startsWith("file:///android_asset/") && !cleanUrl.startsWith("file:///android_res/")) {
+                if (cleanUrl.isNotBlank() && !cleanUrl.startsWith("about:blank", ignoreCase = true) && !cleanUrl.startsWith("data:") && !cleanUrl.startsWith("file:///android_asset/") && !cleanUrl.startsWith("file:///android_res/")) {
                     val finalTitle = webView.title?.takeIf { it.isNotBlank() }
                         ?: if (isPreview) currentTab?.title?.takeIf { it.isNotBlank() } ?: "Web Archive" else cleanUrl
                     tabManager.updateTabUrlAndTitle(tabId, cleanUrl, finalTitle)
@@ -1795,8 +1804,8 @@ class MainActivity : AppCompatActivity() {
     private fun updateAddressBarDisplay(url: String) {
         val activeWv = tabManager.getActiveWebView()
         val displayUrl = when {
-            url.isBlank() || url.startsWith("data:") || url.startsWith("file:///android_asset/") || url.startsWith("file:///android_res/") -> {
-                activeWv?.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url ?: ""
+            url.isBlank() || url.startsWith("about:blank", ignoreCase = true) || url.startsWith("data:") || url.startsWith("file:///android_asset/") || url.startsWith("file:///android_res/") -> {
+                activeWv?.currentSyntheticState?.failingUrl ?: tabManager.activeTab.value?.url?.takeIf { !it.startsWith("about:blank", ignoreCase = true) } ?: ""
             }
             LocalFileLoader.isPreviewUrl(url) -> {
                 tabManager.activeTab.value?.url ?: ""
@@ -1804,7 +1813,7 @@ class MainActivity : AppCompatActivity() {
             else -> url
         }
 
-        if (displayUrl.isBlank() || displayUrl.startsWith("data:") || displayUrl.startsWith("file:///android_asset/") || displayUrl.startsWith("file:///android_res/")) {
+        if (displayUrl.isBlank() || displayUrl.startsWith("about:blank", ignoreCase = true) || displayUrl.startsWith("data:") || displayUrl.startsWith("file:///android_asset/") || displayUrl.startsWith("file:///android_res/")) {
             binding.etUrl.setText("")
             binding.ivSslLock.visibility = View.GONE
             binding.btnHome.setImageResource(R.drawable.ic_home)
@@ -1815,7 +1824,9 @@ class MainActivity : AppCompatActivity() {
         val isHttps = displayUrl.startsWith("https://")
         binding.ivSslLock.visibility = if (isHttps) View.VISIBLE else View.GONE
 
-        val isLocalDoc = LocalFileLoader.isLocalFile(this, displayUrl) || LocalFileLoader.isPreviewUrl(displayUrl)
+        val isLocalDoc = isLocalFileView(tabManager.activeTab.value) ||
+                LocalFileLoader.isLocalFile(this, displayUrl) ||
+                LocalFileLoader.isPreviewUrl(displayUrl)
         if (isLocalDoc) {
             binding.btnHome.setImageResource(R.drawable.ic_arrow_back)
             binding.btnHome.contentDescription = getString(R.string.back)
@@ -1830,6 +1841,9 @@ class MainActivity : AppCompatActivity() {
             }
             LocalFileLoader.isPreviewUrl(displayUrl) -> {
                 tabManager.activeTab.value?.title?.takeIf { it.isNotBlank() } ?: "Web Archive"
+            }
+            isLocalDoc -> {
+                tabManager.activeTab.value?.title?.takeIf { it.isNotBlank() } ?: "Document Preview"
             }
             else -> try {
                 Uri.parse(displayUrl).host ?: displayUrl
@@ -2663,13 +2677,12 @@ class MainActivity : AppCompatActivity() {
                 val isLocalPreview = isLocalFileView(activeTab)
 
                 if (isLocalPreview && activeTab != null) {
-                    // 1. If in-page anchor navigation exists (e.g. TOC jump in markdown or HTML), go back within WebView
-                    if (activeWebView != null && activeWebView.canGoBack()) {
-                        activeWebView.goBack()
+                    val anchorStep = activeWebView?.let { findPreviousValidLocalPreviewStep(it, activeTab.url) }
+                    if (anchorStep != null && activeWebView != null) {
+                        activeWebView.goBackOrForward(anchorStep)
                         return
                     }
 
-                    // 2. If !activeWebView.canGoBack():
                     val tabId = activeTab.id
                     val wasFromDownloads = previewTabsFromDownloads.remove(tabId)
                     val wasFromExternal = previewTabsFromExternal.remove(tabId)
@@ -2687,17 +2700,22 @@ class MainActivity : AppCompatActivity() {
                     tabManager.closeTab(activeTab)
 
                     if (wasFromDownloads) {
-                        startActivity(Intent(this@MainActivity, DownloadsActivity::class.java))
+                        startActivity(Intent(this@MainActivity, DownloadsActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        })
                         return
                     }
 
-                    // Never wipe the tab to "" or trap the user on the Home Screen
+                    // Never wipe the tab to "" or trap the user on a blank white page
                     return
                 }
 
-                if (activeWebView != null && activeWebView.canGoBack()) {
-                    activeWebView.goBack()
-                    return
+                if (activeWebView != null) {
+                    val steps = findPreviousValidHistoryStep(activeWebView)
+                    if (steps != null) {
+                        activeWebView.goBackOrForward(steps)
+                        return
+                    }
                 }
 
                 if (activeTab != null) {
@@ -2714,7 +2732,7 @@ class MainActivity : AppCompatActivity() {
                         return
                     }
 
-                    if (activeTab.url.isNotBlank()) {
+                    if (binding.homeLayout.root.visibility != View.VISIBLE || (activeTab.url.isNotBlank() && !activeTab.url.startsWith("about:blank", ignoreCase = true))) {
                         // Navigate back to home screen on this tab
                         tabManager.updateActiveTab("", "New Tab")
                         showHomeScreen()
@@ -2763,6 +2781,38 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
+    private fun findPreviousValidLocalPreviewStep(webView: OnyxWebView, currentFileUrl: String): Int? {
+        val list = try { webView.copyBackForwardList() } catch (_: Throwable) { return null }
+        val currentIndex = list.currentIndex
+        if (currentIndex <= 0) return null
+
+        val currentNormalized = currentFileUrl.substringBefore('#').trimEnd('/')
+
+        for (i in currentIndex - 1 downTo 0) {
+            val item = list.getItemAtIndex(i) ?: continue
+            val itemUrl = item.url ?: continue
+
+            // Skip blank, data, or synthetic error page URLs
+            if (itemUrl.isBlank() ||
+                itemUrl == "about:blank" ||
+                itemUrl.startsWith("about:blank", ignoreCase = true) ||
+                OnyxWebView.isSyntheticOrDataUrl(itemUrl) ||
+                itemUrl.startsWith("https://onyx.browser/", ignoreCase = true) ||
+                itemUrl.startsWith("file:///android_asset/error_page.html", ignoreCase = true)
+            ) {
+                continue
+            }
+
+            // Only allow back navigation within the preview if it is an in-document anchor to the same local file
+            val itemNormalized = itemUrl.substringBefore('#').trimEnd('/')
+            if (itemNormalized.equals(currentNormalized, ignoreCase = true) && itemUrl != webView.url) {
+                return i - currentIndex
+            }
+        }
+
+        return null
+    }
+
     private fun findPreviousValidHistoryStep(webView: OnyxWebView): Int? {
         val list = try { webView.copyBackForwardList() } catch (_: Throwable) { return null }
         val currentIndex = list.currentIndex
@@ -2781,6 +2831,7 @@ class MainActivity : AppCompatActivity() {
             // Skip blank, data, or synthetic error page URLs
             if (itemUrl.isBlank() ||
                 itemUrl == "about:blank" ||
+                itemUrl.startsWith("about:blank", ignoreCase = true) ||
                 OnyxWebView.isSyntheticOrDataUrl(itemUrl) ||
                 itemUrl.startsWith("https://onyx.browser/", ignoreCase = true) ||
                 itemUrl.startsWith("file:///android_asset/error_page.html", ignoreCase = true)

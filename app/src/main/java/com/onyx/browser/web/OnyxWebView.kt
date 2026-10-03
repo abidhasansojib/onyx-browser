@@ -105,7 +105,7 @@ class OnyxWebView @JvmOverloads constructor(
             return url.startsWith("data:") ||
                     url.startsWith("file:///android_asset/") ||
                     url.startsWith("file:///android_res/") ||
-                    url == "about:blank"
+                    url.startsWith("about:blank", ignoreCase = true)
         }
     }
 
