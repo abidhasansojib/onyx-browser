@@ -26,7 +26,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 10. [x] Picture-in-Picture (PiP) (True video isolation, Shadow DOM traversal, letterbox centering)
 11. [x] Foreground Media Service (`MediaPlaybackService` with lockscreen controls & notification)
 12. [x] MediaSession & YouTube Player API Sync (Bluetooth, smartwatch, and lockscreen sync)
-13. [x] In-App Download Manager (pause, resume, progress tracking, file opening)
+13. [x] In-App Download Manager (pause, resume, progress tracking, file opening, "Open with..." app chooser, missing viewer fallback dialog, and direct web document viewing)
 14. [x] External Download Manager Handoff (detects 1DM, ADM, FDM; forwards cookies & headers)
 15. [x] Stream Detector (sniffs audio/video stream URLs for one-tap downloading)
 16. [x] Passkeys & WebAuthn Bridge (biometric login via AndroidX Credential Manager)
@@ -65,6 +65,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 49. [ ] Built-in Reader Mode (distraction-free text view for articles)
 50. [ ] DNS-over-HTTPS (DoH) Provider Selection (Cloudflare, Quad9, AdGuard DNS)
 51. [x] Feed & Reel Navigation Architecture (overscroll-aware pull-to-refresh & truthful Blink intersection tracking for Facebook Reels, Instagram Reels, TikTok, YouTube Shorts)
+52. [x] Robust Local File Handler & Storage Picker (`LocalFileLoader` with null-byte binary stream defuser, high-performance HTML viewers for code/markdown/images/media/PDF, SAF file pickers in main menu & downloads, intent-filter integration for external file managers)
 
 ---
 
@@ -86,10 +87,13 @@ This document tracks all features of Onyx Browser, their current implementation 
 - **YouTube API Sync**: Direct integration with YouTube `#movie_player` and W3C MediaSession handlers keeps Bluetooth headsets and lockscreen buttons in sync.
 - **Streamlined Video Options**: `Settings > Video options` provides a focused, uncluttered dashboard featuring "Playback & Display" (Background playback and Picture-in-Picture controls) with obsolete video download options removed.
 
-### 3. Downloads & External Downloaders
+### 3. Downloads & Local File Handling
 - **In-App Downloads**: Native background download manager handles pause, resume, progress reporting, and system notification updates.
 - **External Downloader Handoff**: Detects installed third-party downloaders (1DM, ADM, FDM) and passes download URLs along with cookies, User-Agent, and Referer headers so authenticated downloads succeed.
 - **Stream Sniffer**: Monitors HTML5 video/audio elements and network requests to offer quick stream download prompts.
+- **Local File & Document Viewer**: High-performance `LocalFileLoader` renders local HTML, MHTML, Markdown, images, audio, video, and code files directly with zero memory freezing. Features null-byte binary stream sniffing (`isBinaryStream`) to safeguard against corrupt or raw binary text dumping in WebView.
+- **System SAF File Picker**: Access local device storage via Android Storage Access Framework (`OpenDocument`) from the main menu (Homepage and Webpage menus) and Downloads screen with persistable URI permission grants.
+- **App Chooser & Missing Viewer Fallback**: "Open with..." allows selecting external applications via system app chooser. If no compatible external app exists for a downloaded file, a clean fallback dialog offers to open it inside Onyx Browser or share it.
 
 ### 4. Authentication & Security
 - **Passkeys (WebAuthn)**: Polyfills `window.PublicKeyCredential` to allow passwordless biometric authentication through AndroidX Credential Manager.

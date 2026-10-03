@@ -48,6 +48,31 @@ class DownloadsActivity : AppCompatActivity() {
     private lateinit var database: AppDatabase
     private var pendingApkInstallPath: String? = null
 
+    private val openDocLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: Exception) {}
+            val intent = Intent(this, MainActivity::class.java).apply {
+                action = Intent.ACTION_VIEW
+                data = uri
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivity(intent)
+        }
+    }
+
+    private fun launchFilePicker() {
+        try {
+            openDocLauncher.launch(arrayOf("*/*"))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Cannot open file picker: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     companion object {
         const val EXTRA_INSTALL_APK_PATH = "com.onyx.browser.extra.INSTALL_APK_PATH"
     }
@@ -61,8 +86,22 @@ class DownloadsActivity : AppCompatActivity() {
 
         binding.toolbarDownloads.setNavigationOnClickListener { finish() }
 
+        binding.toolbarDownloads.inflateMenu(R.menu.menu_downloads)
+        binding.toolbarDownloads.setOnMenuItemClickListener { menuItem ->
+            if (menuItem.itemId == R.id.action_open_file) {
+                launchFilePicker()
+                true
+            } else {
+                false
+            }
+        }
+
         binding.btnOpenSystemDownloads.setOnClickListener {
             openSystemDownloadsFolder()
+        }
+
+        binding.btnOpenLocalFile.setOnClickListener {
+            launchFilePicker()
         }
 
         setupRecyclerView()
@@ -163,18 +202,7 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun isLocalWebDocument(item: DownloadItem): Boolean {
-        val name = item.fileName.lowercase()
-        val mime = item.mimeType.lowercase()
-        return name.endsWith(".mht") || name.endsWith(".mhtml") ||
-                name.endsWith(".html") || name.endsWith(".htm") || name.endsWith(".xhtml") ||
-                name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".mdown") || name.endsWith(".mkd") ||
-                name.contains("readme") ||
-                name.endsWith(".txt") || name.endsWith(".log") || name.endsWith(".json") || name.endsWith(".xml") ||
-                mime == "multipart/related" || mime == "message/rfc822" ||
-                mime == "application/x-mimearchive" || mime == "application/mhtml" ||
-                mime == "text/html" || mime == "application/xhtml+xml" ||
-                mime == "text/markdown" || mime == "text/x-markdown" ||
-                mime == "text/plain"
+        return com.onyx.browser.web.LocalFileLoader.isWebDocument(item.fileName, item.mimeType)
     }
 
     private fun openFile(item: DownloadItem) {
@@ -210,7 +238,6 @@ class DownloadsActivity : AppCompatActivity() {
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             startActivity(intent)
-            finish()
             return
         }
 
@@ -224,8 +251,8 @@ class DownloadsActivity : AppCompatActivity() {
                 }
                 startActivity(intent)
                 return
-            } catch (e: Exception) {
-                Toast.makeText(this, "Cannot open file: ${e.message}", Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                showNoAppFoundDialog(item)
                 return
             }
         }
@@ -248,6 +275,50 @@ class DownloadsActivity : AppCompatActivity() {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             startActivity(intent)
+        } catch (_: Exception) {
+            showNoAppFoundDialog(item)
+        }
+    }
+
+    private fun showNoAppFoundDialog(item: DownloadItem) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Cannot open file")
+            .setMessage("No application found on your device to open \"${item.fileName}\". Would you like to try opening it in Onyx Browser or share it?")
+            .setPositiveButton("Open in Browser") { _, _ ->
+                val target = item.filePath
+                val uri = if (target.startsWith("content://", ignoreCase = true) || target.startsWith("file://", ignoreCase = true)) {
+                    Uri.parse(target)
+                } else {
+                    Uri.fromFile(File(target))
+                }
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    action = Intent.ACTION_VIEW
+                    data = uri
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
+                startActivity(intent)
+            }
+            .setNeutralButton("Share") { _, _ ->
+                shareDownloadedFile(item)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun openFileWithChooser(item: DownloadItem) {
+        try {
+            val uri: Uri = if (item.filePath.startsWith("content://")) {
+                Uri.parse(item.filePath)
+            } else {
+                val file = File(item.filePath)
+                FileProvider.getUriForFile(this, "${applicationContext.packageName}.fileprovider", file)
+            }
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, item.mimeType.ifEmpty { "*/*" })
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(intent, "Open ${item.fileName} with"))
         } catch (e: Exception) {
             Toast.makeText(this, "Cannot open file: ${e.message}", Toast.LENGTH_SHORT).show()
         }
@@ -319,6 +390,16 @@ class DownloadsActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             openFile(item)
+        }
+
+        menuBinding.menuOpenWith.setOnClickListener {
+            bottomSheet.dismiss()
+            if (!FileUtils.doesFileExist(item.filePath, this)) {
+                Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
+                adapter.notifyDataSetChanged()
+                return@setOnClickListener
+            }
+            openFileWithChooser(item)
         }
 
         menuBinding.menuOpenInFolder.setOnClickListener {
