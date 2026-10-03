@@ -11,6 +11,7 @@ import android.os.Build
 import android.text.format.Formatter
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
+import android.webkit.MimeTypeMap
 import com.onyx.browser.R
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import java.io.File
@@ -172,11 +173,18 @@ object DownloadNotificationHelper {
         val sizeStr = if (task.totalBytes > 0L) Formatter.formatFileSize(context, task.totalBytes) else ""
         val contentText = if (sizeStr.isNotBlank()) "Download complete • $sizeStr" else "Download complete"
 
-        val isApk = com.onyx.browser.ui.downloads.ApkInstallerHelper.isApkFile(task.fileName, task.mimeType)
-        val isLocalDoc = com.onyx.browser.web.LocalFileLoader.isWebDocument(task.fileName, task.mimeType)
+        val resolvedPath = FileUtils.resolveExistingPath(task.finalFilePath, context) ?: task.finalFilePath
+        val resolvedName = if (!resolvedPath.startsWith("content://")) {
+            val f = File(resolvedPath)
+            if (f.exists()) f.name else task.fileName
+        } else task.fileName
+
+        val isApk = com.onyx.browser.ui.downloads.ApkInstallerHelper.isApkFile(resolvedName, task.mimeType)
+        val isLocalDoc = com.onyx.browser.web.LocalFileLoader.isWebDocument(resolvedName, task.mimeType) ||
+                com.onyx.browser.web.LocalFileLoader.isWebDocument(resolvedPath, task.mimeType)
 
         val openIntent = try {
-            val finalPath = task.finalFilePath
+            val finalPath = resolvedPath
             if (isApk) {
                 Intent(context, DownloadsActivity::class.java).apply {
                     putExtra(DownloadsActivity.EXTRA_INSTALL_APK_PATH, finalPath)
@@ -202,7 +210,11 @@ object DownloadNotificationHelper {
                     FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                 }
                 Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(contentUri, task.mimeType.ifBlank { "*/*" })
+                    val effectiveMime = task.mimeType.ifBlank {
+                        val ext = MimeTypeMap.getFileExtensionFromUrl(finalPath)
+                        MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+                    }
+                    setDataAndType(contentUri, effectiveMime)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }

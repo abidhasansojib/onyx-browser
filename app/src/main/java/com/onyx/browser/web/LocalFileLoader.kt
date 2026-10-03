@@ -225,10 +225,9 @@ object LocalFileLoader {
         rawUriOrPath: String,
         onTitleResolved: ((String) -> Unit)? = null
     ) {
-        val uri = parseUri(rawUriOrPath)
-
         CoroutineScope(Dispatchers.IO).launch {
-            if (!FileUtils.doesFileExist(rawUriOrPath, context)) {
+            val resolvedPath = FileUtils.resolveExistingPath(rawUriOrPath, context)
+            if (resolvedPath == null) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "File not found or deleted", Toast.LENGTH_SHORT).show()
                     showErrorPage(webView, rawUriOrPath, "The requested file was deleted or does not exist.")
@@ -236,6 +235,7 @@ object LocalFileLoader {
                 return@launch
             }
 
+            val uri = parseUri(resolvedPath)
             val fileName = getDisplayName(context, uri)
             withContext(Dispatchers.Main) {
                 onTitleResolved?.invoke(fileName)
@@ -397,6 +397,7 @@ object LocalFileLoader {
         return lowerName.endsWith(".mht") || lowerName.endsWith(".mhtml") ||
             lowerName.endsWith(".html") || lowerName.endsWith(".htm") || lowerName.endsWith(".xhtml") ||
             lowerName.endsWith(".md") || lowerName.endsWith(".markdown") || lowerName.endsWith(".mdown") || lowerName.endsWith(".mkd") ||
+            lowerName.endsWith(".md.txt") ||
             lowerName.contains("readme") ||
             lowerName.endsWith(".txt") || lowerName.endsWith(".log") || lowerName.endsWith(".json") || lowerName.endsWith(".xml") ||
             lowerName.endsWith(".yaml") || lowerName.endsWith(".yml") ||
@@ -438,7 +439,8 @@ object LocalFileLoader {
 
         // 3. Markdown files
         if (name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".mdown") || name.endsWith(".mkd") ||
-            path.endsWith(".md") || path.endsWith(".markdown") ||
+            name.endsWith(".md.txt") ||
+            path.endsWith(".md") || path.endsWith(".markdown") || path.endsWith(".md.txt") ||
             name.equals("readme", ignoreCase = true) ||
             name.startsWith("readme.", ignoreCase = true) ||
             name.contains("readme", ignoreCase = true) ||

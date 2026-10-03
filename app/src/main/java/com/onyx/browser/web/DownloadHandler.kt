@@ -17,6 +17,7 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.downloads.DownloadPromptActivity
 import com.onyx.browser.ui.downloads.DownloadPromptBottomSheet
 import com.onyx.browser.ui.downloads.ExternalDownloaderHelper
+import com.onyx.browser.download.FileUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -206,13 +207,14 @@ object DownloadHandler {
                         "README.md"
                     } else "download_${System.currentTimeMillis()}.$ext"
                 }
-                val fileName = sanitizeFileName(resolvedName)
+                var fileName = sanitizeFileName(resolvedName)
+                val targetMime = FileUtils.resolveMimeTypeForDownload(fileName, detectedMime)
 
                 val savedPath: String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     val resolver = context.contentResolver
                     val contentValues = ContentValues().apply {
                         put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                        put(MediaStore.MediaColumns.MIME_TYPE, detectedMime)
+                        put(MediaStore.MediaColumns.MIME_TYPE, targetMime)
                         put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                         put(MediaStore.MediaColumns.IS_PENDING, 1)
                     }
@@ -225,18 +227,47 @@ object DownloadHandler {
                     contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
                     resolver.update(uri, contentValues, null, null)
 
-                    val publicFile = File(
-                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                        fileName
-                    )
-                    if (publicFile.exists()) publicFile.absolutePath else uri.toString()
+                    var actualDisplayName: String? = null
+                    var resolvedDataPath: String? = null
+                    try {
+                        val cursor = resolver.query(
+                            uri,
+                            arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.DATA),
+                            null,
+                            null,
+                            null
+                        )
+                        cursor?.use {
+                            if (it.moveToFirst()) {
+                                val nameIdx = it.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                                if (nameIdx != -1) actualDisplayName = it.getString(nameIdx)
+                                val dataIdx = it.getColumnIndex(MediaStore.MediaColumns.DATA)
+                                if (dataIdx != -1) resolvedDataPath = it.getString(dataIdx)
+                            }
+                        }
+                    } catch (_: Exception) {}
+
+                    if (!actualDisplayName.isNullOrBlank()) {
+                        fileName = actualDisplayName!!
+                    }
+
+                    if (!resolvedDataPath.isNullOrBlank() && File(resolvedDataPath!!).exists()) {
+                        resolvedDataPath!!
+                    } else {
+                        val expectedName = actualDisplayName ?: fileName
+                        val publicFile = File(
+                            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                            expectedName
+                        )
+                        if (publicFile.exists()) publicFile.absolutePath else uri.toString()
+                    }
                 } else {
                     val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                     if (!dir.exists()) dir.mkdirs()
                     val targetFile = File(dir, fileName)
                     FileOutputStream(targetFile).use { it.write(bytes) }
                     try {
-                        MediaScannerConnection.scanFile(context, arrayOf(targetFile.absolutePath), arrayOf(detectedMime), null)
+                        MediaScannerConnection.scanFile(context, arrayOf(targetFile.absolutePath), arrayOf(targetMime), null)
                     } catch (_: Exception) {}
                     targetFile.absolutePath
                 }
@@ -249,7 +280,7 @@ object DownloadHandler {
                         url = "data:$detectedMime;base64,...",
                         fileName = fileName,
                         filePath = savedPath,
-                        mimeType = detectedMime,
+                        mimeType = targetMime,
                         fileSize = bytes.size.toLong(),
                         downloadedBytes = bytes.size.toLong(),
                         status = DownloadItem.STATUS_COMPLETED
@@ -261,7 +292,7 @@ object DownloadHandler {
                         id = downloadId,
                         url = "data:$detectedMime",
                         fileName = fileName,
-                        mimeType = detectedMime,
+                        mimeType = targetMime,
                         userAgent = "",
                         tempFilePath = "",
                         finalFilePath = savedPath,

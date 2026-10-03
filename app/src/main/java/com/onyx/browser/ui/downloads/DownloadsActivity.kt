@@ -39,6 +39,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.webkit.MimeTypeMap
+import com.onyx.browser.web.LocalFileLoader
 import java.io.File
 
 class DownloadsActivity : AppCompatActivity() {
@@ -162,33 +164,47 @@ class DownloadsActivity : AppCompatActivity() {
         }
     }
 
-    private fun isLocalWebDocument(item: DownloadItem): Boolean {
-        val name = item.fileName.lowercase()
-        val mime = item.mimeType.lowercase()
-        return name.endsWith(".mht") || name.endsWith(".mhtml") ||
-                name.endsWith(".html") || name.endsWith(".htm") || name.endsWith(".xhtml") ||
-                name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".mdown") || name.endsWith(".mkd") ||
-                name.contains("readme") ||
-                name.endsWith(".txt") || name.endsWith(".log") || name.endsWith(".json") || name.endsWith(".xml") ||
-                mime == "multipart/related" || mime == "message/rfc822" ||
-                mime == "application/x-mimearchive" || mime == "application/mhtml" ||
-                mime == "text/html" || mime == "application/xhtml+xml" ||
-                mime == "text/markdown" || mime == "text/x-markdown" ||
-                mime == "text/plain"
+    private fun isLocalWebDocument(item: DownloadItem, resolvedPath: String = item.filePath): Boolean {
+        return LocalFileLoader.isWebDocument(item.fileName, item.mimeType) ||
+                (resolvedPath.isNotBlank() && LocalFileLoader.isWebDocument(resolvedPath, item.mimeType))
     }
 
     private fun openFile(item: DownloadItem) {
-        if (!FileUtils.doesFileExist(item.filePath, this)) {
+        val resolvedPath = FileUtils.resolveExistingPath(item.filePath, this)
+        if (resolvedPath == null) {
             Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
             adapter.notifyDataSetChanged()
             return
         }
 
-        if (ApkInstallerHelper.isApkFile(item.fileName, item.mimeType)) {
+        // Reconcile path or filename in DB if MediaStore renamed or appended extension
+        val targetItem = if (resolvedPath != item.filePath) {
+            val realFile = File(resolvedPath)
+            val realName = realFile.name
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    database.downloadDao().markCompleted(
+                        id = item.id,
+                        status = item.status,
+                        fileName = realName,
+                        filePath = resolvedPath,
+                        fileSize = item.fileSize,
+                        downloadedBytes = item.downloadedBytes,
+                        sha256 = item.sha256,
+                        md5 = item.md5
+                    )
+                } catch (_: Exception) {}
+            }
+            item.copy(fileName = realName, filePath = resolvedPath)
+        } else {
+            item
+        }
+
+        if (ApkInstallerHelper.isApkFile(targetItem.fileName, targetItem.mimeType)) {
             ApkInstallerHelper.installApk(
                 activity = this,
-                filePath = item.filePath,
-                fileName = item.fileName,
+                filePath = targetItem.filePath,
+                fileName = targetItem.fileName,
                 onPermissionNeeded = { pendingPath ->
                     pendingApkInstallPath = pendingPath
                 }
@@ -196,8 +212,8 @@ class DownloadsActivity : AppCompatActivity() {
             return
         }
 
-        if (isLocalWebDocument(item)) {
-            val target = item.filePath
+        if (isLocalWebDocument(targetItem, resolvedPath)) {
+            val target = targetItem.filePath
             val uri = if (target.startsWith("content://", ignoreCase = true) || target.startsWith("file://", ignoreCase = true)) {
                 Uri.parse(target)
             } else {
@@ -215,10 +231,10 @@ class DownloadsActivity : AppCompatActivity() {
         }
 
         // For content URIs
-        if (item.filePath.startsWith("content://", ignoreCase = true)) {
+        if (targetItem.filePath.startsWith("content://", ignoreCase = true)) {
             try {
                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(Uri.parse(item.filePath), item.mimeType.ifEmpty { "*/*" })
+                    setDataAndType(Uri.parse(targetItem.filePath), targetItem.mimeType.ifEmpty { "*/*" })
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
@@ -230,9 +246,9 @@ class DownloadsActivity : AppCompatActivity() {
             }
         }
 
-        val file = File(item.filePath)
+        val file = File(targetItem.filePath)
         if (!file.exists()) {
-            Toast.makeText(this, "File does not exist: ${item.fileName}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "File does not exist: ${targetItem.fileName}", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -243,7 +259,11 @@ class DownloadsActivity : AppCompatActivity() {
                 file
             )
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, item.mimeType.ifEmpty { "*/*" })
+                val resolvedMime = targetItem.mimeType.ifBlank {
+                    val ext = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
+                    MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+                }
+                setDataAndType(uri, resolvedMime)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
@@ -365,12 +385,13 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun openInFileManager(item: DownloadItem) {
-        if (!FileUtils.doesFileExist(item.filePath, this)) {
+        val resolvedPath = FileUtils.resolveExistingPath(item.filePath, this)
+        if (resolvedPath == null) {
             Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
             adapter.notifyDataSetChanged()
             return
         }
-        openFileManagerFolder(item.filePath)
+        openFileManagerFolder(resolvedPath)
     }
 
     private fun openFileManagerFolder(targetFilePath: String? = null) {
@@ -515,17 +536,18 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun shareDownloadedFile(item: DownloadItem) {
-        if (!FileUtils.doesFileExist(item.filePath, this)) {
+        val resolvedPath = FileUtils.resolveExistingPath(item.filePath, this)
+        if (resolvedPath == null) {
             Toast.makeText(this, "File not found or deleted", Toast.LENGTH_SHORT).show()
             adapter.notifyDataSetChanged()
             return
         }
 
         try {
-            val uri: Uri = if (item.filePath.startsWith("content://")) {
-                Uri.parse(item.filePath)
+            val uri: Uri = if (resolvedPath.startsWith("content://")) {
+                Uri.parse(resolvedPath)
             } else {
-                val file = File(item.filePath)
+                val file = File(resolvedPath)
                 if (file.exists()) {
                     FileProvider.getUriForFile(this, "${applicationContext.packageName}.fileprovider", file)
                 } else {
@@ -536,7 +558,11 @@ class DownloadsActivity : AppCompatActivity() {
             }
 
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = item.mimeType.ifBlank { "*/*" }
+                val ext = MimeTypeMap.getFileExtensionFromUrl(resolvedPath)
+                val resolvedMime = item.mimeType.ifBlank {
+                    MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+                }
+                type = resolvedMime
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
@@ -599,20 +625,21 @@ class DownloadsActivity : AppCompatActivity() {
                 }
 
                 lifecycleScope.launch(Dispatchers.IO) {
-                    var newPath = item.filePath
+                    val resolvedOldPath = FileUtils.resolveExistingPath(item.filePath, this@DownloadsActivity) ?: item.filePath
+                    var newPath = resolvedOldPath
 
-                    if (item.filePath.startsWith("content://")) {
+                    if (resolvedOldPath.startsWith("content://")) {
                         try {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                                 val values = ContentValues().apply {
                                     put(MediaStore.MediaColumns.DISPLAY_NAME, newName)
                                 }
-                                contentResolver.update(Uri.parse(item.filePath), values, null, null)
+                                contentResolver.update(Uri.parse(resolvedOldPath), values, null, null)
                             }
                         } catch (_: Exception) {}
                     } else {
                         try {
-                            val oldFile = File(item.filePath)
+                            val oldFile = File(resolvedOldPath)
                             if (oldFile.exists()) {
                                 val newFile = File(oldFile.parentFile, newName)
                                 if (newFile.exists()) {
@@ -660,10 +687,11 @@ class DownloadsActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             // 1. Delete physical file from storage
             try {
-                if (item.filePath.startsWith("content://")) {
-                    contentResolver.delete(Uri.parse(item.filePath), null, null)
+                val resolvedPath = FileUtils.resolveExistingPath(item.filePath, this@DownloadsActivity) ?: item.filePath
+                if (resolvedPath.startsWith("content://")) {
+                    contentResolver.delete(Uri.parse(resolvedPath), null, null)
                 } else {
-                    val file = File(item.filePath)
+                    val file = File(resolvedPath)
                     if (file.exists()) {
                         file.delete()
                     }

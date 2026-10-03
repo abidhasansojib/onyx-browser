@@ -123,6 +123,7 @@ class DownloadEngine(
             database.downloadDao().markCompleted(
                 id = task.id,
                 status = DownloadItem.STATUS_COMPLETED,
+                fileName = task.fileName,
                 filePath = publishedPath,
                 fileSize = if (task.totalBytes > 0) task.totalBytes else tempFile.length(),
                 downloadedBytes = task.downloadedBytes.get(),
@@ -212,8 +213,8 @@ class DownloadEngine(
                     task.fileName = sanitizeFileName(parsedName)
                 }
             } else if (task.fileName.startsWith("download_") || !task.fileName.contains('.')) {
-                val guessed = URLUtil.guessFileName(finalUrl, null, detectedMime)
-                if (guessed.isNotBlank() && guessed.contains('.')) {
+                val guessed = com.onyx.browser.web.DownloadHandler.guessResolvedFileName(finalUrl, contentDisp, detectedMime)
+                if (guessed.isNotBlank()) {
                     task.fileName = sanitizeFileName(guessed)
                 }
             }
@@ -557,16 +558,7 @@ class DownloadEngine(
 
     private fun publishFile(task: DownloadTask, tempFile: File): String {
         val finalFileName = resolveUniqueFileName(task.fileName)
-        val extension = finalFileName.substringAfterLast('.', "")
-        val mime = if (extension.equals("apk", ignoreCase = true)) {
-            "application/vnd.android.package-archive"
-        } else if (task.mimeType.isNotBlank() && task.mimeType != "application/octet-stream" && task.mimeType != "*/*") {
-            task.mimeType
-        } else if (extension.isNotBlank()) {
-            MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase()) ?: "application/octet-stream"
-        } else {
-            "application/octet-stream"
-        }
+        val mime = FileUtils.resolveMimeTypeForDownload(finalFileName, task.mimeType)
         task.mimeType = mime
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -593,25 +585,41 @@ class DownloadEngine(
 
                 tempFile.delete()
 
-                // Try to resolve the actual filesystem path from MediaStore, or fall back to public path / URI
+                // Query MediaStore to reconcile the actual DISPLAY_NAME and DATA assigned by Android MediaProvider
+                var actualDisplayName: String? = null
                 var resolvedPath: String? = null
                 try {
-                    val cursor = resolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)
+                    val cursor = resolver.query(
+                        uri,
+                        arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.DATA),
+                        null,
+                        null,
+                        null
+                    )
                     cursor?.use {
                         if (it.moveToFirst()) {
-                            val idx = it.getColumnIndex(MediaStore.MediaColumns.DATA)
-                            if (idx != -1) resolvedPath = it.getString(idx)
+                            val nameIdx = it.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                            if (nameIdx != -1) actualDisplayName = it.getString(nameIdx)
+                            val dataIdx = it.getColumnIndex(MediaStore.MediaColumns.DATA)
+                            if (dataIdx != -1) resolvedPath = it.getString(dataIdx)
                         }
                     }
                 } catch (_: Exception) {}
+
+                // If MediaStore assigned a different display name (e.g. appended .txt or resolved collisions),
+                // synchronize task.fileName immediately so notifications, DB, and UI reflect the real file
+                if (!actualDisplayName.isNullOrBlank()) {
+                    task.fileName = actualDisplayName!!
+                }
 
                 if (!resolvedPath.isNullOrBlank() && File(resolvedPath!!).exists()) {
                     return resolvedPath!!
                 }
 
+                val expectedName = actualDisplayName ?: finalFileName
                 val publicFile = File(
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                    finalFileName
+                    expectedName
                 )
                 if (publicFile.exists()) {
                     return publicFile.absolutePath

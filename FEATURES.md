@@ -65,6 +65,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 49. [ ] Built-in Reader Mode (distraction-free text view for articles)
 50. [ ] DNS-over-HTTPS (DoH) Provider Selection (Cloudflare, Quad9, AdGuard DNS)
 51. [x] Feed & Reel Navigation Architecture (overscroll-aware pull-to-refresh & truthful Blink intersection tracking for Facebook Reels, Instagram Reels, TikTok, YouTube Shorts)
+52. [x] Scoped Storage Download Filename & Extension Reconciliation (Chromium/Brave parity MIME derivation, Scoped Storage DISPLAY_NAME query, automatic .md.txt reconciliation for opening files)
 
 ---
 
@@ -88,6 +89,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 
 ### 3. Downloads & External Downloaders
 - **In-App Downloads**: Native background download manager handles pause, resume, progress reporting, and system notification updates.
+- **Chromium/Brave Parity MIME Type & Scoped Storage File Extension Reconciliation**: Resolves file MIME types before publishing to `MediaStore.Downloads` based on file extension overrides (e.g. mapping `.md`/`.markdown` to `text/markdown`, `.json` to `application/json`, and code extensions to `application/octet-stream`), preventing Android's `MediaProvider` from appending unwanted `.txt` extensions (e.g. `README.md.txt`). Queries actual `DISPLAY_NAME` and `DATA` columns immediately post-insertion to synchronize `DownloadItem.fileName`, `DownloadItem.filePath`, notifications, and disk path. Reconciles existing `.txt` mismatches dynamically via `FileUtils.resolveExistingPath` across `DownloadsActivity`, `DownloadsAdapter`, `DownloadNotificationHelper`, and `LocalFileLoader`.
 - **External Downloader Handoff**: Detects installed third-party downloaders (1DM, ADM, FDM) and passes download URLs along with cookies, User-Agent, and Referer headers so authenticated downloads succeed.
 - **Stream Sniffer**: Monitors HTML5 video/audio elements and network requests to offer quick stream download prompts.
 
