@@ -43,6 +43,7 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
     var onTranslateClicked: ((String) -> Unit)? = null
     var onAddToHomeScreenClicked: (() -> Unit)? = null
     var onDeveloperToolsClicked: (() -> Unit)? = null
+    var onBlockElementClicked: (() -> Unit)? = null
     var onSavePageClicked: (() -> Unit)? = null
     var onSiteShieldWhitelistChanged: ((Boolean) -> Unit)? = null
     
@@ -328,6 +329,12 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
         // 6th: Developer Tools (Eruda Console)
         binding.menuItemDeveloperTools.setOnClickListener {
             onDeveloperToolsClicked?.invoke()
+            dismiss()
+        }
+
+        // Visual Element Blocker (Zapper)
+        binding.menuItemBlockElement.setOnClickListener {
+            onBlockElementClicked?.invoke()
             dismiss()
         }
 

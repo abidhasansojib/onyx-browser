@@ -3,6 +3,8 @@ package com.onyx.browser.web
 import android.content.Context
 import android.webkit.JavascriptInterface
 import com.onyx.browser.data.preferences.BrowserPreferences
+import kotlinx.coroutines.launch
+
 
 /**
  * Synchronous JavaScript interface for checking ad-blocker status at document-start.
@@ -95,6 +97,25 @@ class OnyxShieldBridge(private val context: Context) {
 
         val rules = com.onyx.browser.nativebridge.AdBlockEngine.getProceduralRules(url)
         return org.json.JSONArray(rules).toString()
+    }
+
+    @JavascriptInterface
+    fun saveCustomCosmeticRule(domain: String?, selector: String?) {
+        val d = domain?.trim() ?: return
+        val s = selector?.trim() ?: return
+        if (d.isBlank() || s.isBlank()) return
+
+        val rule = "$d##$s"
+        val existing = preferences.customFilterRules
+        val lines = existing.lines().map { it.trim() }.filter { it.isNotBlank() }.toMutableSet()
+        if (lines.add(rule)) {
+            preferences.customFilterRules = lines.joinToString("\n")
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                try {
+                    com.onyx.browser.data.filter.FilterListManager.recompileFilters(context)
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     @JavascriptInterface

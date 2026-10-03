@@ -670,6 +670,9 @@ class MainActivity : AppCompatActivity() {
                 onDeveloperToolsClicked = {
                     injectDeveloperTools()
                 }
+                onBlockElementClicked = {
+                    startElementBlocker()
+                }
                 onSiteShieldWhitelistChanged = { _ ->
                     activeWebView?.reload()
                 }
@@ -2633,6 +2636,18 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun startElementBlocker() {
+        val webView = tabManager.getActiveWebView() ?: return
+        val activeTab = tabManager.activeTab.value
+        if (activeTab == null || activeTab.url.isBlank() ||
+            activeTab.url.startsWith("onyx://") || activeTab.url.startsWith("about:")) {
+            Toast.makeText(this, "Element blocker can only run on active web pages", Toast.LENGTH_SHORT).show()
+            return
+        }
+        com.onyx.browser.ui.menu.ElementPickerManager.startPicker(webView)
+        Toast.makeText(this, R.string.block_element_hint, Toast.LENGTH_SHORT).show()
     }
 
     private fun setupBackNavigation() {

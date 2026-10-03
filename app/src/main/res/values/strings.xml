@@ -494,6 +494,12 @@
     <string name="undo">Undo</string>
     <string name="tab_closed_toast">Closed %s</string>
     <string name="tabs_closed_toast">Closed %1$d tabs</string>
+
+    <!-- Visual Element Blocker (Zapper) -->
+    <string name="block_element">Block element</string>
+    <string name="block_element_hint">Tap an element to block it</string>
+    <string name="element_blocked_toast">Element blocked and rule saved</string>
 </resources>
+
 
 
