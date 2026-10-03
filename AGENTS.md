@@ -192,6 +192,17 @@ onyx-browser/
     - `sub_frame`: Returns an empty HTML comment (`<!-- blocked subframe -->`).
     - `media`/`other`: Returns an empty stream with CORS headers.
 - **Fast Domain Parsing**: Use zero-allocation index scanning in `BrowserPreferences.cleanDomain` and cache the whitelist in an in-memory `HashSet<String>` to prevent disk I/O bottlenecks during request bursts.
+- **Engine & JNI Bridge Optimizations**:
+  - **Lock-Free Atomic Pointer Loads (`arc-swap`)**: Replaced `RwLock<Option<Engine>>` with `ArcSwapOption<Engine>` in `rust_engine/src/lib.rs`. Readers load engine references atomically without lock contention during bursts of 50+ concurrent requests across Chromium network threads. Dynamic filter list reloads swap the pointer atomically.
+  - **Integer-Mapped Resource Types Across JNI**: Network request evaluation across JNI uses integer primitives (`RESOURCE_TYPE_OTHER = 0`, `RESOURCE_TYPE_SCRIPT = 1`, `RESOURCE_TYPE_IMAGE = 2`, etc.), avoiding UTF-8 heap allocation and string parsing overhead per network request.
+  - **Fast Kotlin Short-Circuiting**: `AdBlockDomainManager.isBlockedInStandard` and `isBlockedInAggressive` evaluate known ad servers in Kotlin memory (`HashSet<String>`) in <0.05µs, short-circuiting before crossing the JNI boundary to `AdBlockEngine`.
+  - **Static CNAME Uncloaking**: Loads bundled Brave CNAME aliases (`brave-firstparty-cname.txt`) into an in-memory hash map. Cloaked tracking subdomains (e.g. `tracking.example.com` -> `cname.branch.io`) are uncloaked to their true tracker domain prior to blocklist checks.
+  - **Surrogate Script `$redirect` Handling**: `adblock-rust` evaluates `$redirect` rules; `OnyxWebViewClient.createSurrogateResponse` returns safe type-aware stubs with HTTP 200 OK so tracking scripts and anti-adblock globals initialize cleanly without runtime TypeErrors.
+  - **Procedural Cosmetic Filtering**: Evaluates `:has-text()`, `:upward()`, `:min-text-length()`, and actions (`remove`, `style`, `remove-attr`, `remove-class`) dynamically inside `AdBlockDocumentStart.kt` MutationObserver.
+  - **DOM Honeypot Defuser & Query Deduplication**: Injects `getBoundingClientRect()` defusal on bait elements returning realistic dimensions (`300x250`); maintains a `checkedIdentifiers` Set in JavaScript to avoid re-querying previously checked selectors across the JS bridge on infinite-scroll pages.
+  - **AndroidX WorkManager Daily Sync**: `FilterUpdateWorker` runs 24-hour periodic updates constrained to unmetered Wi-Fi and healthy battery.
+  - **In-Page Visual Element Blocker (Zapper)**: `ElementPickerManager` injects an interactive highlight overlay, computes optimal CSS selectors, and saves custom rules directly to `BrowserPreferences.customFilterRules` with immediate filter recompilation.
+
 
 ### 4.2. Media & Playback Subsystem (`MediaPlaybackManager` & `MediaPlaybackBridge`)
 - **Brave `userHitPause` Architecture**:
@@ -556,3 +567,15 @@ onyx-browser/
       - Upstream Sync Build Trigger Decoupling:
         - In sync_upstream.yml, restricted automated build triggers exclusively to native Rust engine changes (external/adblock-rust or rust_engine).
         - Filter list updates (easylist_rules.txt, external/adblock-lists) are committed and pushed to keep bundled baseline rules up-to-date, but skip triggering APK builds because the app dynamically updates filter lists on-device every 24 hours.
+
+16. **Adblock Engine, JNI Bridge & Rule Optimization Milestone**:
+    - **Lock-Free Rust Engine Readers (`arc-swap = "1.7"`)**: Replaced `RwLock<Option<Engine>>` with `ArcSwapOption<Engine>` in `rust_engine/src/lib.rs`. Readers load engine pointers atomically without reader lock contention during bursts of concurrent network requests across Chromium background threads. Dynamic filter list reloads swap the engine pointer atomically via serialized buffer re-deserialization.
+    - **Integer-Mapped JNI Resource Types**: Introduced `checkRequestNative` passing resource types as `jint` (0 to 7), directly mapped to `adblock::request::Request`, eliminating UTF-8 string heap allocation and string parsing on every intercepted network request.
+    - **Fast Kotlin In-Memory Short-Circuiting**: In `OnyxWebViewClient.kt` and `AdBlockServiceWorkerHelper.kt`, domain checks against `AdBlockDomainManager.isBlockedInStandard` and `isBlockedInAggressive` execute before crossing the JNI bridge, resolving known ad networks in under 0.05 microseconds in Kotlin memory.
+    - **Static CNAME Uncloaking**: Integrated `brave-firstparty-cname.txt` into an in-memory alias map in `AdBlockDomainManager.kt`. Cloaked first-party tracking subdomains (e.g. `tracking.example.com` -> `cname.branch.io`) are uncloaked to their genuine third-party tracker domains prior to blocklist checks.
+    - **Surrogate Script & `$redirect` Rule Support**: Extracted `$redirect` matches from `blocker_result.redirect` in the Rust engine and surfaced them via `checkRequest()`. `OnyxWebViewClient.createSurrogateResponse` synthesizes HTTP 200 OK responses with appropriate MIME types and CORS headers, preserving page scripts and global tracking stubs (e.g. `window.ga`, `window.google_tag_manager`) to prevent runtime TypeErrors while dropping telemetry.
+    - **Procedural Cosmetic Filtering**: Added a procedural rule runner in `AdBlockDocumentStart.kt` evaluating `:has-text()`, `:upward()`, `:min-text-length()`, and actions (`remove`, `style`, `remove-attr`, `remove-class`) on dynamic DOM nodes, fetched via `OnyxShieldBridge.getProceduralActions()`.
+    - **DOM Honeypot Defuser & Bridge Deduplication**: Defused `getBoundingClientRect()` on bait elements to return realistic dimensions (`300x250`); added `checkedIdentifiers` Set in JavaScript to eliminate redundant bridge calls for already-evaluated selectors on infinite-scroll pages.
+    - **AndroidX WorkManager 24h Background Sync**: Implemented `FilterUpdateWorker` scheduled in `OnyxApplication.kt` with `PeriodicWorkRequestBuilder(24, TimeUnit.HOURS)` constrained to unmetered Wi-Fi and healthy battery, compiling filter lists silently in the background.
+    - **In-Page Visual Element Blocker (Zapper)**: Implemented `ElementPickerManager.kt` and `menuItemBlockElement` in `bottom_sheet_menu.xml`. Injects an interactive touch/pointer highlight overlay, computes optimal CSS selectors, hides elements immediately, and persists rules to `BrowserPreferences.customFilterRules` with background filter recompilation via `OnyxShieldBridge.saveCustomCosmeticRule`.
+

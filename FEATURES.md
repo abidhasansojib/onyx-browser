@@ -70,19 +70,35 @@ This document tracks all features of Onyx Browser, their current implementation 
 54. [x] Local File Preview Back Navigation & Direct APK Package Installer Handoff (eliminates redundant internal confirmation prompts when opening APKs to match Chrome/Brave system installer handoff; fixes back navigation when previewing local documents so system back button and toolbar back arrow cleanly return to Downloads, external file managers, or previous tabs without wiping the tab or trapping the user on the home screen)
 55. [x] Local Document Preview URL & Pull-to-Refresh Reliability (replaces directory baseUrl with exact document URI in loadDataWithBaseURL, protects tab URL from directory paths, and guarantees pull-to-refresh reloads the document instead of failing with directory errors)
 56. [x] Auto-Clear Personal Data Engine & Redesigned Manage Personal Data Settings (centralized purge engine with Never, Immediately after app exit, 60 minutes, 1 day, and 7 days intervals that automatically purges history, cookies, web storage, cache, thumbnails, and preview archives; redesigned settings screen with Material 3 cards, exposed dropdowns, and centered toolbar)
+57. [x] Adblock Engine & JNI Bridge Optimizations (lock-free atomic engine pointer reads via `arc-swap = "1.7"`, integer-mapped resource types across JNI, and instant Kotlin in-memory HashSet short-circuiting)
+58. [x] Surrogate Scripts & `$redirect` Rule Support (evaluates `$redirect` rules in `adblock-rust`, returns safe surrogate script stubs with HTTP 200 OK to keep anti-adblock detection and analytics globals operational without page breakages)
+59. [x] Procedural Cosmetic Filtering (`:has-text()`, `:upward()`, `:min-text-length()`, and action operators `remove()`, `style()`, `remove-attr()`, `remove-class()`)
+60. [x] Static CNAME Uncloaking (resolves first-party cloaked tracking subdomains to third-party tracker domains before rule evaluation)
+61. [x] Anti-Adblock DOM Honeypot Defuser (`getBoundingClientRect()` defusal returning non-zero dimensions on bait elements, and client-side selector query deduplication Set)
+62. [x] AndroidX WorkManager Background Filter Sync (24-hour periodic silent update worker running on Wi-Fi and healthy battery)
+63. [x] In-Page Visual Element Blocker / Zapper (interactive touch-to-select element picker with outline highlight, optimal CSS selector generation, and instant rule compilation)
 
 ---
 
 ## Feature Details
 
 ### 1. Adblocking & Privacy Shields
-- **Rust NDK Engine**: Compiled `adblock-rust` performs token-bucket and Bloom filter matching in native C/Rust.
+- **Rust NDK Engine**: Compiled `adblock-rust` performs token-bucket and Bloom filter matching in native C/Rust. Readers load engine pointers atomically without reader lock contention via `arc-swap = "1.7"`.
+- **Integer JNI Resource Typing**: Passes resource types as integer constants (`RESOURCE_TYPE_SCRIPT`, `RESOURCE_TYPE_IMAGE`, etc.), eliminating UTF-8 string allocations and string parsing overhead across the JNI bridge.
+- **Fast Kotlin Short-Circuiting**: Queries in-memory `HashSet<String>` domain blocklists in Kotlin memory (<0.05µs) before calling the native Rust engine, bypassing JNI boundary traversal for known ad servers.
 - **Filter Lists**: Bundles 54 official Brave filter lists and compiles them into binary FlatBuffers (`onyx_filters.bin`) for instant startup.
+- **Static CNAME Uncloaking**: Resolves first-party cloaked tracking aliases (`brave-firstparty-cname.txt`) to authentic third-party tracker domains prior to blocklist checks.
+- **Surrogate Script `$redirect` Handling**: Extracts `$redirect` rule targets in `adblock-rust` and synthesizes safe HTTP 200 OK responses with matching MIME types and CORS headers, preventing JavaScript TypeErrors when site scripts check for global objects (`window.ga`, `window.google_tag_manager`).
+- **Procedural Cosmetic Filtering**: Extends CSS element hiding with procedural operator evaluation (`:has-text()`, `:upward()`, `:min-text-length()`) and action operators (`remove()`, `style()`, `remove-attr()`, `remove-class()`) dynamically during MutationObserver sweeps.
+- **DOM Honeypot Defuser & Bridge Deduplication**: Defused `getBoundingClientRect()` on bait elements returning realistic dimensions (`300x250`); maintains a `checkedIdentifiers` Set in JavaScript to avoid repeated JS bridge queries for already-evaluated selectors on infinite-scroll feeds.
+- **AndroidX WorkManager Daily Sync**: Schedules `FilterUpdateWorker` to run silent 24-hour periodic filter list downloads and compilation in the background when connected to Wi-Fi with adequate battery.
+- **In-Page Visual Element Blocker (Zapper)**: Provides an interactive DOM element picker with live highlight bounding box, optimal CSS selector generation (`##element#id` or `##element.class`), and direct persistence to custom rules with immediate filter recompilation.
 - **Type-Aware Responses**: When Adblocker Spoofing is enabled, blocked resources receive valid 200 OK responses (empty JS, 1×1 transparent PNG, or blank CSS) with CORS headers to keep page scripts and media players from crashing. When disabled (default), blocked requests are intercepted at document-start via stealth native-masked fetch/XHR proxies (`TypeError: Failed to fetch: net::ERR_BLOCKED_BY_CLIENT` / `onerror`) and HTTP 403 Forbidden with CORS headers, guaranteeing that benchmark test suites (`superadblocktest.com`, `d3ward`, `adblock-tester.com`) achieve 100% blocked status while preserving Cloudflare, Facebook, and CAPTCHA integrity.
 - **Two Protection Tiers**:
   - *Standard*: Blocks advertisements, tracking scripts, web beacons, and cryptominers.
   - *Aggressive*: Strips OEM telemetry, third-party widgets, and cookie consent modals.
 - **Domain Whitelist**: Allows users to disable shields for individual sites directly from the toolbar menu.
+
 
 ### 2. Media & Playback Subsystem
 - **Background Playback**: Employs Brave's `userHitPause` pattern to distinguish user pauses from background tab switches. Overrides `document.visibilityState` to remain `"visible"`, intercepts `visibilitychange` listeners, and auto-resumes suppressed playback. Avoids native View/Window focus spoofing to guarantee 100% responsive Android touch input handling without UI freezes.
