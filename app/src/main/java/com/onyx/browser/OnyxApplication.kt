@@ -81,5 +81,32 @@ class OnyxApplication : Application() {
         } catch (t: Throwable) {
             Log.e("OnyxApplication", "Failed to enable WebContentsDebugging", t)
         }
+
+        // Schedule periodic background filter update worker (24h interval, Wi-Fi only, battery not low)
+        try {
+            scheduleFilterUpdateWork()
+        } catch (t: Throwable) {
+            Log.e("OnyxApplication", "Failed to schedule filter update worker", t)
+        }
+    }
+
+    private fun scheduleFilterUpdateWork() {
+        val constraints = androidx.work.Constraints.Builder()
+            .setRequiredNetworkType(androidx.work.NetworkType.UNMETERED)
+            .setRequiresBatteryNotLow(true)
+            .build()
+
+        val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.onyx.browser.data.filter.FilterUpdateWorker>(
+            24, java.util.concurrent.TimeUnit.HOURS
+        )
+            .setConstraints(constraints)
+            .build()
+
+        androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            com.onyx.browser.data.filter.FilterUpdateWorker.WORK_NAME,
+            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
     }
 }
+

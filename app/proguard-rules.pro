@@ -166,3 +166,14 @@
 -keep class android.support.v4.media.** { *; }
 -dontwarn android.support.v4.media.**
 
+# ------------------------------------------------------------------------------
+# 12. AndroidX WorkManager
+# ------------------------------------------------------------------------------
+-keep class androidx.work.** { *; }
+-dontwarn androidx.work.**
+-keep class * extends androidx.work.ListenableWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+-keep class com.onyx.browser.data.filter.FilterUpdateWorker { *; }
+
+
