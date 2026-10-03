@@ -318,12 +318,34 @@ object AdBlockDocumentStart {
                             enumerable: origDescCW.enumerable
                         });
                     }
+
+                    var origDescBCR = Element.prototype.getBoundingClientRect;
+                    if (origDescBCR) {
+                        Element.prototype.getBoundingClientRect = makeNative(function() {
+                            var rect = origDescBCR.call(this);
+                            if (rect.width === 0 && rect.height === 0 && isBait(this)) {
+                                return {
+                                    width: 300,
+                                    height: 250,
+                                    top: 0,
+                                    left: 0,
+                                    right: 300,
+                                    bottom: 250,
+                                    x: 0,
+                                    y: 0,
+                                    toJSON: function() { return this; }
+                                };
+                            }
+                            return rect;
+                        }, 'getBoundingClientRect');
+                    }
                 } catch(e) {}
             }
 
             // ── 5. Brave Parity Generic Cosmetic Filter Engine (hidden_class_id_selectors) ───────
             try {
                 var seenSelectors = new Set();
+                var checkedIdentifiers = new Set();
                 var pendingClasses = new Set();
                 var pendingIds = new Set();
                 var queryTimer = null;
@@ -350,6 +372,13 @@ object AdBlockDocumentStart {
                     var idsArr = Array.from(pendingIds);
                     pendingClasses.clear();
                     pendingIds.clear();
+
+                    for (var ci = 0; ci < classesArr.length; ci++) {
+                        checkedIdentifiers.add('.' + classesArr[ci]);
+                    }
+                    for (var ii = 0; ii < idsArr.length; ii++) {
+                        checkedIdentifiers.add('#' + idsArr[ii]);
+                    }
 
                     try {
                         var resJson = window.OnyxShieldBridge.getHiddenSelectors(
@@ -393,7 +422,7 @@ object AdBlockDocumentStart {
                     var id = el.id;
                     if (id && typeof id === 'string') {
                         var idSel = '#' + id;
-                        if (!seenSelectors.has(idSel)) {
+                        if (!seenSelectors.has(idSel) && !checkedIdentifiers.has(idSel)) {
                             seenSelectors.add(idSel);
                             pendingIds.add(id);
                         }
@@ -404,7 +433,7 @@ object AdBlockDocumentStart {
                             var cls = classList[i];
                             if (cls) {
                                 var clsSel = '.' + cls;
-                                if (!seenSelectors.has(clsSel)) {
+                                if (!seenSelectors.has(clsSel) && !checkedIdentifiers.has(clsSel)) {
                                     seenSelectors.add(clsSel);
                                     pendingClasses.add(cls);
                                 }
@@ -423,6 +452,157 @@ object AdBlockDocumentStart {
                     if (pendingClasses.size > 0 || pendingIds.size > 0) {
                         scheduleQuery();
                     }
+                }
+
+                // Procedural cosmetic filtering engine (:has-text, :upward, :min-text-length, actions)
+                var proceduralRules = null;
+                var proceduralTimer = null;
+
+                function runProceduralFilters() {
+                    try {
+                        if (!window.OnyxShieldBridge || !window.OnyxShieldBridge.getProceduralActions) return;
+                        if (proceduralRules === null) {
+                            var raw = window.OnyxShieldBridge.getProceduralActions(window.location.href);
+                            if (!raw || raw === '[]') {
+                                proceduralRules = [];
+                                return;
+                            }
+                            var parsed = JSON.parse(raw);
+                            proceduralRules = [];
+                            for (var r = 0; r < parsed.length; r++) {
+                                var rule = parsed[r];
+                                if (typeof rule === 'string') {
+                                    try { rule = JSON.parse(rule); } catch(e) { continue; }
+                                }
+                                if (rule && rule.selector && Array.isArray(rule.selector)) {
+                                    proceduralRules.push(rule);
+                                }
+                            }
+                        }
+
+                        if (proceduralRules.length === 0) return;
+
+                        for (var i = 0; i < proceduralRules.length; i++) {
+                            executeProceduralRule(proceduralRules[i]);
+                        }
+                    } catch(e) {}
+                }
+
+                function scheduleProceduralRun() {
+                    if (proceduralTimer) return;
+                    proceduralTimer = setTimeout(function() {
+                        proceduralTimer = null;
+                        runProceduralFilters();
+                    }, 100);
+                }
+
+                function executeProceduralRule(rule) {
+                    try {
+                        var ops = rule.selector;
+                        if (!ops || ops.length === 0) return;
+
+                        var currentElements = [];
+                        var firstOp = ops[0];
+                        var startIndex = 0;
+
+                        if (firstOp.type === 'css-selector') {
+                            try {
+                                currentElements = Array.prototype.slice.call(document.querySelectorAll(firstOp.arg));
+                            } catch(e) {
+                                return;
+                            }
+                            startIndex = 1;
+                        } else {
+                            currentElements = [document.documentElement || document.body];
+                        }
+
+                        for (var s = startIndex; s < ops.length; s++) {
+                            if (currentElements.length === 0) break;
+                            var op = ops[s];
+                            var nextElements = [];
+
+                            if (op.type === 'has-text') {
+                                var pattern = op.arg;
+                                var isRegex = false;
+                                var regex = null;
+                                if (pattern && pattern.charAt(0) === '/' && pattern.lastIndexOf('/') > 0) {
+                                    try {
+                                        var lastSlash = pattern.lastIndexOf('/');
+                                        regex = new RegExp(pattern.substring(1, lastSlash), pattern.substring(lastSlash + 1));
+                                        isRegex = true;
+                                    } catch(e) {}
+                                }
+                                for (var e = 0; e < currentElements.length; e++) {
+                                    var el = currentElements[e];
+                                    var text = el.textContent || '';
+                                    if (isRegex ? regex.test(text) : text.indexOf(pattern) !== -1) {
+                                        nextElements.push(el);
+                                    }
+                                }
+                            } else if (op.type === 'upward') {
+                                var arg = op.arg;
+                                var steps = parseInt(arg, 10);
+                                if (!isNaN(steps) && steps > 0) {
+                                    for (var e = 0; e < currentElements.length; e++) {
+                                        var cur = currentElements[e];
+                                        for (var st = 0; st < steps && cur; st++) {
+                                            cur = cur.parentElement;
+                                        }
+                                        if (cur && nextElements.indexOf(cur) === -1) {
+                                            nextElements.push(cur);
+                                        }
+                                    }
+                                } else if (typeof arg === 'string' && arg.length > 0) {
+                                    for (var e = 0; e < currentElements.length; e++) {
+                                        var ancestor = currentElements[e].closest(arg);
+                                        if (ancestor && nextElements.indexOf(ancestor) === -1) {
+                                            nextElements.push(ancestor);
+                                        }
+                                    }
+                                }
+                            } else if (op.type === 'min-text-length') {
+                                var minLen = parseInt(op.arg, 10) || 0;
+                                for (var e = 0; e < currentElements.length; e++) {
+                                    var el = currentElements[e];
+                                    if ((el.textContent || '').trim().length >= minLen) {
+                                        nextElements.push(el);
+                                    }
+                                }
+                            } else if (op.type === 'css-selector') {
+                                for (var e = 0; e < currentElements.length; e++) {
+                                    try {
+                                        var sub = currentElements[e].querySelectorAll(op.arg);
+                                        for (var k = 0; k < sub.length; k++) {
+                                            if (nextElements.indexOf(sub[k]) === -1) {
+                                                nextElements.push(sub[k]);
+                                            }
+                                        }
+                                    } catch(e) {}
+                                }
+                            } else {
+                                nextElements = currentElements;
+                            }
+
+                            currentElements = nextElements;
+                        }
+
+                        var action = rule.action;
+                        for (var a = 0; a < currentElements.length; a++) {
+                            var targetEl = currentElements[a];
+                            if (!targetEl || targetEl.nodeType !== 1) continue;
+
+                            if (!action || action.type === 'remove') {
+                                targetEl.style.setProperty('display', 'none', 'important');
+                                targetEl.setAttribute('data-onyx-procedural-hidden', 'true');
+                            } else if (action.type === 'style' && action.arg) {
+                                targetEl.style.cssText += ';' + action.arg;
+                            } else if (action.type === 'remove-attr' && action.arg) {
+                                targetEl.removeAttribute(action.arg);
+                            } else if (action.type === 'remove-class' && action.arg) {
+                                targetEl.classList.remove(action.arg);
+                            }
+                        }
+                    } catch(e) {}
                 }
 
                 // Initial baseline collapsed styles
@@ -451,6 +631,7 @@ object AdBlockDocumentStart {
                 if (document.documentElement) {
                     inspectSubtree(document.documentElement);
                     flushPendingSelectors();
+                    scheduleProceduralRun();
                 }
 
                 // MutationObserver for dynamic insertions, interstitials, and dynamic ads
@@ -477,8 +658,11 @@ object AdBlockDocumentStart {
                             hasNew = true;
                         }
                     }
-                    if (hasNew && (pendingClasses.size > 0 || pendingIds.size > 0)) {
-                        scheduleQuery();
+                    if (hasNew) {
+                        if (pendingClasses.size > 0 || pendingIds.size > 0) {
+                            scheduleQuery();
+                        }
+                        scheduleProceduralRun();
                     }
                 });
 
@@ -494,6 +678,7 @@ object AdBlockDocumentStart {
                         } catch(e) {}
                         inspectSubtree(target);
                         flushPendingSelectors();
+                        scheduleProceduralRun();
                     }
                 }
 
