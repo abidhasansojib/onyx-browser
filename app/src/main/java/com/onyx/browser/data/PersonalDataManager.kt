@@ -7,6 +7,8 @@ import android.webkit.WebView
 import com.onyx.browser.data.favicon.FaviconManager
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.download.OnyxDownloadManager
+import com.onyx.browser.media.MediaPlaybackService
 import com.onyx.browser.web.LocalFileLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,15 +20,18 @@ import java.io.File
 object PersonalDataManager {
 
     private val scope = CoroutineScope(Dispatchers.IO + NonCancellable)
+    @Volatile private var isExitClearPending = false
 
     /**
-     * Deeply purges all personal browsing data:
+     * Deeply purges personal browsing data:
      * - Full browsing history
      * - Web cookies & storage
      * - WebView HTTP cache
      * - Favicon disk & memory cache
      * - Tab thumbnail disk cache
-     * - Local web archives & temporary downloads
+     * - Local web archives (.mht)
+     *
+     * Note: Never deletes onyx_downloads directory, download database entries, or active download parts.
      */
     fun clearAllPersonalData(context: Context, clearTabs: Boolean = false, onComplete: (() -> Unit)? = null) {
         val appContext = context.applicationContext
@@ -59,14 +64,16 @@ object PersonalDataManager {
                 } catch (_: Exception) {}
             }
 
-            // 5. Clean Disk Caches & Temporary Artifacts
+            // 5. Clean Disk Caches & Temporary Artifacts (without touching downloads)
             try {
                 FaviconManager.clearCache(appContext)
                 File(appContext.cacheDir, "favicons").deleteRecursively()
                 File(appContext.cacheDir, "tab_thumbnails").deleteRecursively()
                 File(appContext.cacheDir, "web_archives").deleteRecursively()
-                File(appContext.cacheDir, "onyx_downloads").deleteRecursively()
-                File(appContext.cacheDir, "install_pending.apk").delete()
+                val pendingApk = File(appContext.cacheDir, "install_pending.apk")
+                if (pendingApk.exists() && System.currentTimeMillis() - pendingApk.lastModified() > 60_000L) {
+                    pendingApk.delete()
+                }
                 LocalFileLoader.cleanupAllPreviews(appContext)
             } catch (_: Exception) {}
 
@@ -78,7 +85,7 @@ object PersonalDataManager {
 
     /**
      * Checks if the scheduled periodic auto-clear interval has elapsed (60 mins, 1 day, 7 days)
-     * and performs the cleanup if due.
+     * and performs the cleanup if due. Defer/skips if downloads or media playback are actively running.
      */
     fun checkAndPerformScheduledAutoClear(context: Context) {
         val appContext = context.applicationContext
@@ -86,6 +93,11 @@ object PersonalDataManager {
         val interval = prefs.autoClearInterval
 
         if (interval == BrowserPreferences.AUTO_CLEAR_NEVER || interval == BrowserPreferences.AUTO_CLEAR_ON_EXIT) {
+            return
+        }
+
+        // Never interrupt running processes such as downloading files or media playback
+        if (OnyxDownloadManager.isAnyDownloadActive(appContext) || MediaPlaybackService.isMediaPlaying) {
             return
         }
 
@@ -114,13 +126,37 @@ object PersonalDataManager {
     /**
      * Invoked when the user exits the app. If the auto-clear preference is set to
      * [BrowserPreferences.AUTO_CLEAR_ON_EXIT], executes a full data purge.
+     * If downloads are actively running in the background foreground service,
+     * clears history and tabs immediately while deferring cookie/cache cleanup until downloads complete.
      */
     fun performExitAutoClear(context: Context) {
         val appContext = context.applicationContext
         val prefs = BrowserPreferences.getInstance(appContext)
         if (prefs.autoClearInterval == BrowserPreferences.AUTO_CLEAR_ON_EXIT) {
             prefs.lastAutoClearTimestamp = System.currentTimeMillis()
-            clearAllPersonalData(appContext, clearTabs = true)
+            if (OnyxDownloadManager.isAnyDownloadActive(appContext)) {
+                isExitClearPending = true
+                scope.launch {
+                    try {
+                        val db = AppDatabase.getInstance(appContext)
+                        db.historyDao().clearAllHistory()
+                        db.tabDao().clearNormalTabs()
+                    } catch (_: Exception) {}
+                }
+            } else {
+                clearAllPersonalData(appContext, clearTabs = true)
+            }
+        }
+    }
+
+    fun cancelPendingExitClear() {
+        isExitClearPending = false
+    }
+
+    fun notifyDownloadsCompleted(context: Context) {
+        if (isExitClearPending) {
+            isExitClearPending = false
+            clearAllPersonalData(context.applicationContext, clearTabs = false)
         }
     }
 }

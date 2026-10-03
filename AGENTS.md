@@ -549,3 +549,7 @@ onyx-browser/
       - Wired PersonalDataManager.checkAndPerformScheduledAutoClear(context) into OnyxApplication.onCreate and MainActivity.onResume to handle periodic intervals safely.
       - Wired PersonalDataManager.performExitAutoClear(context) into MainActivity.onDestroy (when isFinishing = true) with full data and normal tab purge.
       - Redesigned ManagePersonalDataActivity: added centered toolbar title (app:titleCentered="true"), Material 3 Card 1 for Auto-Clear with exposed dropdown selector, and labeled Card 2 as 'Manual Clear — Time Range'.
+      - Running Process & Active Download Protection:
+        - Permanently removed onyx_downloads directory deletion from ManagePersonalDataActivity and PersonalDataManager so active download temporary files (.part, .chunks) are never touched or deleted during cache/history wipes.
+        - Implemented OnyxDownloadManager.hasActiveDownloads() and isAnyDownloadActive(context). Scheduled auto-clear checks automatically skip/defer when downloads or media playback are actively running.
+        - In performExitAutoClear, if downloads are running in background foreground service, immediately wipes history and tabs while deferring cookie/cache clearing until OnyxDownloadManager notifies that all downloads have completed.

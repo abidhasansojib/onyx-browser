@@ -219,7 +219,10 @@ class ClearBrowsingDataDialog(
                         tabManager.clearAllThumbnailsAndCache()
                     } catch (_: Exception) {}
                     try {
-                        File(context.cacheDir, "install_pending.apk").delete()
+                        val apk = File(context.cacheDir, "install_pending.apk")
+                        if (apk.exists() && System.currentTimeMillis() - apk.lastModified() > 60_000L) {
+                            apk.delete()
+                        }
                     } catch (_: Exception) {}
                 }
             }

@@ -269,6 +269,12 @@ object OnyxDownloadManager {
         }
 
         emitSnapshot()
+
+        if (!hasActiveDownloads()) {
+            appContext?.let { ctx ->
+                com.onyx.browser.data.PersonalDataManager.notifyDownloadsCompleted(ctx)
+            }
+        }
     }
 
     fun retryDownload(taskId: Long) {
@@ -278,6 +284,38 @@ object OnyxDownloadManager {
     }
 
     fun getTask(taskId: Long): DownloadTask? = activeTasks[taskId]
+
+    /**
+     * Returns true if any download task is currently running or pending in OnyxDownloadManager.
+     */
+    fun hasActiveDownloads(): Boolean {
+        return activeTasks.values.any {
+            it.status == DownloadTask.STATUS_RUNNING ||
+            it.status == DownloadTask.STATUS_PENDING
+        }
+    }
+
+    /**
+     * Checks whether any downloads are actively in progress across both OnyxDownloadManager
+     * and the Android system DownloadManager service.
+     */
+    fun isAnyDownloadActive(context: Context): Boolean {
+        if (hasActiveDownloads()) return true
+
+        try {
+            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as? android.app.DownloadManager
+            if (dm != null) {
+                val query = android.app.DownloadManager.Query().setFilterByStatus(
+                    android.app.DownloadManager.STATUS_RUNNING or android.app.DownloadManager.STATUS_PENDING
+                )
+                dm.query(query)?.use { cursor ->
+                    if (cursor.count > 0) return true
+                }
+            }
+        } catch (_: Exception) {}
+
+        return false
+    }
 
     private fun onTaskProgress(task: DownloadTask) {
         emitSnapshot()
@@ -297,6 +335,12 @@ object OnyxDownloadManager {
 
         activeTasks.remove(task.id)
         emitSnapshot()
+
+        if (!hasActiveDownloads()) {
+            appContext?.let { ctx ->
+                com.onyx.browser.data.PersonalDataManager.notifyDownloadsCompleted(ctx)
+            }
+        }
     }
 
     private fun onTaskFailed(task: DownloadTask, error: String) {
@@ -308,6 +352,12 @@ object OnyxDownloadManager {
         }
 
         emitSnapshot()
+
+        if (!hasActiveDownloads()) {
+            appContext?.let { ctx ->
+                com.onyx.browser.data.PersonalDataManager.notifyDownloadsCompleted(ctx)
+            }
+        }
     }
 
     private fun handleNetworkStateChange(isAvailable: Boolean, isWifi: Boolean) {

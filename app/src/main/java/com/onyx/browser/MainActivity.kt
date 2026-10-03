@@ -3117,6 +3117,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 4. Check and execute scheduled Auto-Clear if interval has elapsed
+        com.onyx.browser.data.PersonalDataManager.cancelPendingExitClear()
         com.onyx.browser.data.PersonalDataManager.checkAndPerformScheduledAutoClear(this)
 
         // 4. Sync webview settings

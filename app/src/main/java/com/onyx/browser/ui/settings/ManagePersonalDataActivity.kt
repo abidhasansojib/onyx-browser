@@ -253,10 +253,10 @@ class ManagePersonalDataActivity : AppCompatActivity() {
                             File(cacheDir, "tab_thumbnails").deleteRecursively()
                         } catch (_: Exception) {}
                         try {
-                            File(cacheDir, "onyx_downloads").deleteRecursively()
-                        } catch (_: Exception) {}
-                        try {
-                            File(cacheDir, "install_pending.apk").delete()
+                            val apk = File(cacheDir, "install_pending.apk")
+                            if (apk.exists() && System.currentTimeMillis() - apk.lastModified() > 60_000L) {
+                                apk.delete()
+                            }
                         } catch (_: Exception) {}
                     }
                 }
