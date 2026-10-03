@@ -70,6 +70,8 @@ import com.onyx.browser.databinding.ActivityMainBinding
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
 import com.onyx.browser.ui.browser.FindInPageController
 import com.onyx.browser.ui.browser.PageExportManager
+import com.onyx.browser.ui.browser.PipController
+import com.onyx.browser.ui.browser.SearchController
 import com.onyx.browser.ui.browser.TabManager
 import com.onyx.browser.ui.common.SearchEnginePickerDialog
 import com.onyx.browser.ui.common.SearchEnginePopupMenu
@@ -82,7 +84,6 @@ import com.onyx.browser.ui.home.ShortcutsAdapter
 import com.onyx.browser.ui.menu.MenuBottomSheetDialogFragment
 import com.onyx.browser.ui.menu.ContextMenuBottomSheet
 import com.onyx.browser.ui.menu.LanguageSelectionDialog
-import com.onyx.browser.ui.search.SuggestionsAdapter
 import com.onyx.browser.ui.tabs.TabSwitcherBottomSheet
 import com.onyx.browser.web.DownloadHandler
 import com.onyx.browser.web.LocalFileLoader
@@ -111,21 +112,26 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private lateinit var preferences: BrowserPreferences
     private lateinit var pageExportManager: PageExportManager
     private lateinit var findInPageController: FindInPageController
+    private lateinit var searchController: SearchController
 
     fun getActiveWebView(): OnyxWebView? = if (::tabManager.isInitialized) tabManager.getActiveWebView() else null
-    private lateinit var suggestionRepository: SearchSuggestionRepository
-    private lateinit var suggestionsAdapter: SuggestionsAdapter
     private lateinit var shortcutsAdapter: ShortcutsAdapter
-    private var suggestionJob: Job? = null
 
-    private var isSearchMode = false
-    private var customVideoView: View? = null
-    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
-    private var justExitedPip: Boolean = false
-    private var isCurrentlyInPip: Boolean
+    lateinit var pipController: PipController
+    val customVideoView: View?
+        get() = if (::pipController.isInitialized) pipController.customVideoView else null
+    val customViewCallback: WebChromeClient.CustomViewCallback?
+        get() = if (::pipController.isInitialized) pipController.customViewCallback else null
+    var justExitedPip: Boolean
+        get() = if (::pipController.isInitialized) pipController.justExitedPip else false
+        set(value) {
+            if (::pipController.isInitialized) pipController.justExitedPip = value
+        }
+    var isCurrentlyInPip: Boolean
         get() = MediaPlaybackBridge.isCurrentlyInPip
         set(value) {
             MediaPlaybackBridge.isCurrentlyInPip = value
+            if (::pipController.isInitialized) pipController.isCurrentlyInPip = value
         }
     private var currentDisplayedTabId: String? = null
     private var isTabsRestored = false
@@ -155,35 +161,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         return tabManager.getActiveWebView()
     }
 
-    private val pipReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                ACTION_PIP_PLAY_PAUSE -> {
-                    val targetWv = getMediaTargetWebView()
-                    val wasPlaying = MediaPlaybackBridge.isMediaPlaying
-                    val newPlayingState = !wasPlaying
-
-                    MediaPlaybackBridge.isExplicitUserPause = !newPlayingState
-                    MediaPlaybackBridge.isMediaPlaying = newPlayingState
-                    MediaPlaybackBridge.isVideoPlaying = newPlayingState
-                    MediaPlaybackBridge.isAudioOrVideoPlaying = newPlayingState
-
-                    if (newPlayingState) {
-                        targetWv?.evaluateJavascript(MediaPlaybackManager.playAllMediaScript, null)
-                    } else {
-                        targetWv?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
-                    }
-                    updatePipParams(isVideoPlaying = newPlayingState)
-                }
-                ACTION_PIP_REWIND -> {
-                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(-10), null)
-                }
-                ACTION_PIP_FORWARD -> {
-                    getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(10), null)
-                }
-            }
-        }
-    }
 
     private var lastNavBarBottomInset: Int = 0
     // Permission Launchers
@@ -464,10 +441,24 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         val database = AppDatabase.getInstance(this)
-        suggestionRepository = SearchSuggestionRepository(database.historyDao(), database.bookmarkDao())
+        val suggestionRepository = SearchSuggestionRepository(database.historyDao(), database.bookmarkDao())
+        searchController = SearchController(
+            activity = this,
+            binding = binding,
+            preferences = preferences,
+            suggestionRepository = suggestionRepository,
+            coroutineScope = lifecycleScope,
+            getActivePageUrl = { getActivePageUrl() },
+            getActiveTab = { tabManager.activeTab.value },
+            performSearchOrLoad = { target -> performSearchOrLoad(target) },
+            updateAddressBarDisplay = { url -> updateAddressBarDisplay(url) },
+            showSoftKeyboard = { showSoftKeyboard() },
+            hideSoftKeyboard = { hideSoftKeyboard() },
+            isLikelyUrl = { url -> isLikelyUrl(url) }
+        )
+        searchController.setup()
 
         setupTopToolbar()
-        setupSearchOverlay()
         findInPageController = FindInPageController(this, binding) { tabManager.getActiveWebView() }
         findInPageController.setup()
         setupTranslateBar()
@@ -475,16 +466,38 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         setupBackNavigation()
         setupMediaPlaybackListener()
 
-        val pipFilter = IntentFilter().apply {
-            addAction(ACTION_PIP_PLAY_PAUSE)
-            addAction(ACTION_PIP_REWIND)
-            addAction(ACTION_PIP_FORWARD)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(pipReceiver, pipFilter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(pipReceiver, pipFilter)
-        }
+        pipController = PipController(
+            activity = this,
+            binding = binding,
+            preferences = preferences,
+            getActiveWebView = { tabManager.getActiveWebView() },
+            getMediaTargetWebView = { getMediaTargetWebView() },
+            onHideUiForPip = {
+                binding.contentContainer.setPadding(0, 0, 0, 0)
+                binding.topBar.visibility = View.GONE
+                binding.topBarDivider.visibility = View.GONE
+                binding.homeLayout.root.visibility = View.GONE
+                binding.fullscreenControlsOverlay.visibility = View.GONE
+                binding.progressBar.visibility = View.GONE
+                findInPageController.hide()
+                binding.searchOverlay.visibility = View.GONE
+            },
+            onRestoreUiFromPip = { isCustomVideo ->
+                binding.contentContainer.setPadding(0, 0, 0, lastNavBarBottomInset)
+                if (!isCustomVideo) {
+                    val activeTab = tabManager.activeTab.value
+                    if (activeTab != null && activeTab.url.isNotBlank() &&
+                        !activeTab.url.startsWith("onyx://") && !activeTab.url.startsWith("about:")) {
+                        binding.homeLayout.root.visibility = View.GONE
+                        binding.webViewContainer.visibility = View.VISIBLE
+                    } else {
+                        binding.homeLayout.root.visibility = View.VISIBLE
+                        binding.webViewContainer.visibility = View.GONE
+                    }
+                }
+            }
+        )
+        pipController.registerReceiver()
 
         checkNotificationPermissionForDownloads()
 
@@ -510,7 +523,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private fun setupTopToolbar() {
         // Back Button in Search Mode (returns to page or homepage)
         binding.btnSearchBack.setOnClickListener {
-            exitSearchMode()
+            searchController.exitSearchMode()
         }
 
         // Search Engine Icon
@@ -524,8 +537,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     updateSearchEngineIcon()
                     com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
                     val currentQuery = binding.etUrl.text?.toString()?.trim() ?: ""
-                    if (isSearchMode && currentQuery.isNotEmpty()) {
-                        fetchSearchSuggestions(currentQuery)
+                    if (searchController.isSearchMode && currentQuery.isNotEmpty()) {
+                        searchController.fetchSearchSuggestions(currentQuery)
                     }
                 }
             )
@@ -545,44 +558,26 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         // Address Bar Focus & Search Mode
         binding.etUrl.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus && !isSearchMode) {
-                enterSearchMode()
+            if (hasFocus && !searchController.isSearchMode) {
+                searchController.enterSearchMode()
             }
         }
 
         binding.etUrl.setOnClickListener {
-            if (!isSearchMode) {
-                enterSearchMode()
+            if (!searchController.isSearchMode) {
+                searchController.enterSearchMode()
             }
         }
 
         binding.searchBarContainer.setOnClickListener {
-            if (!isSearchMode) {
-                enterSearchMode()
+            if (!searchController.isSearchMode) {
+                searchController.enterSearchMode()
             }
         }
 
         binding.etUrl.doAfterTextChanged { text ->
-            if (isSearchMode) {
-                val query = text?.toString()?.trim() ?: ""
-                val hasText = query.isNotEmpty()
-                binding.btnClearUrl.visibility = if (hasText) View.VISIBLE else View.GONE
-                binding.btnQrScanner.visibility = View.VISIBLE
-                binding.btnVoiceSearch.visibility = if (hasText) View.GONE else View.VISIBLE
-
-                if (hasText) {
-                    // Hide current-page card while typing so search results have more room
-                    binding.cardCurrentPage.visibility = View.GONE
-                    // fetchSearchSuggestions handles debounce, clipboard blending, and adapter updates
-                    fetchSearchSuggestions(query)
-                } else {
-                    // Empty query: cancel any pending job, show current-page card + clipboard only
-                    suggestionJob?.cancel()
-                    val curUrl = getActivePageUrl()
-                    updateCurrentPageCard(curUrl)
-                    val clipboardOpt = getClipboardSuggestion()
-                    suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
-                }
+            if (searchController.isSearchMode) {
+                searchController.onQueryTextChanged(text)
             }
         }
 
@@ -630,7 +625,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     displayTab(newTab)
                 },
                 onSearchRequested = {
-                    enterSearchMode()
+                    searchController.enterSearchMode()
                 }
             )
 
@@ -823,7 +818,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     tabManager.saveTabState(previousTabId, outgoingWebView)
                 }
             }
-            exitSearchMode()
+            searchController.exitSearchMode()
             hideTranslateBar(restoreOriginal = false)
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
@@ -1508,8 +1503,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         tabManager.updateActiveTab(url, url)
         showWebView(activeTab, forceUrl = url)
         hideTranslateBar(restoreOriginal = false)
-        if (isSearchMode) {
-            exitSearchMode()
+        if (searchController.isSearchMode) {
+            searchController.exitSearchMode()
         }
     }
 
@@ -1528,291 +1523,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (url.contains("youtube.com/shorts") || url.contains("tiktok.com")) {
             return true
         }
-        return false
-    }
-
-    private fun setupSearchOverlay() {
-        suggestionsAdapter = SuggestionsAdapter(
-            onSuggestionClicked = { suggestion ->
-                val target = if (suggestion.isDomain || suggestion.isUrl) {
-                    val raw = suggestion.queryOrUrl.trim()
-                    if (raw.startsWith("http://", ignoreCase = true) ||
-                        raw.startsWith("https://", ignoreCase = true) ||
-                        raw.startsWith("file://", ignoreCase = true) ||
-                        raw.startsWith("about:", ignoreCase = true) ||
-                        raw.startsWith("data:", ignoreCase = true)
-                    ) {
-                        raw
-                    } else {
-                        "https://$raw"
-                    }
-                } else {
-                    suggestion.queryOrUrl
-                }
-                performSearchOrLoad(target)
-                hideSoftKeyboard()
-            },
-            onInsertClicked = { suggestion ->
-                binding.etUrl.setText(suggestion.queryOrUrl)
-                binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
-            }
-        )
-        binding.rvSearchSuggestions.layoutManager = LinearLayoutManager(this)
-        binding.rvSearchSuggestions.adapter = suggestionsAdapter
-
-        // Current Webpage Card Actions: Share, Copy, Edit
-        binding.btnCurrentPageShare.setOnClickListener {
-            val url = getActivePageUrl()
-            if (url.isNotBlank()) {
-                val sendIntent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    putExtra(Intent.EXTRA_TEXT, url)
-                    type = "text/plain"
-                }
-                startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
-            }
-        }
-
-        binding.btnCurrentPageCopy.setOnClickListener {
-            val url = getActivePageUrl()
-            if (url.isNotBlank()) {
-                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                val clip = ClipData.newPlainText("URL", url)
-                clipboard?.setPrimaryClip(clip)
-                Toast.makeText(this, getString(R.string.link_copied), Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // Edit button populates the clean search bar with this URL so user can customize it
-        binding.btnCurrentPageEdit.setOnClickListener {
-            val url = getActivePageUrl()
-            if (url.isNotBlank()) {
-                val cleanUrl = if (LocalFileLoader.isLocalFile(this, url)) {
-                    try {
-                        val parsed = Uri.parse(url)
-                        if (parsed.scheme == "file" && parsed.path != null) parsed.path!! else url
-                    } catch (_: Exception) { url }
-                } else url
-                binding.etUrl.setText(cleanUrl)
-                binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
-                binding.etUrl.requestFocus()
-                showSoftKeyboard()
-            }
-        }
-
-        // Clicking the webpage card directly opens/reloads the page in one tap (matching Brave/Chromium)
-        binding.containerPageInfo.setOnClickListener {
-            val url = getActivePageUrl()
-            if (url.isNotBlank()) {
-                performSearchOrLoad(url)
-                hideSoftKeyboard()
-            }
-        }
-
-        binding.cardCurrentPage.setOnClickListener {
-            val url = getActivePageUrl()
-            if (url.isNotBlank()) {
-                performSearchOrLoad(url)
-                hideSoftKeyboard()
-            }
-        }
-    }
-
-    private fun updateCurrentPageCard(curUrl: String) {
-        if (curUrl.isNotBlank()) {
-            binding.cardCurrentPage.visibility = View.VISIBLE
-            val isLocal = LocalFileLoader.isLocalFile(this, curUrl) || LocalFileLoader.isPreviewUrl(curUrl)
-            val host = if (isLocal) {
-                LocalFileLoader.getDisplayName(this, LocalFileLoader.parseUri(curUrl))
-            } else {
-                try { Uri.parse(curUrl).host?.removePrefix("www.") ?: curUrl } catch (_: Exception) { curUrl }
-            }
-            val currentTab = tabManager.activeTab.value
-            val displayTitle = currentTab?.title?.takeIf {
-                it.isNotBlank() && !it.startsWith("data:") && !it.startsWith("net::") && it != "Page Not Available"
-            } ?: host
-            binding.tvCurrentPageTitle.text = displayTitle
-            val displayUrlText = if (isLocal) {
-                displayTitle
-            } else {
-                curUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.")
-            }
-            binding.tvCurrentPageUrl.text = displayUrlText
-            val isIncog = tabManager.activeTab.value?.isIncognito == true
-            com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
-                context = this,
-                imageView = binding.ivCurrentPageFavicon,
-                urlOrHost = curUrl,
-                isCircular = true,
-                saveToDisk = !isIncog
-            )
-        } else {
-            binding.cardCurrentPage.visibility = View.GONE
-        }
-    }
-
-    private fun enterSearchMode() {
-        if (isSearchMode) return
-        isSearchMode = true
-
-        // 1. Transform top toolbar into search mode
-        binding.btnHome.visibility = View.GONE
-        binding.btnSearchBack.visibility = View.VISIBLE
-        binding.btnTabSwitcher.visibility = View.GONE
-        binding.btnMenu.visibility = View.GONE
-        binding.ivSslLock.visibility = View.GONE
-
-        // 2. Open Search Overlay Page
-        binding.searchOverlay.visibility = View.VISIBLE
-
-        // 3. Configure Current Webpage Card under search bar (matching sample.png)
-        val curUrl = getActivePageUrl()
-        updateCurrentPageCard(curUrl)
-
-        // Clean search bar for fresh input as requested
-        binding.etUrl.setText("")
-        binding.etUrl.hint = getString(R.string.search_or_type_url)
-        binding.btnClearUrl.visibility = View.GONE
-        binding.btnQrScanner.visibility = View.VISIBLE
-        binding.btnVoiceSearch.visibility = View.VISIBLE
-
-        // 4. Focus search bar & show keyboard
-        binding.etUrl.requestFocus()
-        showSoftKeyboard()
-
-        // 5. Inject clipboard suggestion if available
-        val clipboardOpt = getClipboardSuggestion()
-        suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
-    }
-
-    private fun exitSearchMode() {
-        if (!isSearchMode) return
-        isSearchMode = false
-
-        suggestionJob?.cancel()
-
-        // 1. Restore top toolbar
-        binding.btnSearchBack.visibility = View.GONE
-        binding.btnHome.visibility = View.VISIBLE
-        binding.btnTabSwitcher.visibility = View.VISIBLE
-        binding.btnMenu.visibility = View.VISIBLE
-        binding.btnClearUrl.visibility = View.GONE
-        binding.btnQrScanner.visibility = View.GONE
-        binding.btnVoiceSearch.visibility = View.VISIBLE
-
-        // 2. Hide search overlay
-        binding.searchOverlay.visibility = View.GONE
-        binding.cardCurrentPage.visibility = View.GONE
-        suggestionsAdapter.submitList(emptyList())
-
-        // 3. Hide keyboard & clear focus
-        hideSoftKeyboard()
-        binding.etUrl.clearFocus()
-
-        // 4. Restore address bar host display
-        updateAddressBarDisplay(getActivePageUrl())
-    }
-
-    private fun cleanUrlForComparison(url: String): String {
-        return url.trim()
-            .removePrefix("https://")
-            .removePrefix("http://")
-            .removePrefix("www.")
-            .trimEnd('/')
-    }
-
-    private fun fetchSearchSuggestions(query: String) {
-        suggestionJob?.cancel()
-        val trimmed = query.trim()
-        // Require at least 2 chars — single char gives irrelevant results and
-        // wastes network bandwidth. Repository enforces the same guard.
-        if (trimmed.length < 2) {
-            val clipboardOpt = getClipboardSuggestion()
-            val matches = if (trimmed.isEmpty()) {
-                clipboardOpt
-            } else {
-                if (clipboardOpt != null && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)) clipboardOpt else null
-            }
-            suggestionsAdapter.submitList(if (matches != null) listOf(matches) else emptyList())
-            return
-        }
-
-        // Fast-path: When typing a domain or URL, display it immediately without waiting for debounce
-        if (com.onyx.browser.data.search.SearchSuggestionRepository.isLikelyDomainOrUrl(trimmed)) {
-            val isCompleteUrl = trimmed.startsWith("http://", ignoreCase = true) ||
-                trimmed.startsWith("https://", ignoreCase = true) ||
-                trimmed.startsWith("file://", ignoreCase = true)
-            val fullNavUrl = if (isCompleteUrl) trimmed else "https://$trimmed"
-            val instantDomain = com.onyx.browser.data.model.SearchSuggestion(
-                title = trimmed,
-                queryOrUrl = fullNavUrl,
-                isDomain = !isCompleteUrl,
-                isUrl = true
-            )
-            val clipboardOpt = getClipboardSuggestion()
-            val includeClipboard = clipboardOpt != null && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)
-            val initialList = if (includeClipboard && clipboardOpt != null) listOf(clipboardOpt, instantDomain) else listOf(instantDomain)
-            suggestionsAdapter.submitList(initialList)
-        }
-
-        suggestionJob = lifecycleScope.launch {
-            // 300ms debounce: waits for user to briefly pause typing
-            // before firing the network request and DB query.
-            delay(300)
-            val isIncog = tabManager.activeTab.value?.isIncognito == true
-            val suggestions = suggestionRepository.getSuggestions(trimmed, preferences.searchEngine, isIncognito = isIncog)
-            if (isSearchMode) {
-                val clipboardOpt = getClipboardSuggestion()
-                val includeClipboard = clipboardOpt != null && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)
-                val finalList = if (includeClipboard && clipboardOpt != null) {
-                    val list = suggestions.toMutableList()
-                    list.add(0, clipboardOpt)
-                    list
-                } else {
-                    suggestions
-                }
-                suggestionsAdapter.submitList(finalList)
-            }
-        }
-    }
-
-    private fun getClipboardSuggestion(): com.onyx.browser.data.model.SearchSuggestion? {
-        try {
-            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager ?: return null
-            if (clipboard.hasPrimaryClip()) {
-                val clipData = clipboard.primaryClip
-                if (clipData != null && clipData.itemCount > 0) {
-                    val rawText = clipData.getItemAt(0).text?.toString()?.trim()
-                    if (!rawText.isNullOrBlank()) {
-                        // Suppress if identical to active page URL (Brave/Chromium standard)
-                        val activeUrl = getActivePageUrl().trim()
-                        if (activeUrl.isNotBlank()) {
-                            val cleanActive = cleanUrlForComparison(activeUrl)
-                            val cleanRaw = cleanUrlForComparison(rawText)
-                            if (cleanActive.equals(cleanRaw, ignoreCase = true)) {
-                                return null
-                            }
-                        }
-
-                        val isLink = android.util.Patterns.WEB_URL.matcher(rawText).matches() ||
-                                rawText.startsWith("http://", ignoreCase = true) ||
-                                rawText.startsWith("https://", ignoreCase = true) ||
-                                rawText.startsWith("www.", ignoreCase = true) ||
-                                isLikelyUrl(rawText)
-
-                        val title = if (isLink) getString(R.string.link_you_copied) else getString(R.string.text_you_copied)
-                        return com.onyx.browser.data.model.SearchSuggestion(
-                            title = title,
-                            queryOrUrl = rawText,
-                            isUrl = isLink,
-                            isDomain = isLink && !rawText.startsWith("http://", ignoreCase = true) && !rawText.startsWith("https://", ignoreCase = true),
-                            isClipboard = true
-                        )
-                    }
-                }
-            }
-        } catch (_: Exception) {}
-        return null
     }
 
     private fun getActivePageUrl(): String {
@@ -1885,7 +1595,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
         }
 
-        if (!isSearchMode) {
+        if (!searchController.isSearchMode) {
             binding.etUrl.setText(host)
         }
     }
@@ -1941,134 +1651,18 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
-    private fun showCustomFullscreenVideo(view: View, callback: WebChromeClient.CustomViewCallback) {
-        if (customVideoView != null) {
+    fun showCustomFullscreenVideo(view: View, callback: WebChromeClient.CustomViewCallback) {
+        if (::pipController.isInitialized) {
+            pipController.showCustomFullscreenVideo(view, callback)
+        } else {
             callback.onCustomViewHidden()
-            return
-        }
-
-        customVideoView = view
-        customViewCallback = callback
-
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
-
-        // Insert at index 0 so fullscreenControlsOverlay stays on top
-        binding.fullscreenCustomViewContainer.addView(
-            view,
-            0,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        )
-        binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
-        binding.fullscreenControlsOverlay.visibility = View.VISIBLE
-
-        binding.btnFullscreenPip.setOnClickListener {
-            enterPipMode()
-        }
-        binding.btnFullscreenClose.setOnClickListener {
-            hideCustomFullscreenVideo()
-        }
-
-        updatePipParams(isVideoPlaying = true, shouldAutoEnter = false)
-    }
-
-    private fun hideCustomFullscreenVideo() {
-        binding.fullscreenControlsOverlay.visibility = View.GONE
-        if (customVideoView != null) {
-            binding.fullscreenCustomViewContainer.removeView(customVideoView)
-        }
-        binding.fullscreenCustomViewContainer.removeAllViews()
-        binding.fullscreenCustomViewContainer.visibility = View.GONE
-        customVideoView = null
-        try {
-            customViewCallback?.onCustomViewHidden()
-        } catch (_: Exception) {}
-        customViewCallback = null
-
-        // Guarantee browser chrome is visible
-        binding.topBar.visibility = View.VISIBLE
-        binding.topBarDivider.visibility = View.VISIBLE
-        tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
-
-        updatePipParams(isVideoPlaying = false, shouldAutoEnter = false)
-
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-        binding.topBar.requestLayout()
-        binding.root.requestLayout()
-    }
-
-    private fun Rational.coerceIn(min: Rational, max: Rational): Rational {
-        val currentVal = toFloat()
-        val minVal = min.toFloat()
-        val maxVal = max.toFloat()
-        return when {
-            currentVal < minVal -> min
-            currentVal > maxVal -> max
-            else -> this
         }
     }
 
-    private fun buildPipActions(isPlaying: Boolean = MediaPlaybackBridge.isMediaPlaying): List<RemoteAction> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return emptyList()
-
-        val actions = mutableListOf<RemoteAction>()
-
-        // 1. Rewind 10s
-        val rewindIntent = PendingIntent.getBroadcast(
-            this,
-            101,
-            Intent(ACTION_PIP_REWIND).setPackage(packageName),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        actions.add(
-            RemoteAction(
-                Icon.createWithResource(this, R.drawable.ic_fast_rewind),
-                "Rewind 10s",
-                "Rewind 10 seconds",
-                rewindIntent
-            )
-        )
-
-        // 2. Play / Pause
-        val playPauseIntent = PendingIntent.getBroadcast(
-            this,
-            102,
-            Intent(ACTION_PIP_PLAY_PAUSE).setPackage(packageName),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        actions.add(
-            RemoteAction(
-                Icon.createWithResource(this, if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow),
-                if (isPlaying) "Pause" else "Play",
-                if (isPlaying) "Pause video" else "Play video",
-                playPauseIntent
-            )
-        )
-
-        // 3. Fast Forward 10s
-        val forwardIntent = PendingIntent.getBroadcast(
-            this,
-            103,
-            Intent(ACTION_PIP_FORWARD).setPackage(packageName),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        actions.add(
-            RemoteAction(
-                Icon.createWithResource(this, R.drawable.ic_fast_forward),
-                "Forward 10s",
-                "Fast forward 10 seconds",
-                forwardIntent
-            )
-        )
-
-        return actions
+    fun hideCustomFullscreenVideo() {
+        if (::pipController.isInitialized) {
+            pipController.hideCustomFullscreenVideo()
+        }
     }
 
     fun updatePipParams(
@@ -2077,216 +1671,20 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         height: Int = MediaPlaybackBridge.lastVideoHeight,
         shouldAutoEnter: Boolean = false
     ) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val rational = Rational(width.coerceAtLeast(1), height.coerceAtLeast(1))
-                    .coerceIn(Rational(1, 2), Rational(2, 1))
-                val builder = PictureInPictureParams.Builder()
-                    .setAspectRatio(rational)
-                    .setActions(buildPipActions(isVideoPlaying))
-
-                // Video-only PiP: crop strictly to the video viewport using sourceRectHint
-                if (customVideoView != null) {
-                    val rect = Rect()
-                    customVideoView?.getGlobalVisibleRect(rect)
-                    if (!rect.isEmpty) {
-                        builder.setSourceRectHint(rect)
-                    }
-                } else {
-                    val bounds = MediaPlaybackBridge.lastVideoBounds
-                    val activeWv = tabManager.getActiveWebView()
-                    if (bounds != null && activeWv != null && isVideoPlaying) {
-                        val location = IntArray(2)
-                        activeWv.getLocationInWindow(location)
-                        val density = resources.displayMetrics.density
-                        val left = (location[0] + bounds.left * density).toInt()
-                        val top = (location[1] + bounds.top * density).toInt()
-                        val right = (location[0] + bounds.right * density).toInt()
-                        val bottom = (location[1] + bounds.bottom * density).toInt()
-                        val rect = Rect(
-                            left.coerceAtLeast(0),
-                            top.coerceAtLeast(0),
-                            right.coerceAtMost(resources.displayMetrics.widthPixels),
-                            bottom.coerceAtMost(resources.displayMetrics.heightPixels)
-                        )
-                        if (rect.width() > 20 && rect.height() > 20) {
-                            builder.setSourceRectHint(rect)
-                        }
-                    }
-                }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    builder.setAutoEnterEnabled(false)
-                }
-                setPictureInPictureParams(builder.build())
-            } catch (_: Exception) {}
+        if (::pipController.isInitialized) {
+            pipController.updatePipParams(isVideoPlaying, width, height, shouldAutoEnter)
         }
     }
 
     fun requestInPageVideoPip() {
-        if (!preferences.isPipEnabled) return
-        val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
-        if (inPip || justExitedPip) return
-        if (customVideoView != null) {
-            enterPipMode()
-            return
-        }
-        val activeWv = tabManager.getActiveWebView()
-        if (activeWv == null) {
-            Toast.makeText(this, "No active webpage to extract video", Toast.LENGTH_SHORT).show()
-            return
-        }
-        // Directly isolate in-page video DOM into PiP
-        // Do NOT trigger HTML5 requestFullscreen which creates a modal customVideoView and traps the user in auto-PiP
-        isolateAndEnterPip(activeWv)
-    }
-
-    private fun isolateAndEnterPip(activeWv: com.onyx.browser.web.OnyxWebView) {
-        val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
-        if (inPip || justExitedPip) return
-        activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) { res ->
-            val inPipNow = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
-            if (inPipNow || justExitedPip) return@evaluateJavascript
-            val hasVideo = res?.contains("\"found\":true") == true || res?.contains("\"found\": true") == true
-            if (hasVideo) {
-                try {
-                    val unescaped = res?.trim('"', '\'')?.replace("\\\"", "\"") ?: "{}"
-                    val jsonObj = org.json.JSONObject(unescaped)
-                    val vw = jsonObj.optInt("width", 0)
-                    val vh = jsonObj.optInt("height", 0)
-                    if (vw > 0 && vh > 0) {
-                        MediaPlaybackBridge.lastVideoWidth = vw
-                        MediaPlaybackBridge.lastVideoHeight = vh
-                    }
-                } catch (_: Exception) {}
-                // Allow Chromium compositor 100ms to paint the isolated video layout before OS PiP snapshot
-                activeWv.postDelayed({
-                    val inPipLater = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
-                    if (!justExitedPip && !inPipLater) {
-                        enterPipMode()
-                    }
-                }, 100)
-            } else if (MediaPlaybackBridge.isVideoAvailable || MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isVideoPresent) {
-                // Resilient Brave-parity fallback: Stream was already confirmed available by MediaPlaybackBridge
-                // (e.g. nested cross-origin iframe). Enter PiP mode directly with known bounds!
-                activeWv.postDelayed({
-                    val inPipLater = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
-                    if (!justExitedPip && !inPipLater) {
-                        enterPipMode()
-                    }
-                }, 50)
-            } else {
-                Toast.makeText(this, "No active video found to enter Picture-in-Picture", Toast.LENGTH_SHORT).show()
-            }
+        if (::pipController.isInitialized) {
+            pipController.requestInPageVideoPip()
         }
     }
 
     fun enterPipMode() {
-        if (!preferences.isPipEnabled) return
-        val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
-        if (inPip || justExitedPip) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
-                    return
-                }
-                val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
-                val isPipAllowed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    appOps?.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, android.os.Process.myUid(), packageName) == AppOpsManager.MODE_ALLOWED
-                } else {
-                    @Suppress("DEPRECATION")
-                    appOps?.checkOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, android.os.Process.myUid(), packageName) == AppOpsManager.MODE_ALLOWED
-                }
-                if (isPipAllowed == false) {
-                    Toast.makeText(this, "Please enable Picture-in-Picture permission in Android Settings", Toast.LENGTH_LONG).show()
-                    val intent = Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS", Uri.parse("package:$packageName"))
-                    try {
-                        startActivity(intent)
-                    } catch (_: Exception) {
-                        startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-                    }
-                    binding.topBar.visibility = View.VISIBLE
-                    binding.topBarDivider.visibility = View.VISIBLE
-                    if (customVideoView == null) {
-                        tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
-                    }
-                    return
-                }
-
-                val w = MediaPlaybackBridge.lastVideoWidth.coerceAtLeast(1)
-                val h = MediaPlaybackBridge.lastVideoHeight.coerceAtLeast(1)
-                val rational = Rational(w, h).coerceIn(Rational(1, 2), Rational(2, 1))
-
-                val paramsBuilder = PictureInPictureParams.Builder()
-                    .setAspectRatio(rational)
-                    .setActions(buildPipActions())
-
-                if (customVideoView != null) {
-                    val rect = Rect()
-                    customVideoView?.getGlobalVisibleRect(rect)
-                    if (!rect.isEmpty) {
-                        paramsBuilder.setSourceRectHint(rect)
-                    }
-                } else {
-                    // Hide browser UI before transition so only the isolated video is captured
-                    binding.contentContainer.setPadding(0, 0, 0, 0)
-                    binding.topBar.visibility = View.GONE
-                    binding.topBarDivider.visibility = View.GONE
-                    binding.fullscreenControlsOverlay.visibility = View.GONE
-                    binding.progressBar.visibility = View.GONE
-                    findInPageController.hide()
-                    binding.searchOverlay.visibility = View.GONE
-
-                    val screenW = resources.displayMetrics.widthPixels
-                    val screenH = resources.displayMetrics.heightPixels
-                    val videoRect: Rect
-                    if (screenW.toFloat() / screenH.toFloat() > w.toFloat() / h.toFloat()) {
-                        val videoH = screenH
-                        val videoW = ((screenH.toFloat() * w.toFloat()) / h.toFloat()).toInt().coerceAtMost(screenW)
-                        val left = (screenW - videoW) / 2
-                        videoRect = Rect(left, 0, left + videoW, screenH)
-                    } else {
-                        val videoW = screenW
-                        val videoH = ((screenW.toFloat() * h.toFloat()) / w.toFloat()).toInt().coerceAtMost(screenH)
-                        val top = (screenH - videoH) / 2
-                        videoRect = Rect(0, top, screenW, top + videoH)
-                    }
-                    if (videoRect.width() > 20 && videoRect.height() > 20) {
-                        paramsBuilder.setSourceRectHint(videoRect)
-                    }
-                }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    paramsBuilder.setAutoEnterEnabled(false)
-                }
-
-                isCurrentlyInPip = true
-                val entered = enterPictureInPictureMode(paramsBuilder.build())
-                if (!entered) {
-                    isCurrentlyInPip = false
-                    // System refused PiP; immediately restore UI and video DOM
-                    binding.topBar.visibility = View.VISIBLE
-                    binding.topBarDivider.visibility = View.VISIBLE
-                    if (customVideoView == null) {
-                        tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
-                    }
-                }
-            } catch (e: Exception) {
-                isCurrentlyInPip = false
-                binding.topBar.visibility = View.VISIBLE
-                binding.topBarDivider.visibility = View.VISIBLE
-                if (customVideoView == null) {
-                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
-                }
-                Toast.makeText(this, "Unable to enter Picture-in-Picture: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            binding.topBar.visibility = View.VISIBLE
-            binding.topBarDivider.visibility = View.VISIBLE
-            if (customVideoView == null) {
-                tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
-            }
-            Toast.makeText(this, "Picture-in-Picture requires Android 8.0+", Toast.LENGTH_SHORT).show()
+        if (::pipController.isInitialized) {
+            pipController.enterPipMode()
         }
     }
 
@@ -2632,8 +2030,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     return
                 }
 
-                if (isSearchMode) {
-                    exitSearchMode()
+                if (searchController.isSearchMode) {
+                    searchController.exitSearchMode()
                     return
                 }
 
@@ -2981,77 +2379,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        val activeWv = tabManager.getActiveWebView()
-        isCurrentlyInPip = isInPictureInPictureMode
-        if (isInPictureInPictureMode) {
-            // Video-Only PiP: Strip all browser UI and chrome
-            binding.contentContainer.setPadding(0, 0, 0, 0)
-            binding.topBar.visibility = View.GONE
-            binding.topBarDivider.visibility = View.GONE
-            binding.homeLayout.root.visibility = View.GONE
-            binding.fullscreenControlsOverlay.visibility = View.GONE
-            binding.progressBar.visibility = View.GONE
-            findInPageController.hide()
-            binding.searchOverlay.visibility = View.GONE
-
-            if (customVideoView != null) {
-                binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
-                binding.webViewContainer.visibility = View.GONE
-            } else {
-                binding.fullscreenCustomViewContainer.visibility = View.GONE
-                binding.webViewContainer.visibility = View.VISIBLE
-                binding.webViewContainer.setBackgroundColor(android.graphics.Color.BLACK)
-                // Isolate video DOM so only the video displays in PiP without any webpage UI
-                activeWv?.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript, null)
-            }
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        } else {
-            // Exiting PiP — set cooldown to prevent immediate re-entry loop
-            isCurrentlyInPip = false
-            MediaPlaybackBridge.isExplicitUserPause = false
-            justExitedPip = true
-            binding.root.postDelayed({ justExitedPip = false }, 2500)
-
-            // CRITICAL: Explicitly tell Android to disable autoEnterEnabled so returning to app NEVER bounces back into PiP
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                try {
-                    setPictureInPictureParams(
-                        PictureInPictureParams.Builder()
-                            .setAutoEnterEnabled(false)
-                            .build()
-                    )
-                } catch (_: Exception) {}
-            }
-
-            // Exiting PiP — restore browser chrome
-            binding.contentContainer.setPadding(0, 0, 0, lastNavBarBottomInset)
-            if (!MediaPlaybackBridge.isVideoPlaying) {
-                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            }
-            binding.topBar.visibility = View.VISIBLE
-            binding.topBarDivider.visibility = View.VISIBLE
-            binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-
-            if (customVideoView != null) {
-                binding.fullscreenControlsOverlay.visibility = View.VISIBLE
-                binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
-                binding.webViewContainer.visibility = View.GONE
-            } else {
-                binding.fullscreenCustomViewContainer.visibility = View.GONE
-                binding.fullscreenControlsOverlay.visibility = View.GONE
-                // Restore proper view based on active tab state (not stale visibility flags)
-                val activeTab = tabManager.activeTab.value
-                if (activeTab != null && activeTab.url.isNotBlank() &&
-                    !activeTab.url.startsWith("onyx://") && !activeTab.url.startsWith("about:")) {
-                    binding.homeLayout.root.visibility = View.GONE
-                    binding.webViewContainer.visibility = View.VISIBLE
-                } else {
-                    binding.homeLayout.root.visibility = View.VISIBLE
-                    binding.webViewContainer.visibility = View.GONE
-                }
-                activeWv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
-            }
-            updatePipParams(shouldAutoEnter = false)
+        if (::pipController.isInitialized) {
+            pipController.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         }
     }
 
@@ -3168,7 +2497,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             ACTION_WIDGET_SEARCH, "com.onyx.browser.action.SEARCH" -> {
                 intent.action = null
                 binding.root.post {
-                    enterSearchMode()
+                    searchController.enterSearchMode()
                 }
                 return true
             }
@@ -3184,7 +2513,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 val newTab = tabManager.createNewTab(url = "", isIncognito = true)
                 displayTab(newTab)
                 binding.root.post {
-                    enterSearchMode()
+                    searchController.enterSearchMode()
                 }
                 return true
             }
@@ -3239,8 +2568,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
         }
 
-        if (isSearchMode) {
-            exitSearchMode()
+        if (searchController.isSearchMode) {
+            searchController.exitSearchMode()
         }
     }
 
@@ -3334,9 +2663,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     override fun onDestroy() {
         super.onDestroy()
         tabManager.saveAllTabStates()
-        try {
-            unregisterReceiver(pipReceiver)
-        } catch (_: Exception) {}
+        if (::pipController.isInitialized) {
+            pipController.unregisterReceiver()
+        }
         MediaPlaybackService.mediaActionListener = null
         if (isFinishing) {
             tabManager.closeAllTabs(incognitoOnly = true)

@@ -130,7 +130,7 @@ onyx-browser/
 │   │   │   │
 │   │   │   ├── ui/                 # Presentation Layer (XML ViewBinding)
 │   │   │   │   ├── bookmarks/      # BookmarksActivity & BookmarksAdapter
-│   │   │   │   ├── browser/        # TabManager, PageExportManager, FindInPageController
+│   │   │   │   ├── browser/        # TabManager, PageExportManager, FindInPageController, PipController, SearchController
 │   │   │   │   ├── downloads/      # DownloadsActivity, DownloadPromptBottomSheet, 1DM handoff
 │   │   │   │   ├── history/        # HistoryActivity & HistoryAdapter
 │   │   │   │   ├── home/           # ShortcutsAdapter, quick action rows, drag-and-drop reordering
@@ -600,4 +600,6 @@ onyx-browser/
     - **TabActionCallback Interface Decoupling**: Introduced `TabActionCallback.kt` (`closeTab`, `displayPopupTab`, `getTabById`) to replace the circular `findMainActivity()` Context wrapper chain walking inside `OnyxWebViewClient`. `MainActivity` implements the interface and passes itself cleanly via constructor, improving modularity and testability.
     - **PageExportManager Extraction**: Extracted page export pipeline from `MainActivity` into dedicated `PageExportManager.kt` (~290 lines). Encapsulates MHTML web archive generation, headless PDF printing via `PdfPrintHelper`, system printer dispatch, and Scoped Storage MediaStore resolution.
     - **FindInPageController Extraction**: Extracted Find-in-Page search bar lifecycle, regex matching mode toggling, text watch debounce, and match count indicators from `MainActivity` into dedicated `FindInPageController.kt`.
+    - **SearchController Extraction**: Extracted search overlay lifecycle, debounced suggestion fetching, clipboard suggestion synthesis, web page action card (share/copy/edit), and toolbar search-mode state transitions from `MainActivity` into dedicated `SearchController.kt` (~360 lines).
+    - **PipController Extraction**: Extracted HTML5 custom fullscreen video hosting, Picture-in-Picture lifecycle, aspect ratio bounding calculations, remote action broadcast receiver (`ACTION_PIP_PLAY_PAUSE`, `ACTION_PIP_REWIND`, `ACTION_PIP_FORWARD`), and DOM video isolation logic from `MainActivity` into dedicated `PipController.kt` (~510 lines).
     - **BrowserPreferences Singleton Lookup Optimization**: Consolidated repeated `BrowserPreferences.getInstance(context)` calls in `OnyxWebView.configureSettings()` into a single scoped variable.
