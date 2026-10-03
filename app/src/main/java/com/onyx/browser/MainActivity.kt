@@ -2700,7 +2700,6 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
 
-                val activeTab = tabManager.activeTab.value
                 if (activeTab != null) {
                     val parentId = activeTab.parentId
                     val parentTab = if (!parentId.isNullOrBlank()) {
