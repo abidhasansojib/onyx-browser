@@ -35,10 +35,13 @@ object AdBlockServiceWorkerHelper {
                             if (prefs.isDomainWhitelisted(reqDomain)) return null
 
                             val isAggressive = prefs.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
-                            val blockedByEngine = AdBlockEngine.shouldBlock(url, "", "other")
-                            val blockedByDomain = AdBlockDomainManager.shouldBlock(reqDomain, isAggressive)
+                            val uncloakedDomain = AdBlockDomainManager.uncloakDomain(reqDomain)
+                            val blockedByDomain = AdBlockDomainManager.shouldBlock(uncloakedDomain, isAggressive)
+                            val blockedByEngine = if (!blockedByDomain) {
+                                AdBlockEngine.shouldBlock(url, "", AdBlockEngine.RESOURCE_TYPE_OTHER)
+                            } else true
 
-                            if (blockedByEngine || blockedByDomain) {
+                            if (blockedByDomain || blockedByEngine) {
                                 prefs.incrementBlockedRequests()
                                 return WebResourceResponse(
                                     "text/plain",

@@ -267,6 +267,54 @@ class OnyxWebViewClient(
         }
     }
 
+    private fun createSurrogateResponse(redirectData: String, resourceType: String): WebResourceResponse? {
+        return try {
+            val corsHeaders = mapOf(
+                "Access-Control-Allow-Origin" to "*",
+                "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers" to "*",
+                "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0"
+            )
+
+            if (redirectData.startsWith("data:", ignoreCase = true)) {
+                val commaIndex = redirectData.indexOf(',')
+                if (commaIndex != -1) {
+                    val meta = redirectData.substring(5, commaIndex)
+                    val body = redirectData.substring(commaIndex + 1)
+                    val isBase64 = meta.contains(";base64", ignoreCase = true)
+                    val mimeType = meta.substringBefore(';').ifBlank {
+                        if (resourceType == "image") "image/png" else "application/javascript"
+                    }
+                    val bytes = if (isBase64) {
+                        Base64.decode(body, Base64.DEFAULT)
+                    } else {
+                        Uri.decode(body).toByteArray(Charsets.UTF_8)
+                    }
+                    return WebResourceResponse(
+                        mimeType,
+                        "UTF-8",
+                        200,
+                        "OK",
+                        corsHeaders + ("Content-Type" to mimeType),
+                        ByteArrayInputStream(bytes)
+                    )
+                }
+            }
+
+            val mime = if (resourceType == "image") "image/png" else "application/javascript"
+            WebResourceResponse(
+                mime,
+                "UTF-8",
+                200,
+                "OK",
+                corsHeaders + ("Content-Type" to "$mime; charset=utf-8"),
+                ByteArrayInputStream(redirectData.toByteArray(Charsets.UTF_8))
+            )
+        } catch (t: Throwable) {
+            null
+        }
+    }
+
     override fun shouldInterceptRequest(
         view: WebView?,
         request: WebResourceRequest?
@@ -505,15 +553,34 @@ class OnyxWebViewClient(
                         url.contains("/fakepage.html") ||
                         (currentDomain == "adblock-tester.com" && (url.contains("/banners/") || url.contains("/ads/")))
 
-                // Dual-layer protection: check native Rust adblock engine and curated standard domains
-                val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, resourceType)
-                val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(reqDomain)
+                // Static CNAME uncloaking
+                val uncloakedDomain = AdBlockDomainManager.uncloakDomain(reqDomain)
 
-                // Aggressive mode: also block OEM telemetry, consent CMPs, affiliate networks, product analytics, etc.
-                val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
+                // 1. Fast-path in-memory Kotlin check: evaluate known domain blocklists FIRST
+                val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(uncloakedDomain)
+                val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(uncloakedDomain)
+                val blockedByDomain = blockedByStandard || blockedByAggressive
 
-                if (isAdTestResource || blockedByEngine || blockedByStandard || blockedByAggressive) {
+                // 2. Query native Rust engine only if domain is not already known to be blocked
+                val resourceTypeInt = detectResourceTypeInt(request)
+                val engineResult = if (!blockedByDomain && !isAdTestResource) {
+                    AdBlockEngine.checkRequest(url, pageUrl, resourceTypeInt)
+                } else null
+
+                val blockedByEngine = engineResult?.shouldBlock == true
+                val redirectData = engineResult?.redirectData
+
+                if (isAdTestResource || blockedByDomain || blockedByEngine) {
                     preferences.incrementBlockedRequests()
+
+                    // If a surrogate redirect ($redirect rule) is matched, serve the surrogate script directly!
+                    if (!redirectData.isNullOrBlank()) {
+                        val surrogateResponse = createSurrogateResponse(redirectData, resourceType)
+                        if (surrogateResponse != null) {
+                            return surrogateResponse
+                        }
+                    }
+
                     return createBlockedResponse(resourceType)
                 }
             }
@@ -1296,6 +1363,43 @@ class OnyxWebViewClient(
             acceptHeader.contains("application/json") || acceptHeader.contains("xmlhttprequest") -> "xmlhttprequest"
             acceptHeader.contains("text/html") -> "sub_frame"
             else -> "other"
+        }
+    }
+
+    private fun detectResourceTypeInt(request: WebResourceRequest): Int {
+        if (request.isForMainFrame) return AdBlockEngine.RESOURCE_TYPE_MAIN_FRAME
+
+        val acceptHeader = request.requestHeaders?.get("Accept")?.lowercase() ?: ""
+        val fetchMode = request.requestHeaders?.get("Sec-Fetch-Mode")?.lowercase() ?: ""
+        val fetchDest = request.requestHeaders?.get("Sec-Fetch-Dest")?.lowercase() ?: ""
+        val reqWith = request.requestHeaders?.get("X-Requested-With")?.lowercase() ?: ""
+        val urlPath = request.url?.path?.lowercase() ?: ""
+
+        if (fetchDest == "iframe" || fetchDest == "frame") return AdBlockEngine.RESOURCE_TYPE_SUB_FRAME
+        if (fetchDest == "script") return AdBlockEngine.RESOURCE_TYPE_SCRIPT
+        if (fetchDest == "image") return AdBlockEngine.RESOURCE_TYPE_IMAGE
+        if (fetchDest == "style") return AdBlockEngine.RESOURCE_TYPE_STYLESHEET
+        if (fetchDest == "video" || fetchDest == "audio") return AdBlockEngine.RESOURCE_TYPE_MEDIA
+        if (urlPath.endsWith(".m3u8") || urlPath.endsWith(".ts") || urlPath.endsWith(".mpd") ||
+            urlPath.endsWith(".m4s") || urlPath.endsWith(".mp4") || urlPath.endsWith(".webm") ||
+            urlPath.endsWith(".ogg") || urlPath.endsWith(".mp3") || urlPath.endsWith(".m4a") ||
+            urlPath.endsWith(".aac") || urlPath.endsWith(".flv")) {
+            return AdBlockEngine.RESOURCE_TYPE_MEDIA
+        }
+        if (fetchDest == "empty" || fetchMode == "cors" || reqWith == "xmlhttprequest") return AdBlockEngine.RESOURCE_TYPE_XHR
+
+        return when {
+            acceptHeader.contains("text/css") || urlPath.endsWith(".css") -> AdBlockEngine.RESOURCE_TYPE_STYLESHEET
+            acceptHeader.contains("javascript") || urlPath.endsWith(".js") -> AdBlockEngine.RESOURCE_TYPE_SCRIPT
+            acceptHeader.contains("image/") || urlPath.endsWith(".png") ||
+                    urlPath.endsWith(".jpg") || urlPath.endsWith(".jpeg") ||
+                    urlPath.endsWith(".webp") || urlPath.endsWith(".gif") ||
+                    urlPath.endsWith(".svg") || urlPath.endsWith(".ico") -> AdBlockEngine.RESOURCE_TYPE_IMAGE
+            acceptHeader.contains("video/") || acceptHeader.contains("audio/") ||
+                    urlPath.endsWith(".mp4") || urlPath.endsWith(".mp3") || urlPath.endsWith(".webm") -> AdBlockEngine.RESOURCE_TYPE_MEDIA
+            acceptHeader.contains("application/json") || acceptHeader.contains("xmlhttprequest") -> AdBlockEngine.RESOURCE_TYPE_XHR
+            acceptHeader.contains("text/html") -> AdBlockEngine.RESOURCE_TYPE_SUB_FRAME
+            else -> AdBlockEngine.RESOURCE_TYPE_OTHER
         }
     }
 
