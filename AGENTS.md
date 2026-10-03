@@ -233,6 +233,19 @@ onyx-browser/
 - **Session Persistence**: DevTools state (`isDevToolsActive`) preserved across page reloads and link navigations within the tab.
 - **Logcat Console Forwarding**: `OnyxWebChromeClient.onConsoleMessage` pipes formatted web console output directly to Android Logcat with tag `[OnyxDevTools]`.
 
+### 4.5. Headless Page Export & Download Subsystem (`MainActivity.kt` & `DownloadNotificationHelper.kt`)
+- **Direct Headless PDF Generation**:
+  - Uses `WebView.createPrintDocumentAdapter(cleanTitle)` to obtain Chromium's internal print adapter.
+  - Headless execution invokes `printAdapter.onStart()`, `printAdapter.onLayout()`, and `printAdapter.onWrite(arrayOf(PageRange.ALL_PAGES), pfd, ...)` directly into a `ParcelFileDescriptor` pointing to an internal cache file without opening system print dialogs.
+  - On write completion, closes descriptors and transfers the output to public Downloads via `copyTempFileToDownloads`.
+- **Unified Public Downloads & MediaStore Integration**:
+  - Both `.pdf` and `.mht` files are saved to public Downloads (`/storage/emulated/0/Download/`) with Scoped Storage / MediaStore resolution.
+- **Download Database & Notification Parity**:
+  - Both `.pdf` and `.mht` exports are inserted as completed `DownloadItem` records in `AppDatabase.downloadDao()`, ensuring they appear immediately in the in-app Downloads screen.
+  - Posts system download completion notifications via `DownloadNotificationHelper.postDownloadCompletedNotification`. Web archives (`.mht`) tap-to-open directly in Onyx Browser via `LocalFileLoader.isWebDocument`, while PDFs open via external PDF viewers through `FileProvider`.
+- **System Print Retention**:
+  - Retains "Print / System Print…" option invoking Android `PrintManager.print()` for physical or network printing needs.
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents

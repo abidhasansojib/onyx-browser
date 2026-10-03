@@ -256,6 +256,31 @@ object DownloadNotificationHelper {
             .build()
     }
 
+    fun postDownloadCompletedNotification(
+        context: Context,
+        id: Long,
+        fileName: String,
+        filePath: String,
+        mimeType: String,
+        fileSize: Long
+    ) {
+        initChannels(context)
+        val task = DownloadTask(
+            id = id,
+            url = "",
+            fileName = fileName,
+            mimeType = mimeType,
+            finalFilePath = filePath,
+            totalBytes = fileSize,
+            downloadedBytes = java.util.concurrent.atomic.AtomicLong(fileSize),
+            status = DownloadTask.STATUS_COMPLETED
+        )
+        val notification = buildCompletedNotification(context, task)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        val notifId = (id.hashCode() and 0x3FFFFFFF)
+        nm?.notify(notifId, notification)
+    }
+
     fun buildFailedNotification(context: Context, task: DownloadTask): Notification {
         val err = task.errorMessage ?: "Network error"
         val openDownloadsIntent = PendingIntent.getActivity(

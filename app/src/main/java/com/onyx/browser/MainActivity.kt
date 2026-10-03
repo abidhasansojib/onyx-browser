@@ -24,6 +24,13 @@ import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.CancellationSignal
+import android.os.ParcelFileDescriptor
+import android.print.PageRange
+import android.print.PrintAttributes
+import android.print.PrintDocumentAdapter
+import android.print.PrintDocumentInfo
+import android.print.PrintManager
 import android.speech.RecognizerIntent
 import android.util.Rational
 import android.view.KeyEvent
@@ -87,6 +94,7 @@ import com.onyx.browser.web.OnyxWebChromeClient
 import com.onyx.browser.web.OnyxWebView
 import com.onyx.browser.web.OnyxWebViewClient
 import com.onyx.browser.data.filter.FilterListManager
+import com.onyx.browser.download.DownloadNotificationHelper
 import com.onyx.browser.media.MediaPlaybackBridge
 import com.onyx.browser.media.MediaPlaybackService
 import com.onyx.browser.web.DevToolsManager
@@ -3383,66 +3391,37 @@ class MainActivity : AppCompatActivity() {
     private fun showSavePageDialog() {
         val activeWebView = tabManager.getActiveWebView() ?: return
         val currentTab = tabManager.activeTab.value ?: return
-        val options = arrayOf("Save as Web Archive (.mht)", "Save as PDF (.pdf)")
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setTitle("Save Page")
+        val options = arrayOf(
+            getString(R.string.save_as_web_archive),
+            getString(R.string.save_as_pdf),
+            getString(R.string.print_system_option)
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.save_page_dialog_title)
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> saveCurrentPageAsMhtml(activeWebView, currentTab.title)
-                    1 -> saveCurrentPageAsPdf(activeWebView, currentTab.title)
+                    1 -> saveCurrentPageAsPdfDirect(activeWebView, currentTab.title)
+                    2 -> printCurrentPageSystem(activeWebView, currentTab.title)
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
     private fun saveCurrentPageAsMhtml(webView: OnyxWebView, title: String) {
         try {
+            Toast.makeText(this, R.string.saving_web_archive, Toast.LENGTH_SHORT).show()
             val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
             val fileName = "${cleanTitle}_${System.currentTimeMillis()}.mht"
-            val tempFile = java.io.File(cacheDir, fileName)
+            val tempFile = File(cacheDir, fileName)
 
             webView.saveWebArchive(tempFile.absolutePath, false) { savedPath ->
                 if (savedPath != null && tempFile.exists() && tempFile.length() > 0) {
-                    val fileSize = tempFile.length()
                     val pageUrl = webView.url ?: "about:blank"
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        try {
-                            val mimeType = "multipart/related"
-                            val savedUri = copyTempFileToDownloads(tempFile, fileName, mimeType)
-                            val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-                            val finalFile = java.io.File(downloadDir, fileName)
-                            val finalPath = if (finalFile.exists() && finalFile.canRead()) finalFile.absolutePath else (savedUri?.toString() ?: finalFile.absolutePath)
-
-                            val database = com.onyx.browser.data.local.AppDatabase.getInstance(this@MainActivity)
-                            database.downloadDao().insertDownload(
-                                com.onyx.browser.data.model.DownloadItem(
-                                    url = pageUrl,
-                                    fileName = fileName,
-                                    filePath = finalPath,
-                                    mimeType = mimeType,
-                                    fileSize = fileSize,
-                                    status = com.onyx.browser.data.model.DownloadItem.STATUS_COMPLETED,
-                                    downloadTime = System.currentTimeMillis()
-                                )
-                            )
-
-                            kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                if (savedUri != null) {
-                                    Toast.makeText(this@MainActivity, "Saved to Downloads/$fileName", Toast.LENGTH_LONG).show()
-                                } else {
-                                    Toast.makeText(this@MainActivity, "Failed to export to Downloads", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        } catch (e: Exception) {
-                            kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                Toast.makeText(this@MainActivity, "Error saving file: ${e.message}", Toast.LENGTH_SHORT).show()
-                            }
-                        } finally {
-                            try { tempFile.delete() } catch (_: Exception) {}
-                        }
-                    }
+                    publishSavedPageToDownloads(tempFile, fileName, "multipart/related", pageUrl)
                 } else {
+                    try { tempFile.delete() } catch (_: Exception) {}
                     Toast.makeText(this, "Failed to generate web archive", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -3451,8 +3430,105 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun copyTempFileToDownloads(tempFile: java.io.File, fileName: String, mimeType: String): android.net.Uri? {
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+    private fun saveCurrentPageAsPdfDirect(webView: OnyxWebView, title: String) {
+        try {
+            Toast.makeText(this, R.string.generating_pdf, Toast.LENGTH_SHORT).show()
+            val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
+            val fileName = "${cleanTitle}_${System.currentTimeMillis()}.pdf"
+            val tempFile = File(cacheDir, fileName)
+            val printAdapter = webView.createPrintDocumentAdapter(cleanTitle)
+
+            val printAttributes = PrintAttributes.Builder()
+                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                .setResolution(PrintAttributes.Resolution("pdf", "pdf", 300, 300))
+                .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                .build()
+
+            val pageUrl = webView.url ?: "about:blank"
+
+            printAdapter.onStart()
+            printAdapter.onLayout(
+                null,
+                printAttributes,
+                CancellationSignal(),
+                object : PrintDocumentAdapter.LayoutResultCallback() {
+                    override fun onLayoutFinished(info: PrintDocumentInfo?, changed: Boolean) {
+                        super.onLayoutFinished(info, changed)
+                        try {
+                            val pfd = ParcelFileDescriptor.open(
+                                tempFile,
+                                ParcelFileDescriptor.MODE_READ_WRITE or
+                                        ParcelFileDescriptor.MODE_CREATE or
+                                        ParcelFileDescriptor.MODE_TRUNCATE
+                            )
+                            printAdapter.onWrite(
+                                arrayOf(PageRange.ALL_PAGES),
+                                pfd,
+                                CancellationSignal(),
+                                object : PrintDocumentAdapter.WriteResultCallback() {
+                                    override fun onWriteFinished(pages: Array<out PageRange>?) {
+                                        super.onWriteFinished(pages)
+                                        try { pfd.close() } catch (_: Exception) {}
+                                        try { printAdapter.onFinish() } catch (_: Exception) {}
+                                        if (tempFile.exists() && tempFile.length() > 0) {
+                                            publishSavedPageToDownloads(tempFile, fileName, "application/pdf", pageUrl)
+                                        } else {
+                                            try { tempFile.delete() } catch (_: Exception) {}
+                                            Toast.makeText(this@MainActivity, "Failed to generate PDF", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+
+                                    override fun onWriteFailed(error: CharSequence?) {
+                                        super.onWriteFailed(error)
+                                        try { pfd.close() } catch (_: Exception) {}
+                                        try { printAdapter.onFinish() } catch (_: Exception) {}
+                                        try { tempFile.delete() } catch (_: Exception) {}
+                                        Toast.makeText(this@MainActivity, "Failed to write PDF: ${error ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
+                                    }
+
+                                    override fun onWriteCancelled() {
+                                        super.onWriteCancelled()
+                                        try { pfd.close() } catch (_: Exception) {}
+                                        try { printAdapter.onFinish() } catch (_: Exception) {}
+                                        try { tempFile.delete() } catch (_: Exception) {}
+                                    }
+                                }
+                            )
+                        } catch (e: Exception) {
+                            try { printAdapter.onFinish() } catch (_: Exception) {}
+                            try { tempFile.delete() } catch (_: Exception) {}
+                            Toast.makeText(this@MainActivity, "Error preparing PDF file: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+
+                    override fun onLayoutFailed(error: CharSequence?) {
+                        super.onLayoutFailed(error)
+                        try { printAdapter.onFinish() } catch (_: Exception) {}
+                        try { tempFile.delete() } catch (_: Exception) {}
+                        Toast.makeText(this@MainActivity, "Failed to layout PDF: ${error ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
+                    }
+
+                    override fun onLayoutCancelled() {
+                        super.onLayoutCancelled()
+                        try { printAdapter.onFinish() } catch (_: Exception) {}
+                        try { tempFile.delete() } catch (_: Exception) {}
+                    }
+                },
+                null
+            )
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to start PDF export: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private data class SavedFileResult(
+        val uri: Uri,
+        val fileName: String,
+        val filePath: String
+    )
+
+    private fun copyTempFileToDownloads(tempFile: File, fileName: String, mimeType: String): SavedFileResult? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = android.content.ContentValues().apply {
                 put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
@@ -3465,16 +3541,65 @@ class MainActivity : AppCompatActivity() {
                         input.copyTo(out)
                     }
                 }
+                var actualName = fileName
+                var actualPath = File(
+                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                    fileName
+                ).absolutePath
+
+                try {
+                    contentResolver.query(
+                        uri,
+                        arrayOf(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, android.provider.MediaStore.MediaColumns.DATA),
+                        null,
+                        null,
+                        null
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val nameIndex = cursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
+                            if (nameIndex != -1) {
+                                val name = cursor.getString(nameIndex)
+                                if (!name.isNullOrBlank()) {
+                                    actualName = name
+                                }
+                            }
+                            val dataIndex = cursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
+                            if (dataIndex != -1) {
+                                val data = cursor.getString(dataIndex)
+                                if (!data.isNullOrBlank()) {
+                                    actualPath = data
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+
+                val diskFile = File(actualPath)
+                val finalPath = if (diskFile.exists() && diskFile.canRead()) {
+                    diskFile.absolutePath
+                } else {
+                    val publicFile = File(
+                        android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                        actualName
+                    )
+                    if (publicFile.exists() && publicFile.canRead()) {
+                        publicFile.absolutePath
+                    } else {
+                        uri.toString()
+                    }
+                }
+                SavedFileResult(uri = uri, fileName = actualName, filePath = finalPath)
+            } else {
+                null
             }
-            uri
         } else {
             val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-            val destFile = if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            val destFile = if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 if (!downloadDir.exists()) downloadDir.mkdirs()
-                java.io.File(downloadDir, fileName)
+                File(downloadDir, fileName)
             } else {
                 val appDownloads = getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS) ?: cacheDir
-                java.io.File(appDownloads, fileName)
+                File(appDownloads, fileName)
             }
             tempFile.copyTo(destFile, overwrite = true)
             android.media.MediaScannerConnection.scanFile(
@@ -3483,21 +3608,85 @@ class MainActivity : AppCompatActivity() {
                 arrayOf(mimeType),
                 null
             )
-            android.net.Uri.fromFile(destFile)
+            SavedFileResult(
+                uri = Uri.fromFile(destFile),
+                fileName = destFile.name,
+                filePath = destFile.absolutePath
+            )
         }
     }
 
-    private fun saveCurrentPageAsPdf(webView: OnyxWebView, title: String) {
+    private fun publishSavedPageToDownloads(
+        tempFile: File,
+        fileName: String,
+        mimeType: String,
+        pageUrl: String
+    ) {
+        val fileSize = tempFile.length()
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val result = copyTempFileToDownloads(tempFile, fileName, mimeType)
+                if (result != null) {
+                    val database = AppDatabase.getInstance(this@MainActivity)
+                    val downloadId = database.downloadDao().insertDownload(
+                        com.onyx.browser.data.model.DownloadItem(
+                            url = pageUrl,
+                            fileName = result.fileName,
+                            filePath = result.filePath,
+                            mimeType = mimeType,
+                            fileSize = fileSize,
+                            downloadedBytes = fileSize,
+                            status = com.onyx.browser.data.model.DownloadItem.STATUS_COMPLETED,
+                            downloadTime = System.currentTimeMillis()
+                        )
+                    )
+
+                    try {
+                        DownloadNotificationHelper.postDownloadCompletedNotification(
+                            context = applicationContext,
+                            id = if (downloadId > 0) downloadId else System.currentTimeMillis(),
+                            fileName = result.fileName,
+                            filePath = result.filePath,
+                            mimeType = mimeType,
+                            fileSize = fileSize
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainActivity", "Failed to post download notification", e)
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Saved to Downloads/${result.fileName}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, "Failed to export to Downloads", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Error saving file: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                try { tempFile.delete() } catch (_: Exception) {}
+            }
+        }
+    }
+
+    private fun printCurrentPageSystem(webView: OnyxWebView, title: String) {
         try {
-            val printManager = getSystemService(android.content.Context.PRINT_SERVICE) as? android.print.PrintManager
+            val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager
             if (printManager == null) {
                 Toast.makeText(this, "Printing service unavailable on this device", Toast.LENGTH_SHORT).show()
                 return
             }
             val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
             val printAdapter = webView.createPrintDocumentAdapter(cleanTitle)
-            val printAttributes = android.print.PrintAttributes.Builder()
-                .setMediaSize(android.print.PrintAttributes.MediaSize.ISO_A4)
+            val printAttributes = PrintAttributes.Builder()
+                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
                 .build()
             printManager.print(cleanTitle, printAdapter, printAttributes)
         } catch (e: Exception) {

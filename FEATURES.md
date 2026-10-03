@@ -77,6 +77,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 61. [x] Anti-Adblock DOM Honeypot Defuser (`getBoundingClientRect()` defusal returning non-zero dimensions on bait elements, and client-side selector query deduplication Set)
 62. [x] AndroidX WorkManager Background Filter Sync (24-hour periodic silent update worker running on Wi-Fi and healthy battery)
 63. [x] In-Page Visual Element Blocker / Zapper (interactive touch-to-select element picker with outline highlight, optimal CSS selector generation, and instant rule compilation)
+64. [x] Inbuilt Headless PDF Export & Web Archive Download Integration (one-tap save page as PDF without opening system print dialog, saves directly to public Downloads, records in DownloadItem database, and posts completion notifications with tap-to-open for both .pdf and .mht archives, while retaining Print / System Print… for physical printers)
 
 ---
 
@@ -171,4 +172,11 @@ This document tracks all features of Onyx Browser, their current implementation 
 - **Zero-Latency In-Place Restore**: Restoring original text runs in 0ms with zero network requests and zero page reloads, preserving form data, video playback, and scroll position.
 - **Right-To-Left (RTL) Adaptation**: Automatically manages HTML `dir="rtl"` attributes when translating to or from Arabic, Hebrew, Persian, and Urdu.
 - **Concurrency Throttling & Cyrillic Tag Support**: Employs `Semaphore(2)` network request throttling to prevent HTTP 429 rate limiting, supports transliterated Cyrillic tags (`(?:id|ид)`), safe JSON escaping, and main-thread toast error routing.
+
+### 12. Inbuilt Headless PDF Export & Web Archive Download Integration
+- **Direct Headless PDF Generation**: Saves webpages directly as standard vector PDFs via `WebView.createPrintDocumentAdapter()` and headless `PrintDocumentAdapter` lifecycle callbacks (`onLayout` and `onWrite` into a `ParcelFileDescriptor`) without showing the system print dialog.
+- **Unified Public Downloads & MediaStore Integration**: Exports both `.pdf` and `.mht` files directly to the public Downloads folder with MediaStore `DISPLAY_NAME` and `DATA` reconciliation.
+- **Database & Download Manager Registration**: Automatically inserts saved pages as completed `DownloadItem` records into `AppDatabase.downloadDao()`, ensuring they appear in the in-app Downloads screen with accurate file size, timestamp, and local path.
+- **Interactive Completion Notifications**: Triggers system download completion notifications via `DownloadNotificationHelper.postDownloadCompletedNotification()`. Tapping the notification immediately opens the web archive (`.mht`) in Onyx Browser or launches external PDF viewers for `.pdf` documents via `FileProvider`.
+- **System Print Retained**: Provides a dedicated "Print / System Print…" option alongside "Save as Web Archive (.mht)" and "Save as PDF (.pdf)" for users who need physical or network printer output.
 
