@@ -31,10 +31,25 @@ object AdBlockEngine {
         }
     }
 
+    const val RESOURCE_TYPE_OTHER = 0
+    const val RESOURCE_TYPE_SCRIPT = 1
+    const val RESOURCE_TYPE_IMAGE = 2
+    const val RESOURCE_TYPE_STYLESHEET = 3
+    const val RESOURCE_TYPE_SUB_FRAME = 4
+    const val RESOURCE_TYPE_XHR = 5
+    const val RESOURCE_TYPE_MEDIA = 6
+    const val RESOURCE_TYPE_MAIN_FRAME = 7
+
+    data class RequestResult(
+        val shouldBlock: Boolean,
+        val redirectData: String? = null
+    )
+
     external fun initEngine(data: ByteArray): Boolean
     external fun initFromRules(rules: String): ByteArray?
     external fun loadResources(resourcesJson: String): Boolean
     external fun checkUrl(url: String, sourceUrl: String, resourceType: String): Boolean
+    external fun checkRequestNative(url: String, sourceUrl: String, resourceType: Int): String?
     external fun getCosmeticResources(url: String): String?
     external fun getHiddenClassIdSelectors(classesJson: String, idsJson: String, exceptionsJson: String): String?
     external fun serializeEngine(): ByteArray?
@@ -130,13 +145,65 @@ object AdBlockEngine {
         }
     }
 
+    fun checkRequest(url: String, sourceUrl: String, resourceType: Int): RequestResult {
+        if (!isNativeLoaded || url.isBlank()) return RequestResult(shouldBlock = false)
+        return try {
+            val result = checkRequestNative(url, sourceUrl, resourceType)
+            when {
+                result == null -> RequestResult(shouldBlock = false)
+                result.startsWith("redirect:") -> RequestResult(
+                    shouldBlock = true,
+                    redirectData = result.removePrefix("redirect:")
+                )
+                result == "blocked" -> RequestResult(shouldBlock = true)
+                else -> RequestResult(shouldBlock = true)
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error in checkRequestNative", t)
+            RequestResult(shouldBlock = false)
+        }
+    }
+
+    fun shouldBlock(url: String, sourceUrl: String, resourceType: Int): Boolean {
+        return checkRequest(url, sourceUrl, resourceType).shouldBlock
+    }
+
     fun shouldBlock(url: String, sourceUrl: String, resourceType: String): Boolean {
         if (!isNativeLoaded) return false
+        val typeInt = when (resourceType.lowercase()) {
+            "script" -> RESOURCE_TYPE_SCRIPT
+            "image" -> RESOURCE_TYPE_IMAGE
+            "stylesheet" -> RESOURCE_TYPE_STYLESHEET
+            "sub_frame" -> RESOURCE_TYPE_SUB_FRAME
+            "xhr" -> RESOURCE_TYPE_XHR
+            "media" -> RESOURCE_TYPE_MEDIA
+            "main_frame" -> RESOURCE_TYPE_MAIN_FRAME
+            else -> RESOURCE_TYPE_OTHER
+        }
+        return shouldBlock(url, sourceUrl, typeInt)
+    }
+
+    /**
+     * Returns procedural filter rules (e.g. :has(), :has-text(), actions) for the given URL.
+     */
+    fun getProceduralRules(url: String): List<String> {
+        if (!isNativeLoaded || url.isBlank()) return emptyList()
         return try {
-            checkUrl(url, sourceUrl, resourceType)
+            val json = getCosmeticResources(url) ?: return emptyList()
+            if (json.isEmpty()) return emptyList()
+            val obj = JSONObject(json)
+            val arr = obj.optJSONArray("procedural") ?: return emptyList()
+            val list = ArrayList<String>(arr.length())
+            for (i in 0 until arr.length()) {
+                val item = arr.optString(i)
+                if (!item.isNullOrBlank()) {
+                    list.add(item)
+                }
+            }
+            list
         } catch (t: Throwable) {
-            Log.e(TAG, "Error in checkUrl", t)
-            false
+            Log.e(TAG, "Error parsing procedural rules from getCosmeticResources", t)
+            emptyList()
         }
     }
 
