@@ -227,33 +227,6 @@
         </com.google.android.material.card.MaterialCardView>
 
 
-        <!-- Open File Row -->
-        <LinearLayout
-            android:id="@+id/menuItemHomeOpenFile"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp">
-
-            <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                app:srcCompat="@drawable/ic_folder"
-                app:tint="?attr/colorControlNormal" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:text="Open file"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
-        </LinearLayout>
-
         <!-- Settings Button (Under default browser banner) -->
         <LinearLayout
             android:id="@+id/menuItemHomeSettings"
@@ -629,33 +602,6 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
                 android:text="@string/save_this_page"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
-        </LinearLayout>
-
-        <!-- Open File Row -->
-        <LinearLayout
-            android:id="@+id/menuItemWebOpenFile"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp">
-
-            <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                app:srcCompat="@drawable/ic_folder"
-                app:tint="?attr/colorControlNormal" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:text="Open file"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textSize="15sp" />
         </LinearLayout>

@@ -40,12 +40,6 @@ object LocalFileLoader {
         MHTML,
         MARKDOWN,
         TEXT,
-        CODE,
-        IMAGE,
-        VIDEO,
-        AUDIO,
-        PDF,
-        UNSUPPORTED_BINARY,
         UNKNOWN
     }
 
@@ -312,89 +306,10 @@ object LocalFileLoader {
                     }
                 }
 
-                LocalFileType.IMAGE -> {
-                    val previewHtml = renderImageViewerHtml(fileName, rawUriOrPath)
-                    withContext(Dispatchers.Main) {
-                        webView.stopLoading()
-                        webView.loadDataWithBaseURL(rawUriOrPath, previewHtml, "text/html", "UTF-8", rawUriOrPath)
-                    }
-                }
-
-                LocalFileType.VIDEO, LocalFileType.AUDIO -> {
-                    val isVideo = (fileType == LocalFileType.VIDEO)
-                    val mimeType = try {
-                        if (uri.scheme == "content") context.contentResolver.getType(uri) else null
-                    } catch (_: Exception) { null } ?: (if (isVideo) "video/mp4" else "audio/mpeg")
-                    val previewHtml = renderMediaPlayerHtml(fileName, rawUriOrPath, mimeType, isVideo)
-                    withContext(Dispatchers.Main) {
-                        webView.stopLoading()
-                        webView.loadDataWithBaseURL(rawUriOrPath, previewHtml, "text/html", "UTF-8", rawUriOrPath)
-                    }
-                }
-
-                LocalFileType.CODE -> {
-                    val stream = openInputStream(context, uri)
-                    val codeContent = try {
-                        stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }
-                    } catch (e: Exception) {
-                        null
-                    }
-                    withContext(Dispatchers.Main) {
-                        if (codeContent != null) {
-                            val previewHtml = renderCodeAsHtml(fileName, codeContent)
-                            webView.stopLoading()
-                            webView.loadDataWithBaseURL(rawUriOrPath, previewHtml, "text/html", "UTF-8", rawUriOrPath)
-                        } else {
-                            showErrorPage(webView, rawUriOrPath, "Could not read code document.")
-                        }
-                    }
-                }
-
-                LocalFileType.PDF -> {
-                    val fileSize = getFileSize(context, uri)
-                    val previewHtml = renderPdfViewerHtml(fileName, rawUriOrPath, fileSize)
-                    withContext(Dispatchers.Main) {
-                        webView.stopLoading()
-                        webView.loadDataWithBaseURL(rawUriOrPath, previewHtml, "text/html", "UTF-8", rawUriOrPath)
-                    }
-                }
-
-                LocalFileType.UNSUPPORTED_BINARY -> {
-                    val fileSize = getFileSize(context, uri)
-                    val mime = try {
-                        if (uri.scheme == "content") context.contentResolver.getType(uri) else null
-                    } catch (_: Exception) { null } ?: "application/octet-stream"
-                    val previewHtml = renderUnsupportedBinaryHtml(fileName, rawUriOrPath, mime, fileSize)
-                    withContext(Dispatchers.Main) {
-                        webView.stopLoading()
-                        webView.loadDataWithBaseURL(rawUriOrPath, previewHtml, "text/html", "UTF-8", rawUriOrPath)
-                    }
-                }
-
                 LocalFileType.TEXT, LocalFileType.UNKNOWN -> {
-                    val rawStream = openInputStream(context, uri)
-                    if (rawStream == null) {
-                        withContext(Dispatchers.Main) {
-                            showErrorPage(webView, rawUriOrPath, "Could not open document. Permission denied or file not found.")
-                        }
-                        return@launch
-                    }
-                    val bufferedStream = BufferedInputStream(rawStream)
-                    if (isBinaryStream(bufferedStream)) {
-                        val fileSize = getFileSize(context, uri)
-                        val mime = try {
-                            if (uri.scheme == "content") context.contentResolver.getType(uri) else null
-                        } catch (_: Exception) { null } ?: "application/octet-stream"
-                        val previewHtml = renderUnsupportedBinaryHtml(fileName, rawUriOrPath, mime, fileSize)
-                        withContext(Dispatchers.Main) {
-                            webView.stopLoading()
-                            webView.loadDataWithBaseURL(rawUriOrPath, previewHtml, "text/html", "UTF-8", rawUriOrPath)
-                        }
-                        return@launch
-                    }
-
+                    val stream = openInputStream(context, uri)
                     val textContent = try {
-                        bufferedStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+                        stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }
                     } catch (e: Exception) {
                         null
                     }
@@ -472,64 +387,9 @@ object LocalFileLoader {
     }
 
     /**
-     * Determines whether the given file or MIME type is safe and supported for in-browser rendering.
-     */
-    fun canRender(fileName: String, mimeType: String = ""): Boolean {
-        val lowerName = fileName.lowercase()
-        val lowerMime = mimeType.lowercase()
-
-        // HTML & Web Archives
-        if (lowerName.endsWith(".html") || lowerName.endsWith(".htm") || lowerName.endsWith(".xhtml") ||
-            lowerName.endsWith(".mht") || lowerName.endsWith(".mhtml") ||
-            lowerMime == "text/html" || lowerMime == "application/xhtml+xml" ||
-            lowerMime == "multipart/related" || lowerMime == "message/rfc822" ||
-            lowerMime == "application/x-mimearchive" || lowerMime == "application/mhtml"
-        ) return true
-
-        // Markdown
-        if (lowerName.endsWith(".md") || lowerName.endsWith(".markdown") || lowerName.endsWith(".mdown") ||
-            lowerName.endsWith(".mkd") || lowerName.contains("readme") ||
-            lowerMime == "text/markdown" || lowerMime == "text/x-markdown"
-        ) return true
-
-        // Images
-        if (lowerName.endsWith(".png") || lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") ||
-            lowerName.endsWith(".gif") || lowerName.endsWith(".webp") || lowerName.endsWith(".svg") ||
-            lowerName.endsWith(".bmp") || lowerName.endsWith(".ico") || lowerName.endsWith(".avif") ||
-            lowerMime.startsWith("image/")
-        ) return true
-
-        // Video & Audio
-        if (lowerName.endsWith(".mp4") || lowerName.endsWith(".webm") || lowerName.endsWith(".mkv") ||
-            lowerName.endsWith(".mov") || lowerName.endsWith(".3gp") || lowerName.endsWith(".mp3") ||
-            lowerName.endsWith(".wav") || lowerName.endsWith(".ogg") || lowerName.endsWith(".m4a") ||
-            lowerName.endsWith(".aac") || lowerName.endsWith(".flac") || lowerName.endsWith(".opus") ||
-            lowerMime.startsWith("video/") || lowerMime.startsWith("audio/")
-        ) return true
-
-        // PDF
-        if (lowerName.endsWith(".pdf") || lowerMime == "application/pdf") return true
-
-        // Text & Code
-        if (lowerName.endsWith(".txt") || lowerName.endsWith(".log") || lowerName.endsWith(".csv") ||
-            lowerName.endsWith(".tsv") || lowerName.endsWith(".json") || lowerName.endsWith(".xml") ||
-            lowerName.endsWith(".yaml") || lowerName.endsWith(".yml") || lowerName.endsWith(".toml") ||
-            lowerName.endsWith(".ini") || lowerName.endsWith(".properties") || lowerName.endsWith(".js") ||
-            lowerName.endsWith(".mjs") || lowerName.endsWith(".ts") || lowerName.endsWith(".css") ||
-            lowerName.endsWith(".py") || lowerName.endsWith(".sh") || lowerName.endsWith(".kt") ||
-            lowerName.endsWith(".java") || lowerName.endsWith(".c") || lowerName.endsWith(".cpp") ||
-            lowerName.endsWith(".h") || lowerName.endsWith(".hpp") || lowerName.endsWith(".rs") ||
-            lowerName.endsWith(".go") || lowerName.endsWith(".sql") ||
-            lowerMime.startsWith("text/") || lowerMime == "application/json" ||
-            lowerMime == "application/xml" || lowerMime == "application/javascript"
-        ) return true
-
-        return false
-    }
-
-    /**
-     * Determines whether the file is a web document, code, markdown, or image that should
-     * automatically open inside Onyx Browser rather than launching an external viewer app.
+     * Determines whether a file represents a local web document (HTML, MHTML, Markdown, Plain Text)
+     * that should be loaded directly inside the Onyx browser webview, rather than handed off
+     * to external viewers or media players.
      */
     fun isWebDocument(fileName: String, mimeType: String = ""): Boolean {
         val lowerName = fileName.lowercase()
@@ -539,21 +399,18 @@ object LocalFileLoader {
             lowerName.endsWith(".md") || lowerName.endsWith(".markdown") || lowerName.endsWith(".mdown") || lowerName.endsWith(".mkd") ||
             lowerName.contains("readme") ||
             lowerName.endsWith(".txt") || lowerName.endsWith(".log") || lowerName.endsWith(".json") || lowerName.endsWith(".xml") ||
-            lowerName.endsWith(".svg") || lowerName.endsWith(".png") || lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") ||
-            lowerName.endsWith(".webp") || lowerName.endsWith(".gif") || lowerName.endsWith(".ico") || lowerName.endsWith(".avif") ||
-            lowerName.endsWith(".js") || lowerName.endsWith(".mjs") || lowerName.endsWith(".ts") || lowerName.endsWith(".css") ||
-            lowerName.endsWith(".py") || lowerName.endsWith(".sh") || lowerName.endsWith(".kt") || lowerName.endsWith(".java") ||
-            lowerName.endsWith(".c") || lowerName.endsWith(".cpp") || lowerName.endsWith(".rs") || lowerName.endsWith(".go") ||
-            lowerName.endsWith(".sql") || lowerName.endsWith(".yaml") || lowerName.endsWith(".yml") ||
+            lowerName.endsWith(".yaml") || lowerName.endsWith(".yml") ||
             lowerMime == "multipart/related" || lowerMime == "message/rfc822" ||
             lowerMime == "application/x-mimearchive" || lowerMime == "application/mhtml" ||
             lowerMime == "text/html" || lowerMime == "application/xhtml+xml" ||
             lowerMime == "text/markdown" || lowerMime == "text/x-markdown" ||
-            lowerMime == "text/plain" || lowerMime == "image/svg+xml" ||
-            lowerMime.startsWith("image/") ||
-            lowerMime == "application/json" || lowerMime == "text/xml" || lowerMime == "application/xml" ||
-            lowerMime == "text/css" || lowerMime == "application/javascript"
+            lowerMime == "text/plain" ||
+            lowerMime == "application/json" || lowerMime == "text/xml" || lowerMime == "application/xml"
     }
+
+    /**
+     * Detects the category of local document represented by the URI.
+     */
     fun detectFileType(context: Context, uri: Uri): LocalFileType {
         val name = getDisplayName(context, uri).lowercase()
         val path = (uri.path ?: "").lowercase()
@@ -594,79 +451,12 @@ object LocalFileLoader {
             return LocalFileType.MARKDOWN
         }
 
-        // 4. Images
-        if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") ||
-            name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".svg") ||
-            name.endsWith(".bmp") || name.endsWith(".ico") || name.endsWith(".avif") ||
-            name.endsWith(".heic") || name.endsWith(".heif") ||
-            mimeType?.startsWith("image/") == true
-        ) {
-            return LocalFileType.IMAGE
-        }
-
-        // 5. Video
-        if (name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mkv") ||
-            name.endsWith(".mov") || name.endsWith(".3gp") || name.endsWith(".avi") ||
-            name.endsWith(".flv") || name.endsWith(".m4v") ||
-            mimeType?.startsWith("video/") == true
-        ) {
-            return LocalFileType.VIDEO
-        }
-
-        // 6. Audio
-        if (name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".ogg") ||
-            name.endsWith(".m4a") || name.endsWith(".aac") || name.endsWith(".flac") ||
-            name.endsWith(".opus") || name.endsWith(".mid") || name.endsWith(".midi") ||
-            mimeType?.startsWith("audio/") == true
-        ) {
-            return LocalFileType.AUDIO
-        }
-
-        // 7. PDF
-        if (name.endsWith(".pdf") || mimeType == "application/pdf") {
-            return LocalFileType.PDF
-        }
-
-        // 8. Source code & structured formats
-        if (name.endsWith(".js") || name.endsWith(".mjs") || name.endsWith(".ts") ||
-            name.endsWith(".css") || name.endsWith(".json") || name.endsWith(".xml") ||
-            name.endsWith(".py") || name.endsWith(".sh") || name.endsWith(".kt") ||
-            name.endsWith(".java") || name.endsWith(".c") || name.endsWith(".cpp") ||
-            name.endsWith(".h") || name.endsWith(".hpp") || name.endsWith(".rs") ||
-            name.endsWith(".go") || name.endsWith(".sql") || name.endsWith(".yaml") ||
-            name.endsWith(".yml") || name.endsWith(".toml") || name.endsWith(".ini") ||
-            name.endsWith(".properties") || name.endsWith(".csv") || name.endsWith(".tsv") ||
-            name.endsWith(".bash") || name.endsWith(".zsh") || name.endsWith(".swift") ||
-            name.endsWith(".rb") || name.endsWith(".php") ||
-            mimeType == "application/json" || mimeType == "text/xml" ||
-            mimeType == "application/xml" || mimeType == "text/css" ||
-            mimeType == "application/javascript" || mimeType == "text/javascript" ||
-            mimeType == "text/csv" || mimeType == "text/x-python" ||
-            mimeType == "text/x-shellscript"
-        ) {
-            return LocalFileType.CODE
-        }
-
-        // 9. Plain text documents
-        if (name.endsWith(".txt") || name.endsWith(".log") || name.endsWith(".env") ||
-            name.endsWith(".diff") || name.endsWith(".patch") || path.endsWith(".txt") ||
-            mimeType == "text/plain"
+        // 4. Plain text documents
+        if (name.endsWith(".txt") || name.endsWith(".log") || name.endsWith(".csv") ||
+            name.endsWith(".json") || name.endsWith(".xml") || name.endsWith(".yaml") ||
+            name.endsWith(".yml") || path.endsWith(".txt") || mimeType == "text/plain"
         ) {
             return LocalFileType.TEXT
-        }
-
-        // 10. Known unsupported binary formats
-        if (name.endsWith(".zip") || name.endsWith(".rar") || name.endsWith(".7z") ||
-            name.endsWith(".tar") || name.endsWith(".gz") || name.endsWith(".apk") ||
-            name.endsWith(".exe") || name.endsWith(".bin") || name.endsWith(".iso") ||
-            name.endsWith(".doc") || name.endsWith(".docx") || name.endsWith(".xls") ||
-            name.endsWith(".xlsx") || name.endsWith(".ppt") || name.endsWith(".pptx") ||
-            name.endsWith(".dex") || name.endsWith(".jar") || name.endsWith(".so") ||
-            name.endsWith(".aar") || name.endsWith(".class") || name.endsWith(".dmg") ||
-            mimeType == "application/zip" || mimeType == "application/x-zip-compressed" ||
-            mimeType == "application/vnd.android.package-archive"
-        ) {
-            return LocalFileType.UNSUPPORTED_BINARY
         }
 
         return LocalFileType.UNKNOWN
@@ -885,105 +675,37 @@ object LocalFileLoader {
                     ByteArrayInputStream(previewBytes)
                 )
             }
-            LocalFileType.IMAGE -> {
-                val fileName = getDisplayName(context, uri)
-                val previewHtml = renderImageViewerHtml(fileName, url)
-                val previewBytes = previewHtml.toByteArray(StandardCharsets.UTF_8)
-                val headers = baseHeaders + mapOf(
-                    "Content-Type" to "text/html; charset=UTF-8",
-                    "Content-Length" to previewBytes.size.toString()
-                )
-                WebResourceResponse("text/html", "UTF-8", 200, "OK", headers, ByteArrayInputStream(previewBytes))
-            }
-            LocalFileType.VIDEO, LocalFileType.AUDIO -> {
-                val fileName = getDisplayName(context, uri)
-                val isVideo = (fileType == LocalFileType.VIDEO)
-                val mime = try {
-                    if (uri.scheme == "content") context.contentResolver.getType(uri) else null
-                } catch (_: Exception) { null } ?: (if (isVideo) "video/mp4" else "audio/mpeg")
-                val previewHtml = renderMediaPlayerHtml(fileName, url, mime, isVideo)
-                val previewBytes = previewHtml.toByteArray(StandardCharsets.UTF_8)
-                val headers = baseHeaders + mapOf(
-                    "Content-Type" to "text/html; charset=UTF-8",
-                    "Content-Length" to previewBytes.size.toString()
-                )
-                WebResourceResponse("text/html", "UTF-8", 200, "OK", headers, ByteArrayInputStream(previewBytes))
-            }
-            LocalFileType.CODE -> {
-                val fileName = getDisplayName(context, uri)
-                val text = String(allBytes, StandardCharsets.UTF_8)
-                val previewHtml = renderCodeAsHtml(fileName, text)
-                val previewBytes = previewHtml.toByteArray(StandardCharsets.UTF_8)
-                val headers = baseHeaders + mapOf(
-                    "Content-Type" to "text/html; charset=UTF-8",
-                    "Content-Length" to previewBytes.size.toString()
-                )
-                WebResourceResponse("text/html", "UTF-8", 200, "OK", headers, ByteArrayInputStream(previewBytes))
-            }
-            LocalFileType.PDF -> {
-                val fileName = getDisplayName(context, uri)
-                val previewHtml = renderPdfViewerHtml(fileName, url, allBytes.size.toLong())
-                val previewBytes = previewHtml.toByteArray(StandardCharsets.UTF_8)
-                val headers = baseHeaders + mapOf(
-                    "Content-Type" to "text/html; charset=UTF-8",
-                    "Content-Length" to previewBytes.size.toString()
-                )
-                WebResourceResponse("text/html", "UTF-8", 200, "OK", headers, ByteArrayInputStream(previewBytes))
-            }
-            LocalFileType.UNSUPPORTED_BINARY -> {
-                val fileName = getDisplayName(context, uri)
-                val mime = try {
-                    if (uri.scheme == "content") context.contentResolver.getType(uri) else null
-                } catch (_: Exception) { null } ?: ""
-                val previewHtml = renderUnsupportedBinaryHtml(fileName, url, mime, allBytes.size.toLong())
-                val previewBytes = previewHtml.toByteArray(StandardCharsets.UTF_8)
-                val headers = baseHeaders + mapOf(
-                    "Content-Type" to "text/html; charset=UTF-8",
-                    "Content-Length" to previewBytes.size.toString()
-                )
-                WebResourceResponse("text/html", "UTF-8", 200, "OK", headers, ByteArrayInputStream(previewBytes))
-            }
             LocalFileType.TEXT, LocalFileType.UNKNOWN, LocalFileType.MHTML -> {
                 val fileName = getDisplayName(context, uri)
-                if (isBinaryStream(ByteArrayInputStream(allBytes))) {
-                    val previewHtml = renderUnsupportedBinaryHtml(fileName, url, "", allBytes.size.toLong())
+                val text = String(allBytes, StandardCharsets.UTF_8)
+                if (isMarkdownContent(fileName, text)) {
+                    val previewHtml = renderMarkdownToHtml(context, fileName, text)
                     val previewBytes = previewHtml.toByteArray(StandardCharsets.UTF_8)
                     val headers = baseHeaders + mapOf(
                         "Content-Type" to "text/html; charset=UTF-8",
                         "Content-Length" to previewBytes.size.toString()
                     )
-                    WebResourceResponse("text/html", "UTF-8", 200, "OK", headers, ByteArrayInputStream(previewBytes))
+                    WebResourceResponse(
+                        "text/html",
+                        "UTF-8",
+                        200,
+                        "OK",
+                        headers,
+                        ByteArrayInputStream(previewBytes)
+                    )
                 } else {
-                    val text = String(allBytes, StandardCharsets.UTF_8)
-                    if (isMarkdownContent(fileName, text)) {
-                        val previewHtml = renderMarkdownToHtml(context, fileName, text)
-                        val previewBytes = previewHtml.toByteArray(StandardCharsets.UTF_8)
-                        val headers = baseHeaders + mapOf(
-                            "Content-Type" to "text/html; charset=UTF-8",
-                            "Content-Length" to previewBytes.size.toString()
-                        )
-                        WebResourceResponse(
-                            "text/html",
-                            "UTF-8",
-                            200,
-                            "OK",
-                            headers,
-                            ByteArrayInputStream(previewBytes)
-                        )
-                    } else {
-                        val headers = baseHeaders + mapOf(
-                            "Content-Type" to "text/plain; charset=UTF-8",
-                            "Content-Length" to allBytes.size.toString()
-                        )
-                        WebResourceResponse(
-                            "text/plain",
-                            "UTF-8",
-                            200,
-                            "OK",
-                            headers,
-                            ByteArrayInputStream(allBytes)
-                        )
-                    }
+                    val headers = baseHeaders + mapOf(
+                        "Content-Type" to "text/plain; charset=UTF-8",
+                        "Content-Length" to allBytes.size.toString()
+                    )
+                    WebResourceResponse(
+                        "text/plain",
+                        "UTF-8",
+                        200,
+                        "OK",
+                        headers,
+                        ByteArrayInputStream(allBytes)
+                    )
                 }
             }
         }
@@ -1015,8 +737,6 @@ object LocalFileLoader {
             "svg" -> "image/svg+xml"
             "webp" -> "image/webp"
             "ico" -> "image/x-icon"
-            "avif" -> "image/avif"
-            "bmp" -> "image/bmp"
             "css" -> "text/css"
             "js" -> "application/javascript"
             "json" -> "application/json"
@@ -1025,37 +745,19 @@ object LocalFileLoader {
             "ttf" -> "font/ttf"
             "mp4" -> "video/mp4"
             "webm" -> "video/webm"
-            "mkv" -> "video/x-matroska"
             "mp3" -> "audio/mpeg"
-            "ogg" -> "audio/ogg"
-            "wav" -> "audio/wav"
-            "m4a" -> "audio/mp4"
-            else -> {
-                val resolverType = try {
-                    if (uri.scheme == "content") context.contentResolver.getType(uri)?.lowercase() else null
-                } catch (_: Exception) { null }
-                resolverType ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
-            }
+            else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
         }
-
-        val headers = mapOf(
-            "Access-Control-Allow-Origin" to "*",
-            "Access-Control-Allow-Methods" to "GET, OPTIONS",
-            "Access-Control-Allow-Headers" to "*"
-        )
-
-        // For audio and video, stream directly to prevent OOM
-        if (mimeType.startsWith("video/") || mimeType.startsWith("audio/")) {
-            return WebResourceResponse(mimeType, null, 200, "OK", headers, stream)
-        }
-
         val bytes = try {
             stream.use { it.readBytes() }
         } catch (_: Exception) {
             return null
         }
-        val responseHeaders = headers + mapOf("Content-Length" to bytes.size.toString())
-        return WebResourceResponse(mimeType, null, 200, "OK", responseHeaders, ByteArrayInputStream(bytes))
+        val headers = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Content-Length" to bytes.size.toString()
+        )
+        return WebResourceResponse(mimeType, null, 200, "OK", headers, ByteArrayInputStream(bytes))
     }
 
     /**
@@ -1142,348 +844,8 @@ object LocalFileLoader {
     }
 
     /**
-     * Inspects stream header bytes to determine whether the content is binary.
+     * Displays a clean, styled Material error card inside the WebView.
      */
-    fun isBinaryStream(stream: InputStream): Boolean {
-        return try {
-            stream.mark(512)
-            val buffer = ByteArray(512)
-            val read = stream.read(buffer)
-            stream.reset()
-            if (read <= 0) return false
-            for (i in 0 until read) {
-                if (buffer[i] == 0.toByte()) return true
-            }
-            false
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    /**
-     * Resolves the size of a local file in bytes from content:// or file:// URI.
-     */
-    fun getFileSize(context: Context, uri: Uri): Long {
-        if (uri.scheme == "content") {
-            try {
-                context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                        if (sizeIndex != -1) {
-                            val size = cursor.getLong(sizeIndex)
-                            if (size > 0L) return size
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
-        } else if (uri.scheme == "file") {
-            try {
-                val path = uri.path
-                if (!path.isNullOrBlank()) {
-                    val f = File(path)
-                    if (f.exists()) return f.length()
-                }
-            } catch (_: Exception) {}
-        }
-        return -1L
-    }
-
-    /**
-     * Formats code files with line numbers and monospace font inside a themed container.
-     */
-    fun renderCodeAsHtml(fileName: String, content: String): String {
-        val lines = content.lines()
-        val rows = StringBuilder()
-        for ((idx, line) in lines.withIndex()) {
-            val num = idx + 1
-            rows.append("<tr><td class=\"ln\">$num</td><td class=\"code\">${escapeHtml(line)}</td></tr>")
-        }
-        return """
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>${escapeHtml(fileName)}</title>
-              <style>
-                :root { color-scheme: light dark; }
-                body {
-                  margin: 0; padding: 0;
-                  background: #202124; color: #E8EAED;
-                  font-family: 'Roboto Mono', 'SF Mono', Consolas, Menlo, monospace;
-                  font-size: 13px; line-height: 1.5;
-                }
-                @media (prefers-color-scheme: light) {
-                  body { background: #FFFFFF; color: #202124; }
-                  .header { background: #F1F3F4 !important; border-bottom: 1px solid #DADCE0 !important; color: #202124 !important; }
-                  .ln { color: #80868B !important; background: #F8F9FA !important; border-right: 1px solid #DADCE0 !important; }
-                  .badge { background: #E8EAED !important; color: #1A73E8 !important; }
-                }
-                .header {
-                  padding: 10px 16px;
-                  background: #2D2E30;
-                  border-bottom: 1px solid #3C4043;
-                  font-size: 13px; font-weight: 500;
-                  display: flex; justify-content: space-between; align-items: center;
-                }
-                .badge {
-                  background: #3C4043; color: #A8C7FA;
-                  padding: 2px 8px; border-radius: 4px; font-size: 11px;
-                }
-                .table-container { overflow-x: auto; }
-                table { border-collapse: collapse; width: 100%; }
-                td { padding: 1px 8px; vertical-align: top; white-space: pre-wrap; word-break: break-all; }
-                .ln {
-                  width: 1%; min-width: 40px; text-align: right;
-                  color: #5F6368; background: #28292A;
-                  border-right: 1px solid #3C4043;
-                  user-select: none; padding-right: 12px;
-                }
-                .code { padding-left: 12px; }
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <span>${escapeHtml(fileName)}</span>
-                <span class="badge">${lines.size} lines</span>
-              </div>
-              <div class="table-container">
-                <table>$rows</table>
-              </div>
-            </body>
-            </html>
-        """.trimIndent()
-    }
-
-    /**
-     * Renders a local image centered on a dark/light responsive viewport with zoom support.
-     */
-    fun renderImageViewerHtml(fileName: String, imageUri: String): String {
-        return """
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-              <title>${escapeHtml(fileName)}</title>
-              <style>
-                :root { color-scheme: light dark; }
-                * { box-sizing: border-box; }
-                html, body {
-                  margin: 0; padding: 0; width: 100%; height: 100%;
-                  background-color: #121212;
-                  display: flex; align-items: center; justify-content: center;
-                  overflow: auto;
-                }
-                @media (prefers-color-scheme: light) {
-                  html, body { background-color: #F8F9FA; }
-                }
-                .container {
-                  display: flex; align-items: center; justify-content: center;
-                  min-width: 100%; min-height: 100%; padding: 16px;
-                }
-                img {
-                  max-width: 100%; max-height: 100%;
-                  object-fit: contain;
-                  border-radius: 4px;
-                  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <img src="${escapeHtml(imageUri)}" alt="${escapeHtml(fileName)}" />
-              </div>
-            </body>
-            </html>
-        """.trimIndent()
-    }
-
-    /**
-     * Renders an HTML5 video or audio player wrapper hooking into Onyx media playback subsystem.
-     */
-    fun renderMediaPlayerHtml(fileName: String, mediaUri: String, mimeType: String, isVideo: Boolean): String {
-        return """
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>${escapeHtml(fileName)}</title>
-              <style>
-                :root { color-scheme: dark; }
-                html, body {
-                  margin: 0; padding: 0; width: 100%; height: 100%;
-                  background-color: #000000;
-                  display: flex; align-items: center; justify-content: center;
-                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                }
-                .media-container {
-                  width: 100%; height: 100%;
-                  display: flex; flex-direction: column; align-items: center; justify-content: center;
-                  padding: 16px; box-sizing: border-box;
-                }
-                video {
-                  width: 100%; max-height: 85vh; outline: none; border-radius: 8px;
-                }
-                .audio-card {
-                  background: #1E1F20; border: 1px solid #303134; border-radius: 16px;
-                  padding: 32px 24px; width: 90%; max-width: 450px;
-                  display: flex; flex-direction: column; align-items: center;
-                  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-                }
-                .audio-icon {
-                  width: 64px; height: 64px; border-radius: 50%; background: #303134;
-                  display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
-                }
-                .audio-title {
-                  color: #E8EAED; font-size: 16px; font-weight: 500; text-align: center;
-                  word-break: break-all; margin-bottom: 20px;
-                }
-                audio { width: 100%; outline: none; }
-              </style>
-            </head>
-            <body>
-              <div class="media-container">
-                ${if (isVideo) """
-                  <video controls autoplay playsinline name="media">
-                    <source src="${escapeHtml(mediaUri)}" type="${escapeHtml(mimeType)}">
-                    Your browser does not support HTML5 video.
-                  </video>
-                """ else """
-                  <div class="audio-card">
-                    <div class="audio-icon">
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="#A8C7FA"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-                    </div>
-                    <div class="audio-title">${escapeHtml(fileName)}</div>
-                    <audio controls autoplay name="media">
-                      <source src="${escapeHtml(mediaUri)}" type="${escapeHtml(mimeType)}">
-                      Your browser does not support HTML5 audio.
-                    </audio>
-                  </div>
-                """}
-              </div>
-            </body>
-            </html>
-        """.trimIndent()
-    }
-
-    /**
-     * Formats byte size into human-readable representation without requiring an Android Context.
-     */
-    fun formatFileSize(bytes: Long): String {
-        if (bytes <= 0L) return ""
-        val kb = bytes / 1024.0
-        val mb = kb / 1024.0
-        val gb = mb / 1024.0
-        return when {
-            gb >= 1.0 -> String.format(java.util.Locale.US, "%.1f GB", gb)
-            mb >= 1.0 -> String.format(java.util.Locale.US, "%.1f MB", mb)
-            kb >= 1.0 -> String.format(java.util.Locale.US, "%.1f KB", kb)
-            else -> "$bytes B"
-        }
-    }
-
-    /**
-     * Renders a clean Material document card for PDF files.
-     */
-    fun renderPdfViewerHtml(fileName: String, pathOrUri: String, fileSize: Long): String {
-        val sizeFormatted = formatFileSize(fileSize)
-        return """
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>${escapeHtml(fileName)}</title>
-              <style>
-                :root { color-scheme: light dark; }
-                body {
-                  margin: 0; padding: 24px;
-                  background: #202124; color: #E8EAED;
-                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                  display: flex; align-items: center; justify-content: center; min-height: 100vh;
-                  box-sizing: border-box;
-                }
-                @media (prefers-color-scheme: light) {
-                  body { background: #F8F9FA; color: #202124; }
-                  .card { background: #FFFFFF !important; border-color: #DADCE0 !important; box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
-                  .subtext { color: #5F6368 !important; }
-                }
-                .card {
-                  background: #303134; border: 1px solid #3C4043; border-radius: 16px;
-                  padding: 32px 24px; max-width: 440px; width: 100%; text-align: center;
-                  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-                }
-                .pdf-icon {
-                  width: 56px; height: 56px; border-radius: 12px; background: #EA4335;
-                  display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;
-                  color: #FFFFFF; font-weight: bold; font-size: 16px;
-                }
-                h2 { font-size: 18px; margin: 0 0 8px 0; word-break: break-all; }
-                .subtext { color: #9AA0A6; font-size: 14px; margin-bottom: 20px; }
-                p { font-size: 13px; color: #9AA0A6; line-height: 1.5; margin: 0; }
-              </style>
-            </head>
-            <body>
-              <div class="card">
-                <div class="pdf-icon">PDF</div>
-                <h2>${escapeHtml(fileName)}</h2>
-                <div class="subtext">${if (sizeFormatted.isNotBlank()) escapeHtml(sizeFormatted) else "Portable Document Format"}</div>
-                <p>This is a PDF document. To read, view or print pages, open it with an installed PDF viewer.</p>
-              </div>
-            </body>
-            </html>
-        """.trimIndent()
-    }
-
-    /**
-     * Renders a safe info card for unsupported binary files, preventing memory freezing and text dumping.
-     */
-    fun renderUnsupportedBinaryHtml(fileName: String, rawPath: String, mimeType: String, fileSize: Long): String {
-        val sizeFormatted = formatFileSize(fileSize)
-        return """
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>${escapeHtml(fileName)}</title>
-              <style>
-                :root { color-scheme: light dark; }
-                body {
-                  margin: 0; padding: 24px;
-                  background: #202124; color: #E8EAED;
-                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                  display: flex; align-items: center; justify-content: center; min-height: 100vh;
-                  box-sizing: border-box;
-                }
-                @media (prefers-color-scheme: light) {
-                  body { background: #F8F9FA; color: #202124; }
-                  .card { background: #FFFFFF !important; border-color: #DADCE0 !important; }
-                  .subtext { color: #5F6368 !important; }
-                }
-                .card {
-                  background: #303134; border: 1px solid #3C4043; border-radius: 16px;
-                  padding: 32px 24px; max-width: 440px; width: 100%; text-align: center;
-                }
-                .icon {
-                  width: 56px; height: 56px; border-radius: 50%; background: #3C4043;
-                  display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;
-                }
-                h2 { font-size: 18px; margin: 0 0 8px 0; word-break: break-all; }
-                .subtext { color: #9AA0A6; font-size: 14px; margin-bottom: 16px; }
-                p { font-size: 13px; color: #9AA0A6; line-height: 1.5; margin: 0; }
-              </style>
-            </head>
-            <body>
-              <div class="card">
-                <div class="icon">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="#9AA0A6"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-                </div>
-                <h2>${escapeHtml(fileName)}</h2>
-                <div class="subtext">${listOfNotNull(sizeFormatted.ifBlank { null }, mimeType.ifBlank { null }).joinToString(" • ")}</div>
-                <p>This file is a binary archive or application package and cannot be rendered directly inside a web view.</p>
-              </div>
-            </body>
-            </html>
-        """.trimIndent()
-    }
     fun showErrorPage(webView: OnyxWebView, pathOrUrl: String, errorDescription: String) {
         val errorHtml = """
             <!DOCTYPE html>

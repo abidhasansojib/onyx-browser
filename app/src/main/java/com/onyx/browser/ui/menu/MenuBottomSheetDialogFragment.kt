@@ -45,7 +45,7 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
     var onDeveloperToolsClicked: (() -> Unit)? = null
     var onSavePageClicked: (() -> Unit)? = null
     var onSiteShieldWhitelistChanged: ((Boolean) -> Unit)? = null
-    var onOpenFileClicked: (() -> Unit)? = null
+    
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -134,12 +134,6 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
         setupDefaultBrowserBanner()
 
 
-
-        // Open File Button
-        binding.menuItemHomeOpenFile.setOnClickListener {
-            dismiss()
-            onOpenFileClicked?.invoke()
-        }
 
         // Settings Button (under default browser banner)
         binding.menuItemHomeSettings.setOnClickListener {
@@ -316,12 +310,6 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
         binding.menuItemSavePage.setOnClickListener {
             onSavePageClicked?.invoke()
             dismiss()
-        }
-
-        // Open File
-        binding.menuItemWebOpenFile.setOnClickListener {
-            dismiss()
-            onOpenFileClicked?.invoke()
         }
 
         // 5th: Add to Home screen (controlled via Accessibility settings toggle)

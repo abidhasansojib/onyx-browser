@@ -105,35 +105,6 @@
             android:textSize="15sp" />
     </LinearLayout>
 
-    <!-- Open with... (App Chooser) -->
-    <LinearLayout
-        android:id="@+id/menuOpenWith"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="50dp"
-        android:background="?attr/selectableItemBackground"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp">
-
-        <androidx.appcompat.widget.AppCompatImageView
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            app:srcCompat="@drawable/ic_external"
-            app:tint="?attr/colorControlNormal" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="Open with..."
-            android:textColor="?android:attr/textColorPrimary"
-            android:textSize="15sp" />
-    </LinearLayout>
-
     <!-- 2. Open in file manager -->
     <LinearLayout
         android:id="@+id/menuOpenInFolder"

@@ -342,34 +342,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Local Document File Picker Launcher (System SAF)
-    private val openDocumentLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } catch (_: Exception) {}
-            val target = uri.toString()
-            val currentTab = tabManager.activeTab.value
-            if (currentTab != null && !currentTab.isIncognito && currentTab.url.isBlank()) {
-                tabManager.updateActiveTab(target, target)
-                showWebView(currentTab, forceUrl = target)
-            } else {
-                val newTab = tabManager.createNewTab(url = target, isIncognito = false, parentId = currentTab?.id)
-                displayTab(newTab)
-            }
-        }
-    }
-
-    fun launchFilePicker() {
-        try {
-            openDocumentLauncher.launch(arrayOf("*/*"))
-        } catch (e: Exception) {
-            Toast.makeText(this, "Cannot open file picker: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setFlags(
@@ -668,9 +640,7 @@ class MainActivity : AppCompatActivity() {
                 onSiteShieldWhitelistChanged = { _ ->
                     activeWebView?.reload()
                 }
-                onOpenFileClicked = {
-                    launchFilePicker()
-                }
+
             }
             sheet.show(supportFragmentManager, MenuBottomSheetDialogFragment.TAG)
         }
@@ -3159,11 +3129,6 @@ class MainActivity : AppCompatActivity() {
         // Priority 1: Direct data URI from file manager, link click, or download item
         val dataUri = intent.data ?: intent.clipData?.let { if (it.itemCount > 0) it.getItemAt(0).uri else null }
         if (dataUri != null) {
-            if (dataUri.scheme.equals("content", ignoreCase = true)) {
-                try {
-                    contentResolver.takePersistableUriPermission(dataUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                } catch (_: Exception) {}
-            }
             val uriStr = dataUri.toString().trim()
             if (uriStr.isNotBlank()) {
                 return uriStr

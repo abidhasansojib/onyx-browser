@@ -222,13 +222,6 @@ onyx-browser/
 - **Session Persistence**: DevTools state (`isDevToolsActive`) preserved across page reloads and link navigations within the tab.
 - **Logcat Console Forwarding**: `OnyxWebChromeClient.onConsoleMessage` pipes formatted web console output directly to Android Logcat with tag `[OnyxDevTools]`.
 
-### 4.5. Local File Subsystem & Storage Handlers (`LocalFileLoader`, `DownloadsActivity`, `MainActivity`)
-- **Binary Stream Defuser**: `LocalFileLoader.isBinaryStream` inspects the initial 512 bytes for null byte `0x00`, preventing UI freezes and raw binary garbage text dumps in WebView `<pre>` tags.
-- **Dedicated HTML Viewers**: Generates lightweight HTML view wrappers for local images, HTML5 media elements (`<video>` with PiP, background playback, and MediaSession support; `<audio>` cards), code/data files with monospace fonts and line numbering, PDF document cards, and unsupported binary warnings.
-- **SAF File Picker Integration**: `MainActivity` and `DownloadsActivity` use `ActivityResultContracts.OpenDocument` to allow browsing local storage, capturing persistable URI grants (`FLAG_GRANT_READ_URI_PERMISSION`).
-- **Download Back-Stack & Fallback**: `DownloadsActivity.openFile` preserves activity back-stack without premature `finish()`, provides "Open with..." system chooser, and graceful "No application found" fallback with an "Open in Browser" button.
-- **Notification Routing**: `DownloadNotificationHelper` delegates to `LocalFileLoader.isWebDocument` to ensure only web documents open in WebView, while other files open via system intent.
-
 ---
 
 ## 5. Architectural Coding Standards for AI Agents
@@ -510,9 +503,6 @@ onyx-browser/
    - **Dynamic Document Title & Privacy**: `markdown_previewer.html` synchronously sets `<title>{{FILE_NAME}}</title>` and `document.title = FILE_NAME` to reflect the document's real name. `TabsAdapter.kt`, `HistoryAdapter.kt`, and `BookmarksAdapter.kt` mask local `file://` URIs with human-readable titles and display `ic_file` icons in the tab switcher.
    - **Subresource Security Hardening**: `LocalFileLoader.interceptLocalSubResource` validates all local image and script subresources against `isSensitiveOrRestrictedPath(context, url)` to prevent path traversal into private storage or system directories.
 
-10. **Local File Handling, Binary Defuser, SAF Storage Pickers & Downloads Architecture**:
-   - **Null-Byte Binary Stream Defuser**: `LocalFileLoader.isBinaryStream` inspects the initial 512 bytes of unknown or ambiguous files for null bytes (`0x00`), preventing UI freezes and raw binary garbage text dumps in WebView `<pre>` tags.
-   - **Native HTML Document Viewers**: Lightweight, theme-aware responsive viewers for images (SVG, PNG, JPG, WebP, GIF, BMP, AVIF, ICO), HTML5 media (video with PiP, background play, and MediaSession sync; audio cards), code/monospace documents with numbered lines and horizontal scrolling, PDF cards, and unsupported binary archive safeguards.
-   - **System Storage Access Framework (SAF) File Pickers**: Integrated `ActivityResultContracts.OpenDocument` pickers accessible from the main menu (Homepage and Webpage menus) and Downloads activity (toolbar action and empty state button), automatically acquiring persistable read URI permissions (`FLAG_GRANT_READ_URI_PERMISSION`).
-   - **Intent-Filter Routing**: Expanded `AndroidManifest.xml` intent-filters to associate Onyx Browser with local images, code files (`.json`, `.xml`, `.csv`, `.js`, `.css`), PDFs, and web archives from external file managers (`file://` and `content://` schemes).
-   - **Download Subsystem Usability & Backstack Integrity**: Removed premature `finish()` in `DownloadsActivity.openFile` so pressing Back returns the user to their download list; added "Open with..." app chooser dialog (`menuOpenWith`); implemented graceful fallback dialog (`showNoAppFoundDialog`) when no external app is installed, with one-tap "Open in Browser" routing; and fixed `DownloadNotificationHelper` to route web documents via `LocalFileLoader.isWebDocument` rather than incorrectly checking for `/storage/` prefix.
+10. **Download Notification Routing Fix**:
+   - Replaced flawed path-prefix check `LocalFileLoader.isLocalFile(task.finalFilePath)` in `DownloadNotificationHelper.kt` with `LocalFileLoader.isWebDocument(task.fileName, task.mimeType)`.
+   - Downloaded media, archives, and binary documents now correctly route to the user's installed external viewer or media player upon notification click, while web documents (HTML, MHTML, Markdown, Plain Text) open directly in Onyx WebView.
