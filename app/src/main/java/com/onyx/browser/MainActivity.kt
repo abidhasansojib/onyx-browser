@@ -24,12 +24,9 @@ import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.CancellationSignal
-import android.os.ParcelFileDescriptor
-import android.print.PageRange
+import android.print.PdfPrintHelper
 import android.print.PrintAttributes
 import android.print.PrintDocumentAdapter
-import android.print.PrintDocumentInfo
 import android.print.PrintManager
 import android.speech.RecognizerIntent
 import android.util.Rational
@@ -3437,84 +3434,26 @@ class MainActivity : AppCompatActivity() {
             val fileName = "${cleanTitle}_${System.currentTimeMillis()}.pdf"
             val tempFile = File(cacheDir, fileName)
             val printAdapter = webView.createPrintDocumentAdapter(cleanTitle)
-
-            val printAttributes = PrintAttributes.Builder()
-                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                .setResolution(PrintAttributes.Resolution("pdf", "pdf", 300, 300))
-                .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
-                .build()
-
             val pageUrl = webView.url ?: "about:blank"
 
-            printAdapter.onStart()
-            printAdapter.onLayout(
-                null,
-                printAttributes,
-                CancellationSignal(),
-                object : PrintDocumentAdapter.LayoutResultCallback() {
-                    override fun onLayoutFinished(info: PrintDocumentInfo?, changed: Boolean) {
-                        super.onLayoutFinished(info, changed)
-                        try {
-                            val pfd = ParcelFileDescriptor.open(
-                                tempFile,
-                                ParcelFileDescriptor.MODE_READ_WRITE or
-                                        ParcelFileDescriptor.MODE_CREATE or
-                                        ParcelFileDescriptor.MODE_TRUNCATE
-                            )
-                            printAdapter.onWrite(
-                                arrayOf(PageRange.ALL_PAGES),
-                                pfd,
-                                CancellationSignal(),
-                                object : PrintDocumentAdapter.WriteResultCallback() {
-                                    override fun onWriteFinished(pages: Array<out PageRange>?) {
-                                        super.onWriteFinished(pages)
-                                        try { pfd.close() } catch (_: Exception) {}
-                                        try { printAdapter.onFinish() } catch (_: Exception) {}
-                                        if (tempFile.exists() && tempFile.length() > 0) {
-                                            publishSavedPageToDownloads(tempFile, fileName, "application/pdf", pageUrl)
-                                        } else {
-                                            try { tempFile.delete() } catch (_: Exception) {}
-                                            Toast.makeText(this@MainActivity, "Failed to generate PDF", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-
-                                    override fun onWriteFailed(error: CharSequence?) {
-                                        super.onWriteFailed(error)
-                                        try { pfd.close() } catch (_: Exception) {}
-                                        try { printAdapter.onFinish() } catch (_: Exception) {}
-                                        try { tempFile.delete() } catch (_: Exception) {}
-                                        Toast.makeText(this@MainActivity, "Failed to write PDF: ${error ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
-                                    }
-
-                                    override fun onWriteCancelled() {
-                                        super.onWriteCancelled()
-                                        try { pfd.close() } catch (_: Exception) {}
-                                        try { printAdapter.onFinish() } catch (_: Exception) {}
-                                        try { tempFile.delete() } catch (_: Exception) {}
-                                    }
-                                }
-                            )
-                        } catch (e: Exception) {
-                            try { printAdapter.onFinish() } catch (_: Exception) {}
+            PdfPrintHelper.printToPdf(
+                printAdapter,
+                tempFile,
+                object : PdfPrintHelper.Callback {
+                    override fun onSuccess() {
+                        if (tempFile.exists() && tempFile.length() > 0) {
+                            publishSavedPageToDownloads(tempFile, fileName, "application/pdf", pageUrl)
+                        } else {
                             try { tempFile.delete() } catch (_: Exception) {}
-                            Toast.makeText(this@MainActivity, "Error preparing PDF file: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, "Failed to generate PDF", Toast.LENGTH_SHORT).show()
                         }
                     }
 
-                    override fun onLayoutFailed(error: CharSequence?) {
-                        super.onLayoutFailed(error)
-                        try { printAdapter.onFinish() } catch (_: Exception) {}
+                    override fun onError(error: String?) {
                         try { tempFile.delete() } catch (_: Exception) {}
-                        Toast.makeText(this@MainActivity, "Failed to layout PDF: ${error ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "Failed to export PDF: ${error ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
                     }
-
-                    override fun onLayoutCancelled() {
-                        super.onLayoutCancelled()
-                        try { printAdapter.onFinish() } catch (_: Exception) {}
-                        try { tempFile.delete() } catch (_: Exception) {}
-                    }
-                },
-                null
+                }
             )
         } catch (e: Exception) {
             Toast.makeText(this, "Failed to start PDF export: ${e.message}", Toast.LENGTH_SHORT).show()
