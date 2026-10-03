@@ -300,6 +300,10 @@
     <string name="dnt_request_title">Send a Do Not Track request</string>
     <string name="dnt_request_desc">Ask websites not to track you (not always honored)</string>
 
+    <!-- Block Element -->
+    <string name="pref_block_element_title">Block element in menu</string>
+    <string name="pref_block_element_desc">Show visual element blocker in the page menu</string>
+
     <!-- Filter Lists -->
     <string name="filter_easylist">EasyList</string>
     <string name="filter_easyprivacy">EasyPrivacy</string>

@@ -1,7 +1,10 @@
 package com.onyx.browser.web
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.webkit.JavascriptInterface
+import android.widget.Toast
 import com.onyx.browser.data.preferences.BrowserPreferences
 import kotlinx.coroutines.launch
 
@@ -115,7 +118,17 @@ class OnyxShieldBridge(private val context: Context) {
                     com.onyx.browser.data.filter.FilterListManager.recompileFilters(context)
                 } catch (_: Exception) {}
             }
+            // Reset picker state and confirm to user on Main thread
+            com.onyx.browser.ui.menu.ElementPickerManager.resetPickerState()
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(context, "Element blocked: $s", Toast.LENGTH_SHORT).show()
+            }
         }
+    }
+
+    @JavascriptInterface
+    fun onPickerClosed() {
+        com.onyx.browser.ui.menu.ElementPickerManager.resetPickerState()
     }
 
     @JavascriptInterface

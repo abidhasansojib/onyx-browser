@@ -265,5 +265,11 @@ class ShieldsActivity : AppCompatActivity() {
             prefs.isDoNotTrackEnabled = !prefs.isDoNotTrackEnabled
             binding.switchDoNotTrack.isChecked = prefs.isDoNotTrackEnabled
         }
+
+        binding.switchBlockElement.isChecked = prefs.isBlockElementEnabled
+        binding.rowBlockElement.setOnClickListener {
+            prefs.isBlockElementEnabled = !prefs.isBlockElementEnabled
+            binding.switchBlockElement.isChecked = prefs.isBlockElementEnabled
+        }
     }
 }

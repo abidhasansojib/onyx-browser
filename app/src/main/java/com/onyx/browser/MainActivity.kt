@@ -2671,6 +2671,13 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
 
+                // Cancel element picker if active — back press exits picker, not page
+                if (com.onyx.browser.ui.menu.ElementPickerManager.isPickerActive) {
+                    val wv = tabManager.getActiveWebView()
+                    if (wv != null) com.onyx.browser.ui.menu.ElementPickerManager.cancelPicker(wv)
+                    return
+                }
+
                 if (binding.topBar.visibility != View.VISIBLE) {
                     binding.topBar.visibility = View.VISIBLE
                     binding.topBarDivider.visibility = View.VISIBLE

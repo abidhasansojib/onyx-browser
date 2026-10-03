@@ -332,10 +332,15 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
             dismiss()
         }
 
-        // Visual Element Blocker (Zapper)
-        binding.menuItemBlockElement.setOnClickListener {
-            onBlockElementClicked?.invoke()
-            dismiss()
+        // Visual Element Blocker (Zapper) — hidden unless enabled in Settings > Privacy & shields
+        if (preferences.isBlockElementEnabled) {
+            binding.menuItemBlockElement.visibility = View.VISIBLE
+            binding.menuItemBlockElement.setOnClickListener {
+                onBlockElementClicked?.invoke()
+                dismiss()
+            }
+        } else {
+            binding.menuItemBlockElement.visibility = View.GONE
         }
 
         // 7th: Settings

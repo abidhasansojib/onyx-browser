@@ -686,7 +686,8 @@
             android:focusable="true"
             android:gravity="center_vertical"
             android:paddingStart="20dp"
-            android:paddingEnd="20dp">
+            android:paddingEnd="20dp"
+            android:visibility="gone">
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="24dp"
