@@ -697,14 +697,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_ADD_TO_HOME_SCREEN, false)
         set(value) = prefs.edit().putBoolean(KEY_ADD_TO_HOME_SCREEN, value).apply()
 
-    var autoClearInterval: Int
-        get() = prefs.getInt(KEY_AUTO_CLEAR_INTERVAL, AUTO_CLEAR_NEVER)
-        set(value) = prefs.edit().putInt(KEY_AUTO_CLEAR_INTERVAL, value).apply()
-
-    var lastAutoClearTimestamp: Long
-        get() = prefs.getLong(KEY_LAST_AUTO_CLEAR_TIMESTAMP, 0L)
-        set(value) = prefs.edit().putLong(KEY_LAST_AUTO_CLEAR_TIMESTAMP, value).apply()
-
     companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
@@ -784,15 +776,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_ADD_TO_HOME_SCREEN = "pref_add_to_home_screen"
         const val KEY_DEFAULT_ENGINE_MIGRATED = "pref_default_engine_google_migrated"
         const val KEY_CHECKED_DEFAULT_REGION = "pref_checked_default_region"
-
-        const val AUTO_CLEAR_NEVER = 0
-        const val AUTO_CLEAR_ON_EXIT = 1
-        const val AUTO_CLEAR_60_MINS = 2
-        const val AUTO_CLEAR_1_DAY = 3
-        const val AUTO_CLEAR_7_DAYS = 4
-
-        const val KEY_AUTO_CLEAR_INTERVAL = "pref_auto_clear_interval"
-        const val KEY_LAST_AUTO_CLEAR_TIMESTAMP = "pref_last_auto_clear_timestamp"
 
         /**
          * Default filter lists matching Brave Android:

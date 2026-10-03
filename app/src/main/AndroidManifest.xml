@@ -365,11 +365,6 @@
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
-            android:name=".ui.settings.ManagePersonalDataActivity"
-            android:exported="false"
-            android:theme="@style/Theme.OnyxBrowser" />
-
-        <activity
             android:name=".ui.settings.AboutActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />

@@ -269,12 +269,6 @@ object OnyxDownloadManager {
         }
 
         emitSnapshot()
-
-        if (!hasActiveDownloads()) {
-            appContext?.let { ctx ->
-                com.onyx.browser.data.PersonalDataManager.notifyDownloadsCompleted(ctx)
-            }
-        }
     }
 
     fun retryDownload(taskId: Long) {
@@ -335,12 +329,6 @@ object OnyxDownloadManager {
 
         activeTasks.remove(task.id)
         emitSnapshot()
-
-        if (!hasActiveDownloads()) {
-            appContext?.let { ctx ->
-                com.onyx.browser.data.PersonalDataManager.notifyDownloadsCompleted(ctx)
-            }
-        }
     }
 
     private fun onTaskFailed(task: DownloadTask, error: String) {
@@ -352,12 +340,6 @@ object OnyxDownloadManager {
         }
 
         emitSnapshot()
-
-        if (!hasActiveDownloads()) {
-            appContext?.let { ctx ->
-                com.onyx.browser.data.PersonalDataManager.notifyDownloadsCompleted(ctx)
-            }
-        }
     }
 
     private fun handleNetworkStateChange(isAvailable: Boolean, isWifi: Boolean) {

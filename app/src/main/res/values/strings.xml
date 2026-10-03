@@ -117,15 +117,6 @@
     <string name="clear_data">Clear Data</string>
     <string name="browsing_data_cleared">Browsing data cleared</string>
 
-    <!-- Auto-Clear Personal Data -->
-    <string name="auto_clear_title">Auto-Clear</string>
-    <string name="auto_clear_summary">Automatically clear history, cookies, and cache</string>
-    <string name="auto_clear_never">Never</string>
-    <string name="auto_clear_on_exit">Immediately after app exit</string>
-    <string name="auto_clear_60_mins">Every 60 minutes</string>
-    <string name="auto_clear_1_day">Every 1 day</string>
-    <string name="auto_clear_7_days">Every 7 days</string>
-
     <!-- Webpage Menu & Toolset -->
     <string name="translate_to">Translate to %s</string>
     <string name="translate_original">Original</string>

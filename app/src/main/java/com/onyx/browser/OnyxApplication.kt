@@ -56,9 +56,6 @@ class OnyxApplication : Application() {
             try {
                 com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(applicationContext)
             } catch (_: Exception) {}
-            try {
-                com.onyx.browser.data.PersonalDataManager.checkAndPerformScheduledAutoClear(applicationContext)
-            } catch (_: Exception) {}
         }
 
         // Initialize ServiceWorker ad/tracker interception

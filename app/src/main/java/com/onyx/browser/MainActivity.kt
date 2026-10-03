@@ -3136,10 +3136,6 @@ class MainActivity : AppCompatActivity() {
             binding.fabScrollToTop.visibility = View.GONE
         }
 
-        // 4. Check and execute scheduled Auto-Clear if interval has elapsed
-        com.onyx.browser.data.PersonalDataManager.cancelPendingExitClear()
-        com.onyx.browser.data.PersonalDataManager.checkAndPerformScheduledAutoClear(this)
-
         // 4. Sync webview settings
         val wv = tabManager.getActiveWebView()
         wv?.onResume()
@@ -3641,7 +3637,6 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
         MediaPlaybackService.mediaActionListener = null
         if (isFinishing) {
-            com.onyx.browser.data.PersonalDataManager.performExitAutoClear(this)
             tabManager.closeAllTabs(incognitoOnly = true)
             com.onyx.browser.incognito.IncognitoNotificationHelper.dismissNotification(this)
             if (TabManager.activeInstance == tabManager) {

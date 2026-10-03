@@ -111,11 +111,6 @@ class SettingsActivity : AppCompatActivity() {
         binding.settingUaSpooferRow.setOnClickListener {
             showUaSpooferDialog()
         }
-
-        // 3. Manage personal data
-        binding.settingManageDataRow.setOnClickListener {
-            startActivity(Intent(this, ManagePersonalDataActivity::class.java))
-        }
     }
 
     private fun setupCategoryAbout() {

@@ -567,19 +567,12 @@ onyx-browser/
       - Updated showErrorPage to use the file URI as baseUrl.
       - In MainActivity.kt, added isLocalView && isDirectoryUrl guards in onUrlChanged and onPageFinishedCallback to prevent directory paths from overwriting tab.url, ensuring pull-to-refresh reliably reloads the actual document instead of throwing 'Cannot Open Document - Could not read text document. Target URI: file:///storage/emulated/0/Download/'.
       - Refined updateAddressBarDisplay() to consistently resolve and show the document's real display name via LocalFileLoader.getDisplayName.
-    - **Personal Data Auto-Clear Engine & Settings Redesign**:
-      - Implemented PersonalDataManager with centralized, deep data purging: Room browsing history DAO, CookieManager, WebStorage, WebView cache, Favicon disk/memory cache, tab thumbnail cache, local web archives, and temporary downloads.
-      - Added autoClearInterval (persisted in BrowserPreferences) defaulting to AUTO_CLEAR_NEVER (0), with options for Immediately after app exit (1), Every 60 minutes (2), Every 1 day (3), and Every 7 days (4).
-      - Wired PersonalDataManager.checkAndPerformScheduledAutoClear(context) into OnyxApplication.onCreate and MainActivity.onResume to handle periodic intervals safely.
-      - Wired PersonalDataManager.performExitAutoClear(context) into MainActivity.onDestroy (when isFinishing = true) with full data and normal tab purge.
-      - Redesigned ManagePersonalDataActivity: added centered toolbar title (app:titleCentered="true"), Material 3 Card 1 for Auto-Clear with exposed dropdown selector, and labeled Card 2 as 'Manual Clear — Time Range'.
-      - Running Process & Active Download Protection:
-        - Permanently removed onyx_downloads directory deletion from ManagePersonalDataActivity and PersonalDataManager so active download temporary files (.part, .chunks) are never touched or deleted during cache/history wipes.
-        - Implemented OnyxDownloadManager.hasActiveDownloads() and isAnyDownloadActive(context). Scheduled auto-clear checks automatically skip/defer when downloads or media playback are actively running.
-        - In performExitAutoClear, if downloads are running in background foreground service, immediately wipes history and tabs while deferring cookie/cache clearing until OnyxDownloadManager notifies that all downloads have completed.
-      - Upstream Sync Build Trigger Decoupling:
-        - In sync_upstream.yml, restricted automated build triggers exclusively to native Rust engine changes (external/adblock-rust or rust_engine).
-        - Filter list updates (easylist_rules.txt, external/adblock-lists) are committed and pushed to keep bundled baseline rules up-to-date, but skip triggering APK builds because the app dynamically updates filter lists on-device every 24 hours.
+    - **Streamlined Tab-Menu Data Deletion & Redundant Settings Removal**:
+      - Removed redundant `ManagePersonalDataActivity` and Settings > "Manage personal data" entry.
+      - Removed background auto-clear interval engine (`PersonalDataManager`, periodic checks, exit clear triggers) in favor of the existing on-demand "Delete Browsing Data" option in the Tab Menu (`popup_tab_switcher_menu.xml`) and the Tab Switcher brush button (`btnClearHistory`).
+    - **Upstream Sync Build Trigger Decoupling**:
+      - In sync_upstream.yml, restricted automated build triggers exclusively to native Rust engine changes (external/adblock-rust or rust_engine).
+      - Filter list updates (easylist_rules.txt, external/adblock-lists) are committed and pushed to keep bundled baseline rules up-to-date, but skip triggering APK builds because the app dynamically updates filter lists on-device every 24 hours.
 
 17. **Inbuilt Headless PDF Generation & Web Archive Download Parity (`v1.0.232`)**:
     - **Inbuilt Headless PDF Export (`PdfPrintHelper.java`)**:
