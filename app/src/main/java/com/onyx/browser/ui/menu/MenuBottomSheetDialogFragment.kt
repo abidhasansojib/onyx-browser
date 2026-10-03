@@ -32,6 +32,7 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetMenuBinding? = null
     private val binding get() = _binding!!
+    private val preferences by lazy { BrowserPreferences.getInstance(requireContext()) }
 
     var isHomePage: Boolean = true
     var currentUrl: String = ""

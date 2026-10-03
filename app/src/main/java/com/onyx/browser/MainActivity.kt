@@ -1523,6 +1523,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (url.contains("youtube.com/shorts") || url.contains("tiktok.com")) {
             return true
         }
+        return false
     }
 
     private fun getActivePageUrl(): String {

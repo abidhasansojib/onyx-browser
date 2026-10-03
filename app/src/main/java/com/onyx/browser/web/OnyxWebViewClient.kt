@@ -164,8 +164,8 @@ class OnyxWebViewClient(
      */
     private fun isOAuthOrLoginProvider(domain: String): Boolean {
         val d = domain.lowercase()
-        return // Google identity and auth
-               d == "accounts.google.com" || d.endsWith(".accounts.google.com") ||
+        // Google identity and auth
+        return d == "accounts.google.com" || d.endsWith(".accounts.google.com") ||
                d == "oauth2.googleapis.com" || d == "apis.google.com" ||
                d == "ssl.gstatic.com" || d == "www.gstatic.com" ||
                // Apple Sign-In
