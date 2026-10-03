@@ -40,24 +40,36 @@ jobs:
         run: |
           if [ -n "$(git status --porcelain)" ]; then
             echo "changes_detected=true" >> $GITHUB_OUTPUT
-            echo "Changes detected in submodules, filter lists, or symlinks:"
+            echo "Changes detected in repository:"
             git status --short
           else
             echo "changes_detected=false" >> $GITHUB_OUTPUT
             echo "No upstream changes detected. Everything is up-to-date."
           fi
 
+          if [ -n "$(git status --porcelain external/adblock-rust rust_engine)" ]; then
+            echo "rust_engine_updated=true" >> $GITHUB_OUTPUT
+            echo "adblock-rust native engine update detected! Build will be triggered."
+          else
+            echo "rust_engine_updated=false" >> $GITHUB_OUTPUT
+            echo "adblock-rust native engine is unchanged (filter lists only). Build will be skipped."
+          fi
+
       - name: Commit and Push Upstream Changes
         if: steps.check_changes.outputs.changes_detected == 'true'
         run: |
           git add -A
-          git commit -m "chore(upstream): auto-sync Brave adblock-rust & adblock-lists [skip ci]"
+          if [ "${{ steps.check_changes.outputs.rust_engine_updated }}" = "true" ]; then
+            git commit -m "chore(upstream): auto-sync Brave adblock-rust engine"
+          else
+            git commit -m "chore(upstream): auto-sync filter lists"
+          fi
           git push origin main
 
-      - name: Trigger Build Workflow for Updated Engine & Rules
-        if: steps.check_changes.outputs.changes_detected == 'true'
+      - name: Trigger Build Workflow for Updated Rust Engine
+        if: steps.check_changes.outputs.rust_engine_updated == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Triggering build workflow to generate updated APKs..."
+          echo "Native adblock-rust engine updated! Triggering build workflow..."
           gh workflow run build.yml --ref main || true

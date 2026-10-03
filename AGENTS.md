@@ -553,3 +553,6 @@ onyx-browser/
         - Permanently removed onyx_downloads directory deletion from ManagePersonalDataActivity and PersonalDataManager so active download temporary files (.part, .chunks) are never touched or deleted during cache/history wipes.
         - Implemented OnyxDownloadManager.hasActiveDownloads() and isAnyDownloadActive(context). Scheduled auto-clear checks automatically skip/defer when downloads or media playback are actively running.
         - In performExitAutoClear, if downloads are running in background foreground service, immediately wipes history and tabs while deferring cookie/cache clearing until OnyxDownloadManager notifies that all downloads have completed.
+      - Upstream Sync Build Trigger Decoupling:
+        - In sync_upstream.yml, restricted automated build triggers exclusively to native Rust engine changes (external/adblock-rust or rust_engine).
+        - Filter list updates (easylist_rules.txt, external/adblock-lists) are committed and pushed to keep bundled baseline rules up-to-date, but skip triggering APK builds because the app dynamically updates filter lists on-device every 24 hours.
