@@ -444,35 +444,49 @@ class TabManager(
 
     private fun autoclearTabData(tab: TabItem) {
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        if (prefs.isCookieAutoclearOnCloseEnabled && tab.url.isNotBlank() && !tab.url.startsWith("file://") && !tab.url.startsWith("content://")) {
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    val uri = android.net.Uri.parse(tab.url)
-                    val domain = uri.host
-                    if (!domain.isNullOrBlank()) {
-                        // Don't clear if another open tab uses the same domain
-                        val stillOpenOnDomain = (_normalTabs.value + _incognitoTabs.value)
-                            .any { it.id != tab.id && android.net.Uri.parse(it.url).host == domain }
-                        if (stillOpenOnDomain) return@post
-                        android.webkit.WebStorage.getInstance().deleteOrigin("${uri.scheme}://$domain")
-                        
-                        val cookieManager = android.webkit.CookieManager.getInstance()
-                        val cookies = cookieManager.getCookie(domain)
-                        if (cookies != null) {
-                            val splitCookies = cookies.split(";")
-                            for (cookie in splitCookies) {
-                                val cookieParts = cookie.split("=")
-                                if (cookieParts.isNotEmpty()) {
-                                    val cookieName = cookieParts[0].trim()
-                                    cookieManager.setCookie(domain, "$cookieName=; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
-                                }
-                            }
-                            cookieManager.flush()
+        if (!prefs.isCookieAutoclearOnCloseEnabled) return
+        val url = tab.url
+        if (url.isBlank() || url.startsWith("file://") || url.startsWith("content://") ||
+            url.startsWith("onyx://") || url.startsWith("about:")) return
+
+        Handler(Looper.getMainLooper()).post {
+            try {
+                val uri = android.net.Uri.parse(url)
+                val host = uri.host ?: return@post
+
+                // Don't clear if another open tab has the same host still open
+                val stillOpen = (_normalTabs.value + _incognitoTabs.value)
+                    .any { it.id != tab.id && android.net.Uri.parse(it.url).host == host }
+                if (stillOpen) return@post
+
+                // Clear WebStorage (localStorage, sessionStorage, IndexedDB)
+                val scheme = uri.scheme ?: "https"
+                android.webkit.WebStorage.getInstance().deleteOrigin("$scheme://$host")
+
+                // Clear cookies reliably: expire every named cookie for the host and its parent domain
+                val cookieManager = android.webkit.CookieManager.getInstance()
+                val expiry = "expires=Thu, 01 Jan 1970 00:00:00 GMT"
+                val targets = buildList {
+                    add(host)
+                    // Also target leading-dot form for cross-subdomain cookies
+                    add(".$host")
+                    // Strip leading www for root domain
+                    if (host.startsWith("www.")) add(host.removePrefix("www."))
+                }
+                for (target in targets) {
+                    val raw = cookieManager.getCookie(target) ?: continue
+                    raw.split(";").forEach { part ->
+                        val name = part.substringBefore("=").trim()
+                        if (name.isNotEmpty()) {
+                            // Expire on both / path and root
+                            cookieManager.setCookie(target, "$name=; $expiry; path=/")
+                            cookieManager.setCookie(target, "$name=; $expiry")
                         }
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
+                cookieManager.flush()
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }

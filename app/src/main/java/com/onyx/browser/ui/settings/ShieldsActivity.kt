@@ -124,6 +124,12 @@ class ShieldsActivity : AppCompatActivity() {
             }
             sheet.show(supportFragmentManager, CookieModePickerSheet.TAG)
         }
+
+        binding.switchCookieAutoclear.isChecked = prefs.isCookieAutoclearOnCloseEnabled
+        binding.rowCookieAutoclear.setOnClickListener {
+            prefs.isCookieAutoclearOnCloseEnabled = !prefs.isCookieAutoclearOnCloseEnabled
+            binding.switchCookieAutoclear.isChecked = prefs.isCookieAutoclearOnCloseEnabled
+        }
     }
 
     private fun updateCookieModeDisplay() {

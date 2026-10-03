@@ -251,6 +251,8 @@
     <string name="cookie_allow_all">Allow all cookies</string>
     <string name="cookie_block_third_party">Block third-party cookies</string>
     <string name="cookie_block_all">Block all cookies</string>
+    <string name="cookie_autoclear_title">Clear cookies on tab close</string>
+    <string name="cookie_autoclear_desc">Erase site cookies and local storage when a tab is closed</string>
 
     <!-- Fingerprinting -->
     <string name="fingerprint_lang_title">Prevent fingerprinting via language</string>

@@ -1394,14 +1394,14 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Cookie Autoclear on Tab Close"
+                        android:text="@string/cookie_autoclear_title"
                         android:textColor="?android:attr/textColorPrimary"
                         android:textSize="15sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Scrub site cookies and local storage when tab is closed"
+                        android:text="@string/cookie_autoclear_desc"
                         android:textColor="?android:attr/textColorSecondary"
                         android:textSize="12sp" />
                 </LinearLayout>
