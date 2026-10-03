@@ -24,10 +24,6 @@ import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.print.PdfPrintHelper
-import android.print.PrintAttributes
-import android.print.PrintDocumentAdapter
-import android.print.PrintManager
 import android.speech.RecognizerIntent
 import android.util.Rational
 import android.view.KeyEvent
@@ -72,9 +68,12 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.search.SearchSuggestionRepository
 import com.onyx.browser.databinding.ActivityMainBinding
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
+import com.onyx.browser.ui.browser.FindInPageController
+import com.onyx.browser.ui.browser.PageExportManager
 import com.onyx.browser.ui.browser.TabManager
 import com.onyx.browser.ui.common.SearchEnginePickerDialog
 import com.onyx.browser.ui.common.SearchEnginePopupMenu
+import com.onyx.browser.ui.common.SearchEngineIconHelper
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.home.EditShortcutDialog
@@ -97,7 +96,7 @@ import com.onyx.browser.media.MediaPlaybackService
 import com.onyx.browser.web.DevToolsManager
 import com.onyx.browser.web.MediaPlaybackManager
 import com.onyx.browser.web.translate.PageTranslateManager
-import com.onyx.browser.ui.common.SearchEngineIconHelper
+import com.onyx.browser.web.TabActionCallback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -105,11 +104,13 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), TabActionCallback {
 
     private lateinit var binding: ActivityMainBinding
     lateinit var tabManager: TabManager
     private lateinit var preferences: BrowserPreferences
+    private lateinit var pageExportManager: PageExportManager
+    private lateinit var findInPageController: FindInPageController
 
     fun getActiveWebView(): OnyxWebView? = if (::tabManager.isInitialized) tabManager.getActiveWebView() else null
     private lateinit var suggestionRepository: SearchSuggestionRepository
@@ -386,6 +387,7 @@ class MainActivity : AppCompatActivity() {
         lastThemeMode = preferences.themeMode
         lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         com.onyx.browser.download.OnyxDownloadManager.init(this)
+        pageExportManager = PageExportManager(this, lifecycleScope)
         tabManager = TabManager(this, lifecycleScope)
         tabManager.onTabClosedListener = { tab ->
             previewTabsFromDownloads.remove(tab.id)
@@ -466,7 +468,8 @@ class MainActivity : AppCompatActivity() {
 
         setupTopToolbar()
         setupSearchOverlay()
-        setupFindInPage()
+        findInPageController = FindInPageController(this, binding) { tabManager.getActiveWebView() }
+        findInPageController.setup()
         setupTranslateBar()
         setupHomepageInteractions()
         setupBackNavigation()
@@ -661,7 +664,7 @@ class MainActivity : AppCompatActivity() {
                     activeWebView?.toggleDesktopModeForPage(activeTab?.url ?: "")
                 }
                 onFindInPageClicked = {
-                    showFindInPage()
+                    findInPageController.show()
                 }
                 onTranslateClicked = { langCode ->
                     translateCurrentPage(langCode)
@@ -1032,7 +1035,8 @@ class MainActivity : AppCompatActivity() {
                         }, 300)
                     }
                 }
-            }
+            },
+            tabActionCallback = this
         )
         client.onOpenInAppPrompt = { intent, appName, fallback ->
             if (!isFinishing && !isDestroyed) {
@@ -1403,12 +1407,20 @@ class MainActivity : AppCompatActivity() {
         showWebView(newTab, forceUrl = url, reloadIfChanged = true)
     }
 
+    override fun closeTab(tabId: String) {
+        closeTabById(tabId)
+    }
+
     fun closeTabById(tabId: String) {
         val tab = tabManager.getTabById(tabId) ?: return
         tabManager.closeTab(tab)
     }
 
-    fun displayPopupTab(tab: TabItem) {
+    override fun getTabById(tabId: String): TabItem? {
+        return if (::tabManager.isInitialized) tabManager.getTabById(tabId) else null
+    }
+
+    override fun displayPopupTab(tab: TabItem) {
         runOnUiThread {
             val wv = tabManager.getWebView(tab.id)
             if (wv != null && wv.isPopupPendingDisplay) {
@@ -2222,7 +2234,7 @@ class MainActivity : AppCompatActivity() {
                     binding.topBarDivider.visibility = View.GONE
                     binding.fullscreenControlsOverlay.visibility = View.GONE
                     binding.progressBar.visibility = View.GONE
-                    binding.findInPageBar.visibility = View.GONE
+                    findInPageController.hide()
                     binding.searchOverlay.visibility = View.GONE
 
                     val screenW = resources.displayMetrics.widthPixels
@@ -2394,81 +2406,6 @@ class MainActivity : AppCompatActivity() {
     private fun hideSoftKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(binding.etUrl.windowToken, 0)
-    }
-
-    private var isRegexFindEnabled = false
-
-    private fun setupFindInPage() {
-        binding.btnCloseFind.setOnClickListener {
-            hideFindInPage()
-        }
-
-        binding.btnRegexToggle.setOnClickListener {
-            isRegexFindEnabled = !isRegexFindEnabled
-            binding.btnRegexToggle.setTextColor(if (isRegexFindEnabled) getColor(R.color.primary) else android.graphics.Color.GRAY)
-            val webView = tabManager.getActiveWebView()
-            webView?.regexFindBridge?.setRegexMode(isRegexFindEnabled)
-            val query = binding.etFindQuery.text?.toString()?.trim() ?: ""
-            if (query.isNotEmpty()) {
-                webView?.regexFindBridge?.find(query)
-            }
-        }
-
-        binding.etFindQuery.doAfterTextChanged { text ->
-            val query = text?.toString()?.trim() ?: ""
-            val webView = tabManager.getActiveWebView()
-            if (query.isNotEmpty()) {
-                webView?.regexFindBridge?.find(query)
-            } else {
-                webView?.regexFindBridge?.clearMatches()
-                binding.tvFindMatches.text = getString(R.string.no_matches)
-            }
-        }
-
-        binding.etFindQuery.setOnEditorActionListener { _, actionId, event ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH ||
-                (event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
-            ) {
-                tabManager.getActiveWebView()?.regexFindBridge?.findNext(true)
-                true
-            } else {
-                false
-            }
-        }
-
-        binding.btnFindPrev.setOnClickListener {
-            tabManager.getActiveWebView()?.regexFindBridge?.findNext(false)
-        }
-
-        binding.btnFindNext.setOnClickListener {
-            tabManager.getActiveWebView()?.regexFindBridge?.findNext(true)
-        }
-    }
-
-    private fun showFindInPage() {
-        val webView = tabManager.getActiveWebView() ?: return
-        binding.findInPageBar.visibility = View.VISIBLE
-        binding.tvFindMatches.text = getString(R.string.no_matches)
-
-        webView.setFindListener { activeMatchOrdinal, numberOfMatches, _ ->
-            if (numberOfMatches > 0) {
-                binding.tvFindMatches.text = getString(R.string.matches_count, activeMatchOrdinal + 1, numberOfMatches)
-            } else {
-                binding.tvFindMatches.text = getString(R.string.no_matches)
-            }
-        }
-
-        binding.etFindQuery.requestFocus()
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-        imm?.showSoftInput(binding.etFindQuery, InputMethodManager.SHOW_IMPLICIT)
-    }
-
-    private fun hideFindInPage() {
-        binding.findInPageBar.visibility = View.GONE
-        tabManager.getActiveWebView()?.regexFindBridge?.clearMatches()
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-        imm?.hideSoftInputFromWindow(binding.etFindQuery.windowToken, 0)
-        binding.etFindQuery.setText("")
     }
 
     private var currentTranslateTargetCode: String = ""
@@ -2685,8 +2622,8 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
 
-                if (binding.findInPageBar.visibility == View.VISIBLE) {
-                    hideFindInPage()
+                if (findInPageController.isVisible) {
+                    findInPageController.hide()
                     return
                 }
 
@@ -3054,7 +2991,7 @@ class MainActivity : AppCompatActivity() {
             binding.homeLayout.root.visibility = View.GONE
             binding.fullscreenControlsOverlay.visibility = View.GONE
             binding.progressBar.visibility = View.GONE
-            binding.findInPageBar.visibility = View.GONE
+            findInPageController.hide()
             binding.searchOverlay.visibility = View.GONE
 
             if (customVideoView != null) {
@@ -3391,249 +3328,7 @@ class MainActivity : AppCompatActivity() {
     private fun showSavePageDialog() {
         val activeWebView = tabManager.getActiveWebView() ?: return
         val currentTab = tabManager.activeTab.value ?: return
-        val options = arrayOf(
-            getString(R.string.save_as_web_archive),
-            getString(R.string.save_as_pdf),
-            getString(R.string.print_system_option)
-        )
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.save_page_dialog_title)
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> saveCurrentPageAsMhtml(activeWebView, currentTab.title)
-                    1 -> saveCurrentPageAsPdfDirect(activeWebView, currentTab.title)
-                    2 -> printCurrentPageSystem(activeWebView, currentTab.title)
-                }
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-    }
-
-    private fun saveCurrentPageAsMhtml(webView: OnyxWebView, title: String) {
-        try {
-            Toast.makeText(this, R.string.saving_web_archive, Toast.LENGTH_SHORT).show()
-            val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
-            val fileName = "${cleanTitle}_${System.currentTimeMillis()}.mht"
-            val tempFile = File(cacheDir, fileName)
-
-            webView.saveWebArchive(tempFile.absolutePath, false) { savedPath ->
-                if (savedPath != null && tempFile.exists() && tempFile.length() > 0) {
-                    val pageUrl = webView.url ?: "about:blank"
-                    publishSavedPageToDownloads(tempFile, fileName, "multipart/related", pageUrl)
-                } else {
-                    try { tempFile.delete() } catch (_: Exception) {}
-                    Toast.makeText(this, "Failed to generate web archive", Toast.LENGTH_SHORT).show()
-                }
-            }
-        } catch (e: Exception) {
-            Toast.makeText(this, "Failed to save page: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun saveCurrentPageAsPdfDirect(webView: OnyxWebView, title: String) {
-        try {
-            Toast.makeText(this, R.string.generating_pdf, Toast.LENGTH_SHORT).show()
-            val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
-            val fileName = "${cleanTitle}_${System.currentTimeMillis()}.pdf"
-            val tempFile = File(cacheDir, fileName)
-            val printAdapter = webView.createPrintDocumentAdapter(cleanTitle)
-            val pageUrl = webView.url ?: "about:blank"
-
-            PdfPrintHelper.printToPdf(
-                printAdapter,
-                tempFile,
-                object : PdfPrintHelper.Callback {
-                    override fun onSuccess() {
-                        if (tempFile.exists() && tempFile.length() > 0) {
-                            publishSavedPageToDownloads(tempFile, fileName, "application/pdf", pageUrl)
-                        } else {
-                            try { tempFile.delete() } catch (_: Exception) {}
-                            Toast.makeText(this@MainActivity, "Failed to generate PDF", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-
-                    override fun onError(error: String?) {
-                        try { tempFile.delete() } catch (_: Exception) {}
-                        Toast.makeText(this@MainActivity, "Failed to export PDF: ${error ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-        } catch (e: Exception) {
-            Toast.makeText(this, "Failed to start PDF export: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private data class SavedFileResult(
-        val uri: Uri,
-        val fileName: String,
-        val filePath: String
-    )
-
-    private fun copyTempFileToDownloads(tempFile: File, fileName: String, mimeType: String): SavedFileResult? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val contentValues = android.content.ContentValues().apply {
-                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
-                put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
-            }
-            val uri = contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-            if (uri != null) {
-                contentResolver.openOutputStream(uri)?.use { out ->
-                    tempFile.inputStream().use { input ->
-                        input.copyTo(out)
-                    }
-                }
-                var actualName = fileName
-                var actualPath = File(
-                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
-                    fileName
-                ).absolutePath
-
-                try {
-                    contentResolver.query(
-                        uri,
-                        arrayOf(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, android.provider.MediaStore.MediaColumns.DATA),
-                        null,
-                        null,
-                        null
-                    )?.use { cursor ->
-                        if (cursor.moveToFirst()) {
-                            val nameIndex = cursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
-                            if (nameIndex != -1) {
-                                val name = cursor.getString(nameIndex)
-                                if (!name.isNullOrBlank()) {
-                                    actualName = name
-                                }
-                            }
-                            val dataIndex = cursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
-                            if (dataIndex != -1) {
-                                val data = cursor.getString(dataIndex)
-                                if (!data.isNullOrBlank()) {
-                                    actualPath = data
-                                }
-                            }
-                        }
-                    }
-                } catch (_: Exception) {}
-
-                val diskFile = File(actualPath)
-                val finalPath = if (diskFile.exists() && diskFile.canRead()) {
-                    diskFile.absolutePath
-                } else {
-                    val publicFile = File(
-                        android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
-                        actualName
-                    )
-                    if (publicFile.exists() && publicFile.canRead()) {
-                        publicFile.absolutePath
-                    } else {
-                        uri.toString()
-                    }
-                }
-                SavedFileResult(uri = uri, fileName = actualName, filePath = finalPath)
-            } else {
-                null
-            }
-        } else {
-            val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-            val destFile = if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-                if (!downloadDir.exists()) downloadDir.mkdirs()
-                File(downloadDir, fileName)
-            } else {
-                val appDownloads = getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS) ?: cacheDir
-                File(appDownloads, fileName)
-            }
-            tempFile.copyTo(destFile, overwrite = true)
-            android.media.MediaScannerConnection.scanFile(
-                this,
-                arrayOf(destFile.absolutePath),
-                arrayOf(mimeType),
-                null
-            )
-            SavedFileResult(
-                uri = Uri.fromFile(destFile),
-                fileName = destFile.name,
-                filePath = destFile.absolutePath
-            )
-        }
-    }
-
-    private fun publishSavedPageToDownloads(
-        tempFile: File,
-        fileName: String,
-        mimeType: String,
-        pageUrl: String
-    ) {
-        val fileSize = tempFile.length()
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val result = copyTempFileToDownloads(tempFile, fileName, mimeType)
-                if (result != null) {
-                    val database = AppDatabase.getInstance(this@MainActivity)
-                    val downloadId = database.downloadDao().insertDownload(
-                        com.onyx.browser.data.model.DownloadItem(
-                            url = pageUrl,
-                            fileName = result.fileName,
-                            filePath = result.filePath,
-                            mimeType = mimeType,
-                            fileSize = fileSize,
-                            downloadedBytes = fileSize,
-                            status = com.onyx.browser.data.model.DownloadItem.STATUS_COMPLETED,
-                            downloadTime = System.currentTimeMillis()
-                        )
-                    )
-
-                    try {
-                        DownloadNotificationHelper.postDownloadCompletedNotification(
-                            context = applicationContext,
-                            id = if (downloadId > 0) downloadId else System.currentTimeMillis(),
-                            fileName = result.fileName,
-                            filePath = result.filePath,
-                            mimeType = mimeType,
-                            fileSize = fileSize
-                        )
-                    } catch (e: Exception) {
-                        android.util.Log.e("MainActivity", "Failed to post download notification", e)
-                    }
-
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Saved to Downloads/${result.fileName}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "Failed to export to Downloads", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Error saving file: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
-            } finally {
-                try { tempFile.delete() } catch (_: Exception) {}
-            }
-        }
-    }
-
-    private fun printCurrentPageSystem(webView: OnyxWebView, title: String) {
-        try {
-            val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager
-            if (printManager == null) {
-                Toast.makeText(this, "Printing service unavailable on this device", Toast.LENGTH_SHORT).show()
-                return
-            }
-            val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
-            val printAdapter = webView.createPrintDocumentAdapter(cleanTitle)
-            val printAttributes = PrintAttributes.Builder()
-                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                .build()
-            printManager.print(cleanTitle, printAdapter, printAttributes)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Failed to export PDF: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
+        pageExportManager.showSavePageDialog(activeWebView, currentTab.title)
     }
 
     override fun onDestroy() {

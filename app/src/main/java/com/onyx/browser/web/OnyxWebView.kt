@@ -164,12 +164,11 @@ class OnyxWebView @JvmOverloads constructor(
         isScrollbarFadingEnabled = true
 
 
-        // Apply UA Spoofer if configured
-        val tempPrefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        settings.userAgentString = getBaseUserAgent(tempPrefs)
+        // Apply UA Spoofer and all persisted settings — one singleton lookup for the whole function
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        settings.userAgentString = getBaseUserAgent(prefs)
 
         try {
-            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
             when (prefs.cookieBlockingMode) {
                 com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_ALL -> {
                     android.webkit.CookieManager.getInstance().setAcceptCookie(false)
@@ -253,7 +252,6 @@ class OnyxWebView @JvmOverloads constructor(
 
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
         try {
-            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
             val currentBlockingLevel = prefs.blockingLevel
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(

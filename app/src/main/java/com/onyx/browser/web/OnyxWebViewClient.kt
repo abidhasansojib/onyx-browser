@@ -31,7 +31,9 @@ class OnyxWebViewClient(
     private val coroutineScope: CoroutineScope,
     private val onUrlChanged: (String) -> Unit,
     private val onPageFinishedCallback: (String) -> Unit,
-    private val onPageCommitVisibleCallback: ((WebView, String) -> Unit)? = null
+    private val onPageCommitVisibleCallback: ((WebView, String) -> Unit)? = null,
+    /** Callback for tab-level actions. Replaces the old findMainActivity() context walk. */
+    private val tabActionCallback: TabActionCallback? = null
 ) : WebViewClient() {
 
     private val upgradedUrls = mutableSetOf<String>()
@@ -40,14 +42,6 @@ class OnyxWebViewClient(
 
     var onOpenInAppPrompt: ((intent: Intent, appName: String?, fallback: (() -> Unit)?) -> Unit)? = null
 
-    private fun findMainActivity(ctx: Context?): MainActivity? {
-        var current: Context? = ctx
-        while (current is android.content.ContextWrapper) {
-            if (current is MainActivity) return current
-            current = current.baseContext
-        }
-        return null
-    }
 
     private fun getAppNameForIntent(intent: Intent, fallbackName: String? = null): String? {
         try {
@@ -437,7 +431,8 @@ class OnyxWebViewClient(
                     if (preferences.isAdBlockEnabled && !isWhitelisted) {
                         val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
                         val onyxWv = view as? OnyxWebView
-                        val isPopupTab = onyxWv != null && (onyxWv.isPopupPendingDisplay || (findMainActivity(onyxWv.context)?.tabManager?.getTabById(onyxWv.tabId)?.parentId != null))
+                        val isPopupTab = onyxWv != null && (onyxWv.isPopupPendingDisplay ||
+                                (tabActionCallback?.getTabById(onyxWv.tabId)?.parentId != null))
 
                         // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
                         // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave), UNLESS it is a child popup tab.
@@ -453,8 +448,7 @@ class OnyxWebViewClient(
                                     onyxWv.post {
                                         val tabId = onyxWv.tabId
                                         if (tabId.isNotBlank()) {
-                                            val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
-                                            act?.closeTabById(tabId)
+                                            tabActionCallback?.closeTab(tabId)
                                         }
                                     }
                                 }
@@ -741,7 +735,8 @@ class OnyxWebViewClient(
                 if (preferences.isAdBlockEnabled && !isWhitelisted) {
                     val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
                     val onyxWv = view as? OnyxWebView
-                    val isPopupTab = onyxWv != null && (onyxWv.isPopupPendingDisplay || (findMainActivity(onyxWv.context)?.tabManager?.getTabById(onyxWv.tabId)?.parentId != null))
+                    val isPopupTab = onyxWv != null && (onyxWv.isPopupPendingDisplay ||
+                            (tabActionCallback?.getTabById(onyxWv.tabId)?.parentId != null))
 
                     if (isAggressive || isPopupTab) {
                         val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
@@ -755,8 +750,7 @@ class OnyxWebViewClient(
                                 onyxWv.post {
                                     val tabId = onyxWv.tabId
                                     if (tabId.isNotBlank()) {
-                                        val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
-                                        act?.closeTabById(tabId)
+                                        tabActionCallback?.closeTab(tabId)
                                     }
                                 }
                             }
@@ -769,10 +763,9 @@ class OnyxWebViewClient(
                 if (view is OnyxWebView && view.isPopupPendingDisplay) {
                     val onyxWv = view
                     val tabId = onyxWv.tabId
-                    val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
-                    val tab = act?.tabManager?.getTabById(tabId)
+                    val tab = tabActionCallback?.getTabById(tabId)
                     if (tab != null) {
-                        act.displayPopupTab(tab)
+                        tabActionCallback?.displayPopupTab(tab)
                     }
                 }
             }
@@ -1268,10 +1261,9 @@ class OnyxWebViewClient(
 
             // If this is a pending popup window that successfully started navigating to a valid URL, display it
             if (onyxWv?.isPopupPendingDisplay == true && url != "about:blank") {
-                val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
-                val tab = act?.tabManager?.getTabById(onyxWv.tabId)
+                val tab = tabActionCallback?.getTabById(onyxWv.tabId)
                 if (tab != null) {
-                    act.displayPopupTab(tab)
+                    tabActionCallback?.displayPopupTab(tab)
                 }
             }
 
@@ -1358,10 +1350,9 @@ class OnyxWebViewClient(
                 onPageFinishedCallback(effectiveUrl)
             }
             if (onyxWv?.isPopupPendingDisplay == true && !isSyntheticData && effectiveUrl != "about:blank") {
-                val act = findMainActivity(onyxWv.context) ?: findMainActivity(context)
-                val tab = act?.tabManager?.getTabById(onyxWv.tabId)
+                val tab = tabActionCallback?.getTabById(onyxWv.tabId)
                 if (tab != null) {
-                    act.displayPopupTab(tab)
+                    tabActionCallback?.displayPopupTab(tab)
                 }
             }
             // Media Monitor — always inject so OnyxMediaBridge events fire and floating pill works
