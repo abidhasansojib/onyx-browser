@@ -57,11 +57,26 @@ object DownloadHandler {
         return if (clean.isBlank()) "download_${System.currentTimeMillis()}" else clean
     }
 
-    fun guessResolvedFileName(url: String, contentDisposition: String?, mimeType: String?): String {
+    fun guessResolvedFileName(
+        url: String,
+        contentDisposition: String?,
+        mimeType: String?,
+        pageUrl: String? = null
+    ): String {
         var guessed = URLUtil.guessFileName(url, contentDisposition, mimeType)
         val urlLastSegment = try {
             Uri.parse(url).path?.split('/')?.filter { it.isNotBlank() }?.lastOrNull()
         } catch (_: Exception) { null }
+
+        // If URL is blob or data, or guessed is generic/UUID, try extracting from pageUrl
+        val isBlobOrData = url.startsWith("blob:", ignoreCase = true) || url.startsWith("data:", ignoreCase = true)
+        val isGenericOrUuid = guessed.endsWith(".bin") || guessed.matches(Regex("^[0-9a-fA-F-]{36}.*"))
+        if ((isBlobOrData || isGenericOrUuid) && !pageUrl.isNullOrBlank()) {
+            val fromPage = extractFileNameFromPageUrl(pageUrl)
+            if (fromPage != null) {
+                return sanitizeFileName(fromPage)
+            }
+        }
 
         if (guessed.equals("readme", ignoreCase = true) || guessed.equals("readme.bin", ignoreCase = true) ||
             (guessed.equals("readme.txt", ignoreCase = true) && (urlLastSegment?.contains("readme", ignoreCase = true) == true))
@@ -86,19 +101,27 @@ object DownloadHandler {
         cookies: String = "",
         referer: String = ""
     ) {
-        if (url.startsWith("data:", ignoreCase = true)) {
-            handleDataUriDownload(activity, coroutineScope, url, contentDisposition, mimeType)
-            return
+        val effectivePageUrl = referer.ifBlank {
+            (activity as? MainActivity)?.getActiveWebView()?.url
+                ?: MainActivity.currentInstance?.get()?.getActiveWebView()?.url
+                ?: ""
         }
 
-        if (url.startsWith("blob:", ignoreCase = true)) {
-            handleBlobUriDownload(activity, coroutineScope, url, contentDisposition, mimeType, referer)
-            return
+        // Determine candidate file name early
+        val initialCandidateName = guessResolvedFileName(url, contentDisposition, mimeType, effectivePageUrl)
+
+        // For blob and data URIs, attempt upfront direct HTTP raw URL resolution (e.g. GitHub/GitLab blob pages)
+        val fallbackDirectUrl = if (url.startsWith("blob:", ignoreCase = true) || url.startsWith("data:", ignoreCase = true)) {
+            resolveFallbackUrl(effectivePageUrl, initialCandidateName)
+        } else {
+            null
         }
+
+        val effectiveUrl = fallbackDirectUrl ?: url
 
         val resolvedCookies = if (cookies.isNotBlank()) cookies else {
             try {
-                CookieManager.getInstance().getCookie(url) ?: ""
+                CookieManager.getInstance().getCookie(effectiveUrl) ?: ""
             } catch (_: Exception) {
                 ""
             }
@@ -111,53 +134,100 @@ object DownloadHandler {
             // Ask before download
             if (activity is FragmentActivity) {
                 val sheet = DownloadPromptBottomSheet.newInstance(
-                    url = url,
+                    url = effectiveUrl,
                     userAgent = userAgent,
                     contentDisposition = contentDisposition,
                     mimeType = mimeType,
                     contentLength = contentLength,
                     cookies = resolvedCookies,
-                    referer = referer
+                    referer = effectivePageUrl
                 )
                 sheet.show(activity.supportFragmentManager, DownloadPromptBottomSheet.TAG)
             } else {
                 val intent = Intent(activity, DownloadPromptActivity::class.java).apply {
-                    putExtra(DownloadPromptActivity.EXTRA_URL, url)
+                    putExtra(DownloadPromptActivity.EXTRA_URL, effectiveUrl)
                     putExtra(DownloadPromptActivity.EXTRA_USER_AGENT, userAgent)
                     putExtra(DownloadPromptActivity.EXTRA_CONTENT_DISPOSITION, contentDisposition)
                     putExtra(DownloadPromptActivity.EXTRA_MIME_TYPE, mimeType)
                     putExtra(DownloadPromptActivity.EXTRA_CONTENT_LENGTH, contentLength)
                     putExtra(DownloadPromptActivity.EXTRA_COOKIES, resolvedCookies)
-                    putExtra(DownloadPromptActivity.EXTRA_REFERER, referer)
+                    putExtra(DownloadPromptActivity.EXTRA_REFERER, effectivePageUrl)
                 }
                 activity.startActivity(intent)
             }
         } else if (behavior == 1) {
             // Internal download
-            val fileName = guessResolvedFileName(url, contentDisposition, mimeType)
-            startSystemDownload(
-                context = activity,
-                coroutineScope = coroutineScope,
-                url = url,
-                userAgent = userAgent,
-                fileName = fileName,
-                mimeType = mimeType,
-                contentLength = contentLength,
-                cookies = resolvedCookies,
-                referer = referer
-            )
+            if (effectiveUrl.startsWith("data:", ignoreCase = true)) {
+                handleDataUriDownload(
+                    context = activity,
+                    coroutineScope = coroutineScope,
+                    dataUri = effectiveUrl,
+                    contentDisposition = contentDisposition,
+                    mimeType = mimeType,
+                    suggestedFileName = initialCandidateName,
+                    originalPageUrl = effectivePageUrl
+                )
+            } else if (effectiveUrl.startsWith("blob:", ignoreCase = true)) {
+                handleBlobUriDownload(
+                    activity = activity,
+                    coroutineScope = coroutineScope,
+                    blobUrl = effectiveUrl,
+                    contentDisposition = contentDisposition,
+                    mimeType = mimeType,
+                    referer = effectivePageUrl,
+                    suggestedFileName = initialCandidateName
+                )
+            } else {
+                val fileName = guessResolvedFileName(effectiveUrl, contentDisposition, mimeType, effectivePageUrl)
+                startSystemDownload(
+                    context = activity,
+                    coroutineScope = coroutineScope,
+                    url = effectiveUrl,
+                    userAgent = userAgent,
+                    fileName = fileName,
+                    mimeType = mimeType,
+                    contentLength = contentLength,
+                    cookies = resolvedCookies,
+                    referer = effectivePageUrl
+                )
+            }
         } else {
             // External download manager
-            val fileName = guessResolvedFileName(url, contentDisposition, mimeType)
-            dispatchToExternalDownloader(
-                context = activity,
-                url = url,
-                mimeType = mimeType,
-                userAgent = userAgent,
-                fileName = fileName,
-                cookies = resolvedCookies,
-                referer = referer
-            )
+            if (effectiveUrl.startsWith("data:", ignoreCase = true) || effectiveUrl.startsWith("blob:", ignoreCase = true)) {
+                Toast.makeText(activity, "Using internal downloader for locally generated file", Toast.LENGTH_SHORT).show()
+                if (effectiveUrl.startsWith("data:", ignoreCase = true)) {
+                    handleDataUriDownload(
+                        context = activity,
+                        coroutineScope = coroutineScope,
+                        dataUri = effectiveUrl,
+                        contentDisposition = contentDisposition,
+                        mimeType = mimeType,
+                        suggestedFileName = initialCandidateName,
+                        originalPageUrl = effectivePageUrl
+                    )
+                } else {
+                    handleBlobUriDownload(
+                        activity = activity,
+                        coroutineScope = coroutineScope,
+                        blobUrl = effectiveUrl,
+                        contentDisposition = contentDisposition,
+                        mimeType = mimeType,
+                        referer = effectivePageUrl,
+                        suggestedFileName = initialCandidateName
+                    )
+                }
+            } else {
+                val fileName = guessResolvedFileName(effectiveUrl, contentDisposition, mimeType, effectivePageUrl)
+                dispatchToExternalDownloader(
+                    context = activity,
+                    url = effectiveUrl,
+                    mimeType = mimeType,
+                    userAgent = userAgent,
+                    fileName = fileName,
+                    cookies = resolvedCookies,
+                    referer = effectivePageUrl
+                )
+            }
         }
     }
 
@@ -167,7 +237,8 @@ object DownloadHandler {
         dataUri: String,
         contentDisposition: String = "",
         mimeType: String = "",
-        suggestedFileName: String? = null
+        suggestedFileName: String? = null,
+        originalPageUrl: String = ""
     ) {
         // Guard: reject suspiciously large data URIs before decoding them into memory.
         // A 256 MB data URI after base64 decoding (~192 MB raw) is already unreasonably large
@@ -200,12 +271,17 @@ object DownloadHandler {
                 val resolvedName = if (!suggestedFileName.isNullOrBlank()) {
                     if (suggestedFileName.equals("readme", ignoreCase = true)) "README.md" else suggestedFileName
                 } else {
-                    val guessed = URLUtil.guessFileName(dataUri, contentDisposition, detectedMime)
-                    if (guessed.isNotBlank() && !guessed.endsWith(".bin")) {
-                        if (guessed.equals("readme", ignoreCase = true)) "README.md" else guessed
-                    } else if (contentDisposition.contains("readme", ignoreCase = true)) {
-                        "README.md"
-                    } else "download_${System.currentTimeMillis()}.$ext"
+                    val fromPage = if (originalPageUrl.isNotBlank()) extractFileNameFromPageUrl(originalPageUrl) else null
+                    if (!fromPage.isNullOrBlank()) {
+                        fromPage
+                    } else {
+                        val guessed = URLUtil.guessFileName(dataUri, contentDisposition, detectedMime)
+                        if (guessed.isNotBlank() && !guessed.endsWith(".bin")) {
+                            if (guessed.equals("readme", ignoreCase = true)) "README.md" else guessed
+                        } else if (contentDisposition.contains("readme", ignoreCase = true)) {
+                            "README.md"
+                        } else "download_${System.currentTimeMillis()}.$ext"
+                    }
                 }
                 var fileName = sanitizeFileName(resolvedName)
                 val targetMime = FileUtils.resolveMimeTypeForDownload(fileName, detectedMime)
@@ -274,10 +350,12 @@ object DownloadHandler {
 
                 val downloadId = System.currentTimeMillis()
                 val database = AppDatabase.getInstance(context)
+                val cleanPageUrl = if (originalPageUrl.startsWith("http://", ignoreCase = true) ||
+                    originalPageUrl.startsWith("https://", ignoreCase = true)) originalPageUrl else ""
                 database.downloadDao().insertDownload(
                     DownloadItem(
                         id = downloadId,
-                        url = "data:$detectedMime;base64,...",
+                        url = cleanPageUrl,
                         fileName = fileName,
                         filePath = savedPath,
                         mimeType = targetMime,
@@ -290,7 +368,7 @@ object DownloadHandler {
                 try {
                     val completedTask = com.onyx.browser.download.DownloadTask(
                         id = downloadId,
-                        url = "data:$detectedMime",
+                        url = cleanPageUrl.ifBlank { "data:$detectedMime" },
                         fileName = fileName,
                         mimeType = targetMime,
                         userAgent = "",
@@ -337,17 +415,20 @@ object DownloadHandler {
     fun resolveFallbackUrl(pageUrl: String, fileName: String): String? {
         if (pageUrl.isBlank()) return null
         try {
+            val cleanPageUrl = pageUrl.substringBefore('#').substringBefore('?')
+
             // 1. GitHub blob view: https://github.com/owner/repo/blob/branch/path/to/file
-            val ghBlobRegex = Regex("""^https?://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$""", RegexOption.IGNORE_CASE)
-            val ghBlobMatch = ghBlobRegex.find(pageUrl)
+            val ghBlobRegex = Regex("""^https?://github\.com/([^/]+)/([^/]+)/blob/(.+)$""", RegexOption.IGNORE_CASE)
+            val ghBlobMatch = ghBlobRegex.find(cleanPageUrl)
             if (ghBlobMatch != null) {
-                val (owner, repo, branch, path) = ghBlobMatch.destructured
-                return "https://raw.githubusercontent.com/$owner/$repo/$branch/$path"
+                val (owner, repo, rest) = ghBlobMatch.destructured
+                val cleanRest = rest.trim('/')
+                return "https://raw.githubusercontent.com/$owner/$repo/$cleanRest"
             }
 
             // 2. GitHub repo root or tree: https://github.com/owner/repo or /tree/branch
             val ghRepoRegex = Regex("""^https?://github\.com/([^/]+)/([^/]+)(?:/tree/([^/]+))?/?$""", RegexOption.IGNORE_CASE)
-            val ghRepoMatch = ghRepoRegex.find(pageUrl)
+            val ghRepoMatch = ghRepoRegex.find(cleanPageUrl)
             if (ghRepoMatch != null && fileName.isNotBlank() && !fileName.endsWith(".bin") && !fileName.matches(Regex("^[0-9a-fA-F-]{36}.*"))) {
                 val (owner, repo, branch) = ghRepoMatch.destructured
                 val b = if (branch.isNotBlank()) branch else "HEAD"
@@ -355,27 +436,30 @@ object DownloadHandler {
             }
 
             // 3. GitLab blob view: https://gitlab.com/owner/repo/-/blob/branch/path
-            val glBlobRegex = Regex("""^https?://gitlab\.com/([^/]+)/([^/]+)/-/blob/([^/]+)/(.+)$""", RegexOption.IGNORE_CASE)
-            val glBlobMatch = glBlobRegex.find(pageUrl)
+            val glBlobRegex = Regex("""^https?://gitlab\.com/([^/]+)/([^/]+)/-/blob/(.+)$""", RegexOption.IGNORE_CASE)
+            val glBlobMatch = glBlobRegex.find(cleanPageUrl)
             if (glBlobMatch != null) {
-                val (owner, repo, branch, path) = glBlobMatch.destructured
-                return "https://gitlab.com/$owner/$repo/-/raw/$branch/$path"
+                val (owner, repo, rest) = glBlobMatch.destructured
+                val cleanRest = rest.trim('/')
+                return "https://gitlab.com/$owner/$repo/-/raw/$cleanRest"
             }
 
             // 4. Bitbucket src: https://bitbucket.org/owner/repo/src/branch/path
-            val bbRegex = Regex("""^https?://bitbucket\.org/([^/]+)/([^/]+)/src/([^/]+)/(.+)$""", RegexOption.IGNORE_CASE)
-            val bbMatch = bbRegex.find(pageUrl)
+            val bbRegex = Regex("""^https?://bitbucket\.org/([^/]+)/([^/]+)/src/(.+)$""", RegexOption.IGNORE_CASE)
+            val bbMatch = bbRegex.find(cleanPageUrl)
             if (bbMatch != null) {
-                val (owner, repo, branch, path) = bbMatch.destructured
-                return "https://bitbucket.org/$owner/$repo/raw/$branch/$path"
+                val (owner, repo, rest) = bbMatch.destructured
+                val cleanRest = rest.trim('/')
+                return "https://bitbucket.org/$owner/$repo/raw/$cleanRest"
             }
 
             // 5. Codeberg / Gitea: https://codeberg.org/owner/repo/src/branch/branch/path
-            val giteaRegex = Regex("""^https?://([^/]+)/([^/]+)/([^/]+)/src/branch/([^/]+)/(.+)$""", RegexOption.IGNORE_CASE)
-            val giteaMatch = giteaRegex.find(pageUrl)
+            val giteaRegex = Regex("""^https?://([^/]+)/([^/]+)/([^/]+)/src/branch/(.+)$""", RegexOption.IGNORE_CASE)
+            val giteaMatch = giteaRegex.find(cleanPageUrl)
             if (giteaMatch != null) {
-                val (host, owner, repo, branch, path) = giteaMatch.destructured
-                return "https://$host/$owner/$repo/raw/branch/$branch/$path"
+                val (host, owner, repo, rest) = giteaMatch.destructured
+                val cleanRest = rest.trim('/')
+                return "https://$host/$owner/$repo/raw/branch/$cleanRest"
             }
         } catch (_: Exception) {}
         return null
@@ -428,9 +512,10 @@ object DownloadHandler {
         blobUrl: String,
         contentDisposition: String = "",
         mimeType: String = "",
-        referer: String = ""
+        referer: String = "",
+        suggestedFileName: String? = null
     ) {
-        val mainAct = activity as? MainActivity
+        val mainAct = (activity as? MainActivity) ?: MainActivity.currentInstance?.get()
         val webView = mainAct?.getActiveWebView()
         if (webView == null) {
             Toast.makeText(activity, "Cannot download blob without active webpage", Toast.LENGTH_SHORT).show()
@@ -439,7 +524,9 @@ object DownloadHandler {
 
         val pageUrl = referer.ifBlank { webView.url ?: "" }
         val guessedFileName = URLUtil.guessFileName(blobUrl, contentDisposition, mimeType)
-        val initialFileName = if (guessedFileName.isNotBlank() && !guessedFileName.endsWith(".bin") && !guessedFileName.matches(Regex("^[0-9a-fA-F-]{36}.*"))) {
+        val initialFileName = if (!suggestedFileName.isNullOrBlank()) {
+            sanitizeFileName(suggestedFileName)
+        } else if (guessedFileName.isNotBlank() && !guessedFileName.endsWith(".bin") && !guessedFileName.matches(Regex("^[0-9a-fA-F-]{36}.*"))) {
             sanitizeFileName(guessedFileName)
         } else {
             extractFileNameFromPageUrl(pageUrl) ?: "download_${System.currentTimeMillis()}"
@@ -460,7 +547,14 @@ object DownloadHandler {
                 var pageUrl = atob('$b64PageUrl');
 
                 function sendSuccess(dataUrl, resolvedName, resolvedMime) {
-                    if (window.OnyxBlobBridge && window.OnyxBlobBridge.onBlobDownloaded) {
+                    if (window.OnyxBlobBridge && window.OnyxBlobBridge.onBlobDownloadedWithContext) {
+                        window.OnyxBlobBridge.onBlobDownloadedWithContext(
+                            dataUrl,
+                            resolvedName || defaultFileName,
+                            resolvedMime || defaultMime || 'application/octet-stream',
+                            pageUrl
+                        );
+                    } else if (window.OnyxBlobBridge && window.OnyxBlobBridge.onBlobDownloaded) {
                         window.OnyxBlobBridge.onBlobDownloaded(
                             dataUrl,
                             resolvedName || defaultFileName,

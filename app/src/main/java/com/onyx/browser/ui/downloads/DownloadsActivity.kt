@@ -329,7 +329,12 @@ class DownloadsActivity : AppCompatActivity() {
         val timeFormatted = DateUtils.getRelativeTimeSpanString(item.downloadTime, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
         menuBinding.tvMenuFileDetails.text = listOfNotNull(sizeFormatted.ifEmpty { null }, timeFormatted).joinToString(" • ")
 
-        menuBinding.tvMenuSiteUrl.text = item.url.ifBlank { "Original site unknown" }
+        val isLocalData = item.url.startsWith("data:", ignoreCase = true) || item.url.startsWith("blob:", ignoreCase = true)
+        val displaySiteUrl = when {
+            item.url.isNotBlank() && !isLocalData -> item.url
+            else -> "Locally generated / page data"
+        }
+        menuBinding.tvMenuSiteUrl.text = displaySiteUrl
 
         menuBinding.menuOpenOrInstall.setOnClickListener {
             bottomSheet.dismiss()
@@ -363,6 +368,10 @@ class DownloadsActivity : AppCompatActivity() {
 
         menuBinding.menuOpenSite.setOnClickListener {
             bottomSheet.dismiss()
+            if (isLocalData || item.url.isBlank()) {
+                Toast.makeText(this, "Original website not available for locally generated file", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             openOriginalSite(item)
         }
 
@@ -573,13 +582,14 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun openOriginalSite(item: DownloadItem) {
-        if (item.url.isBlank()) {
-            Toast.makeText(this, "Original URL not available", Toast.LENGTH_SHORT).show()
+        val rawUrl = item.url.trim()
+        if (rawUrl.isBlank() || rawUrl.startsWith("data:", ignoreCase = true) || rawUrl.startsWith("blob:", ignoreCase = true)) {
+            Toast.makeText(this, "Original website not available for locally generated file", Toast.LENGTH_SHORT).show()
             return
         }
         val intent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            data = Uri.parse(item.url)
+            data = Uri.parse(rawUrl)
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         startActivity(intent)
@@ -757,7 +767,15 @@ class DownloadsActivity : AppCompatActivity() {
             addRow("Size", Formatter.formatFileSize(this, item.fileSize))
         }
         addRow("File Path", item.filePath, isCopyable = true)
-        addRow("URL", item.url, isCopyable = true)
+        val isLocalData = item.url.startsWith("data:", ignoreCase = true) || item.url.startsWith("blob:", ignoreCase = true)
+        val detailsUrl = when {
+            item.url.isNotBlank() && !isLocalData -> item.url
+            item.url.isNotBlank() && isLocalData -> "Locally generated data"
+            else -> ""
+        }
+        if (detailsUrl.isNotBlank()) {
+            addRow("URL", detailsUrl, isCopyable = !isLocalData)
+        }
 
         if (item.sha256.isNotBlank()) {
             addRow("SHA-256 Checksum", item.sha256, isCopyable = true)
@@ -805,17 +823,20 @@ class DownloadsActivity : AppCompatActivity() {
             container.addView(resultView)
         }
 
-        MaterialAlertDialogBuilder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle(item.fileName)
             .setView(container)
             .setPositiveButton("Close", null)
-            .setNeutralButton("Share Link") { _, _ ->
+
+        if (!isLocalData && item.url.isNotBlank()) {
+            builder.setNeutralButton("Share Link") { _, _ ->
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
                     putExtra(Intent.EXTRA_TEXT, item.url)
                 }
                 startActivity(Intent.createChooser(shareIntent, "Share Download Link"))
             }
-            .show()
+        }
+        builder.show()
     }
 }

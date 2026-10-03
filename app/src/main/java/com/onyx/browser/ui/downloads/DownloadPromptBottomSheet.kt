@@ -71,7 +71,7 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
             referer = it.getString(ARG_REFERER, "")
         }
 
-        initialFileName = DownloadHandler.guessResolvedFileName(fileUrl, contentDisposition, mimeType)
+        initialFileName = DownloadHandler.guessResolvedFileName(fileUrl, contentDisposition, mimeType, referer)
     }
 
     override fun onCreateView(
@@ -115,26 +115,84 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
             binding.etFileName.requestFocus()
         }
 
-        // Website Details
-        val host = try {
-            Uri.parse(fileUrl).host ?: fileUrl
-        } catch (_: Exception) {
-            fileUrl
-        }
-        binding.tvDomain.text = host
-        binding.tvUrl.text = fileUrl
+        val isBlobOrData = fileUrl.startsWith("data:", ignoreCase = true) || fileUrl.startsWith("blob:", ignoreCase = true)
 
-        binding.btnCopyUrl.setOnClickListener {
-            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText("URL", fileUrl)
-            clipboard.setPrimaryClip(clip)
-            Toast.makeText(requireContext(), R.string.url_copied, Toast.LENGTH_SHORT).show()
+        // Website Details
+        if (isBlobOrData) {
+            val displayUrl = referer.ifBlank { "Locally generated data" }
+            val host = try {
+                if (referer.isNotBlank()) Uri.parse(referer).host ?: referer else "Locally generated"
+            } catch (_: Exception) {
+                "Locally generated"
+            }
+            binding.tvDomain.text = host
+            binding.tvUrl.text = displayUrl
+
+            binding.btnCopyUrl.setOnClickListener {
+                val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("URL", displayUrl)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(requireContext(), R.string.url_copied, Toast.LENGTH_SHORT).show()
+            }
+
+            // In-memory blobs and data URIs cannot be accessed by external downloader apps
+            binding.btnDownloadExternal.visibility = View.GONE
+        } else {
+            val host = try {
+                Uri.parse(fileUrl).host ?: fileUrl
+            } catch (_: Exception) {
+                fileUrl
+            }
+            binding.tvDomain.text = host
+            binding.tvUrl.text = fileUrl
+
+            binding.btnCopyUrl.setOnClickListener {
+                val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("URL", fileUrl)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(requireContext(), R.string.url_copied, Toast.LENGTH_SHORT).show()
+            }
+
+            binding.btnDownloadExternal.visibility = View.VISIBLE
         }
 
         // Action 1: Default Downloader
         binding.btnDownloadDefault.setOnClickListener {
             val chosenName = binding.etFileName.text?.toString()?.trim() ?: initialFileName
             val finalFileName = if (chosenName.isNotBlank()) chosenName else initialFileName
+
+            if (fileUrl.startsWith("data:", ignoreCase = true)) {
+                DownloadHandler.handleDataUriDownload(
+                    context = requireContext().applicationContext,
+                    coroutineScope = downloadScope,
+                    dataUri = fileUrl,
+                    contentDisposition = contentDisposition,
+                    mimeType = mimeType,
+                    suggestedFileName = finalFileName,
+                    originalPageUrl = referer
+                )
+                dismiss()
+                return@setOnClickListener
+            }
+
+            if (fileUrl.startsWith("blob:", ignoreCase = true)) {
+                val mainAct = (activity as? com.onyx.browser.MainActivity) ?: com.onyx.browser.MainActivity.currentInstance?.get()
+                if (mainAct != null) {
+                    DownloadHandler.handleBlobUriDownload(
+                        activity = mainAct,
+                        coroutineScope = downloadScope,
+                        blobUrl = fileUrl,
+                        contentDisposition = contentDisposition,
+                        mimeType = mimeType,
+                        referer = referer,
+                        suggestedFileName = finalFileName
+                    )
+                } else {
+                    Toast.makeText(requireContext(), "Cannot download blob without active webpage", Toast.LENGTH_SHORT).show()
+                }
+                dismiss()
+                return@setOnClickListener
+            }
 
             checkStorageAndDownload {
                 DownloadHandler.startSystemDownload(

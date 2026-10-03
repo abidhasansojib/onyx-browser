@@ -128,6 +128,7 @@ class MainActivity : AppCompatActivity() {
     private var lastNightMode: Int = -1
 
     companion object {
+        var currentInstance: java.lang.ref.WeakReference<MainActivity>? = null
         const val ACTION_PIP_PLAY_PAUSE = "com.onyx.browser.action.PIP_PLAY_PAUSE"
         const val ACTION_PIP_REWIND = "com.onyx.browser.action.PIP_REWIND"
         const val ACTION_PIP_FORWARD = "com.onyx.browser.action.PIP_FORWARD"
@@ -344,6 +345,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        currentInstance = java.lang.ref.WeakReference(this)
         window.setFlags(
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
@@ -3344,5 +3346,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
         tabManager.clearAllWebViews()
+        if (currentInstance?.get() == this) {
+            currentInstance = null
+        }
     }
 }

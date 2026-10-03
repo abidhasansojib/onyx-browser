@@ -16,25 +16,38 @@ class OnyxBlobBridge(
     private val coroutineScope: CoroutineScope
 ) {
     @JavascriptInterface
-    fun onBlobDownloaded(dataUrl: String, fileName: String, mimeType: String) {
+    fun onBlobDownloadedWithContext(
+        dataUrl: String,
+        fileName: String,
+        mimeType: String,
+        pageUrl: String
+    ) {
         // Guard against OOM: a malicious page could send an enormous data URL.
         // The size check mirrors the same guard in handleDataUriDownload.
         val MAX_DATA_URL_BYTES = 256 * 1024 * 1024 // 256 MB
         if (dataUrl.length > MAX_DATA_URL_BYTES) {
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
+            Handler(Looper.getMainLooper()).post {
                 Toast.makeText(context, "Blob is too large to download this way", Toast.LENGTH_LONG).show()
             }
             return
         }
         // Sanitize the file name coming from JS land before handing it to the download system.
         val safeFileName = DownloadHandler.sanitizeFileName(fileName.take(255))
+        val safePageUrl = if (pageUrl.startsWith("http://", ignoreCase = true) ||
+            pageUrl.startsWith("https://", ignoreCase = true)) pageUrl else ""
         DownloadHandler.handleDataUriDownload(
             context = context,
             coroutineScope = coroutineScope,
             dataUri = dataUrl,
             mimeType = mimeType,
-            suggestedFileName = safeFileName
+            suggestedFileName = safeFileName,
+            originalPageUrl = safePageUrl
         )
+    }
+
+    @JavascriptInterface
+    fun onBlobDownloaded(dataUrl: String, fileName: String, mimeType: String) {
+        onBlobDownloadedWithContext(dataUrl, fileName, mimeType, "")
     }
 
     @JavascriptInterface
