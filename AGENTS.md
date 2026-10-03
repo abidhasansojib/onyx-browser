@@ -130,7 +130,7 @@ onyx-browser/
 │   │   │   │
 │   │   │   ├── ui/                 # Presentation Layer (XML ViewBinding)
 │   │   │   │   ├── bookmarks/      # BookmarksActivity & BookmarksAdapter
-│   │   │   │   ├── browser/        # TabManager (WebView lifecycle & tab state persistence)
+│   │   │   │   ├── browser/        # TabManager, PageExportManager, FindInPageController
 │   │   │   │   ├── downloads/      # DownloadsActivity, DownloadPromptBottomSheet, 1DM handoff
 │   │   │   │   ├── history/        # HistoryActivity & HistoryAdapter
 │   │   │   │   ├── home/           # ShortcutsAdapter, quick action rows, drag-and-drop reordering
@@ -148,7 +148,8 @@ onyx-browser/
 │   │   │       ├── OnyxWebChromeClient.kt    # Fullscreen video, file chooser, WebRTC permissions
 │   │   │       ├── OnyxWebView.kt            # Hardened WebView, hardware layer, sandboxing
 │   │   │       ├── OnyxWebViewClient.kt      # URL routing, type-aware 200 OK stubs, scheme dispatcher
-│   │   │       └── PasskeyWebAuthnBridge.kt  # AndroidX Credential Manager WebAuthn bridge
+│   │   │       ├── PasskeyWebAuthnBridge.kt  # AndroidX Credential Manager WebAuthn bridge
+│   │   │       └── TabActionCallback.kt      # Decoupled interface breaking circular MainActivity references
 │   │   │
 │   │   ├── res/                    # Google Theme styles (Light/Dark/AMOLED), layouts, vectors
 │   │   └── AndroidManifest.xml     # SingleTask launchMode, queries, hardware acceleration, permissions
@@ -595,5 +596,8 @@ onyx-browser/
     - **Procedural Cosmetic Filtering**: Added a procedural rule runner in `AdBlockDocumentStart.kt` evaluating `:has-text()`, `:upward()`, `:min-text-length()`, and actions (`remove`, `style`, `remove-attr`, `remove-class`) on dynamic DOM nodes, fetched via `OnyxShieldBridge.getProceduralActions()`.
     - **DOM Honeypot Defuser & Bridge Deduplication**: Defused `getBoundingClientRect()` on bait elements to return realistic dimensions (`300x250`); added `checkedIdentifiers` Set in JavaScript to eliminate redundant bridge calls for already-evaluated selectors on infinite-scroll pages.
     - **AndroidX WorkManager 24h Background Sync**: Implemented `FilterUpdateWorker` scheduled in `OnyxApplication.kt` with `PeriodicWorkRequestBuilder(24, TimeUnit.HOURS)` constrained to unmetered Wi-Fi and healthy battery, compiling filter lists silently in the background.
-    - **In-Page Visual Element Blocker (Zapper)**: Implemented `ElementPickerManager.kt` and `menuItemBlockElement` in `bottom_sheet_menu.xml`. Injects an interactive touch/pointer highlight overlay, computes optimal CSS selectors, hides elements immediately, and persists rules to `BrowserPreferences.customFilterRules` with background filter recompilation via `OnyxShieldBridge.saveCustomCosmeticRule`.
-
+18. **Architecture Refactoring & Component Decoupling Milestone**:
+    - **TabActionCallback Interface Decoupling**: Introduced `TabActionCallback.kt` (`closeTab`, `displayPopupTab`, `getTabById`) to replace the circular `findMainActivity()` Context wrapper chain walking inside `OnyxWebViewClient`. `MainActivity` implements the interface and passes itself cleanly via constructor, improving modularity and testability.
+    - **PageExportManager Extraction**: Extracted page export pipeline from `MainActivity` into dedicated `PageExportManager.kt` (~290 lines). Encapsulates MHTML web archive generation, headless PDF printing via `PdfPrintHelper`, system printer dispatch, and Scoped Storage MediaStore resolution.
+    - **FindInPageController Extraction**: Extracted Find-in-Page search bar lifecycle, regex matching mode toggling, text watch debounce, and match count indicators from `MainActivity` into dedicated `FindInPageController.kt`.
+    - **BrowserPreferences Singleton Lookup Optimization**: Consolidated repeated `BrowserPreferences.getInstance(context)` calls in `OnyxWebView.configureSettings()` into a single scoped variable.
