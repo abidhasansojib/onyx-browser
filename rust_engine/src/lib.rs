@@ -2,15 +2,16 @@ use adblock::engine::Engine;
 use adblock::lists::{FilterSet, ParseOptions};
 use adblock::request::Request;
 use adblock::resources::Resource;
+use arc_swap::ArcSwapOption;
 use jni::objects::{JByteArray, JClass, JString};
-use jni::sys::{jboolean, jbyteArray, jstring, JNI_FALSE, JNI_TRUE};
+use jni::sys::{jboolean, jbyteArray, jint, jstring, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 use std::collections::HashSet;
 use std::panic::catch_unwind;
 use std::ptr;
-use std::sync::RwLock;
+use std::sync::Arc;
 
-static ENGINE: RwLock<Option<Engine>> = RwLock::new(None);
+static ENGINE: ArcSwapOption<Engine> = ArcSwapOption::const_empty();
 
 /// Initializes the adblock engine from a pre-compiled binary filter buffer.
 #[no_mangle]
@@ -30,12 +31,8 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initEngi
             return JNI_FALSE;
         }
 
-        if let Ok(mut lock) = ENGINE.write() {
-            *lock = Some(engine);
-            JNI_TRUE
-        } else {
-            JNI_FALSE
-        }
+        ENGINE.store(Some(Arc::new(engine)));
+        JNI_TRUE
     });
 
     result.unwrap_or(JNI_FALSE)
@@ -59,10 +56,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initFrom
         let engine = Engine::new_with_filter_set(filter_set);
 
         let serialized = engine.serialize();
-
-        if let Ok(mut lock) = ENGINE.write() {
-            *lock = Some(engine);
-        }
+        ENGINE.store(Some(Arc::new(engine)));
 
         match env.byte_array_from_slice(&serialized) {
             Ok(arr) => arr.into_raw(),
@@ -94,9 +88,13 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_loadReso
             Err(_) => return JNI_FALSE,
         };
 
-        if let Ok(mut lock) = ENGINE.write() {
-            if let Some(ref mut engine) = *lock {
-                engine.use_resources(resources);
+        let current_guard = ENGINE.load();
+        if let Some(ref current_engine) = *current_guard {
+            let serialized = current_engine.serialize();
+            let mut new_engine = Engine::default();
+            if new_engine.deserialize(&serialized).is_ok() {
+                new_engine.use_resources(resources);
+                ENGINE.store(Some(Arc::new(new_engine)));
                 return JNI_TRUE;
             }
         }
@@ -107,7 +105,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_loadReso
     result.unwrap_or(JNI_FALSE)
 }
 
-/// Checks if a network request to `url` originating from `source_url` with `resource_type` should be blocked.
+/// Legacy checkUrl using String resource_type.
 #[no_mangle]
 pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkUrl(
     mut env: JNIEnv,
@@ -134,13 +132,12 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkUrl
             Err(_) => "other".to_string(),
         };
 
-        if let Ok(lock) = ENGINE.read() {
-            if let Some(ref engine) = *lock {
-                if let Ok(request) = Request::new(&url_str, &source_str, &type_str, "GET") {
-                    let blocker_result = engine.check_network_request(&request);
-                    if blocker_result.should_block() {
-                        return JNI_TRUE;
-                    }
+        let engine_guard = ENGINE.load();
+        if let Some(ref engine) = *engine_guard {
+            if let Ok(request) = Request::new(&url_str, &source_str, &type_str, "GET") {
+                let blocker_result = engine.check_network_request(&request);
+                if blocker_result.should_block() {
+                    return JNI_TRUE;
                 }
             }
         }
@@ -151,11 +148,73 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkUrl
     result.unwrap_or(JNI_FALSE)
 }
 
+/// High-performance request checking using an integer resource type and lock-free engine reads.
+/// Returns:
+/// - null: request is allowed
+/// - "blocked": request is blocked
+/// - "redirect:<data_or_url>": request is matched with a surrogate script/redirect
+#[no_mangle]
+pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkRequestNative(
+    mut env: JNIEnv,
+    _class: JClass,
+    url: JString,
+    source_url: JString,
+    resource_type: jint,
+) -> jstring {
+    let result = catch_unwind(move || {
+        let url_str: String = match env.get_string(&url) {
+            Ok(s) => s.into(),
+            Err(_) => return ptr::null_mut(),
+        };
+        if url_str.is_empty() {
+            return ptr::null_mut();
+        }
+
+        let source_str: String = match env.get_string(&source_url) {
+            Ok(s) => s.into(),
+            Err(_) => String::new(),
+        };
+
+        let type_str = match resource_type {
+            1 => "script",
+            2 => "image",
+            3 => "stylesheet",
+            4 => "sub_frame",
+            5 => "xhr",
+            6 => "media",
+            7 => "main_frame",
+            _ => "other",
+        };
+
+        let engine_guard = ENGINE.load();
+        if let Some(ref engine) = *engine_guard {
+            if let Ok(request) = Request::new(&url_str, &source_str, type_str, "GET") {
+                let blocker_result = engine.check_network_request(&request);
+                if let Some(ref redirect) = blocker_result.redirect {
+                    if !redirect.is_empty() {
+                        return match env.new_string(format!("redirect:{}", redirect)) {
+                            Ok(s) => s.into_raw(),
+                            Err(_) => ptr::null_mut(),
+                        };
+                    }
+                }
+                if blocker_result.should_block() {
+                    return match env.new_string("blocked") {
+                        Ok(s) => s.into_raw(),
+                        Err(_) => ptr::null_mut(),
+                    };
+                }
+            }
+        }
+
+        ptr::null_mut()
+    });
+
+    result.unwrap_or(ptr::null_mut())
+}
+
 /// Returns a JSON object with cosmetic filter resources for the given URL.
-/// JSON format: {"css":"<hide selectors css>","script":"<injected scriptlet JS>","generichide":<bool>}
-/// - "css": CSS stylesheet string to inject (hide_selectors formatted as display:none rules)
-/// - "script": Raw JS scriptlet code to inject at document_start (empty string if none)
-/// - "generichide": true if generic cosmetic filters should be suppressed for this page
+/// JSON format: {"css":"...","script":"...","generichide":<bool>,"exceptions":[...],"procedural":[...]}
 #[no_mangle]
 pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosmeticResources(
     mut env: JNIEnv,
@@ -172,50 +231,53 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
         let mut script = String::new();
         let mut generichide = false;
         let mut exceptions_vec: Vec<String> = Vec::new();
+        let mut procedural_vec: Vec<String> = Vec::new();
 
         if !url_str.is_empty() {
-            if let Ok(lock) = ENGINE.read() {
-                if let Some(ref engine) = *lock {
-                    let resources = engine.url_cosmetic_resources(&url_str);
+            let engine_guard = ENGINE.load();
+            if let Some(ref engine) = *engine_guard {
+                let resources = engine.url_cosmetic_resources(&url_str);
 
-                    // Build CSS from hide_selectors
-                    if !resources.hide_selectors.is_empty() {
-                        let selectors: Vec<&str> =
-                            resources.hide_selectors.iter().map(|s| s.as_str()).collect();
-                        css = format!("{} {{ display: none !important; }}", selectors.join(", "));
-                    }
-
-                    // Get scriptlet JS code (compiled from +js() rules using loaded resources)
-                    script = resources.injected_script;
-
-                    // Propagate generichide flag
-                    generichide = resources.generichide;
-
-                    // Propagate exceptions for generic rules
-                    exceptions_vec = resources.exceptions.into_iter().collect();
+                // Build CSS from hide_selectors
+                if !resources.hide_selectors.is_empty() {
+                    let selectors: Vec<&str> =
+                        resources.hide_selectors.iter().map(|s| s.as_str()).collect();
+                    css = format!("{} {{ display: none !important; }}", selectors.join(", "));
                 }
+
+                // Get scriptlet JS code (compiled from +js() rules using loaded resources)
+                script = resources.injected_script;
+
+                // Propagate generichide flag
+                generichide = resources.generichide;
+
+                // Propagate exceptions for generic rules
+                exceptions_vec = resources.exceptions.into_iter().collect();
+
+                // Propagate procedural actions
+                procedural_vec = resources.procedural_actions.into_iter().collect();
             }
         }
 
-        // Use serde_json for correct JSON string escaping of the scriptlet JS
-        // (handles newlines, tabs, control chars, quotes — all common in scriptlet code)
         let css_val = serde_json::Value::String(css);
         let script_val = serde_json::Value::String(script);
         let exceptions_val = serde_json::to_value(&exceptions_vec).unwrap_or(serde_json::Value::Array(Vec::new()));
+        let procedural_val = serde_json::to_value(&procedural_vec).unwrap_or(serde_json::Value::Array(Vec::new()));
         format!(
-            "{{\"css\":{},\"script\":{},\"generichide\":{},\"exceptions\":{}}}",
+            "{{\"css\":{},\"script\":{},\"generichide\":{},\"exceptions\":{},\"procedural\":{}}}",
             css_val,
             script_val,
             generichide,
-            exceptions_val
+            exceptions_val,
+            procedural_val
         )
     }));
 
-    let json_out = result.unwrap_or_else(|_| "{\"css\":\"\",\"script\":\"\",\"generichide\":false,\"exceptions\":[]}".to_string());
+    let json_out = result.unwrap_or_else(|_| "{\"css\":\"\",\"script\":\"\",\"generichide\":false,\"exceptions\":[],\"procedural\":[]}".to_string());
     match env.new_string(json_out) {
         Ok(s) => s.into_raw(),
         Err(_) => env
-            .new_string("{\"css\":\"\",\"script\":\"\",\"generichide\":false,\"exceptions\":[]}")
+            .new_string("{\"css\":\"\",\"script\":\"\",\"generichide\":false,\"exceptions\":[],\"procedural\":[]}")
             .map(|s| s.into_raw())
             .unwrap_or(ptr::null_mut()),
     }
@@ -223,10 +285,6 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
 
 /// Queries the active adblock engine for generic CSS hide selectors matching
 /// the provided DOM classes and IDs, respecting exceptions.
-/// - classes_json: JSON array of string class names, e.g. "[\"adsbox\",\"banner_ads\"]"
-/// - ids_json: JSON array of string IDs, e.g. "[\"cts_test\",\"interstitial-overlay\"]"
-/// - exceptions_json: JSON array of string exceptions, e.g. "[\"allowed-banner\"]"
-/// Returns a JSON array of matching CSS selector strings, e.g. "[\".adsbox\",\".banner_ads\"]"
 #[no_mangle]
 pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getHiddenClassIdSelectors(
     mut env: JNIEnv,
@@ -268,11 +326,10 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getHidde
         };
         let exceptions: HashSet<String> = exceptions_vec.into_iter().collect();
 
-        if let Ok(lock) = ENGINE.read() {
-            if let Some(ref engine) = *lock {
-                let matching = engine.hidden_class_id_selectors(&classes, &ids, &exceptions);
-                return serde_json::to_string(&matching).unwrap_or_else(|_| "[]".to_string());
-            }
+        let engine_guard = ENGINE.load();
+        if let Some(ref engine) = *engine_guard {
+            let matching = engine.hidden_class_id_selectors(&classes, &ids, &exceptions);
+            return serde_json::to_string(&matching).unwrap_or_else(|_| "[]".to_string());
         }
         "[]".to_string()
     }));
@@ -294,14 +351,13 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_serializ
     _class: JClass,
 ) -> jbyteArray {
     let result = catch_unwind(move || {
-        if let Ok(lock) = ENGINE.read() {
-            if let Some(ref engine) = *lock {
-                let serialized = engine.serialize();
-                return match env.byte_array_from_slice(&serialized) {
-                    Ok(arr) => arr.into_raw(),
-                    Err(_) => ptr::null_mut(),
-                };
-            }
+        let engine_guard = ENGINE.load();
+        if let Some(ref engine) = *engine_guard {
+            let serialized = engine.serialize();
+            return match env.byte_array_from_slice(&serialized) {
+                Ok(arr) => arr.into_raw(),
+                Err(_) => ptr::null_mut(),
+            };
         }
         ptr::null_mut()
     });
@@ -316,10 +372,9 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_isEngine
     _class: JClass,
 ) -> jboolean {
     let result = catch_unwind(|| {
-        if let Ok(lock) = ENGINE.read() {
-            if lock.is_some() {
-                return JNI_TRUE;
-            }
+        let engine_guard = ENGINE.load();
+        if engine_guard.is_some() {
+            return JNI_TRUE;
         }
         JNI_FALSE
     });
