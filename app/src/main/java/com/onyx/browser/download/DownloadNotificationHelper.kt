@@ -186,7 +186,15 @@ object DownloadNotificationHelper {
         val openIntent = try {
             val finalPath = resolvedPath
             if (isApk) {
-                Intent(context, DownloadsActivity::class.java).apply {
+                val canInstall = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.packageManager.canRequestPackageInstalls()
+                } else true
+
+                val directInstallIntent = if (canInstall) {
+                    com.onyx.browser.ui.downloads.ApkInstallerHelper.createInstallIntent(context, finalPath)
+                } else null
+
+                directInstallIntent ?: Intent(context, DownloadsActivity::class.java).apply {
                     putExtra(DownloadsActivity.EXTRA_INSTALL_APK_PATH, finalPath)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 }

@@ -135,6 +135,7 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_WIDGET_SEARCH = "com.onyx.browser.action.WIDGET_SEARCH"
         const val ACTION_WIDGET_VOICE_SEARCH = "com.onyx.browser.action.WIDGET_VOICE_SEARCH"
         const val ACTION_WIDGET_INCOGNITO_SEARCH = "com.onyx.browser.action.WIDGET_INCOGNITO_SEARCH"
+        const val EXTRA_FROM_DOWNLOADS = "com.onyx.browser.extra.FROM_DOWNLOADS"
     }
 
     private fun getMediaTargetWebView(): OnyxWebView? {
@@ -343,6 +344,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val previewTabsFromDownloads = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    private val previewTabsFromExternal = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         currentInstance = java.lang.ref.WeakReference(this)
@@ -358,6 +362,10 @@ class MainActivity : AppCompatActivity() {
         lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         com.onyx.browser.download.OnyxDownloadManager.init(this)
         tabManager = TabManager(this, lifecycleScope)
+        tabManager.onTabClosedListener = { tab ->
+            previewTabsFromDownloads.remove(tab.id)
+            previewTabsFromExternal.remove(tab.id)
+        }
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -495,10 +503,16 @@ class MainActivity : AppCompatActivity() {
             popup.show(binding.btnSearchEngine)
         }
 
-        // Home Button
+        // Home / Back Button
         binding.btnHome.setOnClickListener {
             val currentTab = tabManager.activeTab.value
-            if (currentTab != null) {
+            val isLocalDoc = currentTab != null && (
+                com.onyx.browser.web.LocalFileLoader.isLocalFile(this, currentTab.url) ||
+                com.onyx.browser.web.LocalFileLoader.isPreviewUrl(currentTab.url)
+            )
+            if (isLocalDoc) {
+                onBackPressedDispatcher.onBackPressed()
+            } else if (currentTab != null) {
                 tabManager.updateActiveTab("", "New Tab")
                 showHomeScreen()
             }
@@ -805,6 +819,8 @@ class MainActivity : AppCompatActivity() {
         binding.ivSslLock.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
         binding.swipeRefreshLayout.isEnabled = false
+        binding.btnHome.setImageResource(R.drawable.ic_home)
+        binding.btnHome.contentDescription = getString(R.string.home)
         hideTranslateBar(restoreOriginal = false)
 
         val isIncognito = tabManager.activeTab.value?.isIncognito == true
@@ -1782,11 +1798,22 @@ class MainActivity : AppCompatActivity() {
         if (displayUrl.isBlank() || displayUrl.startsWith("data:") || displayUrl.startsWith("file:///android_asset/") || displayUrl.startsWith("file:///android_res/")) {
             binding.etUrl.setText("")
             binding.ivSslLock.visibility = View.GONE
+            binding.btnHome.setImageResource(R.drawable.ic_home)
+            binding.btnHome.contentDescription = getString(R.string.home)
             return
         }
 
         val isHttps = displayUrl.startsWith("https://")
         binding.ivSslLock.visibility = if (isHttps) View.VISIBLE else View.GONE
+
+        val isLocalDoc = LocalFileLoader.isLocalFile(this, displayUrl) || LocalFileLoader.isPreviewUrl(displayUrl)
+        if (isLocalDoc) {
+            binding.btnHome.setImageResource(R.drawable.ic_arrow_back)
+            binding.btnHome.contentDescription = getString(R.string.back)
+        } else {
+            binding.btnHome.setImageResource(R.drawable.ic_home)
+            binding.btnHome.contentDescription = getString(R.string.home)
+        }
 
         val host = when {
             LocalFileLoader.isLocalFile(this, displayUrl) -> {
@@ -2623,6 +2650,42 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
+                val activeTab = tabManager.activeTab.value
+                val isLocalFilePreview = activeTab != null && (
+                    com.onyx.browser.web.LocalFileLoader.isLocalFile(this@MainActivity, activeTab.url) ||
+                    com.onyx.browser.web.LocalFileLoader.isPreviewUrl(activeTab.url) ||
+                    (activeWebView?.url != null && (com.onyx.browser.web.LocalFileLoader.isLocalFile(this@MainActivity, activeWebView.url!!) || com.onyx.browser.web.LocalFileLoader.isPreviewUrl(activeWebView.url!!)))
+                )
+
+                if (isLocalFilePreview && activeTab != null) {
+                    // 1. If in-page anchor navigation exists (e.g. TOC jump in markdown or HTML), go back within WebView
+                    if (activeWebView != null && activeWebView.canGoBack()) {
+                        activeWebView.goBack()
+                        return
+                    }
+
+                    // 2. Otherwise close the preview tab cleanly
+                    val tabId = activeTab.id
+                    val wasFromDownloads = previewTabsFromDownloads.remove(tabId)
+                    val wasFromExternal = previewTabsFromExternal.remove(tabId)
+
+                    tabManager.closeTab(activeTab)
+
+                    if (wasFromDownloads) {
+                        // Return user directly to their Downloads list
+                        startActivity(Intent(this@MainActivity, DownloadsActivity::class.java))
+                        return
+                    }
+
+                    if (wasFromExternal) {
+                        // Return user directly to the external calling file manager
+                        finish()
+                        return
+                    }
+
+                    return
+                }
+
                 if (activeWebView != null && activeWebView.canGoBack()) {
                     activeWebView.goBack()
                     return
@@ -3109,15 +3172,34 @@ class MainActivity : AppCompatActivity() {
         if (intent == null) return
         val targetUrl = extractUrlFromIntent(intent) ?: return
 
+        val isFromDownloads = intent.getBooleanExtra(EXTRA_FROM_DOWNLOADS, false)
+        val isFromExternal = !isFromDownloads && (
+            intent.action == Intent.ACTION_VIEW ||
+            intent.categories?.contains(Intent.CATEGORY_BROWSABLE) == true ||
+            intent.data != null
+        )
+        val isLocalDoc = com.onyx.browser.web.LocalFileLoader.isLocalFile(this, targetUrl) ||
+                com.onyx.browser.web.LocalFileLoader.isPreviewUrl(targetUrl)
+
         val currentTab = tabManager.activeTab.value
-        if (currentTab != null && !currentTab.isIncognito && currentTab.url.isBlank()) {
+        val targetTab = if (currentTab != null && !currentTab.isIncognito && currentTab.url.isBlank()) {
             // Current tab is an unused blank normal tab: reuse it
             tabManager.updateActiveTab(targetUrl, targetUrl)
             showWebView(currentTab, forceUrl = targetUrl)
+            currentTab
         } else {
             // Create a new normal tab for the incoming link so existing tabs remain intact
             val newTab = tabManager.createNewTab(url = targetUrl, isIncognito = false, parentId = currentTab?.id)
             displayTab(newTab)
+            newTab
+        }
+
+        if (isLocalDoc) {
+            if (isFromDownloads) {
+                previewTabsFromDownloads.add(targetTab.id)
+            } else if (isFromExternal) {
+                previewTabsFromExternal.add(targetTab.id)
+            }
         }
 
         if (isSearchMode) {

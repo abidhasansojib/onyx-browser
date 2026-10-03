@@ -45,23 +45,18 @@ object ApkInstallerHelper {
             }
         }
 
-        promptAndHandleInstall(activity, filePath, fileName, onPermissionNeeded)
+        // Directly proceed to installation without redundant in-app prompt (matching Chrome & Brave parity)
+        proceedWithInstall(activity, filePath, onPermissionNeeded)
     }
 
+    @Deprecated("Bypassed in favor of direct system Package Installer handoff")
     fun promptAndHandleInstall(
         activity: Activity,
         filePath: String,
         fileName: String,
         onPermissionNeeded: ((pendingPath: String) -> Unit)? = null
     ) {
-        MaterialAlertDialogBuilder(activity)
-            .setTitle(R.string.install_app_confirm_title)
-            .setMessage(activity.getString(R.string.install_app_confirm_desc, fileName))
-            .setPositiveButton(R.string.install) { _, _ ->
-                proceedWithInstall(activity, filePath, onPermissionNeeded)
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
+        proceedWithInstall(activity, filePath, onPermissionNeeded)
     }
 
     fun proceedWithInstall(
@@ -107,51 +102,62 @@ object ApkInstallerHelper {
             .show()
     }
 
-    fun launchPackageInstaller(activity: Activity, filePath: String) {
-        try {
+    fun createInstallIntent(context: Context, filePath: String): Intent? {
+        return try {
             val uri: Uri = if (filePath.startsWith("content://", ignoreCase = true)) {
                 if (filePath.contains(".fileprovider")) {
                     Uri.parse(filePath)
                 } else {
                     // Copy to temp cache file for reliable PackageInstaller cross-process access
-                    val tempApk = File(activity.cacheDir, "install_pending.apk")
+                    val tempApk = File(context.cacheDir, "install_pending.apk")
                     if (tempApk.exists()) {
                         try { tempApk.delete() } catch (_: Exception) {}
                     }
                     val parsed = Uri.parse(filePath)
-                    activity.contentResolver.openInputStream(parsed)?.use { input ->
+                    context.contentResolver.openInputStream(parsed)?.use { input ->
                         tempApk.outputStream().use { output ->
                             input.copyTo(output)
                         }
                     }
                     FileProvider.getUriForFile(
-                        activity,
-                        "${activity.applicationContext.packageName}.fileprovider",
+                        context,
+                        "${context.applicationContext.packageName}.fileprovider",
                         tempApk
                     )
                 }
             } else {
                 val file = File(filePath)
                 if (!file.exists()) {
-                    Toast.makeText(activity, "APK file not found: ${file.name}", Toast.LENGTH_SHORT).show()
-                    return
+                    return null
                 }
                 FileProvider.getUriForFile(
-                    activity,
-                    "${activity.applicationContext.packageName}.fileprovider",
+                    context,
+                    "${context.applicationContext.packageName}.fileprovider",
                     file
                 )
             }
 
-            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/vnd.android.package-archive")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
             }
-            activity.startActivity(installIntent)
         } catch (e: Exception) {
-            Toast.makeText(activity, "Cannot start installer: ${e.message}", Toast.LENGTH_SHORT).show()
+            null
+        }
+    }
+
+    fun launchPackageInstaller(context: Context, filePath: String) {
+        try {
+            val installIntent = createInstallIntent(context, filePath)
+            if (installIntent != null) {
+                context.startActivity(installIntent)
+            } else {
+                Toast.makeText(context, "Cannot prepare installer for APK", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Cannot start installer: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 }
