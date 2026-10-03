@@ -13,6 +13,7 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
+import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityManagePersonalDataBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -49,6 +50,7 @@ class ManagePersonalDataActivity : AppCompatActivity() {
 
         binding.toolbar.setNavigationOnClickListener { finish() }
 
+        setupAutoClearDropdown()
         setupDropdown()
         setupClearAction()
     }
@@ -67,6 +69,29 @@ class ManagePersonalDataActivity : AppCompatActivity() {
             3 -> now - 7 * 24 * 60 * 60 * 1000L  // Last 7 days
             4 -> now - 28L * 24 * 60 * 60 * 1000L // Last 4 weeks
             else -> 0L                           // All time
+        }
+    }
+
+    private fun setupAutoClearDropdown() {
+        val prefs = BrowserPreferences.getInstance(this)
+        val autoClearOptions = listOf(
+            getString(R.string.auto_clear_never),
+            getString(R.string.auto_clear_on_exit),
+            getString(R.string.auto_clear_60_mins),
+            getString(R.string.auto_clear_1_day),
+            getString(R.string.auto_clear_7_days)
+        )
+
+        val currentInterval = prefs.autoClearInterval.coerceIn(0, autoClearOptions.size - 1)
+        val adapter = ArrayAdapter(this, R.layout.item_dropdown_time_range, autoClearOptions)
+        binding.actvAutoClear.setAdapter(adapter)
+        binding.actvAutoClear.setText(autoClearOptions[currentInterval], false)
+
+        binding.actvAutoClear.setOnItemClickListener { _, _, position, _ ->
+            prefs.autoClearInterval = position
+            prefs.lastAutoClearTimestamp = System.currentTimeMillis()
+            val label = autoClearOptions.getOrNull(position) ?: ""
+            Toast.makeText(this, "Auto-Clear set to: $label", Toast.LENGTH_SHORT).show()
         }
     }
 

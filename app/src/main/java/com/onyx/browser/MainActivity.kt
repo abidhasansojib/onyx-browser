@@ -951,7 +951,11 @@ class MainActivity : AppCompatActivity() {
                 val isPreview = LocalFileLoader.isPreviewUrl(newUrl)
                 val currentTab = tabManager.getTabById(tabId)
                 val realTabUrl = currentTab?.url ?: ""
+                val isLocalView = isLocalFileView(currentTab)
+                val isDirectoryUrl = newUrl.endsWith("/") || (newUrl.startsWith("file://") && try { File(Uri.parse(newUrl).path ?: "").isDirectory } catch (_: Exception) { false })
                 val cleanUrl = if (isPreview) {
+                    realTabUrl
+                } else if (isLocalView && isDirectoryUrl) {
                     realTabUrl
                 } else if (newUrl.startsWith("data:") || newUrl.startsWith("file:///android_asset/") || newUrl.startsWith("file:///android_res/")) {
                     webView.currentSyntheticState?.failingUrl ?: realTabUrl
@@ -975,7 +979,11 @@ class MainActivity : AppCompatActivity() {
                 val isPreview = LocalFileLoader.isPreviewUrl(finishedUrl)
                 val currentTab = tabManager.getTabById(tabId)
                 val realTabUrl = currentTab?.url ?: ""
+                val isLocalView = isLocalFileView(currentTab)
+                val isDirectoryUrl = finishedUrl.endsWith("/") || (finishedUrl.startsWith("file://") && try { File(Uri.parse(finishedUrl).path ?: "").isDirectory } catch (_: Exception) { false })
                 val cleanUrl = if (isPreview) {
+                    realTabUrl
+                } else if (isLocalView && isDirectoryUrl) {
                     realTabUrl
                 } else if (finishedUrl.startsWith("data:") || finishedUrl.startsWith("file:///android_asset/") || finishedUrl.startsWith("file:///android_res/")) {
                     webView.currentSyntheticState?.failingUrl ?: realTabUrl
@@ -1836,14 +1844,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         val host = when {
+            isLocalDoc -> {
+                val realDocUrl = tabManager.activeTab.value?.url?.takeIf { !it.endsWith("/") && (LocalFileLoader.isLocalFile(this, it) || LocalFileLoader.isPreviewUrl(it)) } ?: displayUrl
+                if (LocalFileLoader.isLocalFile(this, realDocUrl)) {
+                    LocalFileLoader.getDisplayName(this, LocalFileLoader.parseUri(realDocUrl))
+                } else {
+                    tabManager.activeTab.value?.title?.takeIf { it.isNotBlank() } ?: "Document Preview"
+                }
+            }
             LocalFileLoader.isLocalFile(this, displayUrl) -> {
                 LocalFileLoader.getDisplayName(this, LocalFileLoader.parseUri(displayUrl))
             }
             LocalFileLoader.isPreviewUrl(displayUrl) -> {
                 tabManager.activeTab.value?.title?.takeIf { it.isNotBlank() } ?: "Web Archive"
-            }
-            isLocalDoc -> {
-                tabManager.activeTab.value?.title?.takeIf { it.isNotBlank() } ?: "Document Preview"
             }
             else -> try {
                 Uri.parse(displayUrl).host ?: displayUrl
@@ -3103,6 +3116,9 @@ class MainActivity : AppCompatActivity() {
             binding.fabScrollToTop.visibility = View.GONE
         }
 
+        // 4. Check and execute scheduled Auto-Clear if interval has elapsed
+        com.onyx.browser.data.PersonalDataManager.checkAndPerformScheduledAutoClear(this)
+
         // 4. Sync webview settings
         val wv = tabManager.getActiveWebView()
         wv?.onResume()
@@ -3481,6 +3497,7 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
         MediaPlaybackService.mediaActionListener = null
         if (isFinishing) {
+            com.onyx.browser.data.PersonalDataManager.performExitAutoClear(this)
             tabManager.closeAllTabs(incognitoOnly = true)
             com.onyx.browser.incognito.IncognitoNotificationHelper.dismissNotification(this)
             if (TabManager.activeInstance == tabManager) {

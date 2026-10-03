@@ -537,3 +537,15 @@ onyx-browser/
      - `isSyntheticOrDataUrl`: Expanded in `OnyxWebView.kt` to match `url.startsWith("about:blank", ignoreCase = true)`.
      - `btnHome`: Tapping the back arrow (`ic_arrow_back`) in local file preview routes cleanly to `onBackPressedDispatcher.onBackPressed()`, while on normal tabs or home screen it smoothly switches to the home screen.
 
+15. **Local Document Preview URL & Pull-to-Refresh Reliability, and Personal Data Auto-Clear Engine**:
+    - **Document Preview URL & Pull-to-Refresh Fix**:
+      - Replaced directory baseUrl (file://${parent.absolutePath}/) with exact document URI (documentBaseUrl) in LocalFileLoader.kt across HTML, Markdown, and Plain Text renderers. Chromium's Blink parser previously treated directory base URLs as the document URL, causing onPageFinished to report /storage/emulated/0/Download/ to the omnibox and Room database.
+      - Updated showErrorPage to use the file URI as baseUrl.
+      - In MainActivity.kt, added isLocalView && isDirectoryUrl guards in onUrlChanged and onPageFinishedCallback to prevent directory paths from overwriting tab.url, ensuring pull-to-refresh reliably reloads the actual document instead of throwing 'Cannot Open Document - Could not read text document. Target URI: file:///storage/emulated/0/Download/'.
+      - Refined updateAddressBarDisplay() to consistently resolve and show the document's real display name via LocalFileLoader.getDisplayName.
+    - **Personal Data Auto-Clear Engine & Settings Redesign**:
+      - Implemented PersonalDataManager with centralized, deep data purging: Room browsing history DAO, CookieManager, WebStorage, WebView cache, Favicon disk/memory cache, tab thumbnail cache, local web archives, and temporary downloads.
+      - Added autoClearInterval (persisted in BrowserPreferences) defaulting to AUTO_CLEAR_NEVER (0), with options for Immediately after app exit (1), Every 60 minutes (2), Every 1 day (3), and Every 7 days (4).
+      - Wired PersonalDataManager.checkAndPerformScheduledAutoClear(context) into OnyxApplication.onCreate and MainActivity.onResume to handle periodic intervals safely.
+      - Wired PersonalDataManager.performExitAutoClear(context) into MainActivity.onDestroy (when isFinishing = true) with full data and normal tab purge.
+      - Redesigned ManagePersonalDataActivity: added centered toolbar title (app:titleCentered="true"), Material 3 Card 1 for Auto-Clear with exposed dropdown selector, and labeled Card 2 as 'Manual Clear — Time Range'.

@@ -269,12 +269,13 @@ object LocalFileLoader {
 
                     withContext(Dispatchers.Main) {
                         if (htmlContent != null) {
-                            val baseUrl = if (uri.scheme == "file" && uri.path != null) {
-                                val parent = File(uri.path!!).parentFile
-                                if (parent != null) "file://${parent.absolutePath}/" else null
-                            } else null
+                            val documentBaseUrl = if (uri.scheme == "file" || uri.scheme == "content") {
+                                uri.toString()
+                            } else {
+                                "file://$resolvedPath"
+                            }
                             webView.stopLoading()
-                            webView.loadDataWithBaseURL(baseUrl, htmlContent, "text/html", "UTF-8", rawUriOrPath)
+                            webView.loadDataWithBaseURL(documentBaseUrl, htmlContent, "text/html", "UTF-8", rawUriOrPath)
                         } else {
                             showErrorPage(webView, rawUriOrPath, "Could not open HTML document. Permission denied or file not found.")
                         }
@@ -292,14 +293,13 @@ object LocalFileLoader {
                     withContext(Dispatchers.Main) {
                         if (rawMarkdown != null) {
                             val previewHtml = renderMarkdownToHtml(context, fileName, rawMarkdown)
+                            val documentBaseUrl = if (uri.scheme == "file" || uri.scheme == "content") {
+                                uri.toString()
+                            } else {
+                                "file://$resolvedPath"
+                            }
                             webView.stopLoading()
-                            val baseUrl = if (uri.scheme == "file" && uri.path != null) {
-                                val parent = File(uri.path!!).parentFile
-                                if (parent != null) "file://${parent.absolutePath}/" else "file:///"
-                            } else if (uri.scheme == "content") {
-                                rawUriOrPath
-                            } else null
-                            webView.loadDataWithBaseURL(baseUrl, previewHtml, "text/html", "UTF-8", rawUriOrPath)
+                            webView.loadDataWithBaseURL(documentBaseUrl, previewHtml, "text/html", "UTF-8", rawUriOrPath)
                         } else {
                             showErrorPage(webView, rawUriOrPath, "Could not read Markdown document.")
                         }
@@ -316,21 +316,20 @@ object LocalFileLoader {
 
                     withContext(Dispatchers.Main) {
                         if (textContent != null) {
-                            val baseUrl = if (uri.scheme == "file" && uri.path != null) {
-                                val parent = File(uri.path!!).parentFile
-                                if (parent != null) "file://${parent.absolutePath}/" else "file:///"
-                            } else if (uri.scheme == "content") {
-                                rawUriOrPath
-                            } else null
+                            val documentBaseUrl = if (uri.scheme == "file" || uri.scheme == "content") {
+                                uri.toString()
+                            } else {
+                                "file://$resolvedPath"
+                            }
 
                             if (isMarkdownContent(fileName, textContent)) {
                                 val previewHtml = renderMarkdownToHtml(context, fileName, textContent)
                                 webView.stopLoading()
-                                webView.loadDataWithBaseURL(baseUrl, previewHtml, "text/html", "UTF-8", rawUriOrPath)
+                                webView.loadDataWithBaseURL(documentBaseUrl, previewHtml, "text/html", "UTF-8", rawUriOrPath)
                             } else {
                                 val formattedHtml = formatPlainTextAsHtml(fileName, textContent)
                                 webView.stopLoading()
-                                webView.loadDataWithBaseURL(baseUrl, formattedHtml, "text/html", "UTF-8", rawUriOrPath)
+                                webView.loadDataWithBaseURL(documentBaseUrl, formattedHtml, "text/html", "UTF-8", rawUriOrPath)
                             }
                         } else {
                             showErrorPage(webView, rawUriOrPath, "Could not read text document.")
@@ -900,14 +899,11 @@ object LocalFileLoader {
             </body>
             </html>
         """.trimIndent()
-        val baseUrl = if (pathOrUrl.startsWith("file://")) {
-            try {
-                val parent = File(Uri.parse(pathOrUrl).path ?: "").parentFile
-                if (parent != null) "file://${parent.absolutePath}/" else "file:///"
-            } catch (_: Exception) { null }
-        } else if (pathOrUrl.startsWith("content://")) {
+        val baseUrl = if (pathOrUrl.startsWith("file://") || pathOrUrl.startsWith("content://")) {
             pathOrUrl
-        } else null
+        } else {
+            "file://$pathOrUrl"
+        }
         webView.loadDataWithBaseURL(baseUrl, errorHtml, "text/html", "UTF-8", pathOrUrl)
     }
 
