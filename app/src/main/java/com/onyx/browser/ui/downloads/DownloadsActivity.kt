@@ -227,7 +227,6 @@ class DownloadsActivity : AppCompatActivity() {
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             startActivity(intent)
-            finish()
             return
         }
 

@@ -346,6 +346,18 @@ class MainActivity : AppCompatActivity() {
 
     private val previewTabsFromDownloads = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     private val previewTabsFromExternal = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    private val localFileViewTabs = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    fun isLocalFileView(tab: TabItem?): Boolean {
+        if (tab == null) return false
+        val activeWv = tabManager.getActiveWebView()
+        return localFileViewTabs.contains(tab.id) ||
+                previewTabsFromDownloads.contains(tab.id) ||
+                previewTabsFromExternal.contains(tab.id) ||
+                com.onyx.browser.web.LocalFileLoader.isLocalFile(this, tab.url) ||
+                com.onyx.browser.web.LocalFileLoader.isPreviewUrl(tab.url) ||
+                (activeWv?.url != null && (com.onyx.browser.web.LocalFileLoader.isLocalFile(this, activeWv.url!!) || com.onyx.browser.web.LocalFileLoader.isPreviewUrl(activeWv.url!!)))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -365,6 +377,7 @@ class MainActivity : AppCompatActivity() {
         tabManager.onTabClosedListener = { tab ->
             previewTabsFromDownloads.remove(tab.id)
             previewTabsFromExternal.remove(tab.id)
+            localFileViewTabs.remove(tab.id)
         }
 
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -506,11 +519,7 @@ class MainActivity : AppCompatActivity() {
         // Home / Back Button
         binding.btnHome.setOnClickListener {
             val currentTab = tabManager.activeTab.value
-            val isLocalDoc = currentTab != null && (
-                com.onyx.browser.web.LocalFileLoader.isLocalFile(this, currentTab.url) ||
-                com.onyx.browser.web.LocalFileLoader.isPreviewUrl(currentTab.url)
-            )
-            if (isLocalDoc) {
+            if (isLocalFileView(currentTab)) {
                 onBackPressedDispatcher.onBackPressed()
             } else if (currentTab != null) {
                 tabManager.updateActiveTab("", "New Tab")
@@ -2651,38 +2660,38 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val activeTab = tabManager.activeTab.value
-                val isLocalFilePreview = activeTab != null && (
-                    com.onyx.browser.web.LocalFileLoader.isLocalFile(this@MainActivity, activeTab.url) ||
-                    com.onyx.browser.web.LocalFileLoader.isPreviewUrl(activeTab.url) ||
-                    (activeWebView?.url != null && (com.onyx.browser.web.LocalFileLoader.isLocalFile(this@MainActivity, activeWebView.url!!) || com.onyx.browser.web.LocalFileLoader.isPreviewUrl(activeWebView.url!!)))
-                )
+                val isLocalPreview = isLocalFileView(activeTab)
 
-                if (isLocalFilePreview && activeTab != null) {
+                if (isLocalPreview && activeTab != null) {
                     // 1. If in-page anchor navigation exists (e.g. TOC jump in markdown or HTML), go back within WebView
                     if (activeWebView != null && activeWebView.canGoBack()) {
                         activeWebView.goBack()
                         return
                     }
 
-                    // 2. Otherwise close the preview tab cleanly
+                    // 2. If !activeWebView.canGoBack():
                     val tabId = activeTab.id
                     val wasFromDownloads = previewTabsFromDownloads.remove(tabId)
                     val wasFromExternal = previewTabsFromExternal.remove(tabId)
+                    localFileViewTabs.remove(tabId)
 
-                    tabManager.closeTab(activeTab)
-
-                    if (wasFromDownloads) {
-                        // Return user directly to their Downloads list
-                        startActivity(Intent(this@MainActivity, DownloadsActivity::class.java))
-                        return
-                    }
-
+                    // If opened from an external app (ACTION_VIEW / external task): call finish() to return to the file manager
                     if (wasFromExternal) {
-                        // Return user directly to the external calling file manager
+                        tabManager.closeTab(activeTab)
                         finish()
                         return
                     }
 
+                    // If opened from within Onyx (with a parent tab or Downloads behind it):
+                    // close the preview tab (tabManager.closeTab(activeTab)), restoring the previous tab or Downloads
+                    tabManager.closeTab(activeTab)
+
+                    if (wasFromDownloads) {
+                        startActivity(Intent(this@MainActivity, DownloadsActivity::class.java))
+                        return
+                    }
+
+                    // Never wipe the tab to "" or trap the user on the Home Screen
                     return
                 }
 
@@ -3194,7 +3203,8 @@ class MainActivity : AppCompatActivity() {
             newTab
         }
 
-        if (isLocalDoc) {
+        if (isLocalDoc || intent.action == Intent.ACTION_VIEW) {
+            localFileViewTabs.add(targetTab.id)
             if (isFromDownloads) {
                 previewTabsFromDownloads.add(targetTab.id)
             } else if (isFromExternal) {
