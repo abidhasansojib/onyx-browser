@@ -481,51 +481,52 @@ class TabManager(
             result.add(root)
             result.add("www.$root")
             result.add("m.$root")
-            result.add("mobile.$root")
             result.add("login.$root")
             result.add("auth.$root")
             result.add("accounts.$root")
-            result.add("api.$root")
-        }
-
-        val parts = cleanHost.split('.')
-        if (parts.size > 2) {
-            for (i in 1 until parts.size - 1) {
-                val intermediate = parts.drop(i).joinToString(".")
-                if (intermediate.contains('.')) {
-                    result.add(intermediate)
-                }
-            }
         }
         return result
     }
 
+    private fun extractCandidateUrls(tab: TabItem, webView: OnyxWebView?): List<String> {
+        val urls = linkedSetOf<String>()
+        if (tab.url.isNotBlank()) urls.add(tab.url)
+        webView?.url?.let { if (it.isNotBlank()) urls.add(it) }
+        webView?.originalUrl?.let { if (it.isNotBlank()) urls.add(it) }
+        try {
+            val history = webView?.copyBackForwardList()
+            if (history != null) {
+                for (i in 0 until history.size) {
+                    val u = history.getItemAtIndex(i)?.url
+                    if (!u.isNullOrBlank()) urls.add(u)
+                }
+            }
+        } catch (_: Throwable) {}
+        return urls.toList()
+    }
+
     private fun autoclearTabData(
-        tab: TabItem,
-        webView: OnyxWebView? = null,
-        excludedTabIds: Set<String> = setOf(tab.id)
+        candidateUrls: List<String>,
+        excludedTabIds: Set<String>
     ) {
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        if (!prefs.isCookieAutoclearOnCloseEnabled) return
+        if (!prefs.isCookieAutoclearOnCloseEnabled || candidateUrls.isEmpty()) return
 
-        val performClear = Runnable {
+        // Fast main-thread snapshot of URLs from remaining open tabs
+        val remainingUrls = (_normalTabs.value + _incognitoTabs.value)
+            .filter { it.id !in excludedTabIds }
+            .flatMap { other ->
+                listOfNotNull(
+                    other.url.takeIf { it.isNotBlank() },
+                    webViewPool[other.id]?.url?.takeIf { it.isNotBlank() }
+                )
+            }
+
+        // Run entire cookie and storage purging asynchronously on Dispatchers.IO
+        // This guarantees zero UI thread freeze (no ANR) and zero WebView race conditions.
+        coroutineScope.launch(Dispatchers.IO) {
             try {
-                // 1. Gather all candidate URLs associated with this tab session
-                val candidateUrls = linkedSetOf<String>()
-                if (tab.url.isNotBlank()) candidateUrls.add(tab.url)
-                webView?.url?.let { if (it.isNotBlank()) candidateUrls.add(it) }
-                webView?.originalUrl?.let { if (it.isNotBlank()) candidateUrls.add(it) }
-                try {
-                    val history = webView?.copyBackForwardList()
-                    if (history != null) {
-                        for (i in 0 until history.size) {
-                            val u = history.getItemAtIndex(i)?.url
-                            if (!u.isNullOrBlank()) candidateUrls.add(u)
-                        }
-                    }
-                } catch (_: Throwable) {}
-
-                // Filter out non-web schemes
+                // 1. Filter out non-web schemes
                 val validUrls = candidateUrls.filter { u ->
                     (u.startsWith("http://", ignoreCase = true) || u.startsWith("https://", ignoreCase = true)) &&
                         !u.startsWith("file://", ignoreCase = true) &&
@@ -534,26 +535,9 @@ class TabManager(
                         !u.startsWith("about:", ignoreCase = true) &&
                         !u.startsWith("data:", ignoreCase = true)
                 }
+                if (validUrls.isEmpty()) return@launch
 
-                if (validUrls.isEmpty()) return@Runnable
-
-                // 2. Clear in-memory WebView state before destroying
-                if (webView != null) {
-                    try {
-                        webView.evaluateJavascript(
-                            "(function(){ try{localStorage.clear();}catch(e){} try{sessionStorage.clear();}catch(e){} })();",
-                            null
-                        )
-                        webView.clearCache(true)
-                        webView.clearFormData()
-                        webView.clearSslPreferences()
-                    } catch (_: Throwable) {}
-                }
-
-                // 3. Determine remaining open tabs (excluding the one(s) currently being closed)
-                val remainingTabs = (_normalTabs.value + _incognitoTabs.value).filter { it.id !in excludedTabIds }
-
-                // 4. Extract distinct hosts and root domains to purge
+                // 2. Extract distinct hosts and root domains to purge
                 val hostsToPurge = mutableSetOf<String>()
                 val rootsToPurge = mutableSetOf<String>()
 
@@ -563,14 +547,10 @@ class TabManager(
                     val root = extractRootDomain(host)
 
                     // Check if this website is still open in another remaining tab
-                    val stillOpen = remainingTabs.any { other ->
-                        val otherTabUrl = other.url
-                        val otherWvUrl = webViewPool[other.id]?.url
-                        listOfNotNull(otherTabUrl, otherWvUrl).any { candidate ->
-                            val otherUri = try { Uri.parse(candidate) } catch (_: Throwable) { null }
-                            val otherHost = otherUri?.host?.lowercase() ?: return@any false
-                            otherHost == host || (root.isNotEmpty() && extractRootDomain(otherHost) == root)
-                        }
+                    val stillOpen = remainingUrls.any { candidate ->
+                        val otherUri = try { Uri.parse(candidate) } catch (_: Throwable) { null }
+                        val otherHost = otherUri?.host?.lowercase() ?: return@any false
+                        otherHost == host || (root.isNotEmpty() && extractRootDomain(otherHost) == root)
                     }
 
                     if (!stillOpen) {
@@ -579,9 +559,9 @@ class TabManager(
                     }
                 }
 
-                if (hostsToPurge.isEmpty() && rootsToPurge.isEmpty()) return@Runnable
+                if (hostsToPurge.isEmpty() && rootsToPurge.isEmpty()) return@launch
 
-                // 5. Build comprehensive set of purge domains
+                // 3. Build target purge domains
                 val allPurgeDomains = linkedSetOf<String>()
                 for (h in hostsToPurge) {
                     allPurgeDomains.addAll(getPurgeDomains(h))
@@ -589,32 +569,16 @@ class TabManager(
                 for (r in rootsToPurge) {
                     allPurgeDomains.addAll(getPurgeDomains(r))
                 }
+                if (allPurgeDomains.isEmpty()) return@launch
 
-                // 6. Delete WebStorage (localStorage, sessionStorage, IndexedDB, CacheStorage)
+                // 4. Delete WebStorage (localStorage, sessionStorage, IndexedDB, CacheStorage)
                 val webStorage = WebStorage.getInstance()
                 for (domain in allPurgeDomains) {
                     webStorage.deleteOrigin("https://$domain")
                     webStorage.deleteOrigin("http://$domain")
                 }
-                try {
-                    webStorage.getOrigins { origins ->
-                        if (origins != null) {
-                            for (originKey in origins.keys) {
-                                try {
-                                    val keyStr = originKey as? String ?: originKey?.toString() ?: continue
-                                    val originHost = Uri.parse(keyStr).host?.lowercase() ?: continue
-                                    val isMatch = rootsToPurge.any { r -> originHost == r || originHost.endsWith(".$r") } ||
-                                        allPurgeDomains.contains(originHost)
-                                    if (isMatch) {
-                                        webStorage.deleteOrigin(keyStr)
-                                    }
-                                } catch (_: Throwable) {}
-                            }
-                        }
-                    }
-                } catch (_: Throwable) {}
 
-                // 7. Purge CookieManager
+                // 5. Purge CookieManager
                 val cookieManager = CookieManager.getInstance()
                 val cookieNames = mutableSetOf<String>()
 
@@ -663,18 +627,12 @@ class TabManager(
                 cookieNames.addAll(listOf("session", "sessionid", "session_id", "token", "auth", "jwt", "access_token", "refresh_token"))
 
                 // Target paths
-                val targetPaths = mutableSetOf("/", "")
+                val targetPaths = mutableSetOf("/")
                 for (urlStr in validUrls) {
                     try {
                         val path = Uri.parse(urlStr).path
                         if (!path.isNullOrBlank() && path != "/") {
                             targetPaths.add(path)
-                            val segs = path.split('/').filter { it.isNotEmpty() }
-                            var acc = ""
-                            for (s in segs) {
-                                acc += "/$s"
-                                targetPaths.add(acc)
-                            }
                         }
                     } catch (_: Throwable) {}
                 }
@@ -687,21 +645,16 @@ class TabManager(
 
                     for (cookieName in cookieNames) {
                         for (path in targetPaths) {
-                            val pathAttr = if (path.isEmpty()) "" else "; path=$path"
+                            val pathAttr = "; path=$path"
 
-                            // HTTPS Domain-level cookies (both leading dot and plain)
-                            cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; domain=.$domain; Secure; SameSite=None")
-                            cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; domain=$domain; Secure; SameSite=None")
-                            cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; domain=.$domain")
-                            cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; domain=$domain")
-
-                            // HTTPS Host-only cookies (essential for __Host- and host-scoped cookies)
-                            cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; Secure; SameSite=None")
+                            // HTTPS Domain-level and host-only cookies
+                            cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; domain=.$domain; Secure")
+                            cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; domain=$domain; Secure")
+                            cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; Secure")
                             cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr")
 
                             // HTTP Domain-level & host-only cookies
                             cookieManager.setCookie(httpUrl, "$cookieName=; $expiry$pathAttr; domain=.$domain")
-                            cookieManager.setCookie(httpUrl, "$cookieName=; $expiry$pathAttr; domain=$domain")
                             cookieManager.setCookie(httpUrl, "$cookieName=; $expiry$pathAttr")
                         }
                     }
@@ -709,7 +662,7 @@ class TabManager(
 
                 cookieManager.flush()
 
-                // 8. Clear HTTP authentication credentials and form data
+                // 6. Clear HTTP authentication credentials and form data
                 try {
                     val db = WebViewDatabase.getInstance(context)
                     db.clearHttpAuthUsernamePassword()
@@ -719,12 +672,6 @@ class TabManager(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-        }
-
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            performClear.run()
-        } else {
-            Handler(Looper.getMainLooper()).post(performClear)
         }
     }
 
@@ -855,9 +802,10 @@ class TabManager(
             .indexOfFirst { it.id == tab.id }
         val wasActive = _activeTab.value?.id == tab.id
 
-        // Retrieve webview before destruction and purge cookies/storage if enabled
+        // Retrieve webview before destruction and extract candidate URLs
         val webView = webViewPool.remove(tab.id)
-        autoclearTabData(tab, webView, setOf(tab.id))
+        val candidateUrls = extractCandidateUrls(tab, webView)
+        autoclearTabData(candidateUrls, setOf(tab.id))
 
         // Cleanup any temporary preview files associated with this tab
         com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
@@ -951,11 +899,12 @@ class TabManager(
             }
 
             val closingIds = tabsToClose.map { it.id }.toSet()
+            val candidateUrls = mutableListOf<String>()
             val states = mutableListOf<ClosedTabState>()
             tabsToClose.forEachIndexed { index, tab ->
                 onTabClosedListener?.invoke(tab)
                 val webView = webViewPool.remove(tab.id)
-                autoclearTabData(tab, webView, closingIds)
+                candidateUrls.addAll(extractCandidateUrls(tab, webView))
                 com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
                 val snapshot = snapshotCache.get(tab.id)
                 val wasActive = (_activeTab.value?.id == tab.id)
@@ -974,6 +923,7 @@ class TabManager(
                     snapshotCache.remove(tab.id)
                 }
             }
+            autoclearTabData(candidateUrls, closingIds)
 
             _incognitoTabs.value = emptyList()
             if (_activeTab.value?.isIncognito == true) {
@@ -1001,11 +951,12 @@ class TabManager(
             com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
 
             val closingIds = tabsToClose.map { it.id }.toSet()
+            val candidateUrls = mutableListOf<String>()
             val states = mutableListOf<ClosedTabState>()
             tabsToClose.forEachIndexed { index, tab ->
                 onTabClosedListener?.invoke(tab)
                 val webView = webViewPool.remove(tab.id)
-                autoclearTabData(tab, webView, closingIds)
+                candidateUrls.addAll(extractCandidateUrls(tab, webView))
                 com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
                 var savedBundle: Bundle? = null
                 if (webView != null) {
@@ -1037,6 +988,7 @@ class TabManager(
                     try { getThumbnailFile(tab.id).delete() } catch (_: Exception) {}
                 }
             }
+            autoclearTabData(candidateUrls, closingIds)
 
             _normalTabs.value = emptyList()
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
@@ -1074,14 +1026,16 @@ class TabManager(
             com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
         }
 
+        val candidateUrls = mutableListOf<String>()
         for (tab in allClosing) {
             val webView = webViewPool.remove(tab.id)
-            autoclearTabData(tab, webView, closingIds)
+            candidateUrls.addAll(extractCandidateUrls(tab, webView))
             webView?.destroySafely()
             deleteTabState(tab.id)
             snapshotCache.remove(tab.id)
             try { getThumbnailFile(tab.id).delete() } catch (_: Exception) {}
         }
+        autoclearTabData(candidateUrls, closingIds)
 
         val remainingNormal = _normalTabs.value.filter { it.createdAt < sinceTime }
         val remainingIncognito = _incognitoTabs.value.filter { it.createdAt < sinceTime }
