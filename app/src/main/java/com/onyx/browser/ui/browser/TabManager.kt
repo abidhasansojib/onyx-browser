@@ -601,11 +601,12 @@ class TabManager(
                         if (origins != null) {
                             for (originKey in origins.keys) {
                                 try {
-                                    val originHost = Uri.parse(originKey).host?.lowercase() ?: continue
+                                    val keyStr = originKey as? String ?: originKey?.toString() ?: continue
+                                    val originHost = Uri.parse(keyStr).host?.lowercase() ?: continue
                                     val isMatch = rootsToPurge.any { r -> originHost == r || originHost.endsWith(".$r") } ||
                                         allPurgeDomains.contains(originHost)
                                     if (isMatch) {
-                                        webStorage.deleteOrigin(originKey)
+                                        webStorage.deleteOrigin(keyStr)
                                     }
                                 } catch (_: Throwable) {}
                             }
