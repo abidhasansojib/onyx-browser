@@ -12,6 +12,8 @@ import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.databinding.ActivityHistoryBinding
+import com.onyx.browser.ui.browser.TabManager
+import com.onyx.browser.ui.tabs.ClearBrowsingDataDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -77,22 +79,14 @@ class HistoryActivity : AppCompatActivity() {
 
     private fun setupClearDataButton() {
         binding.btnClearBrowsingData.setOnClickListener {
-            ClearHistoryDialog {
-                lifecycleScope.launch {
-                    kotlinx.coroutines.withContext(Dispatchers.IO) {
-                        database.historyDao().clearAllHistory()
-                        com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(this@HistoryActivity)
-                        try {
-                            java.io.File(cacheDir, "web_archives").deleteRecursively()
-                        } catch (_: Exception) {}
-                    }
-                    kotlinx.coroutines.withContext(Dispatchers.Main) {
-                        try {
-                            android.webkit.WebView(this@HistoryActivity).clearCache(true)
-                        } catch (_: Exception) {}
-                    }
+            val tm = TabManager.activeInstance ?: TabManager(applicationContext, lifecycleScope)
+            val dialog = ClearBrowsingDataDialog(
+                tabManager = tm,
+                onDataCleared = {
+                    loadHistory()
                 }
-            }.show(supportFragmentManager, ClearHistoryDialog.TAG)
+            )
+            dialog.show(supportFragmentManager, ClearBrowsingDataDialog.TAG)
         }
     }
 

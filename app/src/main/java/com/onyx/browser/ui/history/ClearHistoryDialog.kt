@@ -38,6 +38,16 @@ class ClearHistoryDialog(
         }
 
         binding.btnConfirmClearHistory.setOnClickListener {
+            try {
+                android.webkit.CookieManager.getInstance().removeAllCookies {
+                    android.webkit.CookieManager.getInstance().flush()
+                }
+                android.webkit.CookieManager.getInstance().removeSessionCookies {
+                    android.webkit.CookieManager.getInstance().flush()
+                }
+                android.webkit.CookieManager.getInstance().flush()
+                android.webkit.WebStorage.getInstance().deleteAllData()
+            } catch (_: Exception) {}
             onConfirmClear()
             dismiss()
         }

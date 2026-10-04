@@ -9,6 +9,8 @@ import android.view.ViewGroup
 import android.view.Window
 import android.webkit.CookieManager
 import android.webkit.WebStorage
+import android.webkit.WebView
+import android.webkit.WebViewDatabase
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.fragment.app.DialogFragment
@@ -24,8 +26,8 @@ import java.io.File
 import java.net.URI
 
 class ClearBrowsingDataDialog(
-    private val tabManager: TabManager,
-    private val onDataCleared: () -> Unit
+    private val tabManager: TabManager? = TabManager.activeInstance,
+    private val onDataCleared: () -> Unit = {}
 ) : DialogFragment() {
 
     private var _binding: DialogClearBrowsingDataBinding? = null
@@ -136,8 +138,8 @@ class ClearBrowsingDataDialog(
             b.tvHistoryExample.text = exampleString
 
             // 2. Open tabs count and examples
-            val normalTabs = tabManager.normalTabs.value
-            val incognitoTabs = tabManager.incognitoTabs.value
+            val normalTabs = tabManager?.normalTabs?.value ?: emptyList()
+            val incognitoTabs = tabManager?.incognitoTabs?.value ?: emptyList()
             val allTabs = normalTabs + incognitoTabs
 
             val matchingTabs = if (cutoff == 0L) {
@@ -175,22 +177,40 @@ class ClearBrowsingDataDialog(
 
             // Close tabs created/active in this timeframe
             if (cutoff == 0L) {
-                tabManager.closeAllTabs(incognitoOnly = true)
-                tabManager.closeAllTabs(incognitoOnly = false)
+                tabManager?.closeAllTabs(incognitoOnly = true)
+                tabManager?.closeAllTabs(incognitoOnly = false)
             } else {
-                tabManager.closeTabsCreatedSince(cutoff)
+                tabManager?.closeTabsCreatedSince(cutoff)
             }
 
             // Clear WebView cookies, cache, and web storage
             try {
-                CookieManager.getInstance().removeAllCookies(null)
+                CookieManager.getInstance().removeAllCookies {
+                    CookieManager.getInstance().flush()
+                }
+                CookieManager.getInstance().removeSessionCookies {
+                    CookieManager.getInstance().flush()
+                }
                 CookieManager.getInstance().flush()
                 WebStorage.getInstance().deleteAllData()
             } catch (_: Exception) {}
 
+            try {
+                val db = WebViewDatabase.getInstance(context)
+                db.clearHttpAuthUsernamePassword()
+                db.clearFormData()
+            } catch (_: Exception) {}
+
             withContext(Dispatchers.Main) {
                 try {
-                    android.webkit.WebView(context).clearCache(true)
+                    tabManager?.getAllWebViews()?.forEach { wv ->
+                        wv.clearCache(true)
+                        wv.clearFormData()
+                        wv.clearSslPreferences()
+                    }
+                    WebView(context).clearCache(true)
+                    WebView(context).clearFormData()
+                    WebView(context).clearSslPreferences()
                 } catch (_: Exception) {}
             }
 
@@ -216,7 +236,7 @@ class ClearBrowsingDataDialog(
                         com.onyx.browser.data.favicon.FaviconManager.clearCache(context)
                     } catch (_: Exception) {}
                     try {
-                        tabManager.clearAllThumbnailsAndCache()
+                        tabManager?.clearAllThumbnailsAndCache()
                     } catch (_: Exception) {}
                     try {
                         val apk = File(context.cacheDir, "install_pending.apk")

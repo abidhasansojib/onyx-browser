@@ -263,6 +263,9 @@ onyx-browser/
   - Synchronously evaluates `localStorage.clear()` and `sessionStorage.clear()` on the live `OnyxWebView` instance before destruction, and invokes `clearCache(true)`, `clearFormData()`, and `clearSslPreferences()`.
 - **Duplicate Tab Guarding (`excludedTabIds`)**:
   - Before purging, checks remaining open tabs (excluding the closing tab or batch) to ensure that if the same root domain is actively open in another tab, its cookies are not destroyed prematurely.
+- **Unified Browsing Data Deletion Dialog (`ClearBrowsingDataDialog.kt` & `HistoryActivity.kt`)**:
+  - The "Clear browsing data" button in `HistoryActivity` launches the unified `ClearBrowsingDataDialog` (matching the tab switcher brush button), supporting time ranges (Last 15 minutes, Last hour, Last 24 hours, Last 7 days, Last 4 weeks, All time).
+  - Triggers complete cookie purging via `CookieManager.getInstance().removeAllCookies { flush() }`, `removeSessionCookies { flush() }`, `WebStorage.getInstance().deleteAllData()`, `WebViewDatabase.clearHttpAuthUsernamePassword()`, active tab webview cache clearing, and tab closures to guarantee full logout across all visited sites.
 
 ---
 
