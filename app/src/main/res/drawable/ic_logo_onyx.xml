@@ -4,27 +4,34 @@
     android:viewportWidth="200"
     android:viewportHeight="60">
 
-    <!-- Stylized Geometric ONYX Typography (Centered, diamond removed) -->
-    <group
-        android:translateX="-29">
-        <!-- 'O' - Futuristic hexagon ring -->
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M 72 16 L 84 16 L 92 26 L 92 34 L 84 44 L 72 44 L 64 34 L 64 26 Z M 73.5 21 L 69 27 L 69 33 L 73.5 39 L 82.5 39 L 87 33 L 87 27 L 82.5 21 Z" />
+    <!-- Official Onyx Emblem (Functioning as iconic brand symbol & 'O' in ONYX) -->
+    <!-- Center Core Dot -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 50 26.4 A 3.6 3.6 0 1 0 50 33.6 A 3.6 3.6 0 1 0 50 26.4 Z" />
 
-        <!-- 'N' - Sleek dynamic diagonal cut -->
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M 102 16 L 107 16 L 119 36 L 119 16 L 124 16 L 124 44 L 119 44 L 107 24 L 107 44 L 102 44 Z" />
+    <!-- Middle Concentric Arc (180° clockwise sweep on right) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 50 19.2 A 10.8 10.8 0 0 1 50 40.8 L 50 37.2 A 7.2 7.2 0 0 0 50 22.8 Z" />
 
-        <!-- 'Y' - Angular geometric fork -->
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M 134 16 L 140 16 L 146 27 L 152 16 L 158 16 L 149 32 L 149 44 L 143 44 L 143 32 Z" />
+    <!-- Outer Concentric Arc (270° counter-clockwise sweep around left and bottom) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 50 12 A 18 18 0 1 0 68 30 L 64.4 30 A 14.4 14.4 0 1 1 50 15.6 Z" />
 
-        <!-- 'X' - Sleek cyber crossing bars with center accent -->
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M 168 16 L 174 16 L 181 27 L 188 16 L 194 16 L 184 30 L 194 44 L 188 44 L 181 33 L 174 44 L 168 44 L 178 30 Z" />
-    </group>
+    <!-- 'N' - Sleek dynamic diagonal cut -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 74 16 L 79 16 L 91 36 L 91 16 L 96 16 L 96 44 L 91 44 L 79 24 L 79 44 L 74 44 Z" />
+
+    <!-- 'Y' - Angular geometric fork -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 106 16 L 112 16 L 118 27 L 124 16 L 130 16 L 121 32 L 121 44 L 115 44 L 115 32 Z" />
+
+    <!-- 'X' - Sleek cyber crossing bars with center accent -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 140 16 L 146 16 L 153 27 L 160 16 L 166 16 L 156 30 L 166 44 L 160 44 L 153 33 L 146 44 L 140 44 L 150 30 Z" />
 </vector>

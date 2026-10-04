@@ -495,7 +495,11 @@ onyx-browser/
   - **Brave Android Parity Third-Party Cookie Policy**: Preserves strict third-party cookie blocking while implementing an ephemeral OAuth Grace Period (`isWithinOAuthGracePeriod()`, 120s window) enabling relying parties to seamlessly process cross-site session tokens and cookies.
   - **Universal Identity Provider Coverage**: Exempts Meta/Facebook, Google, Apple, Microsoft, GitHub, Twitter/X, Discord, Twitch, TikTok, Spotify, Yahoo, Slack, PayPal, Stripe, Auth0, Okta, OneLogin, PingIdentity, and general SSO subdomains from restrictive third-party cookie blocks.
   - **Eliminated Background Thread Cookie Setting**: Moved all `CookieManager.setAcceptThirdPartyCookies` calls strictly to the Main UI thread (`OnyxWebView.init`, `applyIncognitoMode`, `onPageStarted`), removing IPC race conditions with Chromium's network stack.
-  - **Popup Blocker Protection & Uncloaked SDK Access**: Shields OAuth/payment flows from popup killer heuristics in `shouldOverrideUrlLoading`, and unblocks `connect.facebook.net` and `graph.facebook.com` when social login is permitted.
+- [x] **v1.0.224 — Official Onyx Emblem Integration & Homepage Brand Redesign**:
+  - **Exact Vector Geometry from Master Logo**: Extracted mathematically exact vector geometry from `art/logo.png` (center core dot, 180° middle concentric arc, and 270° outer concentric arc).
+  - **Standalone 1:1 Emblem Drawable (`ic_onyx_emblem.xml`)**: Created standalone vector drawable for square UI views. Replaced distorted horizontal wordmark in `item_tab.xml` (`ivCenterIcon`, 44x44dp) and `bottom_sheet_tab_switcher.xml` (`ivEmptyIcon`, 64x64dp) with the crisp circular emblem.
+  - **Integrated Brand Lockup (`ic_logo_onyx.xml`)**: Redesigned homepage logo incorporating the official Onyx emblem as the iconic 'O' followed by modern geometric NYX typography, balanced and centered with zero layout shift on the homepage and new tab.
+  - **Themed Icon Parity (`ic_launcher_monochrome.xml`)**: Replaced crude concentric circles with authentic emblem paths for Android 13+ Material You themed icons.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.

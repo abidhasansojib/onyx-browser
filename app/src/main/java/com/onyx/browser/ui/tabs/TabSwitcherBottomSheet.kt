@@ -360,7 +360,7 @@ class TabSwitcherBottomSheet(
                     currentBinding.tvEmptyTitle.text = getString(R.string.incognito_tabs)
                     currentBinding.tvEmptySubtitle.text = getString(R.string.incognito_privacy_desc)
                 } else {
-                    currentBinding.ivEmptyIcon.setImageResource(R.drawable.ic_logo_onyx)
+                    currentBinding.ivEmptyIcon.setImageResource(R.drawable.ic_onyx_emblem)
                     currentBinding.ivEmptyIcon.alpha = 0.22f
                     currentBinding.tvEmptyTitle.text = "No tabs open"
                     currentBinding.tvEmptySubtitle.text = "Tap + to open a new tab"

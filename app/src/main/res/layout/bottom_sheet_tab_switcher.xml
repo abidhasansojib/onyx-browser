@@ -157,7 +157,7 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:alpha="0.40"
-            app:srcCompat="@drawable/ic_logo_onyx"
+            app:srcCompat="@drawable/ic_onyx_emblem"
             app:tint="?attr/colorControlNormal" />
 
         <TextView

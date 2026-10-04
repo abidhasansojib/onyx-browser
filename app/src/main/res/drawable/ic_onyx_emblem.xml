@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Center core dot -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 50 42 A 8 8 0 1 0 50 58 A 8 8 0 1 0 50 42 Z" />
+
+    <!-- Middle concentric arc (180° sweep on right) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 50 26 A 24 24 0 0 1 50 74 L 50 66 A 16 16 0 0 0 50 34 Z" />
+
+    <!-- Outer concentric arc (270° sweep around left and bottom) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 50 10 A 40 40 0 1 0 90 50 L 82 50 A 32 32 0 1 1 50 18 Z" />
+</vector>
