@@ -408,6 +408,25 @@ class OnyxWebView @JvmOverloads constructor(
      */
     fun applyUserAgentForUrl(urlString: String, forceRefreshLayout: Boolean = false) {
         val key = hostKey(urlString)
+        val host = try { android.net.Uri.parse(urlString).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+        val isAuthOrMeta = host == "facebook.com" || host.endsWith(".facebook.com") ||
+                host == "meta.com" || host.endsWith(".meta.com") ||
+                host == "fb.com" || host.endsWith(".fb.com") ||
+                host == "fb.me" || host.endsWith(".fb.me") ||
+                host == "messenger.com" || host.endsWith(".messenger.com") ||
+                host == "instagram.com" || host.endsWith(".instagram.com") ||
+                host == "threads.net" || host.endsWith(".threads.net") ||
+                host.contains("arkose") || host.contains("funcaptcha") ||
+                urlString.contains("checkpoint") || urlString.contains("/login")
+        if (isAuthOrMeta) {
+            lastOAuthInteractionTimestamp = System.currentTimeMillis()
+            if (!isIncognito) {
+                try {
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                } catch (_: Exception) {}
+            }
+        }
+
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         val wantsDesktop = key != null && prefs.desktopDomains.any { key == it || key.endsWith(".$it") }
         

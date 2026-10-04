@@ -28,7 +28,42 @@ object AdBlockDocumentStart {
             var href = (location.href || '').toLowerCase();
             var path = (location.pathname || '').toLowerCase();
 
-            // Cloudflare challenge detection: managed challenge, JS challenge, Turnstile widget
+            function isAuthOrMetaDomain(d) {
+                if (!d) return false;
+                d = d.toLowerCase();
+                return d === 'facebook.com' || d.endsWith('.facebook.com') ||
+                       d === 'meta.com' || d.endsWith('.meta.com') ||
+                       d === 'fb.com' || d.endsWith('.fb.com') ||
+                       d === 'fb.me' || d.endsWith('.fb.me') ||
+                       d === 'fbcdn.net' || d.endsWith('.fbcdn.net') ||
+                       d === 'facebook.net' || d.endsWith('.facebook.net') ||
+                       d === 'fbsbx.com' || d.endsWith('.fbsbx.com') ||
+                       d === 'messenger.com' || d.endsWith('.messenger.com') ||
+                       d === 'instagram.com' || d.endsWith('.instagram.com') ||
+                       d === 'cdninstagram.com' || d.endsWith('.cdninstagram.com') ||
+                       d === 'threads.net' || d.endsWith('.threads.net') ||
+                       d === 'accountkit.com' || d.endsWith('.accountkit.com') ||
+                       d.indexOf('arkose') !== -1 || d.indexOf('funcaptcha') !== -1 ||
+                       d.indexOf('recaptcha') !== -1 || d.indexOf('hcaptcha') !== -1 ||
+                       d.indexOf('turnstile') !== -1 || d.indexOf('datadome') !== -1 ||
+                       d.indexOf('perimeterx') !== -1 || d.indexOf('kasada') !== -1 ||
+                       d.indexOf('geetest') !== -1 || d.indexOf('challenges.cloudflare.com') !== -1;
+            }
+
+            var referrerHost = '';
+            try {
+                if (document.referrer) {
+                    referrerHost = new URL(document.referrer).hostname || '';
+                }
+            } catch (_) {}
+
+            var topHost = '';
+            try {
+                if (window.top && window.top !== window && window.top.location && window.top.location.hostname) {
+                    topHost = window.top.location.hostname;
+                }
+            } catch (_) {}
+
             var isCloudflareChallenge =
                 typeof window.__cf_chl_opt !== 'undefined' ||
                 typeof window.__cf_chl_ctx !== 'undefined' ||
@@ -39,16 +74,17 @@ object AdBlockDocumentStart {
                 href.indexOf('__cf_chl') !== -1 ||
                 href.indexOf('/cdn-cgi/') !== -1;
 
-            var isMetaOrAuthContext = isCloudflareChallenge ||
-                                      host.endsWith('facebook.com') || host.endsWith('fb.com') ||
-                                      host.endsWith('messenger.com') || host.endsWith('instagram.com') ||
-                                      host.endsWith('fbcdn.net') || host.endsWith('facebook.net') ||
-                                      host.indexOf('arkose') !== -1 || host.indexOf('recaptcha') !== -1 ||
-                                      host.indexOf('hcaptcha') !== -1 || host.indexOf('turnstile') !== -1 ||
-                                      host.indexOf('funcaptcha') !== -1 || host.indexOf('datadome') !== -1 ||
-                                      host.indexOf('perimeterx') !== -1 || host.indexOf('kasada') !== -1 ||
-                                      path.indexOf('/checkpoint/') !== -1 || path.indexOf('/challenge/') !== -1 ||
-                                      path.indexOf('/captcha/') !== -1 || href.indexOf('/checkpoint/') !== -1;
+            var isAuthPathOrParam =
+                path.indexOf('/checkpoint/') !== -1 || path.indexOf('/challenge/') !== -1 ||
+                path.indexOf('/captcha/') !== -1 || path.indexOf('/login/') !== -1 ||
+                path.indexOf('/security-check') !== -1 || path.indexOf('/two_step_verification') !== -1 ||
+                href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 ||
+                href.indexOf('lsd=') !== -1 || href.indexOf('jazoest=') !== -1 || href.indexOf('datr=') !== -1;
+
+            var isMetaOrAuthContext = isCloudflareChallenge || isAuthPathOrParam ||
+                                      isAuthOrMetaDomain(host) ||
+                                      isAuthOrMetaDomain(referrerHost) ||
+                                      isAuthOrMetaDomain(topHost);
 
             if (isMetaOrAuthContext || !isShieldActive || window.__onyx_shields_active === false || window.__onyxAdBlockEnabled === false) {
                 // Do not run adblock/cosmetic injections or stub globals on Cloudflare challenges,
@@ -86,7 +122,7 @@ object AdBlockDocumentStart {
 
             var aggRootPattern = /(\.|\/)(2o7\.net|ad\.gt|adjust\.com|adobe\.io|ads-twitter\.com|adsrvr\.org|anrdoezrs\.net|appspot\.com|bluekai\.com|bnc\.lt|braze\.com|browser-intake-datadoghq\.com|byteoversea\.com|clickadu\.com|cloudflareinsights\.com|coinimp\.com|consensu\.org|contextweb\.com|cookiebot\.com|cookielaw\.org|customer\.io|dpbolvw\.net|dynamicyield\.com|everesttech\.net|exoclick\.com|fyber\.com|getsentry\.com|googleanalytics\.com|hotjar\.io|hubspot\.com|icloud\.com|id5-sync\.com|indexexchange\.com|insightexpressai\.com|juicyads\.com|klaviyo\.com|kochava\.com|launchdarkly\.com|lgappstv\.com|lge\.com|lgsmartad\.com|linkedin\.com|linksynergy\.com|list-manage\.com|mailchimp\.com|marketo\.net|mathtag\.com|mineralt\.io|minero\.cc|monerominer\.rocks|mzstatic\.com|onesignal\.com|onetag-sys\.com|onetrust\.com|oppomobile\.com|optimizely\.com|osano\.com|pepperjamnetwork\.com|permutive\.com|pippio\.com|popads\.net|popcash\.net|popmyads\.com|posthog\.com|prf\.hn|privacy-center\.org|privacy-mgmt\.com|realmemobile\.com|redditmedia\.com|redirectingat\.com|roku\.com|rudderlabs\.com|rudderstack\.com|samsungads\.com|samsunghealthcn\.com|sc-static\.net|sentry-cdn\.com|sharethrough\.com|siftscience\.com|singular\.net|skimresources\.com|smartclip\.com|smartclip\.net|smartyads\.com|snapchat\.com|snowplowanalytics\.com|stackadapt\.com|supersonicads\.com|tiktokv\.com|tkqlhce\.com|trafficjunky\.net|trustarc\.com|tvinteractive\.tv|tvpixel\.com|uidapi\.com|usercentrics\.eu|viglink\.com|vizio\.com|webminepool\.com|yumenetworks\.com)(\/|\?|:|$)/i;
 
-            var aggSubPattern = /(aan\.amazon\.com|ads-api\.tiktok\.com|ads-api\.x\.com|ads-sg\.tiktok\.com|ads\.huawei\.com|ads\.microsoft\.com|ads\.pinterest\.com|ads\.tiktok\.com|ads\.x\.com|ads\.yahoo\.com|ads\.youtube\.com|adservice\.google\.com|adtago\.s3\.amazonaws\.com|adtech\.yahooinc\.com|advertising-api-eu\.amazon\.com|advertising\.apple\.com|advertising\.yahoo\.com|advertising\.yandex\.ru|advice-ads\.s3\.amazonaws\.com|analytics-sg\.tiktok\.com|analytics\.google\.com|analytics\.pinterest\.com|analytics\.query\.yahoo\.com|analytics\.x\.com|analytics\.yahoo\.com|analyticsengine\.s3\.amazonaws\.com|api-adservices\.apple\.com|api\.ad\.xiaomi\.com|bingads\.microsoft\.com|books-analytics-events\.apple\.com|browser\.events\.data\.msn\.com|business-api\.tiktok\.com|c\.bing\.com|dai\.google\.com|data\.mistat\.india\.xiaomi\.com|data\.mistat\.rus\.xiaomi\.com|data\.mistat\.xiaomi\.com|device-metrics-us-2\.amazon\.com|device-metrics-us\.amazon\.com|extmaps-api\.yandex\.net|firebase-settings\.crashlytics\.com|fundingchoicesmessages\.google\.com|gemini\.yahoo\.com|geo\.yahoo\.com|globalapi\.ad\.xiaomi\.com|graph\.facebook\.com|graph\.instagram\.com|grs\.hicloud\.com|i\.instagram\.com|iadsdk\.apple\.com|iot-eu-logser\.realme\.com|iot-logser\.realme\.com|log\.fc\.yahoo\.com|log\.pinterest\.com|logbak\.hicloud\.com|logservice\.hicloud\.com|logservice1\.hicloud\.com|mads-eu\.amazon\.com|metrics\.apple\.com|metrics\.data\.hicloud\.com|metrics2\.data\.hicloud\.com|metrika\.yandex\.ru|nmetrics\.samsung\.com|notes-analytics-events\.apple\.com|offerwall\.yandex\.net|partnerads\.ysm\.yahoo\.com|pixel\.quora\.com|qevents\.quora\.com|s\.youtube\.com|sdkconfig\.ad\.intl\.xiaomi\.com|sdkconfig\.ad\.xiaomi\.com|settings-win\.data\.microsoft\.com|smetrics\.samsung\.com|tagmanager\.google\.com|telemetry\.microsoft\.com|tr\.facebook\.com|tr\.iadsdk\.apple\.com|tracking\.miui\.com|tracking\.rus\.miui\.com|trk\.pinterest\.com|udc\.yahoo\.com|udcm\.yahoo\.com|vk\.com|vortex-win\.data\.microsoft\.com|vortex\.data\.microsoft\.com|watson\.telemetry\.microsoft\.com|widgets\.pinterest\.com|xp\.apple\.com)/i;
+            var aggSubPattern = /(aan\.amazon\.com|ads-api\.tiktok\.com|ads-api\.x\.com|ads-sg\.tiktok\.com|ads\.huawei\.com|ads\.microsoft\.com|ads\.pinterest\.com|ads\.tiktok\.com|ads\.x\.com|ads\.yahoo\.com|ads\.youtube\.com|adservice\.google\.com|adtago\.s3\.amazonaws\.com|adtech\.yahooinc\.com|advertising-api-eu\.amazon\.com|advertising\.apple\.com|advertising\.yahoo\.com|advertising\.yandex\.ru|advice-ads\.s3\.amazonaws\.com|analytics-sg\.tiktok\.com|analytics\.google\.com|analytics\.pinterest\.com|analytics\.query\.yahoo\.com|analytics\.x\.com|analytics\.yahoo\.com|analyticsengine\.s3\.amazonaws\.com|api-adservices\.apple\.com|api\.ad\.xiaomi\.com|bingads\.microsoft\.com|books-analytics-events\.apple\.com|browser\.events\.data\.msn\.com|business-api\.tiktok\.com|c\.bing\.com|dai\.google\.com|data\.mistat\.india\.xiaomi\.com|data\.mistat\.rus\.xiaomi\.com|data\.mistat\.xiaomi\.com|device-metrics-us-2\.amazon\.com|device-metrics-us\.amazon\.com|extmaps-api\.yandex\.net|firebase-settings\.crashlytics\.com|fundingchoicesmessages\.google\.com|gemini\.yahoo\.com|geo\.yahoo\.com|globalapi\.ad\.xiaomi\.com|graph\.instagram\.com|grs\.hicloud\.com|i\.instagram\.com|iadsdk\.apple\.com|iot-eu-logser\.realme\.com|iot-logser\.realme\.com|log\.fc\.yahoo\.com|log\.pinterest\.com|logbak\.hicloud\.com|logservice\.hicloud\.com|logservice1\.hicloud\.com|mads-eu\.amazon\.com|metrics\.apple\.com|metrics\.data\.hicloud\.com|metrics2\.data\.hicloud\.com|metrika\.yandex\.ru|nmetrics\.samsung\.com|notes-analytics-events\.apple\.com|offerwall\.yandex\.net|partnerads\.ysm\.yahoo\.com|pixel\.quora\.com|qevents\.quora\.com|s\.youtube\.com|sdkconfig\.ad\.intl\.xiaomi\.com|sdkconfig\.ad\.xiaomi\.com|settings-win\.data\.microsoft\.com|smetrics\.samsung\.com|tagmanager\.google\.com|telemetry\.microsoft\.com|tr\.facebook\.com|tr\.iadsdk\.apple\.com|tracking\.miui\.com|tracking\.rus\.miui\.com|trk\.pinterest\.com|udc\.yahoo\.com|udcm\.yahoo\.com|vk\.com|vortex-win\.data\.microsoft\.com|vortex\.data\.microsoft\.com|watson\.telemetry\.microsoft\.com|widgets\.pinterest\.com|xp\.apple\.com)/i;
 
             function isBlockedUrl(rawUrl, level) {
                 if (!rawUrl || typeof rawUrl !== 'string') return false;
@@ -97,8 +133,8 @@ object AdBlockDocumentStart {
                     return false;
                 }
 
-                // Authentication and Facebook endpoints are never blocked
-                if (/(facebook\.com|facebook\.net|fbcdn\.net|fb\.com|instagram\.com|messenger\.com)/i.test(rawUrl)) {
+                // Authentication, Meta, and Facebook endpoints are never blocked
+                if (/(facebook\.com|facebook\.net|fbcdn\.net|fb\.com|fb\.me|meta\.com|instagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha)/i.test(rawUrl)) {
                     return false;
                 }
 

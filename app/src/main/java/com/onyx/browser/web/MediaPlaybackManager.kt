@@ -554,13 +554,23 @@ object MediaPlaybackManager {
             // Facebook's login confirmation checks document.hasFocus() and visibilityState as
             // bot-detection signals. Patching these to always return 'visible'/'true' can cause
             // the security verification to flag the session as automated and show "confirmation failed".
+            var _bgRef = (document.referrer || '').toLowerCase();
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha/i.test(_bgRef)) {
+                return;
+            }
+
             var _bgHost = (location.hostname || '').toLowerCase();
             if (_bgHost === 'facebook.com' || _bgHost.endsWith('.facebook.com') ||
+                _bgHost === 'meta.com' || _bgHost.endsWith('.meta.com') ||
                 _bgHost === 'fb.com' || _bgHost.endsWith('.fb.com') ||
+                _bgHost === 'fb.me' || _bgHost.endsWith('.fb.me') ||
                 _bgHost === 'instagram.com' || _bgHost.endsWith('.instagram.com') ||
+                _bgHost === 'cdninstagram.com' || _bgHost.endsWith('.cdninstagram.com') ||
+                _bgHost === 'threads.net' || _bgHost.endsWith('.threads.net') ||
                 _bgHost === 'messenger.com' || _bgHost.endsWith('.messenger.com') ||
                 _bgHost === 'fbcdn.net' || _bgHost.endsWith('.fbcdn.net') ||
-                _bgHost === 'facebook.net' || _bgHost.endsWith('.facebook.net')) {
+                _bgHost === 'facebook.net' || _bgHost.endsWith('.facebook.net') ||
+                _bgHost.indexOf('arkose') !== -1 || _bgHost.indexOf('funcaptcha') !== -1) {
                 return;
             }
 

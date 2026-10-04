@@ -20,13 +20,23 @@ object WebGLCompatibilityBridge {
             // Facebook uses canvas/WebGL for security fingerprinting and challenge rendering.
             // Patching HTMLCanvasElement.prototype.getContext on these pages can break bot
             // detection and cause security challenge failures during login flows.
+            var _ref = (document.referrer || '').toLowerCase();
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha/i.test(_ref)) {
+                return;
+            }
+
             var _h = (location.hostname || '').toLowerCase();
             if (_h === 'facebook.com' || _h.endsWith('.facebook.com') ||
+                _h === 'meta.com' || _h.endsWith('.meta.com') ||
                 _h === 'fb.com' || _h.endsWith('.fb.com') ||
+                _h === 'fb.me' || _h.endsWith('.fb.me') ||
                 _h === 'instagram.com' || _h.endsWith('.instagram.com') ||
+                _h === 'cdninstagram.com' || _h.endsWith('.cdninstagram.com') ||
+                _h === 'threads.net' || _h.endsWith('.threads.net') ||
                 _h === 'messenger.com' || _h.endsWith('.messenger.com') ||
                 _h === 'fbcdn.net' || _h.endsWith('.fbcdn.net') ||
-                _h === 'facebook.net' || _h.endsWith('.facebook.net')) {
+                _h === 'facebook.net' || _h.endsWith('.facebook.net') ||
+                _h.indexOf('arkose') !== -1 || _h.indexOf('funcaptcha') !== -1) {
                 return;
             }
 

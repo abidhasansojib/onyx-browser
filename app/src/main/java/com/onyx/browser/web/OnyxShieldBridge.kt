@@ -18,19 +18,46 @@ class OnyxShieldBridge(private val context: Context) {
 
     private val preferences = BrowserPreferences.getInstance(context)
 
+    private fun isAuthOrMetaDomain(domain: String): Boolean {
+        if (domain.isBlank()) return false
+        val d = domain.lowercase()
+        return d == "facebook.com" || d.endsWith(".facebook.com") ||
+                d == "meta.com" || d.endsWith(".meta.com") ||
+                d == "fb.com" || d.endsWith(".fb.com") ||
+                d == "fb.me" || d.endsWith(".fb.me") ||
+                d == "fbcdn.net" || d.endsWith(".fbcdn.net") ||
+                d == "facebook.net" || d.endsWith(".facebook.net") ||
+                d == "fbsbx.com" || d.endsWith(".fbsbx.com") ||
+                d == "messenger.com" || d.endsWith(".messenger.com") ||
+                d == "instagram.com" || d.endsWith(".instagram.com") ||
+                d == "cdninstagram.com" || d.endsWith(".cdninstagram.com") ||
+                d == "threads.net" || d.endsWith(".threads.net") ||
+                d == "accountkit.com" || d.endsWith(".accountkit.com") ||
+                d.contains("arkose") || d.contains("funcaptcha") ||
+                d.contains("recaptcha") || d.contains("hcaptcha") ||
+                d.contains("turnstile") || d.contains("datadome") ||
+                d.contains("perimeterx") || d.contains("kasada") ||
+                d.contains("geetest") || d.contains("challenges.cloudflare.com")
+    }
+
     @JavascriptInterface
     fun isAdBlockActive(domainOrUrl: String?): Boolean {
         if (!preferences.isAdBlockEnabled) return false
         val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return true
-        val isWhitelisted = preferences.isDomainWhitelisted(target)
-        return !isWhitelisted
+        if (preferences.isDomainWhitelisted(target)) return false
+        val clean = preferences.cleanDomain(target)
+        if (isAuthOrMetaDomain(clean)) return false
+        return true
     }
 
     @JavascriptInterface
     fun isCosmeticFilteringActive(domainOrUrl: String?): Boolean {
         if (!preferences.isAdBlockEnabled || !preferences.isCosmeticFilteringEnabled) return false
         val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return true
-        return !preferences.isDomainWhitelisted(target)
+        if (preferences.isDomainWhitelisted(target)) return false
+        val clean = preferences.cleanDomain(target)
+        if (isAuthOrMetaDomain(clean)) return false
+        return true
     }
 
     @JavascriptInterface
@@ -178,12 +205,9 @@ class OnyxShieldBridge(private val context: Context) {
         val d = reqDomain.lowercase()
         val u = reqUrl.lowercase()
         // Never block CAPTCHAs, bot challenges, or auth endpoints
-        if (d.contains("recaptcha") || d.contains("hcaptcha") || d.contains("arkose") ||
-            d.contains("turnstile") || d.contains("funcaptcha") || d.contains("datadome") ||
-            d.contains("challenges.cloudflare.com") || u.contains("/cdn-cgi/") ||
+        if (isAuthOrMetaDomain(d) || u.contains("/cdn-cgi/") ||
             u.contains("/checkpoint/") || u.contains("/challenge/") ||
-            d == "facebook.com" || d.endsWith(".facebook.com") || d == "fb.com" || d.endsWith(".fb.com") ||
-            d == "facebook.net" || d.endsWith(".facebook.net") || d == "fbcdn.net" || d.endsWith(".fbcdn.net")
+            u.contains("lsd=") || u.contains("jazoest=") || u.contains("datr=")
         ) {
             return false
         }

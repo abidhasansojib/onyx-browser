@@ -114,20 +114,26 @@ class OnyxWebViewClient(
         "facebook.com", "www.facebook.com", "m.facebook.com", "web.facebook.com", "touch.facebook.com",
         "static.facebook.com", "staticxx.facebook.com", "static.xx.fbcdn.net",
         "connect.facebook.net", "facebook.net", "graph.facebook.com",
-        "fbcdn.net", "scontent.xx.fbcdn.net", "fbsbx.com", "fb.com", "accountkit.com"
+        "fbcdn.net", "scontent.xx.fbcdn.net", "fbsbx.com", "fb.com", "fb.me", "accountkit.com",
+        "meta.com", "threads.net", "cdninstagram.com"
     )
 
     private fun isMetaDomain(domain: String): Boolean {
         if (domain.isBlank()) return false
         val d = domain.lowercase()
         return d == "facebook.com" || d.endsWith(".facebook.com") ||
+                d == "meta.com" || d.endsWith(".meta.com") ||
                 d == "fb.com" || d.endsWith(".fb.com") ||
+                d == "fb.me" || d.endsWith(".fb.me") ||
                 d == "fbcdn.net" || d.endsWith(".fbcdn.net") ||
                 d == "facebook.net" || d.endsWith(".facebook.net") ||
                 d == "fbsbx.com" || d.endsWith(".fbsbx.com") ||
                 d == "messenger.com" || d.endsWith(".messenger.com") ||
                 d == "instagram.com" || d.endsWith(".instagram.com") ||
-                d == "accountkit.com" || d.endsWith(".accountkit.com")
+                d == "cdninstagram.com" || d.endsWith(".cdninstagram.com") ||
+                d == "threads.net" || d.endsWith(".threads.net") ||
+                d == "accountkit.com" || d.endsWith(".accountkit.com") ||
+                d == "workplace.com" || d.endsWith(".workplace.com")
     }
 
     private fun isCaptchaOrAuthUrl(url: String, domain: String): Boolean {
@@ -147,7 +153,9 @@ class OnyxWebViewClient(
                 u.contains("/waf/") || u.contains("/bot-detection") ||
                 u.contains("/human-verification") || u.contains("login/device-based") ||
                 u.contains("/two_step_verification") || u.contains("/save-device/") ||
-                u.contains("/trusted-devices/") || u.contains("/login_attempt")
+                u.contains("/trusted-devices/") || u.contains("/login_attempt") ||
+                u.contains("/checkpoint") || u.contains("/confirm") ||
+                u.contains("lsd=") || u.contains("jazoest=") || u.contains("datr=")
     }
 
     /**
@@ -165,13 +173,9 @@ class OnyxWebViewClient(
     private fun isOAuthOrLoginProvider(domain: String): Boolean {
         if (domain.isBlank()) return false
         val d = domain.lowercase()
-        // Meta / Facebook identity & OAuth
-        return d == "facebook.com" || d.endsWith(".facebook.com") ||
-               d == "fb.com" || d.endsWith(".fb.com") ||
-               d == "facebook.net" || d.endsWith(".facebook.net") ||
-               d == "accountkit.com" || d.endsWith(".accountkit.com") ||
-               d == "instagram.com" || d.endsWith(".instagram.com") ||
-               d == "messenger.com" || d.endsWith(".messenger.com") ||
+        // Meta / Facebook identity & OAuth & Arkose challenges
+        return isMetaDomain(d) ||
+               d.contains("arkose") || d.contains("funcaptcha") ||
                // Google identity and auth
                d == "accounts.google.com" || d.endsWith(".accounts.google.com") ||
                d == "oauth2.googleapis.com" || d == "apis.google.com" ||
@@ -563,9 +567,11 @@ class OnyxWebViewClient(
 
             // ── Meta / Facebook First-Party Integrity ─────────────────────────────
             val isMetaResource = isMetaDomain(reqDomain)
+            val isMetaAdPixel = reqDomain == "pixel.facebook.com" || reqDomain == "an.facebook.com" || reqDomain == "tr.facebook.com"
 
-            // First-party Meta resources when user is on Meta sites or in an authentication/login/captcha context must never be blocked
-            if (isMetaResource && (isMetaContext || preferences.allowFacebookLogins)) {
+            // First-party Meta resources (content, Graph API, login, CDN, OAuth) must NEVER be blocked
+            // unless they are explicitly pure advertising pixels (pixel.facebook.com, an.facebook.com, tr.facebook.com).
+            if (isMetaResource && !isMetaAdPixel) {
                 return null
             }
 
@@ -710,11 +716,24 @@ class OnyxWebViewClient(
             }
 
             // ── Tracking URL Cleanup (strip tracking query params) ─────────────────
+            val host = uri.host?.lowercase() ?: ""
+            val isAuthOrMeta = isMetaDomain(host) || isCaptchaOrAuthUrl(url, host) ||
+                    isOAuthOrLoginProvider(host) || isOAuthOrLoginUrl(url) ||
+                    host.contains("login") || host.contains("auth") || host.contains("checkpoint")
+
+            if (isAuthOrMeta) {
+                (view as? OnyxWebView)?.let { wv ->
+                    wv.lastOAuthInteractionTimestamp = System.currentTimeMillis()
+                    if (!wv.isIncognito) {
+                        try {
+                            CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+
             if (isForMainFrame && preferences.isAutoRedirectTrackingUrlsEnabled &&
                 (scheme == "http" || scheme == "https")) {
-                val host = uri.host?.lowercase() ?: ""
-                val isAuthOrMeta = isMetaDomain(host) || isCaptchaOrAuthUrl(url, host) ||
-                        host.contains("login") || host.contains("auth") || host.contains("checkpoint")
                 if (!isAuthOrMeta) {
                     val cleaned = stripTrackingParams(url)
                     if (cleaned != url) {
