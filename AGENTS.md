@@ -10,8 +10,8 @@
 **Onyx Browser** (`com.onyx.browser`) is a fast, lightweight, and privacy-focused Android browser (Min SDK 26 / Android 8.0+, Target SDK 35 / Android 15).
 
 > [!IMPORTANT]
-> **CANONICAL GOLDEN ROLE MODEL MILESTONE: v1.0.244 (Commit `a31e471`, Tag `v1.0.244` / `golden-reference-v1.0.244`)**:  
-> Release `v1.0.244` is the verified, battle-tested golden role model reference for Onyx Browser. All five critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops via untampered Blink prototype chain, Facebook login & Arkose FunCaptcha challenge completion with first-party telemetry unblocking and native Chrome environment polyfill, and Facebook Reels/Shorts seamless feed navigation & autoplay without scroll refresh loops) are 100% verified working. If any future changes break or regress these features, use `v1.0.244` (`a31e471`) as the exact architectural reference.
+> **CANONICAL GOLDEN ROLE MODEL MILESTONE: v1.0.247 (Commit `3bdca58`, Tag `v1.0.247` / `golden-reference-v1.0.247`)**:  
+> Release `v1.0.247` is the verified, battle-tested golden role model reference for Onyx Browser. All six critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops via untampered Blink prototype chain, Facebook login & Arkose FunCaptcha challenge completion with first-party telemetry unblocking and native Chrome environment polyfill, Facebook Reels/Shorts seamless feed navigation & autoplay without scroll refresh loops, and complete incognito vs normal tab profile-scoped session & cookie isolation) are 100% verified working. If any future changes break or regress these features, use `v1.0.247` (`3bdca58`) as the exact architectural reference.
 
 ### Architecture & Tech Stack
 - **Native Android UI**: Built with Kotlin and XML Views with ViewBinding (no Jetpack Compose for fast startup and low memory usage).
@@ -530,12 +530,12 @@ onyx-browser/
 
 ---
 
-## 7. Canonical Golden Role Model Milestone: v1.0.244 (Commit `a31e471`, Tag `v1.0.244` / `golden-reference-v1.0.244`)
+## 7. Canonical Golden Role Model Milestone: v1.0.247 (Commit `3bdca58`, Tag `v1.0.247` / `golden-reference-v1.0.247`)
 
 > [!IMPORTANT]
-> **CANONICAL GOLDEN ROLE MODEL REFERENCE**: Release `v1.0.244` (commit `a31e471`, tag `v1.0.244` / `golden-reference-v1.0.244`) is the verified, battle-tested stable role model for Onyx Browser. All five critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops, Facebook login & Arkose FunCaptcha verification, and Facebook Reels/Shorts seamless feed navigation & autoplay without scroll refresh loops) are 100% verified working. If any future changes break or regress these features, use `v1.0.244` (`a31e471`) as the exact architectural reference.
+> **CANONICAL GOLDEN ROLE MODEL REFERENCE**: Release `v1.0.247` (commit `3bdca58`, tag `v1.0.247` / `golden-reference-v1.0.247`) is the verified, battle-tested stable role model for Onyx Browser. All six critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops, Facebook login & Arkose FunCaptcha verification in all modes, Facebook Reels/Shorts seamless feed navigation & autoplay without scroll refresh loops, and complete incognito session & cookie isolation via deferred multi-profile lifecycle) are 100% verified working. If any future changes break or regress these features, use `v1.0.247` (`3bdca58`) as the exact architectural reference.
 
-### Verified Golden Subsystems in v1.0.244
+### Verified Golden Subsystems in v1.0.247
 1. **Adblocking Engine & DOM Bait Defuser (100% Score on `superadblocktest.com`, `d3ward`, `adblock-tester.com` + Zero Anti-Adblock Bait Walls)**:
    - In-page `window.fetch` and `XMLHttpRequest` proxies in `AdBlockDocumentStart.kt` masked via `makeNative` (`function fetch() { [native code] }`). Blocked requests reject with `TypeError: Failed to fetch: net::ERR_BLOCKED_BY_CLIENT`.
    - `OnyxShieldBridge.isUrlBlocked(url, pageUrl)` provides synchronous query into Brave Rust NDK engine and standard ad domains.
@@ -567,6 +567,12 @@ onyx-browser/
    - Resolved video audio bleed & failed autoplay: Removed artificial `IntersectionObserver` override from `MediaPlaybackManager.kt` so Blink's native compositor truthfully reports element visibility to Facebook's feed controller, pausing offscreen reels immediately and triggering automatic playback on the next reel.
    - Gated `pause` auto-resume listener behind `window.__onyx_in_background` to prevent synthetic foreground resume loops.
 
+6. **Incognito Session & Cookie Isolation Architecture**:
+   - **Deferred Cookie Configuration (`applyCookieSettings`)**: Cookie configuration is detached from `OnyxWebView.configureSettings()` during `init {}`. In `setIncognitoMode()`, the isolated incognito profile (`ProfileStore.getOrCreateProfile("incognito")` and `WebViewCompat.setProfile`) is assigned *first*, followed by `applyCookieSettings()`. This guarantees that incognito WebViews strictly bind to the profile-scoped `cookieManager` with zero cross-session cookie bleed with normal tabs.
+   - **Universal OAuth / SSO Cookie Acceptance**: Removed the `!isIncognito` restriction in `OnyxWebView.applyUserAgentForUrl` and `OnyxWebViewClient.handleUrlLoading`. During authentication and security challenge handshakes (Facebook, Meta, Arkose, Google Sign-In), third-party cookies are temporarily permitted on the active profile's `cookieManager` during the grace period, allowing Facebook login and checkpoints to complete successfully in both normal and incognito modes.
+   - **Automated Lifecycle Purge**: When all incognito tabs are closed or `closeAllTabs(incognitoOnly = true)` is invoked, `TabManager.purgeIncognitoProfile()` wipes all incognito cookies and WebStorage, and deletes the profile partition completely.
+
+### Historical Engineering Milestones
 6. **Security Hardening — File Handling & Download Subsystem** (commit `6122060`):
    - **`sanitizeFileName`**: Strips null bytes (path truncation attack vector), collapses `..` traversal sequences, removes leading dots (hidden files), and caps filename length at 240 characters.
    - **Data URI OOM Guard**: `handleDataUriDownload` rejects data URIs larger than 256 MB before decoding. `OnyxBlobBridge.onBlobDownloaded` enforces the same guard at the JS bridge entry point.
