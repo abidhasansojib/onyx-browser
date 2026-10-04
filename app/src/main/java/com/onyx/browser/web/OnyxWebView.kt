@@ -11,9 +11,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebSettings
+import android.webkit.WebStorage
 import android.webkit.WebView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import androidx.webkit.Profile
+import androidx.webkit.ProfileStore
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.onyx.browser.web.error.SyntheticNavigationState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -108,6 +113,8 @@ class OnyxWebView @JvmOverloads constructor(
     }
 
     companion object {
+        const val INCOGNITO_PROFILE_NAME = "incognito"
+
         fun isSyntheticOrDataUrl(url: String?): Boolean {
             if (url.isNullOrBlank()) return true
             return url.startsWith("data:") ||
@@ -116,6 +123,33 @@ class OnyxWebView @JvmOverloads constructor(
                     url.startsWith("about:blank", ignoreCase = true)
         }
     }
+
+    /**
+     * Scoped profile reference. Returns the incognito profile when in incognito mode,
+     * or the default profile / null when in normal mode or multi-profile is unsupported.
+     */
+    val profile: Profile?
+        get() = if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+            try {
+                WebViewCompat.getProfile(this)
+            } catch (_: Throwable) {
+                null
+            }
+        } else null
+
+    /**
+     * Scoped CookieManager. Binds to the isolated incognito profile when in incognito mode,
+     * or the default profile CookieManager for normal tabs.
+     */
+    val cookieManager: CookieManager
+        get() = profile?.cookieManager ?: CookieManager.getInstance()
+
+    /**
+     * Scoped WebStorage. Binds to the isolated incognito profile when in incognito mode,
+     * or the default WebStorage for normal tabs.
+     */
+    val webStorage: WebStorage
+        get() = profile?.webStorage ?: WebStorage.getInstance()
 
     private fun getBaseUserAgent(prefs: com.onyx.browser.data.preferences.BrowserPreferences): String {
         return UserAgentManager.getUserAgentForTemplate(prefs.userAgentSpoofTemplate, prefs, context)
@@ -185,16 +219,16 @@ class OnyxWebView @JvmOverloads constructor(
         try {
             when (prefs.cookieBlockingMode) {
                 com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_ALL -> {
-                    android.webkit.CookieManager.getInstance().setAcceptCookie(false)
+                    cookieManager.setAcceptCookie(false)
                 }
                 com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY -> {
-                    android.webkit.CookieManager.getInstance().setAcceptCookie(true)
+                    cookieManager.setAcceptCookie(true)
                     val allow3p = isPopupTab || isWithinOAuthGracePeriod()
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, allow3p)
+                    cookieManager.setAcceptThirdPartyCookies(this, allow3p)
                 }
                 else -> { // COOKIE_BLOCK_NONE — allow all
-                    android.webkit.CookieManager.getInstance().setAcceptCookie(true)
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                    cookieManager.setAcceptCookie(true)
+                    cookieManager.setAcceptThirdPartyCookies(this, true)
                 }
             }
 
@@ -339,14 +373,27 @@ class OnyxWebView @JvmOverloads constructor(
 
     fun setIncognitoMode(incognito: Boolean) {
         this.isIncognito = incognito
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+            try {
+                if (incognito) {
+                    ProfileStore.getInstance().getOrCreateProfile(INCOGNITO_PROFILE_NAME)
+                    WebViewCompat.setProfile(this, INCOGNITO_PROFILE_NAME)
+                } else {
+                    WebViewCompat.setProfile(this, Profile.DEFAULT_NAME)
+                }
+            } catch (e: Throwable) {
+                android.util.Log.e("OnyxWebView", "Failed to set profile (incognito=$incognito)", e)
+            }
+        }
         if (incognito) {
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
             settings.domStorageEnabled = true
             clearHistory()
             clearFormData()
-            // Do NOT call CookieManager.setAcceptCookie(false) globally — it breaks all normal tabs!
-            // Restrict cookies per-WebView by disabling third-party cookies for this view.
-            try { CookieManager.getInstance().setAcceptThirdPartyCookies(this, false) } catch (_: Exception) {}
+            try {
+                cookieManager.setAcceptCookie(true)
+                cookieManager.setAcceptThirdPartyCookies(this, false)
+            } catch (_: Exception) {}
         } else {
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.domStorageEnabled = true
@@ -354,16 +401,16 @@ class OnyxWebView @JvmOverloads constructor(
             try {
                 when (prefs.cookieBlockingMode) {
                     com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_ALL -> {
-                        CookieManager.getInstance().setAcceptCookie(false)
+                        cookieManager.setAcceptCookie(false)
                     }
                     com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY -> {
-                        CookieManager.getInstance().setAcceptCookie(true)
+                        cookieManager.setAcceptCookie(true)
                         val allow3p = isPopupTab || isWithinOAuthGracePeriod()
-                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, allow3p)
+                        cookieManager.setAcceptThirdPartyCookies(this, allow3p)
                     }
                     else -> {
-                        CookieManager.getInstance().setAcceptCookie(true)
-                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                        cookieManager.setAcceptCookie(true)
+                        cookieManager.setAcceptThirdPartyCookies(this, true)
                     }
                 }
             } catch (_: Exception) {}
@@ -434,7 +481,7 @@ class OnyxWebView @JvmOverloads constructor(
             lastOAuthInteractionTimestamp = System.currentTimeMillis()
             if (!isIncognito) {
                 try {
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                    cookieManager.setAcceptThirdPartyCookies(this, true)
                 } catch (_: Exception) {}
             }
         }

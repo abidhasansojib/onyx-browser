@@ -197,7 +197,7 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                 }
             } catch (_: Exception) {}
 
-            // 3. Clear WebView cookies, cache, and web storage
+            // 3. Clear WebView cookies, cache, and web storage across all profiles
             try {
                 CookieManager.getInstance().removeAllCookies {
                     CookieManager.getInstance().flush()
@@ -207,6 +207,18 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                 }
                 CookieManager.getInstance().flush()
                 WebStorage.getInstance().deleteAllData()
+
+                if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
+                    try {
+                        val store = androidx.webkit.ProfileStore.getInstance()
+                        val incognitoProfile = store.getProfile(com.onyx.browser.web.OnyxWebView.INCOGNITO_PROFILE_NAME)
+                        if (incognitoProfile != null) {
+                            incognitoProfile.cookieManager.removeAllCookies(null)
+                            incognitoProfile.cookieManager.flush()
+                            incognitoProfile.webStorage.deleteAllData()
+                        }
+                    } catch (_: Throwable) {}
+                }
             } catch (_: Exception) {}
 
             try {

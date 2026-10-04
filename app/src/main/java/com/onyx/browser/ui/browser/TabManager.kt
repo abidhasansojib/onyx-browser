@@ -16,6 +16,8 @@ import android.view.PixelCopy
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebViewDatabase
+import androidx.webkit.ProfileStore
+import androidx.webkit.WebViewFeature
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.web.OnyxWebView
@@ -334,6 +336,43 @@ class TabManager(
             _normalTabs.value = listOf(defaultTab)
             _activeTab.value = defaultTab
         }
+        withContext(Dispatchers.Main) {
+            purgeIncognitoProfile()
+        }
+    }
+
+    /**
+     * Completely purges and deletes the isolated incognito profile partition.
+     * All cookies, web storage, and cache within the incognito profile are destroyed.
+     */
+    fun purgeIncognitoProfile() {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return
+        try {
+            val store = ProfileStore.getInstance()
+            val incognitoProfile = store.getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
+            if (incognitoProfile != null) {
+                try {
+                    incognitoProfile.cookieManager.removeAllCookies(null)
+                    incognitoProfile.cookieManager.flush()
+                } catch (_: Throwable) {}
+                try {
+                    incognitoProfile.webStorage.deleteAllData()
+                } catch (_: Throwable) {}
+                // Ensure all remaining incognito WebViews from pool are destroyed before deleting profile
+                val incognitoWebViews = webViewPool.filter { (_, wv) -> wv.isIncognito }
+                incognitoWebViews.forEach { (tabId, wv) ->
+                    webViewPool.remove(tabId)
+                    wv.destroySafely()
+                }
+                try {
+                    store.deleteProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
+                } catch (e: Throwable) {
+                    android.util.Log.w("TabManager", "deleteProfile failed: ${e.message}")
+                }
+            }
+        } catch (e: Throwable) {
+            android.util.Log.e("TabManager", "Error purging incognito profile", e)
+        }
     }
 
     fun getOrCreateWebView(tab: TabItem): OnyxWebView {
@@ -507,13 +546,15 @@ class TabManager(
 
     private fun autoclearTabData(
         candidateUrls: List<String>,
-        excludedTabIds: Set<String>
+        excludedTabIds: Set<String>,
+        isIncognito: Boolean = false
     ) {
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         if (!prefs.isCookieAutoclearOnCloseEnabled || candidateUrls.isEmpty()) return
 
-        // Fast main-thread snapshot of URLs from remaining open tabs
-        val remainingUrls = (_normalTabs.value + _incognitoTabs.value)
+        // Fast main-thread snapshot of URLs from remaining open tabs of the matching mode (normal vs incognito)
+        val targetTabs = if (isIncognito) _incognitoTabs.value else _normalTabs.value
+        val remainingUrls = targetTabs
             .filter { it.id !in excludedTabIds }
             .flatMap { other ->
                 listOfNotNull(
@@ -574,7 +615,11 @@ class TabManager(
                 // 4. Delete WebStorage on Main Thread (WebStorage requires UI thread)
                 try {
                     withContext(Dispatchers.Main) {
-                        val webStorage = WebStorage.getInstance()
+                        val webStorage = if (isIncognito && WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+                            try { ProfileStore.getInstance().getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)?.webStorage ?: WebStorage.getInstance() } catch (_: Throwable) { WebStorage.getInstance() }
+                        } else {
+                            WebStorage.getInstance()
+                        }
                         for (domain in allPurgeDomains) {
                             try { webStorage.deleteOrigin("https://$domain") } catch (_: Throwable) {}
                             try { webStorage.deleteOrigin("http://$domain") } catch (_: Throwable) {}
@@ -583,7 +628,11 @@ class TabManager(
                 } catch (_: Throwable) {}
 
                 // 5. Purge CookieManager
-                val cookieManager = CookieManager.getInstance()
+                val cookieManager = if (isIncognito && WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+                    try { ProfileStore.getInstance().getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)?.cookieManager ?: CookieManager.getInstance() } catch (_: Throwable) { CookieManager.getInstance() }
+                } else {
+                    CookieManager.getInstance()
+                }
                 val cookieNames = mutableSetOf<String>()
 
                 // Collect existing cookies across target domains
@@ -800,7 +849,7 @@ class TabManager(
         // Retrieve webview before destruction and extract candidate URLs
         val webView = webViewPool.remove(tab.id)
         val candidateUrls = extractCandidateUrls(tab, webView)
-        autoclearTabData(candidateUrls, setOf(tab.id))
+        autoclearTabData(candidateUrls, setOf(tab.id), isIncognito = tab.isIncognito)
 
         // Cleanup any temporary preview files associated with this tab
         com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
@@ -838,6 +887,9 @@ class TabManager(
                 .filter { it.id != tab.id }
                 .map { if (it.parentId == tab.id) it.copy(parentId = orphanParentId) else it }
             _incognitoTabs.value = updated
+            if (updated.isEmpty()) {
+                purgeIncognitoProfile()
+            }
             if (_activeTab.value?.id == tab.id) {
                 _activeTab.value = parentTab ?: updated.lastOrNull() ?: _normalTabs.value.lastOrNull()
             }
@@ -918,9 +970,10 @@ class TabManager(
                     snapshotCache.remove(tab.id)
                 }
             }
-            autoclearTabData(candidateUrls, closingIds)
+            autoclearTabData(candidateUrls, closingIds, isIncognito = true)
 
             _incognitoTabs.value = emptyList()
+            purgeIncognitoProfile()
             if (_activeTab.value?.isIncognito == true) {
                 _activeTab.value = _normalTabs.value.lastOrNull() ?: createNewTab(isIncognito = false)
             }
@@ -983,7 +1036,7 @@ class TabManager(
                     try { getThumbnailFile(tab.id).delete() } catch (_: Exception) {}
                 }
             }
-            autoclearTabData(candidateUrls, closingIds)
+            autoclearTabData(candidateUrls, closingIds, isIncognito = false)
 
             _normalTabs.value = emptyList()
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
@@ -1037,6 +1090,10 @@ class TabManager(
 
         _normalTabs.value = remainingNormal
         _incognitoTabs.value = remainingIncognito
+
+        if (incognitoToClose.isNotEmpty() && remainingIncognito.isEmpty()) {
+            purgeIncognitoProfile()
+        }
 
         coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             for (tab in normalToClose) {

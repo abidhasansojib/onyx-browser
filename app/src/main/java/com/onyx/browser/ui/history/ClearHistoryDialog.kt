@@ -49,6 +49,18 @@ class ClearHistoryDialog(
                 }
                 android.webkit.CookieManager.getInstance().flush()
                 android.webkit.WebStorage.getInstance().deleteAllData()
+
+                if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
+                    try {
+                        val store = androidx.webkit.ProfileStore.getInstance()
+                        val incognitoProfile = store.getProfile(com.onyx.browser.web.OnyxWebView.INCOGNITO_PROFILE_NAME)
+                        if (incognitoProfile != null) {
+                            incognitoProfile.cookieManager.removeAllCookies(null)
+                            incognitoProfile.cookieManager.flush()
+                            incognitoProfile.webStorage.deleteAllData()
+                        }
+                    } catch (_: Throwable) {}
+                }
             } catch (_: Exception) {}
             onConfirmClear()
             dismiss()

@@ -41,7 +41,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 25. [x] Image Preview Inspector (tap thumbnail to zoom, save image, share image)
 26. [x] Multi-Engine Reverse Image Search (Google Lens, TinEye, Yandex, Bing)
 27. [x] Visual Tab Switcher (grid previews, swipe-to-dismiss, single & batch close-all undo toast notification, strict tab ID isolation preventing background callback hijacking on new tab creation, close all tabs prompt)
-28. [x] Incognito / Private Browsing Mode (separate in-memory cookie jar, no history logging)
+28. [x] Incognito / Private Browsing Mode (100% complete session isolation via Chromium Multi-Profile API `ProfileStore`; separate cookies, localStorage, IndexedDB, and cache partition; total session destruction on close; zero history logging)
 29. [x] Tab Memory Optimization (suspends JS timers on inactive tabs via `onPause()`)
 30. [x] Time-Range Data Cleaning (clear 15 min, 1 hr, 24 hr, 7 days, 4 weeks, or all time)
 31. [x] SQLCipher AES-256 Encrypted Database (bookmarks, history, tabs, downloads encrypted on-disk)
@@ -146,7 +146,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 
 ### 6. Tab Management & Data Clearing
 - **Visual Tab Grid**: Responsive card grid with live favicons, page titles, close buttons, and swipe-to-dismiss.
-- **Incognito Tabs**: Isolated in-memory browsing session (`LOAD_NO_CACHE`, DOM storage disabled). Preserves normal tabs' cache upon launch, prevents favicon forensic disk leaks, and never leaks search queries into suggestions or history.
+- **Incognito Tabs**: 100% isolated session using Chromium Multi-Profile API (`ProfileStore.getOrCreateProfile("incognito")`). Completely separated cookie jars, LocalStorage, IndexedDB, and HTTP cache partition (`LOAD_NO_CACHE`). Accounts logged into normal tabs never appear in incognito, and incognito sessions never leak to normal tabs. When all incognito tabs close or upon app startup, the incognito profile is fully purged and deleted.
 - **Resource Management**: Calls `webView.onPause()` on background tabs to halt JavaScript timers and save battery, and `webView.onResume()` on the active tab. Memory-bounded heap LRU cache for tab snapshots prevents OOM.
 - **Selective Data Clearing & Element Blocking Reset**: Time-range selection (15 minutes, 1 hour, 24 hours, 7 days, 4 weeks, all time) with live summary of items to be removed. Safely invoked from History Activity (`HistoryActivity`) and the Tab Switcher bottom-left brush button or overflow menu without crashing. Completely clears WebView HTTP/network cache, disk cache files, history, cookies, credentials, and resets custom element blocking rules and settings back to default.
 - **Element Blocking State Enforcement**: When the visual element blocker setting is turned OFF, all previously saved custom CSS rules and selectors are deactivated immediately and removed from web pages without page pollution. When turned ON or when new elements are selected, rules are injected dynamically at document_start.

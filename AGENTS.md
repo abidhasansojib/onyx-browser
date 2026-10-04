@@ -296,6 +296,13 @@ onyx-browser/
   - `shouldOverrideUrlLoading` exempts authentication and payment flows from ad-block popup killer heuristics, preventing legit login windows from closing prematurely.
   - SDK endpoints (`connect.facebook.net`, `graph.facebook.com`) are unblocked when social logins are permitted, while tracking pixels (`pixel.facebook.com`, `tr.facebook.com`, `an.facebook.com`) remain blocked in `AdBlockDomainManager.kt`.
 
+### 4.8. Chromium Multi-Profile Isolation Subsystem (Normal vs Incognito Partitioning)
+- **Zero Cross-Profile Session Leakage**: Normal tabs run on Chromium's default profile (`Profile.DEFAULT_NAME`), while Incognito tabs run on an isolated profile partition (`ProfileStore.getInstance().getOrCreateProfile("incognito")`).
+- **Timing & Profile Assignment**: `WebViewCompat.setProfile(webView, "incognito")` is called strictly before any content loading, navigation, or view attachment occurs.
+- **Independent Cookie Jars & WebStorage**: `OnyxWebView` provides scoped accessors (`cookieManager`, `webStorage`) resolving directly from the WebView's assigned `Profile`. Normal tabs and incognito tabs have 100% separate cookie jars, localStorage, IndexedDB, and HTTP caches. Logging into an account in a normal tab never appears in incognito tabs, and vice-versa.
+- **Incognito Lifecycle & Clean Destruction**: When all incognito tabs close (in `closeTab`, `closeAllTabs(incognitoOnly = true)`, or `closeTabsCreatedSince`), or upon app startup, `TabManager.purgeIncognitoProfile()` wipes all incognito cookies (`removeAllCookies`), purges all incognito WebStorage (`deleteAllData`), destroys all associated incognito WebViews, and removes the profile via `ProfileStore.getInstance().deleteProfile("incognito")`.
+- **Autoclear Scoping**: Tab autoclearing (`autoclearTabData`) is strictly scoped by `isIncognito`. Closing an incognito tab never flushes cookies of normal tabs, and closing a normal tab never flushes cookies of incognito tabs.
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents

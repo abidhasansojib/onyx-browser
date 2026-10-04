@@ -1128,7 +1128,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     (sourceWebView as? OnyxWebView)?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
                     if (!isIncognito) {
                         try {
-                            android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(newWebView, true)
+                            newWebView.cookieManager.setAcceptThirdPartyCookies(newWebView, true)
                         } catch (_: Exception) {}
                     }
 
@@ -1181,7 +1181,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 return@setDownloadListener
             }
             val cookies = try {
-                android.webkit.CookieManager.getInstance().getCookie(url) ?: ""
+                webView.cookieManager.getCookie(url) ?: ""
             } catch (_: Exception) {
                 ""
             }
@@ -1226,7 +1226,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             sheet.setOnOpenInIncognitoTab { u -> openUrlInIncognitoTab(u) }
             sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
             sheet.setOnDownloadUrl { u ->
-                val cookies = android.webkit.CookieManager.getInstance().getCookie(u) ?: ""
+                val cookies = webView.cookieManager.getCookie(u) ?: ""
                 val userAgent = webView.settings.userAgentString ?: ""
                 DownloadHandler.handleDownload(
                     activity = this,
@@ -2444,7 +2444,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         wv?.onResume()
         wv?.applyUserAgentForUrl(wv.url ?: "")
         if (wv != null) {
-            android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(
+            wv.cookieManager.setAcceptThirdPartyCookies(
                 wv,
                 preferences.cookieBlockingMode != BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY &&
                 preferences.cookieBlockingMode != BrowserPreferences.COOKIE_BLOCK_ALL

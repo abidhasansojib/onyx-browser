@@ -734,7 +734,7 @@ class OnyxWebViewClient(
                     wv.lastOAuthInteractionTimestamp = System.currentTimeMillis()
                     if (!wv.isIncognito) {
                         try {
-                            CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
+                            wv.cookieManager.setAcceptThirdPartyCookies(view, true)
                         } catch (_: Exception) {}
                     }
                 }
@@ -1350,23 +1350,25 @@ class OnyxWebViewClient(
                 onyxWv?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
                 // Authentication and CAPTCHA flows (such as Facebook Arkose Labs FunCaptcha inside an iframe)
                 // strictly require cross-site cookies and storage access. Enable 3p cookies unconditionally during auth.
+                val activeCm = onyxWv?.cookieManager ?: CookieManager.getInstance()
                 try {
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
-                    CookieManager.getInstance().flush()
+                    activeCm.setAcceptThirdPartyCookies(view, true)
+                    activeCm.flush()
                 } catch (_: Exception) {}
             } else {
                 val allowThirdPartyCookies = isPopup || isWithinGrace ||
                         preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_NONE
 
                 if (!(onyxWv?.isIncognito ?: false)) {
+                    val activeCm = onyxWv?.cookieManager ?: CookieManager.getInstance()
                     if (allowThirdPartyCookies) {
                         try {
-                            CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
+                            activeCm.setAcceptThirdPartyCookies(view, true)
                         } catch (_: Exception) {}
                     } else if (preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY) {
                         // Restore third-party blocking only when completely outside any auth session or popup context
                         try {
-                            CookieManager.getInstance().setAcceptThirdPartyCookies(view, false)
+                            activeCm.setAcceptThirdPartyCookies(view, false)
                         } catch (_: Exception) {}
                     }
                 }
@@ -1480,7 +1482,8 @@ class OnyxWebViewClient(
 
             if (isFinishedAuthOrMeta) {
                 try {
-                    CookieManager.getInstance().flush()
+                    val activeCm = (view as? OnyxWebView)?.cookieManager ?: CookieManager.getInstance()
+                    activeCm.flush()
                 } catch (_: Exception) {}
             }
 
