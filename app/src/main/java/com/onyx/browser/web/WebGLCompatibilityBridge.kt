@@ -15,6 +15,21 @@ object WebGLCompatibilityBridge {
     val SCRIPT: String = """
         (function() {
             if (window.__onyx_webgl_compat_installed) return;
+
+            // Skip WebGL context patching on Meta/Facebook domains.
+            // Facebook uses canvas/WebGL for security fingerprinting and challenge rendering.
+            // Patching HTMLCanvasElement.prototype.getContext on these pages can break bot
+            // detection and cause security challenge failures during login flows.
+            var _h = (location.hostname || '').toLowerCase();
+            if (_h === 'facebook.com' || _h.endsWith('.facebook.com') ||
+                _h === 'fb.com' || _h.endsWith('.fb.com') ||
+                _h === 'instagram.com' || _h.endsWith('.instagram.com') ||
+                _h === 'messenger.com' || _h.endsWith('.messenger.com') ||
+                _h === 'fbcdn.net' || _h.endsWith('.fbcdn.net') ||
+                _h === 'facebook.net' || _h.endsWith('.facebook.net')) {
+                return;
+            }
+
             window.__onyx_webgl_compat_installed = true;
 
             function float32ToFloat16(f32Array) {

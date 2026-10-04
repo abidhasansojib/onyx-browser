@@ -351,6 +351,26 @@ class PasskeyWebAuthnBridge(
 
                     if (isSecurityOrChallenge) return;
 
+                    // Never replace navigator.credentials on Meta/Facebook auth domains.
+                    // Facebook's login confirmation, checkpoint, and 2FA flows call navigator.credentials
+                    // internally for device-key verification. Intercepting these calls routes them through
+                    // Android CredentialManager which cannot satisfy Facebook's internal challenge,
+                    // causing "confirmation failed" errors on login.
+                    var isMetaAuthDomain =
+                        host === 'facebook.com' || host.endsWith('.facebook.com') ||
+                        host === 'fb.com' || host.endsWith('.fb.com') ||
+                        host === 'messenger.com' || host.endsWith('.messenger.com') ||
+                        host === 'instagram.com' || host.endsWith('.instagram.com') ||
+                        host === 'fbcdn.net' || host.endsWith('.fbcdn.net') ||
+                        host === 'facebook.net' || host.endsWith('.facebook.net') ||
+                        host === 'accounts.google.com' || host.endsWith('.accounts.google.com') ||
+                        host === 'appleid.apple.com' || host.endsWith('.appleid.apple.com') ||
+                        path.indexOf('/checkpoint/') !== -1 ||
+                        path.indexOf('/login/') !== -1 ||
+                        path.indexOf('/two_step_verification') !== -1;
+
+                    if (isMetaAuthDomain) return;
+
                     window.__onyxPasskeyInstalled = true;
 
                     var pendingCallbacks = {};

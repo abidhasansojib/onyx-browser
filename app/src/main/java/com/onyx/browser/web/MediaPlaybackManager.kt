@@ -550,6 +550,20 @@ object MediaPlaybackManager {
      */
     val backgroundPlaybackScript: String = """
         (function() {
+            // Do not run background playback patches on Meta/Facebook auth domains.
+            // Facebook's login confirmation checks document.hasFocus() and visibilityState as
+            // bot-detection signals. Patching these to always return 'visible'/'true' can cause
+            // the security verification to flag the session as automated and show "confirmation failed".
+            var _bgHost = (location.hostname || '').toLowerCase();
+            if (_bgHost === 'facebook.com' || _bgHost.endsWith('.facebook.com') ||
+                _bgHost === 'fb.com' || _bgHost.endsWith('.fb.com') ||
+                _bgHost === 'instagram.com' || _bgHost.endsWith('.instagram.com') ||
+                _bgHost === 'messenger.com' || _bgHost.endsWith('.messenger.com') ||
+                _bgHost === 'fbcdn.net' || _bgHost.endsWith('.fbcdn.net') ||
+                _bgHost === 'facebook.net' || _bgHost.endsWith('.facebook.net')) {
+                return;
+            }
+
             window.__onyx_bg_play_active = true;
             if (typeof window.__onyx_in_background === 'undefined') {
                 window.__onyx_in_background = false;

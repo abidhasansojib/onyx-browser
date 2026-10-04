@@ -501,6 +501,13 @@ onyx-browser/
   - **Integrated Brand Lockup (`ic_logo_onyx.xml`)**: Redesigned homepage logo incorporating the official Onyx emblem as the iconic 'O' followed by modern geometric NYX typography, balanced and centered with zero layout shift on the homepage and new tab.
   - **Themed Icon Parity (`ic_launcher_monochrome.xml`)**: Replaced crude concentric circles with authentic emblem paths for Android 13+ Material You themed icons.
   - **Verified Debug Build**: Workflow run `37208274309` compiled in 4m22s. Debug APK downloaded to `/storage/emulated/0/Download/app-debug.apk` (46 MB).
+- [x] **v1.0.225 — Facebook/Meta Login "Confirmation Failed" Fix**:
+  - **Root Cause Identified**: Three document-start scripts injected unconditionally into all pages were interfering with Facebook's security verification during login:
+    1. `PasskeyWebAuthnBridge` replaced `navigator.credentials` via `Object.defineProperty` on facebook.com — intercepting WebAuthn/passkey calls that Facebook's checkpoint and 2FA flows use for device-key confirmation, routing them through Android CredentialManager which cannot satisfy Facebook's internal challenges.
+    2. `WebGLCompatibilityBridge` patched `HTMLCanvasElement.prototype.getContext` on facebook.com — disrupting canvas-based bot-detection fingerprinting during security challenges.
+    3. `backgroundPlaybackScript` forced `document.hasFocus() = true` and `visibilityState = 'visible'` unconditionally on ALL pages — making Facebook's anti-automation detection flag the session as a bot during confirmation.
+  - **Fix Applied**: Added domain guards at the top of all three scripts that return early for `facebook.com`, `fb.com`, `instagram.com`, `messenger.com`, `fbcdn.net`, and `facebook.net` — mirroring the existing `isMetaOrAuthContext` guard in `AdBlockDocumentStart.kt`. Also added `accounts.google.com` and `appleid.apple.com` guards to `PasskeyWebAuthnBridge`.
+  - **Both Cookie Modes Fixed**: The bug occurred in both "Accept All Cookies" and "Block Third-Party" modes because these patches are applied regardless of cookie settings.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
