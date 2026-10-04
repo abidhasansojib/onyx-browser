@@ -118,7 +118,7 @@ class OnyxWebView @JvmOverloads constructor(
     }
 
     private fun getBaseUserAgent(prefs: com.onyx.browser.data.preferences.BrowserPreferences): String {
-        return UserAgentManager.getUserAgentForTemplate(prefs.userAgentSpoofTemplate, prefs)
+        return UserAgentManager.getUserAgentForTemplate(prefs.userAgentSpoofTemplate, prefs, context)
     }
 
     private val desktopUserAgent = UserAgentManager.DESKTOP_CHROME_UA

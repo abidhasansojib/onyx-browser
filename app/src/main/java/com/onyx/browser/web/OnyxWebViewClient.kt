@@ -1134,16 +1134,21 @@ class OnyxWebViewClient(
         if (!isHttp) return
         val isWhitelisted = preferences.isDomainWhitelisted(url)
 
+        val pageDomain = preferences.cleanDomain(url)
+        val isAuthOrMeta = isMetaDomain(pageDomain) || isCaptchaOrAuthUrl(url, pageDomain) ||
+                isOAuthOrLoginProvider(pageDomain) || isOAuthOrLoginUrl(url) ||
+                pageDomain.contains("login") || pageDomain.contains("auth") || pageDomain.contains("checkpoint")
+
         if ((view as? OnyxWebView)?.isDesktopModeEnabledForCurrentPage() == true) {
             DesktopModeManager.enforceDesktopViewport(view)
         }
 
-        if (preferences.isAdBlockEnabled && preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE && !isWhitelisted) {
+        if (preferences.isAdBlockEnabled && preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE && !isWhitelisted && !isAuthOrMeta) {
             val urlLower = url.lowercase()
             val isCloudflareChallengePage = urlLower.contains("__cf_chl") ||
                     urlLower.contains("/cdn-cgi/challenge-platform") ||
                     urlLower.contains("/cdn-cgi/cf-challenge") ||
-                    isCaptchaOrAuthUrl(url, preferences.cleanDomain(url))
+                    isCaptchaOrAuthUrl(url, pageDomain)
             if (!isCloudflareChallengePage) {
                 val js = """
                     (function() {
@@ -1161,7 +1166,7 @@ class OnyxWebViewClient(
             }
         }
 
-        if (preferences.isDoNotTrackEnabled) {
+        if (preferences.isDoNotTrackEnabled && !isAuthOrMeta) {
             val dntJs = """
                 (function() {
                     Object.defineProperty(navigator, 'doNotTrack', { get: function() { return '1'; } });
@@ -1170,8 +1175,8 @@ class OnyxWebViewClient(
             view?.evaluateJavascript(dntJs, null)
         }
 
-        // Language Fingerprint Protection
-        if (preferences.isFingerprintLangEnabled && !isWhitelisted) {
+        // Language Fingerprint Protection — never tamper on auth/checkpoint pages
+        if (preferences.isFingerprintLangEnabled && !isWhitelisted && !isAuthOrMeta) {
             val langJs = """
                 (function() {
                     try {
@@ -1183,8 +1188,8 @@ class OnyxWebViewClient(
             view?.evaluateJavascript(langJs, null)
         }
 
-        // Block Smart App Banners ("Open in App" notices)
-        if (preferences.isBlockAppBannerEnabled) {
+        // Block Smart App Banners ("Open in App" notices) — never run on auth/checkpoint pages
+        if (preferences.isBlockAppBannerEnabled && !isAuthOrMeta) {
             val bannerJs = """
                 (function() {
                     try {
@@ -1208,15 +1213,15 @@ class OnyxWebViewClient(
             view?.evaluateJavascript(bannerJs, null)
         }
 
-        // Cosmetic element hiding (CSS injection)
-        if (preferences.isCosmeticFilteringEnabled && !isWhitelisted) {
+        // Cosmetic element hiding (CSS injection) — never hide containers on auth/checkpoint pages
+        if (preferences.isCosmeticFilteringEnabled && !isWhitelisted && !isAuthOrMeta) {
             try {
                 val cosmeticCss = AdBlockEngine.getCosmeticCss(url)
                 if (cosmeticCss.isNotBlank()) {
                     injectCosmeticCss(view, cosmeticCss)
                 }
             } catch (_: Throwable) {}
-        } else if (isWhitelisted || !preferences.isAdBlockEnabled) {
+        } else if (isWhitelisted || !preferences.isAdBlockEnabled || isAuthOrMeta) {
             val cleanupJs = """
                 (function() {
                     try {
@@ -1231,55 +1236,56 @@ class OnyxWebViewClient(
         }
 
         // User Custom Blocked Elements (per-domain custom cosmetic rules)
-        try {
-            val customBlockedCss = preferences.getCustomBlockedCssForDomain(url)
-            if (customBlockedCss.isNotBlank()) {
-                val escapedCss = org.json.JSONObject.quote(customBlockedCss)
-                val customJs = """
-                    (function() {
-                        try {
-                            var s = document.getElementById('onyx-user-custom-blocked');
-                            if (!s) {
-                                s = document.createElement('style');
-                                s.id = 'onyx-user-custom-blocked';
-                                s.type = 'text/css';
-                                (document.head || document.documentElement).appendChild(s);
-                            }
-                            s.textContent = $escapedCss;
-                        } catch(e) {}
-                    })();
-                """.trimIndent()
-                view?.evaluateJavascript(customJs, null)
-            } else {
-                val removeJs = """
-                    (function() {
-                        try {
-                            var s = document.getElementById('onyx-user-custom-blocked');
-                            if (s) s.remove();
-                        } catch(e) {}
-                    })();
-                """.trimIndent()
-                view?.evaluateJavascript(removeJs, null)
-            }
-        } catch (_: Throwable) {}
+        if (!isAuthOrMeta) {
+            try {
+                val customBlockedCss = preferences.getCustomBlockedCssForDomain(url)
+                if (customBlockedCss.isNotBlank()) {
+                    val escapedCss = org.json.JSONObject.quote(customBlockedCss)
+                    val customJs = """
+                        (function() {
+                            try {
+                                var s = document.getElementById('onyx-user-custom-blocked');
+                                if (!s) {
+                                    s = document.createElement('style');
+                                    s.id = 'onyx-user-custom-blocked';
+                                    s.type = 'text/css';
+                                    (document.head || document.documentElement).appendChild(s);
+                                }
+                                s.textContent = $escapedCss;
+                            } catch(e) {}
+                        })();
+                    """.trimIndent()
+                    view?.evaluateJavascript(customJs, null)
+                } else {
+                    val removeJs = """
+                        (function() {
+                            try {
+                                var s = document.getElementById('onyx-user-custom-blocked');
+                                if (s) s.remove();
+                            } catch(e) {}
+                        })();
+                    """.trimIndent()
+                    view?.evaluateJavascript(removeJs, null)
+                }
+            } catch (_: Throwable) {}
+        }
 
-        // Fingerprint Protection (JS API spoofing)
-        if (preferences.isFingerprintProtectionEnabled && !isWhitelisted) {
+        // Fingerprint Protection (JS API spoofing) — completely disabled on auth & security pages
+        if (preferences.isFingerprintProtectionEnabled && !isWhitelisted && !isAuthOrMeta) {
             injectFingerprintProtection(view)
         }
 
-        // Passkey / WebAuthn support
-        if (preferences.isPasskeysEnabled) {
+        // Passkey / WebAuthn support — only when not in an auth checkpoint that uses native navigator.credentials
+        if (preferences.isPasskeysEnabled && !isAuthOrMeta) {
             view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
         }
 
-        // Media Monitor — always inject so floating video menu pill, OnyxMediaBridge events,
-        // and PiP polyfill work regardless of whether background playback is enabled.
-        view?.evaluateJavascript(MediaPlaybackManager.mediaMonitorScript, null)
-
-        // Background Playback Suppression — only inject when the user has it enabled
-        if (preferences.isBackgroundPlayEnabled) {
-            view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
+        // Media Monitor & Background Playback — only for non-auth content pages
+        if (!isAuthOrMeta) {
+            view?.evaluateJavascript(MediaPlaybackManager.mediaMonitorScript, null)
+            if (preferences.isBackgroundPlayEnabled) {
+                view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
+            }
         }
 
         // Re-adjust Desktop Viewport after full page and sub-resources load
@@ -1326,28 +1332,35 @@ class OnyxWebViewClient(
 
             val pageDomain = preferences.cleanDomain(url)
             val isAuthOrMeta = isMetaDomain(pageDomain) || isCaptchaOrAuthUrl(url, pageDomain) ||
-                    isOAuthOrLoginProvider(pageDomain) || isOAuthOrLoginUrl(url)
+                    isOAuthOrLoginProvider(pageDomain) || isOAuthOrLoginUrl(url) ||
+                    pageDomain.contains("login") || pageDomain.contains("auth") || pageDomain.contains("checkpoint")
             val isPopup = onyxWv?.isPopupTab == true || onyxWv?.isPopupPendingDisplay == true ||
                     (tabActionCallback?.getTabById(onyxWv?.tabId ?: "")?.parentId != null)
             val isWithinGrace = onyxWv?.isWithinOAuthGracePeriod() == true
 
             if (isAuthOrMeta) {
                 onyxWv?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
-            }
+                // Authentication and CAPTCHA flows (such as Facebook Arkose Labs FunCaptcha inside an iframe)
+                // strictly require cross-site cookies and storage access. Enable 3p cookies unconditionally during auth.
+                try {
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
+                    CookieManager.getInstance().flush()
+                } catch (_: Exception) {}
+            } else {
+                val allowThirdPartyCookies = isPopup || isWithinGrace ||
+                        preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_NONE
 
-            val allowThirdPartyCookies = isAuthOrMeta || isPopup || isWithinGrace ||
-                    preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_NONE
-
-            if (!(onyxWv?.isIncognito ?: false)) {
-                if (allowThirdPartyCookies) {
-                    try {
-                        CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
-                    } catch (_: Exception) {}
-                } else if (preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY) {
-                    // Restore third-party blocking only when completely outside any auth session or popup context
-                    try {
-                        CookieManager.getInstance().setAcceptThirdPartyCookies(view, false)
-                    } catch (_: Exception) {}
+                if (!(onyxWv?.isIncognito ?: false)) {
+                    if (allowThirdPartyCookies) {
+                        try {
+                            CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
+                        } catch (_: Exception) {}
+                    } else if (preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY) {
+                        // Restore third-party blocking only when completely outside any auth session or popup context
+                        try {
+                            CookieManager.getInstance().setAcceptThirdPartyCookies(view, false)
+                        } catch (_: Exception) {}
+                    }
                 }
             }
 
@@ -1411,10 +1424,12 @@ class OnyxWebViewClient(
                 """.trimIndent()
                 view?.evaluateJavascript(cleanupJs, null)
             }
-            if (preferences.isPasskeysEnabled) {
+            if (preferences.isPasskeysEnabled && !isAuthOrMeta) {
                 view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
             }
-            view?.evaluateJavascript(WebGLCompatibilityBridge.SCRIPT, null)
+            if (!isAuthOrMeta) {
+                view?.evaluateJavascript(WebGLCompatibilityBridge.SCRIPT, null)
+            }
         }
     }
 
@@ -1447,11 +1462,23 @@ class OnyxWebViewClient(
                     tabActionCallback?.displayPopupTab(tab)
                 }
             }
-            // Media Monitor — always inject so OnyxMediaBridge events fire and floating pill works
-            if (!isSyntheticError) {
+
+            val finishedDomain = preferences.cleanDomain(effectiveUrl)
+            val isFinishedAuthOrMeta = isMetaDomain(finishedDomain) || isCaptchaOrAuthUrl(effectiveUrl, finishedDomain) ||
+                    isOAuthOrLoginProvider(finishedDomain) || isOAuthOrLoginUrl(effectiveUrl) ||
+                    finishedDomain.contains("login") || finishedDomain.contains("auth") || finishedDomain.contains("checkpoint")
+
+            if (isFinishedAuthOrMeta) {
+                try {
+                    CookieManager.getInstance().flush()
+                } catch (_: Exception) {}
+            }
+
+            // Media Monitor — always inject so OnyxMediaBridge events fire and floating pill works (never on auth/security checkpoints)
+            if (!isSyntheticError && !isFinishedAuthOrMeta) {
                 view?.evaluateJavascript(MediaPlaybackManager.mediaMonitorScript, null)
             }
-            if (preferences.isBackgroundPlayEnabled && !isSyntheticError) {
+            if (preferences.isBackgroundPlayEnabled && !isSyntheticError && !isFinishedAuthOrMeta) {
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
             }
             view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
@@ -1595,54 +1622,47 @@ class OnyxWebViewClient(
         val js = """
             (function() {
                 if (window.__onyxFpInjected) return;
+
+                var host = (location.hostname || '').toLowerCase();
+                var href = (location.href || '').toLowerCase();
+                var path = (location.pathname || '').toLowerCase();
+                var ref = (document.referrer || '').toLowerCase();
+
+                // Never run fingerprint spoofing on Meta/Facebook, CAPTCHA, Turnstile, or Auth pages.
+                // Mutating Canvas, WebGL, or WebRTC APIs flags the client environment as bot/automation
+                // during security challenges (e.g. Arkose Labs / FunCaptcha) and causes "Confirmation failed".
+                if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
+                    path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
+                    href.indexOf('/checkpoint/') !== -1 || href.indexOf('lsd=') !== -1 || href.indexOf('jazoest=') !== -1) {
+                    return;
+                }
+
                 window.__onyxFpInjected = true;
+
+                function makeNative(fn, name) {
+                    try {
+                        fn.toString = function() { return 'function ' + name + '() { [native code] }'; };
+                        Object.defineProperty(fn, 'name', { value: name, configurable: true });
+                    } catch (_) {}
+                    return fn;
+                }
+
                 try {
-                    var _noise = (Math.random() * 0.0001) - 0.00005;
-
-                    var _origToDataURL = HTMLCanvasElement.prototype.toDataURL;
-                    HTMLCanvasElement.prototype.toDataURL = function(type, q) {
-                        var ctx = this.getContext('2d');
-                        if (ctx) {
-                            var id = ctx.getImageData(0, 0, 1, 1);
-                            id.data[0] = (id.data[0] + 1) % 256;
-                            ctx.putImageData(id, 0, 0);
-                        }
-                        return _origToDataURL.apply(this, arguments);
-                    };
-                    var _origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
-                    CanvasRenderingContext2D.prototype.getImageData = function() {
-                        var id = _origGetImageData.apply(this, arguments);
-                        id.data[0] = (id.data[0] + 1) % 256;
-                        return id;
-                    };
-
-                    Object.defineProperty(navigator, 'hardwareConcurrency', {
-                        get: function() { return 4; }
-                    });
+                    // Standard hardware spoofing with proper native descriptors
+                    try {
+                        Object.defineProperty(navigator, 'hardwareConcurrency', {
+                            get: makeNative(function() { return 8; }, 'get hardwareConcurrency'),
+                            configurable: true
+                        });
+                    } catch (_) {}
 
                     if ('deviceMemory' in navigator) {
-                        Object.defineProperty(navigator, 'deviceMemory', {
-                            get: function() { return 4; }
-                        });
-                    }
-
-                    var _origGetParam = WebGLRenderingContext.prototype.getParameter;
-                    WebGLRenderingContext.prototype.getParameter = function(param) {
-                        if (param === 37445) return 'Intel Inc.';
-                        if (param === 37446) return 'Intel Iris OpenGL';
-                        return _origGetParam.call(this, param);
-                    };
-                    if (typeof WebGL2RenderingContext !== 'undefined') {
-                        var _origGetParam2 = WebGL2RenderingContext.prototype.getParameter;
-                        WebGL2RenderingContext.prototype.getParameter = function(param) {
-                            if (param === 37445) return 'Intel Inc.';
-                            if (param === 37446) return 'Intel Iris OpenGL';
-                            return _origGetParam2.call(this, param);
-                        };
-                    }
-
-                    if (window.RTCPeerConnection) {
-                        window.RTCPeerConnection = function() { return {}; };
+                        try {
+                            Object.defineProperty(navigator, 'deviceMemory', {
+                                get: makeNative(function() { return 8; }, 'get deviceMemory'),
+                                configurable: true
+                            });
+                        } catch (_) {}
                     }
                 } catch(e) {}
             })();

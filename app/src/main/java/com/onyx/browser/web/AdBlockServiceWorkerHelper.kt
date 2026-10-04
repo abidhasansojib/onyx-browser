@@ -34,6 +34,25 @@ object AdBlockServiceWorkerHelper {
                             val reqDomain = prefs.cleanDomain(url)
                             if (prefs.isDomainWhitelisted(reqDomain)) return null
 
+                            // Universal CAPTCHA, Auth, OAuth, and First-Party Meta exemption
+                            val lowerUrl = url.lowercase()
+                            val isAuthOrSecurity = reqDomain.contains("facebook.com") || reqDomain.contains("meta.com") ||
+                                    reqDomain.contains("fb.com") || reqDomain.contains("fbcdn.net") ||
+                                    reqDomain.contains("facebook.net") || reqDomain.contains("fbsbx.com") ||
+                                    reqDomain.contains("instagram.com") || reqDomain.contains("messenger.com") ||
+                                    reqDomain.contains("arkose") || reqDomain.contains("funcaptcha") ||
+                                    reqDomain.contains("turnstile") || reqDomain.contains("recaptcha") ||
+                                    reqDomain.contains("hcaptcha") || reqDomain.contains("challenges.cloudflare.com") ||
+                                    reqDomain.contains("datadome") || reqDomain.contains("perimeterx") ||
+                                    reqDomain.contains("kasada") || reqDomain.contains("geetest") ||
+                                    lowerUrl.contains("/checkpoint/") || lowerUrl.contains("/login") ||
+                                    lowerUrl.contains("/auth") || lowerUrl.contains("lsd=") || lowerUrl.contains("jazoest=")
+
+                            val isMetaAdPixel = reqDomain == "pixel.facebook.com" || reqDomain == "an.facebook.com" || reqDomain == "tr.facebook.com"
+                            if (isAuthOrSecurity && !isMetaAdPixel) {
+                                return null
+                            }
+
                             val isAggressive = prefs.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
                             val uncloakedDomain = AdBlockDomainManager.uncloakDomain(reqDomain)
                             val blockedByDomain = AdBlockDomainManager.shouldBlock(uncloakedDomain, isAggressive)

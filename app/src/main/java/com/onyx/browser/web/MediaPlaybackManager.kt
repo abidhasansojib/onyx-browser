@@ -25,6 +25,19 @@ object MediaPlaybackManager {
      */
     val mediaMonitorScript: String = """
         (function() {
+            var host = (location.hostname || '').toLowerCase();
+            var href = (location.href || '').toLowerCase();
+            var path = (location.pathname || '').toLowerCase();
+            var ref = (document.referrer || '').toLowerCase();
+
+            // Never tamper with PiP or Media prototypes on Meta/Facebook, Arkose Labs, CAPTCHA, Turnstile, or Auth pages.
+            // Preserves 100% native Blink prototypes and prevents security checkpoints from flagging modified DOM APIs.
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
+                path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
+                href.indexOf('/checkpoint/') !== -1 || href.indexOf('lsd=') !== -1 || href.indexOf('jazoest=') !== -1) {
+                return;
+            }
+
             if (window.__onyx_monitor_active) return;
             window.__onyx_monitor_active = true;
 
@@ -555,22 +568,13 @@ object MediaPlaybackManager {
             // bot-detection signals. Patching these to always return 'visible'/'true' can cause
             // the security verification to flag the session as automated and show "confirmation failed".
             var _bgRef = (document.referrer || '').toLowerCase();
-            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha/i.test(_bgRef)) {
-                return;
-            }
-
             var _bgHost = (location.hostname || '').toLowerCase();
-            if (_bgHost === 'facebook.com' || _bgHost.endsWith('.facebook.com') ||
-                _bgHost === 'meta.com' || _bgHost.endsWith('.meta.com') ||
-                _bgHost === 'fb.com' || _bgHost.endsWith('.fb.com') ||
-                _bgHost === 'fb.me' || _bgHost.endsWith('.fb.me') ||
-                _bgHost === 'instagram.com' || _bgHost.endsWith('.instagram.com') ||
-                _bgHost === 'cdninstagram.com' || _bgHost.endsWith('.cdninstagram.com') ||
-                _bgHost === 'threads.net' || _bgHost.endsWith('.threads.net') ||
-                _bgHost === 'messenger.com' || _bgHost.endsWith('.messenger.com') ||
-                _bgHost === 'fbcdn.net' || _bgHost.endsWith('.fbcdn.net') ||
-                _bgHost === 'facebook.net' || _bgHost.endsWith('.facebook.net') ||
-                _bgHost.indexOf('arkose') !== -1 || _bgHost.indexOf('funcaptcha') !== -1) {
+            var _bgHref = (location.href || '').toLowerCase();
+            var _bgPath = (location.pathname || '').toLowerCase();
+
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(_bgHost + ' ' + _bgHref + ' ' + _bgRef) ||
+                _bgPath.indexOf('/checkpoint/') !== -1 || _bgPath.indexOf('/login/') !== -1 || _bgPath.indexOf('/auth/') !== -1 ||
+                _bgHref.indexOf('/checkpoint/') !== -1 || _bgHref.indexOf('lsd=') !== -1 || _bgHref.indexOf('jazoest=') !== -1) {
                 return;
             }
 

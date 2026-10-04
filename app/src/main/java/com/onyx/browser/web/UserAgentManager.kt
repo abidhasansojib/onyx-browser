@@ -1,5 +1,7 @@
 package com.onyx.browser.web
 
+import android.content.Context
+import android.webkit.WebSettings
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 
@@ -27,37 +29,37 @@ object UserAgentManager {
     const val KEY_GOOGLEBOT = "googlebot"
     const val KEY_CUSTOM = "custom"
 
-    // Default Mobile Android (Android 10; K / Chrome 154 - Chromium UA Reduction)
+    // Default Mobile Android (Android 10; K / Chrome 131 - Chromium UA Reduction)
     const val DEFAULT_MOBILE_UA =
-        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36"
+        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
 
     // Windows Chrome Desktop (Chromium UA Reduction: Windows NT 10.0; Win64; x64)
     const val DESKTOP_CHROME_UA =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
-    // Windows Firefox Desktop (Firefox 156)
+    // Windows Firefox Desktop (Firefox 133)
     const val DESKTOP_FIREFOX_UA =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:156.0) Gecko/20100101 Firefox/156.0"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
 
-    // Windows Edge Desktop (Edge 154 / Chromium UA Reduction)
+    // Windows Edge Desktop (Edge 131 / Chromium UA Reduction)
     const val DESKTOP_EDGE_UA =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
 
     // macOS Safari Desktop (macOS 10_15_7 / Safari 18.0)
     const val MACOS_SAFARI_UA =
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
 
-    // macOS Chrome Desktop (macOS 10_15_7 / Chrome 154)
+    // macOS Chrome Desktop (macOS 10_15_7 / Chrome 131)
     const val MACOS_CHROME_UA =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
-    // Linux Firefox Desktop (Firefox 156)
+    // Linux Firefox Desktop (Firefox 133)
     const val LINUX_FIREFOX_UA =
-        "Mozilla/5.0 (X11; Linux x86_64; rv:156.0) Gecko/20100101 Firefox/156.0"
+        "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0"
 
-    // Chrome OS / Chromebook (Chrome 154)
+    // Chrome OS / Chromebook (Chrome 131)
     const val CHROME_OS_UA =
-        "Mozilla/5.0 (X11; CrOS x86_64 15662.76.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (X11; CrOS x86_64 15662.76.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
     // iPhone Safari Mobile (iOS 18 / Safari 18.0)
     const val IPHONE_SAFARI_UA =
@@ -69,11 +71,11 @@ object UserAgentManager {
 
     // Android Firefox Mobile
     const val ANDROID_FIREFOX_UA =
-        "Mozilla/5.0 (Android 16; Mobile; rv:156.0) Gecko/156.0 Firefox/156.0"
+        "Mozilla/5.0 (Android 14; Mobile; rv:133.0) Gecko/133.0 Firefox/133.0"
 
-    // Googlebot Smartphone Crawler (Nexus 5X / Chrome 154)
+    // Googlebot Smartphone Crawler (Nexus 5X / Chrome 131)
     const val GOOGLEBOT_UA =
-        "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+        "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 
     val DESKTOP_KEYS = setOf(
         KEY_WINDOWS_CHROME,
@@ -182,12 +184,51 @@ object UserAgentManager {
         )
     }
 
-    fun getUserAgentForTemplate(key: String, prefs: BrowserPreferences): String {
+    @Volatile
+    private var cachedChromiumVersion: String? = null
+
+    /**
+     * Dynamically extracts the real Chromium version from Android's installed System WebView.
+     * Prevents version mismatch between navigator.userAgent and navigator.userAgentData.brands,
+     * which security challenges (Arkose Labs FunCaptcha, Facebook checkpoint) flag as automated scrapers.
+     */
+    fun getSystemChromiumVersion(context: Context? = null): String {
+        cachedChromiumVersion?.let { return it }
+        if (context != null) {
+            try {
+                val defaultUa = WebSettings.getDefaultUserAgent(context)
+                val match = Regex("""Chrome/([0-9.]+)""").find(defaultUa)
+                if (match != null) {
+                    val ver = match.groupValues[1]
+                    if (ver.isNotBlank()) {
+                        cachedChromiumVersion = ver
+                        return ver
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        return "131.0.0.0"
+    }
+
+    fun getEffectiveMobileUserAgent(context: Context? = null): String {
+        val ver = getSystemChromiumVersion(context)
+        return "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$ver Mobile Safari/537.36"
+    }
+
+    fun getUserAgentForTemplate(
+        key: String,
+        prefs: BrowserPreferences,
+        context: Context? = null
+    ): String {
+        val effectiveDefault = getEffectiveMobileUserAgent(context)
         if (key == KEY_CUSTOM) {
             val custom = prefs.customUserAgent.trim()
-            return if (custom.isNotBlank()) custom else DEFAULT_MOBILE_UA
+            return if (custom.isNotBlank()) custom else effectiveDefault
         }
-        return getTemplates().firstOrNull { it.key == key }?.userAgentString ?: DEFAULT_MOBILE_UA
+        if (key == KEY_DEFAULT) {
+            return effectiveDefault
+        }
+        return getTemplates().firstOrNull { it.key == key }?.userAgentString ?: effectiveDefault
     }
 
     fun getDisplayName(key: String, prefs: BrowserPreferences): String {

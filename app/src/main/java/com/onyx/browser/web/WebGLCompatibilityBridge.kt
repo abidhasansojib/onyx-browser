@@ -16,31 +16,31 @@ object WebGLCompatibilityBridge {
         (function() {
             if (window.__onyx_webgl_compat_installed) return;
 
-            // Skip WebGL context patching on Meta/Facebook domains.
-            // Facebook uses canvas/WebGL for security fingerprinting and challenge rendering.
-            // Patching HTMLCanvasElement.prototype.getContext on these pages can break bot
-            // detection and cause security challenge failures during login flows.
+            // Skip WebGL context patching on Meta/Facebook domains, CAPTCHA challenges, and security checkpoints.
+            // Facebook and anti-bot verification engines (Arkose Labs FunCaptcha, Turnstile, reCAPTCHA, etc.)
+            // use canvas/WebGL for hardware cryptographic fingerprinting and verification challenges.
+            // Patching HTMLCanvasElement.prototype.getContext on these pages breaks bot detection,
+            // corrupts client verification tokens, and causes "Confirmation failed" on login.
             var _ref = (document.referrer || '').toLowerCase();
-            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha/i.test(_ref)) {
-                return;
-            }
-
             var _h = (location.hostname || '').toLowerCase();
-            if (_h === 'facebook.com' || _h.endsWith('.facebook.com') ||
-                _h === 'meta.com' || _h.endsWith('.meta.com') ||
-                _h === 'fb.com' || _h.endsWith('.fb.com') ||
-                _h === 'fb.me' || _h.endsWith('.fb.me') ||
-                _h === 'instagram.com' || _h.endsWith('.instagram.com') ||
-                _h === 'cdninstagram.com' || _h.endsWith('.cdninstagram.com') ||
-                _h === 'threads.net' || _h.endsWith('.threads.net') ||
-                _h === 'messenger.com' || _h.endsWith('.messenger.com') ||
-                _h === 'fbcdn.net' || _h.endsWith('.fbcdn.net') ||
-                _h === 'facebook.net' || _h.endsWith('.facebook.net') ||
-                _h.indexOf('arkose') !== -1 || _h.indexOf('funcaptcha') !== -1) {
+            var _href = (location.href || '').toLowerCase();
+            var _path = (location.pathname || '').toLowerCase();
+
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(_h + ' ' + _href + ' ' + _ref) ||
+                _path.indexOf('/checkpoint/') !== -1 || _path.indexOf('/login/') !== -1 || _path.indexOf('/auth/') !== -1 ||
+                _href.indexOf('/checkpoint/') !== -1 || _href.indexOf('lsd=') !== -1 || _href.indexOf('jazoest=') !== -1) {
                 return;
             }
 
             window.__onyx_webgl_compat_installed = true;
+
+            function makeNative(fn, name) {
+                try {
+                    fn.toString = function() { return 'function ' + name + '() { [native code] }'; };
+                    Object.defineProperty(fn, 'name', { value: name, configurable: true });
+                } catch (_) {}
+                return fn;
+            }
 
             function float32ToFloat16(f32Array) {
                 var f16 = new Uint16Array(f32Array.length);
@@ -434,7 +434,7 @@ object WebGLCompatibilityBridge {
             // Hook canvas.getContext: Upgrade WebGL 1 to WebGL 2 first for full mobile float framebuffer support
             if (typeof HTMLCanvasElement !== 'undefined' && HTMLCanvasElement.prototype.getContext) {
                 var originalGetContext = HTMLCanvasElement.prototype.getContext;
-                HTMLCanvasElement.prototype.getContext = function(type, attributes) {
+                HTMLCanvasElement.prototype.getContext = makeNative(function(type, attributes) {
                     if (type === 'webgl' || type === 'experimental-webgl') {
                         var ctx = null;
                         try {
@@ -462,13 +462,13 @@ object WebGLCompatibilityBridge {
                         return null;
                     }
                     return originalGetContext.call(this, type, attributes);
-                };
+                }, 'getContext');
             }
 
             // Hook OffscreenCanvas.getContext if available
             if (typeof OffscreenCanvas !== 'undefined' && OffscreenCanvas.prototype.getContext) {
                 var originalOffscreenGetContext = OffscreenCanvas.prototype.getContext;
-                OffscreenCanvas.prototype.getContext = function(type, attributes) {
+                OffscreenCanvas.prototype.getContext = makeNative(function(type, attributes) {
                     if (type === 'webgl' || type === 'experimental-webgl') {
                         var ctx = null;
                         try {
@@ -496,7 +496,7 @@ object WebGLCompatibilityBridge {
                         return null;
                     }
                     return originalOffscreenGetContext.call(this, type, attributes);
-                };
+                }, 'getContext');
             }
         })();
     """.trimIndent()

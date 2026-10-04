@@ -44,6 +44,21 @@ object DevToolsManager {
     val consoleBufferScript: String = """
         (function() {
             if (window.__onyx_console_buffer) return;
+
+            var host = (location.hostname || '').toLowerCase();
+            var href = (location.href || '').toLowerCase();
+            var path = (location.pathname || '').toLowerCase();
+            var ref = (document.referrer || '').toLowerCase();
+
+            // Never monkey-patch console methods on Meta/Facebook, Arkose Labs, CAPTCHA, Turnstile, or Auth pages.
+            // Security challenges (Arkose FunCaptcha, Turnstile) validate console.log.toString() === "function log() { [native code] }"
+            // and flag tampered consoles as bot/automation environments, causing "Confirmation failed".
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
+                path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
+                href.indexOf('/checkpoint/') !== -1 || href.indexOf('lsd=') !== -1 || href.indexOf('jazoest=') !== -1) {
+                return;
+            }
+
             window.__onyx_console_buffer = [];
 
             function safeSerialize(arg) {
@@ -58,7 +73,7 @@ object DevToolsManager {
             var methods = ['log', 'warn', 'error', 'info', 'debug'];
             methods.forEach(function(m) {
                 var orig = console[m];
-                console[m] = function() {
+                var patched = function() {
                     try {
                         if (window.__onyx_console_buffer.length < 500) {
                             var serialized = Array.prototype.map.call(arguments, safeSerialize);
@@ -80,6 +95,11 @@ object DevToolsManager {
                     } catch (_) {}
                     if (orig) return orig.apply(this, arguments);
                 };
+                try {
+                    patched.toString = function() { return 'function ' + m + '() { [native code] }'; };
+                    Object.defineProperty(patched, 'name', { value: m, configurable: true });
+                } catch (_) {}
+                console[m] = patched;
             });
 
             window.addEventListener('error', function(e) {
