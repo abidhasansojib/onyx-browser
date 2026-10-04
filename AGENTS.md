@@ -675,7 +675,7 @@ onyx-browser/
     - **Transient `isTabSwitching` Focus Guard**: Added `isTabSwitching` synchronization boolean in `MainActivity.kt`. Set to `true` prior to `searchController.exitSearchMode()` and the WebView container swap in `displayTab()`. The `etUrl.setOnFocusChangeListener` explicitly checks `!isTabSwitching`. The guard is released asynchronously on the next layout pass via `binding.root.post { isTabSwitching = false }`, completely eliminating spurious search overlays while retaining instant search mode on user tap.
     - **Pull-To-Refresh Ergonomics**: Tuned `SwipeRefreshLayout.setDistanceToTriggerSync` to `120dp` (scaled by display density), replacing the hyper-sensitive default (64dp) to eliminate accidental page reloads while scrolling long articles or social feeds.
 
-21. **Facebook Login & Arkose Labs CAPTCHA "Confirmation Failed" Resolution (`v1.0.234`)**:
+21. **Facebook Login & Arkose Labs CAPTCHA "Confirmation Failed" Resolution (`v1.0.243`)**:
     - **Brave Core Architecture & "Allow Facebook Logins" Setting Research**:
       - Deep research into `/root/brave-core` (`components/brave_shields/core/browser/ad_block_component_service_manager.cc` and `components/brave_shields/core/browser/ad_block_service.cc`) reveals that `kFBEmbedControlType` (`"brave.shields.fb_embed_default"`) toggles Brave component list `A5E6EC21-F01F-4547-9F0A-1EE1C3F2AE8D` and `$tag=fb-embeds` exception rules (`@@||graph.facebook.com^$tag=fb-embeds`, `@@||connect.facebook.net^*/sdk.js$tag=fb-embeds`).
       - This setting is strictly designed for **third-party websites embedding Facebook SDK logins and social embeds** (e.g., an e-commerce website with a "Sign in with Facebook" button or embedded Facebook post).
