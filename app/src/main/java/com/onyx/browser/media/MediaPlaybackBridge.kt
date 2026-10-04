@@ -60,6 +60,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
         @Volatile var currentPlayingTabId: String? = null
         @Volatile var currentPlayingWebView: java.lang.ref.WeakReference<android.webkit.WebView>? = null
+        @Volatile var lastPipRequestTimestamp = 0L
 
         var onMediaStateListener: ((isPlaying: Boolean, isVideo: Boolean, width: Int, height: Int) -> Unit)? = null
         var onMediaPlaybackStartedListener: ((playingWebView: android.webkit.WebView) -> Unit)? = null
@@ -134,6 +135,11 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun requestVideoPip() {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastPipRequestTimestamp < 1500L) {
+            return
+        }
+        lastPipRequestTimestamp = now
         mainHandler.post {
             onPipRequestedListener?.invoke()
         }

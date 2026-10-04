@@ -31,6 +31,12 @@ object MediaPlaybackManager {
             try {
                 // ── 1. W3C Picture-in-Picture Web API Polyfill ─────────────────────────
                 var currentPipElem = null;
+
+                // Track user interactions to guard against unsolicited programmatic PiP calls
+                window.addEventListener('pointerdown', function() { window.__onyx_last_user_touch = Date.now(); }, true);
+                window.addEventListener('touchstart', function() { window.__onyx_last_user_touch = Date.now(); }, true);
+                window.addEventListener('click', function() { window.__onyx_last_user_touch = Date.now(); }, true);
+
                 if (!document.pictureInPictureEnabled) {
                     try {
                         Object.defineProperty(document, 'pictureInPictureEnabled', {
@@ -73,12 +79,21 @@ object MediaPlaybackManager {
                                 reject(new DOMException("Video is not ready", "InvalidStateError"));
                                 return;
                             }
+                            var timeSinceTouch = Date.now() - (window.__onyx_last_user_touch || 0);
+                            var isUserGesture = timeSinceTouch < 2500;
+                            // Block unprompted script/background requests that cause auto-PiP re-entry loops
+                            if (!isUserGesture && !document.hasFocus()) {
+                                reject(new DOMException("Must be handling a user gesture to enter Picture-in-Picture", "NotAllowedError"));
+                                return;
+                            }
                             currentPipElem = self;
                             window.__onyx_current_pip_element = self;
                             reportVideoBounds(self);
 
+                            var bridgeCalled = false;
                             if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.requestVideoPip === 'function') {
                                 window.OnyxMediaBridge.requestVideoPip();
+                                bridgeCalled = true;
                             }
 
                             if (window.top && window.top !== window) {
@@ -86,7 +101,9 @@ object MediaPlaybackManager {
                                     window.top.postMessage({
                                         __onyx_cmd: 'pip_request',
                                         width: self.videoWidth || self.clientWidth || 320,
-                                        height: self.videoHeight || self.clientHeight || 180
+                                        height: self.videoHeight || self.clientHeight || 180,
+                                        bridgeHandled: bridgeCalled,
+                                        isUserGesture: isUserGesture
                                     }, '*');
                                 } catch (_) {}
                             }
@@ -497,7 +514,7 @@ object MediaPlaybackManager {
                                     }
                                 } catch (_) {}
                             }
-                            if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.requestVideoPip === 'function') {
+                            if (!e.data.bridgeHandled && e.data.isUserGesture !== false && window.OnyxMediaBridge && typeof window.OnyxMediaBridge.requestVideoPip === 'function') {
                                 window.OnyxMediaBridge.requestVideoPip();
                             }
                         } else if (cmd === 'pip_exit') {
@@ -509,10 +526,12 @@ object MediaPlaybackManager {
                             window.__onyx_current_pip_element = null;
                         }
 
-                        // Recursively forward to child iframes
-                        document.querySelectorAll('iframe').forEach(function(f) {
-                            try { f.contentWindow.postMessage(e.data, '*'); } catch (_) {}
-                        });
+                        // Recursively forward to child iframes (except pip_request to avoid cascading triggers)
+                        if (cmd !== 'pip_request') {
+                            document.querySelectorAll('iframe').forEach(function(f) {
+                                try { f.contentWindow.postMessage(e.data, '*'); } catch (_) {}
+                            });
+                        }
                     } catch (_) {}
                 });
 
@@ -1417,6 +1436,21 @@ object MediaPlaybackManager {
                 if (style) style.remove();
                 document.querySelectorAll('[data-onyx-pip-target]').forEach(function(el) {
                     el.removeAttribute('data-onyx-pip-target');
+                    el.style.removeProperty('display');
+                    el.style.removeProperty('position');
+                    el.style.removeProperty('top');
+                    el.style.removeProperty('left');
+                    el.style.removeProperty('width');
+                    el.style.removeProperty('height');
+                    el.style.removeProperty('max-width');
+                    el.style.removeProperty('max-height');
+                    el.style.removeProperty('z-index');
+                    el.style.removeProperty('background');
+                    el.style.removeProperty('object-fit');
+                    el.style.removeProperty('margin');
+                    el.style.removeProperty('padding');
+                    el.style.removeProperty('border');
+                    el.style.removeProperty('box-shadow');
                 });
                 document.querySelectorAll('[data-onyx-pip-ancestor]').forEach(function(el) {
                     el.removeAttribute('data-onyx-pip-ancestor');
@@ -1429,6 +1463,27 @@ object MediaPlaybackManager {
                     el.style.removeProperty('margin');
                     el.style.removeProperty('padding');
                 });
+                if (document.documentElement) {
+                    document.documentElement.style.removeProperty('overflow');
+                    document.documentElement.style.removeProperty('background');
+                    document.documentElement.style.removeProperty('width');
+                    document.documentElement.style.removeProperty('height');
+                }
+                if (document.body) {
+                    document.body.style.removeProperty('overflow');
+                    document.body.style.removeProperty('background');
+                    document.body.style.removeProperty('width');
+                    document.body.style.removeProperty('height');
+                }
+                // Trigger resize so streaming players adapt immediately to portrait dimensions
+                try {
+                    window.dispatchEvent(new Event('resize'));
+                    document.querySelectorAll('iframe').forEach(function(f) {
+                        try {
+                            f.contentWindow.dispatchEvent(new Event('resize'));
+                        } catch (_) {}
+                    });
+                } catch (_) {}
             } catch (e) {}
         })();
     """.trimIndent()

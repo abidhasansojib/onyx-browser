@@ -2017,6 +2017,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 if (binding.topBar.visibility != View.VISIBLE) {
                     binding.topBar.visibility = View.VISIBLE
                     binding.topBarDivider.visibility = View.VISIBLE
+                    val activeTab = tabManager.activeTab.value
+                    if (activeTab != null && activeTab.url.isNotBlank() &&
+                        !activeTab.url.startsWith("onyx://") && !activeTab.url.startsWith("about:")) {
+                        binding.webViewContainer.visibility = View.VISIBLE
+                        binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        binding.webViewContainer.requestLayout()
+                    }
                     tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
                     return
                 }
@@ -2447,11 +2454,20 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 binding.fullscreenControlsOverlay.visibility = View.GONE
                 binding.topBar.visibility = View.VISIBLE
                 binding.topBarDivider.visibility = View.VISIBLE
+                val activeTab = tabManager.activeTab.value
+                if (activeTab != null && activeTab.url.isNotBlank() &&
+                    !activeTab.url.startsWith("onyx://") && !activeTab.url.startsWith("about:")) {
+                    binding.homeLayout.root.visibility = View.GONE
+                    binding.webViewContainer.visibility = View.VISIBLE
+                    binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                }
                 androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
                 wv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
                 binding.topBar.requestLayout()
+                binding.webViewContainer.requestLayout()
             } else {
                 binding.fullscreenControlsOverlay.visibility = View.VISIBLE
+                binding.fullscreenControlsOverlay.bringToFront()
             }
         }
     }
@@ -2472,9 +2488,20 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             wv?.resumeTimers()
             wv?.requestFocus()
             val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
-            if (!isPip && customVideoView == null && binding.topBar.visibility != View.VISIBLE) {
-                binding.topBar.visibility = View.VISIBLE
-                binding.topBarDivider.visibility = View.VISIBLE
+            if (!isPip && customVideoView == null) {
+                if (binding.topBar.visibility != View.VISIBLE) {
+                    binding.topBar.visibility = View.VISIBLE
+                    binding.topBarDivider.visibility = View.VISIBLE
+                }
+                val activeTab = tabManager.activeTab.value
+                if (activeTab != null && activeTab.url.isNotBlank() &&
+                    !activeTab.url.startsWith("onyx://") && !activeTab.url.startsWith("about:")) {
+                    if (binding.webViewContainer.visibility != View.VISIBLE) {
+                        binding.webViewContainer.visibility = View.VISIBLE
+                        binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        binding.webViewContainer.requestLayout()
+                    }
+                }
                 wv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
             }
         }

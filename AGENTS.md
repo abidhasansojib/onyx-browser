@@ -217,7 +217,11 @@ onyx-browser/
   - Traverses the composed ancestor path across ShadowRoot boundaries to remove CSS `transform`, `contain`, `filter`, and `clip-path` constraints up to `<html>`.
   - Non-destructive viewport isolation: applies `position: fixed; z-index: 2147483647; width: 100vw; height: 100vh; background: #000; object-fit: contain;` directly to the target element without destructive `display: none` on siblings, preserving React/Vue/WebGL DOM state.
   - Unblocks YouTube native PiP button via `ytcfg` serialized experiment flags (`kYoutubePictureInPictureSupport`).
-  - Cross-origin iframe postMessage bus (`pip_request`, `pip_exit`) allows embeds to request and release PiP seamlessly.
+  - Cross-origin iframe postMessage bus (`pip_request`, `pip_exit`) allows embeds to request and release PiP seamlessly, guarded with `bridgeHandled` and user-gesture validation (`isUserGesture < 2500ms`) to eliminate auto-PiP re-entry loops.
+  - Bridge-level throttling (`lastPipRequestTimestamp < 1500ms`) in `MediaPlaybackBridge` drops duplicate requests from nested iframes.
+  - Fullscreen overlay controls (`fullscreenControlsOverlay`) elevated via `bringToFront()` and `translationZ = 100f` so the close (cross/X) button is consistently visible above hardware-accelerated video surfaces.
+  - Complete portrait restoration: `hideCustomFullscreenVideo()` and `onPictureInPictureModeChanged(false)` restore `binding.webViewContainer.visibility = View.VISIBLE`, transparent background, and invoke `onRestoreUiFromPip(false)` to prevent blank/grey screens.
+  - `restoreVideoFromPipScript` cleans all inline styling and dispatches `resize` events to `window` and child `iframes`, ensuring streaming players adapt cleanly between landscape and portrait.
   - Dispatches W3C `leavepictureinpicture` event upon PiP exit and zeroes out navigation bar padding during transitions.
 
 ### 4.3. Navigation, Schemes & Intent Routing (`AndroidManifest.xml`)

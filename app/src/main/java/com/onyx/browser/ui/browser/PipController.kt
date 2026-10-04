@@ -151,6 +151,11 @@ class PipController(
         )
         binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
         binding.fullscreenControlsOverlay.visibility = View.VISIBLE
+        binding.fullscreenControlsOverlay.bringToFront()
+        binding.fullscreenCustomViewContainer.bringChildToFront(binding.fullscreenControlsOverlay)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            binding.fullscreenControlsOverlay.translationZ = 100f
+        }
 
         binding.btnFullscreenPip.setOnClickListener {
             enterPipMode()
@@ -175,16 +180,23 @@ class PipController(
         } catch (_: Exception) {}
         customViewCallback = null
 
-        // Guarantee browser chrome is visible
+        // Guarantee browser chrome and web content container are restored to visible portrait state
         binding.topBar.visibility = View.VISIBLE
         binding.topBarDivider.visibility = View.VISIBLE
-        getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+        binding.webViewContainer.visibility = View.VISIBLE
+        binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        onRestoreUiFromPip(false)
+
+        val activeWv = getActiveWebView()
+        activeWv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+        activeWv?.requestLayout()
 
         updatePipParams(isVideoPlaying = false, shouldAutoEnter = false)
 
         activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         WindowInsetsControllerCompat(activity.window, activity.window.decorView).show(WindowInsetsCompat.Type.systemBars())
         binding.topBar.requestLayout()
+        binding.webViewContainer.requestLayout()
         binding.root.requestLayout()
     }
 
@@ -476,7 +488,7 @@ class PipController(
             isCurrentlyInPip = false
             MediaPlaybackBridge.isExplicitUserPause = false
             justExitedPip = true
-            binding.root.postDelayed({ justExitedPip = false }, 2500)
+            binding.root.postDelayed({ justExitedPip = false }, 3000)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 try {
@@ -499,13 +511,22 @@ class PipController(
 
             if (customVideoView != null) {
                 binding.fullscreenControlsOverlay.visibility = View.VISIBLE
+                binding.fullscreenControlsOverlay.bringToFront()
+                binding.fullscreenCustomViewContainer.bringChildToFront(binding.fullscreenControlsOverlay)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    binding.fullscreenControlsOverlay.translationZ = 100f
+                }
                 binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
                 binding.webViewContainer.visibility = View.GONE
             } else {
                 binding.fullscreenCustomViewContainer.visibility = View.GONE
                 binding.fullscreenControlsOverlay.visibility = View.GONE
+                binding.webViewContainer.visibility = View.VISIBLE
                 activeWv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+                activeWv?.requestLayout()
             }
+            binding.webViewContainer.requestLayout()
+            binding.root.requestLayout()
             updatePipParams(shouldAutoEnter = false)
         }
     }
