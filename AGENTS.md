@@ -88,6 +88,10 @@ When triggered for a build (after user confirms or explicitly requests Release o
   - `[ ]` = Planned / not yet implemented.
 - **Mandatory Agent Tracking**: Before developing or debugging, agents must inspect `FEATURES.md` to see what is already working and what has bugs. Whenever an agent adds a feature, identifies a bug, or resolves an issue, they **MUST** update `FEATURES.md` accordingly.
 
+### RULE 7: No Internal Agent Artifacts or Plans in Git
+- Never commit internal agent scaffolding, plan files, design specs, or scratch directories (e.g. `docs/superpowers/`, `.superpowers/`, scratch scripts) into the repository.
+- Keep all internal session artifacts strictly within `<appDataDir>/brain/` or untracked. Ensure `.gitignore` ignores `docs/superpowers/` and `.superpowers/`.
+
 ---
 
 ## 3. Directory Layout & Architecture Map

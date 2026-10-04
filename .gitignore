@@ -16,3 +16,5 @@ build_artifacts/
 release/
 __pycache__/
 *.pyc
+docs/superpowers/
+.superpowers/
