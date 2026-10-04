@@ -41,7 +41,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 25. [x] Image Preview Inspector (tap thumbnail to zoom, save image, share image)
 26. [x] Multi-Engine Reverse Image Search (Google Lens, TinEye, Yandex, Bing)
 27. [x] Visual Tab Switcher (grid previews, swipe-to-dismiss, single & batch close-all undo toast notification, strict tab ID isolation preventing background callback hijacking on new tab creation, close all tabs prompt)
-28. [x] Incognito / Private Browsing Mode (100% complete session isolation via Chromium Multi-Profile API `ProfileStore`; separate cookies, localStorage, IndexedDB, and cache partition; total session destruction on close; zero history logging)
+28. [x] Incognito / Private Browsing Mode (100% complete session isolation via Chromium Multi-Profile API `ProfileStore`; separate cookies, localStorage, IndexedDB, and cache partition; total session destruction on close; zero history logging; cookie settings applied AFTER profile assignment via `applyCookieSettings()` to guarantee correct profile-scoped cookie jar; third-party cookies temporarily enabled during OAuth/auth flows in all tab modes)
 29. [x] Tab Memory Optimization (suspends JS timers on inactive tabs via `onPause()`)
 30. [x] Time-Range Data Cleaning (clear 15 min, 1 hr, 24 hr, 7 days, 4 weeks, or all time)
 31. [x] SQLCipher AES-256 Encrypted Database (bookmarks, history, tabs, downloads encrypted on-disk)

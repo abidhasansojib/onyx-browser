@@ -217,21 +217,6 @@ class OnyxWebView @JvmOverloads constructor(
         settings.userAgentString = getBaseUserAgent(prefs)
 
         try {
-            when (prefs.cookieBlockingMode) {
-                com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_ALL -> {
-                    cookieManager.setAcceptCookie(false)
-                }
-                com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY -> {
-                    cookieManager.setAcceptCookie(true)
-                    val allow3p = isPopupTab || isWithinOAuthGracePeriod()
-                    cookieManager.setAcceptThirdPartyCookies(this, allow3p)
-                }
-                else -> { // COOKIE_BLOCK_NONE — allow all
-                    cookieManager.setAcceptCookie(true)
-                    cookieManager.setAcceptThirdPartyCookies(this, true)
-                }
-            }
-
             // Android Autofill & Password Manager support
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 importantForAutofill = if (prefs.isAutofillEnabled) {
@@ -390,15 +375,23 @@ class OnyxWebView @JvmOverloads constructor(
             settings.domStorageEnabled = true
             clearHistory()
             clearFormData()
-            try {
-                cookieManager.setAcceptCookie(true)
-                cookieManager.setAcceptThirdPartyCookies(this, false)
-            } catch (_: Exception) {}
         } else {
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.domStorageEnabled = true
-            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-            try {
+        }
+        // Apply cookie settings AFTER profile is set so cookieManager returns the correct profile manager
+        applyCookieSettings()
+    }
+
+    private fun applyCookieSettings() {
+        try {
+            if (isIncognito) {
+                // Incognito: allow first-party cookies so login works,
+                // block third-party by default (enabled temporarily during OAuth flows)
+                cookieManager.setAcceptCookie(true)
+                cookieManager.setAcceptThirdPartyCookies(this, false)
+            } else {
+                val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
                 when (prefs.cookieBlockingMode) {
                     com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_ALL -> {
                         cookieManager.setAcceptCookie(false)
@@ -413,8 +406,8 @@ class OnyxWebView @JvmOverloads constructor(
                         cookieManager.setAcceptThirdPartyCookies(this, true)
                     }
                 }
-            } catch (_: Exception) {}
-        }
+            }
+        } catch (_: Exception) {}
     }
 
     // ── Desktop Mode (per-domain) ────────────────────────────────────────────
@@ -479,11 +472,9 @@ class OnyxWebView @JvmOverloads constructor(
                 urlString.contains("checkpoint") || urlString.contains("/login")
         if (isAuthOrMeta) {
             lastOAuthInteractionTimestamp = System.currentTimeMillis()
-            if (!isIncognito) {
-                try {
-                    cookieManager.setAcceptThirdPartyCookies(this, true)
-                } catch (_: Exception) {}
-            }
+            try {
+                cookieManager.setAcceptThirdPartyCookies(this, true)
+            } catch (_: Exception) {}
         }
 
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)

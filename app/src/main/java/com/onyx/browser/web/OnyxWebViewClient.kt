@@ -732,11 +732,9 @@ class OnyxWebViewClient(
             if (isAuthOrMeta) {
                 (view as? OnyxWebView)?.let { wv ->
                     wv.lastOAuthInteractionTimestamp = System.currentTimeMillis()
-                    if (!wv.isIncognito) {
-                        try {
-                            wv.cookieManager.setAcceptThirdPartyCookies(view, true)
-                        } catch (_: Exception) {}
-                    }
+                    try {
+                        wv.cookieManager.setAcceptThirdPartyCookies(view, true)
+                    } catch (_: Exception) {}
                 }
             }
 
