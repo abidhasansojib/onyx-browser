@@ -134,6 +134,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (::pipController.isInitialized) pipController.isCurrentlyInPip = value
         }
     private var currentDisplayedTabId: String? = null
+    private var isTabSwitching = false
     private var isTabsRestored = false
     private var pendingIntent: Intent? = null
     private var lastThemeMode: Int = -1
@@ -563,7 +564,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         // Address Bar Focus & Search Mode
         binding.etUrl.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus && !searchController.isSearchMode) {
+            if (hasFocus && !searchController.isSearchMode && !isTabSwitching) {
                 searchController.enterSearchMode()
             }
         }
@@ -823,6 +824,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     tabManager.saveTabState(previousTabId, outgoingWebView)
                 }
             }
+            // Suppress etUrl focus-change → enterSearchMode() during the WebView swap.
+            // When removeAllViews()/addView(webView) happens, Android may briefly give focus
+            // back to etUrl (next focusable view after the removed WebView), which would
+            // incorrectly trigger the search overlay on every tab switch.
+            isTabSwitching = true
             searchController.exitSearchMode()
             hideTranslateBar(restoreOriginal = false)
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -833,6 +839,12 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             showHomeScreen()
         } else {
             showWebView(tab, reloadIfChanged = tabChanged)
+        }
+
+        if (tabChanged) {
+            // Clear the guard after the current layout pass so normal user taps on the
+            // address bar still open search mode as expected.
+            binding.root.post { isTabSwitching = false }
         }
     }
 
