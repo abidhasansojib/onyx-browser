@@ -103,27 +103,63 @@ class OnyxShieldBridge(private val context: Context) {
     }
 
     @JavascriptInterface
-    fun saveCustomCosmeticRule(domain: String?, selector: String?) {
-        val d = domain?.trim() ?: return
-        val s = selector?.trim() ?: return
-        if (d.isBlank() || s.isBlank()) return
+    fun getCustomBlockedCss(pageUrl: String?): String {
+        val url = pageUrl?.takeIf { it.isNotBlank() } ?: return ""
+        val d = preferences.cleanDomain(url).lowercase()
+        // Do not inject custom rules into anti-bot/challenge subframes
+        if (d.contains("challenges.cloudflare.com") || d.contains("turnstile") ||
+            d.contains("recaptcha") || d.contains("hcaptcha") || d.contains("arkose")) {
+            return ""
+        }
+        return preferences.getCustomBlockedCssForDomain(url)
+    }
 
-        val rule = "$d##$s"
-        val existing = preferences.customFilterRules
-        val lines = existing.lines().map { it.trim() }.filter { it.isNotBlank() }.toMutableSet()
-        if (lines.add(rule)) {
-            preferences.customFilterRules = lines.joinToString("\n")
+    @JavascriptInterface
+    fun saveCustomCosmeticRules(domain: String?, selectorsJson: String?) {
+        val d = domain?.trim()?.lowercase() ?: return
+        val json = selectorsJson?.trim() ?: return
+        if (d.isBlank() || json.isBlank()) return
+
+        try {
+            val jsonArray = org.json.JSONArray(json)
+            val selectors = mutableListOf<String>()
+            for (i in 0 until jsonArray.length()) {
+                val s = jsonArray.optString(i)?.trim()
+                if (!s.isNullOrBlank()) {
+                    selectors.add(s)
+                }
+            }
+            if (selectors.isEmpty()) return
+
+            preferences.addCustomBlockedSelectors(d, selectors)
+
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                 try {
                     com.onyx.browser.data.filter.FilterListManager.recompileFilters(context)
                 } catch (_: Exception) {}
             }
-            // Reset picker state and confirm to user on Main thread
+
             com.onyx.browser.ui.menu.ElementPickerManager.resetPickerState()
             Handler(Looper.getMainLooper()).post {
-                Toast.makeText(context, "Element blocked: $s", Toast.LENGTH_SHORT).show()
+                val cleanD = preferences.cleanDomain(d)
+                val msg = if (selectors.size == 1) {
+                    "Blocked 1 element on $cleanD"
+                } else {
+                    "Blocked ${selectors.size} elements on $cleanD"
+                }
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             }
+        } catch (e: Exception) {
+            android.util.Log.e("OnyxShieldBridge", "Error saving custom cosmetic rules", e)
         }
+    }
+
+    @JavascriptInterface
+    fun saveCustomCosmeticRule(domain: String?, selector: String?) {
+        val s = selector?.trim() ?: return
+        if (s.isBlank()) return
+        val escaped = org.json.JSONObject.quote(s)
+        saveCustomCosmeticRules(domain, "[$escaped]")
     }
 
     @JavascriptInterface

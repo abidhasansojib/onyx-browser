@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
@@ -66,6 +67,7 @@ class SiteShieldBottomSheetDialog(
         setupHttpsUpgradeToggle()
         setupScriptBlockingToggle()
         setupCosmeticFilteringToggle()
+        setupCustomBlockedElements()
         setupBlockedCounter()
 
         binding.btnShieldSettings.setOnClickListener {
@@ -211,6 +213,35 @@ class SiteShieldBottomSheetDialog(
             binding.switchCosmeticFiltering.isChecked = newState
             prefs.isCosmeticFilteringEnabled = newState
             onShieldSettingsChanged()
+        }
+    }
+
+    // ── Custom Blocked Elements ────────────────────────────────────────────────
+
+    private fun setupCustomBlockedElements() {
+        if (domain.isBlank()) {
+            binding.layoutCustomBlockedElements.visibility = View.GONE
+            return
+        }
+        val blockedSelectors = prefs.getCustomBlockedSelectorsForDomain(domain)
+        if (blockedSelectors.isEmpty()) {
+            binding.layoutCustomBlockedElements.visibility = View.GONE
+        } else {
+            binding.layoutCustomBlockedElements.visibility = View.VISIBLE
+            val count = blockedSelectors.size
+            binding.tvCustomBlockedCount.text = if (count == 1) "1 element blocked on this site" else "$count elements blocked on this site"
+            binding.btnClearBlockedElements.setOnClickListener {
+                prefs.clearCustomBlockedRulesForDomain(domain)
+                val ctx = requireContext().applicationContext
+                scope.launch(Dispatchers.IO) {
+                    try {
+                        com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
+                    } catch (_: Exception) {}
+                }
+                binding.layoutCustomBlockedElements.visibility = View.GONE
+                Toast.makeText(requireContext(), "Reset blocked elements on $domain", Toast.LENGTH_SHORT).show()
+                onShieldSettingsChanged()
+            }
         }
     }
 

@@ -202,7 +202,8 @@ onyx-browser/
   - **Procedural Cosmetic Filtering**: Evaluates `:has-text()`, `:upward()`, `:min-text-length()`, and actions (`remove`, `style`, `remove-attr`, `remove-class`) dynamically inside `AdBlockDocumentStart.kt` MutationObserver.
   - **DOM Honeypot Defuser & Query Deduplication**: Injects `getBoundingClientRect()` defusal on bait elements returning realistic dimensions (`300x250`); maintains a `checkedIdentifiers` Set in JavaScript to avoid re-querying previously checked selectors across the JS bridge on infinite-scroll pages.
   - **AndroidX WorkManager Daily Sync**: `FilterUpdateWorker` runs 24-hour periodic updates constrained to unmetered Wi-Fi and healthy battery.
-  - **In-Page Visual Element Blocker (Zapper)**: `ElementPickerManager` injects an interactive highlight overlay, computes optimal CSS selectors, and saves custom rules directly to `BrowserPreferences.customFilterRules` with immediate filter recompilation.
+  - **In-Page Visual Element Blocker (Zapper) & Multi-Element Selection**: `ElementPickerManager` injects an interactive highlight overlay supporting multi-element selection with numbered badges, tap-to-toggle selection, parent expansion ("▲ Wider"), live preview toggling ("👁 Preview"), and batch blocking (`Block (N)`).
+  - **Document-Start Custom CSS Injection & In-Memory Domain Cache**: `BrowserPreferences` indexes custom rules per domain in a thread-safe `ConcurrentHashMap`. When opening any website, `AdBlockDocumentStart.kt` queries `window.OnyxShieldBridge.getCustomBlockedCss(url)` and injects `<style id="onyx-user-custom-blocked">` at `document_start` before DOM parsing, preventing layout flicker and permanently blocking elements on every page load. `SiteShieldBottomSheetDialog` provides live blocked element counts and one-tap reset per domain.
 
 
 ### 4.2. Media & Playback Subsystem (`MediaPlaybackManager` & `MediaPlaybackBridge`)

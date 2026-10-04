@@ -167,9 +167,117 @@ class BrowserPreferences private constructor(private val context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_FINGERPRINT_LANG, value).apply()
 
     // ── Custom Filter Rules ───────────────────────────────────────────────────
+    private val domainCustomRulesCache = java.util.concurrent.ConcurrentHashMap<String, MutableSet<String>>()
+    @Volatile private var isDomainRulesCacheInitialized = false
+
+    private fun ensureDomainRulesCache() {
+        if (isDomainRulesCacheInitialized) return
+        synchronized(domainCustomRulesCache) {
+            if (isDomainRulesCacheInitialized) return
+            domainCustomRulesCache.clear()
+            val raw = prefs.getString(KEY_CUSTOM_FILTER_RULES, "") ?: ""
+            if (raw.isNotBlank()) {
+                raw.lineSequence().forEach { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.isNotBlank() && !trimmed.startsWith("!") && !trimmed.startsWith("[")) {
+                        val separator = if (trimmed.contains("##")) "##" else if (trimmed.contains("#?#")) "#?#" else null
+                        if (separator != null) {
+                            val parts = trimmed.split(separator, limit = 2)
+                            if (parts.size == 2) {
+                                val domains = parts[0].split(",")
+                                val selector = parts[1].trim()
+                                if (selector.isNotBlank()) {
+                                    for (d in domains) {
+                                        val cleanD = cleanDomain(d).lowercase().removePrefix("||")
+                                        if (cleanD.isNotBlank()) {
+                                            domainCustomRulesCache.getOrPut(cleanD) { java.util.concurrent.ConcurrentHashMap.newKeySet() }.add(selector)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            isDomainRulesCacheInitialized = true
+        }
+    }
+
     var customFilterRules: String
         get() = prefs.getString(KEY_CUSTOM_FILTER_RULES, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_CUSTOM_FILTER_RULES, value).apply()
+        set(value) {
+            prefs.edit().putString(KEY_CUSTOM_FILTER_RULES, value).apply()
+            synchronized(domainCustomRulesCache) {
+                isDomainRulesCacheInitialized = false
+            }
+        }
+
+    fun addCustomBlockedSelectors(domain: String, selectors: List<String>) {
+        if (selectors.isEmpty()) return
+        val cleanD = cleanDomain(domain).lowercase()
+        if (cleanD.isBlank()) return
+
+        ensureDomainRulesCache()
+        val domainSet = domainCustomRulesCache.getOrPut(cleanD) { java.util.concurrent.ConcurrentHashMap.newKeySet() }
+        val newRules = mutableListOf<String>()
+        for (sel in selectors) {
+            val trimmedSel = sel.trim()
+            if (trimmedSel.isNotBlank() && domainSet.add(trimmedSel)) {
+                newRules.add("$cleanD##$trimmedSel")
+            }
+        }
+
+        if (newRules.isNotEmpty()) {
+            val existing = customFilterRules
+            val sb = StringBuilder(existing)
+            if (existing.isNotBlank() && !existing.endsWith("\n")) {
+                sb.append("\n")
+            }
+            sb.append(newRules.joinToString("\n")).append("\n")
+            prefs.edit().putString(KEY_CUSTOM_FILTER_RULES, sb.toString()).apply()
+        }
+    }
+
+    fun getCustomBlockedSelectorsForDomain(domainOrUrl: String): List<String> {
+        val cleanD = cleanDomain(domainOrUrl).lowercase()
+        if (cleanD.isBlank()) return emptyList()
+
+        ensureDomainRulesCache()
+        val result = mutableSetOf<String>()
+
+        domainCustomRulesCache[cleanD]?.let { result.addAll(it) }
+
+        var dotIdx = cleanD.indexOf('.')
+        while (dotIdx != -1 && dotIdx < cleanD.length - 1) {
+            val parentDomain = cleanD.substring(dotIdx + 1)
+            if (parentDomain.contains('.')) {
+                domainCustomRulesCache[parentDomain]?.let { result.addAll(it) }
+            }
+            dotIdx = cleanD.indexOf('.', dotIdx + 1)
+        }
+
+        return result.toList()
+    }
+
+    fun getCustomBlockedCssForDomain(domainOrUrl: String): String {
+        val selectors = getCustomBlockedSelectorsForDomain(domainOrUrl)
+        if (selectors.isEmpty()) return ""
+        return selectors.joinToString(", ") + " { display: none !important; }"
+    }
+
+    fun clearCustomBlockedRulesForDomain(domain: String) {
+        val cleanD = cleanDomain(domain).lowercase()
+        if (cleanD.isBlank()) return
+        ensureDomainRulesCache()
+        domainCustomRulesCache.remove(cleanD)
+
+        val existing = customFilterRules
+        val updatedLines = existing.lineSequence().filterNot { line ->
+            val trimmed = line.trim()
+            (trimmed.startsWith("$cleanD##") || trimmed.startsWith("$cleanD#?#"))
+        }.joinToString("\n")
+        prefs.edit().putString(KEY_CUSTOM_FILTER_RULES, updatedLines).apply()
+    }
 
     // ── Filter List Subscriptions (comma-separated keys) ─────────────────────
     var enabledFilterLists: Set<String>

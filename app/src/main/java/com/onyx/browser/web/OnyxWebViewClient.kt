@@ -1183,6 +1183,29 @@ class OnyxWebViewClient(
             view?.evaluateJavascript(cleanupJs, null)
         }
 
+        // User Custom Blocked Elements (per-domain custom cosmetic rules)
+        try {
+            val customBlockedCss = preferences.getCustomBlockedCssForDomain(url)
+            if (customBlockedCss.isNotBlank()) {
+                val escapedCss = org.json.JSONObject.quote(customBlockedCss)
+                val customJs = """
+                    (function() {
+                        try {
+                            var s = document.getElementById('onyx-user-custom-blocked');
+                            if (!s) {
+                                s = document.createElement('style');
+                                s.id = 'onyx-user-custom-blocked';
+                                s.type = 'text/css';
+                                (document.head || document.documentElement).appendChild(s);
+                            }
+                            s.textContent = $escapedCss;
+                        } catch(e) {}
+                    })();
+                """.trimIndent()
+                view?.evaluateJavascript(customJs, null)
+            }
+        } catch (_: Throwable) {}
+
         // Fingerprint Protection (JS API spoofing)
         if (preferences.isFingerprintProtectionEnabled && !isWhitelisted) {
             injectFingerprintProtection(view)

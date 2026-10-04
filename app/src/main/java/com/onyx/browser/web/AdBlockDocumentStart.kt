@@ -342,6 +342,30 @@ object AdBlockDocumentStart {
                 } catch(e) {}
             }
 
+            // ── 4b. User Custom Blocked Elements (Instant CSS at Document-Start) ───────────
+            try {
+                if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.getCustomBlockedCss === 'function') {
+                    var userBlockedCss = window.OnyxShieldBridge.getCustomBlockedCss(location.href);
+                    if (userBlockedCss && userBlockedCss.length > 0) {
+                        var userStyle = document.createElement('style');
+                        userStyle.id = 'onyx-user-custom-blocked';
+                        userStyle.type = 'text/css';
+                        userStyle.textContent = userBlockedCss;
+                        var targetEl = document.head || document.documentElement;
+                        if (targetEl) {
+                            targetEl.appendChild(userStyle);
+                        } else {
+                            document.addEventListener('DOMContentLoaded', function() {
+                                var t = document.head || document.documentElement;
+                                if (t && !document.getElementById('onyx-user-custom-blocked')) {
+                                    t.appendChild(userStyle);
+                                }
+                            });
+                        }
+                    }
+                }
+            } catch(e) {}
+
             // ── 5. Brave Parity Generic Cosmetic Filter Engine (hidden_class_id_selectors) ───────
             try {
                 var seenSelectors = new Set();
