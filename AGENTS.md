@@ -724,3 +724,8 @@ onyx-browser/
       - `WebGLCompatibilityBridge.kt` & `AdBlockDocumentStart.kt`:
         - Added `matchkey` and Arkose endpoint exemptions to regex matchers.
 
+22. **Incognito Profile Cookie Lifecycle Isolation & Universal OAuth Grace Period (`v1.0.247`)**:
+    - **Incognito Cookie Bleed Root Cause**: `OnyxWebView.configureSettings()` was previously invoked inside `init {}` before `setIncognitoMode()` was called. Because `isIncognito` was `false` during `init`, `configureSettings()` interacted with the global default `CookieManager.getInstance()`, binding cookies to the default profile and causing normal tab logins to leak into incognito tabs.
+    - **Deferred Cookie Configuration (`applyCookieSettings`)**: Removed cookie initialization from `configureSettings()`. In `setIncognitoMode()`, `ProfileStore.getOrCreateProfile(INCOGNITO_PROFILE_NAME)` and `WebViewCompat.setProfile()` are assigned *first*, followed by `applyCookieSettings()`. This guarantees that incognito WebViews strictly bind to the profile-scoped `cookieManager` with zero cross-profile state leakage.
+    - **Universal OAuth / SSO Cookie Acceptance**: Removed the `!isIncognito` restriction in `OnyxWebView.applyUserAgentForUrl` and `OnyxWebViewClient.handleUrlLoading`. During authentication and security challenge handshakes (Facebook, Meta, Arkose, Google Sign-In), third-party cookies are temporarily permitted on the isolated profile's `cookieManager` during the grace period, allowing Facebook login and checkpoints to complete successfully in both normal and incognito modes.
+
