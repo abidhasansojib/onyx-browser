@@ -215,6 +215,11 @@ object UserAgentManager {
         return "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$ver Mobile Safari/537.36"
     }
 
+    fun getEffectiveDesktopUserAgent(context: Context? = null): String {
+        val ver = getSystemChromiumVersion(context)
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$ver Safari/537.36"
+    }
+
     fun getUserAgentForTemplate(
         key: String,
         prefs: BrowserPreferences,
@@ -227,6 +232,9 @@ object UserAgentManager {
         }
         if (key == KEY_DEFAULT) {
             return effectiveDefault
+        }
+        if (key == KEY_WINDOWS_CHROME) {
+            return getEffectiveDesktopUserAgent(context)
         }
         return getTemplates().firstOrNull { it.key == key }?.userAgentString ?: effectiveDefault
     }

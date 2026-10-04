@@ -121,7 +121,8 @@ class OnyxWebView @JvmOverloads constructor(
         return UserAgentManager.getUserAgentForTemplate(prefs.userAgentSpoofTemplate, prefs, context)
     }
 
-    private val desktopUserAgent = UserAgentManager.DESKTOP_CHROME_UA
+    private val desktopUserAgent: String
+        get() = UserAgentManager.getEffectiveDesktopUserAgent(context)
 
     // Desktop domains are now persisted globally in BrowserPreferences
 
@@ -162,7 +163,12 @@ class OnyxWebView @JvmOverloads constructor(
 
             // Media & Streaming Support (YouTube, Twitch, Video players)
             mediaPlaybackRequiresUserGesture = false
-            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            // Suppress X-Requested-With header to avoid identifying as an embedded WebView to anti-bot systems
+            try {
+                if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                    androidx.webkit.WebSettingsCompat.setRequestedWithHeaderOriginAllowList(this, emptySet())
+                }
+            } catch (_: Throwable) {}
         }
 
         // GPU Acceleration & Smooth Scrolling (Direct window hardware rasterization)
@@ -263,6 +269,12 @@ class OnyxWebView @JvmOverloads constructor(
         try {
             val currentBlockingLevel = prefs.blockingLevel
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                // Native Chrome environment polyfill (window.chrome, navigator.userAgentData, plugins, bridge masking)
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    ChromeEnvironmentBridge.SCRIPT,
+                    setOf("*")
+                )
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
                     AdBlockDocumentStart.getScript(currentBlockingLevel),
@@ -329,7 +341,7 @@ class OnyxWebView @JvmOverloads constructor(
         this.isIncognito = incognito
         if (incognito) {
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
-            settings.domStorageEnabled = false
+            settings.domStorageEnabled = true
             clearHistory()
             clearFormData()
             // Do NOT call CookieManager.setAcceptCookie(false) globally — it breaks all normal tabs!

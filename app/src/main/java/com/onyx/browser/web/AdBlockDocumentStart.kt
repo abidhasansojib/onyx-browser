@@ -44,6 +44,7 @@ object AdBlockDocumentStart {
                        d === 'threads.net' || d.endsWith('.threads.net') ||
                        d === 'accountkit.com' || d.endsWith('.accountkit.com') ||
                        d.indexOf('arkose') !== -1 || d.indexOf('funcaptcha') !== -1 ||
+                       d.indexOf('matchkey') !== -1 ||
                        d.indexOf('recaptcha') !== -1 || d.indexOf('hcaptcha') !== -1 ||
                        d.indexOf('turnstile') !== -1 || d.indexOf('datadome') !== -1 ||
                        d.indexOf('perimeterx') !== -1 || d.indexOf('kasada') !== -1 ||

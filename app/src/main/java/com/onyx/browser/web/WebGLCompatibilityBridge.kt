@@ -26,7 +26,7 @@ object WebGLCompatibilityBridge {
             var _href = (location.href || '').toLowerCase();
             var _path = (location.pathname || '').toLowerCase();
 
-            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(_h + ' ' + _href + ' ' + _ref) ||
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(_h + ' ' + _href + ' ' + _ref) ||
                 _path.indexOf('/checkpoint/') !== -1 || _path.indexOf('/login/') !== -1 || _path.indexOf('/auth/') !== -1 ||
                 _href.indexOf('/checkpoint/') !== -1 || _href.indexOf('lsd=') !== -1 || _href.indexOf('jazoest=') !== -1) {
                 return;

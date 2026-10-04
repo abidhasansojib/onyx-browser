@@ -141,11 +141,11 @@ class OnyxWebViewClient(
         val u = url.lowercase()
         return d.contains("recaptcha") || d.contains("hcaptcha") ||
                 d.contains("arkose") || d.contains("arkoselabs") || d.contains("funcaptcha") ||
-                d.contains("turnstile") || d.contains("geetest") || d.contains("datadome") ||
+                d.contains("matchkey") || d.contains("turnstile") || d.contains("geetest") || d.contains("datadome") ||
                 d.contains("kasada") || d.contains("perimeterx") ||
                 d == "challenges.cloudflare.com" || d.endsWith(".challenges.cloudflare.com") ||
                 u.contains("recaptcha") || u.contains("hcaptcha") || u.contains("arkose") ||
-                u.contains("funcaptcha") || u.contains("turnstile") ||
+                u.contains("funcaptcha") || u.contains("matchkey") || u.contains("turnstile") ||
                 u.contains("/cdn-cgi/challenge-platform") || u.contains("/cdn-cgi/cf-challenge") ||
                 u.contains("__cf_chl") ||
                 u.contains("/checkpoint/") || u.contains("/challenge/") ||
@@ -154,6 +154,7 @@ class OnyxWebViewClient(
                 u.contains("/human-verification") || u.contains("login/device-based") ||
                 u.contains("/two_step_verification") || u.contains("/save-device/") ||
                 u.contains("/trusted-devices/") || u.contains("/login_attempt") ||
+                u.contains("/fc/api") || u.contains("/fc/assets") || u.contains("/client-api/") ||
                 u.contains("/checkpoint") || u.contains("/confirm") ||
                 u.contains("lsd=") || u.contains("jazoest=") || u.contains("datr=")
     }
@@ -569,10 +570,17 @@ class OnyxWebViewClient(
             val isMetaResource = isMetaDomain(reqDomain)
             val isMetaAdPixel = reqDomain == "pixel.facebook.com" || reqDomain == "an.facebook.com" || reqDomain == "tr.facebook.com"
 
-            // First-party Meta resources (content, Graph API, login, CDN, OAuth) must NEVER be blocked
-            // unless they are explicitly pure advertising pixels (pixel.facebook.com, an.facebook.com, tr.facebook.com).
-            if (isMetaResource && !isMetaAdPixel) {
-                return null
+            if (isMetaResource) {
+                // When in a Meta context (user is on Facebook, Instagram, Messenger, or during login/checkpoint/CAPTCHA verification),
+                // NEVER block any Meta resource (including tr.facebook.com and pixel.facebook.com) because Facebook's login handshake,
+                // Arkose challenge completion, and account security checkpoints require first-party telemetry endpoints.
+                if (isMetaContext) {
+                    return null
+                }
+                // On third-party sites: allow first-party Meta assets/OAuth unless it's a pure tracking pixel
+                if (!isMetaAdPixel) {
+                    return null
+                }
             }
 
             // ── Permitted Social Content & Embeds ─────────────────────────────────
@@ -1221,7 +1229,7 @@ class OnyxWebViewClient(
                     injectCosmeticCss(view, cosmeticCss)
                 }
             } catch (_: Throwable) {}
-        } else if (isWhitelisted || !preferences.isAdBlockEnabled || isAuthOrMeta) {
+        } else if ((isWhitelisted || !preferences.isAdBlockEnabled) && !isAuthOrMeta) {
             val cleanupJs = """
                 (function() {
                     try {
@@ -1372,57 +1380,59 @@ class OnyxWebViewClient(
                 }
             }
 
-            val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url) && !isAuthOrMeta
-            view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
-            if (isAdBlockActiveForPage) {
-                val lvl = preferences.blockingLevel
-                view?.evaluateJavascript(AdBlockDocumentStart.getScript(lvl), null)
-                view?.evaluateJavascript("if (window.__onyx_set_blocking_level) window.__onyx_set_blocking_level($lvl);", null)
+            if (!isAuthOrMeta) {
+                val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)
+                view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
+                if (isAdBlockActiveForPage) {
+                    val lvl = preferences.blockingLevel
+                    view?.evaluateJavascript(AdBlockDocumentStart.getScript(lvl), null)
+                    view?.evaluateJavascript("if (window.__onyx_set_blocking_level) window.__onyx_set_blocking_level($lvl);", null)
 
-                // Inject scriptlets resolved from +js() cosmetic filter rules via brave-resources.json.
-                // These must run before any page scripts to intercept ad-related APIs early.
-                if (preferences.isCosmeticFilteringEnabled && !preferences.isDomainWhitelisted(url)) {
-                    try {
-                        val scriptletJs = AdBlockEngine.getScriptletJs(url)
-                        if (scriptletJs.isNotBlank()) {
-                            // Base64-encode the scriptlet to safely embed arbitrary JS code
-                            // (prevents breaking due to quotes, template literals, newlines in scriptlet content)
-                            val b64 = android.util.Base64.encodeToString(
-                                scriptletJs.toByteArray(Charsets.UTF_8),
-                                android.util.Base64.NO_WRAP
-                            )
-                            // Decode and execute using Function() constructor approach for isolation
-                            // matching Brave's kScriptletInitScript self-removing <script> pattern
-                            val wrappedScriptlet = """
-                                (function() {
-                                    try {
-                                        var _b = atob('$b64');
-                                        var _f = new Function(_b);
-                                        _f();
-                                    } catch(ex) {
-                                        /* scriptlet error suppressed */
-                                    }
-                                })();
-                            """.trimIndent()
-                            view?.evaluateJavascript(wrappedScriptlet, null)
-                        }
-                    } catch (_: Throwable) {}
-                }
-
-            } else {
-                val cleanupJs = """
-                    (function() {
+                    // Inject scriptlets resolved from +js() cosmetic filter rules via brave-resources.json.
+                    // These must run before any page scripts to intercept ad-related APIs early.
+                    if (preferences.isCosmeticFilteringEnabled && !preferences.isDomainWhitelisted(url)) {
                         try {
-                            window.__onyx_shields_active = false;
-                            window.__onyxAdBlockEnabled = false;
-                            var c1 = document.getElementById('onyx-universal-cosmetic');
-                            if (c1) c1.remove();
-                            var c2 = document.getElementById('onyx-adblock-cosmetic');
-                            if (c2) c2.remove();
-                        } catch(e) {}
-                    })();
-                """.trimIndent()
-                view?.evaluateJavascript(cleanupJs, null)
+                            val scriptletJs = AdBlockEngine.getScriptletJs(url)
+                            if (scriptletJs.isNotBlank()) {
+                                // Base64-encode the scriptlet to safely embed arbitrary JS code
+                                // (prevents breaking due to quotes, template literals, newlines in scriptlet content)
+                                val b64 = android.util.Base64.encodeToString(
+                                    scriptletJs.toByteArray(Charsets.UTF_8),
+                                    android.util.Base64.NO_WRAP
+                                )
+                                // Decode and execute using Function() constructor approach for isolation
+                                // matching Brave's kScriptletInitScript self-removing <script> pattern
+                                val wrappedScriptlet = """
+                                    (function() {
+                                        try {
+                                            var _b = atob('$b64');
+                                            var _f = new Function(_b);
+                                            _f();
+                                        } catch(ex) {
+                                            /* scriptlet error suppressed */
+                                        }
+                                    })();
+                                """.trimIndent()
+                                view?.evaluateJavascript(wrappedScriptlet, null)
+                            }
+                        } catch (_: Throwable) {}
+                    }
+
+                } else {
+                    val cleanupJs = """
+                        (function() {
+                            try {
+                                window.__onyx_shields_active = false;
+                                window.__onyxAdBlockEnabled = false;
+                                var c1 = document.getElementById('onyx-universal-cosmetic');
+                                if (c1) c1.remove();
+                                var c2 = document.getElementById('onyx-adblock-cosmetic');
+                                if (c2) c2.remove();
+                            } catch(e) {}
+                        })();
+                    """.trimIndent()
+                    view?.evaluateJavascript(cleanupJs, null)
+                }
             }
             if (preferences.isPasskeysEnabled && !isAuthOrMeta) {
                 view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
@@ -1481,10 +1491,12 @@ class OnyxWebViewClient(
             if (preferences.isBackgroundPlayEnabled && !isSyntheticError && !isFinishedAuthOrMeta) {
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
             }
-            view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
+            if (!isSyntheticError && !isFinishedAuthOrMeta) {
+                view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
+            }
 
             // DevTools auto-persistence across page navigations
-            if (!isSyntheticError && view != null && (onyxWv?.isDevToolsActive == true || preferences.isDevToolsEnabled)) {
+            if (!isSyntheticError && !isFinishedAuthOrMeta && view != null && (onyxWv?.isDevToolsActive == true || preferences.isDevToolsEnabled)) {
                 coroutineScope.launch {
                     val isDark = preferences.isDarkMode()
                     DevToolsManager.autoReinjectDevTools(context, view, isDark)

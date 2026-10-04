@@ -71,6 +71,14 @@ class OnyxTouchBridge {
          */
         const val TOUCH_LISTENER_JS = """
             (function() {
+                var host = (location.hostname || '').toLowerCase();
+                var href = (location.href || '').toLowerCase();
+                var ref = (document.referrer || '').toLowerCase();
+                if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
+                    href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 || href.indexOf('/login/') !== -1 || href.indexOf('/auth/') !== -1) {
+                    return;
+                }
+
                 if (window.__onyxTouchInitialized) return;
                 window.__onyxTouchInitialized = true;
 
