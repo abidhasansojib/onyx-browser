@@ -500,6 +500,7 @@ onyx-browser/
   - **Standalone 1:1 Emblem Drawable (`ic_onyx_emblem.xml`)**: Created standalone vector drawable for square UI views. Replaced distorted horizontal wordmark in `item_tab.xml` (`ivCenterIcon`, 44x44dp) and `bottom_sheet_tab_switcher.xml` (`ivEmptyIcon`, 64x64dp) with the crisp circular emblem.
   - **Integrated Brand Lockup (`ic_logo_onyx.xml`)**: Redesigned homepage logo incorporating the official Onyx emblem as the iconic 'O' followed by modern geometric NYX typography, balanced and centered with zero layout shift on the homepage and new tab.
   - **Themed Icon Parity (`ic_launcher_monochrome.xml`)**: Replaced crude concentric circles with authentic emblem paths for Android 13+ Material You themed icons.
+  - **Verified Debug Build**: Workflow run `37208274309` compiled in 4m22s. Debug APK downloaded to `/storage/emulated/0/Download/app-debug.apk` (46 MB).
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
