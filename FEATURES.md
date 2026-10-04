@@ -78,6 +78,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 62. [x] AndroidX WorkManager Background Filter Sync (24-hour periodic silent update worker running on Wi-Fi and healthy battery)
 63. [x] In-Page Visual Element Blocker / Zapper (interactive touch-to-select element picker with multi-element selection, live numbered badges, parent expansion, preview toggling, instant document-start CSS persistence, and per-site shield management)
 64. [x] Inbuilt Headless PDF Export & Web Archive Download Integration (one-tap save page as PDF without opening system print dialog, saves directly to public Downloads, records in DownloadItem database, and posts completion notifications with tap-to-open for both .pdf and .mht archives, while retaining Print / System Print… for physical printers)
+65. [x] Cookie & Site Storage Autoclear on Tab Close (comprehensive tab-close purging: clears domain-level, host-only, and `__Host-`/`__Secure-` session cookies via valid URIs across host and parent registrable domains, wipes origin `localStorage`, `sessionStorage`, `IndexedDB`, and `CacheStorage`, clears live WebView cache and DOM storage, guards open duplicate tabs, and guarantees full logout on authentication platforms like Facebook, GitHub, Google, Twitter)
 
 ---
 

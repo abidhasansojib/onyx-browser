@@ -252,6 +252,18 @@ onyx-browser/
 - **System Print Retention**:
   - Retains "Print / System Print…" option invoking Android `PrintManager.print()` for physical or network printing needs.
 
+### 4.6. Cookie & Site Storage Autoclear Subsystem (`TabManager.kt`)
+- **Full URI Cookie Purging**: `CookieManager.getCookie()` and `setCookie()` require a valid scheme (`https://` or `http://`) with trailing slash; passing raw domain strings causes Chromium's `GURL` parser to reject the call as invalid. All queries and Set-Cookie expiration directives use fully qualified URIs (`https://$domain/`, `http://$domain/`).
+- **Domain-Level vs Host-Only vs Prefixed Cookies**:
+  - Auth cookies on platforms like Facebook (`c_user`, `xs`, `datr`, `sb`), GitHub (`user_session`, `__Host-user_session_same_site`), Google (`SID`, `HSID`, `SSID`), Twitter/X, and Reddit are set with `Domain=.domain.com` or as host-only with `__Host-`/`__Secure-` prefixes and `Secure; SameSite=None`.
+  - Expiration directives must cover both Domain forms (`domain=.$d`, `domain=$d`) and Host-only forms (`Secure; SameSite=None`, `Path=/`, and default path) to guarantee that Chromium's `CookieMonster` completely deletes both domain and host-scoped session cookies.
+  - Multi-part ccTLD parsing (`extractRootDomain`, `getPurgeDomains`) automatically resolves the root domain across subdomains (e.g. `m.facebook.com` -> `facebook.com`, `sub.example.co.uk` -> `example.co.uk`) and purges cookies across all domain permutations (`$host`, `$rootDomain`, `www.$rootDomain`, `m.$rootDomain`, `mobile.$rootDomain`, `login.$rootDomain`, `auth.$rootDomain`, `accounts.$rootDomain`, `api.$rootDomain`).
+- **WebStorage & Origin Storage Wiping**:
+  - Calls `WebStorage.getInstance().deleteOrigin(...)` for all candidate HTTPS/HTTP origins and queries `WebStorage.getOrigins()` to delete any cached origin matching the root domain (deleting LocalStorage, SessionStorage, IndexedDB, and CacheStorage/ServiceWorkers).
+  - Synchronously evaluates `localStorage.clear()` and `sessionStorage.clear()` on the live `OnyxWebView` instance before destruction, and invokes `clearCache(true)`, `clearFormData()`, and `clearSslPreferences()`.
+- **Duplicate Tab Guarding (`excludedTabIds`)**:
+  - Before purging, checks remaining open tabs (excluding the closing tab or batch) to ensure that if the same root domain is actively open in another tab, its cookies are not destroyed prematurely.
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents
