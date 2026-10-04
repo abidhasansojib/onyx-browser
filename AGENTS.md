@@ -10,8 +10,8 @@
 **Onyx Browser** (`com.onyx.browser`) is a fast, lightweight, and privacy-focused Android browser (Min SDK 26 / Android 8.0+, Target SDK 35 / Android 15).
 
 > [!IMPORTANT]
-> **CANONICAL GOLDEN STABLE MILESTONE: v1.0.210 (Commit `f362a7d`, Tag `golden-reference-v1.0.210`)**:  
-> Release `v1.0.210` is the verified, battle-tested golden reference for Onyx Browser. All five critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops via untampered Blink prototype chain, Facebook login/OAuth flows, and Facebook Reels/Shorts seamless feed navigation & autoplay without scroll refresh loops) are 100% verified working. If any future changes break or regress these features, use `v1.0.210` (`f362a7d`) as the exact architectural reference.
+> **CANONICAL GOLDEN ROLE MODEL MILESTONE: v1.0.244 (Commit `a31e471`, Tag `v1.0.244` / `golden-reference-v1.0.244`)**:  
+> Release `v1.0.244` is the verified, battle-tested golden role model reference for Onyx Browser. All five critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops via untampered Blink prototype chain, Facebook login & Arkose FunCaptcha challenge completion with first-party telemetry unblocking and native Chrome environment polyfill, and Facebook Reels/Shorts seamless feed navigation & autoplay without scroll refresh loops) are 100% verified working. If any future changes break or regress these features, use `v1.0.244` (`a31e471`) as the exact architectural reference.
 
 ### Architecture & Tech Stack
 - **Native Android UI**: Built with Kotlin and XML Views with ViewBinding (no Jetpack Compose for fast startup and low memory usage).
@@ -91,6 +91,11 @@ When triggered for a build (after user confirms or explicitly requests Release o
 ### RULE 7: No Internal Agent Artifacts or Plans in Git
 - Never commit internal agent scaffolding, plan files, design specs, or scratch directories (e.g. `docs/superpowers/`, `.superpowers/`, scratch scripts) into the repository.
 - Keep all internal session artifacts strictly within `<appDataDir>/brain/` or untracked. Ensure `.gitignore` ignores `docs/superpowers/` and `.superpowers/`.
+
+### RULE 8: Golden Milestone / Role Model Immutability (User-Designated Only)
+- **NEVER Automatically Update the Golden Milestone**: AI agents and models are **strictly forbidden** from automatically bumping, advancing, or updating the Canonical Golden Stable Milestone / Role Model in `AGENTS.md`.
+- **Strict User Authorization**: The Golden Milestone / Role Model is designated solely by the human user. Only the user can assess system stability and declare a milestone as the new golden reference.
+- **Prohibited Behavior**: Do NOT modify the Golden Reference Callout in Section 1 or Section 7 during routine bug fixes, feature implementations, or build releases unless the user explicitly commands: "mark this as the golden milestone" or "mark it on AGENTS.md as role model".
 
 ---
 
@@ -516,16 +521,16 @@ onyx-browser/
 
 ---
 
-## 7. Canonical Golden Stable Milestone: v1.0.210 (Commit `f362a7d`, Tag `golden-reference-v1.0.210`)
+## 7. Canonical Golden Role Model Milestone: v1.0.244 (Commit `a31e471`, Tag `v1.0.244` / `golden-reference-v1.0.244`)
 
 > [!IMPORTANT]
-> **CANONICAL GOLDEN REFERENCE**: Release `v1.0.210` (commit `f362a7d`, tag `golden-reference-v1.0.210`) is the verified, battle-tested stable benchmark for Onyx Browser. If any feature breaks or regresses in future development, consult and align against this reference implementation immediately.
+> **CANONICAL GOLDEN ROLE MODEL REFERENCE**: Release `v1.0.244` (commit `a31e471`, tag `v1.0.244` / `golden-reference-v1.0.244`) is the verified, battle-tested stable role model for Onyx Browser. All five critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops, Facebook login & Arkose FunCaptcha verification, and Facebook Reels/Shorts seamless feed navigation & autoplay without scroll refresh loops) are 100% verified working. If any future changes break or regress these features, use `v1.0.244` (`a31e471`) as the exact architectural reference.
 
-### Verified Golden Subsystems in v1.0.210
+### Verified Golden Subsystems in v1.0.244
 1. **Adblocking Engine & DOM Bait Defuser (100% Score on `superadblocktest.com`, `d3ward`, `adblock-tester.com` + Zero Anti-Adblock Bait Walls)**:
    - In-page `window.fetch` and `XMLHttpRequest` proxies in `AdBlockDocumentStart.kt` masked via `makeNative` (`function fetch() { [native code] }`). Blocked requests reject with `TypeError: Failed to fetch: net::ERR_BLOCKED_BY_CLIENT`.
    - `OnyxShieldBridge.isUrlBlocked(url, pageUrl)` provides synchronous query into Brave Rust NDK engine and standard ad domains.
-   - `OnyxWebViewClient.createBlockedResponse` returns HTTP 403 Forbidden with permissive CORS headers for subresources when Adblocker Spoofing is OFF, or synthetic 200 OK stubs when ON.
+   - `OnyxWebViewClient.createBlockedResponse` returns HTTP 307 Temporary Redirect to `data:text/plain,blocked` for subresources, triggering `ERR_UNSAFE_REDIRECT` to reject `fetch()` promises cleanly, or synthetic 200 OK stubs when Adblocker Spoofing is ON.
    - Brave generic cosmetic engine (`hidden_class_id_selectors` via Rust JNI) hides ad containers.
    - DOM Honeypot & Bait Defuser in `AdBlockDocumentStart.kt` intercepts `offsetHeight`, `offsetWidth`, `clientHeight`, `clientWidth`, and `offsetParent` getters on bait elements (`.ad`, `.adsbygoogle`, `.ad-banner`, `.adzone`, `.google-ad`) when Adblocker Spoofing is enabled, returning non-zero dimensions and `document.body` instead of `null` to bypass anti-adblock detection walls (e.g. `rodaemotor.com`, BlockAdBlock).
 
@@ -540,10 +545,12 @@ onyx-browser/
    - Strict sandbox exemption: `AdBlockDocumentStart.kt` and `PasskeyWebAuthnBridge.kt` completely skip script injections on `challenges.cloudflare.com`, `/cdn-cgi/`, and CAPTCHA providers.
    - Cross-origin third-party cookies permitted for Turnstile and verification iframes.
 
-4. **Facebook Login & Social Authentication**:
-   - Meta authentication, OAuth, and CDN domains (`facebook.com`, `m.facebook.com`, `web.facebook.com`, `connect.facebook.net`, `graph.facebook.com`, `fbcdn.net`, `facebook.net`) 100% exempt from ad/tracker blocking.
-   - Third-party cookies accepted for auth and checkpoint flows.
-   - OAuth popup tabs in `MainActivity.kt` protected from premature auto-close timeouts and seamlessly displayed via `onPageStarted` / `onPageFinished`.
+4. **Facebook Login & Arkose Labs CAPTCHA Authentication (100% Verified Working)**:
+   - **First-Party Telemetry Unblocking**: `OnyxWebViewClient.shouldInterceptRequest` unconditionally allows all first-party Meta endpoints (including `tr.facebook.com` and `pixel.facebook.com`) during Facebook login and checkpoint verification, ensuring Facebook's verification servers receive challenge completion tokens without network failures.
+   - **Embedded Signature Suppression**: `WebSettingsCompat.setRequestedWithHeaderOriginAllowList(this, emptySet())` strips `X-Requested-With: com.onyx.browser`, eliminating the embedded app tell.
+   - **Chrome Environment Polyfill (`ChromeEnvironmentBridge.kt`)**: Polyfills `window.chrome = {}` and `navigator.userAgentData` (aligned with installed system Chromium version), enforces `navigator.webdriver = false`, and cleans/masks Java bridge properties and `__onyx*` variables on auth and challenge pages.
+   - **Touch Event Preservation in CAPTCHA Iframe**: Exempts auth, Facebook, Meta, and CAPTCHA challenge pages from `OnyxTouchBridge.TOUCH_LISTENER_JS`, eliminating touch capture latency, DOM element polling, and `window.__onyxTouchInitialized` definition during Arkose FunCaptcha rotational puzzle solving.
+   - **Storage & Cookie Synchronization**: Unconditionally enables third-party cookies on auth/checkpoint pages, enables DOM storage in incognito mode (`domStorageEnabled = true`), and immediately executes `CookieManager.getInstance().flush()` on auth initiation and completion.
 
 5. **Facebook Reels & Video Feed Navigation Architecture**:
    - Resolved upward scroll reload trap: `MainActivity.kt` gates `SwipeRefreshLayout` against known immersive video feeds (`facebook.com/.../reel/`, `/watch`, `/videos`, Instagram Reels, TikTok, YouTube Shorts) and queries `touchBridge.isPullToRefreshAllowed`.
