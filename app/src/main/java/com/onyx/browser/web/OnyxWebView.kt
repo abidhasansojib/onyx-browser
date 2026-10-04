@@ -36,6 +36,14 @@ class OnyxWebView @JvmOverloads constructor(
     var lastFailingUrl: String? = null
     var isLoadingSyntheticPage: Boolean = false
     @Volatile var isPopupPendingDisplay: Boolean = false
+    @Volatile var isPopupTab: Boolean = false
+    @Volatile var lastOAuthInteractionTimestamp: Long = 0L
+
+    fun isWithinOAuthGracePeriod(): Boolean {
+        val elapsed = System.currentTimeMillis() - lastOAuthInteractionTimestamp
+        return elapsed in 0..120_000L
+    }
+
     @Volatile var pendingMainFrameUrl: String? = null
     @Volatile var isMainFrameDocumentLoaded: Boolean = false
     
@@ -175,7 +183,8 @@ class OnyxWebView @JvmOverloads constructor(
                 }
                 com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY -> {
                     android.webkit.CookieManager.getInstance().setAcceptCookie(true)
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+                    val allow3p = isPopupTab || isWithinOAuthGracePeriod()
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, allow3p)
                 }
                 else -> { // COOKIE_BLOCK_NONE — allow all
                     android.webkit.CookieManager.getInstance().setAcceptCookie(true)
@@ -337,7 +346,8 @@ class OnyxWebView @JvmOverloads constructor(
                     }
                     com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY -> {
                         CookieManager.getInstance().setAcceptCookie(true)
-                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+                        val allow3p = isPopupTab || isWithinOAuthGracePeriod()
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, allow3p)
                     }
                     else -> {
                         CookieManager.getInstance().setAcceptCookie(true)

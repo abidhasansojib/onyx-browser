@@ -1106,6 +1106,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     )
                     val newWebView = tabManager.getOrCreateWebView(newTab)
                     newWebView.isPopupPendingDisplay = true
+                    newWebView.isPopupTab = true
+                    newWebView.lastOAuthInteractionTimestamp = System.currentTimeMillis()
+                    (sourceWebView as? OnyxWebView)?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
                     if (!isIncognito) {
                         try {
                             android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(newWebView, true)
@@ -1132,12 +1135,14 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                                 val currentUrl = (newWebView.url ?: "").lowercase()
                                 val isAuth = currentUrl.contains("login") || currentUrl.contains("auth") ||
                                         currentUrl.contains("oauth") || currentUrl.contains("facebook") ||
-                                        currentUrl.contains("google") || currentUrl.contains("checkpoint")
+                                        currentUrl.contains("google") || currentUrl.contains("checkpoint") ||
+                                        currentUrl.contains("apple") || currentUrl.contains("signin") ||
+                                        currentUrl.contains("paypal") || currentUrl.contains("stripe")
                                 if (!isAuth && current != null && currentDisplayedTabId != newTab.id) {
                                     closeTabById(newTab.id)
                                 }
                             }
-                        }, 8000)
+                        }, 12000)
 
                         true
                     } else {

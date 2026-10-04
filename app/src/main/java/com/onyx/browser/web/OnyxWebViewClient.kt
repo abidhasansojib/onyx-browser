@@ -163,11 +163,20 @@ class OnyxWebViewClient(
      *   - Auth0, Okta, Keycloak, Firebase Auth
      */
     private fun isOAuthOrLoginProvider(domain: String): Boolean {
+        if (domain.isBlank()) return false
         val d = domain.lowercase()
-        // Google identity and auth
-        return d == "accounts.google.com" || d.endsWith(".accounts.google.com") ||
+        // Meta / Facebook identity & OAuth
+        return d == "facebook.com" || d.endsWith(".facebook.com") ||
+               d == "fb.com" || d.endsWith(".fb.com") ||
+               d == "facebook.net" || d.endsWith(".facebook.net") ||
+               d == "accountkit.com" || d.endsWith(".accountkit.com") ||
+               d == "instagram.com" || d.endsWith(".instagram.com") ||
+               d == "messenger.com" || d.endsWith(".messenger.com") ||
+               // Google identity and auth
+               d == "accounts.google.com" || d.endsWith(".accounts.google.com") ||
                d == "oauth2.googleapis.com" || d == "apis.google.com" ||
                d == "ssl.gstatic.com" || d == "www.gstatic.com" ||
+               d == "id.google.com" ||
                // Apple Sign-In
                d == "appleid.apple.com" || d.endsWith(".apple.com") && (d.contains("auth") || d.contains("appleid")) ||
                d == "idmsa.apple.com" || d == "signin.apple.com" ||
@@ -179,7 +188,15 @@ class OnyxWebViewClient(
                // GitHub OAuth
                d == "github.com" || d == "api.github.com" ||
                // Twitter/X OAuth
-               d == "api.twitter.com" || d == "api.x.com" ||
+               d == "api.twitter.com" || d == "api.x.com" || d == "twitter.com" || d == "x.com" ||
+               // TikTok OAuth
+               d == "open-api.tiktok.com" || (d.endsWith(".tiktok.com") && d.contains("auth")) ||
+               // Spotify OAuth
+               d == "accounts.spotify.com" ||
+               // Yahoo OAuth
+               d == "login.yahoo.com" ||
+               // Slack OAuth
+               d == "slack.com" || d.endsWith(".slack.com") ||
                // PayPal payment flows
                d == "paypal.com" || d == "www.paypal.com" || d.endsWith(".paypal.com") ||
                d == "paypalobjects.com" || d.endsWith(".paypalobjects.com") ||
@@ -192,6 +209,8 @@ class OnyxWebViewClient(
                // Okta
                d.endsWith(".okta.com") || d == "okta.com" ||
                d.endsWith(".oktapreview.com") ||
+               // OneLogin & PingIdentity
+               d.endsWith(".onelogin.com") || d.endsWith(".pingidentity.com") ||
                // Keycloak / generic auth subdomains
                d.startsWith("auth.") || d.startsWith("login.") || d.startsWith("sso.") ||
                d.startsWith("id.") || d.startsWith("identity.") || d.startsWith("account.") ||
@@ -211,6 +230,20 @@ class OnyxWebViewClient(
                d.endsWith(".cloudflareaccess.com") ||
                // Generic OAuth indicators in path
                d.contains("oauth") || d.contains("openid") || d.contains("saml")
+    }
+
+    private fun isOAuthOrLoginUrl(url: String): Boolean {
+        if (url.isBlank()) return false
+        val u = url.lowercase()
+        return u.contains("/oauth") || u.contains("/oauth2") ||
+                u.contains("/openid-connect") || u.contains("/saml") ||
+                u.contains("/signin") || u.contains("/login") ||
+                u.contains("/auth/") || u.contains("/authenticate") ||
+                u.contains("/sso/") || u.contains("/checkpoint/") ||
+                u.contains("/challenge/") ||
+                u.contains("code=") || u.contains("access_token=") ||
+                u.contains("id_token=") || u.contains("oauth_token=") ||
+                u.contains("state=") && (u.contains("auth") || u.contains("login") || u.contains("oauth"))
     }
 
     // Twitter/X content domains (embeds)
@@ -515,22 +548,16 @@ class OnyxWebViewClient(
             // Anti-bot verifications and checkpoints must never be blocked on any website
             val isCaptchaResource = isCaptchaOrAuthUrl(url, reqDomain)
             if (isCaptchaResource) {
-                if (!isIncognitoView && view != null) {
-                    try { CookieManager.getInstance().setAcceptThirdPartyCookies(view, true) } catch (_: Exception) {}
-                }
                 return null
             }
 
             // ── OAuth / SSO / Identity & Payment Provider Exemption ───────────────
             // Brave exempts known identity providers from BLOCK_THIRD_PARTY cookie mode because
             // they are legitimately cross-site (Google Sign-In iframes, Stripe payment forms, etc.).
-            // Re-enable third-party cookies for this WebView when the resource is from such a provider.
             val isOAuthResource = isOAuthOrLoginProvider(reqDomain) ||
-                    isOAuthOrLoginProvider(pageDomain)
+                    isOAuthOrLoginProvider(pageDomain) ||
+                    isOAuthOrLoginUrl(url)
             if (isOAuthResource) {
-                if (!isIncognitoView && view != null) {
-                    try { CookieManager.getInstance().setAcceptThirdPartyCookies(view, true) } catch (_: Exception) {}
-                }
                 return null
             }
 
@@ -539,9 +566,6 @@ class OnyxWebViewClient(
 
             // First-party Meta resources when user is on Meta sites or in an authentication/login/captcha context must never be blocked
             if (isMetaResource && (isMetaContext || preferences.allowFacebookLogins)) {
-                if (!isIncognitoView && view != null) {
-                    try { CookieManager.getInstance().setAcceptThirdPartyCookies(view, true) } catch (_: Exception) {}
-                }
                 return null
             }
 
@@ -550,9 +574,6 @@ class OnyxWebViewClient(
             val isFbContent = preferences.allowFacebookLogins &&
                     facebookContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
             if (isFbContent) {
-                if (!isIncognitoView && view != null) {
-                    try { CookieManager.getInstance().setAcceptThirdPartyCookies(view, true) } catch (_: Exception) {}
-                }
                 return null
             }
 
@@ -579,7 +600,7 @@ class OnyxWebViewClient(
             if (preferences.isSocialMediaBlockingEnabled && !isWhitelisted && !isMetaContext) {
                 val isSocialTrackerDomain = socialMediaTrackerDomains.any { trackerDomain ->
                     reqDomain == trackerDomain || reqDomain.endsWith(".$trackerDomain")
-                }
+                } || (!preferences.allowFacebookLogins && (reqDomain == "connect.facebook.net" || reqDomain == "graph.facebook.com"))
 
                 if (isSocialTrackerDomain) {
                     preferences.incrementBlockedRequests()
@@ -735,10 +756,17 @@ class OnyxWebViewClient(
                 if (preferences.isAdBlockEnabled && !isWhitelisted) {
                     val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
                     val onyxWv = view as? OnyxWebView
-                    val isPopupTab = onyxWv != null && (onyxWv.isPopupPendingDisplay ||
+                    val isPopupTab = onyxWv != null && (onyxWv.isPopupTab || onyxWv.isPopupPendingDisplay ||
                             (tabActionCallback?.getTabById(onyxWv.tabId)?.parentId != null))
 
-                    if (isAggressive || isPopupTab) {
+                    val isAuthOrSecurityFlow = isOAuthOrLoginProvider(reqDomain) ||
+                            isOAuthOrLoginProvider(pageDomain) ||
+                            isMetaDomain(reqDomain) ||
+                            isCaptchaOrAuthUrl(url, reqDomain) ||
+                            isOAuthOrLoginUrl(url) ||
+                            (onyxWv?.isWithinOAuthGracePeriod() == true)
+
+                    if (!isAuthOrSecurityFlow && (isAggressive || isPopupTab)) {
                         val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
                         val blockedByStandard = isPopupTab && AdBlockDomainManager.isBlockedInStandard(reqDomain)
                         val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
@@ -1279,17 +1307,29 @@ class OnyxWebViewClient(
 
             val pageDomain = preferences.cleanDomain(url)
             val isAuthOrMeta = isMetaDomain(pageDomain) || isCaptchaOrAuthUrl(url, pageDomain) ||
-                    isOAuthOrLoginProvider(pageDomain)
-            if (isAuthOrMeta && !(onyxWv?.isIncognito ?: false)) {
-                try {
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
-                } catch (_: Exception) {}
-            } else if (!(onyxWv?.isIncognito ?: false) &&
-                       preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY) {
-                // Restore third-party blocking when navigating away from an OAuth/login page
-                try {
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(view, false)
-                } catch (_: Exception) {}
+                    isOAuthOrLoginProvider(pageDomain) || isOAuthOrLoginUrl(url)
+            val isPopup = onyxWv?.isPopupTab == true || onyxWv?.isPopupPendingDisplay == true ||
+                    (tabActionCallback?.getTabById(onyxWv?.tabId ?: "")?.parentId != null)
+            val isWithinGrace = onyxWv?.isWithinOAuthGracePeriod() == true
+
+            if (isAuthOrMeta) {
+                onyxWv?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
+            }
+
+            val allowThirdPartyCookies = isAuthOrMeta || isPopup || isWithinGrace ||
+                    preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_NONE
+
+            if (!(onyxWv?.isIncognito ?: false)) {
+                if (allowThirdPartyCookies) {
+                    try {
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
+                    } catch (_: Exception) {}
+                } else if (preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY) {
+                    // Restore third-party blocking only when completely outside any auth session or popup context
+                    try {
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(view, false)
+                    } catch (_: Exception) {}
+                }
             }
 
             // If this is a pending popup window that successfully started navigating to a valid URL, display it

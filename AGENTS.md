@@ -273,6 +273,24 @@ onyx-browser/
   - The "Clear browsing data" button in `HistoryActivity` launches the unified `ClearBrowsingDataDialog` (matching the tab switcher brush button), supporting time ranges (Last 15 minutes, Last hour, Last 24 hours, Last 7 days, Last 4 weeks, All time).
   - Triggers complete cookie purging via `CookieManager.getInstance().removeAllCookies { flush() }`, `removeSessionCookies { flush() }`, `WebStorage.getInstance().deleteAllData()`, `WebViewDatabase.clearHttpAuthUsernamePassword()`, active tab webview cache clearing, and tab closures to guarantee full logout across all visited sites.
 
+### 4.7. Universal Authentication, Cross-Site OAuth & Cookie Grace Period Subsystem (`OnyxWebView.kt`, `OnyxWebViewClient.kt`, `MainActivity.kt`)
+- **Brave-Parity Cross-Site Cookie Policy**:
+  - In Chromium/Brave (`cookie_settings_base.cc`), blocking cross-site cookies still permits partitioned cookies for federated authentication and embedded sign-in widgets.
+  - In Android WebView, `CookieManager.setAcceptThirdPartyCookies(view, false)` unconditionally blocks all cross-site cookies, breaking standard OAuth/OIDC/SAML redirects and popup flows across third-party identity providers.
+  - Onyx introduces an **OAuth Grace Period Architecture**:
+    - Popup tabs (`isPopupTab = true`) automatically accept third-party cookies for the duration of the popup.
+    - Interacting with any OAuth, SAML, CAPTCHA, or identity provider records a timestamp (`lastOAuthInteractionTimestamp = System.currentTimeMillis()`) on both the popup tab and its parent `sourceWebView`.
+    - `isWithinOAuthGracePeriod()` provides a 120-second window during which the relying party can seamlessly receive tokens, access cookies, and complete authentication handshakes before strict third-party cookie blocking is re-engaged.
+- **Provider-Agnostic OAuth Identification**:
+  - `isOAuthOrLoginProvider(domain)` identifies all primary identity providers: Meta/Facebook, Google, Apple, Microsoft/Azure AD, GitHub, Twitter/X, Discord, Twitch, TikTok, Spotify, Yahoo, Slack, PayPal, Stripe, Auth0, Okta, OneLogin, PingIdentity, and general SSO subdomains (`sso.*`, `auth.*`, `login.*`, `id.*`, `identity.*`, `accounts.*`).
+  - `isOAuthOrLoginUrl(url)` identifies token exchange parameters (`code=`, `state=`, `access_token=`, `id_token=`, `/oauth/`, `/sso/`, `/checkpoint/`, `/challenge/`).
+- **Main-Thread Cookie Lifecycle & Zero Race Conditions**:
+  - `CookieManager.setAcceptThirdPartyCookies` is strictly managed on the Main thread inside `OnyxWebView.init`, `applyIncognitoMode`, and `onPageStarted`.
+  - Asynchronous background thread cookie setting in `shouldInterceptRequest` was eliminated to prevent IPC race conditions with Chromium's network stack.
+- **Popup Blocker Protection & Uncloaked SDK Endpoints**:
+  - `shouldOverrideUrlLoading` exempts authentication and payment flows from ad-block popup killer heuristics, preventing legit login windows from closing prematurely.
+  - SDK endpoints (`connect.facebook.net`, `graph.facebook.com`) are unblocked when social logins are permitted, while tracking pixels (`pixel.facebook.com`, `tr.facebook.com`, `an.facebook.com`) remain blocked in `AdBlockDomainManager.kt`.
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents
@@ -473,7 +491,11 @@ onyx-browser/
   - **Dynamic Logo Fetching & Multi-Tier Caching (`SearchEngineIconHelper.kt`)**: Asynchronously fetches high-resolution official logos from search engine domains using `FaviconManager` (apple-touch-icon, Google S2 CDN), with in-memory `LruCache` and persistent disk storage.
   - **Anti-Square Circular & Organic Shape Normalization**: Eliminated harsh solid white square box artifacts on DuckDuckGo, Startpage, Bing, and Yahoo. Transformed all bundled drawables into 128x128 32-bit transparent PNGs and applies circular anti-aliased masking to dynamically fetched icons, ensuring all search engine logos match Google and Brave's organic aesthetic.
   - **Omnibox & Quick Switcher Parity**: Integrated `SearchEngineIconHelper` across search bar selector (`binding.btnSearchEngine`), quick switcher popup (`SearchEnginePopupMenu`), search engine settings, and engine picker dialogs.
-  - **App Launcher Shortcuts Reordering (`shortcuts.xml`)**: Realigned long-press app launcher quick shortcuts to the requested order: 1st Search web (`shortcut_search`), 2nd New Incognito tab (`shortcut_incognito`), 3rd Scan QR code (`shortcut_qr`).
+- [x] **v1.0.223 — Universal Authentication, Cross-Site OAuth & Cookie Grace Period**:
+  - **Brave Android Parity Third-Party Cookie Policy**: Preserves strict third-party cookie blocking while implementing an ephemeral OAuth Grace Period (`isWithinOAuthGracePeriod()`, 120s window) enabling relying parties to seamlessly process cross-site session tokens and cookies.
+  - **Universal Identity Provider Coverage**: Exempts Meta/Facebook, Google, Apple, Microsoft, GitHub, Twitter/X, Discord, Twitch, TikTok, Spotify, Yahoo, Slack, PayPal, Stripe, Auth0, Okta, OneLogin, PingIdentity, and general SSO subdomains from restrictive third-party cookie blocks.
+  - **Eliminated Background Thread Cookie Setting**: Moved all `CookieManager.setAcceptThirdPartyCookies` calls strictly to the Main UI thread (`OnyxWebView.init`, `applyIncognitoMode`, `onPageStarted`), removing IPC race conditions with Chromium's network stack.
+  - **Popup Blocker Protection & Uncloaked SDK Access**: Shields OAuth/payment flows from popup killer heuristics in `shouldOverrideUrlLoading`, and unblocks `connect.facebook.net` and `graph.facebook.com` when social login is permitted.
 - [ ] **Upcoming Milestones**:
   - Full-featured custom user scriptlet manager (Tampermonkey/Violentmonkey script support).
   - Enhanced desktop user-agent presets with custom site profile rules.
