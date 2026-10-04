@@ -423,6 +423,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 wv?.reload() 
             }
         }
+        // Reduce pull-to-refresh sensitivity: require a longer drag before triggering.
+        // Default trigger distance is ~64dp; 120dp feels deliberate without being sluggish.
+        val triggerDp = (120 * resources.displayMetrics.density).toInt()
+        binding.swipeRefreshLayout.setDistanceToTriggerSync(triggerDp)
+
         binding.swipeRefreshLayout.setOnChildScrollUpCallback { _, _ ->
             // Block pull-to-refresh on homepage and when webview can't scroll up
             if (binding.homeLayout.root.visibility == View.VISIBLE) return@setOnChildScrollUpCallback true
