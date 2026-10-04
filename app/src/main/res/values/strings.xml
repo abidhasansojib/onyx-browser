@@ -502,6 +502,11 @@
     <string name="block_element">Block element</string>
     <string name="block_element_hint">Tap an element to block it</string>
     <string name="element_blocked_toast">Element blocked and rule saved</string>
+    <string name="edit_bookmark">Edit Bookmark</string>
+    <string name="bookmark_name">Name</string>
+    <string name="bookmark_url">URL</string>
+    <string name="bookmark_saved">Bookmark saved</string>
+    <string name="edit">Edit</string>
 </resources>
 
 

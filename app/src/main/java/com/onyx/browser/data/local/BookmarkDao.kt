@@ -25,6 +25,9 @@ interface BookmarkDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBookmark(item: BookmarkItem): Long
 
+    @Query("UPDATE bookmarks SET title = :title, url = :url WHERE id = :id")
+    suspend fun updateBookmark(id: Long, title: String, url: String)
+
     @Delete
     suspend fun deleteBookmark(item: BookmarkItem)
 

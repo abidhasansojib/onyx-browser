@@ -2,14 +2,17 @@ package com.onyx.browser.ui.bookmarks
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.onyx.browser.R
 import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.databinding.ItemBookmarkBinding
 
 class BookmarksAdapter(
     private val onItemClicked: (BookmarkItem) -> Unit,
+    private val onItemEdit: (BookmarkItem) -> Unit,
     private val onItemDeleted: (BookmarkItem) -> Unit
 ) : ListAdapter<BookmarkItem, BookmarksAdapter.BookmarkViewHolder>(BookmarkDiffCallback()) {
 
@@ -33,7 +36,25 @@ class BookmarksAdapter(
             binding.tvBookmarkUrl.text = if (isLocal) item.title.ifBlank { "Local Document" } else item.url
 
             binding.root.setOnClickListener { onItemClicked(item) }
-            binding.btnDeleteBookmarkItem.setOnClickListener { onItemDeleted(item) }
+
+            binding.btnMoreBookmarkItem.setOnClickListener { anchor ->
+                val popup = PopupMenu(context, anchor)
+                popup.menuInflater.inflate(R.menu.menu_bookmark_item, popup.menu)
+                popup.setOnMenuItemClickListener { menuItem ->
+                    when (menuItem.itemId) {
+                        R.id.action_edit_bookmark -> {
+                            onItemEdit(item)
+                            true
+                        }
+                        R.id.action_delete_bookmark -> {
+                            onItemDeleted(item)
+                            true
+                        }
+                        else -> false
+                    }
+                }
+                popup.show()
+            }
         }
     }
 
