@@ -379,7 +379,7 @@ class OnyxWebView @JvmOverloads constructor(
                     ProfileStore.getInstance().getOrCreateProfile(INCOGNITO_PROFILE_NAME)
                     WebViewCompat.setProfile(this, INCOGNITO_PROFILE_NAME)
                 } else {
-                    WebViewCompat.setProfile(this, Profile.DEFAULT_NAME)
+                    WebViewCompat.setProfile(this, Profile.DEFAULT_PROFILE_NAME)
                 }
             } catch (e: Throwable) {
                 android.util.Log.e("OnyxWebView", "Failed to set profile (incognito=$incognito)", e)
