@@ -79,7 +79,10 @@ class HistoryActivity : AppCompatActivity() {
 
     private fun setupClearDataButton() {
         binding.btnClearBrowsingData.setOnClickListener {
-            val tm = TabManager.activeInstance ?: TabManager(applicationContext, lifecycleScope)
+            if (isFinishing || isDestroyed || supportFragmentManager.isStateSaved || supportFragmentManager.isDestroyed) {
+                return@setOnClickListener
+            }
+            val tm = TabManager.activeInstance
             val dialog = ClearBrowsingDataDialog(
                 tabManager = tm,
                 onDataCleared = {

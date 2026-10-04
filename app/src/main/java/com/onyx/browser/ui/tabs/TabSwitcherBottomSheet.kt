@@ -556,13 +556,15 @@ class TabSwitcherBottomSheet(
     }
 
     private fun showClearBrowsingDataDialog() {
+        val fm = try { parentFragmentManager } catch (_: Throwable) { null } ?: return
+        if (fm.isStateSaved || fm.isDestroyed) return
         val dialog = ClearBrowsingDataDialog(
             tabManager = tabManager,
             onDataCleared = {
                 refreshTabsList()
             }
         )
-        dialog.show(childFragmentManager, ClearBrowsingDataDialog.TAG)
+        dialog.show(fm, ClearBrowsingDataDialog.TAG)
     }
 
     private fun confirmCloseAllTabs() {
@@ -572,9 +574,12 @@ class TabSwitcherBottomSheet(
             tabManager.normalTabs.value
         }
         if (tabList.isEmpty()) {
-            Toast.makeText(requireContext(), R.string.no_tabs_to_close, Toast.LENGTH_SHORT).show()
+            val ctx = context ?: return
+            Toast.makeText(ctx, R.string.no_tabs_to_close, Toast.LENGTH_SHORT).show()
             return
         }
+        val fm = try { parentFragmentManager } catch (_: Throwable) { null } ?: return
+        if (fm.isStateSaved || fm.isDestroyed) return
         val dialog = CloseAllTabsDialog(
             tabManager = tabManager,
             isIncognito = isViewingIncognito,
@@ -586,7 +591,7 @@ class TabSwitcherBottomSheet(
                 }
             }
         )
-        dialog.show(childFragmentManager, CloseAllTabsDialog.TAG)
+        dialog.show(fm, CloseAllTabsDialog.TAG)
     }
 
     override fun onDestroyView() {

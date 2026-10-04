@@ -6,10 +6,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.Window
 import android.webkit.CookieManager
 import android.webkit.WebStorage
-import android.webkit.WebView
 import android.webkit.WebViewDatabase
 import android.widget.ArrayAdapter
 import android.widget.Toast
@@ -25,9 +23,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.URI
 
-class ClearBrowsingDataDialog(
-    private val tabManager: TabManager? = TabManager.activeInstance,
-    private val onDataCleared: () -> Unit = {}
+class ClearBrowsingDataDialog @JvmOverloads constructor(
+    private var tabManager: TabManager? = TabManager.activeInstance,
+    private var onDataCleared: () -> Unit = {}
 ) : DialogFragment() {
 
     private var _binding: DialogClearBrowsingDataBinding? = null
@@ -45,15 +43,20 @@ class ClearBrowsingDataDialog(
         }
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, 0)
+        if (tabManager == null) {
+            tabManager = TabManager.activeInstance
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        dialog?.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            requestFeature(Window.FEATURE_NO_TITLE)
-        }
+        dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         _binding = DialogClearBrowsingDataBinding.inflate(inflater, container, false)
         return _binding!!.root
     }
@@ -105,16 +108,20 @@ class ClearBrowsingDataDialog(
 
     private fun updatePreview(selectedIndex: Int) {
         val cutoff = getCutoffTime(selectedIndex)
-        val context = context ?: return
-        val database = AppDatabase.getInstance(context)
+        val ctx = context ?: return
+        val database = AppDatabase.getInstance(ctx)
 
         viewLifecycleOwner.lifecycleScope.launch {
             // 1. Browsing history sites count and examples
             val historyItems = withContext(Dispatchers.IO) {
-                if (cutoff == 0L) {
-                    database.historyDao().getHistorySince(0L)
-                } else {
-                    database.historyDao().getHistorySince(cutoff)
+                try {
+                    if (cutoff == 0L) {
+                        database.historyDao().getHistorySince(0L)
+                    } else {
+                        database.historyDao().getHistorySince(cutoff)
+                    }
+                } catch (_: Exception) {
+                    emptyList()
                 }
             }
 
@@ -138,8 +145,9 @@ class ClearBrowsingDataDialog(
             b.tvHistoryExample.text = exampleString
 
             // 2. Open tabs count and examples
-            val normalTabs = tabManager?.normalTabs?.value ?: emptyList()
-            val incognitoTabs = tabManager?.incognitoTabs?.value ?: emptyList()
+            val tm = tabManager ?: TabManager.activeInstance
+            val normalTabs = tm?.normalTabs?.value ?: emptyList()
+            val incognitoTabs = tm?.incognitoTabs?.value ?: emptyList()
             val allTabs = normalTabs + incognitoTabs
 
             val matchingTabs = if (cutoff == 0L) {
@@ -163,27 +171,33 @@ class ClearBrowsingDataDialog(
 
     private fun performClearData(selectedIndex: Int) {
         val cutoff = getCutoffTime(selectedIndex)
-        val context = context ?: return
-        val database = AppDatabase.getInstance(context)
+        val appContext = context?.applicationContext ?: return
+        val database = AppDatabase.getInstance(appContext)
+        val tm = tabManager ?: TabManager.activeInstance
 
         viewLifecycleOwner.lifecycleScope.launch {
+            // 1. Delete history
             withContext(Dispatchers.IO) {
+                try {
+                    if (cutoff == 0L) {
+                        database.historyDao().clearAllHistory()
+                    } else {
+                        database.historyDao().deleteHistorySince(cutoff)
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // 2. Close tabs created/active in this timeframe
+            try {
                 if (cutoff == 0L) {
-                    database.historyDao().clearAllHistory()
+                    tm?.closeAllTabs(incognitoOnly = true)
+                    tm?.closeAllTabs(incognitoOnly = false)
                 } else {
-                    database.historyDao().deleteHistorySince(cutoff)
+                    tm?.closeTabsCreatedSince(cutoff)
                 }
-            }
+            } catch (_: Exception) {}
 
-            // Close tabs created/active in this timeframe
-            if (cutoff == 0L) {
-                tabManager?.closeAllTabs(incognitoOnly = true)
-                tabManager?.closeAllTabs(incognitoOnly = false)
-            } else {
-                tabManager?.closeTabsCreatedSince(cutoff)
-            }
-
-            // Clear WebView cookies, cache, and web storage
+            // 3. Clear WebView cookies, cache, and web storage
             try {
                 CookieManager.getInstance().removeAllCookies {
                     CookieManager.getInstance().flush()
@@ -196,31 +210,25 @@ class ClearBrowsingDataDialog(
             } catch (_: Exception) {}
 
             try {
-                val db = WebViewDatabase.getInstance(context)
+                val db = WebViewDatabase.getInstance(appContext)
                 db.clearHttpAuthUsernamePassword()
                 db.clearFormData()
             } catch (_: Exception) {}
 
-            withContext(Dispatchers.Main) {
-                try {
-                    tabManager?.getAllWebViews()?.forEach { wv ->
-                        wv.clearCache(true)
-                        wv.clearFormData()
-                        wv.clearSslPreferences()
-                    }
-                    WebView(context).clearCache(true)
-                    WebView(context).clearFormData()
-                    WebView(context).clearSslPreferences()
-                } catch (_: Exception) {}
-            }
+            // 4. Restore element blocking settings back to normal
+            try {
+                val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(appContext)
+                prefs.clearAllCustomBlockedRules()
+            } catch (_: Exception) {}
 
+            // 5. Clear disk cache & preview files
             withContext(Dispatchers.IO) {
                 try {
-                    val archivesDir = File(context.cacheDir, "web_archives")
+                    val archivesDir = File(appContext.cacheDir, "web_archives")
                     if (archivesDir.exists()) {
                         if (cutoff == 0L) {
                             archivesDir.deleteRecursively()
-                            com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(context)
+                            com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(appContext)
                         } else {
                             archivesDir.listFiles()?.forEach { f ->
                                 if (f.lastModified() >= cutoff) {
@@ -233,13 +241,13 @@ class ClearBrowsingDataDialog(
 
                 if (cutoff == 0L) {
                     try {
-                        com.onyx.browser.data.favicon.FaviconManager.clearCache(context)
+                        com.onyx.browser.data.favicon.FaviconManager.clearCache(appContext)
                     } catch (_: Exception) {}
                     try {
-                        tabManager?.clearAllThumbnailsAndCache()
+                        tm?.clearAllThumbnailsAndCache()
                     } catch (_: Exception) {}
                     try {
-                        val apk = File(context.cacheDir, "install_pending.apk")
+                        val apk = File(appContext.cacheDir, "install_pending.apk")
                         if (apk.exists() && System.currentTimeMillis() - apk.lastModified() > 60_000L) {
                             apk.delete()
                         }
@@ -247,9 +255,28 @@ class ClearBrowsingDataDialog(
                 }
             }
 
-            Toast.makeText(context, getString(R.string.browsing_data_cleared), Toast.LENGTH_SHORT).show()
-            onDataCleared()
-            dismissAllowingStateLoss()
+            // 6. Clear cache on active WebViews safely on Main thread
+            withContext(Dispatchers.Main) {
+                try {
+                    tm?.getAllWebViews()?.forEach { wv ->
+                        wv.clearCache(true)
+                        wv.clearFormData()
+                        wv.clearSslPreferences()
+                    }
+                } catch (_: Exception) {}
+
+                try {
+                    Toast.makeText(appContext, getString(R.string.browsing_data_cleared), Toast.LENGTH_SHORT).show()
+                } catch (_: Exception) {}
+
+                try {
+                    onDataCleared()
+                } catch (_: Exception) {}
+
+                try {
+                    dismissAllowingStateLoss()
+                } catch (_: Exception) {}
+            }
         }
     }
 

@@ -1203,6 +1203,16 @@ class OnyxWebViewClient(
                     })();
                 """.trimIndent()
                 view?.evaluateJavascript(customJs, null)
+            } else {
+                val removeJs = """
+                    (function() {
+                        try {
+                            var s = document.getElementById('onyx-user-custom-blocked');
+                            if (s) s.remove();
+                        } catch(e) {}
+                    })();
+                """.trimIndent()
+                view?.evaluateJavascript(removeJs, null)
             }
         } catch (_: Throwable) {}
 

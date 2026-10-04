@@ -239,6 +239,8 @@ class BrowserPreferences private constructor(private val context: Context) {
     }
 
     fun getCustomBlockedSelectorsForDomain(domainOrUrl: String): List<String> {
+        if (!isBlockElementEnabled) return emptyList()
+
         val cleanD = cleanDomain(domainOrUrl).lowercase()
         if (cleanD.isBlank()) return emptyList()
 
@@ -260,6 +262,7 @@ class BrowserPreferences private constructor(private val context: Context) {
     }
 
     fun getCustomBlockedCssForDomain(domainOrUrl: String): String {
+        if (!isBlockElementEnabled) return ""
         val selectors = getCustomBlockedSelectorsForDomain(domainOrUrl)
         if (selectors.isEmpty()) return ""
         return selectors.joinToString(", ") + " { display: none !important; }"
@@ -277,6 +280,17 @@ class BrowserPreferences private constructor(private val context: Context) {
             (trimmed.startsWith("$cleanD##") || trimmed.startsWith("$cleanD#?#"))
         }.joinToString("\n")
         prefs.edit().putString(KEY_CUSTOM_FILTER_RULES, updatedLines).apply()
+    }
+
+    fun clearAllCustomBlockedRules() {
+        synchronized(domainCustomRulesCache) {
+            domainCustomRulesCache.clear()
+            isDomainRulesCacheInitialized = true
+        }
+        prefs.edit()
+            .remove(KEY_CUSTOM_FILTER_RULES)
+            .remove(KEY_BLOCK_ELEMENT_ENABLED)
+            .apply()
     }
 
     // ── Filter List Subscriptions (comma-separated keys) ─────────────────────

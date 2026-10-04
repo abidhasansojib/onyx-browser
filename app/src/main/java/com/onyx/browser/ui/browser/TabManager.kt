@@ -571,12 +571,16 @@ class TabManager(
                 }
                 if (allPurgeDomains.isEmpty()) return@launch
 
-                // 4. Delete WebStorage (localStorage, sessionStorage, IndexedDB, CacheStorage)
-                val webStorage = WebStorage.getInstance()
-                for (domain in allPurgeDomains) {
-                    webStorage.deleteOrigin("https://$domain")
-                    webStorage.deleteOrigin("http://$domain")
-                }
+                // 4. Delete WebStorage on Main Thread (WebStorage requires UI thread)
+                try {
+                    withContext(Dispatchers.Main) {
+                        val webStorage = WebStorage.getInstance()
+                        for (domain in allPurgeDomains) {
+                            try { webStorage.deleteOrigin("https://$domain") } catch (_: Throwable) {}
+                            try { webStorage.deleteOrigin("http://$domain") } catch (_: Throwable) {}
+                        }
+                    }
+                } catch (_: Throwable) {}
 
                 // 5. Purge CookieManager
                 val cookieManager = CookieManager.getInstance()
@@ -641,21 +645,12 @@ class TabManager(
 
                 for (domain in allPurgeDomains) {
                     val httpsUrl = "https://$domain/"
-                    val httpUrl = "http://$domain/"
-
                     for (cookieName in cookieNames) {
                         for (path in targetPaths) {
                             val pathAttr = "; path=$path"
-
                             // HTTPS Domain-level and host-only cookies
                             cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; domain=.$domain; Secure")
-                            cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; domain=$domain; Secure")
                             cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr; Secure")
-                            cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry$pathAttr")
-
-                            // HTTP Domain-level & host-only cookies
-                            cookieManager.setCookie(httpUrl, "$cookieName=; $expiry$pathAttr; domain=.$domain")
-                            cookieManager.setCookie(httpUrl, "$cookieName=; $expiry$pathAttr")
                         }
                     }
                 }

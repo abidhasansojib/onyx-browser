@@ -131,6 +131,7 @@ class OnyxShieldBridge(private val context: Context) {
             }
             if (selectors.isEmpty()) return
 
+            preferences.isBlockElementEnabled = true
             preferences.addCustomBlockedSelectors(d, selectors)
 
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {

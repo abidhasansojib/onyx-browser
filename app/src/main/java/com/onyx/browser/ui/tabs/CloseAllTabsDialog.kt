@@ -12,24 +12,26 @@ import com.onyx.browser.R
 import com.onyx.browser.databinding.DialogConfirmCloseAllTabsBinding
 import com.onyx.browser.ui.browser.TabManager
 
-class CloseAllTabsDialog(
-    private val tabManager: TabManager,
-    private val isIncognito: Boolean,
-    private val onTabsClosed: (closedCount: Int) -> Unit = {}
+class CloseAllTabsDialog @JvmOverloads constructor(
+    private var tabManager: TabManager? = null,
+    private var isIncognito: Boolean = false,
+    private var onTabsClosed: ((closedCount: Int) -> Unit)? = null
 ) : DialogFragment() {
 
     private var _binding: DialogConfirmCloseAllTabsBinding? = null
     private val binding get() = _binding!!
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, 0)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        dialog?.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            requestFeature(Window.FEATURE_NO_TITLE)
-        }
+        dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         _binding = DialogConfirmCloseAllTabsBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -37,10 +39,11 @@ class CloseAllTabsDialog(
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        val tm = tabManager ?: TabManager.activeInstance
         val tabList = if (isIncognito) {
-            tabManager.incognitoTabs.value
+            tm?.incognitoTabs?.value ?: emptyList()
         } else {
-            tabManager.normalTabs.value
+            tm?.normalTabs?.value ?: emptyList()
         }
         val count = tabList.size
 
@@ -67,8 +70,8 @@ class CloseAllTabsDialog(
         }
 
         binding.btnConfirmCloseTabs.setOnClickListener {
-            tabManager.closeAllTabs(incognitoOnly = isIncognito, canUndo = true)
-            onTabsClosed(count)
+            tm?.closeAllTabs(incognitoOnly = isIncognito, canUndo = true)
+            onTabsClosed?.invoke(count)
             dismissAllowingStateLoss()
         }
     }
