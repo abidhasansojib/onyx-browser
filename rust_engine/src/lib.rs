@@ -153,6 +153,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkUrl
 /// - null: request is allowed
 /// - "blocked": request is blocked
 /// - "redirect:<data_or_url>": request is matched with a surrogate script/redirect
+/// - "rewrite:<new_url>": request is rewritten to a clean or redirect URL
 #[no_mangle]
 pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkRequestNative(
     mut env: JNIEnv,
@@ -160,6 +161,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkReq
     url: JString,
     source_url: JString,
     resource_type: jint,
+    method: JString,
 ) -> jstring {
     let result = catch_unwind(move || {
         let url_str: String = match env.get_string(&url) {
@@ -175,6 +177,18 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkReq
             Err(_) => String::new(),
         };
 
+        let method_str: String = match env.get_string(&method) {
+            Ok(s) => {
+                let m: String = s.into();
+                if m.is_empty() {
+                    "GET".to_string()
+                } else {
+                    m
+                }
+            }
+            Err(_) => "GET".to_string(),
+        };
+
         let type_str = match resource_type {
             1 => "script",
             2 => "image",
@@ -188,11 +202,19 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkReq
 
         let engine_guard = ENGINE.load();
         if let Some(ref engine) = *engine_guard {
-            if let Ok(request) = Request::new(&url_str, &source_str, type_str, "GET") {
+            if let Ok(request) = Request::new(&url_str, &source_str, type_str, &method_str) {
                 let blocker_result = engine.check_network_request(&request);
                 if let Some(ref redirect) = blocker_result.redirect {
                     if !redirect.is_empty() {
                         return match env.new_string(format!("redirect:{}", redirect)) {
+                            Ok(s) => s.into_raw(),
+                            Err(_) => ptr::null_mut(),
+                        };
+                    }
+                }
+                if let Some(ref rewrite) = blocker_result.rewritten_url {
+                    if !rewrite.is_empty() {
+                        return match env.new_string(format!("rewrite:{}", rewrite)) {
                             Ok(s) => s.into_raw(),
                             Err(_) => ptr::null_mut(),
                         };
@@ -203,6 +225,73 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkReq
                         Ok(s) => s.into_raw(),
                         Err(_) => ptr::null_mut(),
                     };
+                }
+            }
+        }
+
+        ptr::null_mut()
+    });
+
+    result.unwrap_or(ptr::null_mut())
+}
+
+/// Returns Content Security Policy directives matching this request, or null if none.
+#[no_mangle]
+pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCspDirectivesNative(
+    mut env: JNIEnv,
+    _class: JClass,
+    url: JString,
+    source_url: JString,
+    resource_type: jint,
+    method: JString,
+) -> jstring {
+    let result = catch_unwind(move || {
+        let url_str: String = match env.get_string(&url) {
+            Ok(s) => s.into(),
+            Err(_) => return ptr::null_mut(),
+        };
+        if url_str.is_empty() {
+            return ptr::null_mut();
+        }
+
+        let source_str: String = match env.get_string(&source_url) {
+            Ok(s) => s.into(),
+            Err(_) => String::new(),
+        };
+
+        let method_str: String = match env.get_string(&method) {
+            Ok(s) => {
+                let m: String = s.into();
+                if m.is_empty() {
+                    "GET".to_string()
+                } else {
+                    m
+                }
+            }
+            Err(_) => "GET".to_string(),
+        };
+
+        let type_str = match resource_type {
+            1 => "script",
+            2 => "image",
+            3 => "stylesheet",
+            4 => "sub_frame",
+            5 => "xhr",
+            6 => "media",
+            7 => "main_frame",
+            _ => "other",
+        };
+
+        let engine_guard = ENGINE.load();
+        if let Some(ref engine) = *engine_guard {
+            if let Ok(request) = Request::new(&url_str, &source_str, type_str, &method_str) {
+                if let Some(csp) = engine.get_csp_directives(&request) {
+                    if !csp.is_empty() {
+                        return match env.new_string(csp) {
+                            Ok(s) => s.into_raw(),
+                            Err(_) => ptr::null_mut(),
+                        };
+                    }
                 }
             }
         }

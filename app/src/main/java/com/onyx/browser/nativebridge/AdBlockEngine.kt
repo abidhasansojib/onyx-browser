@@ -42,14 +42,16 @@ object AdBlockEngine {
 
     data class RequestResult(
         val shouldBlock: Boolean,
-        val redirectData: String? = null
+        val redirectData: String? = null,
+        val rewrittenUrl: String? = null
     )
 
     external fun initEngine(data: ByteArray): Boolean
     external fun initFromRules(rules: String): ByteArray?
     external fun loadResources(resourcesJson: String): Boolean
     external fun checkUrl(url: String, sourceUrl: String, resourceType: String): Boolean
-    external fun checkRequestNative(url: String, sourceUrl: String, resourceType: Int): String?
+    external fun checkRequestNative(url: String, sourceUrl: String, resourceType: Int, method: String): String?
+    external fun getCspDirectivesNative(url: String, sourceUrl: String, resourceType: Int, method: String): String?
     external fun getCosmeticResources(url: String): String?
     external fun getHiddenClassIdSelectors(classesJson: String, idsJson: String, exceptionsJson: String): String?
     external fun serializeEngine(): ByteArray?
@@ -96,7 +98,7 @@ object AdBlockEngine {
      * into actual JS code returned by getCosmeticResources().
      * Without this, injected_script will always be empty and scriptlet-based ad blocking won't work.
      */
-    private fun loadBraveResources(context: Context) {
+    fun loadBraveResources(context: Context) {
         try {
             val json = context.assets.open(BRAVE_RESOURCES_ASSET).bufferedReader().use { it.readText() }
             val success = loadResources(json)
@@ -145,15 +147,20 @@ object AdBlockEngine {
         }
     }
 
-    fun checkRequest(url: String, sourceUrl: String, resourceType: Int): RequestResult {
+    fun checkRequest(url: String, sourceUrl: String, resourceType: Int, method: String = "GET"): RequestResult {
         if (!isNativeLoaded || url.isBlank()) return RequestResult(shouldBlock = false)
         return try {
-            val result = checkRequestNative(url, sourceUrl, resourceType)
+            val effectiveMethod = if (method.isBlank()) "GET" else method.uppercase()
+            val result = checkRequestNative(url, sourceUrl, resourceType, effectiveMethod)
             when {
                 result == null -> RequestResult(shouldBlock = false)
                 result.startsWith("redirect:") -> RequestResult(
                     shouldBlock = true,
                     redirectData = result.removePrefix("redirect:")
+                )
+                result.startsWith("rewrite:") -> RequestResult(
+                    shouldBlock = false,
+                    rewrittenUrl = result.removePrefix("rewrite:")
                 )
                 result == "blocked" -> RequestResult(shouldBlock = true)
                 else -> RequestResult(shouldBlock = true)
@@ -164,11 +171,26 @@ object AdBlockEngine {
         }
     }
 
-    fun shouldBlock(url: String, sourceUrl: String, resourceType: Int): Boolean {
-        return checkRequest(url, sourceUrl, resourceType).shouldBlock
+    /**
+     * Checks if any Content Security Policy (CSP) directives apply to this document/subframe request.
+     * Returns null if no directives apply.
+     */
+    fun getCspDirectives(url: String, sourceUrl: String, resourceType: Int, method: String = "GET"): String? {
+        if (!isNativeLoaded || url.isBlank()) return null
+        return try {
+            val effectiveMethod = if (method.isBlank()) "GET" else method.uppercase()
+            getCspDirectivesNative(url, sourceUrl, resourceType, effectiveMethod)?.takeIf { it.isNotBlank() }
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error in getCspDirectivesNative", t)
+            null
+        }
     }
 
-    fun shouldBlock(url: String, sourceUrl: String, resourceType: String): Boolean {
+    fun shouldBlock(url: String, sourceUrl: String, resourceType: Int, method: String = "GET"): Boolean {
+        return checkRequest(url, sourceUrl, resourceType, method).shouldBlock
+    }
+
+    fun shouldBlock(url: String, sourceUrl: String, resourceType: String, method: String = "GET"): Boolean {
         if (!isNativeLoaded) return false
         val typeInt = when (resourceType.lowercase()) {
             "script" -> RESOURCE_TYPE_SCRIPT
@@ -180,7 +202,7 @@ object AdBlockEngine {
             "main_frame" -> RESOURCE_TYPE_MAIN_FRAME
             else -> RESOURCE_TYPE_OTHER
         }
-        return shouldBlock(url, sourceUrl, typeInt)
+        return shouldBlock(url, sourceUrl, typeInt, method)
     }
 
     /**

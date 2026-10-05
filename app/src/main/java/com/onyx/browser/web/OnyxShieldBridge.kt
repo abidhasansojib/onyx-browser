@@ -130,6 +130,44 @@ class OnyxShieldBridge(private val context: Context) {
     }
 
     @JavascriptInterface
+    fun getCosmeticCss(pageUrl: String?): String {
+        if (!preferences.isAdBlockEnabled || !preferences.isCosmeticFilteringEnabled) return ""
+        val url = pageUrl?.takeIf { it.isNotBlank() } ?: return ""
+        val domain = preferences.cleanDomain(url)
+        if (preferences.isDomainWhitelisted(domain)) return ""
+
+        val d = domain.lowercase()
+        val isMetaOrCaptcha = d == "facebook.com" || d.endsWith(".facebook.com") ||
+                d == "fb.com" || d.endsWith(".fb.com") ||
+                d == "messenger.com" || d.endsWith(".messenger.com") ||
+                d == "instagram.com" || d.endsWith(".instagram.com") ||
+                d.contains("arkose") || d.contains("recaptcha") ||
+                d.contains("hcaptcha") || d.contains("turnstile") || d.contains("funcaptcha")
+        if (isMetaOrCaptcha) return ""
+
+        return com.onyx.browser.nativebridge.AdBlockEngine.getCosmeticCss(url)
+    }
+
+    @JavascriptInterface
+    fun getScriptletJs(pageUrl: String?): String {
+        if (!preferences.isAdBlockEnabled || !preferences.isCosmeticFilteringEnabled) return ""
+        val url = pageUrl?.takeIf { it.isNotBlank() } ?: return ""
+        val domain = preferences.cleanDomain(url)
+        if (preferences.isDomainWhitelisted(domain)) return ""
+
+        val d = domain.lowercase()
+        val isMetaOrCaptcha = d == "facebook.com" || d.endsWith(".facebook.com") ||
+                d == "fb.com" || d.endsWith(".fb.com") ||
+                d == "messenger.com" || d.endsWith(".messenger.com") ||
+                d == "instagram.com" || d.endsWith(".instagram.com") ||
+                d.contains("arkose") || d.contains("recaptcha") ||
+                d.contains("hcaptcha") || d.contains("turnstile") || d.contains("funcaptcha")
+        if (isMetaOrCaptcha) return ""
+
+        return com.onyx.browser.nativebridge.AdBlockEngine.getScriptletJs(url)
+    }
+
+    @JavascriptInterface
     fun getCustomBlockedCss(pageUrl: String?): String {
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return ""
         val d = preferences.cleanDomain(url).lowercase()

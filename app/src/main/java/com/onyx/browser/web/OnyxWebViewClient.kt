@@ -476,7 +476,8 @@ class OnyxWebViewClient(
                         // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave), UNLESS it is a child popup tab.
                         // In Aggressive mode (DomainBlockingType::kAggressive), main-frame ad domains can also be blocked.
                         if (isAggressive || isPopupTab) {
-                            val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
+                            val method = request.method ?: "GET"
+                            val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame", method)
                             val blockedByStandard = isPopupTab && AdBlockDomainManager.isBlockedInStandard(reqDomain)
                             val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
 
@@ -668,12 +669,14 @@ class OnyxWebViewClient(
 
                 // 2. Query native Rust engine only if domain is not already known to be blocked
                 val resourceTypeInt = detectResourceTypeInt(request)
+                val method = request.method ?: "GET"
                 val engineResult = if (!blockedByDomain && !isAdTestResource) {
-                    AdBlockEngine.checkRequest(url, pageUrl, resourceTypeInt)
+                    AdBlockEngine.checkRequest(url, pageUrl, resourceTypeInt, method)
                 } else null
 
                 val blockedByEngine = engineResult?.shouldBlock == true
                 val redirectData = engineResult?.redirectData
+                val rewrittenUrl = engineResult?.rewrittenUrl
 
                 if (isAdTestResource || blockedByDomain || blockedByEngine) {
                     preferences.incrementBlockedRequests()
@@ -687,6 +690,14 @@ class OnyxWebViewClient(
                     }
 
                     return createBlockedResponse(resourceType)
+                }
+
+                // If a rewrite rule ($rewrite / removeparam) modified the URL, serve the clean resource
+                if (!rewrittenUrl.isNullOrBlank() && rewrittenUrl != url) {
+                    if (rewrittenUrl.startsWith("data:", ignoreCase = true)) {
+                        val dataResponse = createSurrogateResponse(rewrittenUrl, resourceType)
+                        if (dataResponse != null) return dataResponse
+                    }
                 }
             }
 

@@ -57,7 +57,8 @@ object AdBlockServiceWorkerHelper {
                             val uncloakedDomain = AdBlockDomainManager.uncloakDomain(reqDomain)
                             val blockedByDomain = AdBlockDomainManager.shouldBlock(uncloakedDomain, isAggressive)
                             val blockedByEngine = if (!blockedByDomain) {
-                                AdBlockEngine.shouldBlock(url, "", AdBlockEngine.RESOURCE_TYPE_OTHER)
+                                val method = request.method ?: "GET"
+                                AdBlockEngine.shouldBlock(url, "", AdBlockEngine.RESOURCE_TYPE_OTHER, method)
                             } else true
 
                             if (blockedByDomain || blockedByEngine) {

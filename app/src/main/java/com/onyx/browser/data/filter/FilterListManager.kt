@@ -755,7 +755,8 @@ object FilterListManager {
                 FileOutputStream(cacheFile).use { it.write(compiledBytes) }
                 // Immediately apply new rules to the active in-memory Rust engine!
                 AdBlockEngine.initEngine(compiledBytes)
-                Log.i(TAG, "Successfully compiled filter database with ${compiledBytes.size} bytes cache and reinitialized engine")
+                AdBlockEngine.loadBraveResources(context)
+                Log.i(TAG, "Successfully compiled filter database with ${compiledBytes.size} bytes cache, reinitialized engine and loaded scriptlet resources")
 
                 // Count active rules
                 val ruleCount = mergedRules.lineSequence().count {
