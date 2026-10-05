@@ -45,6 +45,44 @@ header = """[Adblock Plus 2.0]
 ! Auto-compiled for high-performance mobile ad-blocking
 """
 
+core_remote_sources = [
+    (os.path.join(external, 'brave-lists/filters-mirror.txt'), 'https://easylist.to/easylist/easylist.txt'),
+    (os.path.join(external, 'brave-lists/brave-default.txt'), 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-default.txt'),
+    (os.path.join(external, 'brave-lists/brave-firstparty.txt'), 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-firstparty.txt'),
+    (os.path.join(external, 'brave-unbreak.txt'), 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-unbreak.txt'),
+    (os.path.join(external, 'brave-lists/brave-firstparty-cname.txt'), 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-firstparty-cname.txt'),
+    (os.path.join(external, 'brave-lists/brave-cookie-specific.txt'), 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-cookie-specific.txt'),
+    (os.path.join(external, 'ublock-privacy.txt'), 'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy.txt'),
+    (os.path.join(external, 'ublock-unbreak.txt'), 'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt'),
+    (os.path.join(external, 'easyprivacy.txt'), 'https://easylist.to/easylist/easyprivacy.txt')
+]
+
+for local_path, remote_url in core_remote_sources:
+    lines = None
+    if os.path.exists(local_path):
+        try:
+            with open(local_path, 'r', errors='ignore') as f:
+                lines = f.readlines()
+        except Exception as e:
+            print(f'Error reading {local_path}: {e}')
+    if lines is None and remote_url:
+        try:
+            req = urllib.request.Request(remote_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                text = resp.read().decode('utf-8', errors='ignore')
+                lines = text.splitlines()
+                print(f'Fetched remote list: {remote_url} ({len(lines)} lines)')
+        except Exception as e:
+            print(f'Notice: remote list fetch failed for {remote_url}: {e}')
+
+    if lines:
+        for line in lines:
+            l = line.strip()
+            if l and not l.startswith('!') and not l.startswith('['):
+                if l not in seen:
+                    seen.add(l)
+                    rules.append(l)
+
 for s in sources:
     if os.path.exists(s):
         with open(s, 'r', errors='ignore') as f:

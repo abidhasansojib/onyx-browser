@@ -687,9 +687,80 @@ object FilterListManager {
     }
 
     /**
-     * Fast recompilation from cached files + assets + custom rules (triggered on toggle).
+     * Downloads any enabled built-in or custom URL filter list that is not yet cached locally.
+     * Returns the count of newly downloaded filter lists.
      */
-    suspend fun recompileFilters(context: Context): Int = withContext(Dispatchers.IO) {
+    suspend fun ensureEnabledFiltersCached(
+        context: Context,
+        onProgress: ((current: Int, total: Int, name: String) -> Unit)? = null
+    ): Int = withContext(Dispatchers.IO) {
+        val prefs = BrowserPreferences.getInstance(context)
+        val enabledBuiltIn = ALL_FILTER_LISTS.filter { prefs.isFilterListEnabled(it.id) }
+        val enabledCustomUrl = prefs.getCustomFilters().filter { it.isUrlType && it.isEnabled }
+        val cacheDir = getCacheDir(context)
+
+        val missingBuiltIn = enabledBuiltIn.filter {
+            val f = File(cacheDir, "${it.id}.txt")
+            !f.exists() || f.length() == 0L
+        }
+        val missingCustom = enabledCustomUrl.filter {
+            val f = File(cacheDir, "${it.id}.txt")
+            !f.exists() || f.length() == 0L
+        }
+
+        val totalToDownload = missingBuiltIn.size + missingCustom.size
+        var downloadedCount = 0
+        if (totalToDownload > 0) {
+            var currentIndex = 0
+            for (entry in missingBuiltIn) {
+                currentIndex++
+                onProgress?.invoke(currentIndex, totalToDownload, entry.title)
+                try {
+                    val targetFile = File(cacheDir, "${entry.id}.txt")
+                    downloadFilterList(entry.url, targetFile)
+                    downloadedCount++
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed downloading missing filter list ${entry.id}: ${e.message}")
+                }
+            }
+            for (custom in missingCustom) {
+                currentIndex++
+                onProgress?.invoke(currentIndex, totalToDownload, custom.name)
+                try {
+                    val targetFile = File(cacheDir, "${custom.id}.txt")
+                    downloadFilterList(custom.url, targetFile)
+                    downloadedCount++
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed downloading missing custom filter ${custom.name}: ${e.message}")
+                }
+            }
+        }
+        return@withContext downloadedCount
+    }
+
+    /**
+     * Ensures default and regional filter lists are cached and compiled on startup.
+     */
+    suspend fun ensureDefaultFiltersCached(context: Context): Int = withContext(Dispatchers.IO) {
+        autoEnableRegionalListsForLocale(context)
+        val downloaded = ensureEnabledFiltersCached(context)
+        if (downloaded > 0) {
+            val count = compileFilters(context)
+            Log.i(TAG, "Cached and compiled $downloaded filter lists ($count rules active)")
+            return@withContext count
+        }
+        return@withContext 0
+    }
+
+    /**
+     * Fast recompilation from cached files + assets + custom rules (triggered on toggle).
+     * Automatically downloads any missing enabled lists before compiling into the active Rust engine.
+     */
+    suspend fun recompileFilters(
+        context: Context,
+        onProgress: ((current: Int, total: Int, name: String) -> Unit)? = null
+    ): Int = withContext(Dispatchers.IO) {
+        ensureEnabledFiltersCached(context, onProgress)
         return@withContext compileFilters(context)
     }
 
@@ -756,6 +827,7 @@ object FilterListManager {
                 // Immediately apply new rules to the active in-memory Rust engine!
                 AdBlockEngine.initEngine(compiledBytes)
                 AdBlockEngine.loadBraveResources(context)
+                AdBlockEngine.clearDecisionCache()
                 Log.i(TAG, "Successfully compiled filter database with ${compiledBytes.size} bytes cache, reinitialized engine and loaded scriptlet resources")
 
                 // Count active rules

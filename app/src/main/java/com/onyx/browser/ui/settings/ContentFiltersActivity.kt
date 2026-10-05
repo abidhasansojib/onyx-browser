@@ -211,7 +211,22 @@ class ContentFiltersActivity : AppCompatActivity() {
         recompileJob?.cancel()
         recompileJob = lifecycleScope.launch {
             delay(500) // Debounce toggles
-            FilterListManager.recompileFilters(this@ContentFiltersActivity)
+            binding.progressUpdate.visibility = View.VISIBLE
+            binding.tvUpdateStatus.visibility = View.VISIBLE
+            binding.tvUpdateStatus.text = getString(R.string.updating_filters)
+            val rulesCount = FilterListManager.recompileFilters(this@ContentFiltersActivity) { current, total, name ->
+                binding.tvUpdateStatus.text = "Downloading $current of $total: $name"
+            }
+            binding.progressUpdate.visibility = View.GONE
+            binding.tvUpdateStatus.visibility = View.GONE
+            updateSubtitleDisplay()
+            if (rulesCount > 0) {
+                Toast.makeText(
+                    this@ContentFiltersActivity,
+                    getString(R.string.filters_updated, rulesCount),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 

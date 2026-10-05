@@ -727,15 +727,17 @@ class OnyxWebViewClient(
                 if (isMetaContext) {
                     return null
                 }
-                // On third-party sites: allow first-party Meta assets/OAuth unless it's a pure tracking pixel
-                if (!isMetaAdPixel) {
+                // On third-party sites: allow first-party Meta assets/OAuth if in active OAuth flow or grace period
+                val isInOAuth = (view as? OnyxWebView)?.isWithinOAuthGracePeriod() == true || isOAuthResource
+                if (isInOAuth && !isMetaAdPixel) {
                     return null
                 }
             }
 
             // ── Permitted Social Content & Embeds ─────────────────────────────────
-            // When allowed, completely bypass adblock and social tracking filters
-            val isFbContent = preferences.allowFacebookLogins &&
+            // When allowed, bypass adblock ONLY if actively in OAuth flow or on Meta domain
+            val isInFbAuth = isMetaContext || (view as? OnyxWebView)?.isWithinOAuthGracePeriod() == true || isOAuthResource
+            val isFbContent = preferences.allowFacebookLogins && isInFbAuth &&
                     facebookContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
             if (isFbContent) {
                 return null

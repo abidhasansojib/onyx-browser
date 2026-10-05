@@ -50,6 +50,8 @@ class OnyxApplication : Application() {
             try {
                 com.onyx.browser.data.filter.FilterListManager.autoEnableRegionalListsForLocale(applicationContext)
                 AdBlockEngine.initialize(applicationContext)
+                com.onyx.browser.data.filter.FilterListManager.ensureDefaultFiltersCached(applicationContext)
+                com.onyx.browser.data.filter.FilterListManager.checkAndAutoUpdateFilters(applicationContext)
             } catch (t: Throwable) {
                 Log.e("OnyxApplication", "Failed to initialize AdBlockEngine in background", t)
             }

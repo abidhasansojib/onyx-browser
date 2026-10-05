@@ -75,17 +75,23 @@ object AdBlockDocumentStart {
                 href.indexOf('__cf_chl') !== -1 ||
                 href.indexOf('/cdn-cgi/') !== -1;
 
-            var isAuthPathOrParam =
-                path.indexOf('/checkpoint/') !== -1 || path.indexOf('/challenge/') !== -1 ||
-                path.indexOf('/captcha/') !== -1 || path.indexOf('/login/') !== -1 ||
-                path.indexOf('/security-check') !== -1 || path.indexOf('/two_step_verification') !== -1 ||
-                href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 ||
-                href.indexOf('lsd=') !== -1 || href.indexOf('jazoest=') !== -1 || href.indexOf('datr=') !== -1;
+            var isChallengeOrAuthDomain = isAuthOrMetaDomain(host) ||
+                                          isAuthOrMetaDomain(referrerHost) ||
+                                          isAuthOrMetaDomain(topHost);
 
-            var isMetaOrAuthContext = isCloudflareChallenge || isAuthPathOrParam ||
-                                      isAuthOrMetaDomain(host) ||
-                                      isAuthOrMetaDomain(referrerHost) ||
-                                      isAuthOrMetaDomain(topHost);
+            var isChallengePath =
+                path.indexOf('/checkpoint/') !== -1 || path.indexOf('/challenge/') !== -1 ||
+                path.indexOf('/captcha/') !== -1 || path.indexOf('/security-check') !== -1 ||
+                path.indexOf('/two_step_verification') !== -1 ||
+                href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1;
+
+            var isMetaLoginParamOrPath = isChallengeOrAuthDomain && (
+                path.indexOf('/login/') !== -1 ||
+                href.indexOf('lsd=') !== -1 || href.indexOf('jazoest=') !== -1 || href.indexOf('datr=') !== -1
+            );
+
+            var isMetaOrAuthContext = isCloudflareChallenge || isChallengeOrAuthDomain ||
+                                      isChallengePath || isMetaLoginParamOrPath;
 
             if (isMetaOrAuthContext || !isShieldActive || window.__onyx_shields_active === false || window.__onyxAdBlockEnabled === false) {
                 // Do not run adblock/cosmetic injections or stub globals on Cloudflare challenges,
@@ -544,10 +550,17 @@ object AdBlockDocumentStart {
                         if (!resJson || resJson === '[]') return;
                         var selectors = JSON.parse(resJson);
                         if (selectors && selectors.length > 0) {
-                            // Filter out any selectors that could match video, audio, or media player wrappers
+                            // Protect genuine media players while keeping explicit ad/sponsor/overlay selectors
                             var safeSelectors = selectors.filter(function(sel) {
                                 if (!sel || typeof sel !== 'string') return false;
-                                return !/(video|audio|player|stream|media|vjs|jwplayer|html5|playing|paused)/i.test(sel);
+                                sel = sel.trim();
+                                if (!sel) return false;
+                                // Protect bare <video> and <audio> HTML tags
+                                if (/^(video|audio)$/i.test(sel)) return false;
+                                // If selector explicitly targets ads/sponsors/overlays/popups, keep it
+                                if (/(ad|banner|sponsor|promo|overlay|popup|commercial|preroll|midroll|postroll)/i.test(sel)) return true;
+                                // Protect generic bare media player containers from accidental hiding
+                                return !/^(#|\.)(video|audio|player|stream|media|vjs|jwplayer|html5)$/i.test(sel);
                             });
                             if (safeSelectors.length > 0) {
                                 var styleTag = getOrCreateCosmeticStyle();
