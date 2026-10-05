@@ -742,3 +742,9 @@ onyx-browser/
     - **`applyCookieSettings()` grace period awareness**: Incognito mode now calls `isWithinOAuthGracePeriod()` in `applyCookieSettings()` — if an auth flow was recently started, 3p cookies remain enabled instead of being reset to `false`.
     - **Post-Data-Clear Login Recovery**: `ClearBrowsingDataDialog.performClearData` now resets `lastOAuthInteractionTimestamp = 0L` on all active WebViews after clearing and explicitly calls `CookieManager.getInstance().setAcceptCookie(true) + flush()` to ensure the default CookieManager is in a clean, cookie-accepting state for the next login attempt.
 
+
+24. **Documentation Audit & WebView Hardening (2026-10-05)**:
+    - Audited full codebase against `documentation.md` (Android WebView Engineering Guide).
+    - **Safe Browsing Initialization**: Added `WebViewCompat.startSafeBrowsing()` call in `OnyxApplication.onCreate()` (feature-checked with `WebViewFeature.START_SAFE_BROWSING`). Enables Google Safe Browsing interstitial pages for phishing/malware protection. Was documented in §1.2 but never implemented.
+    - **Touch Window Popup Fallback** (`OnyxWebView.kt` + `MainActivity.kt`): Implemented `isWithinRecentTouchWindow()` tracking `onTouchEvent` timestamps with 1500ms grace window. Updated `onCreateWindow` gate in `MainActivity.kt` from strict `!isUserGesture` check to `(!isUserGesture && !recentTouch)`. Prevents OAuth/payment async popups from being silently rejected when Blink clears `isUserGesture` after promise resolution.
+    - **Documentation sync**: Updated `documentation.md` §3.2 (removed non-existent `WebViewCompat.navigate` reference, documented `https://onyx.browser/` as error page base URL) and §4.2 (updated popup code snippet to match actual `createNewTab`/`getOrCreateWebView` workflow).
