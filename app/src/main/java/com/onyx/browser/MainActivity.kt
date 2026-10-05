@@ -1107,10 +1107,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 handleWebPermissionRequest(request)
             },
             onCreateWindowCallback = { sourceWebView, isDialog, isUserGesture, resultMsg ->
-                // Only open a new tab when triggered by an explicit user gesture (tap/click).
-                // Script-driven window.open() calls (ads, pop-unders, redirect loops) have
-                // isUserGesture=false and must be silently blocked.
-                if (!isUserGesture || resultMsg == null) {
+                // Only open a new tab when triggered by an explicit user gesture (tap/click)
+                // or within a recent touch window (1500ms) to support OAuth/payment async flows
+                // where Blink clears isUserGesture after promise resolution.
+                val recentTouch = (sourceWebView as? OnyxWebView)?.isWithinRecentTouchWindow() ?: false
+                if ((!isUserGesture && !recentTouch) || resultMsg == null) {
                     false
                 } else {
                     val parentTab = (sourceWebView as? OnyxWebView)?.tabId?.let { tabManager.getTabById(it) }

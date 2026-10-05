@@ -58,16 +58,30 @@ class OnyxWebView @JvmOverloads constructor(
         private set
     var lastTouchY: Float = 0f
         private set
+    @Volatile private var lastTouchTimestamp: Long = 0L
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN,
+            MotionEvent.ACTION_DOWN -> {
+                lastTouchX = event.x
+                lastTouchY = event.y
+                lastTouchTimestamp = System.currentTimeMillis()
+            }
             MotionEvent.ACTION_MOVE -> {
                 lastTouchX = event.x
                 lastTouchY = event.y
             }
         }
         return super.onTouchEvent(event)
+    }
+
+    /**
+     * Returns true if a user touch event occurred within the last [windowMs] milliseconds.
+     * Used as a fallback in onCreateWindow when Blink clears isUserGesture after async
+     * promise resolutions (OAuth, payment processors, etc.)
+     */
+    fun isWithinRecentTouchWindow(windowMs: Long = 1500L): Boolean {
+        return (System.currentTimeMillis() - lastTouchTimestamp) <= windowMs
     }
 
     val regexFindBridge = RegexFindBridge(this) { activeIndex, matchCount ->

@@ -79,6 +79,17 @@ class OnyxApplication : Application() {
             Log.e("OnyxApplication", "Failed to enable WebContentsDebugging", t)
         }
 
+        // Initialize Google Safe Browsing for phishing/malware interstitial pages
+        try {
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.START_SAFE_BROWSING)) {
+                androidx.webkit.WebViewCompat.startSafeBrowsing(this) { success ->
+                    Log.d("OnyxApplication", "Safe Browsing initialized: $success")
+                }
+            }
+        } catch (t: Throwable) {
+            Log.e("OnyxApplication", "Failed to initialize Safe Browsing", t)
+        }
+
         // Schedule periodic background filter update worker (24h interval, Wi-Fi only, battery not low)
         try {
             scheduleFilterUpdateWork()
