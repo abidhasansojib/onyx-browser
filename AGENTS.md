@@ -753,3 +753,9 @@ onyx-browser/
     - **Global Medium Font Family**: Configured `android:fontFamily="sans-serif-medium"` and `fontFamily="sans-serif-medium"` in `Theme.OnyxBrowser` (both `values/themes.xml` and `values-night/themes.xml`), giving all UI text a sleek, punchy, semi-bold weight (500) rather than standard regular (400).
     - **Tailored Font Sizing**: Maintained the compact, balanced font sizes across the Homepage and Settings screens to prevent clutter, while preserving the medium/bold weight and keeping the searchbar shape, boldness, and font sizing intact.
 
+27. **Release v1.0.253 Published (2026-10-05)**:
+    - **Release APKs**: Built and signed production APKs (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`) via GitHub Actions workflow run `#37280711041`.
+    - **Typography & UI Refinements**: Ships the semi-bold medium font family (`sans-serif-medium`) with compact homepage and settings layout proportions and preserved omnibox search bar styling.
+    - **Security & Stability**: Incorporates WebView remote debugging isolation in release builds, user CA certificate isolation, CSS sanitization, and intent fallback URL validation.
+
+
