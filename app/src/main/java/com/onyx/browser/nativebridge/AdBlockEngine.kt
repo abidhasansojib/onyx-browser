@@ -46,6 +46,15 @@ object AdBlockEngine {
         val rewrittenUrl: String? = null
     )
 
+    private const val MAX_DECISION_CACHE_SIZE = 8192
+    private val requestDecisionCache = object : android.util.LruCache<String, RequestResult>(MAX_DECISION_CACHE_SIZE) {}
+    private val checkUrlCache = object : android.util.LruCache<String, Boolean>(4096) {}
+
+    fun clearDecisionCache() {
+        requestDecisionCache.evictAll()
+        checkUrlCache.evictAll()
+    }
+
     external fun initEngine(data: ByteArray): Boolean
     external fun initFromRules(rules: String): ByteArray?
     external fun loadResources(resourcesJson: String): Boolean
@@ -72,6 +81,7 @@ object AdBlockEngine {
                     Log.i(TAG, "AdBlockEngine initialized from serialized binary cache (${bytes.size} bytes)")
                     // Always reload scriptlet resources on top of cached engine
                     loadBraveResources(context)
+                    clearDecisionCache()
                     return@withContext
                 }
             }
@@ -88,6 +98,7 @@ object AdBlockEngine {
 
             // Load scriptlet resources (brave-resources.json) so +js() rules resolve to real JS
             loadBraveResources(context)
+            clearDecisionCache()
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing AdBlockEngine", e)
         }
@@ -149,10 +160,13 @@ object AdBlockEngine {
 
     fun checkRequest(url: String, sourceUrl: String, resourceType: Int, method: String = "GET"): RequestResult {
         if (!isNativeLoaded || url.isBlank()) return RequestResult(shouldBlock = false)
+        val effectiveMethod = if (method.isBlank()) "GET" else method.uppercase()
+        val cacheKey = "$effectiveMethod|$resourceType|$url|$sourceUrl"
+        requestDecisionCache.get(cacheKey)?.let { return it }
+
         return try {
-            val effectiveMethod = if (method.isBlank()) "GET" else method.uppercase()
             val result = checkRequestNative(url, sourceUrl, resourceType, effectiveMethod)
-            when {
+            val parsedResult = when {
                 result == null -> RequestResult(shouldBlock = false)
                 result.startsWith("redirect:") -> RequestResult(
                     shouldBlock = true,
@@ -165,10 +179,26 @@ object AdBlockEngine {
                 result == "blocked" -> RequestResult(shouldBlock = true)
                 else -> RequestResult(shouldBlock = true)
             }
+            requestDecisionCache.put(cacheKey, parsedResult)
+            parsedResult
         } catch (t: Throwable) {
             Log.e(TAG, "Error in checkRequestNative", t)
             RequestResult(shouldBlock = false)
         }
+    }
+
+    fun checkUrlCached(url: String, sourceUrl: String, resourceType: String): Boolean {
+        if (!isNativeLoaded || url.isBlank()) return false
+        val cacheKey = "$resourceType|$url|$sourceUrl"
+        checkUrlCache.get(cacheKey)?.let { return it }
+        val res = try {
+            checkUrl(url, sourceUrl, resourceType)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error in checkUrl", t)
+            false
+        }
+        checkUrlCache.put(cacheKey, res)
+        return res
     }
 
     /**

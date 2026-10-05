@@ -259,10 +259,7 @@ class OnyxShieldBridge(private val context: Context) {
         ) {
             return false
         }
-        val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
-        return com.onyx.browser.nativebridge.AdBlockEngine.shouldBlock(reqUrl, page, "other") ||
-                AdBlockDomainManager.isBlockedInStandard(reqDomain) ||
-                (isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain))
+        return com.onyx.browser.nativebridge.AdBlockEngine.shouldBlock(reqUrl, page, "other")
     }
 }
 

@@ -53,15 +53,13 @@ object AdBlockServiceWorkerHelper {
                                 return null
                             }
 
+                            val uncloakedUrl = AdBlockDomainManager.uncloakUrl(url)
+                            val method = request.method ?: "GET"
                             val isAggressive = prefs.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
-                            val uncloakedDomain = AdBlockDomainManager.uncloakDomain(reqDomain)
-                            val blockedByDomain = AdBlockDomainManager.shouldBlock(uncloakedDomain, isAggressive)
-                            val blockedByEngine = if (!blockedByDomain) {
-                                val method = request.method ?: "GET"
-                                AdBlockEngine.shouldBlock(url, "", AdBlockEngine.RESOURCE_TYPE_OTHER, method)
-                            } else true
+                            val resourceType = if (isAggressive) AdBlockEngine.RESOURCE_TYPE_MAIN_FRAME else AdBlockEngine.RESOURCE_TYPE_OTHER
+                            val isBlocked = AdBlockEngine.shouldBlock(uncloakedUrl, "", resourceType, method)
 
-                            if (blockedByDomain || blockedByEngine) {
+                            if (isBlocked) {
                                 prefs.incrementBlockedRequests()
                                 return WebResourceResponse(
                                     "text/plain",

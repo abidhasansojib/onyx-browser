@@ -321,13 +321,7 @@ class OnyxWebViewClient(
         )
         if (isSameSite) return false
 
-        // 3. Known ad / popunder domains (fast-path check)
-        if (AdBlockDomainManager.isBlockedInStandard(reqDomain) ||
-            AdBlockDomainManager.isBlockedInAggressive(reqDomain)) {
-            return true
-        }
-
-        // 4. Popunder / redirect path and parameter heuristics
+        // 3. Popunder / redirect path and parameter heuristics
         val lowerUrl = url.lowercase()
         if (lowerUrl.contains("/click/") ||
             lowerUrl.contains("/redirect/") ||
@@ -336,15 +330,14 @@ class OnyxWebViewClient(
             lowerUrl.contains("/popunder/") ||
             lowerUrl.contains("utm_medium=pop") ||
             (lowerUrl.contains("utm_source=") && (lowerUrl.contains("ad") || lowerUrl.contains("traffic") || lowerUrl.contains("pop"))) ||
-            lowerUrl.matches(Regex(".*(decafeligiblyhad|ng88b|modalclonism|quiahussars|casteschagoma|sodlessteargas|morphify).*")) ||
             lowerUrl.matches(Regex(".*/[a-zA-Z0-9_-]{10,}/[0-9]{5,}.*"))
         ) {
             return true
         }
 
-        // 5. Query Brave adblock native engine for both $popup and $main_frame rules
+        // 4. Query Brave adblock native engine for both $popup and $main_frame rules
         val effectiveSourceUrl = if (parentUrl.isNotBlank()) parentUrl else currentPageUrl
-        if (AdBlockEngine.checkUrl(url, effectiveSourceUrl, "popup")) {
+        if (AdBlockEngine.checkUrlCached(url, effectiveSourceUrl, "popup")) {
             return true
         }
         if (AdBlockEngine.shouldBlock(url, effectiveSourceUrl, "main_frame")) {
@@ -803,24 +796,20 @@ class OnyxWebViewClient(
 
                 // Static CNAME uncloaking
                 val uncloakedDomain = AdBlockDomainManager.uncloakDomain(reqDomain)
+                val uncloakedUrl = AdBlockDomainManager.uncloakUrl(url)
 
-                // 1. Fast-path in-memory Kotlin check: evaluate known domain blocklists FIRST
-                val blockedByStandard = AdBlockDomainManager.isBlockedInStandard(uncloakedDomain)
-                val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(uncloakedDomain)
-                val blockedByDomain = blockedByStandard || blockedByAggressive
-
-                // 2. Query native Rust engine only if domain is not already known to be blocked
+                // Query native Rust engine through high-performance Kotlin LRU decision cache
                 val resourceTypeInt = detectResourceTypeInt(request)
                 val method = request.method ?: "GET"
-                val engineResult = if (!blockedByDomain && !isAdTestResource) {
-                    AdBlockEngine.checkRequest(url, pageUrl, resourceTypeInt, method)
+                val engineResult = if (!isAdTestResource) {
+                    AdBlockEngine.checkRequest(uncloakedUrl, pageUrl, resourceTypeInt, method)
                 } else null
 
                 val blockedByEngine = engineResult?.shouldBlock == true
                 val redirectData = engineResult?.redirectData
                 val rewrittenUrl = engineResult?.rewrittenUrl
 
-                if (isAdTestResource || blockedByDomain || blockedByEngine) {
+                if (isAdTestResource || blockedByEngine) {
                     preferences.incrementBlockedRequests()
 
                     // If a surrogate redirect ($redirect rule) is matched, serve the surrogate script directly!
@@ -958,9 +947,8 @@ class OnyxWebViewClient(
 
                     if (!isAuthOrSecurityFlow && isAggressive) {
                         val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
-                        val blockedByAggressive = AdBlockDomainManager.isBlockedInAggressive(reqDomain)
 
-                        if (blockedByEngine || blockedByAggressive) {
+                        if (blockedByEngine) {
                             preferences.incrementBlockedRequests()
                             return true // Cancel the ad navigation!
                         }
