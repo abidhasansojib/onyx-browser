@@ -167,6 +167,6 @@ onyx-browser/
 
 ## 6. Current Status & Release Information
 
-- **Current Release**: Purged (ready for next release tag)
-- **Build Status**: All previous workflow run logs, GitHub Releases, and git tags have been wiped. Next build will deploy cleanly.
+- **Current Release**: `v1.0.259`
+- **Build Status**: Production signed APKs published across all ABIs (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`) on GitHub Releases.
 - **Feature Tracking**: Complete feature statuses and technical verification notes are maintained in `FEATURES.md`.
