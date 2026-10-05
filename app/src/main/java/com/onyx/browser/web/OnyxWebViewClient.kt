@@ -144,9 +144,12 @@ class OnyxWebViewClient(
                 d.contains("arkose") || d.contains("arkoselabs") || d.contains("funcaptcha") ||
                 d.contains("matchkey") || d.contains("turnstile") || d.contains("geetest") || d.contains("datadome") ||
                 d.contains("kasada") || d.contains("perimeterx") ||
+                d == "fbsbx.com" || d.endsWith(".fbsbx.com") ||
                 d == "challenges.cloudflare.com" || d.endsWith(".challenges.cloudflare.com") ||
                 u.contains("recaptcha") || u.contains("hcaptcha") || u.contains("arkose") ||
                 u.contains("funcaptcha") || u.contains("matchkey") || u.contains("turnstile") ||
+                u.contains("/captcha/arkose/") || u.contains("meta-api.arkoselabs.com") ||
+                u.contains("client-api.arkoselabs.com") ||
                 u.contains("/cdn-cgi/challenge-platform") || u.contains("/cdn-cgi/cf-challenge") ||
                 u.contains("__cf_chl") ||
                 u.contains("/checkpoint/") || u.contains("/challenge/") ||
@@ -669,8 +672,33 @@ class OnyxWebViewClient(
             val isIncognitoView = (view as? OnyxWebView)?.isIncognito ?: false
             val resourceType = detectResourceType(request)
 
-            // ── Ensure media streams, CDN segments, and player iframes retain partitioned cookies (Brave parity) ──
-            if (resourceType == "media" || resourceType == "sub_frame" || isMediaUrl(url) || isMediaOrStreamingHost(reqDomain)) {
+            val currentDomain = preferences.cleanDomain(currentPageUrl)
+            val isMetaContext = isMetaDomain(pageDomain) || isMetaDomain(currentDomain) ||
+                    isCaptchaOrAuthUrl(currentPageUrl, currentDomain) ||
+                    isCaptchaOrAuthUrl(pageUrl, pageDomain)
+
+            // ── Universal CAPTCHA, Verification & Security Protection ──────────────
+            // Anti-bot verifications and checkpoints must never be blocked on any website
+            val isCaptchaResource = isCaptchaOrAuthUrl(url, reqDomain)
+
+            // ── OAuth / SSO / Identity & Payment Provider Exemption ───────────────
+            // Brave exempts known identity providers from BLOCK_THIRD_PARTY cookie mode because
+            // they are legitimately cross-site (Google Sign-In iframes, Stripe payment forms, etc.).
+            val isOAuthResource = isOAuthOrLoginProvider(reqDomain) ||
+                    isOAuthOrLoginProvider(pageDomain) ||
+                    isOAuthOrLoginUrl(url)
+
+            // ── Ensure active auth, CAPTCHA iframes, and media streams retain cross-site cookies ──
+            if (isMetaContext || isCaptchaResource || isOAuthResource) {
+                (view as? OnyxWebView)?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
+                view?.post {
+                    try {
+                        val activeCm = (view as? OnyxWebView)?.cookieManager ?: CookieManager.getInstance()
+                        activeCm.setAcceptCookie(true)
+                        activeCm.setAcceptThirdPartyCookies(view, true)
+                    } catch (_: Exception) {}
+                }
+            } else if (resourceType == "media" || resourceType == "sub_frame" || isMediaUrl(url) || isMediaOrStreamingHost(reqDomain)) {
                 view?.post {
                     try {
                         val activeCm = (view as? OnyxWebView)?.cookieManager ?: CookieManager.getInstance()
@@ -680,24 +708,10 @@ class OnyxWebViewClient(
                 }
             }
 
-            val currentDomain = preferences.cleanDomain(currentPageUrl)
-            val isMetaContext = isMetaDomain(pageDomain) || isMetaDomain(currentDomain) ||
-                    isCaptchaOrAuthUrl(currentPageUrl, currentDomain) ||
-                    isCaptchaOrAuthUrl(pageUrl, pageDomain)
-
-            // ── Universal CAPTCHA, Verification & Security Protection ──────────────
-            // Anti-bot verifications and checkpoints must never be blocked on any website
-            val isCaptchaResource = isCaptchaOrAuthUrl(url, reqDomain)
             if (isCaptchaResource) {
                 return null
             }
 
-            // ── OAuth / SSO / Identity & Payment Provider Exemption ───────────────
-            // Brave exempts known identity providers from BLOCK_THIRD_PARTY cookie mode because
-            // they are legitimately cross-site (Google Sign-In iframes, Stripe payment forms, etc.).
-            val isOAuthResource = isOAuthOrLoginProvider(reqDomain) ||
-                    isOAuthOrLoginProvider(pageDomain) ||
-                    isOAuthOrLoginUrl(url)
             if (isOAuthResource) {
                 return null
             }

@@ -26,9 +26,11 @@ object WebGLCompatibilityBridge {
             var _href = (location.href || '').toLowerCase();
             var _path = (location.pathname || '').toLowerCase();
 
-            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(_h + ' ' + _href + ' ' + _ref) ||
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|fbcdn\.net|facebook\.net|fbsbx\.com|instagram\.com|cdninstagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(_h + ' ' + _href + ' ' + _ref) ||
                 _path.indexOf('/checkpoint/') !== -1 || _path.indexOf('/login/') !== -1 || _path.indexOf('/auth/') !== -1 ||
-                _href.indexOf('/checkpoint/') !== -1 || _href.indexOf('lsd=') !== -1 || _href.indexOf('jazoest=') !== -1) {
+                _path.indexOf('/captcha/') !== -1 || _path.indexOf('/challenge/') !== -1 || _path.indexOf('/fc/') !== -1 ||
+                _href.indexOf('/checkpoint/') !== -1 || _href.indexOf('/captcha/') !== -1 || _href.indexOf('lsd=') !== -1 ||
+                _href.indexOf('jazoest=') !== -1 || _href.indexOf('datr=') !== -1) {
                 return;
             }
 

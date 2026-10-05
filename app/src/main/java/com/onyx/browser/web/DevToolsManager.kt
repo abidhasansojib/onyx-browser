@@ -53,9 +53,11 @@ object DevToolsManager {
             // Never monkey-patch console methods on Meta/Facebook, Arkose Labs, CAPTCHA, Turnstile, or Auth pages.
             // Security challenges (Arkose FunCaptcha, Turnstile) validate console.log.toString() === "function log() { [native code] }"
             // and flag tampered consoles as bot/automation environments, causing "Confirmation failed".
-            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|fbcdn\.net|facebook\.net|fbsbx\.com|instagram\.com|cdninstagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
                 path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
-                href.indexOf('/checkpoint/') !== -1 || href.indexOf('lsd=') !== -1 || href.indexOf('jazoest=') !== -1) {
+                path.indexOf('/captcha/') !== -1 || path.indexOf('/challenge/') !== -1 || path.indexOf('/fc/') !== -1 ||
+                href.indexOf('/checkpoint/') !== -1 || href.indexOf('/captcha/') !== -1 || href.indexOf('lsd=') !== -1 ||
+                href.indexOf('jazoest=') !== -1 || href.indexOf('datr=') !== -1) {
                 return;
             }
 

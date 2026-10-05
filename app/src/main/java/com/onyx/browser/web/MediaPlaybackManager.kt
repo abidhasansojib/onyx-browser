@@ -32,9 +32,12 @@ object MediaPlaybackManager {
 
             // Never tamper with PiP or Media prototypes on Meta/Facebook, Arkose Labs, CAPTCHA, Turnstile, or Auth pages.
             // Preserves 100% native Blink prototypes and prevents security checkpoints from flagging modified DOM APIs.
-            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|fbcdn\.net|facebook\.net|fbsbx\.com|instagram\.com|cdninstagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
                 path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
-                href.indexOf('/checkpoint/') !== -1 || href.indexOf('lsd=') !== -1 || href.indexOf('jazoest=') !== -1) {
+                path.indexOf('/captcha/') !== -1 || path.indexOf('/challenge/') !== -1 || path.indexOf('/fc/') !== -1 ||
+                href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 || href.indexOf('/captcha/') !== -1 ||
+                href.indexOf('/login/') !== -1 || href.indexOf('/auth/') !== -1 || href.indexOf('lsd=') !== -1 ||
+                href.indexOf('jazoest=') !== -1 || href.indexOf('datr=') !== -1) {
                 return;
             }
 
@@ -572,9 +575,12 @@ object MediaPlaybackManager {
             var _bgHref = (location.href || '').toLowerCase();
             var _bgPath = (location.pathname || '').toLowerCase();
 
-            if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(_bgHost + ' ' + _bgHref + ' ' + _bgRef) ||
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|fbcdn\.net|facebook\.net|fbsbx\.com|instagram\.com|cdninstagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(_bgHost + ' ' + _bgHref + ' ' + _bgRef) ||
                 _bgPath.indexOf('/checkpoint/') !== -1 || _bgPath.indexOf('/login/') !== -1 || _bgPath.indexOf('/auth/') !== -1 ||
-                _bgHref.indexOf('/checkpoint/') !== -1 || _bgHref.indexOf('lsd=') !== -1 || _bgHref.indexOf('jazoest=') !== -1) {
+                _bgPath.indexOf('/captcha/') !== -1 || _bgPath.indexOf('/challenge/') !== -1 || _bgPath.indexOf('/fc/') !== -1 ||
+                _bgHref.indexOf('/checkpoint/') !== -1 || _bgHref.indexOf('/challenge/') !== -1 || _bgHref.indexOf('/captcha/') !== -1 ||
+                _bgHref.indexOf('/login/') !== -1 || _bgHref.indexOf('/auth/') !== -1 || _bgHref.indexOf('lsd=') !== -1 ||
+                _bgHref.indexOf('jazoest=') !== -1 || _bgHref.indexOf('datr=') !== -1) {
                 return;
             }
 

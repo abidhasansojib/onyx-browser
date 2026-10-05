@@ -38,6 +38,19 @@ object DesktopModeManager {
      */
     val DESKTOP_VIEWPORT_SCRIPT = """
         (function() {
+            var host = (location.hostname || '').toLowerCase();
+            var href = (location.href || '').toLowerCase();
+            var ref = (document.referrer || '').toLowerCase();
+            var path = (location.pathname || '').toLowerCase();
+            if (/facebook\.com|meta\.com|fb\.com|fb\.me|fbcdn\.net|facebook\.net|fbsbx\.com|instagram\.com|cdninstagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
+                path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
+                path.indexOf('/captcha/') !== -1 || path.indexOf('/challenge/') !== -1 || path.indexOf('/fc/') !== -1 ||
+                href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 || href.indexOf('/captcha/') !== -1 ||
+                href.indexOf('/login/') !== -1 || href.indexOf('/auth/') !== -1 || href.indexOf('lsd=') !== -1 ||
+                href.indexOf('jazoest=') !== -1 || href.indexOf('datr=') !== -1) {
+                return;
+            }
+
             if (window.__onyxDesktopModeInjected) return;
             window.__onyxDesktopModeInjected = true;
 

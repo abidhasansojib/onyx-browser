@@ -482,11 +482,16 @@ class OnyxWebView @JvmOverloads constructor(
                 host == "meta.com" || host.endsWith(".meta.com") ||
                 host == "fb.com" || host.endsWith(".fb.com") ||
                 host == "fb.me" || host.endsWith(".fb.me") ||
+                host == "fbcdn.net" || host.endsWith(".fbcdn.net") ||
+                host == "facebook.net" || host.endsWith(".facebook.net") ||
+                host == "fbsbx.com" || host.endsWith(".fbsbx.com") ||
                 host == "messenger.com" || host.endsWith(".messenger.com") ||
                 host == "instagram.com" || host.endsWith(".instagram.com") ||
+                host == "cdninstagram.com" || host.endsWith(".cdninstagram.com") ||
                 host == "threads.net" || host.endsWith(".threads.net") ||
-                host.contains("arkose") || host.contains("funcaptcha") ||
-                urlString.contains("checkpoint") || urlString.contains("/login")
+                host == "accountkit.com" || host.endsWith(".accountkit.com") ||
+                host.contains("arkose") || host.contains("funcaptcha") || host.contains("matchkey") ||
+                urlString.contains("checkpoint") || urlString.contains("/login") || urlString.contains("/captcha/")
         if (isAuthOrMeta) {
             lastOAuthInteractionTimestamp = System.currentTimeMillis()
             try {
