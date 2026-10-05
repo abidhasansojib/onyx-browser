@@ -1160,7 +1160,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                                     closeTabById(newTab.id)
                                 }
                             }
-                        }, 12000)
+                        }, 4000)
 
                         true
                     } else {

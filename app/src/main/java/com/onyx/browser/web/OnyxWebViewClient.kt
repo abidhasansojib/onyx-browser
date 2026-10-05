@@ -18,6 +18,7 @@ import com.onyx.browser.MainActivity
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.media.MediaPlaybackBridge
 import com.onyx.browser.nativebridge.AdBlockEngine
 import com.onyx.browser.web.error.SyntheticNavigationState
 import com.onyx.browser.web.error.WebErrorHandler
@@ -251,6 +252,122 @@ class OnyxWebViewClient(
                 u.contains("state=") && (u.contains("auth") || u.contains("login") || u.contains("oauth"))
     }
 
+    fun isStreamingOrMediaPage(url: String): Boolean {
+        if (url.isBlank()) return false
+        val lower = url.lowercase()
+        val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+        val streamingHostKeywords = listOf(
+            "anime", "stream", "movie", "video", "watch", "film", "cinema", "player", "embed",
+            "tube", "crunchyroll", "funimation", "hidive", "dailymotion", "vimeo", "twitch",
+            "bilibili", "animesalt", "aniwatch", "zoro", "9anime", "gogoanime", "kissonline",
+            "kickassanime", "hianime", "kaido", "allanime", "flv", "hls"
+        )
+        if (streamingHostKeywords.any { host.contains(it) }) return true
+        val streamingPathKeywords = listOf(
+            "/episode/", "/watch/", "/series/", "/movie/", "/video/", "/stream/", "/player/", "/embed/", "/play/"
+        )
+        return streamingPathKeywords.any { lower.contains(it) }
+    }
+
+    fun isMediaOrStreamingHost(host: String): Boolean {
+        if (host.isBlank()) return false
+        val lower = host.lowercase()
+        val mediaHostKeywords = listOf(
+            "ravok", "abyssplayer", "fireplayer", "jwpcdn", "jwplayer", "streamtape", "megacloud",
+            "vidstream", "dood", "mixdrop", "mp4upload", "filemoon", "streamwish", "streamhide",
+            "vidmoly", "upstream", "cloudstream", "vidsrc", "2embed", "autoembed", "superembed",
+            "multiembed", "storage.fireplayer", "fireplayer.stream"
+        )
+        if (mediaHostKeywords.any { lower.contains(it) }) return true
+        if (lower.endsWith(".stream") || lower.endsWith(".video") || lower.endsWith(".watch")) return true
+        return false
+    }
+
+    fun isMediaUrl(url: String): Boolean {
+        if (url.isBlank()) return false
+        val clean = url.substringBefore('?').lowercase()
+        return clean.endsWith(".m3u8") || clean.endsWith(".mpd") || clean.endsWith(".ts") ||
+                clean.endsWith(".mp4") || clean.endsWith(".webm") || clean.endsWith(".m4s") ||
+                clean.endsWith(".mkv") || clean.endsWith(".flv") || clean.endsWith(".mp3") ||
+                clean.endsWith(".aac") || clean.endsWith(".m4a")
+    }
+
+    private fun isPopupAd(url: String, onyxWv: OnyxWebView?): Boolean {
+        if (!preferences.isAdBlockEnabled) return false
+        if (url.isBlank() || url == "about:blank") return false
+
+        val reqDomain = preferences.cleanDomain(url)
+        if (reqDomain.isBlank()) return false
+
+        // Determine parent tab, parent URL, and parent domain
+        val parentTab = onyxWv?.tabId?.let { tabActionCallback?.getTabById(it)?.parentId }?.let { tabActionCallback?.getTabById(it) }
+        val parentUrl = parentTab?.url ?: currentPageUrl
+        val parentDomain = preferences.cleanDomain(parentUrl)
+
+        // 1. Check if it is an approved authentication, SSO, payment, or security flow
+        val isAuthOrSecurityFlow = isOAuthOrLoginProvider(reqDomain) ||
+                isOAuthOrLoginProvider(parentDomain) ||
+                isMetaDomain(reqDomain) ||
+                isCaptchaOrAuthUrl(url, reqDomain) ||
+                isOAuthOrLoginUrl(url) ||
+                (onyxWv?.isWithinOAuthGracePeriod() == true)
+        if (isAuthOrSecurityFlow) return false
+
+        // 2. Check if it is the same domain or subdomain as the parent tab
+        val isSameSite = parentDomain.isNotBlank() && (
+                reqDomain == parentDomain ||
+                reqDomain.endsWith(".$parentDomain") ||
+                parentDomain.endsWith(".$reqDomain")
+        )
+        if (isSameSite) return false
+
+        // 3. Known ad / popunder domains (fast-path check)
+        if (AdBlockDomainManager.isBlockedInStandard(reqDomain) ||
+            AdBlockDomainManager.isBlockedInAggressive(reqDomain)) {
+            return true
+        }
+
+        // 4. Popunder / redirect path and parameter heuristics
+        val lowerUrl = url.lowercase()
+        if (lowerUrl.contains("/click/") ||
+            lowerUrl.contains("/redirect/") ||
+            lowerUrl.contains("?af=") ||
+            lowerUrl.contains("&s2=") ||
+            lowerUrl.contains("/popunder/") ||
+            lowerUrl.contains("utm_medium=pop") ||
+            (lowerUrl.contains("utm_source=") && (lowerUrl.contains("ad") || lowerUrl.contains("traffic") || lowerUrl.contains("pop"))) ||
+            lowerUrl.matches(Regex(".*(decafeligiblyhad|ng88b|modalclonism|quiahussars|casteschagoma|sodlessteargas|morphify).*")) ||
+            lowerUrl.matches(Regex(".*/[a-zA-Z0-9_-]{10,}/[0-9]{5,}.*"))
+        ) {
+            return true
+        }
+
+        // 5. Query Brave adblock native engine for both $popup and $main_frame rules
+        val effectiveSourceUrl = if (parentUrl.isNotBlank()) parentUrl else currentPageUrl
+        if (AdBlockEngine.checkUrl(url, effectiveSourceUrl, "popup")) {
+            return true
+        }
+        if (AdBlockEngine.shouldBlock(url, effectiveSourceUrl, "main_frame")) {
+            return true
+        }
+
+        // 6. If parent tab is a streaming/video/anime media player, ALL non-auth cross-domain popups are clickjacks/ads!
+        val isParentStreamingOrMedia = isStreamingOrMediaPage(parentUrl) ||
+                isMediaOrStreamingHost(parentDomain) ||
+                MediaPlaybackBridge.isVideoAvailableForTab(parentTab?.id) ||
+                MediaPlaybackBridge.isVideoAvailable
+        if (isParentStreamingOrMedia) {
+            return true
+        }
+
+        // In Aggressive blocking mode, block any unverified cross-domain popup
+        if (preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) {
+            return true
+        }
+
+        return false
+    }
+
     // Twitter/X content domains (embeds)
     private val twitterContentDomains = setOf(
         "platform.twitter.com", "cdn.syndication.twimg.com",
@@ -469,28 +586,42 @@ class OnyxWebViewClient(
                     if (preferences.isAdBlockEnabled && !isWhitelisted) {
                         val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
                         val onyxWv = view as? OnyxWebView
-                        val isPopupTab = onyxWv != null && (onyxWv.isPopupPendingDisplay ||
+                        val isPopupTab = onyxWv != null && (onyxWv.isPopupTab || onyxWv.isPopupPendingDisplay ||
                                 (tabActionCallback?.getTabById(onyxWv.tabId)?.parentId != null))
 
                         // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
                         // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave), UNLESS it is a child popup tab.
-                        // In Aggressive mode (DomainBlockingType::kAggressive), main-frame ad domains can also be blocked.
-                        if (isAggressive || isPopupTab) {
-                            val method = request.method ?: "GET"
-                            val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame", method)
-                            val blockedByStandard = isPopupTab && AdBlockDomainManager.isBlockedInStandard(reqDomain)
-                            val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
-
-                            if (blockedByEngine || blockedByStandard || blockedByAggressive) {
-                                preferences.incrementBlockedRequests()
-                                if (isPopupTab && onyxWv != null) {
-                                    onyxWv.post {
-                                        val tabId = onyxWv.tabId
-                                        if (tabId.isNotBlank()) {
-                                            tabActionCallback?.closeTab(tabId)
-                                        }
+                        if (isPopupTab && isPopupAd(url, onyxWv)) {
+                            preferences.incrementBlockedRequests()
+                            if (onyxWv != null) {
+                                onyxWv.post {
+                                    val tabId = onyxWv.tabId
+                                    if (tabId.isNotBlank()) {
+                                        tabActionCallback?.closeTab(tabId)
                                     }
                                 }
+                            }
+                            return WebResourceResponse(
+                                "text/html",
+                                "UTF-8",
+                                403,
+                                "Blocked by Onyx Shields",
+                                mapOf(
+                                    "Access-Control-Allow-Origin" to "*",
+                                    "Content-Type" to "text/html; charset=utf-8"
+                                ),
+                                ByteArrayInputStream("<!DOCTYPE html><html><head><title>Blocked by Onyx Shields</title></head><body></body></html>".toByteArray())
+                            )
+                        }
+
+                        // In Aggressive mode (DomainBlockingType::kAggressive), main-frame ad domains can also be blocked.
+                        if (isAggressive) {
+                            val method = request.method ?: "GET"
+                            val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame", method)
+                            val blockedByAggressive = AdBlockDomainManager.isBlockedInAggressive(reqDomain)
+
+                            if (blockedByEngine || blockedByAggressive) {
+                                preferences.incrementBlockedRequests()
                                 return WebResourceResponse(
                                     "text/html",
                                     "UTF-8",
@@ -544,6 +675,17 @@ class OnyxWebViewClient(
             val isWhitelisted = preferences.isDomainWhitelisted(pageDomain)
             val isIncognitoView = (view as? OnyxWebView)?.isIncognito ?: false
             val resourceType = detectResourceType(request)
+
+            // ── Ensure media streams, CDN segments, and player iframes retain partitioned cookies (Brave parity) ──
+            if (resourceType == "media" || resourceType == "sub_frame" || isMediaUrl(url) || isMediaOrStreamingHost(reqDomain)) {
+                view?.post {
+                    try {
+                        val activeCm = (view as? OnyxWebView)?.cookieManager ?: CookieManager.getInstance()
+                        activeCm.setAcceptCookie(true)
+                        activeCm.setAcceptThirdPartyCookies(view, true)
+                    } catch (_: Exception) {}
+                }
+            }
 
             val currentDomain = preferences.cleanDomain(currentPageUrl)
             val isMetaContext = isMetaDomain(pageDomain) || isMetaDomain(currentDomain) ||
@@ -796,6 +938,17 @@ class OnyxWebViewClient(
                     val isPopupTab = onyxWv != null && (onyxWv.isPopupTab || onyxWv.isPopupPendingDisplay ||
                             (tabActionCallback?.getTabById(onyxWv.tabId)?.parentId != null))
 
+                    if (isPopupTab && isPopupAd(url, onyxWv)) {
+                        preferences.incrementBlockedRequests()
+                        onyxWv?.post {
+                            val tabId = onyxWv.tabId
+                            if (tabId.isNotBlank()) {
+                                tabActionCallback?.closeTab(tabId)
+                            }
+                        }
+                        return true // Cancel the ad navigation!
+                    }
+
                     val isAuthOrSecurityFlow = isOAuthOrLoginProvider(reqDomain) ||
                             isOAuthOrLoginProvider(pageDomain) ||
                             isMetaDomain(reqDomain) ||
@@ -803,22 +956,12 @@ class OnyxWebViewClient(
                             isOAuthOrLoginUrl(url) ||
                             (onyxWv?.isWithinOAuthGracePeriod() == true)
 
-                    if (!isAuthOrSecurityFlow && (isAggressive || isPopupTab)) {
+                    if (!isAuthOrSecurityFlow && isAggressive) {
                         val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
-                        val blockedByStandard = isPopupTab && AdBlockDomainManager.isBlockedInStandard(reqDomain)
-                        val blockedByAggressive = isAggressive && AdBlockDomainManager.isBlockedInAggressive(reqDomain)
+                        val blockedByAggressive = AdBlockDomainManager.isBlockedInAggressive(reqDomain)
 
-                        if (blockedByEngine || blockedByStandard || blockedByAggressive) {
+                        if (blockedByEngine || blockedByAggressive) {
                             preferences.incrementBlockedRequests()
-                            // If this WebView is a newly opened popup tab, close it!
-                            if (isPopupTab && onyxWv != null) {
-                                onyxWv.post {
-                                    val tabId = onyxWv.tabId
-                                    if (tabId.isNotBlank()) {
-                                        tabActionCallback?.closeTab(tabId)
-                                    }
-                                }
-                            }
                             return true // Cancel the ad navigation!
                         }
                     }
@@ -827,10 +970,12 @@ class OnyxWebViewClient(
                 // If this is a pending popup window and it's NOT an ad, safely display it!
                 if (view is OnyxWebView && view.isPopupPendingDisplay) {
                     val onyxWv = view
-                    val tabId = onyxWv.tabId
-                    val tab = tabActionCallback?.getTabById(tabId)
-                    if (tab != null) {
-                        tabActionCallback?.displayPopupTab(tab)
+                    if (!isPopupAd(url, onyxWv)) {
+                        val tabId = onyxWv.tabId
+                        val tab = tabActionCallback?.getTabById(tabId)
+                        if (tab != null) {
+                            tabActionCallback?.displayPopupTab(tab)
+                        }
                     }
                 }
             }
@@ -1371,7 +1516,8 @@ class OnyxWebViewClient(
                     activeCm.flush()
                 } catch (_: Exception) {}
             } else {
-                val allowThirdPartyCookies = isPopup || isWithinGrace ||
+                val isStreamingPage = isStreamingOrMediaPage(url)
+                val allowThirdPartyCookies = isPopup || isWithinGrace || isStreamingPage ||
                         preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_NONE
 
                 // Apply for both normal and incognito tabs — when outside auth/grace period,
@@ -1394,11 +1540,21 @@ class OnyxWebViewClient(
                 }
             }
 
-            // If this is a pending popup window that successfully started navigating to a valid URL, display it
+            // If this is a pending popup window that successfully started navigating to a valid URL, display it ONLY IF IT IS NOT AN AD
             if (onyxWv?.isPopupPendingDisplay == true && url != "about:blank") {
-                val tab = tabActionCallback?.getTabById(onyxWv.tabId)
-                if (tab != null) {
-                    tabActionCallback?.displayPopupTab(tab)
+                if (isPopupAd(url, onyxWv)) {
+                    preferences.incrementBlockedRequests()
+                    val tabId = onyxWv.tabId
+                    if (tabId.isNotBlank()) {
+                        onyxWv.post {
+                            tabActionCallback?.closeTab(tabId)
+                        }
+                    }
+                } else {
+                    val tab = tabActionCallback?.getTabById(onyxWv.tabId)
+                    if (tab != null) {
+                        tabActionCallback?.displayPopupTab(tab)
+                    }
                 }
             }
 
@@ -1489,9 +1645,19 @@ class OnyxWebViewClient(
                 onPageFinishedCallback(effectiveUrl)
             }
             if (onyxWv?.isPopupPendingDisplay == true && !isSyntheticData && effectiveUrl != "about:blank") {
-                val tab = tabActionCallback?.getTabById(onyxWv.tabId)
-                if (tab != null) {
-                    tabActionCallback?.displayPopupTab(tab)
+                if (isPopupAd(effectiveUrl, onyxWv)) {
+                    preferences.incrementBlockedRequests()
+                    val tabId = onyxWv.tabId
+                    if (tabId.isNotBlank()) {
+                        onyxWv.post {
+                            tabActionCallback?.closeTab(tabId)
+                        }
+                    }
+                } else {
+                    val tab = tabActionCallback?.getTabById(onyxWv.tabId)
+                    if (tab != null) {
+                        tabActionCallback?.displayPopupTab(tab)
+                    }
                 }
             }
 

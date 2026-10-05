@@ -152,9 +152,9 @@ object AdBlockDocumentStart {
             }
 
             // ── Standard Ad & Tracker URL Detection Patterns ──────────────────────
-            var stdTrackerPattern = /(\.|\/)(doubleclick\.net|googlesyndication\.com|googleadservices\.com|googletagservices\.com|googletagmanager\.com|google-analytics\.com|criteo\.(com|net)|taboola\.com|outbrain\.com|rubiconproject\.com|casalemedia\.com|openx\.net|pubmatic\.com|adnxs\.com|amazon-adsystem\.com|adroll\.com|scorecardresearch\.com|quantserve\.com|quantcast\.com|advertising\.com|bidswitch\.net|moatads\.com|smartadserver\.com|adsafeprotected\.com|doubleverify\.com|hotjar\.com|clarity\.ms|mixpanel\.com|amplitude\.com|segment\.(io|com)|chartboost\.com|applovin\.com|vungle\.com|inmobi\.com|ironsource\.mobi|unityads\.unity3d\.com|adcolony\.com|mgid\.com|propellerads\.com|propellerclick\.com|onclickads\.net|media\.net|fls-na\.amazon\.com|bat\.bing\.com|claritybt\.freshmarketer\.com|fwtracks\.freshmarketer\.com|mouseflow\.com|luckyorange\.(com|net)|heapanalytics\.com|fullstory\.com|newrelic\.com|nr-data\.net|datadoghq\.com|sentry\.io|bugsnag\.com|branch\.io|appsflyer\.com|stats\.wp\.com|connatix\.com|innovid\.com|tremorhub\.com|crwdcntrl\.net|fwmrm\.net|jwpltx\.com|rlcdn\.com|impactradius-event\.com|shareasale\.com|awin1\.com|partnerstack\.com|refersion\.com|fingerprintjs\.com|fpjs\.io|adlog\.vivo\.com|ads-api\.vivo\.com|click\.oneplus\.cn|open\.oneplus\.net|a\.lenovo\.com|ad\.mail\.ru|top-fwz1\.mail\.ru|ads\.vk\.com|mc\.yandex\.ru|adfox\.yandex\.ru|adfstat\.yandex\.ru|appmetrica\.yandex\.ru|driftt\.com|intercom\.io|wzrkt\.com|zenaps\.com|statdynamic\.com|srvcs\.tumblr\.com|quora\.com\/qevents|redditmedia\.com\/pixel|events\.reddit\.com|d\.reddit\.com|ct\.pinterest\.com|analytics\.tiktok\.com|an\.facebook\.com|pixel\.facebook\.com|analytics\.twitter\.com|ads-api\.twitter\.com|snap\.licdn\.com|analytics\.linkedin\.com|liftoff\.io|pangleglobal\.com|adservetx\.media\.net|spotxchange\.com|htlbid\.com|stickyadstv\.com|3lift\.com|sonobi\.com|gumgum\.com|teads\.tv|kargo\.com|omtrdc\.net|metrics\.adobe\.com|lr-ingest\.com|brightcove\.com\/metrics)(\/|\?|:|$)/i;
+            var stdTrackerPattern = /(\.|\/)(doubleclick\.net|googlesyndication\.com|googleadservices\.com|googletagservices\.com|googletagmanager\.com|google-analytics\.com|criteo\.(com|net)|taboola\.com|outbrain\.com|rubiconproject\.com|casalemedia\.com|openx\.net|pubmatic\.com|adnxs\.com|amazon-adsystem\.com|adroll\.com|scorecardresearch\.com|quantserve\.com|quantcast\.com|advertising\.com|bidswitch\.net|moatads\.com|smartadserver\.com|adsafeprotected\.com|doubleverify\.com|hotjar\.com|clarity\.ms|mixpanel\.com|amplitude\.com|segment\.(io|com)|chartboost\.com|applovin\.com|vungle\.com|inmobi\.com|ironsource\.mobi|unityads\.unity3d\.com|adcolony\.com|mgid\.com|propellerads\.com|propellerclick\.com|onclickads\.net|media\.net|fls-na\.amazon\.com|bat\.bing\.com|claritybt\.freshmarketer\.com|fwtracks\.freshmarketer\.com|mouseflow\.com|luckyorange\.(com|net)|heapanalytics\.com|fullstory\.com|newrelic\.com|nr-data\.net|datadoghq\.com|sentry\.io|bugsnag\.com|branch\.io|appsflyer\.com|stats\.wp\.com|connatix\.com|innovid\.com|tremorhub\.com|crwdcntrl\.net|fwmrm\.net|jwpltx\.com|rlcdn\.com|impactradius-event\.com|shareasale\.com|awin1\.com|partnerstack\.com|refersion\.com|fingerprintjs\.com|fpjs\.io|adlog\.vivo\.com|ads-api\.vivo\.com|click\.oneplus\.cn|open\.oneplus\.net|a\.lenovo\.com|ad\.mail\.ru|top-fwz1\.mail\.ru|ads\.vk\.com|mc\.yandex\.ru|adfox\.yandex\.ru|adfstat\.yandex\.ru|appmetrica\.yandex\.ru|driftt\.com|intercom\.io|wzrkt\.com|zenaps\.com|statdynamic\.com|srvcs\.tumblr\.com|quora\.com\/qevents|redditmedia\.com\/pixel|events\.reddit\.com|d\.reddit\.com|ct\.pinterest\.com|analytics\.tiktok\.com|an\.facebook\.com|pixel\.facebook\.com|analytics\.twitter\.com|ads-api\.twitter\.com|snap\.licdn\.com|analytics\.linkedin\.com|liftoff\.io|pangleglobal\.com|adservetx\.media\.net|spotxchange\.com|htlbid\.com|stickyadstv\.com|3lift\.com|sonobi\.com|gumgum\.com|teads\.tv|kargo\.com|omtrdc\.net|metrics\.adobe\.com|lr-ingest\.com|brightcove\.com\/metrics|decafeligiblyhad\.com|ng88b\.com|quiahussars\.com|modalclonism\.com|casteschagoma\.com|sodlessteargas\.com|morphify\.net)(\/|\?|:|$)/i;
 
-            var adPathPattern = /\/(pagead\/|adservice\/|google-analytics\.com\/g\/collect|collect\?|telemetry|analytics\.js|gtm\.js|ads\.js|prebid|show_ads\.js)/i;
+            var adPathPattern = /\/(pagead\/|adservice\/|google-analytics\.com\/g\/collect|collect\?|telemetry|analytics\.js|gtm\.js|ads\.js|prebid|show_ads\.js|[a-zA-Z0-9_-]{10,}\/[0-9]{5,})/i;
 
             var aggRootPattern = /(\.|\/)(2o7\.net|ad\.gt|adjust\.com|adobe\.io|ads-twitter\.com|adsrvr\.org|anrdoezrs\.net|appspot\.com|bluekai\.com|bnc\.lt|braze\.com|browser-intake-datadoghq\.com|byteoversea\.com|clickadu\.com|cloudflareinsights\.com|coinimp\.com|consensu\.org|contextweb\.com|cookiebot\.com|cookielaw\.org|customer\.io|dpbolvw\.net|dynamicyield\.com|everesttech\.net|exoclick\.com|fyber\.com|getsentry\.com|googleanalytics\.com|hotjar\.io|hubspot\.com|icloud\.com|id5-sync\.com|indexexchange\.com|insightexpressai\.com|juicyads\.com|klaviyo\.com|kochava\.com|launchdarkly\.com|lgappstv\.com|lge\.com|lgsmartad\.com|linkedin\.com|linksynergy\.com|list-manage\.com|mailchimp\.com|marketo\.net|mathtag\.com|mineralt\.io|minero\.cc|monerominer\.rocks|mzstatic\.com|onesignal\.com|onetag-sys\.com|onetrust\.com|oppomobile\.com|optimizely\.com|osano\.com|pepperjamnetwork\.com|permutive\.com|pippio\.com|popads\.net|popcash\.net|popmyads\.com|posthog\.com|prf\.hn|privacy-center\.org|privacy-mgmt\.com|realmemobile\.com|redditmedia\.com|redirectingat\.com|roku\.com|rudderlabs\.com|rudderstack\.com|samsungads\.com|samsunghealthcn\.com|sc-static\.net|sentry-cdn\.com|sharethrough\.com|siftscience\.com|singular\.net|skimresources\.com|smartclip\.com|smartclip\.net|smartyads\.com|snapchat\.com|snowplowanalytics\.com|stackadapt\.com|supersonicads\.com|tiktokv\.com|tkqlhce\.com|trafficjunky\.net|trustarc\.com|tvinteractive\.tv|tvpixel\.com|uidapi\.com|usercentrics\.eu|viglink\.com|vizio\.com|webminepool\.com|yumenetworks\.com)(\/|\?|:|$)/i;
 
@@ -261,6 +261,66 @@ object AdBlockDocumentStart {
                     PatchedWebSocket.CLOSING = OriginalWebSocket.CLOSING;
                     PatchedWebSocket.CLOSED = OriginalWebSocket.CLOSED;
                     window.WebSocket = PatchedWebSocket;
+                }
+            } catch(e) {}
+
+            // ── 3b. Defuse Subframe Popunders & Video Player Click-Jacks ────────────
+            try {
+                var isSubframe = window !== window.top;
+                var isMediaHost = /(abyss|ravok|stream|embed|player|video|anime)/i.test(location.hostname);
+
+                // 1. Defuse clickjack overlay layers covering embedded video players
+                if (isSubframe || isMediaHost) {
+                    var defuserStyle = document.createElement('style');
+                    defuserStyle.id = 'onyx-clickjack-defuser';
+                    defuserStyle.textContent = '#overlay, div[id^="overlay"], .click-layer, div[class*="overlay"][style*="fixed"] { display: none !important; pointer-events: none !important; width: 0 !important; height: 0 !important; opacity: 0 !important; }';
+                    (document.head || document.documentElement).appendChild(defuserStyle);
+
+                    // If abyssConfig is defined on abyssplayer or clones, freeze popups to empty
+                    try {
+                        var _emptyArr = [];
+                        Object.defineProperty(window, 'abyssConfig', {
+                            get: function() { return { popups: _emptyArr }; },
+                            set: function(_) {},
+                            configurable: true
+                        });
+                    } catch(_) {}
+                }
+
+                // 2. Proxy window.open in subframes and media players (Brave prevent-window-open parity)
+                if (window.open) {
+                    var _origWindowOpen = window.open;
+                    window.open = makeNative(function(url, target, features) {
+                        var targetUrl = (typeof url === 'string') ? url : '';
+                        var isAuth = targetUrl && (/recaptcha|hcaptcha|arkose|turnstile|login|auth|oauth|signin|facebook\.com|google\.com|apple\.com|paypal\.com|stripe\.com/i.test(targetUrl));
+
+                        if (targetUrl && (isSubframe || isMediaHost || isBlockedUrl(targetUrl, 0)) && !isAuth) {
+                            // Return a safe dummy Window object that satisfies clickjack scripts
+                            var fakeWin = {
+                                closed: false,
+                                focus: makeNative(function(){}, 'focus'),
+                                close: makeNative(function(){}, 'close'),
+                                blur: makeNative(function(){}, 'blur'),
+                                postMessage: makeNative(function(){}, 'postMessage'),
+                                location: { href: targetUrl }
+                            };
+                            return fakeWin;
+                        }
+                        return _origWindowOpen.apply(this, arguments);
+                    }, 'open');
+                }
+
+                // 3. Prevent synthetic anchor clicks inside subframes targeting ad URLs
+                if (isSubframe && window.HTMLAnchorElement) {
+                    var _origAnchorClick = HTMLAnchorElement.prototype.click;
+                    HTMLAnchorElement.prototype.click = makeNative(function() {
+                        var href = this.href || '';
+                        var isAuth = href && (/recaptcha|hcaptcha|arkose|turnstile|login|auth|oauth|signin|facebook\.com|google\.com|apple\.com|paypal\.com|stripe\.com/i.test(href));
+                        if (href && !isAuth && (isBlockedUrl(href, 0) || this.target === '_blank' || /(decafeligiblyhad|ng88b|quiahussars|modalclonism|casteschagoma|sodlessteargas)/i.test(href))) {
+                            return; // Suppress synthetic clickjack ad dispatch!
+                        }
+                        return _origAnchorClick.apply(this, arguments);
+                    }, 'click');
                 }
             } catch(e) {}
 
