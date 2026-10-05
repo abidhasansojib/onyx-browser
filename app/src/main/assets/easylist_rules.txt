@@ -34532,6 +34532,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||r.logrocket.io^
 ||r.marketing.dubaisothebys.com^
 ||r.msn.com^
+||r.openai.com^
 ||r.scoota.co^
 ||r.sibmail.havasit.com^
 ||r1.arts-mail.com^
@@ -35527,25 +35528,3 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ##[class*="yandex_rtb"]
 ##[id*="pr_advertising"]
 ##[class*="pr_advertising"]
-
-! Onyx Video Player & Popunder Shields
-||quiahussars.com^
-||quiahussars.com^$popup
-||modalclonism.com^
-||modalclonism.com^$popup
-||casteschagoma.com^
-||casteschagoma.com^$popup
-||sodlessteargas.com^
-||sodlessteargas.com^$popup
-||decafeligiblyhad.com^
-||decafeligiblyhad.com^$popup
-||ng88b.com^
-||ng88b.com^$popup
-||morphify.net^
-||morphify.net^$popup
-animesalt.cx##+js(no-window-open-if)
-animesalt.cx###overlay
-abyssplayer.com##+js(no-window-open-if)
-abyssplayer.com###overlay
-ravok.buzz##+js(no-window-open-if)
-
