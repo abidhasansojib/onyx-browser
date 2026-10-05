@@ -749,6 +749,7 @@ onyx-browser/
     - **Intent Fallback URL Sanitization**: Validated `browser_fallback_url` and `intent.data` in `OnyxWebViewClient.handleIntentScheme` to strictly accept `http` and `https` schemes with non-empty hosts, and routed them through `handleUrlLoading` to enforce tracking stripping, ad blocking, and HTTPS upgrades.
     - **Media Bridge & PiP Hardening**: Gated `MediaPlaybackBridge.requestVideoPip()` on actual video presence in the requesting tab. Sanitized media titles, artists, and artwork URLs to prevent control character injection and spoofing.
 
-26. **Global Typography Enhancement — Medium Weight & Scaled Text Sizes (2026-10-05)**:
+26. **Global Typography Enhancement — Medium Weight & Tailored Text Sizes (2026-10-05)**:
     - **Global Medium Font Family**: Configured `android:fontFamily="sans-serif-medium"` and `fontFamily="sans-serif-medium"` in `Theme.OnyxBrowser` (both `values/themes.xml` and `values-night/themes.xml`), giving all UI text a sleek, punchy, semi-bold weight (500) rather than standard regular (400).
-    - **Proportional UI Text Scaling**: Systematically increased text sizes across all 73 XML layout files by +1sp to +1.5sp (e.g. 11sp -> 12sp, 12sp -> 13sp, 14sp -> 15sp, 14.5sp -> 15.5sp, 15sp -> 16sp, 18sp -> 19sp), improving readability and visual hierarchy without causing clipping.
+    - **Tailored Font Sizing**: Maintained the compact, balanced font sizes across the Homepage and Settings screens to prevent clutter, while preserving the medium/bold weight and keeping the searchbar shape, boldness, and font sizing intact.
+

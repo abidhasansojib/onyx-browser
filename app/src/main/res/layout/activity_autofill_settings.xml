@@ -43,7 +43,7 @@
                 android:layout_marginBottom="8dp"
                 android:text="System Autofill Service"
                 android:textColor="@color/primary"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
                 android:textAllCaps="true" />
@@ -92,7 +92,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Autofill Service Ready"
                                 android:textColor="?android:attr/textColorPrimary"
-                                android:textSize="16sp"
+                                android:textSize="15sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -102,7 +102,7 @@
                                 android:layout_marginTop="2dp"
                                 android:text="Google Password Manager and Android Autofill enabled"
                                 android:textColor="?android:attr/textColorSecondary"
-                                android:textSize="13sp" />
+                                android:textSize="12sp" />
                         </LinearLayout>
                     </LinearLayout>
 
@@ -113,7 +113,7 @@
                         android:layout_height="44dp"
                         android:layout_marginTop="14dp"
                         android:text="Choose / Change Autofill Service"
-                        android:textSize="14sp"
+                        android:textSize="13sp"
                         app:cornerRadius="12dp" />
 
                 </LinearLayout>
@@ -154,7 +154,7 @@
                         android:layout_height="wrap_content"
                         android:text="Open Password Manager"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="16sp" />
+                        android:textSize="15sp" />
 
                     <TextView
                         android:id="@+id/tvPasswordManagerActionSubtitle"
@@ -163,7 +163,7 @@
                         android:layout_marginTop="2dp"
                         android:text="View and manage passwords in your selected manager"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="13sp" />
+                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <androidx.appcompat.widget.AppCompatImageView
@@ -188,7 +188,7 @@
                 android:layout_marginBottom="8dp"
                 android:text="Browser Autofill Preferences"
                 android:textColor="@color/primary"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
                 android:textAllCaps="true" />
@@ -227,7 +227,7 @@
                         android:layout_height="wrap_content"
                         android:text="Autofill forms and passwords"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="16sp" />
+                        android:textSize="15sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -235,7 +235,7 @@
                         android:layout_marginTop="2dp"
                         android:text="Automatically fill usernames, passwords, credit cards, and addresses"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="13sp" />
+                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -279,7 +279,7 @@
                         android:layout_height="wrap_content"
                         android:text="Prompt to save passwords"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="16sp" />
+                        android:textSize="15sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -287,7 +287,7 @@
                         android:layout_marginTop="2dp"
                         android:text="Offer to save new passwords in your selected password manager"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="13sp" />
+                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -312,7 +312,7 @@
                 android:layout_marginBottom="8dp"
                 android:text="Passkeys (FIDO2 / WebAuthn)"
                 android:textColor="@color/primary"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
                 android:textAllCaps="true" />
@@ -351,7 +351,7 @@
                         android:layout_height="wrap_content"
                         android:text="Passkey Support"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="16sp" />
+                        android:textSize="15sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -359,7 +359,7 @@
                         android:layout_marginTop="2dp"
                         android:text="Create and sign in with passkeys using device biometrics and Google Password Manager"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="13sp" />
+                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -392,7 +392,7 @@
                         android:layout_height="wrap_content"
                         android:text="What are Passkeys?"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -402,7 +402,7 @@
                         android:lineSpacingExtra="2dp"
                         android:text="Passkeys replace passwords with biometric security (fingerprint, screen lock). They are end-to-end encrypted and synced across your devices via Google Password Manager or your chosen password manager. Passkeys cannot be guessed, phished, or leaked in server breaches."
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="13sp" />
+                        android:textSize="12sp" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

@@ -52,7 +52,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/theme_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="19sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -61,7 +61,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/theme_subtitle"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
         </LinearLayout>
 
         <androidx.appcompat.widget.AppCompatImageButton
@@ -121,7 +121,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/theme_system"
                     android:textColor="@color/settings_title_text"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -130,7 +130,7 @@
                     android:layout_marginTop="2dp"
                     android:text="@string/theme_system_desc"
                     android:textColor="@color/settings_subtitle_text"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatImageView
@@ -191,7 +191,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/theme_dark"
                     android:textColor="@color/settings_title_text"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -200,7 +200,7 @@
                     android:layout_marginTop="2dp"
                     android:text="@string/theme_dark_desc"
                     android:textColor="@color/settings_subtitle_text"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatImageView
@@ -261,7 +261,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/theme_light"
                     android:textColor="@color/settings_title_text"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -270,7 +270,7 @@
                     android:layout_marginTop="2dp"
                     android:text="@string/theme_light_desc"
                     android:textColor="@color/settings_subtitle_text"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatImageView

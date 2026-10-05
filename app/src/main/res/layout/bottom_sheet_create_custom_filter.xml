@@ -52,7 +52,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/create_custom_filter_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="18sp"
+                android:textSize="17sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -61,7 +61,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/create_custom_filter_desc"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
         </LinearLayout>
 
         <androidx.appcompat.widget.AppCompatImageButton
@@ -97,7 +97,7 @@
             android:inputType="textCapWords"
             android:maxLines="1"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="15sp" />
+            android:textSize="14sp" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <!-- Custom Rules Input -->
@@ -126,7 +126,7 @@
             android:minLines="6"
             android:scrollbars="vertical"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="14sp" />
+            android:textSize="13sp" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <!-- Action Buttons -->
@@ -144,7 +144,7 @@
             android:layout_height="44dp"
             android:layout_marginEnd="8dp"
             android:text="@string/cancel"
-            android:textSize="14sp"
+            android:textSize="13sp"
             app:cornerRadius="12dp" />
 
         <com.google.android.material.button.MaterialButton
@@ -152,7 +152,7 @@
             android:layout_width="wrap_content"
             android:layout_height="44dp"
             android:text="@string/save_filter_action"
-            android:textSize="14sp"
+            android:textSize="13sp"
             app:cornerRadius="12dp"
             app:icon="@drawable/ic_check"
             app:iconSize="16dp" />

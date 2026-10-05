@@ -42,7 +42,7 @@
             android:layout_height="match_parent"
             android:gravity="center"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="17sp"
+            android:textSize="16sp"
             android:textStyle="bold"
             android:visibility="gone"
             tools:text="Y" />
@@ -63,7 +63,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:textStyle="bold"
             tools:text="YouTube" />
 
@@ -75,7 +75,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="13sp"
+            android:textSize="12sp"
             tools:text="https://www.youtube.com" />
     </LinearLayout>
 

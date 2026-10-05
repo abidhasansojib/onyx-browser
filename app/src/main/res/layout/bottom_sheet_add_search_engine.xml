@@ -55,7 +55,7 @@
                 android:layout_height="wrap_content"
                 android:text="Add search engine"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="19sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -64,7 +64,7 @@
                 android:layout_marginTop="2dp"
                 android:text="Custom search with %s query placeholder"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
         </LinearLayout>
 
         <!-- Close button -->
@@ -109,7 +109,7 @@
                 android:layout_marginBottom="8dp"
                 android:text="QUICK ADD"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:letterSpacing="0.08"
                 android:textAllCaps="true" />
 
@@ -227,7 +227,7 @@
             android:layout_marginEnd="8dp"
             android:minWidth="80dp"
             android:text="@string/cancel"
-            android:textSize="15sp" />
+            android:textSize="14sp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSave"
@@ -236,7 +236,7 @@
             android:layout_height="48dp"
             android:minWidth="90dp"
             android:text="@string/add"
-            android:textSize="15sp"
+            android:textSize="14sp"
             app:cornerRadius="24dp" />
     </LinearLayout>
 

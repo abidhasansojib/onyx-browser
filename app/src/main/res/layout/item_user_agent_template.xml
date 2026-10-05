@@ -61,7 +61,7 @@
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15.5sp"
+                    android:textSize="14.5sp"
                     android:textStyle="bold"
                     tools:text="Windows PC (Google Chrome)" />
 
@@ -76,7 +76,7 @@
                     android:paddingEnd="8dp"
                     android:paddingBottom="2dp"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp"
+                    android:textSize="10sp"
                     android:textStyle="bold"
                     tools:text="DESKTOP" />
             </LinearLayout>
@@ -90,7 +90,7 @@
                 android:fontFamily="monospace"
                 android:maxLines="1"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 tools:text="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36..." />
         </LinearLayout>
 

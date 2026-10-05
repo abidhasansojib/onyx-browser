@@ -53,7 +53,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/site_protection_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="18sp"
+                android:textSize="17sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -62,7 +62,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 tools:text="example.com" />
         </LinearLayout>
     </LinearLayout>
@@ -103,7 +103,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/shields_up"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -113,7 +113,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/shields_up_desc"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
         </LinearLayout>
 
         <com.google.android.material.materialswitch.MaterialSwitch
@@ -170,14 +170,14 @@
                     android:layout_height="wrap_content"
                     android:text="@string/trackers_blocked_label"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
+                    android:textSize="11sp" />
 
                 <TextView
                     android:id="@+id/tvBlockedCount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="@color/primary"
-                    android:textSize="23sp"
+                    android:textSize="22sp"
                     android:textStyle="bold"
                     tools:text="1,247" />
             </LinearLayout>
@@ -187,7 +187,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/blocked_all_time"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -224,7 +224,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/blocking_level_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -232,7 +232,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/blocking_level_desc"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <TextView
@@ -240,7 +240,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/primary"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold"
             tools:text="Standard" />
     </LinearLayout>
@@ -278,7 +278,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/fingerprint_protection_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -286,7 +286,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/fingerprint_protection_desc"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <com.google.android.material.materialswitch.MaterialSwitch
@@ -330,7 +330,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/https_upgrade_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -338,7 +338,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/https_upgrade_desc"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <com.google.android.material.materialswitch.MaterialSwitch
@@ -382,7 +382,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/script_blocking_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -390,7 +390,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/script_blocking_desc"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <com.google.android.material.materialswitch.MaterialSwitch
@@ -434,7 +434,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/cosmetic_filtering_toggle"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -442,7 +442,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/cosmetic_filtering_desc"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <com.google.android.material.materialswitch.MaterialSwitch
@@ -487,7 +487,7 @@
                 android:layout_height="wrap_content"
                 android:text="Custom Blocked Elements"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/tvCustomBlockedCount"
@@ -496,7 +496,7 @@
                 android:layout_marginTop="2dp"
                 android:text="0 elements blocked"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
@@ -506,7 +506,7 @@
             android:layout_height="36dp"
             android:text="Reset"
             android:textColor="?attr/colorError"
-            android:textSize="13sp"
+            android:textSize="12sp"
             app:icon="@drawable/ic_delete"
             app:iconSize="14dp"
             app:iconTint="?attr/colorError" />

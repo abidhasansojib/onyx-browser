@@ -23,7 +23,7 @@
         android:layout_marginEnd="20dp"
         android:layout_marginTop="8dp"
         android:text="@string/blocking_level_title"
-        android:textSize="21sp"
+        android:textSize="20sp"
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary" />
 
@@ -36,7 +36,7 @@
         android:layout_marginTop="2dp"
         android:layout_marginBottom="16dp"
         android:text="Choose how aggressively ads and trackers are blocked"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:textColor="?android:attr/textColorSecondary" />
 
     <!-- Option 1: Standard -->
@@ -86,7 +86,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/blocking_standard"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -95,7 +95,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Blocks known third-party trackers, popups, and intrusive ads without breaking site functionality"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 
@@ -157,7 +157,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/blocking_aggressive"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -166,7 +166,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Aggressively blocks first-party ads, tracking pixels, cookie consent banners, and telemetry"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 

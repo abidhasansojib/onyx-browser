@@ -47,7 +47,7 @@
                 android:layout_marginBottom="8dp"
                 android:text="Downloader Preferences"
                 android:textColor="@color/settings_subtitle_text"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <com.google.android.material.card.MaterialCardView
@@ -99,7 +99,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Download manager"
                                 android:textColor="@color/settings_title_text"
-                                android:textSize="16sp"
+                                android:textSize="15sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -108,7 +108,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:textColor="@color/settings_subtitle_text"
-                                android:textSize="13.5sp"
+                                android:textSize="12.5sp"
                                 tools:text="Ask before download" />
                         </LinearLayout>
 
@@ -160,7 +160,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Download over Wi-Fi only"
                                 android:textColor="@color/settings_title_text"
-                                android:textSize="16sp"
+                                android:textSize="15sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -169,7 +169,7 @@
                                 android:layout_marginTop="2dp"
                                 android:text="Wait for Wi-Fi network before downloading large files"
                                 android:textColor="@color/settings_subtitle_text"
-                                android:textSize="13.5sp" />
+                                android:textSize="12.5sp" />
                         </LinearLayout>
 
                         <com.google.android.material.materialswitch.MaterialSwitch
