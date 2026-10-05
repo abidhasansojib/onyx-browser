@@ -39,7 +39,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="15sp"
+            android:textSize="16sp"
             tools:text="Search suggestion query" />
 
         <TextView
@@ -49,7 +49,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:visibility="gone"
             tools:text="https://example.com"
             tools:visibility="visible" />

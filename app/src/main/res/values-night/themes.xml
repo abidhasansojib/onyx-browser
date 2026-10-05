@@ -26,6 +26,10 @@
         <item name="colorOnSurface">@color/text_primary_dark</item>
         <item name="colorOnSurfaceVariant">@color/text_secondary_dark</item>
 
+        <!-- Global Typography: A little bold (medium weight 500) for sleek, modern UI readability -->
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+
         <item name="bottomSheetDialogTheme">@style/Theme.OnyxBrowser.BottomSheetDialog</item>
     </style>
 

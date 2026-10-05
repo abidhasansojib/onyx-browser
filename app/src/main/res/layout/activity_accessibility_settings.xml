@@ -46,7 +46,7 @@
                 android:layout_marginBottom="8dp"
                 android:text="Navigation &amp; Convenience"
                 android:textColor="@color/settings_subtitle_text"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <com.google.android.material.card.MaterialCardView
@@ -98,7 +98,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Search widget"
                                 android:textColor="@color/settings_title_text"
-                                android:textSize="15sp"
+                                android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -107,7 +107,7 @@
                                 android:layout_marginTop="2dp"
                                 android:text="Pin Chrome/Pixel style search bar to your Android home screen"
                                 android:textColor="@color/settings_subtitle_text"
-                                android:textSize="12.5sp" />
+                                android:textSize="13.5sp" />
                         </LinearLayout>
 
                         <androidx.appcompat.widget.AppCompatImageView
@@ -158,7 +158,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Add to Home screen"
                                 android:textColor="@color/settings_title_text"
-                                android:textSize="15sp"
+                                android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -167,7 +167,7 @@
                                 android:layout_marginTop="2dp"
                                 android:text="Show &quot;Add to Home screen&quot; option in webpage menu"
                                 android:textColor="@color/settings_subtitle_text"
-                                android:textSize="12.5sp" />
+                                android:textSize="13.5sp" />
                         </LinearLayout>
 
                         <com.google.android.material.materialswitch.MaterialSwitch
@@ -219,7 +219,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Scroll to top button"
                                 android:textColor="@color/settings_title_text"
-                                android:textSize="15sp"
+                                android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -228,7 +228,7 @@
                                 android:layout_marginTop="2dp"
                                 android:text="Display floating button to quickly jump back to top of long pages"
                                 android:textColor="@color/settings_subtitle_text"
-                                android:textSize="12.5sp" />
+                                android:textSize="13.5sp" />
                         </LinearLayout>
 
                         <com.google.android.material.materialswitch.MaterialSwitch
@@ -280,7 +280,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Biometric incognito protection"
                                 android:textColor="@color/settings_title_text"
-                                android:textSize="15sp"
+                                android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -289,7 +289,7 @@
                                 android:layout_marginTop="2dp"
                                 android:text="Require fingerprint or screen lock to unlock private tabs"
                                 android:textColor="@color/settings_subtitle_text"
-                                android:textSize="12.5sp" />
+                                android:textSize="13.5sp" />
                         </LinearLayout>
 
                         <com.google.android.material.materialswitch.MaterialSwitch

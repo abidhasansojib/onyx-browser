@@ -56,7 +56,7 @@
                     android:letterSpacing="-0.01"
                     android:text="@string/onyx_downloader_title"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="18sp"
+                    android:textSize="19sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -65,7 +65,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/download_prompt_title"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatImageButton
@@ -112,7 +112,7 @@
                         android:gravity="center"
                         android:textAllCaps="true"
                         android:textColor="@color/primary"
-                        android:textSize="13sp"
+                        android:textSize="14sp"
                         android:textStyle="bold"
                         tools:text="ZIP" />
 
@@ -141,7 +141,7 @@
                             android:maxLines="1"
                             android:textColor="?android:attr/textColorPrimary"
                             android:textColorHint="?android:attr/textColorSecondary"
-                            android:textSize="13.5sp"
+                            android:textSize="14.5sp"
                             tools:text="app-release.apk" />
 
                         <androidx.appcompat.widget.AppCompatImageButton
@@ -175,7 +175,7 @@
                         android:paddingEnd="10dp"
                         android:paddingBottom="3dp"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="12sp"
+                        android:textSize="13sp"
                         android:textStyle="bold"
                         tools:text="24.5 MB" />
 
@@ -188,7 +188,7 @@
                         android:ellipsize="end"
                         android:maxLines="1"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="11.5sp"
+                        android:textSize="12.5sp"
                         tools:text="application/zip" />
                 </LinearLayout>
 
@@ -232,7 +232,7 @@
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="14sp"
+                        android:textSize="15sp"
                         android:textStyle="bold"
                         tools:text="github.com" />
 
@@ -256,7 +256,7 @@
                     android:ellipsize="middle"
                     android:maxLines="1"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11.5sp"
+                    android:textSize="12.5sp"
                     tools:text="https://github.com/brave/adblock-rust/releases/download/v0.8.0/package.zip" />
 
                 <!-- Forwarded Cookies & Headers Status Badge -->
@@ -285,7 +285,7 @@
                         android:layout_weight="1"
                         android:text="@string/forwarding_cookies_headers"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="11.5sp" />
+                        android:textSize="12.5sp" />
                 </LinearLayout>
 
             </LinearLayout>
@@ -307,7 +307,7 @@
                 android:letterSpacing="0.02"
                 android:text="@string/download_button"
                 android:textColor="@color/on_primary"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
                 app:cornerRadius="14dp"
                 app:icon="@drawable/ic_download"
@@ -324,7 +324,7 @@
                 android:letterSpacing="0.02"
                 android:text="@string/external_downloader_button"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
                 app:cornerRadius="14dp"
                 app:icon="@drawable/ic_external"
@@ -341,7 +341,7 @@
                 android:layout_marginTop="6dp"
                 android:text="@string/cancel"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="13.5sp" />
+                android:textSize="14.5sp" />
         </LinearLayout>
 
     </LinearLayout>

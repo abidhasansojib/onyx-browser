@@ -43,7 +43,7 @@
             android:layout_height="match_parent"
             android:gravity="center"
             android:textColor="@color/primary"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:textStyle="bold"
             android:visibility="gone"
             tools:text="E" />
@@ -67,8 +67,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp"
-                android:textStyle="normal"
+                android:textSize="16sp"
                 tools:text="Brave Search" />
 
             <TextView
@@ -82,7 +81,7 @@
                 android:paddingEnd="6dp"
                 android:paddingBottom="1dp"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="10sp"
+                android:textSize="11sp"
                 android:textStyle="bold"
                 android:visibility="gone"
                 tools:text=":b"
@@ -97,7 +96,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp"
+            android:textSize="13sp"
             tools:text="https://search.brave.com/search?q=%s" />
     </LinearLayout>
 

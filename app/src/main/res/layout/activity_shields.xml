@@ -47,7 +47,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- Master Ad Block Toggle -->
@@ -84,14 +84,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/adblock_master_toggle"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/adblock_master_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -135,14 +135,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/blocking_level_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:id="@+id/tvBlockingLevelValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="@color/primary"
-                        android:textSize="12sp"
+                        android:textSize="13sp"
                         tools:text="Standard" />
                 </LinearLayout>
             </LinearLayout>
@@ -181,14 +181,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/anti_adblock_detection_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/anti_adblock_detection_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -218,7 +218,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- AMP Redirect -->
@@ -255,14 +255,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/amp_redirect_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/amp_redirect_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -306,14 +306,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/tracking_url_redirect_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/tracking_url_redirect_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -357,14 +357,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/https_mode_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:id="@+id/tvHttpsModeValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="@color/primary"
-                        android:textSize="12sp"
+                        android:textSize="13sp"
                         tools:text="When possible (default)" />
                 </LinearLayout>
             </LinearLayout>
@@ -389,7 +389,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- Global Script Blocking -->
@@ -426,14 +426,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/block_scripts_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/block_scripts_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -463,7 +463,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- Cookie Blocking Mode -->
@@ -500,14 +500,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/cookie_blocking_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:id="@+id/tvCookieModeValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="@color/primary"
-                        android:textSize="12sp"
+                        android:textSize="13sp"
                         tools:text="Block third-party cookies" />
                 </LinearLayout>
             </LinearLayout>
@@ -532,7 +532,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- Fingerprint Protection -->
@@ -569,14 +569,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/fingerprint_protection_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/fingerprint_protection_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -620,14 +620,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/fingerprint_lang_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/fingerprint_lang_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -657,7 +657,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
 
@@ -695,14 +695,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/filter_lists_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/filter_lists_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <androidx.appcompat.widget.AppCompatImageView
@@ -732,7 +732,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- Element Blocking in Private Windows -->
@@ -769,14 +769,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/element_blocking_private_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/element_blocking_private_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -806,7 +806,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- Social Media Blocking Master -->
@@ -843,14 +843,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/social_media_blocking_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/social_media_blocking_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -887,14 +887,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/allow_fb_logins_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="14sp" />
+                        android:textSize="15sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/allow_fb_logins_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -931,14 +931,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/allow_twitter_embeds_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="14sp" />
+                        android:textSize="15sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/allow_twitter_embeds_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -975,14 +975,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/allow_linkedin_embeds_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="14sp" />
+                        android:textSize="15sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/allow_linkedin_embeds_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -1012,7 +1012,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- Open Links in App -->
@@ -1049,14 +1049,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/open_links_in_app_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/open_links_in_app_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -1086,7 +1086,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- Secure DNS Toggle -->
@@ -1123,14 +1123,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/secure_dns_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/secure_dns_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -1174,14 +1174,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/secure_dns_provider_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:id="@+id/tvDnsProviderValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="@color/primary"
-                        android:textSize="12sp"
+                        android:textSize="13sp"
                         tools:text="Cloudflare (1.1.1.1)" />
                 </LinearLayout>
             </LinearLayout>
@@ -1206,7 +1206,7 @@
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:textColor="@color/primary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- Block App Banners -->
@@ -1243,14 +1243,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/block_app_banner_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/block_app_banner_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -1294,14 +1294,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/dnt_request_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/dnt_request_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -1345,14 +1345,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/pref_block_element_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/pref_block_element_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -1396,14 +1396,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/cookie_autoclear_title"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/cookie_autoclear_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch

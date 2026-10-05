@@ -26,7 +26,7 @@
         android:layout_marginBottom="4dp"
         android:text="Search by image"
         android:textColor="?android:attr/textColorPrimary"
-        android:textSize="20sp"
+        android:textSize="21sp"
         android:textStyle="bold" />
 
     <TextView
@@ -35,7 +35,7 @@
         android:layout_marginBottom="20dp"
         android:text="Choose a reverse image search engine"
         android:textColor="?android:attr/textColorSecondary"
-        android:textSize="13sp" />
+        android:textSize="14sp" />
 
     <!-- Google Lens -->
     <com.google.android.material.card.MaterialCardView
@@ -76,7 +76,7 @@
                     android:layout_height="wrap_content"
                     android:text="Google Lens"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -85,7 +85,7 @@
                     android:layout_marginTop="2dp"
                     android:text="lens.google.com"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatImageView
@@ -142,7 +142,7 @@
                     android:layout_height="wrap_content"
                     android:text="TinEye"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -151,7 +151,7 @@
                     android:layout_marginTop="2dp"
                     android:text="tineye.com — reverse image search"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatImageView
@@ -208,7 +208,7 @@
                     android:layout_height="wrap_content"
                     android:text="Yandex Images"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -217,7 +217,7 @@
                     android:layout_marginTop="2dp"
                     android:text="yandex.com — powerful visual search"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatImageView
@@ -268,7 +268,7 @@
                     android:layout_height="wrap_content"
                     android:text="Bing Visual Search"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -277,7 +277,7 @@
                     android:layout_marginTop="2dp"
                     android:text="bing.com — visual search"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatImageView
@@ -334,7 +334,7 @@
                     android:layout_height="wrap_content"
                     android:text="SauceNAO"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -343,7 +343,7 @@
                     android:layout_marginTop="2dp"
                     android:text="saucenao.com — anime &amp; illustration"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatImageView
@@ -400,7 +400,7 @@
                     android:layout_height="wrap_content"
                     android:text="ASCII2D"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -409,7 +409,7 @@
                     android:layout_marginTop="2dp"
                     android:text="ascii2d.net — manga &amp; artwork"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatImageView

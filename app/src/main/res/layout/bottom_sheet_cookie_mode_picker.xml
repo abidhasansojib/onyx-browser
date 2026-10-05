@@ -23,7 +23,7 @@
         android:layout_marginEnd="20dp"
         android:layout_marginTop="8dp"
         android:text="@string/cookie_blocking_title"
-        android:textSize="20sp"
+        android:textSize="21sp"
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary" />
 
@@ -36,7 +36,7 @@
         android:layout_marginTop="2dp"
         android:layout_marginBottom="16dp"
         android:text="Control how websites store cookies and tracking data"
-        android:textSize="13sp"
+        android:textSize="14sp"
         android:textColor="?android:attr/textColorSecondary" />
 
     <!-- Option 1: Allow all cookies -->
@@ -86,7 +86,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/cookie_allow_all"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -95,7 +95,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Allow both first-party and cross-site cookies from all websites"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 
@@ -157,7 +157,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Block third-party cookies (Recommended)"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -166,7 +166,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Preserve website logins and shopping carts while blocking cross-site tracking"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 
@@ -228,7 +228,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/cookie_block_all"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -237,7 +237,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Block all cookies globally. Warning: will break login sessions on most websites"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 

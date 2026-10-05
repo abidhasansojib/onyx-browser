@@ -44,7 +44,7 @@
             android:letterSpacing="0.04"
             android:text="@string/tagline_fast_and_private"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp"
+            android:textSize="13sp"
             app:layout_constraintBottom_toTopOf="@id/guideCenter"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -88,7 +88,7 @@
                 android:letterSpacing="0.02"
                 android:text="@string/incognito_mode"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="20sp"
+                android:textSize="21sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -100,7 +100,7 @@
                 android:maxWidth="300dp"
                 android:text="@string/incognito_privacy_desc"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="13sp" />
         </LinearLayout>
 
         <!-- ── Unified Shortcuts Grid ────────────────────────────────────── -->

@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:background="#EA4335"
         android:textColor="#FFFFFF"
-        android:textSize="12sp"
+        android:textSize="13sp"
         android:textStyle="bold"
         android:gravity="center"
         android:paddingTop="2dp"
@@ -144,7 +144,7 @@
                     android:maxLines="1"
                     android:textColor="?android:attr/textColorPrimary"
                     android:textColorHint="?android:attr/textColorSecondary"
-                    android:textSize="14.5sp" />
+                    android:textSize="15.5sp" />
 
                 <!-- Clear Search Input Button -->
                 <androidx.appcompat.widget.AppCompatImageView
@@ -200,7 +200,7 @@
                     android:gravity="center"
                     android:text="1"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
             </FrameLayout>
 
@@ -291,7 +291,7 @@
             android:paddingEnd="12dp"
             android:textColor="?android:attr/textColorPrimary"
             android:textColorHint="?android:attr/textColorSecondary"
-            android:textSize="14sp"
+            android:textSize="15sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/btnRegexToggle"
             app:layout_constraintStart_toEndOf="@id/btnCloseFind"
@@ -305,7 +305,7 @@
             android:text=".*"
             android:gravity="center"
             android:textStyle="bold"
-            android:textSize="16sp"
+            android:textSize="17sp"
             android:textColor="?android:attr/textColorSecondary"
             android:layout_marginEnd="8dp"
             android:padding="8dp"
@@ -321,7 +321,7 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp"
+            android:textSize="13sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/btnFindPrev"
             app:layout_constraintTop_toTopOf="parent"
@@ -403,7 +403,7 @@
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp"
                 android:text="@string/translate_original"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 app:strokeColor="?attr/colorOutline" />
 
             <com.google.android.material.button.MaterialButton
@@ -414,7 +414,7 @@
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp"
                 android:text="English"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 app:strokeColor="?attr/colorOutline" />
 
         </com.google.android.material.button.MaterialButtonToggleGroup>
@@ -582,7 +582,7 @@
                             android:ellipsize="end"
                             android:maxLines="1"
                             android:textColor="?android:attr/textColorPrimary"
-                            android:textSize="14sp"
+                            android:textSize="15sp"
                             android:textStyle="bold"
                             tools:text="Facebook" />
 
@@ -594,7 +594,7 @@
                             android:ellipsize="end"
                             android:maxLines="1"
                             android:textColor="?android:attr/textColorSecondary"
-                            android:textSize="12sp"
+                            android:textSize="13sp"
                             tools:text="facebook.com/reel/1100..." />
                     </LinearLayout>
                 </LinearLayout>
@@ -754,7 +754,7 @@
             android:layout_marginTop="16dp"
             android:text="Incognito Locked"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="18sp"
+            android:textSize="19sp"
             android:textStyle="bold" />
     </LinearLayout>
 

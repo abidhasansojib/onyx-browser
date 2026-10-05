@@ -50,7 +50,7 @@
                 android:ellipsize="middle"
                 android:maxLines="1"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
                 tools:text="sample_document.pdf" />
 
@@ -62,7 +62,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 tools:text="14.5 MB • Completed" />
         </LinearLayout>
     </LinearLayout>
@@ -102,7 +102,7 @@
             android:layout_marginStart="16dp"
             android:text="Open file"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
     </LinearLayout>
 
     <!-- 2. Open in file manager -->
@@ -131,7 +131,7 @@
             android:layout_marginStart="16dp"
             android:text="Open in file manager"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
     </LinearLayout>
 
     <!-- 2. Share -->
@@ -160,7 +160,7 @@
             android:layout_marginStart="16dp"
             android:text="Share"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
     </LinearLayout>
 
     <!-- 3. Open original site -->
@@ -195,7 +195,7 @@
                 android:layout_height="wrap_content"
                 android:text="Open original site"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/tvMenuSiteUrl"
@@ -205,7 +205,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 tools:text="https://example.com/downloads/file" />
         </LinearLayout>
     </LinearLayout>
@@ -236,7 +236,7 @@
             android:layout_marginStart="16dp"
             android:text="Rename"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
     </LinearLayout>
 
     <!-- 5. Delete -->
@@ -265,7 +265,7 @@
             android:layout_marginStart="16dp"
             android:text="Delete"
             android:textColor="@color/red_danger"
-            android:textSize="15sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>
 

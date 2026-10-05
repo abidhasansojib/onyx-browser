@@ -43,7 +43,7 @@
                     android:layout_height="match_parent"
                     android:gravity="center"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="22sp"
+                    android:textSize="23sp"
                     android:textStyle="bold"
                     android:visibility="gone"
                     tools:text="Y" />
@@ -62,7 +62,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/edit_shortcut"
                     android:textColor="@color/settings_title_text"
-                    android:textSize="20sp"
+                    android:textSize="21sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -71,7 +71,7 @@
                     android:layout_marginTop="2dp"
                     android:text="Customize name and web address"
                     android:textColor="@color/settings_subtitle_text"
-                    android:textSize="13sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -109,7 +109,7 @@
                 android:inputType="textCapWords"
                 android:maxLines="1"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="14sp" />
+                android:textSize="15sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- URL Input -->
@@ -141,7 +141,7 @@
                 android:inputType="textUri"
                 android:maxLines="1"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="14sp" />
+                android:textSize="15sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Button Actions: Cancel on Left, Save on Right -->

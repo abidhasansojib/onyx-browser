@@ -26,7 +26,7 @@
             android:layout_height="wrap_content"
             android:text="@string/delete_browsing_data"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="20sp"
+            android:textSize="21sp"
             android:textStyle="bold" />
 
         <!-- Time Range Label -->
@@ -36,7 +36,7 @@
             android:layout_marginTop="16dp"
             android:text="Time range"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <!-- Time Range Spinner Dropdown -->
@@ -66,7 +66,7 @@
                 android:paddingBottom="12dp"
                 android:popupBackground="@drawable/bg_dropdown_popup"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="14sp"
+                android:textSize="15sp"
                 tools:text="Last 24 hours" />
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -113,7 +113,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textColor="?android:attr/textColorPrimary"
-                            android:textSize="14sp"
+                            android:textSize="15sp"
                             android:textStyle="bold"
                             tools:text="Browsing history: 12 sites" />
 
@@ -125,7 +125,7 @@
                             android:ellipsize="end"
                             android:maxLines="2"
                             android:textColor="?android:attr/textColorSecondary"
-                            android:textSize="12sp"
+                            android:textSize="13sp"
                             tools:text="e.g. google.com, wikipedia.org, github.com" />
                     </LinearLayout>
                 </LinearLayout>
@@ -164,7 +164,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textColor="?android:attr/textColorPrimary"
-                            android:textSize="14sp"
+                            android:textSize="15sp"
                             android:textStyle="bold"
                             tools:text="Open tabs: 3 tabs" />
 
@@ -176,7 +176,7 @@
                             android:ellipsize="end"
                             android:maxLines="2"
                             android:textColor="?android:attr/textColorSecondary"
-                            android:textSize="12sp"
+                            android:textSize="13sp"
                             tools:text="e.g. Kotlin Reference, Wikipedia" />
                     </LinearLayout>
                 </LinearLayout>
@@ -210,7 +210,7 @@
                         android:layout_weight="1"
                         android:text="@string/cookies_cache_warning"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
             </LinearLayout>

@@ -69,7 +69,7 @@
             android:layout_height="wrap_content"
             android:text="Align QR code within the frame"
             android:textColor="#FFFFFF"
-            android:textSize="13.5sp" />
+            android:textSize="14.5sp" />
     </LinearLayout>
 
     <!-- Top Bar Container (Window insets handled in Activity) -->
@@ -111,7 +111,7 @@
             android:shadowRadius="4"
             android:text="Scan QR Code"
             android:textColor="#FFFFFF"
-            android:textSize="18sp"
+            android:textSize="19sp"
             android:textStyle="bold" />
 
         <androidx.appcompat.widget.AppCompatImageButton
@@ -149,7 +149,7 @@
             android:backgroundTint="#59000000"
             android:text="Scan from Image"
             android:textColor="#FFFFFF"
-            android:textSize="13.5sp"
+            android:textSize="14.5sp"
             app:cornerRadius="24dp"
             app:icon="@drawable/ic_image"
             app:iconGravity="textStart"

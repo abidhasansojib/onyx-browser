@@ -39,7 +39,7 @@
                 android:layout_weight="1"
                 android:text="Shortcuts"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="18sp"
+                android:textSize="19sp"
                 android:textStyle="bold" />
 
             <androidx.appcompat.widget.AppCompatImageButton
@@ -64,7 +64,7 @@
             android:letterSpacing="0.06"
             android:text="SUGGESTED"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="11sp" />
+            android:textSize="12sp" />
 
         <HorizontalScrollView
             android:layout_width="match_parent"
@@ -99,7 +99,7 @@
             android:letterSpacing="0.06"
             android:text="ADD CUSTOM"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="11sp" />
+            android:textSize="12sp" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -121,7 +121,7 @@
                 android:paddingEnd="14dp"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
-                android:textSize="14sp" />
+                android:textSize="15sp" />
 
             <EditText
                 android:id="@+id/etNewUrl"
@@ -137,7 +137,7 @@
                 android:paddingEnd="14dp"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
-                android:textSize="14sp" />
+                android:textSize="15sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnAddNewShortcut"
@@ -145,7 +145,7 @@
                 android:layout_height="46dp"
                 android:layout_marginTop="10dp"
                 android:text="Add Shortcut"
-                android:textSize="14sp"
+                android:textSize="15sp"
                 app:cornerRadius="12dp"
                 app:icon="@drawable/ic_add" />
         </LinearLayout>
@@ -177,7 +177,7 @@
                 android:letterSpacing="0.06"
                 android:text="MY SHORTCUTS"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="11sp" />
+                android:textSize="12sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -185,7 +185,7 @@
                 android:alpha="0.7"
                 android:text="drag to reorder"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="11sp" />
+                android:textSize="12sp" />
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView

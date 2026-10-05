@@ -65,7 +65,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/bookmarks"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <!-- 2. History -->
@@ -94,7 +94,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/history"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <!-- 3. Downloads -->
@@ -123,7 +123,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/downloads"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <!-- 4. Share App -->
@@ -152,7 +152,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/share"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
         </LinearLayout>
@@ -206,7 +206,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/set_as_default_browser"
                         android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="14sp"
+                        android:textSize="15sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -215,7 +215,7 @@
                         android:layout_marginTop="2dp"
                         android:text="@string/set_default_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <androidx.appcompat.widget.AppCompatImageView
@@ -251,7 +251,7 @@
                 android:layout_marginStart="16dp"
                 android:text="@string/settings"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
     </LinearLayout>
@@ -304,7 +304,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/bookmarks"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <!-- 2. History -->
@@ -333,7 +333,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/history"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <!-- 3. Downloads -->
@@ -362,7 +362,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/downloads"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <!-- 4. Share Webpage -->
@@ -391,7 +391,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/share"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
         </LinearLayout>
@@ -446,7 +446,7 @@
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="14sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     tools:text="example.com" />
 
@@ -501,7 +501,7 @@
                 android:layout_marginStart="16dp"
                 android:layout_weight="1"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 tools:text="Translate to English" />
 
             <!-- Gear / Settings Icon to select target translation language -->
@@ -540,7 +540,7 @@
                 android:layout_marginStart="16dp"
                 android:text="@string/find_in_page"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
         <!-- 4th: Request Desktop Site Row (with switch) -->
@@ -568,7 +568,7 @@
                 android:layout_weight="1"
                 android:text="@string/desktop_site"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="16sp" />
 
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/switchDesktopSite"
@@ -603,7 +603,7 @@
                 android:layout_marginStart="16dp"
                 android:text="@string/save_this_page"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
         <!-- 5th: Add to Home Screen Row -->
@@ -632,7 +632,7 @@
                 android:layout_marginStart="16dp"
                 android:text="@string/add_to_home_screen"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
 
@@ -665,14 +665,14 @@
                     android:layout_height="wrap_content"
                     android:text="@string/developer_tools"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp" />
+                    android:textSize="16sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/developer_tools_subtitle"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -701,7 +701,7 @@
                 android:layout_marginStart="16dp"
                 android:text="@string/block_element"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
         <View
@@ -736,7 +736,7 @@
                 android:layout_marginStart="16dp"
                 android:text="@string/settings"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="15sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
     </LinearLayout>

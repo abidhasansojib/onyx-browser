@@ -53,7 +53,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/ua_spoofer_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="18sp"
+                android:textSize="19sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -62,7 +62,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/ua_spoofer_desc"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="13sp" />
         </LinearLayout>
 
         <androidx.appcompat.widget.AppCompatImageButton
@@ -130,7 +130,7 @@
                             android:layout_weight="1"
                             android:text="@string/custom_user_agent"
                             android:textColor="?android:attr/textColorPrimary"
-                            android:textSize="14sp"
+                            android:textSize="15sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -144,7 +144,7 @@
                             android:paddingBottom="3dp"
                             android:text="ACTIVE"
                             android:textColor="@color/google_blue"
-                            android:textSize="10sp"
+                            android:textSize="11sp"
                             android:textStyle="bold"
                             android:visibility="gone"
                             tools:visibility="visible" />
@@ -157,7 +157,7 @@
                         android:layout_marginBottom="10dp"
                         android:text="@string/custom_ua_desc"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
 
                     <!-- Custom Input Box -->
                     <com.google.android.material.textfield.TextInputLayout
@@ -186,7 +186,7 @@
                             android:minLines="2"
                             android:textColor="?android:attr/textColorPrimary"
                             android:textColorHint="?android:attr/textColorSecondary"
-                            android:textSize="12sp" />
+                            android:textSize="13sp" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <!-- Action Buttons for Custom UA -->
@@ -208,7 +208,7 @@
                             android:text="Paste"
                             android:textColor="?android:attr/textColorPrimary"
                             app:strokeColor="@color/settings_card_stroke"
-                            android:textSize="12sp"
+                            android:textSize="13sp"
                             app:cornerRadius="10dp"
                             app:icon="@drawable/ic_copy"
                             app:iconTint="?android:attr/textColorPrimary"
@@ -224,7 +224,7 @@
                             android:text="@string/apply_custom_ua"
                             android:textColor="@color/btn_apply_text"
                             app:backgroundTint="@color/google_blue"
-                            android:textSize="12sp"
+                            android:textSize="13sp"
                             app:cornerRadius="10dp"
                             app:icon="@drawable/ic_check"
                             app:iconTint="@color/btn_apply_text"
@@ -249,7 +249,7 @@
                     android:text="TEMPLATES"
                     android:textAllCaps="true"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -257,7 +257,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     tools:text="12 available" />
             </LinearLayout>
 

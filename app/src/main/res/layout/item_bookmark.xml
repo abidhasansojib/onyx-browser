@@ -34,7 +34,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:textStyle="bold"
             tools:text="DuckDuckGo Search" />
 
@@ -46,7 +46,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp"
+            android:textSize="13sp"
             tools:text="https://duckduckgo.com" />
     </LinearLayout>
 

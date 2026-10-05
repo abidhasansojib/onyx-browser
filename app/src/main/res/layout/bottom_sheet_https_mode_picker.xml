@@ -23,7 +23,7 @@
         android:layout_marginEnd="20dp"
         android:layout_marginTop="8dp"
         android:text="@string/https_mode_title"
-        android:textSize="20sp"
+        android:textSize="21sp"
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary" />
 
@@ -36,7 +36,7 @@
         android:layout_marginTop="2dp"
         android:layout_marginBottom="16dp"
         android:text="Choose how connections are upgraded to encrypted HTTPS"
-        android:textSize="13sp"
+        android:textSize="14sp"
         android:textColor="?android:attr/textColorSecondary" />
 
     <!-- Option 1: Disabled -->
@@ -86,7 +86,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/https_mode_disabled"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -95,7 +95,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Load HTTP pages directly without attempting to upgrade connections"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 
@@ -157,7 +157,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="When possible (Recommended)"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -166,7 +166,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Automatically upgrades HTTP requests to secure encrypted HTTPS when supported"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 
@@ -228,7 +228,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/https_mode_strict"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -237,7 +237,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Strict HTTPS-only mode; completely blocks unencrypted HTTP requests"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 

@@ -39,7 +39,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/downloading_update"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="18sp"
+                android:textSize="19sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -48,7 +48,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 tools:text="Onyx Browser v1.0.154" />
         </LinearLayout>
     </LinearLayout>
@@ -78,7 +78,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp"
+            android:textSize="13sp"
             tools:text="8.4 MB / 19.1 MB (44%)" />
 
         <TextView
@@ -86,7 +86,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/primary"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:textStyle="bold"
             tools:text="3.2 MB/s" />
     </LinearLayout>

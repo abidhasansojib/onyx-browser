@@ -23,7 +23,7 @@
         android:layout_marginEnd="20dp"
         android:layout_marginTop="8dp"
         android:text="@string/secure_dns_provider_title"
-        android:textSize="20sp"
+        android:textSize="21sp"
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary" />
 
@@ -36,7 +36,7 @@
         android:layout_marginTop="2dp"
         android:layout_marginBottom="16dp"
         android:text="Choose your encrypted DNS-over-HTTPS (DoH) resolver"
-        android:textSize="13sp"
+        android:textSize="14sp"
         android:textColor="?android:attr/textColorSecondary" />
 
     <!-- Option 1: Cloudflare -->
@@ -86,7 +86,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Cloudflare (1.1.1.1)"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -95,7 +95,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Fast, privacy-first encrypted DNS with zero query logging"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 
@@ -156,7 +156,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Google (8.8.8.8)"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -165,7 +165,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Google Public DNS with Anycast network routing"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 
@@ -227,7 +227,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="NextDNS"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -236,7 +236,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Configurable DNS with built-in ad, tracker, and malware protection"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 
@@ -298,7 +298,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Custom DoH URL"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -308,7 +308,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:text="Enter your custom DNS-over-HTTPS endpoint URL"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 
@@ -354,7 +354,7 @@
                 android:inputType="textUri"
                 android:singleLine="true"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="14sp" />
+                android:textSize="15sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.button.MaterialButton

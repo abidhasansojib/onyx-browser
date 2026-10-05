@@ -45,7 +45,7 @@
             android:gravity="center"
             android:text="@string/clear_browsing_data"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="20sp"
+            android:textSize="21sp"
             android:textStyle="bold" />
 
         <!-- Subtitle / Warning Message -->
@@ -58,7 +58,7 @@
             android:lineSpacingMultiplier="1.2"
             android:text="@string/confirm_clear_history"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="14sp" />
+            android:textSize="15sp" />
 
         <!-- Action Buttons: Cancel on Left (#35363A), Clear on Right (#DC4B64) -->
         <LinearLayout

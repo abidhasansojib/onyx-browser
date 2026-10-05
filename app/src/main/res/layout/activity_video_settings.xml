@@ -47,7 +47,7 @@
                 android:layout_marginBottom="8dp"
                 android:text="Playback &amp; Display"
                 android:textColor="@color/settings_subtitle_text"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <com.google.android.material.card.MaterialCardView
@@ -99,7 +99,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Background playback"
                                 android:textColor="@color/settings_title_text"
-                                android:textSize="15sp"
+                                android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -108,7 +108,7 @@
                                 android:layout_marginTop="2dp"
                                 android:text="Continue playing audio when app is minimized or screen is locked"
                                 android:textColor="@color/settings_subtitle_text"
-                                android:textSize="12.5sp" />
+                                android:textSize="13.5sp" />
                         </LinearLayout>
 
                         <com.google.android.material.materialswitch.MaterialSwitch
@@ -160,7 +160,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Picture-in-picture (PiP)"
                                 android:textColor="@color/settings_title_text"
-                                android:textSize="15sp"
+                                android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -169,7 +169,7 @@
                                 android:layout_marginTop="2dp"
                                 android:text="Open videos in a floating resizable window when switching apps or tapping the in-player PiP button"
                                 android:textColor="@color/settings_subtitle_text"
-                                android:textSize="12.5sp" />
+                                android:textSize="13.5sp" />
                         </LinearLayout>
 
                         <com.google.android.material.materialswitch.MaterialSwitch

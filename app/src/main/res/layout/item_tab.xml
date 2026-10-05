@@ -50,7 +50,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="@color/tab_text_primary"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:fontFamily="sans-serif-medium"
                 tools:text="Google — Search" />
 
@@ -110,7 +110,7 @@
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     tools:text="google.com" />
             </LinearLayout>
         </FrameLayout>

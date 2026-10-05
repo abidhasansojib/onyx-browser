@@ -74,7 +74,7 @@
                         android:gravity="center"
                         android:text="1"
                         android:textColor="@color/tab_text_primary"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:fontFamily="sans-serif-medium"
                         android:textStyle="bold" />
                 </FrameLayout>
@@ -168,7 +168,7 @@
             android:gravity="center"
             android:text="No tabs open"
             android:textColor="@color/tab_text_primary"
-            android:textSize="17sp"
+            android:textSize="18sp"
             android:fontFamily="sans-serif-medium"
             android:textStyle="bold" />
 
@@ -182,7 +182,7 @@
             android:lineSpacingExtra="3dp"
             android:text="Tap + to open a new tab"
             android:textColor="@color/tab_close_icon"
-            android:textSize="13sp" />
+            android:textSize="14sp" />
     </LinearLayout>
 
     <!-- ── Tab Grid (Starts immediately 2px beneath tab changing button container) ── -->
@@ -307,10 +307,10 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="12dp"
             android:ellipsize="end"
-            android:fontFamily="sans-serif"
+            android:fontFamily="sans-serif-medium"
             android:maxLines="2"
             android:textColor="@color/tab_text_primary"
-            android:textSize="14sp"
+            android:textSize="15sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/btnUndoCloseTab"
             app:layout_constraintStart_toStartOf="parent"
@@ -332,7 +332,7 @@
             android:paddingEnd="8dp"
             android:text="@string/undo"
             android:textColor="@color/tab_switcher_accent"
-            android:textSize="14.5sp"
+            android:textSize="15.5sp"
             android:textStyle="bold"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"

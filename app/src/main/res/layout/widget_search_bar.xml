@@ -51,12 +51,12 @@
                 android:layout_marginEnd="6dp"
                 android:layout_weight="1"
                 android:ellipsize="end"
-                android:fontFamily="sans-serif"
+                android:fontFamily="sans-serif-medium"
                 android:gravity="center_vertical"
                 android:maxLines="1"
                 android:text="@string/search_or_type_url"
                 android:textColor="@color/widget_text"
-                android:textSize="16sp" />
+                android:textSize="17sp" />
         </LinearLayout>
 
         <!-- Voice Search Button (Chrome circular touch ripple) -->

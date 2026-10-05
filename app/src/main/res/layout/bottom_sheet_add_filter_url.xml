@@ -51,7 +51,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/add_filter_url_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="17sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -60,7 +60,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/add_filter_url_desc"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="13sp" />
         </LinearLayout>
 
         <androidx.appcompat.widget.AppCompatImageButton
@@ -96,7 +96,7 @@
             android:inputType="textCapWords"
             android:maxLines="1"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="14sp" />
+            android:textSize="15sp" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <!-- Filter URL Input -->
@@ -123,7 +123,7 @@
             android:inputType="textUri|textNoSuggestions"
             android:maxLines="2"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="13sp" />
+            android:textSize="14sp" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <!-- Paste URL helper button -->
@@ -140,7 +140,7 @@
             android:layout_width="wrap_content"
             android:layout_height="36dp"
             android:text="@string/paste_clipboard"
-            android:textSize="12sp"
+            android:textSize="13sp"
             app:icon="@drawable/ic_copy"
             app:iconSize="14dp" />
     </LinearLayout>
@@ -170,7 +170,7 @@
             android:layout_height="44dp"
             android:layout_marginEnd="8dp"
             android:text="@string/cancel"
-            android:textSize="13sp"
+            android:textSize="14sp"
             app:cornerRadius="12dp" />
 
         <com.google.android.material.button.MaterialButton
@@ -178,7 +178,7 @@
             android:layout_width="wrap_content"
             android:layout_height="44dp"
             android:text="@string/add_filter_action"
-            android:textSize="13sp"
+            android:textSize="14sp"
             app:cornerRadius="12dp"
             app:icon="@drawable/ic_check"
             app:iconSize="16dp" />

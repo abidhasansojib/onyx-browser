@@ -46,7 +46,7 @@
                 android:letterSpacing="-0.01"
                 android:text="@string/onyx_downloader_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="20sp"
+                android:textSize="21sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -54,7 +54,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/download_prompt_title"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:textSize="13sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -107,7 +107,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/file_details"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp"
+                        android:textSize="13sp"
                         android:textStyle="bold" />
 
                     <!-- File Header Row -->
@@ -157,7 +157,7 @@
                                     android:paddingEnd="8dp"
                                     android:paddingBottom="2dp"
                                     android:textColor="@color/primary"
-                                    android:textSize="11sp"
+                                    android:textSize="12sp"
                                     android:textStyle="bold"
                                     tools:text="ZIP" />
 
@@ -167,7 +167,7 @@
                                     android:layout_height="wrap_content"
                                     android:layout_marginStart="10dp"
                                     android:textColor="?android:attr/textColorPrimary"
-                                    android:textSize="14sp"
+                                    android:textSize="15sp"
                                     android:textStyle="bold"
                                     tools:text="14.8 MB" />
                             </LinearLayout>
@@ -180,7 +180,7 @@
                                 android:ellipsize="end"
                                 android:maxLines="1"
                                 android:textColor="?android:attr/textColorSecondary"
-                                android:textSize="12sp"
+                                android:textSize="13sp"
                                 tools:text="application/zip" />
                         </LinearLayout>
                     </LinearLayout>
@@ -207,7 +207,7 @@
                             android:inputType="text"
                             android:maxLines="2"
                             android:textColor="?android:attr/textColorPrimary"
-                            android:textSize="14sp"
+                            android:textSize="15sp"
                             tools:text="Onyx_Update_Package.zip" />
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
@@ -236,7 +236,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/website_details"
                         android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="12sp"
+                        android:textSize="13sp"
                         android:textStyle="bold" />
 
                     <!-- Domain Row -->
@@ -260,7 +260,7 @@
                             android:layout_marginStart="10dp"
                             android:layout_weight="1"
                             android:textColor="?android:attr/textColorPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
                             tools:text="github.com" />
                     </LinearLayout>
@@ -281,7 +281,7 @@
                             android:ellipsize="middle"
                             android:maxLines="2"
                             android:textColor="?android:attr/textColorSecondary"
-                            android:textSize="12sp"
+                            android:textSize="13sp"
                             tools:text="https://github.com/brave/adblock-rust/releases/download/v0.8.0/package.zip" />
 
                         <androidx.appcompat.widget.AppCompatImageButton
@@ -322,7 +322,7 @@
                             android:layout_weight="1"
                             android:text="@string/forwarding_cookies_headers"
                             android:textColor="?android:attr/textColorPrimary"
-                            android:textSize="12sp" />
+                            android:textSize="13sp" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -343,7 +343,7 @@
                     android:letterSpacing="0.03"
                     android:text="@string/download_button"
                     android:textColor="@color/on_primary"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     app:cornerRadius="14dp"
                     app:icon="@drawable/ic_download"
@@ -360,7 +360,7 @@
                     android:letterSpacing="0.03"
                     android:text="@string/external_downloader_button"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     app:cornerRadius="14dp"
                     app:icon="@drawable/ic_external"
@@ -377,7 +377,7 @@
                     android:layout_marginTop="8dp"
                     android:text="@string/cancel"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="14sp" />
+                    android:textSize="15sp" />
             </LinearLayout>
 
         </LinearLayout>

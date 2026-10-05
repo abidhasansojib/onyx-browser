@@ -25,7 +25,7 @@
         android:layout_marginBottom="20dp"
         android:text="@string/edit_bookmark"
         android:textColor="?android:attr/textColorPrimary"
-        android:textSize="17sp"
+        android:textSize="18sp"
         android:textStyle="bold" />
 
     <!-- Name field -->
@@ -48,7 +48,7 @@
             android:maxLines="1"
             android:singleLine="true"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <!-- URL field -->
@@ -71,7 +71,7 @@
             android:maxLines="1"
             android:singleLine="true"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <!-- Action buttons -->

@@ -23,7 +23,7 @@
         android:paddingBottom="16dp"
         android:text="@string/filter_lists_title"
         android:textColor="?android:attr/textColorPrimary"
-        android:textSize="18sp"
+        android:textSize="19sp"
         android:textStyle="bold" />
 
     <androidx.recyclerview.widget.RecyclerView

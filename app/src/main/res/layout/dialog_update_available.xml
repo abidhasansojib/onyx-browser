@@ -40,7 +40,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/update_available_title"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="18sp"
+                android:textSize="19sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -49,7 +49,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 tools:text="Onyx Browser v1.0.154" />
         </LinearLayout>
     </LinearLayout>
@@ -86,7 +86,7 @@
                     android:paddingEnd="8dp"
                     android:paddingBottom="3dp"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     tools:text="v1.0.153" />
 
@@ -97,7 +97,7 @@
                     android:layout_marginEnd="8dp"
                     android:text="➜"
                     android:textColor="@color/primary"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
 
                 <TextView
                     android:id="@+id/tvNewVersionBadge"
@@ -109,7 +109,7 @@
                     android:paddingEnd="8dp"
                     android:paddingBottom="3dp"
                     android:textColor="@color/primary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     tools:text="v1.0.154" />
             </LinearLayout>
@@ -120,7 +120,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 tools:text="arm64-v8a • 19.1 MB" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
@@ -133,7 +133,7 @@
         android:layout_marginBottom="6dp"
         android:text="@string/whats_new"
         android:textColor="?android:attr/textColorPrimary"
-        android:textSize="13sp"
+        android:textSize="14sp"
         android:textStyle="bold" />
 
     <!-- Scrollable Changelog Box -->
@@ -157,7 +157,7 @@
                 android:lineSpacingMultiplier="1.2"
                 android:padding="12dp"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 tools:text="* New in-app update checker\n* Faster page loading\n* Bug fixes and performance improvements" />
         </com.google.android.material.card.MaterialCardView>
     </androidx.core.widget.NestedScrollView>

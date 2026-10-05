@@ -66,7 +66,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:maxLines="1"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="14sp"
+                    android:textSize="15sp"
                     tools:text="Link you copied" />
 
                 <TextView
@@ -77,7 +77,7 @@
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     tools:text="https://github.com/..." />
             </LinearLayout>
         </LinearLayout>

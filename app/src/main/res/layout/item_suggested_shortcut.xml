@@ -31,5 +31,5 @@
         android:gravity="center"
         android:maxLines="1"
         android:textColor="?android:attr/textColorPrimary"
-        android:textSize="11sp" />
+        android:textSize="12sp" />
 </LinearLayout>
