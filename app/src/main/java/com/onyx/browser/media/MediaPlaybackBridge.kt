@@ -139,6 +139,10 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         if (now - lastPipRequestTimestamp < 1500L) {
             return
         }
+        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId
+        if (!isVideoPresent && !isVideoAvailableForTab(myTabId)) {
+            return
+        }
         lastPipRequestTimestamp = now
         mainHandler.post {
             onPipRequestedListener?.invoke()
@@ -158,6 +162,19 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         mainHandler.post {
             onVideoBoundsListener?.invoke(left, top, right, bottom)
         }
+    }
+
+    private fun sanitizeMediaText(raw: String?, fallback: String? = null): String? {
+        val trimmed = raw?.take(100)?.replace(Regex("[\\r\\n\\t]"), " ")?.trim()
+        return trimmed?.takeIf { it.isNotBlank() } ?: fallback
+    }
+
+    private fun sanitizeArtworkUrl(rawUrl: String?): String? {
+        val trimmed = rawUrl?.take(500)?.trim() ?: return null
+        return if (trimmed.startsWith("http://", ignoreCase = true) ||
+            trimmed.startsWith("https://", ignoreCase = true) ||
+            trimmed.startsWith("data:image/", ignoreCase = true)
+        ) trimmed else null
     }
 
     @JavascriptInterface
@@ -205,11 +222,11 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         currentPositionMs = (positionSec * 1000).toLong().coerceAtLeast(0L)
         currentDurationMs = (durationSec * 1000).toLong().coerceAtLeast(0L)
 
-        val cleanTitle = title?.takeIf { it.isNotBlank() } ?: "Web Media"
-        val cleanArtist = artist?.takeIf { it.isNotBlank() } ?: "Onyx Browser"
+        val cleanTitle = sanitizeMediaText(title, "Web Media") ?: "Web Media"
+        val cleanArtist = sanitizeMediaText(artist, "Onyx Browser") ?: "Onyx Browser"
         currentTitle = cleanTitle
         currentArtist = cleanArtist
-        currentArtworkUrl = artworkUrl?.takeIf { it.isNotBlank() }
+        currentArtworkUrl = sanitizeArtworkUrl(artworkUrl)
 
         mainHandler.post {
             onMediaStateListener?.invoke(isPlaying, isVideo, lastVideoWidth, lastVideoHeight)
@@ -257,8 +274,8 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         isVideoPlaying = isVideo
         isAudioOrVideoPlaying = true
 
-        val cleanTitle = title?.takeIf { it.isNotBlank() } ?: "Web Media"
-        val cleanArtist = artist?.takeIf { it.isNotBlank() } ?: "Onyx Browser"
+        val cleanTitle = sanitizeMediaText(title, "Web Media") ?: "Web Media"
+        val cleanArtist = sanitizeMediaText(artist, "Onyx Browser") ?: "Onyx Browser"
         currentTitle = cleanTitle
         currentArtist = cleanArtist
 
@@ -343,9 +360,9 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaMetadata(title: String?, artist: String?, artworkUrl: String?) {
-        val cleanTitle = title?.takeIf { it.isNotBlank() }
-        val cleanArtist = artist?.takeIf { it.isNotBlank() }
-        val cleanArtwork = artworkUrl?.takeIf { it.isNotBlank() }
+        val cleanTitle = sanitizeMediaText(title)
+        val cleanArtist = sanitizeMediaText(artist)
+        val cleanArtwork = sanitizeArtworkUrl(artworkUrl)
 
         if (cleanTitle != null) currentTitle = cleanTitle
         if (cleanArtist != null) currentArtist = cleanArtist

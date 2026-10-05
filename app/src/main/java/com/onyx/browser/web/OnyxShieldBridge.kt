@@ -141,25 +141,36 @@ class OnyxShieldBridge(private val context: Context) {
         return preferences.getCustomBlockedCssForDomain(url)
     }
 
+    companion object {
+        private val DANGEROUS_CSS_PATTERN = Regex("[{}<>;@\\\\]|url\\s*\\(|expression\\s*\\(|javascript\\s*:|-moz-binding", RegexOption.IGNORE_CASE)
+    }
+
     @JavascriptInterface
     fun saveCustomCosmeticRules(domain: String?, selectorsJson: String?) {
-        val d = domain?.trim()?.lowercase() ?: return
+        // Enforce that the native Element Picker is active
+        if (!com.onyx.browser.ui.menu.ElementPickerManager.isPickerActive) return
+
+        val rawDomain = domain?.trim() ?: return
+        val cleanD = preferences.cleanDomain(rawDomain).lowercase()
+        if (cleanD.isBlank() || cleanD.contains("/") || cleanD.contains(":") || cleanD.contains("\\")) return
+
         val json = selectorsJson?.trim() ?: return
-        if (d.isBlank() || json.isBlank()) return
+        if (json.isBlank()) return
 
         try {
             val jsonArray = org.json.JSONArray(json)
             val selectors = mutableListOf<String>()
-            for (i in 0 until jsonArray.length()) {
+            val maxCount = jsonArray.length().coerceAtMost(50)
+            for (i in 0 until maxCount) {
                 val s = jsonArray.optString(i)?.trim()
-                if (!s.isNullOrBlank()) {
+                if (!s.isNullOrBlank() && s.length in 1..500 && !DANGEROUS_CSS_PATTERN.containsMatchIn(s)) {
                     selectors.add(s)
                 }
             }
             if (selectors.isEmpty()) return
 
             preferences.isBlockElementEnabled = true
-            preferences.addCustomBlockedSelectors(d, selectors)
+            preferences.addCustomBlockedSelectors(cleanD, selectors)
 
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                 try {
@@ -169,7 +180,6 @@ class OnyxShieldBridge(private val context: Context) {
 
             com.onyx.browser.ui.menu.ElementPickerManager.resetPickerState()
             Handler(Looper.getMainLooper()).post {
-                val cleanD = preferences.cleanDomain(d)
                 val msg = if (selectors.size == 1) {
                     "Blocked 1 element on $cleanD"
                 } else {
@@ -185,7 +195,7 @@ class OnyxShieldBridge(private val context: Context) {
     @JavascriptInterface
     fun saveCustomCosmeticRule(domain: String?, selector: String?) {
         val s = selector?.trim() ?: return
-        if (s.isBlank()) return
+        if (s.isBlank() || s.length > 500 || DANGEROUS_CSS_PATTERN.containsMatchIn(s)) return
         val escaped = org.json.JSONObject.quote(s)
         saveCustomCosmeticRules(domain, "[$escaped]")
     }

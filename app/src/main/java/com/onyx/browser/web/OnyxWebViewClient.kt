@@ -919,23 +919,29 @@ class OnyxWebViewClient(
                 selector = null
             }
 
+            fun resolveSafeWebUri(rawUrl: String?): Uri? {
+                if (rawUrl.isNullOrBlank()) return null
+                val parsed = try { Uri.parse(rawUrl.trim()) } catch (_: Exception) { null } ?: return null
+                val scheme = parsed.scheme?.lowercase() ?: return null
+                if (scheme != "http" && scheme != "https") return null
+                if (parsed.host.isNullOrBlank()) return null
+                return parsed
+            }
+
+            fun navigateSafeWebUri(uri: Uri) {
+                val target = uri.toString()
+                bypassAppInterceptUrls.add(target)
+                if (!handleUrlLoading(view, uri, isForMainFrame = true)) {
+                    view?.post { view.loadUrl(target) }
+                }
+            }
+
             if (preferences.isOpenLinksInAppEnabled) {
                 val fallbackAction: () -> Unit = {
-                    val fallbackUrl = intent.getStringExtra("browser_fallback_url")
-                    if (!fallbackUrl.isNullOrBlank() &&
-                        (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
-                        bypassAppInterceptUrls.add(fallbackUrl)
-                        view?.post { view.loadUrl(fallbackUrl) }
-                    } else {
-                        val dataUri = intent.data
-                        if (dataUri != null) {
-                            val dataScheme = dataUri.scheme?.lowercase()
-                            if (dataScheme == "http" || dataScheme == "https") {
-                                val target = dataUri.toString()
-                                bypassAppInterceptUrls.add(target)
-                                view?.post { view.loadUrl(target) }
-                            }
-                        }
+                    val fallbackUri = resolveSafeWebUri(intent.getStringExtra("browser_fallback_url"))
+                        ?: intent.data?.let { resolveSafeWebUri(it.toString()) }
+                    if (fallbackUri != null) {
+                        navigateSafeWebUri(fallbackUri)
                     }
                 }
 
@@ -947,21 +953,17 @@ class OnyxWebViewClient(
             }
 
             // 1st Fallback: browser_fallback_url extra
-            val fallbackUrl = intent.getStringExtra("browser_fallback_url")
-            if (!fallbackUrl.isNullOrBlank() &&
-                (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
-                view?.post { view.loadUrl(fallbackUrl) }
+            val fallbackUri = resolveSafeWebUri(intent.getStringExtra("browser_fallback_url"))
+            if (fallbackUri != null) {
+                navigateSafeWebUri(fallbackUri)
                 return true
             }
 
             // 2nd Fallback: intent's data if it is http/https
-            val dataUri = intent.data
+            val dataUri = intent.data?.let { resolveSafeWebUri(it.toString()) }
             if (dataUri != null) {
-                val dataScheme = dataUri.scheme?.lowercase()
-                if (dataScheme == "http" || dataScheme == "https") {
-                    view?.post { view.loadUrl(dataUri.toString()) }
-                    return true
-                }
+                navigateSafeWebUri(dataUri)
+                return true
             }
 
             // 3rd Fallback: explicit package -> Google Play Store
