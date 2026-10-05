@@ -9,10 +9,6 @@
 
 **Onyx Browser** (`com.onyx.browser`) is a fast, lightweight, and privacy-focused Android browser (Min SDK 26 / Android 8.0+, Target SDK 35 / Android 15).
 
-> [!IMPORTANT]
-> **CANONICAL GOLDEN ROLE MODEL MILESTONE: v1.0.247 (Commit `3bdca58`, Tag `v1.0.247` / `golden-reference-v1.0.247`)**:  
-> Release `v1.0.247` is the verified, battle-tested golden role model reference for Onyx Browser. All six critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops via untampered Blink prototype chain, Facebook login & Arkose FunCaptcha challenge completion with first-party telemetry unblocking and native Chrome environment polyfill, Facebook Reels/Shorts seamless feed navigation & autoplay without scroll refresh loops, and complete incognito vs normal tab profile-scoped session & cookie isolation) are 100% verified working. If any future changes break or regress these features, use `v1.0.247` (`3bdca58`) as the exact architectural reference.
-
 ### Architecture & Tech Stack
 - **Native Android UI**: Built with Kotlin and XML Views with ViewBinding (no Jetpack Compose for fast startup and low memory usage).
 - **Adblocking**: Brave's `adblock-rust` engine compiled via NDK into `libadblock_bridge.so` across all 4 ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`).
@@ -530,12 +526,9 @@ onyx-browser/
 
 ---
 
-## 7. Canonical Golden Role Model Milestone: v1.0.247 (Commit `3bdca58`, Tag `v1.0.247` / `golden-reference-v1.0.247`)
+## 7. Architecture Reference & Core Subsystems
 
-> [!IMPORTANT]
-> **CANONICAL GOLDEN ROLE MODEL REFERENCE**: Release `v1.0.247` (commit `3bdca58`, tag `v1.0.247` / `golden-reference-v1.0.247`) is the verified, battle-tested stable role model for Onyx Browser. All six critical subsystems (adblocking test suite parity with DOM honeypot & bait defuser, background audio/video playback without touch/UI freeze, zero Cloudflare Turnstile CAPTCHA loops, Facebook login & Arkose FunCaptcha verification in all modes, Facebook Reels/Shorts seamless feed navigation & autoplay without scroll refresh loops, and complete incognito session & cookie isolation via deferred multi-profile lifecycle) are 100% verified working. If any future changes break or regress these features, use `v1.0.247` (`3bdca58`) as the exact architectural reference.
-
-### Verified Golden Subsystems in v1.0.247
+### Verified Core Subsystems
 1. **Adblocking Engine & DOM Bait Defuser (100% Score on `superadblocktest.com`, `d3ward`, `adblock-tester.com` + Zero Anti-Adblock Bait Walls)**:
    - In-page `window.fetch` and `XMLHttpRequest` proxies in `AdBlockDocumentStart.kt` masked via `makeNative` (`function fetch() { [native code] }`). Blocked requests reject with `TypeError: Failed to fetch: net::ERR_BLOCKED_BY_CLIENT`.
    - `OnyxShieldBridge.isUrlBlocked(url, pageUrl)` provides synchronous query into Brave Rust NDK engine and standard ad domains.
