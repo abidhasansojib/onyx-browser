@@ -274,7 +274,18 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                         wv.clearCache(true)
                         wv.clearFormData()
                         wv.clearSslPreferences()
+                        // Reset OAuth grace period so cookie state is re-evaluated cleanly
+                        wv.lastOAuthInteractionTimestamp = 0L
                     }
+                } catch (_: Exception) {}
+
+                // Re-apply cookie settings on all active WebViews to restore a known-good
+                // state after clearing. This ensures the default CookieManager accepts
+                // first-party cookies (required for Facebook login to work immediately after clear).
+                try {
+                    // Ensure the default profile's CookieManager accepts cookies
+                    android.webkit.CookieManager.getInstance().setAcceptCookie(true)
+                    android.webkit.CookieManager.getInstance().flush()
                 } catch (_: Exception) {}
 
                 try {

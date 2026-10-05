@@ -46,7 +46,8 @@ class OnyxWebView @JvmOverloads constructor(
 
     fun isWithinOAuthGracePeriod(): Boolean {
         val elapsed = System.currentTimeMillis() - lastOAuthInteractionTimestamp
-        return elapsed in 0..120_000L
+        // 10 minutes grace — long enough for Facebook checkpoint/confirmation flows
+        return elapsed in 0..600_000L
     }
 
     @Volatile var pendingMainFrameUrl: String? = null
@@ -386,10 +387,12 @@ class OnyxWebView @JvmOverloads constructor(
     private fun applyCookieSettings() {
         try {
             if (isIncognito) {
-                // Incognito: allow first-party cookies so login works,
-                // block third-party by default (enabled temporarily during OAuth flows)
+                // Incognito: always accept first-party cookies so login works.
+                // Enable third-party cookies during active OAuth/auth flows (Facebook, Arkose,
+                // checkpoint confirmation), block them when fully outside any auth session.
                 cookieManager.setAcceptCookie(true)
-                cookieManager.setAcceptThirdPartyCookies(this, false)
+                val allow3pIncognito = isPopupTab || isWithinOAuthGracePeriod()
+                cookieManager.setAcceptThirdPartyCookies(this, allow3pIncognito)
             } else {
                 val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
                 when (prefs.cookieBlockingMode) {

@@ -733,6 +733,7 @@ class OnyxWebViewClient(
                 (view as? OnyxWebView)?.let { wv ->
                     wv.lastOAuthInteractionTimestamp = System.currentTimeMillis()
                     try {
+                        wv.cookieManager.setAcceptCookie(true)
                         wv.cookieManager.setAcceptThirdPartyCookies(view, true)
                     } catch (_: Exception) {}
                 }
@@ -1348,8 +1349,11 @@ class OnyxWebViewClient(
                 onyxWv?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
                 // Authentication and CAPTCHA flows (such as Facebook Arkose Labs FunCaptcha inside an iframe)
                 // strictly require cross-site cookies and storage access. Enable 3p cookies unconditionally during auth.
+                // This applies to BOTH normal and incognito tabs — Facebook's confirmation/checkpoint flows
+                // require 3p cookies regardless of tab mode.
                 val activeCm = onyxWv?.cookieManager ?: CookieManager.getInstance()
                 try {
+                    activeCm.setAcceptCookie(true)
                     activeCm.setAcceptThirdPartyCookies(view, true)
                     activeCm.flush()
                 } catch (_: Exception) {}
@@ -1357,18 +1361,23 @@ class OnyxWebViewClient(
                 val allowThirdPartyCookies = isPopup || isWithinGrace ||
                         preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_NONE
 
-                if (!(onyxWv?.isIncognito ?: false)) {
-                    val activeCm = onyxWv?.cookieManager ?: CookieManager.getInstance()
-                    if (allowThirdPartyCookies) {
-                        try {
-                            activeCm.setAcceptThirdPartyCookies(view, true)
-                        } catch (_: Exception) {}
-                    } else if (preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY) {
-                        // Restore third-party blocking only when completely outside any auth session or popup context
-                        try {
-                            activeCm.setAcceptThirdPartyCookies(view, false)
-                        } catch (_: Exception) {}
-                    }
+                // Apply for both normal and incognito tabs — when outside auth/grace period,
+                // incognito should restore to its default state (3p blocked)
+                val activeCm = onyxWv?.cookieManager ?: CookieManager.getInstance()
+                if (allowThirdPartyCookies) {
+                    try {
+                        activeCm.setAcceptThirdPartyCookies(view, true)
+                    } catch (_: Exception) {}
+                } else if (onyxWv?.isIncognito == true) {
+                    // Incognito outside grace period: block 3p cookies by default
+                    try {
+                        activeCm.setAcceptThirdPartyCookies(view, false)
+                    } catch (_: Exception) {}
+                } else if (preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY) {
+                    // Normal tab: restore third-party blocking only when completely outside any auth session or popup context
+                    try {
+                        activeCm.setAcceptThirdPartyCookies(view, false)
+                    } catch (_: Exception) {}
                 }
             }
 
