@@ -83,7 +83,7 @@ object DownloadNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val pauseIntent = PendingIntent.getService(
+        val pauseIntent = getServicePendingIntent(
             context,
             task.notificationId * 4 + 1,
             Intent(context, OnyxDownloadService::class.java).apply {
@@ -93,7 +93,7 @@ object DownloadNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val cancelIntent = PendingIntent.getService(
+        val cancelIntent = getServicePendingIntent(
             context,
             task.notificationId * 4 + 2,
             Intent(context, OnyxDownloadService::class.java).apply {
@@ -136,7 +136,7 @@ object DownloadNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val resumeIntent = PendingIntent.getService(
+        val resumeIntent = getServicePendingIntent(
             context,
             task.notificationId * 4 + 3,
             Intent(context, OnyxDownloadService::class.java).apply {
@@ -146,7 +146,7 @@ object DownloadNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val cancelIntent = PendingIntent.getService(
+        val cancelIntent = getServicePendingIntent(
             context,
             task.notificationId * 4 + 2,
             Intent(context, OnyxDownloadService::class.java).apply {
@@ -290,7 +290,7 @@ object DownloadNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val retryIntent = PendingIntent.getService(
+        val retryIntent = getServicePendingIntent(
             context,
             task.notificationId * 4 + 3,
             Intent(context, OnyxDownloadService::class.java).apply {
@@ -323,5 +323,18 @@ object DownloadNotificationHelper {
         val m = seconds / 60
         val s = seconds % 60
         return if (m > 0) "${m}m ${s}s" else "${s}s"
+    }
+
+    private fun getServicePendingIntent(
+        context: Context,
+        requestCode: Int,
+        intent: Intent,
+        flags: Int
+    ): PendingIntent {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(context, requestCode, intent, flags)
+        } else {
+            PendingIntent.getService(context, requestCode, intent, flags)
+        }
     }
 }

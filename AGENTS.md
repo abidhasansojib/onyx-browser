@@ -146,6 +146,13 @@ onyx-browser/
 - **Touch Dynamics & Micro-Timing Preservation**: Touch event listeners on `document` with capture phase are suppressed in challenge iframes, eliminating DOM traversal and Java bridge IPC latency so Arkose's sensor telemetry records authentic human touch gesture dynamics.
 - **Cross-Site Cookie Assurance**: `OnyxWebViewClient.shouldInterceptRequest` automatically sets and flushes third-party cookies on active auth/CAPTCHA resources, preventing dropped session cookies between `fbsbx.com` and `facebook.com`.
 
+### 4.5. Subsystem Reliability & Hardening
+- **Media Playback Lifecycle Guarding**: `MediaPlaybackService` tracks `@Volatile var isServiceRunning: Boolean` ensuring `updateState`, `updateProgress`, and `updateMetadata` never invoke `startForegroundService` when the service is inactive or media is paused, eliminating Android 12+ `ForegroundServiceStartNotAllowedException` crashes.
+- **Notification Action Foreground Service Intents**: `DownloadNotificationHelper` and `MediaPlaybackService` build action PendingIntents via `PendingIntent.getForegroundService()` on Android 8.0+ (`Build.VERSION_CODES.O`), avoiding background service start exceptions when actions (Pause, Resume, Retry) are tapped from the notification shade.
+- **Find-in-Page UI & Regex Escaping**: `FindInPageController` hooks `setRegexFindListener` to update match indicators in real-time, while `RegexFindBridge` quotes query literals via `JSONObject.quote()` and guarantees bidirectional highlight clearing via `webView.clearMatches()`.
+- **Content Filter HTTP Redirect Resilience**: `FilterListManager.downloadFilterList()` supports up to 5 redirect hops across schemes and 3xx codes with base URL resolution, preventing mirror update failures.
+- **SQLCipher KeyStore Recovery Assurance**: `AppDatabase.buildEncryptedDatabase()` eagerly invokes `openHelper.writableDatabase` so any KeyStore reset or passphrase discrepancy triggers recovery catch blocks immediately during database creation.
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents

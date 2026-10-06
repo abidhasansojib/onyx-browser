@@ -86,6 +86,11 @@ abstract class AppDatabase : RoomDatabase() {
                         .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                         .fallbackToDestructiveMigration()
                         .build()
+                        .also {
+                            try {
+                                it.openHelper.writableDatabase
+                            } catch (_: Exception) {}
+                        }
                 }
             }
         }
@@ -98,7 +103,7 @@ abstract class AppDatabase : RoomDatabase() {
             val passphrase = SecureDatabaseKeyProvider.getOrCreatePassphrase(context)
             val factory = SupportFactory(passphrase)
 
-            return Room.databaseBuilder(
+            val db = Room.databaseBuilder(
                 context,
                 AppDatabase::class.java,
                 "onyx_browser_secure.db"
@@ -107,6 +112,12 @@ abstract class AppDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .fallbackToDestructiveMigration()
                 .build()
+
+            // Eagerly verify SQLCipher database can be opened and decrypted with current passphrase.
+            // If KeyStore key was lost or reset, this throws SQLiteException so buildDatabase recovery triggers.
+            db.openHelper.writableDatabase
+
+            return db
         }
     }
 }

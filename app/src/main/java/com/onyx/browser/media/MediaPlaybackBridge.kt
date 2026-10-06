@@ -243,7 +243,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
                     currentDurationMs,
                     true
                 )
-            } else if (!isPlaying) {
+            } else if (!isPlaying && MediaPlaybackService.isServiceRunning) {
                 MediaPlaybackService.updateState(context, false, currentPositionMs, currentDurationMs)
             }
         }

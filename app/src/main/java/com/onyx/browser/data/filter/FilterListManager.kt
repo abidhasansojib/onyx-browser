@@ -883,36 +883,60 @@ object FilterListManager {
     }
 
     private fun downloadFilterList(sourceUrl: String, targetFile: File) {
-        val url = URL(sourceUrl)
-        val conn = url.openConnection() as HttpURLConnection
-        conn.connectTimeout = 12000
-        conn.readTimeout = 20000
-        conn.requestMethod = "GET"
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14; OnyxBrowser)")
-        conn.connect()
+        var currentUrl = sourceUrl
+        var redirects = 0
+        val maxRedirects = 5
 
-        if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-            val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
-            try {
-                conn.inputStream.use { input ->
-                    FileOutputStream(tempFile).use { output ->
-                        input.copyTo(output)
-                    }
+        while (redirects < maxRedirects) {
+            val url = URL(currentUrl)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.instanceFollowRedirects = false
+            conn.connectTimeout = 12000
+            conn.readTimeout = 20000
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14; OnyxBrowser)")
+            conn.connect()
+
+            val code = conn.responseCode
+            if (code in 300..399) {
+                val location = conn.getHeaderField("Location")
+                conn.disconnect()
+                if (location.isNullOrBlank()) {
+                    throw Exception("HTTP $code redirect without Location header")
                 }
-                if (tempFile.exists() && tempFile.length() > 0) {
-                    if (targetFile.exists()) targetFile.delete()
-                    if (!tempFile.renameTo(targetFile)) {
-                        tempFile.copyTo(targetFile, overwrite = true)
-                        tempFile.delete()
-                    }
-                }
-            } catch (e: Exception) {
-                try { tempFile.delete() } catch (_: Exception) {}
-                throw e
+                currentUrl = URL(url, location).toExternalForm()
+                redirects++
+                continue
             }
-        } else {
-            throw Exception("HTTP ${conn.responseCode}")
+
+            if (code == HttpURLConnection.HTTP_OK) {
+                val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
+                try {
+                    conn.inputStream.use { input ->
+                        FileOutputStream(tempFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    if (tempFile.exists() && tempFile.length() > 0) {
+                        if (targetFile.exists()) targetFile.delete()
+                        if (!tempFile.renameTo(targetFile)) {
+                            tempFile.copyTo(targetFile, overwrite = true)
+                            tempFile.delete()
+                        }
+                    }
+                    return
+                } catch (e: Exception) {
+                    try { tempFile.delete() } catch (_: Exception) {}
+                    throw e
+                } finally {
+                    conn.disconnect()
+                }
+            } else {
+                conn.disconnect()
+                throw Exception("HTTP $code")
+            }
         }
+        throw Exception("Too many redirects downloading filter list: $sourceUrl")
     }
 
     /**

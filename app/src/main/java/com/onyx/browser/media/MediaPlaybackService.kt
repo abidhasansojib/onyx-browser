@@ -73,6 +73,7 @@ class MediaPlaybackService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isServiceRunning = true
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
         wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OnyxBrowser:MediaWakeLock")
@@ -350,6 +351,25 @@ class MediaPlaybackService : Service() {
         mediaSession.setMetadata(metadataBuilder.build())
     }
 
+    private fun getMediaPendingIntent(requestCode: Int, actionName: String): PendingIntent {
+        val intent = Intent(this, MediaPlaybackService::class.java).apply { action = actionName }
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(
+                this,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        } else {
+            PendingIntent.getService(
+                this,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
+    }
+
     private fun buildNotification(): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -361,44 +381,19 @@ class MediaPlaybackService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val rewindIntent = PendingIntent.getService(
-            this,
-            1,
-            Intent(this, MediaPlaybackService::class.java).apply { action = ACTION_REWIND },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val rewindIntent = getMediaPendingIntent(1, ACTION_REWIND)
 
         val playPauseAction = if (isMediaPlaying) {
-            val pauseIntent = PendingIntent.getService(
-                this,
-                2,
-                Intent(this, MediaPlaybackService::class.java).apply { action = ACTION_PAUSE },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+            val pauseIntent = getMediaPendingIntent(2, ACTION_PAUSE)
             NotificationCompat.Action.Builder(R.drawable.ic_pause, "Pause", pauseIntent).build()
         } else {
-            val playIntent = PendingIntent.getService(
-                this,
-                2,
-                Intent(this, MediaPlaybackService::class.java).apply { action = ACTION_PLAY },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+            val playIntent = getMediaPendingIntent(2, ACTION_PLAY)
             NotificationCompat.Action.Builder(R.drawable.ic_play_arrow, "Play", playIntent).build()
         }
 
-        val forwardIntent = PendingIntent.getService(
-            this,
-            3,
-            Intent(this, MediaPlaybackService::class.java).apply { action = ACTION_FORWARD },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val forwardIntent = getMediaPendingIntent(3, ACTION_FORWARD)
 
-        val stopIntent = PendingIntent.getService(
-            this,
-            4,
-            Intent(this, MediaPlaybackService::class.java).apply { action = ACTION_STOP },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val stopIntent = getMediaPendingIntent(4, ACTION_STOP)
 
         val largeIcon = currentArtworkBitmap ?: try {
             BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
@@ -486,6 +481,7 @@ class MediaPlaybackService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isServiceRunning = false
         try {
             unregisterReceiver(screenStateReceiver)
         } catch (_: Exception) {}
@@ -526,6 +522,7 @@ class MediaPlaybackService : Service() {
         const val EXTRA_POSITION = "extra_media_position"
         const val EXTRA_DURATION = "extra_media_duration"
 
+        @Volatile var isServiceRunning: Boolean = false
         @Volatile var isMediaPlaying: Boolean = false
         @Volatile var currentTitle: String = "Web Media"
         @Volatile var currentArtist: String = "Onyx Browser"
@@ -551,6 +548,7 @@ class MediaPlaybackService : Service() {
             currentPositionMs = positionMs
             currentDurationMs = durationMs
             isMediaPlaying = isPlaying
+            isServiceRunning = true
 
             val intent = Intent(context, MediaPlaybackService::class.java).apply {
                 putExtra(EXTRA_TITLE, currentTitle)
@@ -587,6 +585,10 @@ class MediaPlaybackService : Service() {
             if (!artist.isNullOrBlank()) currentArtist = artist
             if (!artworkUrl.isNullOrBlank()) currentArtworkUrl = artworkUrl
 
+            if (!isServiceRunning && !isPlaying) {
+                return
+            }
+
             val intent = Intent(context, MediaPlaybackService::class.java).apply {
                 action = ACTION_UPDATE_STATE
                 putExtra(EXTRA_IS_PLAYING, isPlaying)
@@ -610,6 +612,8 @@ class MediaPlaybackService : Service() {
         fun updateProgress(context: Context, positionMs: Long, durationMs: Long) {
             currentPositionMs = positionMs
             currentDurationMs = durationMs
+
+            if (!isServiceRunning) return
 
             val intent = Intent(context, MediaPlaybackService::class.java).apply {
                 action = ACTION_UPDATE_PROGRESS
@@ -635,6 +639,8 @@ class MediaPlaybackService : Service() {
             currentPositionMs = positionMs
             currentDurationMs = durationMs
 
+            if (!isServiceRunning && !isMediaPlaying) return
+
             val intent = Intent(context, MediaPlaybackService::class.java).apply {
                 action = ACTION_UPDATE_STATE
                 putExtra(EXTRA_IS_PLAYING, isMediaPlaying)
@@ -655,6 +661,7 @@ class MediaPlaybackService : Service() {
 
         fun stop(context: Context) {
             isMediaPlaying = false
+            isServiceRunning = false
             currentArtworkBitmap = null
             currentTitle = "Web Media"
             currentArtist = "Onyx Browser"

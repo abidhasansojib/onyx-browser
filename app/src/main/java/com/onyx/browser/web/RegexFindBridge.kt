@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class RegexFindBridge(
     private val webView: WebView,
@@ -16,6 +17,7 @@ class RegexFindBridge(
 
     fun setRegexMode(enabled: Boolean) {
         isRegexMode = enabled
+        clearMatches()
     }
 
     fun getRegexMode(): Boolean {
@@ -28,6 +30,8 @@ class RegexFindBridge(
             return
         }
 
+        val quotedQuery = JSONObject.quote(query)
+
         // Inject and execute JS for Regex finding
         val js = """
             (function() {
@@ -35,18 +39,21 @@ class RegexFindBridge(
                 const existing = document.querySelectorAll('mark.onyx-regex-highlight');
                 existing.forEach(el => {
                     const parent = el.parentNode;
-                    parent.replaceChild(document.createTextNode(el.textContent), el);
-                    parent.normalize();
+                    if (parent) {
+                        parent.replaceChild(document.createTextNode(el.textContent), el);
+                        parent.normalize();
+                    }
                 });
 
-                if (!"$query") {
+                const queryStr = $quotedQuery;
+                if (!queryStr) {
                     window.RegexFindBridge.reportResult(0, 0);
                     return;
                 }
 
                 let regex;
                 try {
-                    regex = new RegExp("$query", "gi");
+                    regex = new RegExp(queryStr, "gi");
                 } catch(e) {
                     window.RegexFindBridge.reportResult(0, 0);
                     return;
@@ -92,10 +99,12 @@ class RegexFindBridge(
                             }
                             
                             const parent = node.parentNode;
-                            fragments.forEach(frag => {
-                                parent.insertBefore(frag, node);
-                            });
-                            parent.removeChild(node);
+                            if (parent) {
+                                fragments.forEach(frag => {
+                                    parent.insertBefore(frag, node);
+                                });
+                                parent.removeChild(node);
+                            }
                         }
                     } else if (node.nodeType === 1 && node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE' && node.nodeName !== 'MARK') {
                         // avoid changing DOM while iterating childNodes by copying them to an array
@@ -109,24 +118,24 @@ class RegexFindBridge(
                 window.onyxRegexMatchCount = matchCount;
                 window.onyxRegexActiveIndex = matchCount > 0 ? 1 : 0;
                 
-                if (matchCount > 0) {
-                    highlightActive();
+                window.onyxHighlightActive = function() {
+                    const marks = document.querySelectorAll('mark.onyx-regex-highlight');
+                    marks.forEach(el => {
+                        el.style.backgroundColor = 'yellow';
+                    });
+                    
+                    const active = document.getElementById('onyx-regex-match-' + window.onyxRegexActiveIndex);
+                    if (active) {
+                        active.style.backgroundColor = 'orange';
+                        active.scrollIntoView({behavior: 'smooth', block: 'center'});
+                    }
+                };
+
+                if (matchCount > 0 && typeof window.onyxHighlightActive === 'function') {
+                    window.onyxHighlightActive();
                 }
                 window.RegexFindBridge.reportResult(window.onyxRegexActiveIndex, window.onyxRegexMatchCount);
             })();
-            
-            function highlightActive() {
-                const existing = document.querySelectorAll('mark.onyx-regex-highlight');
-                existing.forEach(el => {
-                    el.style.backgroundColor = 'yellow';
-                });
-                
-                const active = document.getElementById('onyx-regex-match-' + window.onyxRegexActiveIndex);
-                if (active) {
-                    active.style.backgroundColor = 'orange';
-                    active.scrollIntoView({behavior: 'smooth', block: 'center'});
-                }
-            }
         """.trimIndent()
 
         webView.evaluateJavascript(js, null)
@@ -152,7 +161,9 @@ class RegexFindBridge(
                             window.onyxRegexActiveIndex = window.onyxRegexMatchCount;
                         }
                     }
-                    highlightActive();
+                    if (typeof window.onyxHighlightActive === 'function') {
+                        window.onyxHighlightActive();
+                    }
                     window.RegexFindBridge.reportResult(window.onyxRegexActiveIndex, window.onyxRegexMatchCount);
                 }
             })();
@@ -161,16 +172,16 @@ class RegexFindBridge(
     }
     
     fun clearMatches() {
-        if (!isRegexMode) {
-            webView.clearMatches()
-        }
+        webView.clearMatches()
         val js = """
             (function() {
                 const existing = document.querySelectorAll('mark.onyx-regex-highlight');
                 existing.forEach(el => {
                     const parent = el.parentNode;
-                    parent.replaceChild(document.createTextNode(el.textContent), el);
-                    parent.normalize();
+                    if (parent) {
+                        parent.replaceChild(document.createTextNode(el.textContent), el);
+                        parent.normalize();
+                    }
                 });
                 window.onyxRegexMatchCount = 0;
                 window.onyxRegexActiveIndex = 0;

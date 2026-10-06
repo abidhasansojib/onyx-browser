@@ -43,6 +43,8 @@ class FindInPageController(
             val query = binding.etFindQuery.text?.toString()?.trim() ?: ""
             if (query.isNotEmpty()) {
                 webView?.regexFindBridge?.find(query)
+            } else {
+                binding.tvFindMatches.text = activity.getString(R.string.no_matches)
             }
         }
 
@@ -83,10 +85,22 @@ class FindInPageController(
         binding.tvFindMatches.text = activity.getString(R.string.no_matches)
 
         webView.setFindListener { activeMatchOrdinal, numberOfMatches, _ ->
-            if (numberOfMatches > 0) {
-                binding.tvFindMatches.text = activity.getString(R.string.matches_count, activeMatchOrdinal + 1, numberOfMatches)
-            } else {
-                binding.tvFindMatches.text = activity.getString(R.string.no_matches)
+            if (!isRegexFindEnabled) {
+                if (numberOfMatches > 0) {
+                    binding.tvFindMatches.text = activity.getString(R.string.matches_count, activeMatchOrdinal + 1, numberOfMatches)
+                } else {
+                    binding.tvFindMatches.text = activity.getString(R.string.no_matches)
+                }
+            }
+        }
+
+        webView.setRegexFindListener { activeIndex, matchCount ->
+            if (isRegexFindEnabled) {
+                if (matchCount > 0) {
+                    binding.tvFindMatches.text = activity.getString(R.string.matches_count, activeIndex, matchCount)
+                } else {
+                    binding.tvFindMatches.text = activity.getString(R.string.no_matches)
+                }
             }
         }
 
@@ -97,7 +111,9 @@ class FindInPageController(
 
     fun hide() {
         binding.findInPageBar.visibility = View.GONE
-        getActiveWebView()?.regexFindBridge?.clearMatches()
+        val webView = getActiveWebView()
+        webView?.regexFindBridge?.clearMatches()
+        webView?.setRegexFindListener { _, _ -> }
         val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(binding.etFindQuery.windowToken, 0)
         binding.etFindQuery.setText("")
