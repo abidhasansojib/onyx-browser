@@ -9912,6 +9912,7 @@ google.com##.Ryrdad:has-text(Please help us improve)
 developer.android.com##.devsite-snackbar-snack:has-text(Please help us)
 www.google.com##[aria-describedby="promo_desc_id"]:has-text(/Time for a new laptop|Gemini, |Choose Chrome|built by Google|Search differently|Cherchez différemment|Search just got easier|Try more ways|Switch to Chrome/)
 chromewebstore.google.com##[aria-label="Info"]:has-text(Switch to Chrome)
+chromewebstore.google.com##div[jscontroller]:has-text(Install Chrome)
 www.google.com##[aria-describedby="promo_desc_id"]:has-text(Keep things dark)
 google.com##[jscontroller="HCSvae"]:has-text(Sign in to Google)
 chromewebstore.google.com##[role="dialog"][aria-labelledby="promo-header"]
@@ -39714,7 +39715,6 @@ omni.soundestlink.com$image
 ||ediemidnightzombies.com^
 ||efreecode.com^
 ||egoi.site^
-||emrld.cc^
 ||entail-insights.com^
 ||enterombacerick.com^
 ||enthusiastgaming.net^
@@ -42899,6 +42899,7 @@ omni.soundestlink.com$image
 ||aquaticowl.com^
 ||archswimming.com^
 ||arclet.net^
+||ariaclean.com^
 ||aromamirror.com^
 ||arrivegrowth.com^
 ||artbranch.net^
@@ -43199,6 +43200,7 @@ omni.soundestlink.com$image
 ||cinemabonus.com^
 ||cinemafair.com^
 ||circlelevel.com^
+||citizensactive.com^
 ||citydeal.net^
 ||clammychicken.com^
 ||clarifyverse.com^
@@ -47431,6 +47433,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||egmontpublishing.dk/tracking/
 ||elpais.com/t.gif
 ||emarketeer.com/tracker/
+||emrld.cc^$script
 ||enc-90128738.b-cdn.net^
 ||endorsal.io/check/
 ||engagelab.com/ma-report/
@@ -48442,6 +48445,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||pixel.wp.com^
 ||pixel.yabidos.com^
 ||pixel.yola.com^
+||pixel2.realclever.com^
 ||pixels.afcdn.com^
 ||pixels.zalify.com^
 ||pixlee.com/assets/fp.js
@@ -52211,6 +52215,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||lowes.com/gauge/
 ||lowes.com/pharos/api/webTelemetry?
 ||lucida.su/api/event
+||lycos.com/analytics.js
 ||lyft.com/api/track
 ||lyngsat.com/system/loadclick.js
 ||m.facebook.com/ajax/weblite_resources_timing_logging/
@@ -76810,7 +76815,7 @@ aliexpress.com,aliexpress.ru,aliexpress.us##+js(set, navigator.bluetooth, undefi
 @@||realestate.yahoo.co.jp/buy/assets/pages/shared/services/LoggingService.js$~third-party
 @@||rt.rtoaster.jp^$image,domain=ec-store.net
 @@||rtoaster.jp/Rtoaster.js$domain=peachjohn.co.jp|satofull.jp
-@@||rtoaster.jp^$script,domain=cecile.co.jp|ec-store.net|jreastmall.com|lexus.jp|melonbooks.co.jp
+@@||rtoaster.jp^$script,domain=cecile.co.jp|ec-store.net|jreastmall.com|lexus.jp|melonbooks.co.jp|nitori-net.jp
 @@||s.yimg.jp/images/listing/tool/cv/ytag.js$domain=redstoneonline.jp|store-jp.nintendo.com
 @@||s.yjtag.jp/tag.js$script,domain=baseball.yahoo.co.jp|bousai.yahoo.co.jp|soccer.yahoo.co.jp|www.epson.jp
 @@||sail-horizon.com/spm/spm.v1.min.js$script,domain=voguegirl.jp
@@ -76853,6 +76858,7 @@ aliexpress.com,aliexpress.ru,aliexpress.us##+js(set, navigator.bluetooth, undefi
 @@||d.tailtarget.com/profiles.js$domain=superesportes.com.br
 @@||google-analytics.com/urchin.js$domain=record.xl.pt
 @@||players.fichub.com/plugins/adobe/$domain=24kitchen.pt
+@@||sdk-analytics-web.cloud.itau.com.br/index.js$script,domain=meu.userede.com.br
 @@||serasaexperian.com.br/dist/scripts/fingerprint2.js$~third-party
 @@||sibs.com/fingerprint/sfp2/fp2.min.js$script,domain=net24.bancomontepio.pt
 @@||siteapps.com^$script,domain=netcombo.com.br
