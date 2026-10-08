@@ -34514,6 +34514,7 @@ usnews.com##+js(set, Object.prototype.vjsPlayer.ads, noopFunc)
 @@||privacy-mgmt.com^$script,domain=wunderweib.de
 @@||privacy-mgmt.com^$script,domain=praxisvita.de
 @@||cdn.playwire.com/bolt/js/zeus/embed.js$script,domain=neopets.com
+neopets.com#@##ad-overlay
 @@||lubin.pl^$cname
 @@||ze.tt/wp-content/plugins/zett-cmp/dist/sourcepoint.js$script,1p
 @@||sp-prod.net/wrapperMessagingWithoutDetection.js$script,domain=ze.tt
@@ -43053,6 +43054,7 @@ omni.soundestlink.com$image
 ||boomboomcloud.com^
 ||boostbehavior.com^
 ||boredcrown.com^
+||borefee.com^
 ||boringberry.com^
 ||boringpirate.com^
 ||bouncyproperty.com^
@@ -43219,6 +43221,7 @@ omni.soundestlink.com$image
 ||cloudninefresh.com^
 ||cloverkeys.com^
 ||clumsycar.com^
+||clutchcourses.com^
 ||coalkitchen.com^
 ||coastersim.com^
 ||coatfood.com^
