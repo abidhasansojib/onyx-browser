@@ -18,6 +18,7 @@ class OnyxWebChromeClient(
     private val onFileChooserCallback: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null,
     private val onGeolocationPromptCallback: ((String?, GeolocationPermissions.Callback?) -> Unit)? = null,
     private val onPermissionRequestCallback: ((PermissionRequest?) -> Unit)? = null,
+    private val onPermissionRequestCanceledCallback: ((PermissionRequest?) -> Unit)? = null,
     private val onCreateWindowCallback: ((WebView?, Boolean, Boolean, android.os.Message?) -> Boolean)? = null,
     private val onCloseWindowCallback: ((WebView?) -> Unit)? = null
 ) : WebChromeClient() {
@@ -74,6 +75,14 @@ class OnyxWebChromeClient(
             onPermissionRequestCallback.invoke(request)
         } else {
             super.onPermissionRequest(request)
+        }
+    }
+
+    override fun onPermissionRequestCanceled(request: PermissionRequest?) {
+        if (onPermissionRequestCanceledCallback != null) {
+            onPermissionRequestCanceledCallback.invoke(request)
+        } else {
+            super.onPermissionRequestCanceled(request)
         }
     }
 

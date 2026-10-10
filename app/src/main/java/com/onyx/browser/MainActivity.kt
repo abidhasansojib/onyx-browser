@@ -32,8 +32,10 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.provider.MediaStore
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.FrameLayout
@@ -208,61 +210,352 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         pendingGeoCallback = null
     }
 
-    private var pendingWebMediaRequest: PermissionRequest? = null
-    private val webMediaPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val micGranted = permissions[Manifest.permission.RECORD_AUDIO] == true
-        val camGranted = permissions[Manifest.permission.CAMERA] == true
-        val grantedList = mutableListOf<String>()
-        if (micGranted) grantedList.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-        if (camGranted) grantedList.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-
-        if (grantedList.isNotEmpty()) {
-            pendingWebMediaRequest?.grant(grantedList.toTypedArray())
-        } else {
-            pendingWebMediaRequest?.deny()
+    private fun handleGeolocationPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
+        if (origin == null || callback == null) return
+        val host = try {
+            Uri.parse(origin).host?.takeIf { it.isNotBlank() } ?: origin
+        } catch (_: Exception) {
+            origin
         }
-        pendingWebMediaRequest = null
+
+        if (isFinishing || isDestroyed) {
+            callback.invoke(origin, false, false)
+            return
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Location Permission")
+            .setMessage("\"$host\" wants to access your location.")
+            .setPositiveButton("Allow") { _, _ ->
+                val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                if (fine || coarse) {
+                    callback.invoke(origin, true, false)
+                } else {
+                    pendingGeoOrigin = origin
+                    pendingGeoCallback = callback
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                }
+            }
+            .setNegativeButton("Block") { _, _ ->
+                callback.invoke(origin, false, false)
+            }
+            .setOnCancelListener {
+                callback.invoke(origin, false, false)
+            }
+            .show()
     }
 
-    private fun handleGeolocationPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
-        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (fine || coarse) {
-            callback?.invoke(origin, true, false)
+    private var pendingWebMediaRequest: PermissionRequest? = null
+    private var pendingWebMediaResources: Array<String>? = null
+    private var pendingWebMediaNeedsAudio: Boolean = false
+    private var pendingWebMediaNeedsVideo: Boolean = false
+
+    private val webMediaPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        val request = pendingWebMediaRequest
+        val allResources = pendingWebMediaResources
+        val needsAudio = pendingWebMediaNeedsAudio
+        val needsVideo = pendingWebMediaNeedsVideo
+
+        pendingWebMediaRequest = null
+        pendingWebMediaResources = null
+        pendingWebMediaNeedsAudio = false
+        pendingWebMediaNeedsVideo = false
+
+        if (request == null || allResources == null) return@registerForActivityResult
+
+        val audioGranted = !needsAudio || ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val videoGranted = !needsVideo || ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
+        val grantedList = mutableListOf<String>()
+        if (needsAudio && audioGranted) {
+            grantedList.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+        }
+        if (needsVideo && videoGranted) {
+            grantedList.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+        }
+        for (res in allResources) {
+            if (res != PermissionRequest.RESOURCE_AUDIO_CAPTURE && res != PermissionRequest.RESOURCE_VIDEO_CAPTURE) {
+                grantedList.add(res)
+            }
+        }
+
+        if (grantedList.isNotEmpty()) {
+            try {
+                request.grant(grantedList.toTypedArray())
+            } catch (e: Exception) {
+                android.util.Log.e("OnyxPermissions", "Failed to grant web media permissions", e)
+            }
         } else {
-            pendingGeoOrigin = origin
-            pendingGeoCallback = callback
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
+            try {
+                request.deny()
+            } catch (_: Exception) {}
         }
     }
 
     private fun handleWebPermissionRequest(request: PermissionRequest?) {
         if (request == null) return
-        val resources = request.resources
-        val needed = mutableListOf<String>()
-        if (resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                needed.add(Manifest.permission.RECORD_AUDIO)
-            }
+        val resources = request.resources ?: emptyArray()
+        if (resources.isEmpty()) {
+            try { request.deny() } catch (_: Exception) {}
+            return
         }
-        if (resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                needed.add(Manifest.permission.CAMERA)
+
+        val needsAudio = resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+        val needsVideo = resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+
+        // If no hardware sensors (microphone/camera) requested (e.g. Protected Media ID), grant directly
+        if (!needsAudio && !needsVideo) {
+            try {
+                request.grant(resources)
+            } catch (_: Exception) {}
+            return
+        }
+
+        val origin = request.origin?.toString() ?: ""
+        val host = try {
+            val uri = Uri.parse(origin)
+            uri.host?.takeIf { it.isNotBlank() } ?: origin
+        } catch (_: Exception) {
+            origin
+        }
+
+        val permissionDesc = when {
+            needsAudio && needsVideo -> "camera and microphone"
+            needsAudio -> "microphone"
+            needsVideo -> "camera"
+            else -> "media devices"
+        }
+
+        if (isFinishing || isDestroyed) {
+            try { request.deny() } catch (_: Exception) {}
+            return
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Website Permission")
+            .setMessage("\"$host\" wants to use your $permissionDesc.")
+            .setPositiveButton("Allow") { _, _ ->
+                grantWebMediaPermission(request, needsAudio, needsVideo, resources)
+            }
+            .setNegativeButton("Block") { _, _ ->
+                try {
+                    request.deny()
+                } catch (_: Exception) {}
+            }
+            .setOnCancelListener {
+                try {
+                    request.deny()
+                } catch (_: Exception) {}
+            }
+            .show()
+    }
+
+    private fun grantWebMediaPermission(
+        request: PermissionRequest,
+        needsAudio: Boolean,
+        needsVideo: Boolean,
+        allResources: Array<String>
+    ) {
+        val hasAudio = !needsAudio || ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val hasVideo = !needsVideo || ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
+        if (hasAudio && hasVideo) {
+            try {
+                request.grant(allResources)
+            } catch (_: Exception) {}
+        } else {
+            val neededOs = mutableListOf<String>()
+            if (needsAudio && !hasAudio) neededOs.add(Manifest.permission.RECORD_AUDIO)
+            if (needsVideo && !hasVideo) neededOs.add(Manifest.permission.CAMERA)
+
+            pendingWebMediaRequest = request
+            pendingWebMediaResources = allResources
+            pendingWebMediaNeedsAudio = needsAudio
+            pendingWebMediaNeedsVideo = needsVideo
+
+            webMediaPermissionLauncher.launch(neededOs.toTypedArray())
+        }
+    }
+
+    private fun handleWebPermissionRequestCanceled(request: PermissionRequest?) {
+        if (request != null && pendingWebMediaRequest == request) {
+            pendingWebMediaRequest = null
+            pendingWebMediaResources = null
+            pendingWebMediaNeedsAudio = false
+            pendingWebMediaNeedsVideo = false
+        }
+    }
+
+    // ── File Chooser Subsystem (File uploads, Gallery selection & Photo capture) ──
+    private var pendingFilePathCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingCameraPhotoUri: Uri? = null
+    private var pendingCameraPhotoFile: File? = null
+
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val callback = pendingFilePathCallback
+        val photoUri = pendingCameraPhotoUri
+        val photoFile = pendingCameraPhotoFile
+
+        pendingFilePathCallback = null
+        pendingCameraPhotoUri = null
+        pendingCameraPhotoFile = null
+
+        if (callback == null) {
+            photoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
+            return@registerForActivityResult
+        }
+
+        if (result.resultCode == Activity.RESULT_OK) {
+            val results = mutableListOf<Uri>()
+
+            // 1. Check if camera photo was captured
+            if (photoFile != null && photoFile.exists() && photoFile.length() > 0 && photoUri != null) {
+                results.add(photoUri)
+            } else {
+                // If temporary photo file was not used or empty, delete it
+                photoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
+
+                val data = result.data
+                if (data != null) {
+                    val clipData = data.clipData
+                    if (clipData != null && clipData.itemCount > 0) {
+                        for (i in 0 until clipData.itemCount) {
+                            clipData.getItemAt(i)?.uri?.let { results.add(it) }
+                        }
+                    } else if (data.data != null) {
+                        results.add(data.data!!)
+                    }
+                }
+            }
+
+            if (results.isNotEmpty()) {
+                callback.onReceiveValue(results.toTypedArray())
+            } else {
+                callback.onReceiveValue(null)
+            }
+        } else {
+            // Cancelled or dismissed
+            photoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
+            callback.onReceiveValue(null)
+        }
+    }
+
+    private fun handleShowFileChooser(
+        filePathCallback: ValueCallback<Array<Uri>>?,
+        fileChooserParams: WebChromeClient.FileChooserParams?
+    ): Boolean {
+        if (filePathCallback == null) return false
+
+        // Cancel previous pending callback to prevent WebView deadlock
+        pendingFilePathCallback?.onReceiveValue(null)
+        pendingFilePathCallback = filePathCallback
+
+        val acceptTypes = fileChooserParams?.acceptTypes?.filter { !it.isNullOrBlank() } ?: emptyList()
+        val allowMultiple = fileChooserParams?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE
+        val isCaptureEnabled = fileChooserParams?.isCaptureEnabled == true
+
+        val acceptsImages = acceptTypes.isEmpty() || acceptTypes.any { it.contains("image", ignoreCase = true) || it == "*/*" }
+        val acceptsVideos = acceptTypes.isEmpty() || acceptTypes.any { it.contains("video", ignoreCase = true) || it == "*/*" }
+
+        var takePhotoIntent: Intent? = null
+        if (acceptsImages) {
+            try {
+                val cameraDir = File(cacheDir, "camera_uploads")
+                if (!cameraDir.exists()) cameraDir.mkdirs()
+                val photoFile = File(cameraDir, "IMG_${System.currentTimeMillis()}.jpg")
+                val photoUri = androidx.core.content.FileProvider.getUriForFile(
+                    this,
+                    "${applicationContext.packageName}.fileprovider",
+                    photoFile
+                )
+                pendingCameraPhotoFile = photoFile
+                pendingCameraPhotoUri = photoUri
+
+                val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                    putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
+                    addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                if (intent.resolveActivity(packageManager) != null) {
+                    val resolvedActivities = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+                    for (resolved in resolvedActivities) {
+                        val packageName = resolved.activityInfo?.packageName
+                        if (!packageName.isNullOrBlank()) {
+                            try {
+                                grantUriPermission(packageName, photoUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            } catch (_: Exception) {}
+                        }
+                    }
+                    takePhotoIntent = intent
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("OnyxFileChooser", "Failed to prepare camera intent", e)
             }
         }
 
-        if (needed.isEmpty()) {
-            request.grant(resources)
+        var takeVideoIntent: Intent? = null
+        if (acceptsVideos) {
+            try {
+                val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
+                if (intent.resolveActivity(packageManager) != null) {
+                    takeVideoIntent = intent
+                }
+            } catch (_: Exception) {}
+        }
+
+        val contentIntent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = if (acceptTypes.size == 1) acceptTypes[0] else "*/*"
+            if (acceptTypes.size > 1) {
+                putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes.toTypedArray())
+            }
+        }
+
+        if (allowMultiple) {
+            contentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        }
+
+        val extraIntents = mutableListOf<Intent>()
+        takePhotoIntent?.let { extraIntents.add(it) }
+        takeVideoIntent?.let { extraIntents.add(it) }
+
+        val chooserTitle = fileChooserParams?.title?.takeIf { !it.isNullOrBlank() }
+            ?: if (acceptsImages && !acceptsVideos && acceptTypes.all { it.contains("image", ignoreCase = true) }) {
+                "Select photo or take picture"
+            } else {
+                "Select file"
+            }
+
+        val intentToLaunch = if (isCaptureEnabled && takePhotoIntent != null && !acceptsVideos) {
+            takePhotoIntent
         } else {
-            pendingWebMediaRequest = request
-            webMediaPermissionLauncher.launch(needed.toTypedArray())
+            Intent.createChooser(contentIntent, chooserTitle).apply {
+                if (extraIntents.isNotEmpty()) {
+                    putExtra(Intent.EXTRA_INITIAL_INTENTS, extraIntents.toTypedArray())
+                }
+            }
+        }
+
+        return try {
+            fileChooserLauncher.launch(intentToLaunch)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("OnyxFileChooser", "Failed to launch file chooser launcher", e)
+            pendingCameraPhotoFile?.delete()
+            pendingCameraPhotoFile = null
+            pendingCameraPhotoUri = null
+            pendingFilePathCallback?.onReceiveValue(null)
+            pendingFilePathCallback = null
+            false
         }
     }
 
@@ -1100,11 +1393,17 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             onHideCustomViewCallback = {
                 hideCustomFullscreenVideo()
             },
+            onFileChooserCallback = { callback, params ->
+                handleShowFileChooser(callback, params)
+            },
             onGeolocationPromptCallback = { origin, callback ->
                 handleGeolocationPrompt(origin, callback)
             },
             onPermissionRequestCallback = { request ->
                 handleWebPermissionRequest(request)
+            },
+            onPermissionRequestCanceledCallback = { request ->
+                handleWebPermissionRequestCanceled(request)
             },
             onCreateWindowCallback = { sourceWebView, isDialog, isUserGesture, resultMsg ->
                 // Only open a new tab when triggered by an explicit user gesture (tap/click)
@@ -2713,6 +3012,14 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onDestroy() {
         super.onDestroy()
+        pendingFilePathCallback?.onReceiveValue(null)
+        pendingFilePathCallback = null
+        pendingCameraPhotoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
+        pendingCameraPhotoFile = null
+        pendingCameraPhotoUri = null
+        try { pendingWebMediaRequest?.deny() } catch (_: Exception) {}
+        pendingWebMediaRequest = null
+        pendingWebMediaResources = null
         tabManager.saveAllTabStates()
         if (::pipController.isInitialized) {
             pipController.unregisterReceiver()

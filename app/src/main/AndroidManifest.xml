@@ -15,6 +15,12 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
+    <!-- Media Permissions (Android 13+ / API 33+) for photo, video, and audio selection & uploads -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+
     <!-- Audio / Microphone Permissions for Voice Search & WebRTC web calls -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
@@ -73,6 +79,14 @@
         <package android:name="com.lastpass.lpandroid" />
         <package android:name="me.proton.android.pass" />
         <package android:name="com.enpass.app" />
+
+        <!-- Camera & Video Capture Intent Queries (Android 11+ / API 30+) -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.VIDEO_CAPTURE" />
+        </intent>
 
         <!-- File Manager & Downloads Intent Queries (Android 11+ / API 30+) -->
         <intent>

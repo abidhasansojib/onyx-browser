@@ -153,6 +153,12 @@ onyx-browser/
 - **Content Filter HTTP Redirect Resilience**: `FilterListManager.downloadFilterList()` supports up to 5 redirect hops across schemes and 3xx codes with base URL resolution, preventing mirror update failures.
 - **SQLCipher KeyStore Recovery Assurance**: `AppDatabase.buildEncryptedDatabase()` eagerly invokes `openHelper.writableDatabase` so any KeyStore reset or passphrase discrepancy triggers recovery catch blocks immediately during database creation.
 
+### 4.6. Web Permissions & HTML File Chooser Subsystem
+- **HTML File Chooser (`onShowFileChooser`)**: Handled via `OnyxWebChromeClient.onShowFileChooser` and `MainActivity.handleShowFileChooser`. Emits intent choosers with Android Photo Picker, document managers, and camera photo capture (`MediaStore.ACTION_IMAGE_CAPTURE`) via `FileProvider` with temporary cache files and per-package write grants. Honors `<input capture="camera">` for direct camera launches and supports video capture (`ACTION_VIDEO_CAPTURE`). Prevents WebView deadlocks by unconditionally calling `onReceiveValue(null)` on cancellation, replacement, or destroy.
+- **Web Media & Sensor Permissions (`onPermissionRequest`)**: Shows Material 3 dialog prompts displaying the requesting domain and permission type (microphone, camera, or both) for WebRTC and Gemini voice inputs. Grants non-sensor resources (`RESOURCE_PROTECTED_MEDIA_ID`) directly. Bridges user approvals to Android OS runtime permissions (`RECORD_AUDIO`, `CAMERA`) and verifies OS-level grant state via `ContextCompat.checkSelfPermission` before invoking `request.grant(...)`.
+- **Geolocation Prompts (`onGeolocationPermissionsShowPrompt`)**: Displays Material 3 confirmation dialogs displaying the origin, requesting Android OS location permissions only upon explicit user consent.
+- **Package Visibility & Permissions**: Manifest declares Android 13+ media permissions (`READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`, `READ_MEDIA_VISUAL_USER_SELECTED`) and camera/video capture intent filters inside `<queries>` for Android 11+ compatibility.
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents
