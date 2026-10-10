@@ -32955,6 +32955,7 @@ r.mail.wowvegas.com%2Ftr%2Fop%2F*$image
 *%2Fhello.heroku.com%2Fr%2F*%2Fopen%2F*$image
 /github.com/notifications/beacon/*$image
 *%2Fgithub.com%2Fnotifications%2Fbeacon%2F*$image
+||api.github.com/_private/browser/rum?*beacon$ping
 *%2Flinks.mail.vistaprint.com%2Fs%2F*$image
 /api.controld.com/pixel/*$image
 *%2Fapi.controld.com%2Fpixel%2F*$image
@@ -43198,6 +43199,7 @@ omni.soundestlink.com$image
 ||chipcardice.com^
 ||chipperisle.com^
 ||chivalrouscord.com^
+||choicebump.com^
 ||chubbycreature.com^
 ||chunkycactus.com^
 ||cicdserver.com^
@@ -43357,6 +43359,7 @@ omni.soundestlink.com$image
 ||cutsmarter.net^
 ||cyclinghere.com^
 ||cyclopsdial.com^
+||dailydesigned.com^
 ||dailydivision.com^
 ||dailydomino.com^
 ||damagedadvice.com^
