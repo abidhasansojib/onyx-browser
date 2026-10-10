@@ -56,42 +56,66 @@ class OnyxWebChromeClient(
         filePathCallback: ValueCallback<Array<Uri>>?,
         fileChooserParams: FileChooserParams?
     ): Boolean {
-        return onFileChooserCallback?.invoke(filePathCallback, fileChooserParams)
-            ?: super.onShowFileChooser(webView, filePathCallback, fileChooserParams)
+        return try {
+            onFileChooserCallback?.invoke(filePathCallback, fileChooserParams)
+                ?: super.onShowFileChooser(webView, filePathCallback, fileChooserParams)
+        } catch (e: Exception) {
+            android.util.Log.e("OnyxWebChromeClient", "Error in onShowFileChooser", e)
+            try { filePathCallback?.onReceiveValue(null) } catch (_: Exception) {}
+            false
+        }
     }
 
     override fun onGeolocationPermissionsShowPrompt(
         origin: String?,
         callback: GeolocationPermissions.Callback?
     ) {
-        if (onGeolocationPromptCallback != null) {
-            onGeolocationPromptCallback.invoke(origin, callback)
-        } else {
-            super.onGeolocationPermissionsShowPrompt(origin, callback)
+        try {
+            if (onGeolocationPromptCallback != null) {
+                onGeolocationPromptCallback.invoke(origin, callback)
+            } else {
+                super.onGeolocationPermissionsShowPrompt(origin, callback)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("OnyxWebChromeClient", "Error in onGeolocationPermissionsShowPrompt", e)
+            try { callback?.invoke(origin, false, false) } catch (_: Exception) {}
         }
     }
 
     override fun onGeolocationPermissionsHidePrompt() {
-        if (onGeolocationHidePromptCallback != null) {
-            onGeolocationHidePromptCallback.invoke()
-        } else {
-            super.onGeolocationPermissionsHidePrompt()
+        try {
+            if (onGeolocationHidePromptCallback != null) {
+                onGeolocationHidePromptCallback.invoke()
+            } else {
+                super.onGeolocationPermissionsHidePrompt()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("OnyxWebChromeClient", "Error in onGeolocationPermissionsHidePrompt", e)
         }
     }
 
     override fun onPermissionRequest(request: PermissionRequest?) {
-        if (onPermissionRequestCallback != null) {
-            onPermissionRequestCallback.invoke(request)
-        } else {
-            super.onPermissionRequest(request)
+        try {
+            if (onPermissionRequestCallback != null) {
+                onPermissionRequestCallback.invoke(request)
+            } else {
+                super.onPermissionRequest(request)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("OnyxWebChromeClient", "Error in onPermissionRequest", e)
+            try { request?.deny() } catch (_: Exception) {}
         }
     }
 
     override fun onPermissionRequestCanceled(request: PermissionRequest?) {
-        if (onPermissionRequestCanceledCallback != null) {
-            onPermissionRequestCanceledCallback.invoke(request)
-        } else {
-            super.onPermissionRequestCanceled(request)
+        try {
+            if (onPermissionRequestCanceledCallback != null) {
+                onPermissionRequestCanceledCallback.invoke(request)
+            } else {
+                super.onPermissionRequestCanceled(request)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("OnyxWebChromeClient", "Error in onPermissionRequestCanceled", e)
         }
     }
 

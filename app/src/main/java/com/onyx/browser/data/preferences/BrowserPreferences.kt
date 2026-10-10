@@ -527,6 +527,128 @@ class BrowserPreferences private constructor(private val context: Context) {
         setDomainWhitelisted(domainOrUrl, false)
     }
 
+    // ── Web Site Permissions (Camera, Microphone, Location per-domain) ──
+    @Volatile private var cachedAllowedCameraDomains: Set<String>? = null
+    @Volatile private var cachedBlockedCameraDomains: Set<String>? = null
+    @Volatile private var cachedAllowedMicDomains: Set<String>? = null
+    @Volatile private var cachedBlockedMicDomains: Set<String>? = null
+    @Volatile private var cachedAllowedLocationDomains: Set<String>? = null
+    @Volatile private var cachedBlockedLocationDomains: Set<String>? = null
+
+    fun isWebCameraAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedCameraDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_CAMERA_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedCameraDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedCameraDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_CAMERA_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedCameraDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun setWebCameraAllowed(domainOrUrl: String, allowed: Boolean) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val allowedSet = prefs.getStringSet(KEY_ALLOWED_CAMERA_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val blockedSet = prefs.getStringSet(KEY_BLOCKED_CAMERA_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (allowed) {
+            allowedSet.add(domain)
+            blockedSet.remove(domain)
+        } else {
+            blockedSet.add(domain)
+            allowedSet.remove(domain)
+        }
+        cachedAllowedCameraDomains = allowedSet
+        cachedBlockedCameraDomains = blockedSet
+        prefs.edit()
+            .putStringSet(KEY_ALLOWED_CAMERA_DOMAINS, allowedSet)
+            .putStringSet(KEY_BLOCKED_CAMERA_DOMAINS, blockedSet)
+            .apply()
+    }
+
+    fun isWebMicAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedMicDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_MIC_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedMicDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedMicDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_MIC_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedMicDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun setWebMicAllowed(domainOrUrl: String, allowed: Boolean) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val allowedSet = prefs.getStringSet(KEY_ALLOWED_MIC_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val blockedSet = prefs.getStringSet(KEY_BLOCKED_MIC_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (allowed) {
+            allowedSet.add(domain)
+            blockedSet.remove(domain)
+        } else {
+            blockedSet.add(domain)
+            allowedSet.remove(domain)
+        }
+        cachedAllowedMicDomains = allowedSet
+        cachedBlockedMicDomains = blockedSet
+        prefs.edit()
+            .putStringSet(KEY_ALLOWED_MIC_DOMAINS, allowedSet)
+            .putStringSet(KEY_BLOCKED_MIC_DOMAINS, blockedSet)
+            .apply()
+    }
+
+    fun isWebLocationAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedLocationDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_LOCATION_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedLocationDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedLocationDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_LOCATION_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedLocationDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun setWebLocationAllowed(domainOrUrl: String, allowed: Boolean) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val allowedSet = prefs.getStringSet(KEY_ALLOWED_LOCATION_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val blockedSet = prefs.getStringSet(KEY_BLOCKED_LOCATION_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (allowed) {
+            allowedSet.add(domain)
+            blockedSet.remove(domain)
+        } else {
+            blockedSet.add(domain)
+            allowedSet.remove(domain)
+        }
+        cachedAllowedLocationDomains = allowedSet
+        cachedBlockedLocationDomains = blockedSet
+        prefs.edit()
+            .putStringSet(KEY_ALLOWED_LOCATION_DOMAINS, allowedSet)
+            .putStringSet(KEY_BLOCKED_LOCATION_DOMAINS, blockedSet)
+            .apply()
+    }
+
     fun getBlockedRequestsCount(): Long {
         return prefs.getLong(KEY_BLOCKED_REQUESTS_COUNT, 0L)
     }
@@ -903,6 +1025,12 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_BLOCK_ELEMENT_ENABLED = "pref_block_element_enabled"
         const val KEY_DEFAULT_ENGINE_MIGRATED = "pref_default_engine_google_migrated"
         const val KEY_CHECKED_DEFAULT_REGION = "pref_checked_default_region"
+        const val KEY_ALLOWED_CAMERA_DOMAINS = "pref_allowed_camera_domains"
+        const val KEY_BLOCKED_CAMERA_DOMAINS = "pref_blocked_camera_domains"
+        const val KEY_ALLOWED_MIC_DOMAINS = "pref_allowed_mic_domains"
+        const val KEY_BLOCKED_MIC_DOMAINS = "pref_blocked_mic_domains"
+        const val KEY_ALLOWED_LOCATION_DOMAINS = "pref_allowed_location_domains"
+        const val KEY_BLOCKED_LOCATION_DOMAINS = "pref_blocked_location_domains"
 
         /**
          * Default filter lists matching Brave Android:

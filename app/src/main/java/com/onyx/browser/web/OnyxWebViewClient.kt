@@ -10,6 +10,7 @@ import android.net.Uri
 import android.util.Base64
 import android.widget.Toast
 import android.webkit.CookieManager
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -852,6 +853,26 @@ class OnyxWebViewClient(
         } catch (t: Throwable) {
             null
         }
+    }
+
+    override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+        val didCrash = detail?.didCrash() ?: false
+        android.util.Log.e("OnyxWebViewClient", "WebView render process exited: didCrash=$didCrash")
+
+        try {
+            val onyxWv = view as? OnyxWebView
+            val tabId = onyxWv?.tabId
+            if (tabId != null && tabId.isNotBlank()) {
+                val parent = onyxWv.parent as? android.view.ViewGroup
+                parent?.removeView(onyxWv)
+                onyxWv.destroy()
+            }
+        } catch (t: Throwable) {
+            android.util.Log.e("OnyxWebViewClient", "Error handling onRenderProcessGone", t)
+        }
+
+        // Return true to prevent host application termination by the OS
+        return true
     }
 
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {

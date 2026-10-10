@@ -202,10 +202,15 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val fine = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
-        val coarse = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        isSystemDialogOrChooserPending = false
+        val fine = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val granted = fine || coarse
-        pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
+        try {
+            pendingGeoCallback?.invoke(pendingGeoOrigin, granted, true)
+        } catch (_: Exception) {}
         pendingGeoOrigin = null
         pendingGeoCallback = null
     }
@@ -218,8 +223,22 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             origin
         }
 
+        val locAllowed = preferences.isWebLocationAllowed(host)
+        if (locAllowed == false) {
+            try { callback.invoke(origin, false, true) } catch (_: Exception) {}
+            return
+        }
+
+        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        if (locAllowed == true && (fine || coarse)) {
+            try { callback.invoke(origin, true, true) } catch (_: Exception) {}
+            return
+        }
+
         if (isFinishing || isDestroyed) {
-            callback.invoke(origin, false, false)
+            try { callback.invoke(origin, false, false) } catch (_: Exception) {}
             return
         }
 
@@ -227,13 +246,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             .setTitle("Location Permission")
             .setMessage("\"$host\" wants to access your location.")
             .setPositiveButton("Allow") { _, _ ->
-                val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                preferences.setWebLocationAllowed(host, true)
                 if (fine || coarse) {
-                    callback.invoke(origin, true, false)
+                    try { callback.invoke(origin, true, true) } catch (_: Exception) {}
                 } else {
                     pendingGeoOrigin = origin
                     pendingGeoCallback = callback
+                    isSystemDialogOrChooserPending = true
                     locationPermissionLauncher.launch(
                         arrayOf(
                             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -243,43 +262,84 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 }
             }
             .setNegativeButton("Block") { _, _ ->
-                callback.invoke(origin, false, false)
+                preferences.setWebLocationAllowed(host, false)
+                try { callback.invoke(origin, false, true) } catch (_: Exception) {}
             }
             .setOnCancelListener {
-                callback.invoke(origin, false, false)
+                try { callback.invoke(origin, false, false) } catch (_: Exception) {}
             }
             .show()
     }
 
+    private var isSystemDialogOrChooserPending: Boolean = false
+    private val handledWebRequests = java.util.Collections.synchronizedSet(
+        java.util.Collections.newSetFromMap(java.util.WeakHashMap<PermissionRequest, Boolean>())
+    )
+    private var activeWebMediaDialog: androidx.appcompat.app.AlertDialog? = null
     private var pendingWebMediaRequest: PermissionRequest? = null
     private var pendingWebMediaResources: Array<String>? = null
     private var pendingWebMediaNeedsAudio: Boolean = false
     private var pendingWebMediaNeedsVideo: Boolean = false
+    private var pendingWebMediaHost: String? = null
+
+    private fun safeGrantWebPermission(request: PermissionRequest, resources: Array<String>) {
+        if (handledWebRequests.contains(request)) return
+        handledWebRequests.add(request)
+        if (isFinishing || isDestroyed) {
+            safeDenyWebPermission(request)
+            return
+        }
+        runOnUiThread {
+            try {
+                tabManager.getActiveWebView()?.onResume()
+                request.grant(resources)
+            } catch (e: Exception) {
+                android.util.Log.e("OnyxPermissions", "Failed to grant web media permissions", e)
+            }
+        }
+    }
+
+    private fun safeDenyWebPermission(request: PermissionRequest) {
+        if (handledWebRequests.contains(request)) return
+        handledWebRequests.add(request)
+        runOnUiThread {
+            try {
+                request.deny()
+            } catch (_: Exception) {}
+        }
+    }
 
     private val webMediaPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ ->
+    ) { permissions ->
+        isSystemDialogOrChooserPending = false
         val request = pendingWebMediaRequest
         val allResources = pendingWebMediaResources
         val needsAudio = pendingWebMediaNeedsAudio
         val needsVideo = pendingWebMediaNeedsVideo
+        val host = pendingWebMediaHost ?: ""
 
         pendingWebMediaRequest = null
         pendingWebMediaResources = null
         pendingWebMediaNeedsAudio = false
         pendingWebMediaNeedsVideo = false
+        pendingWebMediaHost = null
 
         if (request == null || allResources == null) return@registerForActivityResult
 
-        val audioGranted = !needsAudio || ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        val videoGranted = !needsVideo || ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        val audioGranted = !needsAudio || (permissions[Manifest.permission.RECORD_AUDIO] == true) ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val videoGranted = !needsVideo || (permissions[Manifest.permission.CAMERA] == true) ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
         val grantedList = mutableListOf<String>()
         if (needsAudio && audioGranted) {
             grantedList.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+            if (host.isNotBlank()) preferences.setWebMicAllowed(host, true)
         }
         if (needsVideo && videoGranted) {
             grantedList.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+            if (host.isNotBlank()) preferences.setWebCameraAllowed(host, true)
         }
         for (res in allResources) {
             if (res != PermissionRequest.RESOURCE_AUDIO_CAPTURE && res != PermissionRequest.RESOURCE_VIDEO_CAPTURE) {
@@ -287,24 +347,20 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
         }
 
-        if (grantedList.isNotEmpty()) {
-            try {
-                request.grant(grantedList.toTypedArray())
-            } catch (e: Exception) {
-                android.util.Log.e("OnyxPermissions", "Failed to grant web media permissions", e)
-            }
+        if (grantedList.isNotEmpty() && (!needsAudio || audioGranted) && (!needsVideo || videoGranted)) {
+            safeGrantWebPermission(request, grantedList.toTypedArray())
         } else {
-            try {
-                request.deny()
-            } catch (_: Exception) {}
+            safeDenyWebPermission(request)
         }
     }
 
     private fun handleWebPermissionRequest(request: PermissionRequest?) {
         if (request == null) return
+        if (handledWebRequests.contains(request)) return
+
         val resources = request.resources ?: emptyArray()
         if (resources.isEmpty()) {
-            try { request.deny() } catch (_: Exception) {}
+            safeDenyWebPermission(request)
             return
         }
 
@@ -313,9 +369,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         // If no hardware sensors (microphone/camera) requested (e.g. Protected Media ID), grant directly
         if (!needsAudio && !needsVideo) {
-            try {
-                request.grant(resources)
-            } catch (_: Exception) {}
+            safeGrantWebPermission(request, resources)
             return
         }
 
@@ -327,6 +381,24 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             origin
         }
 
+        val camAllowed = if (needsVideo) preferences.isWebCameraAllowed(host) else true
+        val micAllowed = if (needsAudio) preferences.isWebMicAllowed(host) else true
+
+        if (camAllowed == false || micAllowed == false) {
+            safeDenyWebPermission(request)
+            return
+        }
+
+        if (camAllowed == true && micAllowed == true) {
+            grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = false)
+            return
+        }
+
+        if (isFinishing || isDestroyed) {
+            safeDenyWebPermission(request)
+            return
+        }
+
         val permissionDesc = when {
             needsAudio && needsVideo -> "camera and microphone"
             needsAudio -> "microphone"
@@ -334,26 +406,24 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             else -> "media devices"
         }
 
-        if (isFinishing || isDestroyed) {
-            try { request.deny() } catch (_: Exception) {}
-            return
-        }
+        activeWebMediaDialog?.dismiss()
 
-        MaterialAlertDialogBuilder(this)
+        activeWebMediaDialog = MaterialAlertDialogBuilder(this)
             .setTitle("Website Permission")
             .setMessage("\"$host\" wants to use your $permissionDesc.")
             .setPositiveButton("Allow") { _, _ ->
-                grantWebMediaPermission(request, needsAudio, needsVideo, resources)
+                activeWebMediaDialog = null
+                grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = true)
             }
             .setNegativeButton("Block") { _, _ ->
-                try {
-                    request.deny()
-                } catch (_: Exception) {}
+                activeWebMediaDialog = null
+                if (needsVideo) preferences.setWebCameraAllowed(host, false)
+                if (needsAudio) preferences.setWebMicAllowed(host, false)
+                safeDenyWebPermission(request)
             }
             .setOnCancelListener {
-                try {
-                    request.deny()
-                } catch (_: Exception) {}
+                activeWebMediaDialog = null
+                safeDenyWebPermission(request)
             }
             .show()
     }
@@ -362,15 +432,19 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         request: PermissionRequest,
         needsAudio: Boolean,
         needsVideo: Boolean,
-        allResources: Array<String>
+        allResources: Array<String>,
+        host: String,
+        remember: Boolean
     ) {
         val hasAudio = !needsAudio || ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val hasVideo = !needsVideo || ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
         if (hasAudio && hasVideo) {
-            try {
-                request.grant(allResources)
-            } catch (_: Exception) {}
+            if (remember) {
+                if (needsVideo) preferences.setWebCameraAllowed(host, true)
+                if (needsAudio) preferences.setWebMicAllowed(host, true)
+            }
+            safeGrantWebPermission(request, allResources)
         } else {
             val neededOs = mutableListOf<String>()
             if (needsAudio && !hasAudio) neededOs.add(Manifest.permission.RECORD_AUDIO)
@@ -380,17 +454,25 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             pendingWebMediaResources = allResources
             pendingWebMediaNeedsAudio = needsAudio
             pendingWebMediaNeedsVideo = needsVideo
+            pendingWebMediaHost = host
 
+            isSystemDialogOrChooserPending = true
             webMediaPermissionLauncher.launch(neededOs.toTypedArray())
         }
     }
 
     private fun handleWebPermissionRequestCanceled(request: PermissionRequest?) {
-        if (request != null && pendingWebMediaRequest == request) {
-            pendingWebMediaRequest = null
-            pendingWebMediaResources = null
-            pendingWebMediaNeedsAudio = false
-            pendingWebMediaNeedsVideo = false
+        if (request != null) {
+            handledWebRequests.add(request)
+            if (pendingWebMediaRequest == request) {
+                pendingWebMediaRequest = null
+                pendingWebMediaResources = null
+                pendingWebMediaNeedsAudio = false
+                pendingWebMediaNeedsVideo = false
+                pendingWebMediaHost = null
+            }
+            activeWebMediaDialog?.dismiss()
+            activeWebMediaDialog = null
         }
     }
 
@@ -402,6 +484,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        isSystemDialogOrChooserPending = false
         val callback = pendingFilePathCallback
         val photoUri = pendingCameraPhotoUri
         val photoFile = pendingCameraPhotoFile
@@ -415,11 +498,26 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             return@registerForActivityResult
         }
 
+        tabManager.getActiveWebView()?.onResume()
+
         if (result.resultCode == Activity.RESULT_OK) {
             val results = mutableListOf<Uri>()
 
             // 1. Check if camera photo was captured
             if (photoFile != null && photoFile.exists() && photoFile.length() > 0 && photoUri != null) {
+                val webViewPackages = listOf(
+                    "com.google.android.webview",
+                    "com.android.webview",
+                    "com.android.chrome",
+                    "com.chrome.beta",
+                    "com.chrome.dev",
+                    "com.chrome.canary"
+                )
+                for (pkg in webViewPackages) {
+                    try {
+                        grantUriPermission(pkg, photoUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    } catch (_: Exception) {}
+                }
                 results.add(photoUri)
             } else {
                 // If temporary photo file was not used or empty, delete it
@@ -438,15 +536,21 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 }
             }
 
-            if (results.isNotEmpty()) {
-                callback.onReceiveValue(results.toTypedArray())
-            } else {
-                callback.onReceiveValue(null)
+            try {
+                if (results.isNotEmpty()) {
+                    callback.onReceiveValue(results.toTypedArray())
+                } else {
+                    callback.onReceiveValue(null)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("OnyxFileChooser", "Failed to deliver file chooser callback", e)
             }
         } else {
             // Cancelled or dismissed
             photoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
-            callback.onReceiveValue(null)
+            try {
+                callback.onReceiveValue(null)
+            } catch (_: Exception) {}
         }
     }
 
@@ -457,7 +561,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (filePathCallback == null) return false
 
         // Cancel previous pending callback to prevent WebView deadlock
-        pendingFilePathCallback?.onReceiveValue(null)
+        try { pendingFilePathCallback?.onReceiveValue(null) } catch (_: Exception) {}
         pendingFilePathCallback = filePathCallback
 
         val acceptTypes = fileChooserParams?.acceptTypes?.filter { !it.isNullOrBlank() } ?: emptyList()
@@ -546,14 +650,16 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         return try {
+            isSystemDialogOrChooserPending = true
             fileChooserLauncher.launch(intentToLaunch)
             true
         } catch (e: Exception) {
+            isSystemDialogOrChooserPending = false
             android.util.Log.e("OnyxFileChooser", "Failed to launch file chooser launcher", e)
             pendingCameraPhotoFile?.delete()
             pendingCameraPhotoFile = null
             pendingCameraPhotoUri = null
-            pendingFilePathCallback?.onReceiveValue(null)
+            try { pendingFilePathCallback?.onReceiveValue(null) } catch (_: Exception) {}
             pendingFilePathCallback = null
             false
         }
@@ -2583,7 +2689,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
             tabManager.getActiveWebView()?.resumeTimers()
         }
-        if (!isPip && !preferences.isBackgroundPlayEnabled) {
+        if (!isPip && !preferences.isBackgroundPlayEnabled && !isSystemDialogOrChooserPending) {
             tabManager.getActiveWebView()?.onPause()
         }
     }
@@ -2744,6 +2850,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         // 4. Sync webview settings
+        isSystemDialogOrChooserPending = false
         val wv = tabManager.getActiveWebView()
         wv?.onResume()
         wv?.applyUserAgentForUrl(wv.url ?: "")
@@ -3021,7 +3128,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         pendingCameraPhotoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
         pendingCameraPhotoFile = null
         pendingCameraPhotoUri = null
-        try { pendingWebMediaRequest?.deny() } catch (_: Exception) {}
+        activeWebMediaDialog?.dismiss()
+        activeWebMediaDialog = null
+        try { pendingWebMediaRequest?.let { safeDenyWebPermission(it) } } catch (_: Exception) {}
         pendingWebMediaRequest = null
         pendingWebMediaResources = null
         tabManager.saveAllTabStates()
