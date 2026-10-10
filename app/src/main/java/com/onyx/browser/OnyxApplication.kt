@@ -17,6 +17,20 @@ class OnyxApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Install global uncaught exception logger to surface root causes in logcat
+        try {
+            val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+                Log.e("OnyxCrash", "Uncaught exception on thread [${thread.name}]: ${throwable.message}", throwable)
+                var cause = throwable.cause
+                while (cause != null) {
+                    Log.e("OnyxCrash", "  Caused by [${cause.javaClass.name}]: ${cause.message}", cause)
+                    cause = cause.cause
+                }
+                defaultHandler?.uncaughtException(thread, throwable)
+            }
+        } catch (_: Throwable) {}
+
         // Enable vector drawable support across all API levels
         androidx.appcompat.app.AppCompatDelegate.setCompatVectorFromResourcesEnabled(true)
 

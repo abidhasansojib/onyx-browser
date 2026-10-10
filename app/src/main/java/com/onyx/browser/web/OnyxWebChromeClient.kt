@@ -59,9 +59,8 @@ class OnyxWebChromeClient(
         return try {
             onFileChooserCallback?.invoke(filePathCallback, fileChooserParams)
                 ?: super.onShowFileChooser(webView, filePathCallback, fileChooserParams)
-        } catch (e: Exception) {
-            android.util.Log.e("OnyxWebChromeClient", "Error in onShowFileChooser", e)
-            try { filePathCallback?.onReceiveValue(null) } catch (_: Exception) {}
+        } catch (t: Throwable) {
+            android.util.Log.e("OnyxWebChromeClient", "Error in onShowFileChooser", t)
             false
         }
     }

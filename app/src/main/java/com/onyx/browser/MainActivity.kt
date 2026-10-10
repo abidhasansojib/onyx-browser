@@ -286,15 +286,22 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (handledWebRequests.contains(request)) return
         handledWebRequests.add(request)
         if (isFinishing || isDestroyed) {
-            safeDenyWebPermission(request)
+            try { request.deny() } catch (_: Throwable) {}
+            return
+        }
+        val requestedSet = request.resources?.toSet() ?: emptySet()
+        val validResources = resources.filter { requestedSet.contains(it) }.toTypedArray()
+        if (validResources.isEmpty()) {
+            try { request.deny() } catch (_: Throwable) {}
             return
         }
         runOnUiThread {
             try {
                 tabManager.getActiveWebView()?.onResume()
-                request.grant(resources)
-            } catch (e: Exception) {
-                android.util.Log.e("OnyxPermissions", "Failed to grant web media permissions", e)
+                request.grant(validResources)
+            } catch (t: Throwable) {
+                android.util.Log.e("OnyxPermissions", "Failed to grant web media permissions", t)
+                try { request.deny() } catch (_: Throwable) {}
             }
         }
     }
@@ -477,6 +484,22 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     // ── File Chooser Subsystem (File uploads, Gallery selection & Photo capture) ──
+    private class SafeValueCallback<T>(
+        private val delegate: ValueCallback<T>?
+    ) : ValueCallback<T> {
+        private val completed = java.util.concurrent.atomic.AtomicBoolean(false)
+
+        override fun onReceiveValue(value: T?) {
+            if (completed.compareAndSet(false, true)) {
+                try {
+                    delegate?.onReceiveValue(value)
+                } catch (t: Throwable) {
+                    android.util.Log.e("OnyxFileChooser", "Error delivering callback", t)
+                }
+            }
+        }
+    }
+
     private var pendingFilePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingCameraPhotoUri: Uri? = null
     private var pendingCameraPhotoFile: File? = null
@@ -516,7 +539,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 for (pkg in webViewPackages) {
                     try {
                         grantUriPermission(pkg, photoUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    } catch (_: Exception) {}
+                    } catch (_: Throwable) {}
                 }
                 results.add(photoUri)
             } else {
@@ -542,15 +565,15 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 } else {
                     callback.onReceiveValue(null)
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("OnyxFileChooser", "Failed to deliver file chooser callback", e)
+            } catch (t: Throwable) {
+                android.util.Log.e("OnyxFileChooser", "Failed to deliver file chooser callback", t)
             }
         } else {
             // Cancelled or dismissed
             photoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
             try {
                 callback.onReceiveValue(null)
-            } catch (_: Exception) {}
+            } catch (_: Throwable) {}
         }
     }
 
@@ -560,9 +583,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     ): Boolean {
         if (filePathCallback == null) return false
 
-        // Cancel previous pending callback to prevent WebView deadlock
-        try { pendingFilePathCallback?.onReceiveValue(null) } catch (_: Exception) {}
-        pendingFilePathCallback = filePathCallback
+        // Cancel previous pending callback safely without crashing
+        try { pendingFilePathCallback?.onReceiveValue(null) } catch (_: Throwable) {}
+        val safeCallback = SafeValueCallback(filePathCallback)
+        pendingFilePathCallback = safeCallback
 
         val acceptTypes = fileChooserParams?.acceptTypes?.filter { !it.isNullOrBlank() } ?: emptyList()
         val allowMultiple = fileChooserParams?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE
@@ -587,6 +611,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
                 val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                     putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
+                    clipData = ClipData.newUri(contentResolver, "camera_photo", photoUri)
                     addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 if (intent.resolveActivity(packageManager) != null) {
@@ -596,13 +621,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         if (!packageName.isNullOrBlank()) {
                             try {
                                 grantUriPermission(packageName, photoUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            } catch (_: Exception) {}
+                            } catch (_: Throwable) {}
                         }
                     }
                     takePhotoIntent = intent
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("OnyxFileChooser", "Failed to prepare camera intent", e)
+            } catch (t: Throwable) {
+                android.util.Log.e("OnyxFileChooser", "Failed to prepare camera intent", t)
             }
         }
 
@@ -613,10 +638,12 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 if (intent.resolveActivity(packageManager) != null) {
                     takeVideoIntent = intent
                 }
-            } catch (_: Exception) {}
+            } catch (_: Throwable) {}
         }
 
-        val contentIntent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+        val contentIntent = try {
+            fileChooserParams?.createIntent()
+        } catch (_: Throwable) { null } ?: Intent(Intent.ACTION_GET_CONTENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = if (acceptTypes.size == 1) acceptTypes[0] else "*/*"
             if (acceptTypes.size > 1) {
@@ -625,7 +652,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         if (allowMultiple) {
-            contentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            try { contentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true) } catch (_: Throwable) {}
         }
 
         val extraIntents = mutableListOf<Intent>()
@@ -639,7 +666,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 "Select file"
             }
 
-        val intentToLaunch = if (isCaptureEnabled && takePhotoIntent != null && !acceptsVideos) {
+        val chooserIntent = if (isCaptureEnabled && takePhotoIntent != null && !acceptsVideos) {
             takePhotoIntent
         } else {
             Intent.createChooser(contentIntent, chooserTitle).apply {
@@ -651,17 +678,23 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         return try {
             isSystemDialogOrChooserPending = true
-            fileChooserLauncher.launch(intentToLaunch)
+            fileChooserLauncher.launch(chooserIntent)
             true
-        } catch (e: Exception) {
-            isSystemDialogOrChooserPending = false
-            android.util.Log.e("OnyxFileChooser", "Failed to launch file chooser launcher", e)
-            pendingCameraPhotoFile?.delete()
-            pendingCameraPhotoFile = null
-            pendingCameraPhotoUri = null
-            try { pendingFilePathCallback?.onReceiveValue(null) } catch (_: Exception) {}
-            pendingFilePathCallback = null
-            false
+        } catch (t: Throwable) {
+            android.util.Log.w("OnyxFileChooser", "Failed to launch full chooser, falling back to content intent", t)
+            try {
+                fileChooserLauncher.launch(contentIntent)
+                true
+            } catch (t2: Throwable) {
+                isSystemDialogOrChooserPending = false
+                android.util.Log.e("OnyxFileChooser", "Failed to launch content intent fallback", t2)
+                pendingCameraPhotoFile?.delete()
+                pendingCameraPhotoFile = null
+                pendingCameraPhotoUri = null
+                safeCallback.onReceiveValue(null)
+                pendingFilePathCallback = null
+                true
+            }
         }
     }
 
@@ -2805,7 +2838,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             MediaPlaybackService.stopNotificationOnly(this)
         }
 
-        if (!isPip && !MediaPlaybackBridge.isBackgroundPlayActive(preferences)) {
+        if (!isPip && !MediaPlaybackBridge.isBackgroundPlayActive(preferences) && !isSystemDialogOrChooserPending) {
             tabManager.getActiveWebView()?.onPause()
         } else if (preferences.isBackgroundPlayEnabled) {
             tabManager.getActiveWebView()?.resumeTimers()
