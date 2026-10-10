@@ -1399,6 +1399,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             onGeolocationPromptCallback = { origin, callback ->
                 handleGeolocationPrompt(origin, callback)
             },
+            onGeolocationHidePromptCallback = {
+                pendingGeoOrigin = null
+                pendingGeoCallback = null
+            },
             onPermissionRequestCallback = { request ->
                 handleWebPermissionRequest(request)
             },

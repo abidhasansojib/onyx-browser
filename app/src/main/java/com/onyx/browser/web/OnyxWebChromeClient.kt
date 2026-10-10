@@ -17,6 +17,7 @@ class OnyxWebChromeClient(
     private val onHideCustomViewCallback: (() -> Unit)? = null,
     private val onFileChooserCallback: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null,
     private val onGeolocationPromptCallback: ((String?, GeolocationPermissions.Callback?) -> Unit)? = null,
+    private val onGeolocationHidePromptCallback: (() -> Unit)? = null,
     private val onPermissionRequestCallback: ((PermissionRequest?) -> Unit)? = null,
     private val onPermissionRequestCanceledCallback: ((PermissionRequest?) -> Unit)? = null,
     private val onCreateWindowCallback: ((WebView?, Boolean, Boolean, android.os.Message?) -> Boolean)? = null,
@@ -67,6 +68,14 @@ class OnyxWebChromeClient(
             onGeolocationPromptCallback.invoke(origin, callback)
         } else {
             super.onGeolocationPermissionsShowPrompt(origin, callback)
+        }
+    }
+
+    override fun onGeolocationPermissionsHidePrompt() {
+        if (onGeolocationHidePromptCallback != null) {
+            onGeolocationHidePromptCallback.invoke()
+        } else {
+            super.onGeolocationPermissionsHidePrompt()
         }
     }
 
