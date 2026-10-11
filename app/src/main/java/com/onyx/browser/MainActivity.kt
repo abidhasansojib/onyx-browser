@@ -503,6 +503,41 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private var pendingFilePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingCameraPhotoUri: Uri? = null
     private var pendingCameraPhotoFile: File? = null
+    private var pendingCameraCaptureIntent: Intent? = null
+
+    private val fileChooserCameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        isSystemDialogOrChooserPending = false
+        val cameraIntent = pendingCameraCaptureIntent
+        pendingCameraCaptureIntent = null
+
+        if (granted && cameraIntent != null) {
+            try {
+                isSystemDialogOrChooserPending = true
+                fileChooserLauncher.launch(cameraIntent)
+            } catch (t: Throwable) {
+                isSystemDialogOrChooserPending = false
+                android.util.Log.e("OnyxFileChooser", "Failed to launch camera after permission granted", t)
+                pendingCameraPhotoFile?.delete()
+                pendingCameraPhotoFile = null
+                pendingCameraPhotoUri = null
+                try {
+                    pendingFilePathCallback?.onReceiveValue(null)
+                } catch (_: Throwable) {}
+                pendingFilePathCallback = null
+            }
+        } else {
+            // Permission denied or dismissed
+            pendingCameraPhotoFile?.delete()
+            pendingCameraPhotoFile = null
+            pendingCameraPhotoUri = null
+            try {
+                pendingFilePathCallback?.onReceiveValue(null)
+            } catch (_: Throwable) {}
+            pendingFilePathCallback = null
+        }
+    }
 
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -526,8 +561,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (result.resultCode == Activity.RESULT_OK) {
             val results = mutableListOf<Uri>()
 
-            // 1. Check if camera photo was captured
-            if (photoFile != null && photoFile.exists() && photoFile.length() > 0 && photoUri != null) {
+            // 1. Check if camera photo was captured to file
+            if (photoFile != null && photoFile.exists() && photoFile.length() > 0L && photoUri != null) {
                 val webViewPackages = listOf(
                     "com.google.android.webview",
                     "com.android.webview",
@@ -542,8 +577,34 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     } catch (_: Throwable) {}
                 }
                 results.add(photoUri)
-            } else {
-                // If temporary photo file was not used or empty, delete it
+            } else if (photoFile != null && photoUri != null && result.data?.extras?.get("data") is Bitmap) {
+                // Safeguard: some camera apps return thumbnail bitmap in 'data' extra instead of writing to EXTRA_OUTPUT
+                try {
+                    val bitmap = result.data!!.extras!!.get("data") as Bitmap
+                    photoFile.outputStream().use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                    }
+                    if (photoFile.length() > 0L) {
+                        val webViewPackages = listOf(
+                            "com.google.android.webview",
+                            "com.android.webview",
+                            "com.android.chrome",
+                            "com.chrome.beta",
+                            "com.chrome.dev",
+                            "com.chrome.canary"
+                        )
+                        for (pkg in webViewPackages) {
+                            try {
+                                grantUriPermission(pkg, photoUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            } catch (_: Throwable) {}
+                        }
+                        results.add(photoUri)
+                    }
+                } catch (_: Throwable) {}
+            }
+
+            // 2. If camera file was not used, check intent data from Gallery / Document picker
+            if (results.isEmpty()) {
                 photoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
 
                 val data = result.data
@@ -587,60 +648,183 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         try { pendingFilePathCallback?.onReceiveValue(null) } catch (_: Throwable) {}
         val safeCallback = SafeValueCallback(filePathCallback)
         pendingFilePathCallback = safeCallback
+        pendingCameraPhotoFile?.delete()
+        pendingCameraPhotoFile = null
+        pendingCameraPhotoUri = null
+        pendingCameraCaptureIntent = null
 
-        val acceptTypes = fileChooserParams?.acceptTypes?.filter { !it.isNullOrBlank() } ?: emptyList()
+        val rawAcceptTypes = fileChooserParams?.acceptTypes?.filter { !it.isNullOrBlank() } ?: emptyList()
         val allowMultiple = fileChooserParams?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE
-        val isCaptureEnabled = fileChooserParams?.isCaptureEnabled == true
 
-        val acceptsImages = acceptTypes.isEmpty() || acceptTypes.any { it.contains("image", ignoreCase = true) || it == "*/*" }
-        val acceptsVideos = acceptTypes.isEmpty() || acceptTypes.any { it.contains("video", ignoreCase = true) || it == "*/*" }
+        // Flatten and clean accept types (handles comma-separated types in single entry e.g. "image/*,video/*")
+        val acceptTypes = rawAcceptTypes.flatMap { it.split(",") }.map { it.trim().lowercase() }.filter { it.isNotBlank() }
 
-        var takePhotoIntent: Intent? = null
-        if (acceptsImages) {
-            try {
-                val cameraDir = File(cacheDir, "camera_uploads")
-                if (!cameraDir.exists()) cameraDir.mkdirs()
-                val photoFile = File(cameraDir, "IMG_${System.currentTimeMillis()}.jpg")
-                val photoUri = androidx.core.content.FileProvider.getUriForFile(
-                    this,
-                    "${applicationContext.packageName}.fileprovider",
-                    photoFile
-                )
-                pendingCameraPhotoFile = photoFile
-                pendingCameraPhotoUri = photoUri
+        // Detect if camera/video capture was requested directly:
+        // Chromium sets isCaptureEnabled = true when HTML input contains `capture`, `capture="camera"`, `capture="environment"`, etc.
+        // Also check if web content declared capture syntax inside accept types.
+        val isExplicitCapture = fileChooserParams?.isCaptureEnabled == true ||
+                rawAcceptTypes.any { it.contains("capture=", ignoreCase = true) }
 
-                val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
-                    putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
-                    clipData = ClipData.newUri(contentResolver, "camera_photo", photoUri)
-                    addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val isVideoOnly = acceptTypes.isNotEmpty() && acceptTypes.all { it.contains("video") }
+        val isImageOnly = acceptTypes.isNotEmpty() && acceptTypes.all {
+            it.startsWith("image/") || it == ".jpg" || it == ".jpeg" || it == ".png" ||
+                    it == ".webp" || it == ".gif" || it == ".bmp" || it == ".heic"
+        }
+        val isMediaOnly = acceptTypes.isNotEmpty() && acceptTypes.all {
+            it.startsWith("image/") || it.startsWith("video/") ||
+                    it == ".jpg" || it == ".jpeg" || it == ".png" || it == ".webp" ||
+                    it == ".gif" || it == ".bmp" || it == ".heic" || it == ".mp4" ||
+                    it == ".mkv" || it == ".mov" || it == ".webm" || it == ".3gp"
+        }
+
+        // =========================================================================
+        // CASE 1: DIRECT CAPTURE (Tapping Camera / Camcorder button on website)
+        // Behaves like Chrome/Brave: Directly opens Camera or Camcorder without gallery or chooser prompt!
+        // =========================================================================
+        if (isExplicitCapture) {
+            if (isVideoOnly) {
+                // Video capture requested
+                val videoIntent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
+                return try {
+                    isSystemDialogOrChooserPending = true
+                    fileChooserLauncher.launch(videoIntent)
+                    true
+                } catch (t: Throwable) {
+                    isSystemDialogOrChooserPending = false
+                    android.util.Log.e("OnyxFileChooser", "Failed to launch video capture", t)
+                    safeCallback.onReceiveValue(null)
+                    pendingFilePathCallback = null
+                    true
                 }
-                if (intent.resolveActivity(packageManager) != null) {
-                    val resolvedActivities = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            } else {
+                // Photo capture requested (default for image capture or general capture)
+                return try {
+                    val cameraDir = File(cacheDir, "camera_uploads")
+                    if (!cameraDir.exists()) cameraDir.mkdirs()
+                    val photoFile = File(cameraDir, "IMG_${System.currentTimeMillis()}.jpg")
+                    val photoUri = androidx.core.content.FileProvider.getUriForFile(
+                        this,
+                        "${applicationContext.packageName}.fileprovider",
+                        photoFile
+                    )
+                    pendingCameraPhotoFile = photoFile
+                    pendingCameraPhotoUri = photoUri
+
+                    val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                        putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
+                        clipData = ClipData.newUri(contentResolver, "camera_photo", photoUri)
+                        addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+
+                    // Grant URI permission to all potential camera packages matching the action
+                    val resolvedActivities = packageManager.queryIntentActivities(
+                        Intent(MediaStore.ACTION_IMAGE_CAPTURE),
+                        0
+                    )
                     for (resolved in resolvedActivities) {
                         val packageName = resolved.activityInfo?.packageName
                         if (!packageName.isNullOrBlank()) {
                             try {
-                                grantUriPermission(packageName, photoUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                grantUriPermission(
+                                    packageName,
+                                    photoUri,
+                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                )
                             } catch (_: Throwable) {}
                         }
                     }
-                    takePhotoIntent = intent
+
+                    // Check runtime camera permission
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                        isSystemDialogOrChooserPending = true
+                        pendingCameraCaptureIntent = cameraIntent
+                        fileChooserCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    } else {
+                        isSystemDialogOrChooserPending = true
+                        fileChooserLauncher.launch(cameraIntent)
+                    }
+                    true
+                } catch (t: Throwable) {
+                    isSystemDialogOrChooserPending = false
+                    android.util.Log.e("OnyxFileChooser", "Failed to launch camera capture", t)
+                    pendingCameraPhotoFile?.delete()
+                    pendingCameraPhotoFile = null
+                    pendingCameraPhotoUri = null
+                    safeCallback.onReceiveValue(null)
+                    pendingFilePathCallback = null
+                    true
                 }
-            } catch (t: Throwable) {
-                android.util.Log.e("OnyxFileChooser", "Failed to prepare camera intent", t)
             }
         }
 
-        var takeVideoIntent: Intent? = null
-        if (acceptsVideos) {
-            try {
-                val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
-                if (intent.resolveActivity(packageManager) != null) {
-                    takeVideoIntent = intent
+        // =========================================================================
+        // CASE 2: MEDIA / GALLERY UPLOAD (Tapping Gallery / Photo button on website)
+        // Behaves like Chrome/Brave: Directly opens Android Photo Picker / Gallery!
+        // NEVER shows an action chooser asking "Camera or Gallery" because user tapped Gallery!
+        // =========================================================================
+        if (isMediaOnly) {
+            val photoPickerSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ||
+                    ActivityResultContracts.PickVisualMedia.isPhotoPickerAvailable(this)
+
+            val galleryIntent = if (photoPickerSupported) {
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    if (isImageOnly) {
+                        type = "image/*"
+                    } else if (isVideoOnly) {
+                        type = "video/*"
+                    } else {
+                        type = "*/*"
+                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
+                    }
+                    if (allowMultiple) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, MediaStore.getPickImagesMaxLimit())
+                        } else {
+                            putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 100)
+                        }
+                    }
                 }
-            } catch (_: Throwable) {}
+            } else {
+                Intent(Intent.ACTION_GET_CONTENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = if (isImageOnly) "image/*" else if (isVideoOnly) "video/*" else "*/*"
+                    if (!isImageOnly && !isVideoOnly) {
+                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
+                    }
+                    if (allowMultiple) {
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    }
+                }
+            }
+
+            return try {
+                isSystemDialogOrChooserPending = true
+                fileChooserLauncher.launch(galleryIntent)
+                true
+            } catch (t: Throwable) {
+                android.util.Log.w("OnyxFileChooser", "Photo picker launch failed, falling back to GET_CONTENT", t)
+                try {
+                    val fallbackIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = if (isImageOnly) "image/*" else if (isVideoOnly) "video/*" else "*/*"
+                        if (allowMultiple) putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    }
+                    fileChooserLauncher.launch(fallbackIntent)
+                    true
+                } catch (t2: Throwable) {
+                    isSystemDialogOrChooserPending = false
+                    android.util.Log.e("OnyxFileChooser", "Failed to launch fallback gallery intent", t2)
+                    safeCallback.onReceiveValue(null)
+                    pendingFilePathCallback = null
+                    true
+                }
+            }
         }
 
+        // =========================================================================
+        // CASE 3: GENERIC FILE / DOCUMENT UPLOAD (<input type="file">, pdf, zip, etc.)
+        // Behaves like Chrome/Brave: Directly opens Android System File / Document Picker!
+        // =========================================================================
         val contentIntent = try {
             fileChooserParams?.createIntent()
         } catch (_: Throwable) { null } ?: Intent(Intent.ACTION_GET_CONTENT).apply {
@@ -655,42 +839,20 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             try { contentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true) } catch (_: Throwable) {}
         }
 
-        val extraIntents = mutableListOf<Intent>()
-        takePhotoIntent?.let { extraIntents.add(it) }
-        takeVideoIntent?.let { extraIntents.add(it) }
-
-        val chooserTitle = fileChooserParams?.title?.takeIf { !it.isNullOrBlank() }
-            ?: if (acceptsImages && !acceptsVideos && acceptTypes.all { it.contains("image", ignoreCase = true) }) {
-                "Select photo or take picture"
-            } else {
-                "Select file"
-            }
-
-        val chooserIntent = if (isCaptureEnabled && takePhotoIntent != null && !acceptsVideos) {
-            takePhotoIntent
-        } else {
-            Intent.createChooser(contentIntent, chooserTitle).apply {
-                if (extraIntents.isNotEmpty()) {
-                    putExtra(Intent.EXTRA_INITIAL_INTENTS, extraIntents.toTypedArray())
-                }
-            }
-        }
-
         return try {
             isSystemDialogOrChooserPending = true
-            fileChooserLauncher.launch(chooserIntent)
+            fileChooserLauncher.launch(contentIntent)
             true
         } catch (t: Throwable) {
-            android.util.Log.w("OnyxFileChooser", "Failed to launch full chooser, falling back to content intent", t)
+            android.util.Log.w("OnyxFileChooser", "Direct content intent failed, trying chooser", t)
             try {
-                fileChooserLauncher.launch(contentIntent)
+                val chooserTitle = fileChooserParams?.title?.takeIf { !it.isNullOrBlank() } ?: "Select file"
+                val chooserIntent = Intent.createChooser(contentIntent, chooserTitle)
+                fileChooserLauncher.launch(chooserIntent)
                 true
             } catch (t2: Throwable) {
                 isSystemDialogOrChooserPending = false
-                android.util.Log.e("OnyxFileChooser", "Failed to launch content intent fallback", t2)
-                pendingCameraPhotoFile?.delete()
-                pendingCameraPhotoFile = null
-                pendingCameraPhotoUri = null
+                android.util.Log.e("OnyxFileChooser", "Failed to launch document chooser", t2)
                 safeCallback.onReceiveValue(null)
                 pendingFilePathCallback = null
                 true
