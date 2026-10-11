@@ -61,7 +61,6 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.SearchEngine
 import com.onyx.browser.data.model.ShortcutItem
@@ -208,6 +207,14 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         val coarse = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
             ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val granted = fine || coarse
+        pendingGeoOrigin?.let { origin ->
+            val host = try {
+                Uri.parse(origin).host?.takeIf { it.isNotBlank() } ?: origin
+            } catch (_: Exception) {
+                origin
+            }
+            preferences.setWebLocationAllowed(host, granted)
+        }
         try {
             pendingGeoCallback?.invoke(pendingGeoOrigin, granted, true)
         } catch (_: Exception) {}
@@ -242,40 +249,27 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             return
         }
 
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Location Permission")
-            .setMessage("\"$host\" wants to access your location.")
-            .setPositiveButton("Allow") { _, _ ->
-                preferences.setWebLocationAllowed(host, true)
-                if (fine || coarse) {
-                    try { callback.invoke(origin, true, true) } catch (_: Exception) {}
-                } else {
-                    pendingGeoOrigin = origin
-                    pendingGeoCallback = callback
-                    isSystemDialogOrChooserPending = true
-                    locationPermissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        )
-                    )
-                }
-            }
-            .setNegativeButton("Block") { _, _ ->
-                preferences.setWebLocationAllowed(host, false)
-                try { callback.invoke(origin, false, true) } catch (_: Exception) {}
-            }
-            .setOnCancelListener {
-                try { callback.invoke(origin, false, false) } catch (_: Exception) {}
-            }
-            .show()
+        // Delegate directly to Android system location permission dialog
+        if (fine || coarse) {
+            preferences.setWebLocationAllowed(host, true)
+            try { callback.invoke(origin, true, true) } catch (_: Exception) {}
+        } else {
+            pendingGeoOrigin = origin
+            pendingGeoCallback = callback
+            isSystemDialogOrChooserPending = true
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
     }
 
     private var isSystemDialogOrChooserPending: Boolean = false
     private val handledWebRequests = java.util.Collections.synchronizedSet(
         java.util.Collections.newSetFromMap(java.util.WeakHashMap<PermissionRequest, Boolean>())
     )
-    private var activeWebMediaDialog: androidx.appcompat.app.AlertDialog? = null
     private var pendingWebMediaRequest: PermissionRequest? = null
     private var pendingWebMediaResources: Array<String>? = null
     private var pendingWebMediaNeedsAudio: Boolean = false
@@ -406,33 +400,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             return
         }
 
-        val permissionDesc = when {
-            needsAudio && needsVideo -> "camera and microphone"
-            needsAudio -> "microphone"
-            needsVideo -> "camera"
-            else -> "media devices"
-        }
-
-        activeWebMediaDialog?.dismiss()
-
-        activeWebMediaDialog = MaterialAlertDialogBuilder(this)
-            .setTitle("Website Permission")
-            .setMessage("\"$host\" wants to use your $permissionDesc.")
-            .setPositiveButton("Allow") { _, _ ->
-                activeWebMediaDialog = null
-                grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = true)
-            }
-            .setNegativeButton("Block") { _, _ ->
-                activeWebMediaDialog = null
-                if (needsVideo) preferences.setWebCameraAllowed(host, false)
-                if (needsAudio) preferences.setWebMicAllowed(host, false)
-                safeDenyWebPermission(request)
-            }
-            .setOnCancelListener {
-                activeWebMediaDialog = null
-                safeDenyWebPermission(request)
-            }
-            .show()
+        // Directly delegate to Android system runtime permissions without custom alert dialog
+        grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = true)
     }
 
     private fun grantWebMediaPermission(
@@ -478,8 +447,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 pendingWebMediaNeedsVideo = false
                 pendingWebMediaHost = null
             }
-            activeWebMediaDialog?.dismiss()
-            activeWebMediaDialog = null
         }
     }
 
@@ -3323,8 +3290,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         pendingCameraPhotoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
         pendingCameraPhotoFile = null
         pendingCameraPhotoUri = null
-        activeWebMediaDialog?.dismiss()
-        activeWebMediaDialog = null
         try { pendingWebMediaRequest?.let { safeDenyWebPermission(it) } } catch (_: Exception) {}
         pendingWebMediaRequest = null
         pendingWebMediaResources = null
