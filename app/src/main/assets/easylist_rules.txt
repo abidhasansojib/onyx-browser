@@ -33622,6 +33622,7 @@ oklivetv.com##+js(no-fetch-if, method:POST body:tracker)
 ||oklivetv.com/p/e
 ||t.xfeed.com^
 ||ua.xstory-fr.com^
+||sentry.efabrica.sk^
 @@||awstrack.me/*auth.coindesk.com$doc,popup
 @@||awstrack.me/*cmd=ac-inactive-restore$doc,popup
 @@||che168.com^$xhr,removeparam=s_cid
