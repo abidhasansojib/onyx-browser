@@ -4,13 +4,16 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@color/settings_canvas_bg"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingBottom="24dp">
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="28dp">
 
         <!-- Drag handle -->
         <View
@@ -18,153 +21,221 @@
             android:layout_height="4dp"
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="10dp"
-            android:layout_marginBottom="12dp"
+            android:layout_marginBottom="16dp"
             android:background="@drawable/bg_drag_handle"
             android:alpha="0.4" />
 
-        <!-- Header -->
+        <!-- Header row: Icon + Title -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:paddingBottom="12dp">
+            android:layout_marginBottom="16dp">
 
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/ivCategoryIcon"
-                android:layout_width="26dp"
-                android:layout_height="26dp"
-                app:srcCompat="@drawable/ic_camera"
-                app:tint="?attr/colorPrimary" />
+            <FrameLayout
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_box_tile">
 
-            <TextView
-                android:id="@+id/tvCategoryTitle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:layout_weight="1"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="17sp"
-                android:textStyle="bold"
-                tools:text="Camera permissions" />
-        </LinearLayout>
-
-        <!-- Master Switch Row -->
-        <LinearLayout
-            android:id="@+id/layoutGlobalToggle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="20dp"
-            android:paddingTop="12dp"
-            android:paddingEnd="20dp"
-            android:paddingBottom="12dp">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/ivCategoryIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    app:srcCompat="@drawable/ic_camera"
+                    app:tint="?attr/colorPrimary" />
+            </FrameLayout>
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
                 android:layout_weight="1"
                 android:orientation="vertical">
 
                 <TextView
-                    android:id="@+id/tvGlobalToggleTitle"
+                    android:id="@+id/tvCategoryTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/ask_before_accessing"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:textColor="@color/settings_title_text"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    tools:text="Camera" />
 
                 <TextView
-                    android:id="@+id/tvGlobalToggleDesc"
+                    android:id="@+id/tvCategorySubtitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Sites must ask for permission before using this device"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp" />
+                    android:textColor="@color/settings_subtitle_text"
+                    android:textSize="12sp"
+                    tools:text="2 sites allowed · 1 blocked" />
             </LinearLayout>
-
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/switchGlobalToggle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:clickable="false"
-                android:focusable="false" />
         </LinearLayout>
 
-        <!-- Divider -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="20dp"
-            android:layout_marginTop="6dp"
-            android:layout_marginEnd="20dp"
-            android:background="?attr/colorOutline"
-            android:alpha="0.5" />
+        <!-- Global Default Policy Card -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="DEFAULT BEHAVIOR"
+            android:textColor="@color/settings_subtitle_text"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08" />
 
-        <!-- Allowed Sites Header -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            app:cardBackgroundColor="@color/settings_card_bg"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/settings_card_stroke"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:id="@+id/layoutGlobalToggle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvGlobalToggleTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/ask_before_accessing"
+                        android:textColor="@color/settings_title_text"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvGlobalToggleDesc"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="Sites must ask for permission before using this device"
+                        android:textColor="@color/settings_subtitle_text"
+                        android:textSize="12.5sp" />
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchGlobalToggle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Allowed Sites Section -->
         <TextView
             android:id="@+id/tvAllowedHeader"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="20dp"
-            android:paddingTop="16dp"
-            android:paddingEnd="20dp"
-            android:paddingBottom="6dp"
+            android:layout_marginBottom="8dp"
             android:text="@string/allowed_sites_header"
             android:textColor="@color/green_success"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:textStyle="bold"
+            android:letterSpacing="0.08"
             android:visibility="gone"
             tools:visibility="visible" />
 
-        <LinearLayout
-            android:id="@+id/containerAllowedSites"
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardAllowedSites"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" />
+            android:layout_marginBottom="16dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="@color/settings_card_bg"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/settings_card_stroke"
+            app:strokeWidth="1dp"
+            tools:visibility="visible">
 
-        <!-- Blocked Sites Header -->
+            <LinearLayout
+                android:id="@+id/containerAllowedSites"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Blocked Sites Section -->
         <TextView
             android:id="@+id/tvBlockedHeader"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="20dp"
-            android:paddingTop="16dp"
-            android:paddingEnd="20dp"
-            android:paddingBottom="6dp"
+            android:layout_marginBottom="8dp"
             android:text="@string/blocked_sites_header"
             android:textColor="?attr/colorError"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:textStyle="bold"
+            android:letterSpacing="0.08"
             android:visibility="gone"
             tools:visibility="visible" />
 
-        <LinearLayout
-            android:id="@+id/containerBlockedSites"
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardBlockedSites"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" />
+            android:layout_marginBottom="16dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="@color/settings_card_bg"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/settings_card_stroke"
+            app:strokeWidth="1dp"
+            tools:visibility="visible">
+
+            <LinearLayout
+                android:id="@+id/containerBlockedSites"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Empty State -->
-        <TextView
-            android:id="@+id/tvEmptySites"
+        <LinearLayout
+            android:id="@+id/layoutEmptySites"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center"
+            android:orientation="vertical"
             android:padding="28dp"
-            android:text="@string/no_sites_configured"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="13sp"
             android:visibility="gone"
-            tools:visibility="visible" />
+            tools:visibility="visible">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:alpha="0.35"
+                app:srcCompat="@drawable/ic_web"
+                app:tint="@color/settings_subtitle_text" />
+
+            <TextView
+                android:id="@+id/tvEmptySites"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:layout_marginTop="10dp"
+                android:text="@string/no_sites_configured"
+                android:textColor="@color/settings_subtitle_text"
+                android:textSize="13sp" />
+        </LinearLayout>
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

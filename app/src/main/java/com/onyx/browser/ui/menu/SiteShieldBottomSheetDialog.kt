@@ -203,7 +203,7 @@ class SiteShieldBottomSheetDialog(
             }
             SitePermissionState.ASK -> {
                 textView.text = getString(R.string.permission_ask)
-                textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary_dark))
+                textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.settings_subtitle_text))
             }
         }
     }
@@ -302,10 +302,10 @@ class SiteShieldBottomSheetDialog(
             binding.tvShieldsStatus.text = getString(R.string.shields_down)
             binding.tvShieldsStatusSub.text = getString(R.string.shields_down_desc)
             binding.ivShieldsStatusDot.setColorFilter(
-                ContextCompat.getColor(requireContext(), R.color.text_secondary_dark)
+                ContextCompat.getColor(requireContext(), R.color.settings_subtitle_text)
             )
             binding.ivShieldIcon.setColorFilter(
-                ContextCompat.getColor(requireContext(), R.color.text_secondary_dark)
+                ContextCompat.getColor(requireContext(), R.color.settings_subtitle_text)
             )
             binding.switchShieldsMaster.isChecked = false
         }

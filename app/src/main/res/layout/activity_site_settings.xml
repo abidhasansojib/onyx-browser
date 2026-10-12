@@ -48,7 +48,7 @@
             android:paddingEnd="16dp"
             android:paddingBottom="36dp">
 
-            <!-- ── ALL SITES CARD ──────────────────────────────────────── -->
+            <!-- ── ALL SITES SECTION ──────────────────────────────────────── -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -57,8 +57,10 @@
                 android:layout_marginBottom="8dp"
                 android:text="@string/all_sites_title"
                 android:textColor="@color/settings_subtitle_text"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textAllCaps="true" />
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -72,7 +74,7 @@
                 <LinearLayout
                     android:id="@+id/rowAllSites"
                     android:layout_width="match_parent"
-                    android:layout_height="64dp"
+                    android:layout_height="72dp"
                     android:background="?attr/selectableItemBackground"
                     android:clickable="true"
                     android:focusable="true"
@@ -81,16 +83,24 @@
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp">
 
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        app:srcCompat="@drawable/ic_web"
-                        app:tint="@color/settings_title_text" />
+                    <!-- Icon background circle -->
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_box_tile">
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            app:srcCompat="@drawable/ic_web"
+                            app:tint="@color/settings_title_text" />
+                    </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
@@ -120,17 +130,19 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- ── PERMISSIONS CATEGORY ────────────────────────────────── -->
+            <!-- ── PERMISSIONS SECTION ─────────────────────────────────────── -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
-                android:layout_marginTop="22dp"
+                android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
                 android:text="@string/site_permissions_header"
                 android:textColor="@color/settings_subtitle_text"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textAllCaps="true" />
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -150,7 +162,7 @@
                     <LinearLayout
                         android:id="@+id/rowCameraPermission"
                         android:layout_width="match_parent"
-                        android:layout_height="64dp"
+                        android:layout_height="72dp"
                         android:background="?attr/selectableItemBackground"
                         android:clickable="true"
                         android:focusable="true"
@@ -159,16 +171,23 @@
                         android:paddingStart="16dp"
                         android:paddingEnd="16dp">
 
-                        <androidx.appcompat.widget.AppCompatImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            app:srcCompat="@drawable/ic_camera"
-                            app:tint="@color/settings_title_text" />
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_box_tile">
+
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                app:srcCompat="@drawable/ic_camera"
+                                app:tint="@color/settings_title_text" />
+                        </FrameLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
+                            android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
@@ -190,6 +209,18 @@
                                 android:textSize="12.5sp" />
                         </LinearLayout>
 
+                        <!-- Site count badge -->
+                        <TextView
+                            android:id="@+id/tvCameraCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:textColor="@color/settings_subtitle_text"
+                            android:textSize="12sp"
+                            android:visibility="gone"
+                            tools:text="2"
+                            tools:visibility="visible" />
+
                         <androidx.appcompat.widget.AppCompatImageView
                             android:layout_width="20dp"
                             android:layout_height="20dp"
@@ -200,14 +231,14 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="56dp"
+                        android:layout_marginStart="70dp"
                         android:background="@color/settings_card_stroke" />
 
                     <!-- Microphone Row -->
                     <LinearLayout
                         android:id="@+id/rowMicPermission"
                         android:layout_width="match_parent"
-                        android:layout_height="64dp"
+                        android:layout_height="72dp"
                         android:background="?attr/selectableItemBackground"
                         android:clickable="true"
                         android:focusable="true"
@@ -216,16 +247,23 @@
                         android:paddingStart="16dp"
                         android:paddingEnd="16dp">
 
-                        <androidx.appcompat.widget.AppCompatImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            app:srcCompat="@drawable/ic_mic"
-                            app:tint="@color/settings_title_text" />
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_box_tile">
+
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                app:srcCompat="@drawable/ic_mic"
+                                app:tint="@color/settings_title_text" />
+                        </FrameLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
+                            android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
@@ -247,6 +285,17 @@
                                 android:textSize="12.5sp" />
                         </LinearLayout>
 
+                        <TextView
+                            android:id="@+id/tvMicCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:textColor="@color/settings_subtitle_text"
+                            android:textSize="12sp"
+                            android:visibility="gone"
+                            tools:text="1"
+                            tools:visibility="visible" />
+
                         <androidx.appcompat.widget.AppCompatImageView
                             android:layout_width="20dp"
                             android:layout_height="20dp"
@@ -257,14 +306,14 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="56dp"
+                        android:layout_marginStart="70dp"
                         android:background="@color/settings_card_stroke" />
 
                     <!-- Location Row -->
                     <LinearLayout
                         android:id="@+id/rowLocationPermission"
                         android:layout_width="match_parent"
-                        android:layout_height="64dp"
+                        android:layout_height="72dp"
                         android:background="?attr/selectableItemBackground"
                         android:clickable="true"
                         android:focusable="true"
@@ -273,16 +322,23 @@
                         android:paddingStart="16dp"
                         android:paddingEnd="16dp">
 
-                        <androidx.appcompat.widget.AppCompatImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            app:srcCompat="@drawable/ic_location"
-                            app:tint="@color/settings_title_text" />
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_box_tile">
+
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                app:srcCompat="@drawable/ic_location"
+                                app:tint="@color/settings_title_text" />
+                        </FrameLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
+                            android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
@@ -304,6 +360,17 @@
                                 android:textSize="12.5sp" />
                         </LinearLayout>
 
+                        <TextView
+                            android:id="@+id/tvLocationCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:textColor="@color/settings_subtitle_text"
+                            android:textSize="12sp"
+                            android:visibility="gone"
+                            tools:text="3"
+                            tools:visibility="visible" />
+
                         <androidx.appcompat.widget.AppCompatImageView
                             android:layout_width="20dp"
                             android:layout_height="20dp"
@@ -314,17 +381,19 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- ── DATA STORED CATEGORY ────────────────────────────────── -->
+            <!-- ── DATA STORED SECTION ─────────────────────────────────────── -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
-                android:layout_marginTop="22dp"
+                android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
                 android:text="@string/site_data_header"
                 android:textColor="@color/settings_subtitle_text"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textAllCaps="true" />
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -338,7 +407,7 @@
                 <LinearLayout
                     android:id="@+id/rowClearAllSiteData"
                     android:layout_width="match_parent"
-                    android:layout_height="64dp"
+                    android:layout_height="72dp"
                     android:background="?attr/selectableItemBackground"
                     android:clickable="true"
                     android:focusable="true"
@@ -347,16 +416,23 @@
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp">
 
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        app:srcCompat="@drawable/ic_delete"
-                        app:tint="?attr/colorError" />
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_box_tile">
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            app:srcCompat="@drawable/ic_delete"
+                            app:tint="?attr/colorError" />
+                    </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
@@ -369,6 +445,7 @@
                             android:textStyle="bold" />
 
                         <TextView
+                            android:id="@+id/tvClearDataSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"

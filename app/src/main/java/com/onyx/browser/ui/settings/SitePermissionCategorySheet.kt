@@ -1,6 +1,7 @@
 package com.onyx.browser.ui.settings
 
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -77,6 +78,16 @@ class SitePermissionCategorySheet(
                 binding.tvCategoryTitle.text = getString(R.string.location_settings_title)
             }
         }
+        updateSubtitle()
+    }
+
+    private fun updateSubtitle() {
+        val allowed = getAllowedDomains()
+        val blocked = getBlockedDomains()
+        val parts = mutableListOf<String>()
+        if (allowed.isNotEmpty()) parts.add("${allowed.size} ${if (allowed.size == 1) "site" else "sites"} allowed")
+        if (blocked.isNotEmpty()) parts.add("${blocked.size} blocked")
+        binding.tvCategorySubtitle.text = if (parts.isEmpty()) "No exceptions set" else parts.joinToString(" · ")
     }
 
     private fun setupGlobalToggle() {
@@ -112,72 +123,138 @@ class SitePermissionCategorySheet(
         }
     }
 
+    private fun getAllowedDomains(): Set<String> = when (categoryType) {
+        CATEGORY_CAMERA -> prefs.getAllowedCameraDomains()
+        CATEGORY_MIC -> prefs.getAllowedMicDomains()
+        CATEGORY_LOCATION -> prefs.getAllowedLocationDomains()
+        else -> emptySet()
+    }
+
+    private fun getBlockedDomains(): Set<String> = when (categoryType) {
+        CATEGORY_CAMERA -> prefs.getBlockedCameraDomains()
+        CATEGORY_MIC -> prefs.getBlockedMicDomains()
+        CATEGORY_LOCATION -> prefs.getBlockedLocationDomains()
+        else -> emptySet()
+    }
+
     private fun populateSiteLists() {
         binding.containerAllowedSites.removeAllViews()
         binding.containerBlockedSites.removeAllViews()
 
-        val allowedDomains = when (categoryType) {
-            CATEGORY_CAMERA -> prefs.getAllowedCameraDomains()
-            CATEGORY_MIC -> prefs.getAllowedMicDomains()
-            CATEGORY_LOCATION -> prefs.getAllowedLocationDomains()
-            else -> emptySet()
-        }
-
-        val blockedDomains = when (categoryType) {
-            CATEGORY_CAMERA -> prefs.getBlockedCameraDomains()
-            CATEGORY_MIC -> prefs.getBlockedMicDomains()
-            CATEGORY_LOCATION -> prefs.getBlockedLocationDomains()
-            else -> emptySet()
-        }
+        val allowedDomains = getAllowedDomains()
+        val blockedDomains = getBlockedDomains()
 
         val hasAllowed = allowedDomains.isNotEmpty()
         val hasBlocked = blockedDomains.isNotEmpty()
 
+        // Allowed section
         binding.tvAllowedHeader.visibility = if (hasAllowed) View.VISIBLE else View.GONE
+        binding.cardAllowedSites.visibility = if (hasAllowed) View.VISIBLE else View.GONE
+
+        // Blocked section
         binding.tvBlockedHeader.visibility = if (hasBlocked) View.VISIBLE else View.GONE
-        binding.tvEmptySites.visibility = if (!hasAllowed && !hasBlocked) View.VISIBLE else View.GONE
+        binding.cardBlockedSites.visibility = if (hasBlocked) View.VISIBLE else View.GONE
 
-        for (domain in allowedDomains.sorted()) {
-            addDomainRow(binding.containerAllowedSites, domain, isAllowed = true)
+        // Empty state
+        binding.layoutEmptySites.visibility = if (!hasAllowed && !hasBlocked) View.VISIBLE else View.GONE
+
+        val allowedList = allowedDomains.sorted()
+        for ((index, domain) in allowedList.withIndex()) {
+            addDomainRow(
+                container = binding.containerAllowedSites,
+                domain = domain,
+                isAllowed = true,
+                showDivider = index < allowedList.size - 1
+            )
         }
 
-        for (domain in blockedDomains.sorted()) {
-            addDomainRow(binding.containerBlockedSites, domain, isAllowed = false)
+        val blockedList = blockedDomains.sorted()
+        for ((index, domain) in blockedList.withIndex()) {
+            addDomainRow(
+                container = binding.containerBlockedSites,
+                domain = domain,
+                isAllowed = false,
+                showDivider = index < blockedList.size - 1
+            )
         }
+
+        updateSubtitle()
     }
 
-    private fun addDomainRow(container: LinearLayout, domain: String, isAllowed: Boolean) {
+    private fun addDomainRow(
+        container: LinearLayout,
+        domain: String,
+        isAllowed: Boolean,
+        showDivider: Boolean
+    ) {
+        val density = resources.displayMetrics.density
+
+        val rowWrapper = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
         val row = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
             setPadding(
-                (20 * resources.displayMetrics.density).toInt(),
-                (10 * resources.displayMetrics.density).toInt(),
-                (20 * resources.displayMetrics.density).toInt(),
-                (10 * resources.displayMetrics.density).toInt()
+                (16 * density).toInt(),
+                (14 * density).toInt(),
+                (16 * density).toInt(),
+                (14 * density).toInt()
             )
             val typedValue = android.util.TypedValue()
             context.theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
             setBackgroundResource(typedValue.resourceId)
         }
 
+        // Globe icon
+        val ivGlobe = ImageView(requireContext()).apply {
+            setImageResource(R.drawable.ic_web)
+            val iconColor = android.util.TypedValue()
+            context.theme.resolveAttribute(android.R.attr.textColorSecondary, iconColor, true)
+            setColorFilter(ContextCompat.getColor(context, iconColor.resourceId))
+            val iconSize = (18 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                marginEnd = (12 * density).toInt()
+            }
+        }
+
         val tvDomain = TextView(requireContext()).apply {
             text = domain
-            textSize = 14f
+            textSize = 14.5f
             val typedValue = android.util.TypedValue()
             context.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
             setTextColor(ContextCompat.getColor(context, typedValue.resourceId))
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
+        // Status chip
+        val tvStatus = TextView(requireContext()).apply {
+            text = if (isAllowed) getString(R.string.permission_allowed) else getString(R.string.permission_blocked)
+            textSize = 11.5f
+            setTextColor(
+                if (isAllowed) ContextCompat.getColor(context, R.color.green_success)
+                else ContextCompat.getColor(context, R.color.red_danger)
+            )
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginEnd = (10 * density).toInt()
+            }
+        }
+
+        // Delete button
         val btnDelete = ImageView(requireContext()).apply {
             setImageResource(R.drawable.ic_delete)
-            setColorFilter(ContextCompat.getColor(context, R.color.red_danger))
-            val pad = (6 * resources.displayMetrics.density).toInt()
+            setColorFilter(ContextCompat.getColor(context, R.color.settings_subtitle_text))
+            val pad = (5 * density).toInt()
             setPadding(pad, pad, pad, pad)
             val typedValue = android.util.TypedValue()
             context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, typedValue, true)
             setBackgroundResource(typedValue.resourceId)
+            val iconSize = (32 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
             setOnClickListener {
                 when (categoryType) {
                     CATEGORY_CAMERA -> prefs.setSiteCameraPermission(domain, SitePermissionState.ASK)
@@ -189,9 +266,26 @@ class SitePermissionCategorySheet(
             }
         }
 
+        row.addView(ivGlobe)
         row.addView(tvDomain)
+        row.addView(tvStatus)
         row.addView(btnDelete)
-        container.addView(row)
+        rowWrapper.addView(row)
+
+        if (showDivider) {
+            val divider = View(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    1
+                ).apply {
+                    marginStart = (46 * density).toInt()
+                }
+                setBackgroundColor(ContextCompat.getColor(context, R.color.settings_card_stroke))
+            }
+            rowWrapper.addView(divider)
+        }
+
+        container.addView(rowWrapper)
     }
 
     override fun onDestroyView() {

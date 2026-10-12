@@ -3,6 +3,7 @@ package com.onyx.browser.ui.settings
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -75,7 +76,12 @@ class AllSitesSheet(
 
     private fun loadDomains() {
         allDomains = prefs.getAllConfiguredDomains().toList().sorted()
-        binding.tvSiteCountBadge.text = "${allDomains.size} sites"
+        val count = allDomains.size
+        binding.tvSiteCountBadge.text = when {
+            count == 0 -> "No custom settings"
+            count == 1 -> "1 site with custom settings"
+            else -> "$count sites with custom settings"
+        }
         renderSitesList()
     }
 
@@ -88,28 +94,50 @@ class AllSitesSheet(
         }
 
         if (filtered.isEmpty()) {
-            binding.tvEmptySites.visibility = View.VISIBLE
+            binding.cardSitesList.visibility = View.GONE
+            binding.layoutEmptySites.visibility = View.VISIBLE
         } else {
-            binding.tvEmptySites.visibility = View.GONE
-            for (domain in filtered) {
-                addSiteRow(domain)
+            binding.cardSitesList.visibility = View.VISIBLE
+            binding.layoutEmptySites.visibility = View.GONE
+            for ((index, domain) in filtered.withIndex()) {
+                addSiteRow(domain, showDivider = index < filtered.size - 1)
             }
         }
     }
 
-    private fun addSiteRow(domain: String) {
+    private fun addSiteRow(domain: String, showDivider: Boolean) {
+        val density = resources.displayMetrics.density
+
+        val rowWrapper = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
         val row = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
             setPadding(
-                (20 * resources.displayMetrics.density).toInt(),
-                (12 * resources.displayMetrics.density).toInt(),
-                (20 * resources.displayMetrics.density).toInt(),
-                (12 * resources.displayMetrics.density).toInt()
+                (16 * density).toInt(),
+                (14 * density).toInt(),
+                (16 * density).toInt(),
+                (14 * density).toInt()
             )
             val typedValue = android.util.TypedValue()
             context.theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
             setBackgroundResource(typedValue.resourceId)
+            isClickable = true
+            isFocusable = true
+        }
+
+        // Globe icon placeholder for favicon
+        val ivGlobe = ImageView(requireContext()).apply {
+            setImageResource(R.drawable.ic_web)
+            val iconColor = android.util.TypedValue()
+            context.theme.resolveAttribute(android.R.attr.textColorSecondary, iconColor, true)
+            setColorFilter(ContextCompat.getColor(context, iconColor.resourceId))
+            val size = (36 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                marginEnd = (12 * density).toInt()
+            }
         }
 
         val textContainer = LinearLayout(requireContext()).apply {
@@ -119,40 +147,48 @@ class AllSitesSheet(
 
         val tvDomain = TextView(requireContext()).apply {
             text = domain
-            textSize = 15f
+            textSize = 14.5f
             val typedValue = android.util.TypedValue()
             context.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
             setTextColor(ContextCompat.getColor(context, typedValue.resourceId))
         }
 
-        val summaryItems = mutableListOf<String>()
+        // Build a permission summary line
+        val summaryParts = mutableListOf<String>()
         val cam = prefs.getSiteCameraPermission(domain)
-        if (cam != SitePermissionState.ASK) summaryItems.add("Camera: ${cam.name.lowercase()}")
+        if (cam == SitePermissionState.ALLOWED) summaryParts.add("Camera: allowed")
+        else if (cam == SitePermissionState.BLOCKED) summaryParts.add("Camera: blocked")
         val mic = prefs.getSiteMicPermission(domain)
-        if (mic != SitePermissionState.ASK) summaryItems.add("Mic: ${mic.name.lowercase()}")
+        if (mic == SitePermissionState.ALLOWED) summaryParts.add("Mic: allowed")
+        else if (mic == SitePermissionState.BLOCKED) summaryParts.add("Mic: blocked")
         val loc = prefs.getSiteLocationPermission(domain)
-        if (loc != SitePermissionState.ASK) summaryItems.add("Location: ${loc.name.lowercase()}")
-        if (prefs.isDomainWhitelisted(domain)) summaryItems.add("Shields: off")
+        if (loc == SitePermissionState.ALLOWED) summaryParts.add("Location: allowed")
+        else if (loc == SitePermissionState.BLOCKED) summaryParts.add("Location: blocked")
+        if (prefs.isDomainWhitelisted(domain)) summaryParts.add("Shields: off")
 
         val tvSummary = TextView(requireContext()).apply {
-            text = if (summaryItems.isNotEmpty()) summaryItems.joinToString(" · ") else "Default permissions"
+            text = if (summaryParts.isNotEmpty()) summaryParts.joinToString(" · ") else "Default permissions"
             textSize = 12f
             setTextColor(ContextCompat.getColor(context, R.color.settings_subtitle_text))
-            setPadding(0, (2 * resources.displayMetrics.density).toInt(), 0, 0)
+            setPadding(0, (2 * density).toInt(), 0, 0)
         }
 
         textContainer.addView(tvDomain)
         textContainer.addView(tvSummary)
 
-        // Clear data icon button
+        // Clear data icon button (using delete icon, represents clearing)
         val btnClearData = ImageView(requireContext()).apply {
-            setImageResource(R.drawable.ic_web)
-            setColorFilter(ContextCompat.getColor(context, R.color.settings_title_text))
-            val pad = (6 * resources.displayMetrics.density).toInt()
+            setImageResource(R.drawable.ic_delete)
+            setColorFilter(ContextCompat.getColor(context, R.color.settings_subtitle_text))
+            val pad = (5 * density).toInt()
             setPadding(pad, pad, pad, pad)
             val typedValue = android.util.TypedValue()
             context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, typedValue, true)
             setBackgroundResource(typedValue.resourceId)
+            val iconSize = (34 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                marginStart = (4 * density).toInt()
+            }
             setOnClickListener {
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle(getString(R.string.clear_site_data_dialog_title, domain))
@@ -166,33 +202,36 @@ class AllSitesSheet(
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
+                        // Reset permissions too for clean slate
+                        prefs.resetSitePermissions(domain)
+                        prefs.setDomainWhitelisted(domain, false)
+                        loadDomains()
+                        onSitesChanged()
                     }
                     .setNegativeButton(R.string.cancel, null)
                     .show()
             }
         }
 
-        // Reset permissions delete button
-        val btnReset = ImageView(requireContext()).apply {
-            setImageResource(R.drawable.ic_delete)
-            setColorFilter(ContextCompat.getColor(context, R.color.red_danger))
-            val pad = (6 * resources.displayMetrics.density).toInt()
-            setPadding(pad, pad, pad, pad)
-            val typedValue = android.util.TypedValue()
-            context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, typedValue, true)
-            setBackgroundResource(typedValue.resourceId)
-            setOnClickListener {
-                prefs.resetSitePermissions(domain)
-                prefs.setDomainWhitelisted(domain, false)
-                loadDomains()
-                onSitesChanged()
-            }
-        }
-
+        row.addView(ivGlobe)
         row.addView(textContainer)
         row.addView(btnClearData)
-        row.addView(btnReset)
-        binding.containerSites.addView(row)
+        rowWrapper.addView(row)
+
+        if (showDivider) {
+            val divider = View(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    1
+                ).apply {
+                    marginStart = (64 * density).toInt()
+                }
+                setBackgroundColor(ContextCompat.getColor(context, R.color.settings_card_stroke))
+            }
+            rowWrapper.addView(divider)
+        }
+
+        binding.containerSites.addView(rowWrapper)
     }
 
     override fun onDestroyView() {

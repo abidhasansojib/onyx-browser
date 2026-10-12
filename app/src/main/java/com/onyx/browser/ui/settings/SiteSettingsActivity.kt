@@ -3,6 +3,7 @@ package com.onyx.browser.ui.settings
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -127,28 +128,64 @@ class SiteSettingsActivity : AppCompatActivity() {
 
     private fun updateStatuses() {
         val configuredCount = prefs.getAllConfiguredDomains().size
-        binding.tvAllSitesSubtitle.text = if (configuredCount == 1) {
-            "1 site configured"
+        binding.tvAllSitesSubtitle.text = if (configuredCount == 0) {
+            getString(R.string.all_sites_desc)
+        } else if (configuredCount == 1) {
+            "1 site with custom settings"
         } else {
-            "$configuredCount sites configured"
+            "$configuredCount sites with custom settings"
         }
 
-        binding.tvCameraStatus.text = if (prefs.isCameraEnabledGlobal) {
+        // Camera
+        val cameraEnabled = prefs.isCameraEnabledGlobal
+        binding.tvCameraStatus.text = if (cameraEnabled) {
             getString(R.string.ask_before_accessing)
         } else {
             getString(R.string.blocked_globally)
         }
+        val cameraAllowed = prefs.getAllowedCameraDomains().size
+        val cameraBlocked = prefs.getBlockedCameraDomains().size
+        updateCountBadge(binding.tvCameraCount, cameraAllowed, cameraBlocked)
 
-        binding.tvMicStatus.text = if (prefs.isMicEnabledGlobal) {
+        // Microphone
+        val micEnabled = prefs.isMicEnabledGlobal
+        binding.tvMicStatus.text = if (micEnabled) {
             getString(R.string.ask_before_accessing)
         } else {
             getString(R.string.blocked_globally)
         }
+        val micAllowed = prefs.getAllowedMicDomains().size
+        val micBlocked = prefs.getBlockedMicDomains().size
+        updateCountBadge(binding.tvMicCount, micAllowed, micBlocked)
 
-        binding.tvLocationStatus.text = if (prefs.isLocationEnabledGlobal) {
+        // Location
+        val locationEnabled = prefs.isLocationEnabledGlobal
+        binding.tvLocationStatus.text = if (locationEnabled) {
             getString(R.string.ask_before_accessing)
         } else {
             getString(R.string.blocked_globally)
+        }
+        val locAllowed = prefs.getAllowedLocationDomains().size
+        val locBlocked = prefs.getBlockedLocationDomains().size
+        updateCountBadge(binding.tvLocationCount, locAllowed, locBlocked)
+
+        // Clear data subtitle
+        val siteCount = prefs.getAllConfiguredDomains().size
+        binding.tvClearDataSubtitle.text = if (siteCount == 0) {
+            getString(R.string.site_data_desc)
+        } else {
+            "$siteCount sites with stored data"
+        }
+    }
+
+    /** Shows a compact "{N}" count badge when sites have non-default settings. */
+    private fun updateCountBadge(badge: android.widget.TextView, allowed: Int, blocked: Int) {
+        val total = allowed + blocked
+        if (total > 0) {
+            badge.visibility = View.VISIBLE
+            badge.text = total.toString()
+        } else {
+            badge.visibility = View.GONE
         }
     }
 }
