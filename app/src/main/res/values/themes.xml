@@ -40,7 +40,7 @@
 
     <style name="Widget.OnyxBrowser.BottomSheet" parent="Widget.Material3.BottomSheet">
         <item name="shapeAppearance">@style/ShapeAppearance.OnyxBrowser.BottomSheet</item>
-        <item name="backgroundTint">?attr/colorSurface</item>
+        <item name="backgroundTint">@color/settings_canvas_bg</item>
     </style>
 
     <style name="ShapeAppearance.OnyxBrowser.BottomSheet" parent="ShapeAppearance.Material3.Corner.None">

@@ -58,7 +58,7 @@
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="20dp"
         android:hint="@string/bookmark_url"
         app:boxStrokeColor="?attr/colorPrimary"
         app:hintTextColor="?attr/colorPrimary">
@@ -73,15 +73,6 @@
             android:textColor="?android:attr/textColorPrimary"
             android:textSize="15sp" />
     </com.google.android.material.textfield.TextInputLayout>
-
-    <TextView
-        android:id="@+id/tvBookmarkletHint"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
-        android:text="@string/bookmarklet_hint_tip"
-        android:textColor="?android:attr/textColorSecondary"
-        android:textSize="12sp" />
 
     <!-- Action buttons -->
     <LinearLayout
