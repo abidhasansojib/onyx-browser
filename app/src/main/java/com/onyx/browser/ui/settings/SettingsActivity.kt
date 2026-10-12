@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -24,10 +25,11 @@ class SettingsActivity : AppCompatActivity() {
         AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
 
-        // Edge-to-edge system bars matching #0B0305 canvas
+        // Edge-to-edge system bars matching settings_canvas_bg
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.parseColor("#0B0305")
-        window.navigationBarColor = Color.parseColor("#0B0305")
+        val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
+        window.statusBarColor = canvasBg
+        window.navigationBarColor = canvasBg
 
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)

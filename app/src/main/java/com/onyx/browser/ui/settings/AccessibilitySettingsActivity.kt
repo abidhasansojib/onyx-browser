@@ -22,8 +22,9 @@ class AccessibilitySettingsActivity : AppCompatActivity() {
 
         // Edge-to-edge system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = android.graphics.Color.parseColor("#0B0305")
-        window.navigationBarColor = android.graphics.Color.parseColor("#0B0305")
+        val canvasBg = androidx.core.content.ContextCompat.getColor(this, R.color.settings_canvas_bg)
+        window.statusBarColor = canvasBg
+        window.navigationBarColor = canvasBg
 
         binding = ActivityAccessibilitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)

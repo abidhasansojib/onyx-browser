@@ -44,8 +44,8 @@
     <color name="btn_apply_text">#1C1C1E</color>
     <color name="google_blue">#8AB4F8</color>
 
-    <!-- Settings Screen (#0B0305 luxury dark theme & #202020 card containers) -->
-    <color name="settings_canvas_bg">#0B0305</color>
+    <!-- Settings Screen (#161616 matte charcoal canvas & #202020 card containers) -->
+    <color name="settings_canvas_bg">#161616</color>
     <color name="settings_card_bg">#202020</color>
     <color name="settings_card_stroke">#2C2C2C</color>
     <!-- Settings text colors — dark mode -->
