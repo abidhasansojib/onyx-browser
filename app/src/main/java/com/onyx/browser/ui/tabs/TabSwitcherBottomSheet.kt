@@ -1,5 +1,6 @@
 package com.onyx.browser.ui.tabs
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -54,7 +55,7 @@ class TabSwitcherBottomSheet(
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setStyle(STYLE_NORMAL, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        setStyle(STYLE_NORMAL, R.style.Theme_OnyxBrowser_TabSwitcher)
     }
 
     override fun onStart() {
@@ -67,8 +68,9 @@ class TabSwitcherBottomSheet(
             navigationBarColor = bgColor
             WindowCompat.setDecorFitsSystemWindows(this, false)
             val controller = WindowCompat.getInsetsController(this, decorView)
-            controller.isAppearanceLightStatusBars = false
-            controller.isAppearanceLightNavigationBars = false
+            val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            controller.isAppearanceLightStatusBars = !isNightMode
+            controller.isAppearanceLightNavigationBars = !isNightMode
         }
     }
 
@@ -249,6 +251,8 @@ class TabSwitcherBottomSheet(
             setColor(accentColor)
         }
 
+        val mutedColor = androidx.core.content.ContextCompat.getColor(context, R.color.tab_close_icon)
+
         if (normalActive) {
             // Normal tab button selected: dynamic accent pill + white tab box
             b.btnNormalTabs.background = selectedPillDrawable
@@ -257,7 +261,7 @@ class TabSwitcherBottomSheet(
 
             // Incognito tab unselected: rounded ripple + subtle muted icon
             b.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
-            b.ivIncognitoToggle.setColorFilter(android.graphics.Color.parseColor("#9AA0A6"))
+            b.ivIncognitoToggle.setColorFilter(mutedColor)
         } else {
             // Incognito tab button selected: dynamic accent pill + white fedora/glasses icon
             b.btnIncognitoTabs.background = selectedPillDrawable
@@ -267,10 +271,10 @@ class TabSwitcherBottomSheet(
             b.btnNormalTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
             val boxDrawable = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.bg_tab_count_box)?.mutate()
             if (boxDrawable != null) {
-                androidx.core.graphics.drawable.DrawableCompat.setTint(boxDrawable, android.graphics.Color.parseColor("#9AA0A6"))
+                androidx.core.graphics.drawable.DrawableCompat.setTint(boxDrawable, mutedColor)
                 b.boxTabCount.background = boxDrawable
             }
-            b.tvNormalTabCount.setTextColor(android.graphics.Color.parseColor("#9AA0A6"))
+            b.tvNormalTabCount.setTextColor(mutedColor)
         }
     }
 

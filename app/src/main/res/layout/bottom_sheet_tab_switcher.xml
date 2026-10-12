@@ -255,7 +255,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/ic_add"
-            app:tint="@color/tab_text_primary" />
+            app:tint="?attr/colorOnPrimary" />
 
         <!-- Right: Close All Tabs — Solid squircle button without glassy border -->
         <FrameLayout

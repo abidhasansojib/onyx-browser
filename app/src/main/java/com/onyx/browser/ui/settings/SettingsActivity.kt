@@ -164,8 +164,7 @@ class SettingsActivity : AppCompatActivity() {
             BrowserPreferences.THEME_LIGHT -> getString(R.string.theme_light)
             else -> getString(R.string.theme_system)
         }
-        val accentName = AccentColorManager.getAccentName(preferences)
-        binding.tvCurrentTheme.text = "$themeText • $accentName"
+        binding.tvCurrentTheme.text = themeText
     }
 
     private fun updateUaSpooferText() {

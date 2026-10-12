@@ -48,6 +48,13 @@
         <item name="cornerSizeTopRight">18dp</item>
     </style>
 
+    <style name="Theme.OnyxBrowser.TabSwitcher" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowIsFloating">false</item>
+    </style>
+
     <!-- Accent Color Theme Overlays -->
     <style name="ThemeOverlay.Onyx.Accent.Crimson" parent="">
         <item name="colorPrimary">#DC4B64</item>

@@ -124,6 +124,9 @@ This document tracks all features of Onyx Browser, their current implementation 
 84. [x] Matte Charcoal Settings Canvas & Lift-on-Scroll Header Color Lock:
    - **Matte Charcoal Canvas Calibration**: Replaced legacy reddish `#0B0305` background with refined Matte Charcoal `#161616` across all canvas settings screens (`@color/settings_canvas_bg`), harmonizing with the dark `#202020` card containers and night mode edge-to-edge system bars.
    - **Lift-on-Scroll Header Color Pinning**: Statically locked `AppBarLayout` and `MaterialToolbar` across all settings screens (`SettingsActivity`, `DownloadSettingsActivity`, `AccessibilitySettingsActivity`, `VideoSettingsActivity`, `SiteSettingsActivity`) with `app:liftOnScroll="false"`, `app:elevation="0dp"`, `app:statusBarForeground="@null"`, `stateListAnimator = null`, and runtime color pinning to `@color/settings_canvas_bg`, completely preventing Material 3 elevation tint shifts during scrolling.
+85. [x] Streamlined Theme Picker & Light Theme Tab Switcher/Menu Parity:
+   - **Streamlined Display Theme Picker**: Removed accent color preset swatches and custom hex code palette selector from Settings → Appearance (`ThemePickerSheet`), simplifying the interface to clean Display Theme options (System Default, Dark, Light) and direct theme title display in Settings.
+   - **Light Mode Tab Switcher & Menu Color Restoration**: Eliminated hardcoded dark fullscreen themes and `#131314` colors from the tab switcher and tab menu. In Light mode, `TabSwitcherBottomSheet` renders a clean `#F1F3F4` canvas, `#FFFFFF` tab cards with `#F8F9FA` headers, theme-adaptive `#5F6368` unselected pill controls, dark `#202124` text, dark system bars (`isAppearanceLightStatusBars = true`), and a clean `#FFFFFF` popup menu (`popup_tab_switcher_menu`) with high-contrast `#202124` action items.
 
 ---
 
