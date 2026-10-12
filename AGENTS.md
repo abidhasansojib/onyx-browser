@@ -219,6 +219,13 @@ onyx-browser/
 
 ## 6. Current Status & Release Information
 
-- **Current Release**: `v1.0.279`
+- **Current Release**: `v1.0.280`
 - **Build Status**: Production signed APKs published across all ABIs (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`) on GitHub Releases.
 - **Feature Tracking**: Complete feature statuses and technical verification notes are maintained in `FEATURES.md`.
+
+### v1.0.280 Changes
+- **Pull-to-Refresh Direction Fix (`OnyxTouchBridge.kt`)**: Added `touchmove` direction-aware gating. Tracks swipe direction (6px threshold) so upward swipes never trigger pull-to-refresh. Also detects downward swipes inside scrolled inner containers (`scrollTop > 0`) and blocks pull-to-refresh in those cases. Fixes "scroll up triggers page refresh" bug on sites like `obfusgated.com/tools/ad-block-test` and any page with scrollable inner divs.
+- **Bottom Sheet Background Consistency**: Unified all 20 bottom sheets and 2 dialogs to use `@color/settings_canvas_bg` (light: `#F1F3F4`, dark: `#161616`). Previously 14 sheets used `?attr/colorSurface`, no background, or `@drawable/bg_drag_handle` as background. Sheets corrected: `blocking_level_picker`, `cookie_mode_picker`, `dns_provider_picker`, `https_mode_picker`, `download_item_menu`, `download_manager_picker`, `add_filter_url`, `add_search_engine`, `context_menu`, `create_custom_filter`, `download_prompt`, `image_search`, `manage_shortcuts`, `select_downloader`, `filter_lists`, `custom_rules`, `dialog_edit_bookmark`, `dialog_adjust_quick_actions`.
+- **Main Menu Background**: Updated `bg_bottom_sheet_soft_menu.xml` drawable solid color from `?attr/colorSurface` to `@color/settings_canvas_bg` for light/dark consistency.
+- **Drag Handle Fix**: Fixed `bottom_sheet_filter_lists` and `bottom_sheet_custom_rules` that incorrectly used `@drawable/ic_close` as drag handle background — replaced with `@drawable/bg_drag_handle`.
+

@@ -8,7 +8,7 @@
     android:paddingEnd="20dp"
     android:paddingTop="8dp"
     android:paddingBottom="24dp"
-    android:background="?attr/colorSurface">
+    android:background="@color/settings_canvas_bg">
 
     <!-- Drag handle -->
     <View

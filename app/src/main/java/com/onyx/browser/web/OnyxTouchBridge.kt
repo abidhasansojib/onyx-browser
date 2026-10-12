@@ -67,7 +67,12 @@ class OnyxTouchBridge {
         /**
          * Ultra-lightweight touch listener script.
          * Runs passively with capture = true so it intercepts before any page framework can stopPropagation.
-         * Traverses upwards to nearest anchor, image, or video element.
+         *
+         * Key improvements:
+         * - Tracks swipe direction via touchmove (6px threshold) to prevent upward swipes from
+         *   triggering pull-to-refresh (fixes scroll-up triggers page refresh bug).
+         * - Caches nearest scrollable parent on touchstart and re-checks scrollTop on touchmove,
+         *   blocking pull-to-refresh when the user swipes down inside a scrolled inner container.
          */
         const val TOUCH_LISTENER_JS = """
             (function() {
@@ -86,71 +91,97 @@ class OnyxTouchBridge {
                 if (window.__onyxTouchInitialized) return;
                 window.__onyxTouchInitialized = true;
 
+                // Per-gesture state for direction-aware pull-to-refresh gating
+                var __touchStartY = 0;
+                var __touchStartX = 0;
+                var __scrollableTarget = null;
+                var __directionLocked = false;
+
+                /**
+                 * Walk up from element to find the nearest scrollable container
+                 * that has actual overflow content (scrollHeight > clientHeight).
+                 */
+                function findScrollableParent(el) {
+                    var p = el;
+                    while (p && p !== document.body && p !== document.documentElement) {
+                        var s = window.getComputedStyle(p);
+                        if ((s.overflowY === 'scroll' || s.overflowY === 'auto') &&
+                            p.scrollHeight > p.clientHeight) {
+                            return p;
+                        }
+                        p = p.parentElement;
+                    }
+                    return null;
+                }
+
+                /**
+                 * Evaluate pull-to-refresh eligibility at touchstart.
+                 * Returns true if pull-to-refresh should be BLOCKED.
+                 */
+                function evaluatePullBlock(el) {
+                    try {
+                        var docStyle = window.getComputedStyle(document.documentElement);
+                        var bodyStyle = document.body ? window.getComputedStyle(document.body) : null;
+                        if (docStyle.overflowY === 'hidden' || (bodyStyle && bodyStyle.overflowY === 'hidden')) {
+                            return true;
+                        }
+                        var docOverscroll = docStyle.overscrollBehaviorY || docStyle.overscrollBehavior;
+                        var bodyOverscroll = bodyStyle ? (bodyStyle.overscrollBehaviorY || bodyStyle.overscrollBehavior) : '';
+                        if (docOverscroll === 'none' || docOverscroll === 'contain' || bodyOverscroll === 'none' || bodyOverscroll === 'contain') {
+                            return true;
+                        }
+
+                        if (el) {
+                            if (el.closest('video, audio, [role="feed"], [data-pagelet*="Reel"], [aria-label*="Reel"], [class*="reel" i], [class*="Reel"], [class*="Shorts" i], [class*="shorts" i]')) {
+                                return true;
+                            }
+                            var p = el;
+                            while (p && p !== document.body && p !== document.documentElement) {
+                                var s = window.getComputedStyle(p);
+                                var ob = s.overscrollBehaviorY || s.overscrollBehavior;
+                                if (ob === 'none' || ob === 'contain') {
+                                    return true;
+                                }
+                                p = p.parentElement;
+                            }
+                        }
+                    } catch (_) {}
+                    return false;
+                }
+
                 document.addEventListener('touchstart', function(e) {
                     try {
+                        __directionLocked = false;
+                        __scrollableTarget = null;
                         if (!e.touches || e.touches.length === 0) return;
                         var t = e.touches[0];
+                        __touchStartY = t.clientY;
+                        __touchStartX = t.clientX;
                         var el = document.elementFromPoint(t.clientX, t.clientY);
 
-                        // ── 1. Evaluate Pull-To-Refresh Eligibility ──────────────────────
-                        var canPull = true;
-                        try {
-                            var docStyle = window.getComputedStyle(document.documentElement);
-                            var bodyStyle = document.body ? window.getComputedStyle(document.body) : null;
-                            if (docStyle.overflowY === 'hidden' || (bodyStyle && bodyStyle.overflowY === 'hidden')) {
-                                canPull = false;
-                            } else {
-                                var docOverscroll = docStyle.overscrollBehaviorY || docStyle.overscrollBehavior;
-                                var bodyOverscroll = bodyStyle ? (bodyStyle.overscrollBehaviorY || bodyStyle.overscrollBehavior) : '';
-                                if (docOverscroll === 'none' || docOverscroll === 'contain' || bodyOverscroll === 'none' || bodyOverscroll === 'contain') {
-                                    canPull = false;
-                                }
-                            }
+                        // Cache nearest scrollable parent for use in touchmove
+                        if (el) {
+                            __scrollableTarget = findScrollableParent(el);
+                        }
 
-                            if (canPull && el) {
-                                if (el.closest('video, audio, [role="feed"], [data-pagelet*="Reel"], [aria-label*="Reel"], [class*="reel" i], [class*="Reel"], [class*="Shorts" i], [class*="shorts" i]')) {
-                                    canPull = false;
-                                } else {
-                                    var p = el;
-                                    while (p && p !== document.body && p !== document.documentElement) {
-                                        var s = window.getComputedStyle(p);
-                                        if (s.overflowY === 'scroll' || s.overflowY === 'auto') {
-                                            if (p.scrollTop > 0) {
-                                                canPull = false;
-                                                break;
-                                            }
-                                        }
-                                        var ob = s.overscrollBehaviorY || s.overscrollBehavior;
-                                        if (ob === 'none' || ob === 'contain') {
-                                            canPull = false;
-                                            break;
-                                        }
-                                        p = p.parentElement;
-                                    }
-                                }
-                            }
-                        } catch (_) { canPull = true; }
-
+                        // ── 1. Evaluate Pull-To-Refresh Eligibility (static checks) ─────
+                        var blocked = evaluatePullBlock(el);
                         if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                            window.OnyxTouchBridge.setPullToRefreshAllowed(canPull);
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(!blocked);
                         }
 
                         // ── 2. Interactive Element Metadata Extraction ────────────────────
-                        if (!el) {
-                            return;
-                        }
+                        if (!el) return;
 
                         var a = el.closest('a');
                         var img = el.closest('img') || (el.tagName === 'IMG' ? el : el.querySelector('img'));
                         var video = el.closest('video') || (el.tagName === 'VIDEO' ? el : el.querySelector('video'));
                         if (!video) {
-                            var s = el.querySelector('source');
-                            if (s && s.parentElement && s.parentElement.tagName === 'VIDEO') video = s.parentElement;
+                            var src = el.querySelector('source');
+                            if (src && src.parentElement && src.parentElement.tagName === 'VIDEO') video = src.parentElement;
                         }
 
-                        if (!a && !img && !video) {
-                            return;
-                        }
+                        if (!a && !img && !video) return;
 
                         var linkUrl = a ? (a.href || a.getAttribute('href') || '') : '';
                         if (linkUrl && !linkUrl.startsWith('http://') && !linkUrl.startsWith('https://') && !linkUrl.startsWith('javascript:') && !linkUrl.startsWith('data:')) {
@@ -184,7 +215,39 @@ class OnyxTouchBridge {
                     } catch (err) {}
                 }, { passive: true, capture: true });
 
+                // ── touchmove: direction-aware pull-to-refresh gate ─────────────────────
+                // This is the primary fix for "scroll-up triggers pull-to-refresh" bug.
+                // Direction is determined here (not on touchstart, where it's unknown).
+                document.addEventListener('touchmove', function(e) {
+                    try {
+                        if (__directionLocked || !e.touches || e.touches.length === 0) return;
+                        var deltaY = e.touches[0].clientY - __touchStartY;
+                        var deltaX = e.touches[0].clientX - __touchStartX;
+                        // Require meaningful vertical movement before locking direction
+                        if (Math.abs(deltaY) < 6) return;
+                        __directionLocked = true;
+
+                        // Horizontal swipe — don't interfere with pull-to-refresh
+                        if (Math.abs(deltaX) > Math.abs(deltaY)) return;
+
+                        var bridge = window.OnyxTouchBridge;
+                        if (!bridge || typeof bridge.setPullToRefreshAllowed !== 'function') return;
+
+                        if (deltaY < 0) {
+                            // Swiping UP — pull-to-refresh requires a downward gesture, block it
+                            bridge.setPullToRefreshAllowed(false);
+                        } else {
+                            // Swiping DOWN — block if an inner scrollable container is mid-scroll
+                            if (__scrollableTarget && __scrollableTarget.scrollTop > 0) {
+                                bridge.setPullToRefreshAllowed(false);
+                            }
+                        }
+                    } catch (_) {}
+                }, { passive: true, capture: true });
+
                 document.addEventListener('touchend', function() {
+                    __directionLocked = false;
+                    __scrollableTarget = null;
                     setTimeout(function() {
                         if (window.OnyxTouchBridge) {
                             window.OnyxTouchBridge.onTouchCleared();
@@ -194,6 +257,8 @@ class OnyxTouchBridge {
                 }, { passive: true });
 
                 document.addEventListener('touchcancel', function() {
+                    __directionLocked = false;
+                    __scrollableTarget = null;
                     if (window.OnyxTouchBridge) {
                         window.OnyxTouchBridge.onTouchCleared();
                         window.OnyxTouchBridge.setPullToRefreshAllowed(true);
