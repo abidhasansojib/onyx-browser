@@ -95,8 +95,9 @@ class SearchEnginePopupMenu(
                 textSize = 14f
 
                 val isSelected = (engine.id == currentEngine.id)
+                val accentColor = com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(context)
                 if (isSelected) {
-                    setTextColor(ContextCompat.getColor(context, R.color.primary))
+                    setTextColor(accentColor)
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
                 } else {
                     val typedArray = context.obtainStyledAttributes(
@@ -114,7 +115,7 @@ class SearchEnginePopupMenu(
                 val ivCheck = ImageView(context).apply {
                     layoutParams = LinearLayout.LayoutParams(checkSize, checkSize)
                     setImageResource(R.drawable.ic_check)
-                    setColorFilter(ContextCompat.getColor(context, R.color.primary))
+                    setColorFilter(com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(context))
                 }
                 row.addView(ivCheck)
             }
@@ -159,13 +160,14 @@ class SearchEnginePopupMenu(
             background = typedArray.getDrawable(0)
             typedArray.recycle()
 
+            val accentColor = com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(context)
             val ivManageIcon = ImageView(context).apply {
                 layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
                     marginEnd = iconMarginEnd
                 }
                 setImageResource(R.drawable.ic_settings)
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                setColorFilter(ContextCompat.getColor(context, R.color.primary))
+                setColorFilter(accentColor)
             }
             addView(ivManageIcon)
 
@@ -173,7 +175,7 @@ class SearchEnginePopupMenu(
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 text = "Manage search engines…"
                 textSize = 13f
-                setTextColor(ContextCompat.getColor(context, R.color.primary))
+                setTextColor(accentColor)
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
             }
             addView(tvManage)

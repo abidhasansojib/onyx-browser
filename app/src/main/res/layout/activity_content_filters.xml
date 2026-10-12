@@ -58,7 +58,7 @@
                 android:contentDescription="@string/action_update_filters"
                 android:focusable="true"
                 app:srcCompat="@drawable/ic_refresh"
-                app:tint="@color/primary" />
+                app:tint="?attr/colorPrimary" />
         </com.google.android.material.appbar.MaterialToolbar>
 
         <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -67,7 +67,7 @@
             android:layout_height="wrap_content"
             android:indeterminate="true"
             android:visibility="gone"
-            app:indicatorColor="@color/primary" />
+            app:indicatorColor="?attr/colorPrimary" />
 
         <TextView
             android:id="@+id/tvUpdateStatus"
@@ -111,7 +111,7 @@
                 app:iconGravity="textStart"
                 app:iconPadding="10dp"
                 app:iconSize="18dp"
-                app:iconTint="@color/primary" />
+                app:iconTint="?attr/colorPrimary" />
 
             <!-- 2nd Button: Create custom filters -->
             <com.google.android.material.button.MaterialButton
@@ -131,7 +131,7 @@
                 app:iconGravity="textStart"
                 app:iconPadding="10dp"
                 app:iconSize="18dp"
-                app:iconTint="@color/primary" />
+                app:iconTint="?attr/colorPrimary" />
         </LinearLayout>
 
         <!-- Search Filters Input Box (Kept as requested) -->

@@ -192,7 +192,7 @@
                     android:layout_width="30dp"
                     android:layout_height="30dp"
                     app:srcCompat="@drawable/ic_shield_lock"
-                    app:tint="@color/primary" />
+                    app:tint="?attr/colorPrimary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -513,7 +513,7 @@
                     android:contentDescription="@string/site_protection_title"
                     android:padding="9dp"
                     app:srcCompat="@drawable/ic_shield_lock"
-                    app:tint="@color/primary" />
+                    app:tint="?attr/colorPrimary" />
 
                 <!-- Share Icon Button (Share webpage URL) -->
                 <androidx.appcompat.widget.AppCompatImageButton

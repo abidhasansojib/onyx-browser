@@ -319,7 +319,7 @@
             android:textSize="12sp"
             android:layout_marginBottom="12dp" />
 
-        <!-- Preset Swatches: Row 1 (Crimson, Orange, Blue, Green) -->
+        <!-- Preset Swatches: Row 1 (Crimson, Orange, Amber, Green) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -366,7 +366,7 @@
                     android:textSize="11sp" />
             </LinearLayout>
 
-            <!-- Orange (#FB542B) -->
+            <!-- Orange (#FF5C38) -->
             <LinearLayout
                 android:id="@+id/btnSwatchOrange"
                 android:layout_width="0dp"
@@ -381,7 +381,7 @@
                     android:id="@+id/cardSwatchOrange"
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    app:cardBackgroundColor="#FB542B"
+                    app:cardBackgroundColor="#FF5C38"
                     app:cardCornerRadius="22dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="0dp">
@@ -402,134 +402,6 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/accent_orange"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <!-- Blue (#1A73E8) -->
-            <LinearLayout
-                android:id="@+id/btnSwatchBlue"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:clickable="true"
-                android:focusable="true">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardSwatchBlue"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    app:cardBackgroundColor="#1A73E8"
-                    app:cardCornerRadius="22dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
-
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:id="@+id/ivCheckBlue"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:layout_gravity="center"
-                        android:visibility="invisible"
-                        app:srcCompat="@drawable/ic_check"
-                        app:tint="#FFFFFF" />
-                </com.google.android.material.card.MaterialCardView>
-
-                <TextView
-                    android:id="@+id/tvLabelBlue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/accent_blue"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <!-- Green (#10B981) -->
-            <LinearLayout
-                android:id="@+id/btnSwatchGreen"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:clickable="true"
-                android:focusable="true">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardSwatchGreen"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    app:cardBackgroundColor="#10B981"
-                    app:cardCornerRadius="22dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
-
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:id="@+id/ivCheckGreen"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:layout_gravity="center"
-                        android:visibility="invisible"
-                        app:srcCompat="@drawable/ic_check"
-                        app:tint="#FFFFFF" />
-                </com.google.android.material.card.MaterialCardView>
-
-                <TextView
-                    android:id="@+id/tvLabelGreen"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/accent_green"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="11sp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Preset Swatches: Row 2 (Violet, Amber, Pink, Slate) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
-
-            <!-- Violet (#8B5CF6) -->
-            <LinearLayout
-                android:id="@+id/btnSwatchViolet"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:clickable="true"
-                android:focusable="true">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardSwatchViolet"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    app:cardBackgroundColor="#8B5CF6"
-                    app:cardCornerRadius="22dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
-
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:id="@+id/ivCheckViolet"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:layout_gravity="center"
-                        android:visibility="invisible"
-                        app:srcCompat="@drawable/ic_check"
-                        app:tint="#FFFFFF" />
-                </com.google.android.material.card.MaterialCardView>
-
-                <TextView
-                    android:id="@+id/tvLabelViolet"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/accent_violet"
                     android:textColor="?android:attr/textColorPrimary"
                     android:textSize="11sp" />
             </LinearLayout>
@@ -574,6 +446,174 @@
                     android:textSize="11sp" />
             </LinearLayout>
 
+            <!-- Green (#10C888) -->
+            <LinearLayout
+                android:id="@+id/btnSwatchGreen"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSwatchGreen"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    app:cardBackgroundColor="#10C888"
+                    app:cardCornerRadius="22dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:id="@+id/ivCheckGreen"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:visibility="invisible"
+                        app:srcCompat="@drawable/ic_check"
+                        app:tint="#FFFFFF" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:id="@+id/tvLabelGreen"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/accent_green"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Preset Swatches: Row 2 (Cyan, Blue, Violet, Pink) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <!-- Cyan (#06B6D4) -->
+            <LinearLayout
+                android:id="@+id/btnSwatchCyan"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSwatchCyan"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    app:cardBackgroundColor="#06B6D4"
+                    app:cardCornerRadius="22dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:id="@+id/ivCheckCyan"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:visibility="invisible"
+                        app:srcCompat="@drawable/ic_check"
+                        app:tint="#FFFFFF" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:id="@+id/tvLabelCyan"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/accent_cyan"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <!-- Blue (#2F80ED) -->
+            <LinearLayout
+                android:id="@+id/btnSwatchBlue"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSwatchBlue"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    app:cardBackgroundColor="#2F80ED"
+                    app:cardCornerRadius="22dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:id="@+id/ivCheckBlue"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:visibility="invisible"
+                        app:srcCompat="@drawable/ic_check"
+                        app:tint="#FFFFFF" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:id="@+id/tvLabelBlue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/accent_blue"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <!-- Violet (#8B5CF6) -->
+            <LinearLayout
+                android:id="@+id/btnSwatchViolet"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSwatchViolet"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    app:cardBackgroundColor="#8B5CF6"
+                    app:cardCornerRadius="22dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:id="@+id/ivCheckViolet"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:visibility="invisible"
+                        app:srcCompat="@drawable/ic_check"
+                        app:tint="#FFFFFF" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:id="@+id/tvLabelViolet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/accent_violet"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
             <!-- Pink (#EC4899) -->
             <LinearLayout
                 android:id="@+id/btnSwatchPink"
@@ -610,46 +650,6 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/accent_pink"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <!-- Slate (#64748B) -->
-            <LinearLayout
-                android:id="@+id/btnSwatchSlate"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:clickable="true"
-                android:focusable="true">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardSwatchSlate"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    app:cardBackgroundColor="#64748B"
-                    app:cardCornerRadius="22dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
-
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:id="@+id/ivCheckSlate"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:layout_gravity="center"
-                        android:visibility="invisible"
-                        app:srcCompat="@drawable/ic_check"
-                        app:tint="#FFFFFF" />
-                </com.google.android.material.card.MaterialCardView>
-
-                <TextView
-                    android:id="@+id/tvLabelSlate"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/accent_slate"
                     android:textColor="?android:attr/textColorPrimary"
                     android:textSize="11sp" />
             </LinearLayout>

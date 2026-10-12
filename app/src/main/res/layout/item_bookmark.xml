@@ -17,7 +17,7 @@
         android:layout_width="28dp"
         android:layout_height="28dp"
         app:srcCompat="@drawable/ic_bookmark"
-        app:tint="@color/primary" />
+        app:tint="?attr/colorPrimary" />
 
     <LinearLayout
         android:layout_width="0dp"

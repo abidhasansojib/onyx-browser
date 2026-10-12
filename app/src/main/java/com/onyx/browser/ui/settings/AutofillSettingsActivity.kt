@@ -45,10 +45,11 @@ class AutofillSettingsActivity : AppCompatActivity() {
         }
 
         val manager = activeManager
+        val accentColor = com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(this)
         if (manager != null) {
             binding.tvActiveAutofillTitle.text = "${manager.appName} Active"
             binding.tvActiveAutofillSubtitle.text = "${manager.appName} is configured as your active system password manager."
-            binding.ivAutofillStatusIcon.setColorFilter(getColor(R.color.primary))
+            binding.ivAutofillStatusIcon.setColorFilter(accentColor)
             binding.btnChangeAutofillService.text = "Change Autofill Service"
 
             // Universal "Open [Password Manager]" row
@@ -64,7 +65,7 @@ class AutofillSettingsActivity : AppCompatActivity() {
                 binding.ivPasswordManagerIcon.clearColorFilter()
             } else {
                 binding.ivPasswordManagerIcon.setImageResource(R.drawable.ic_lock)
-                binding.ivPasswordManagerIcon.setColorFilter(getColor(R.color.primary))
+                binding.ivPasswordManagerIcon.setColorFilter(accentColor)
             }
         } else {
             binding.tvActiveAutofillTitle.text = "No Autofill Service Selected"
@@ -76,7 +77,7 @@ class AutofillSettingsActivity : AppCompatActivity() {
             binding.tvPasswordManagerActionTitle.text = "Select Password Manager"
             binding.tvPasswordManagerActionSubtitle.text = "Tap to choose an autofill provider in Android Settings"
             binding.ivPasswordManagerIcon.setImageResource(R.drawable.ic_lock)
-            binding.ivPasswordManagerIcon.setColorFilter(getColor(R.color.primary))
+            binding.ivPasswordManagerIcon.setColorFilter(accentColor)
         }
 
         binding.btnChangeAutofillService.setOnClickListener {

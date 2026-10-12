@@ -170,7 +170,7 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
                     if (_binding != null) {
                         if (isBookmarked) {
                             binding.ivWebQuickBookmark.setColorFilter(
-                                ContextCompat.getColor(requireContext(), R.color.primary)
+                                com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(requireContext())
                             )
                         } else {
                             binding.ivWebQuickBookmark.clearColorFilter()
@@ -199,7 +199,7 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
                         withContext(Dispatchers.Main) {
                             if (_binding != null) {
                                 binding.ivWebQuickBookmark.setColorFilter(
-                                    ContextCompat.getColor(requireContext(), R.color.primary)
+                                    com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(requireContext())
                                 )
                                 Toast.makeText(requireContext(), R.string.bookmark_added, Toast.LENGTH_SHORT).show()
                             }

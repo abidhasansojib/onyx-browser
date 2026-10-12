@@ -111,6 +111,10 @@ class TabSwitcherBottomSheet(
             insets
         }
 
+        val accentColor = com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(requireContext())
+        b.btnNewTabFab.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+        b.tvUndoAction.setTextColor(accentColor)
+
         setupRecyclerView(b)
         setupTopControls(b)
         setupBottomControls(b)
@@ -238,10 +242,16 @@ class TabSwitcherBottomSheet(
 
         val context = context ?: return
         val normalActive = !isViewingIncognito
+        val accentColor = com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(context)
+        val selectedPillDrawable = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            cornerRadius = 10f * context.resources.displayMetrics.density
+            setColor(accentColor)
+        }
 
         if (normalActive) {
-            // Normal tab button selected: vibrant pink accent squircle + white tab box
-            b.btnNormalTabs.setBackgroundResource(R.drawable.bg_tab_pill_selected)
+            // Normal tab button selected: dynamic accent pill + white tab box
+            b.btnNormalTabs.background = selectedPillDrawable
             b.boxTabCount.setBackgroundResource(R.drawable.bg_tab_count_box)
             b.tvNormalTabCount.setTextColor(android.graphics.Color.WHITE)
 
@@ -249,8 +259,8 @@ class TabSwitcherBottomSheet(
             b.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
             b.ivIncognitoToggle.setColorFilter(android.graphics.Color.parseColor("#9AA0A6"))
         } else {
-            // Incognito tab button selected: vibrant pink accent squircle + white fedora/glasses icon
-            b.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_selected)
+            // Incognito tab button selected: dynamic accent pill + white fedora/glasses icon
+            b.btnIncognitoTabs.background = selectedPillDrawable
             b.ivIncognitoToggle.setColorFilter(android.graphics.Color.WHITE)
 
             // Normal tab unselected: rounded ripple + subtle muted tab box

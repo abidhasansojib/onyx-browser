@@ -40,7 +40,7 @@
                 android:background="@drawable/bg_circle_action"
                 android:padding="9dp"
                 app:srcCompat="@drawable/ic_download"
-                app:tint="@color/primary" />
+                app:tint="?attr/colorPrimary" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -111,7 +111,7 @@
                         android:background="@drawable/bg_box_tile"
                         android:gravity="center"
                         android:textAllCaps="true"
-                        android:textColor="@color/primary"
+                        android:textColor="?attr/colorPrimary"
                         android:textSize="14sp"
                         android:textStyle="bold"
                         tools:text="ZIP" />
@@ -223,7 +223,7 @@
                         android:layout_width="18dp"
                         android:layout_height="18dp"
                         app:srcCompat="@drawable/ic_web"
-                        app:tint="@color/primary" />
+                        app:tint="?attr/colorPrimary" />
 
                     <TextView
                         android:id="@+id/tvDomain"
@@ -303,7 +303,7 @@
                 android:id="@+id/btnDownloadDefault"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
-                android:backgroundTint="@color/primary"
+                android:backgroundTint="?attr/colorPrimary"
                 android:letterSpacing="0.02"
                 android:text="@string/download_button"
                 android:textColor="@color/on_primary"

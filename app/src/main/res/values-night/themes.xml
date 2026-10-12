@@ -30,6 +30,7 @@
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="fontFamily">sans-serif-medium</item>
 
+        <item name="colorPrimaryContainer">#26DC4B64</item>
         <item name="bottomSheetDialogTheme">@style/Theme.OnyxBrowser.BottomSheetDialog</item>
     </style>
 

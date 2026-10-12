@@ -81,13 +81,13 @@ class ThemePickerSheet(
 
         // Accent Preset Clicks
         setupPresetClick(binding.btnSwatchCrimson, BrowserPreferences.ACCENT_PRESET_CRIMSON, "#DC4B64")
-        setupPresetClick(binding.btnSwatchOrange, BrowserPreferences.ACCENT_PRESET_ORANGE, "#FB542B")
-        setupPresetClick(binding.btnSwatchBlue, BrowserPreferences.ACCENT_PRESET_BLUE, "#1A73E8")
-        setupPresetClick(binding.btnSwatchGreen, BrowserPreferences.ACCENT_PRESET_GREEN, "#10B981")
-        setupPresetClick(binding.btnSwatchViolet, BrowserPreferences.ACCENT_PRESET_VIOLET, "#8B5CF6")
+        setupPresetClick(binding.btnSwatchOrange, BrowserPreferences.ACCENT_PRESET_ORANGE, "#FF5C38")
         setupPresetClick(binding.btnSwatchAmber, BrowserPreferences.ACCENT_PRESET_AMBER, "#F59E0B")
+        setupPresetClick(binding.btnSwatchGreen, BrowserPreferences.ACCENT_PRESET_GREEN, "#10C888")
+        setupPresetClick(binding.btnSwatchCyan, BrowserPreferences.ACCENT_PRESET_CYAN, "#06B6D4")
+        setupPresetClick(binding.btnSwatchBlue, BrowserPreferences.ACCENT_PRESET_BLUE, "#2F80ED")
+        setupPresetClick(binding.btnSwatchViolet, BrowserPreferences.ACCENT_PRESET_VIOLET, "#8B5CF6")
         setupPresetClick(binding.btnSwatchPink, BrowserPreferences.ACCENT_PRESET_PINK, "#EC4899")
-        setupPresetClick(binding.btnSwatchSlate, BrowserPreferences.ACCENT_PRESET_SLATE, "#64748B")
 
         // Custom Hex Input
         val currentHexClean = selectedHex.removePrefix("#")
@@ -134,13 +134,12 @@ class ThemePickerSheet(
         }
     }
 
-    private fun updateThemeSelection(selectedTheme: Int) {
-        val activeColor = AccentColorManager.getAccentColor(requireContext())
+    private fun updateThemeSelection(selectedTheme: Int, activeColor: Int = AccentColorManager.parseColorOrFallback(selectedHex)) {
         val defaultStroke = ContextCompat.getColor(requireContext(), R.color.settings_card_stroke)
         val defaultIcon = ContextCompat.getColor(requireContext(), R.color.settings_title_text)
 
-        val activeStrokeWidth = dpToPx(2)
-        val defaultStrokeWidth = dpToPx(1)
+        val activeStrokeWidth = dpToPx(2f)
+        val defaultStrokeWidth = dpToPx(1f)
 
         // System
         val isSystem = selectedTheme == BrowserPreferences.THEME_SYSTEM
@@ -169,25 +168,32 @@ class ThemePickerSheet(
 
     private fun updateAccentSelection(preset: String, hex: String) {
         val isCustom = preset == BrowserPreferences.ACCENT_PRESET_CUSTOM
+        val activeColor = AccentColorManager.parseColorOrFallback(hex)
+        val activeStrokeColor = ContextCompat.getColor(requireContext(), R.color.settings_title_text)
+        val activeSwatchStrokeWidth = dpToPx(2.5f)
 
-        // Swatch Checks
-        binding.ivCheckCrimson.visibility = if (preset == BrowserPreferences.ACCENT_PRESET_CRIMSON) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckOrange.visibility = if (preset == BrowserPreferences.ACCENT_PRESET_ORANGE) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckBlue.visibility = if (preset == BrowserPreferences.ACCENT_PRESET_BLUE) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckGreen.visibility = if (preset == BrowserPreferences.ACCENT_PRESET_GREEN) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckViolet.visibility = if (preset == BrowserPreferences.ACCENT_PRESET_VIOLET) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckAmber.visibility = if (preset == BrowserPreferences.ACCENT_PRESET_AMBER) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckPink.visibility = if (preset == BrowserPreferences.ACCENT_PRESET_PINK) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckSlate.visibility = if (preset == BrowserPreferences.ACCENT_PRESET_SLATE) View.VISIBLE else View.INVISIBLE
+        fun updateSwatch(card: com.google.android.material.card.MaterialCardView, check: View, isSelected: Boolean) {
+            check.visibility = if (isSelected) View.VISIBLE else View.INVISIBLE
+            card.strokeWidth = if (isSelected) activeSwatchStrokeWidth else 0
+            card.strokeColor = activeStrokeColor
+        }
+
+        updateSwatch(binding.cardSwatchCrimson, binding.ivCheckCrimson, preset == BrowserPreferences.ACCENT_PRESET_CRIMSON)
+        updateSwatch(binding.cardSwatchOrange, binding.ivCheckOrange, preset == BrowserPreferences.ACCENT_PRESET_ORANGE)
+        updateSwatch(binding.cardSwatchAmber, binding.ivCheckAmber, preset == BrowserPreferences.ACCENT_PRESET_AMBER)
+        updateSwatch(binding.cardSwatchGreen, binding.ivCheckGreen, preset == BrowserPreferences.ACCENT_PRESET_GREEN)
+        updateSwatch(binding.cardSwatchCyan, binding.ivCheckCyan, preset == BrowserPreferences.ACCENT_PRESET_CYAN || preset == BrowserPreferences.ACCENT_PRESET_SLATE)
+        updateSwatch(binding.cardSwatchBlue, binding.ivCheckBlue, preset == BrowserPreferences.ACCENT_PRESET_BLUE)
+        updateSwatch(binding.cardSwatchViolet, binding.ivCheckViolet, preset == BrowserPreferences.ACCENT_PRESET_VIOLET)
+        updateSwatch(binding.cardSwatchPink, binding.ivCheckPink, preset == BrowserPreferences.ACCENT_PRESET_PINK)
 
         // Custom Card Highlight
         val defaultStroke = ContextCompat.getColor(requireContext(), R.color.settings_card_stroke)
-        val activeColor = AccentColorManager.parseColorOrFallback(hex)
         binding.cardCustomHex.strokeColor = if (isCustom) activeColor else defaultStroke
-        binding.cardCustomHex.strokeWidth = if (isCustom) dpToPx(2) else dpToPx(1)
+        binding.cardCustomHex.strokeWidth = if (isCustom) dpToPx(2f) else dpToPx(1f)
 
         updatePreviewColor(hex)
-        updateThemeSelection(selectedThemeMode)
+        updateThemeSelection(selectedThemeMode, activeColor)
     }
 
     private fun updatePreviewColor(hex: String) {
@@ -227,9 +233,11 @@ class ThemePickerSheet(
         }
     }
 
-    private fun dpToPx(dp: Int): Int {
+    private fun dpToPx(dp: Float): Int {
         return (dp * resources.displayMetrics.density).toInt()
     }
+
+    private fun dpToPx(dp: Int): Int = dpToPx(dp.toFloat())
 
     override fun onDestroyView() {
         super.onDestroyView()

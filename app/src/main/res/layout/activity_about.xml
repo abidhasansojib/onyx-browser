@@ -87,7 +87,7 @@
                     android:paddingTop="4dp"
                     android:paddingEnd="12dp"
                     android:paddingBottom="4dp"
-                    android:textColor="@color/primary"
+                    android:textColor="?attr/colorPrimary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     tools:text="v1.0.0 (Build 1)" />
@@ -100,7 +100,7 @@
                 android:layout_marginStart="4dp"
                 android:layout_marginBottom="8dp"
                 android:text="@string/about_section_info"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textAllCaps="true"
@@ -142,7 +142,7 @@
                                 android:layout_height="20dp"
                                 android:layout_gravity="center"
                                 app:srcCompat="@drawable/ic_info"
-                                app:tint="@color/primary" />
+                                app:tint="?attr/colorPrimary" />
                         </FrameLayout>
 
                         <LinearLayout
@@ -216,7 +216,7 @@
                                 android:layout_height="20dp"
                                 android:layout_gravity="center"
                                 app:srcCompat="@drawable/ic_package"
-                                app:tint="@color/primary" />
+                                app:tint="?attr/colorPrimary" />
                         </FrameLayout>
 
                         <LinearLayout
@@ -281,7 +281,7 @@
                                 android:layout_height="20dp"
                                 android:layout_gravity="center"
                                 app:srcCompat="@drawable/ic_android"
-                                app:tint="@color/primary" />
+                                app:tint="?attr/colorPrimary" />
                         </FrameLayout>
 
                         <LinearLayout
@@ -355,7 +355,7 @@
                                 android:layout_height="20dp"
                                 android:layout_gravity="center"
                                 app:srcCompat="@drawable/ic_web"
-                                app:tint="@color/primary" />
+                                app:tint="?attr/colorPrimary" />
                         </FrameLayout>
 
                         <LinearLayout
@@ -430,7 +430,7 @@
                                 android:layout_height="20dp"
                                 android:layout_gravity="center"
                                 app:srcCompat="@drawable/ic_refresh"
-                                app:tint="@color/primary" />
+                                app:tint="?attr/colorPrimary" />
                         </FrameLayout>
 
                         <LinearLayout
@@ -485,7 +485,7 @@
                 android:layout_marginStart="4dp"
                 android:layout_marginBottom="8dp"
                 android:text="@string/about_section_support"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textAllCaps="true"
@@ -527,7 +527,7 @@
                                 android:layout_height="22dp"
                                 android:layout_gravity="center"
                                 app:srcCompat="@drawable/ic_brand_telegram"
-                                app:tint="@color/primary" />
+                                app:tint="?attr/colorPrimary" />
                         </FrameLayout>
 
                         <LinearLayout
@@ -590,7 +590,7 @@
                                 android:layout_height="22dp"
                                 android:layout_gravity="center"
                                 app:srcCompat="@drawable/ic_bug_report"
-                                app:tint="@color/primary" />
+                                app:tint="?attr/colorPrimary" />
                         </FrameLayout>
 
                         <LinearLayout

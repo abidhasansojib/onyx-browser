@@ -177,8 +177,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:text="Open Downloads Folder"
-                android:textColor="@color/primary"
-                app:strokeColor="@color/primary" />
+                android:textColor="?attr/colorPrimary"
+                app:strokeColor="?attr/colorPrimary" />
         </LinearLayout>
 
     </FrameLayout>

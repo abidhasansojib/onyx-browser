@@ -24,7 +24,7 @@
                 android:layout_height="24dp"
                 android:layout_gravity="center"
                 app:srcCompat="@drawable/ic_download"
-                app:tint="@color/primary" />
+                app:tint="?attr/colorPrimary" />
         </FrameLayout>
 
         <LinearLayout
@@ -59,7 +59,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        app:indicatorColor="@color/primary"
+        app:indicatorColor="?attr/colorPrimary"
         app:trackColor="?attr/colorOutline"
         app:trackCornerRadius="4dp"
         app:trackThickness="6dp" />
@@ -85,7 +85,7 @@
             android:id="@+id/tvProgressSpeed"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/primary"
+            android:textColor="?attr/colorPrimary"
             android:textSize="13sp"
             android:textStyle="bold"
             tools:text="3.2 MB/s" />

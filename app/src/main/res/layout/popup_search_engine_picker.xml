@@ -26,7 +26,7 @@
             android:text="@string/switch_search_engine"
             android:textAllCaps="true"
             android:letterSpacing="0.08"
-            android:textColor="@color/primary"
+            android:textColor="?attr/colorPrimary"
             android:textSize="10sp"
             android:textStyle="bold" />
 

@@ -46,7 +46,7 @@
                 android:text="@string/section_trackers_ads"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -141,7 +141,7 @@
                         android:id="@+id/tvBlockingLevelValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/primary"
+                        android:textColor="?attr/colorPrimary"
                         android:textSize="12sp"
                         tools:text="Standard" />
                 </LinearLayout>
@@ -217,7 +217,7 @@
                 android:text="@string/section_connections"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -363,7 +363,7 @@
                         android:id="@+id/tvHttpsModeValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/primary"
+                        android:textColor="?attr/colorPrimary"
                         android:textSize="12sp"
                         tools:text="When possible (default)" />
                 </LinearLayout>
@@ -388,7 +388,7 @@
                 android:text="@string/section_scripts"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -462,7 +462,7 @@
                 android:text="@string/section_cookies"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -506,7 +506,7 @@
                         android:id="@+id/tvCookieModeValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/primary"
+                        android:textColor="?attr/colorPrimary"
                         android:textSize="12sp"
                         tools:text="Block third-party cookies" />
                 </LinearLayout>
@@ -531,7 +531,7 @@
                 android:text="@string/section_fingerprinting"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -656,7 +656,7 @@
                 android:text="@string/section_content_filtering"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -731,7 +731,7 @@
                 android:text="@string/section_element_blocking"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -805,7 +805,7 @@
                 android:text="@string/section_social_media"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -1011,7 +1011,7 @@
                 android:text="@string/section_links"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -1085,7 +1085,7 @@
                 android:text="@string/section_secure_dns"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -1180,7 +1180,7 @@
                         android:id="@+id/tvDnsProviderValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/primary"
+                        android:textColor="?attr/colorPrimary"
                         android:textSize="12sp"
                         tools:text="Cloudflare (1.1.1.1)" />
                 </LinearLayout>
@@ -1205,7 +1205,7 @@
                 android:text="@string/section_privacy"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 

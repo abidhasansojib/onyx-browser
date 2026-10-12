@@ -241,7 +241,7 @@
         android:indeterminate="false"
         android:max="100"
         android:progressDrawable="@android:drawable/progress_horizontal"
-        android:progressTint="@color/primary"
+        android:progressTint="?attr/colorPrimary"
         android:progressBackgroundTint="@android:color/transparent"
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
@@ -385,7 +385,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/ic_translate"
-            app:tint="@color/primary" />
+            app:tint="?attr/colorPrimary" />
 
         <!-- Segmented Toggle: Original vs Translated -->
         <com.google.android.material.button.MaterialButtonToggleGroup
@@ -444,7 +444,7 @@
             android:layout_width="20dp"
             android:layout_height="20dp"
             android:layout_marginEnd="6dp"
-            android:indeterminateTint="@color/primary"
+            android:indeterminateTint="?attr/colorPrimary"
             android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/btnCloseTranslate"

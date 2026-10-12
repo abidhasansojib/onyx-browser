@@ -1167,7 +1167,8 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val ACCENT_PRESET_VIOLET = "violet"
         const val ACCENT_PRESET_AMBER = "amber"
         const val ACCENT_PRESET_PINK = "pink"
-        const val ACCENT_PRESET_SLATE = "slate"
+        const val ACCENT_PRESET_CYAN = "cyan"
+        const val ACCENT_PRESET_SLATE = "slate" // Legacy alias for cyan
         const val ACCENT_PRESET_CUSTOM = "custom"
 
         /** Blocking level constants (used with KEY_BLOCKING_LEVEL) */

@@ -130,7 +130,7 @@
                                 android:layout_height="26dp"
                                 android:layout_gravity="center"
                                 app:srcCompat="@drawable/ic_file"
-                                app:tint="@color/primary" />
+                                app:tint="?attr/colorPrimary" />
                         </FrameLayout>
 
                         <LinearLayout
@@ -156,7 +156,7 @@
                                     android:paddingTop="2dp"
                                     android:paddingEnd="8dp"
                                     android:paddingBottom="2dp"
-                                    android:textColor="@color/primary"
+                                    android:textColor="?attr/colorPrimary"
                                     android:textSize="12sp"
                                     android:textStyle="bold"
                                     tools:text="ZIP" />
@@ -195,9 +195,9 @@
                         app:boxCornerRadiusBottomStart="12dp"
                         app:boxCornerRadiusTopEnd="12dp"
                         app:boxCornerRadiusTopStart="12dp"
-                        app:boxStrokeColor="@color/primary"
+                        app:boxStrokeColor="?attr/colorPrimary"
                         app:endIconMode="clear_text"
-                        app:hintTextColor="@color/primary">
+                        app:hintTextColor="?attr/colorPrimary">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etFileName"
@@ -251,7 +251,7 @@
                             android:layout_width="20dp"
                             android:layout_height="20dp"
                             app:srcCompat="@drawable/ic_web"
-                            app:tint="@color/primary" />
+                            app:tint="?attr/colorPrimary" />
 
                         <TextView
                             android:id="@+id/tvDomain"
@@ -339,7 +339,7 @@
                     android:id="@+id/btnDownloadDefault"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
-                    android:backgroundTint="@color/primary"
+                    android:backgroundTint="?attr/colorPrimary"
                     android:letterSpacing="0.03"
                     android:text="@string/download_button"
                     android:textColor="@color/on_primary"

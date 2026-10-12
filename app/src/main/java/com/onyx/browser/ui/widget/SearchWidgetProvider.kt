@@ -182,7 +182,7 @@ class SearchWidgetProvider : AppWidgetProvider() {
             val canvas = Canvas(bitmap)
 
             val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = ContextCompat.getColor(context, R.color.primary)
+                color = com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(context)
             }
             canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), size / 4f, size / 4f, bgPaint)
 

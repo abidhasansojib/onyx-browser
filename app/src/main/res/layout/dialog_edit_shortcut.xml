@@ -97,7 +97,7 @@
             app:boxStrokeColor="?attr/colorOutline"
             app:endIconMode="clear_text"
             app:endIconTint="?attr/colorControlNormal"
-            app:hintTextColor="@color/primary"
+            app:hintTextColor="?attr/colorPrimary"
             app:startIconDrawable="@drawable/ic_edit"
             app:startIconTint="?attr/colorControlNormal">
 
@@ -129,7 +129,7 @@
             app:endIconTint="?attr/colorControlNormal"
             app:helperText="https://example.com"
             app:helperTextTextColor="?attr/colorControlNormal"
-            app:hintTextColor="@color/primary"
+            app:hintTextColor="?attr/colorPrimary"
             app:startIconDrawable="@drawable/ic_link"
             app:startIconTint="?attr/colorControlNormal">
 
@@ -173,7 +173,7 @@
                 android:layout_weight="1"
                 android:text="@string/save"
                 android:textColor="@color/on_primary"
-                app:backgroundTint="@color/btn_clear_bg"
+                app:backgroundTint="?attr/colorPrimary"
                 app:cornerRadius="24dp"
                 app:icon="@drawable/ic_check"
                 app:iconGravity="textStart"

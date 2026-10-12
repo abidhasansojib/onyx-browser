@@ -36,7 +36,7 @@ class FindInPageController(
 
         binding.btnRegexToggle.setOnClickListener {
             isRegexFindEnabled = !isRegexFindEnabled
-            val activeColor = ContextCompat.getColor(activity, R.color.primary)
+            val activeColor = com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(activity)
             binding.btnRegexToggle.setTextColor(if (isRegexFindEnabled) activeColor else Color.GRAY)
             val webView = getActiveWebView()
             webView?.regexFindBridge?.setRegexMode(isRegexFindEnabled)

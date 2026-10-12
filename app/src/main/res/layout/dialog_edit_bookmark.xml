@@ -36,7 +36,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
         android:hint="@string/bookmark_name"
-        app:boxStrokeColor="@color/primary"
+        app:boxStrokeColor="?attr/colorPrimary"
         app:hintTextColor="?attr/colorPrimary">
 
         <com.google.android.material.textfield.TextInputEditText
@@ -59,7 +59,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="24dp"
         android:hint="@string/bookmark_url"
-        app:boxStrokeColor="@color/primary"
+        app:boxStrokeColor="?attr/colorPrimary"
         app:hintTextColor="?attr/colorPrimary">
 
         <com.google.android.material.textfield.TextInputEditText
@@ -96,7 +96,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/save"
-            app:backgroundTint="@color/primary" />
+            app:backgroundTint="?attr/colorPrimary" />
     </LinearLayout>
 
 </LinearLayout>

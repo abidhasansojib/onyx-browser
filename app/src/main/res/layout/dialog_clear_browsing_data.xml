@@ -245,7 +245,7 @@
                 android:layout_weight="1"
                 android:text="@string/clear_data"
                 android:textColor="@color/on_primary"
-                app:backgroundTint="@color/btn_clear_bg"
+                app:backgroundTint="?attr/colorPrimary"
                 app:cornerRadius="24dp" />
 
         </LinearLayout>

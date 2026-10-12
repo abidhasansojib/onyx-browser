@@ -37,7 +37,7 @@
                 android:layout_width="26dp"
                 android:layout_height="26dp"
                 app:srcCompat="@drawable/ic_camera"
-                app:tint="@color/primary" />
+                app:tint="?attr/colorPrimary" />
 
             <TextView
                 android:id="@+id/tvCategoryTitle"

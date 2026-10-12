@@ -295,7 +295,7 @@ class SiteShieldBottomSheetDialog(
                 ContextCompat.getColor(requireContext(), R.color.green_success)
             )
             binding.ivShieldIcon.setColorFilter(
-                ContextCompat.getColor(requireContext(), R.color.primary)
+                com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(requireContext())
             )
             binding.switchShieldsMaster.isChecked = true
         } else {
@@ -349,7 +349,7 @@ class SiteShieldBottomSheetDialog(
         if (level == BrowserPreferences.BLOCKING_AGGRESSIVE) {
             binding.tvBlockingLevelValue.text = getString(R.string.blocking_aggressive)
             binding.tvBlockingLevelValue.setTextColor(
-                ContextCompat.getColor(requireContext(), R.color.primary)
+                com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(requireContext())
             )
         } else {
             binding.tvBlockingLevelValue.text = getString(R.string.blocking_standard)

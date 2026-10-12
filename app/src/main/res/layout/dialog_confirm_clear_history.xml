@@ -33,7 +33,7 @@
                 android:layout_height="28dp"
                 android:layout_gravity="center"
                 app:srcCompat="@drawable/ic_delete"
-                app:tint="@color/btn_clear_bg" />
+                app:tint="?attr/colorPrimary" />
         </FrameLayout>
 
         <!-- Title -->
@@ -89,7 +89,7 @@
                 android:layout_weight="1"
                 android:text="@string/clear"
                 android:textColor="#FFFFFF"
-                app:backgroundTint="@color/btn_clear_bg"
+                app:backgroundTint="?attr/colorPrimary"
                 app:cornerRadius="24dp" />
         </LinearLayout>
     </LinearLayout>

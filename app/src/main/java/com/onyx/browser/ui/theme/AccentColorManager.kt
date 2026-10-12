@@ -22,13 +22,13 @@ object AccentColorManager {
 
     val PRESETS = listOf(
         AccentPreset(BrowserPreferences.ACCENT_PRESET_CRIMSON, "Crimson", "#DC4B64", R.style.ThemeOverlay_Onyx_Accent_Crimson),
-        AccentPreset(BrowserPreferences.ACCENT_PRESET_ORANGE, "Orange", "#FB542B", R.style.ThemeOverlay_Onyx_Accent_Orange),
-        AccentPreset(BrowserPreferences.ACCENT_PRESET_BLUE, "Blue", "#1A73E8", R.style.ThemeOverlay_Onyx_Accent_Blue),
-        AccentPreset(BrowserPreferences.ACCENT_PRESET_GREEN, "Green", "#10B981", R.style.ThemeOverlay_Onyx_Accent_Green),
-        AccentPreset(BrowserPreferences.ACCENT_PRESET_VIOLET, "Violet", "#8B5CF6", R.style.ThemeOverlay_Onyx_Accent_Violet),
+        AccentPreset(BrowserPreferences.ACCENT_PRESET_ORANGE, "Orange", "#FF5C38", R.style.ThemeOverlay_Onyx_Accent_Orange),
         AccentPreset(BrowserPreferences.ACCENT_PRESET_AMBER, "Amber", "#F59E0B", R.style.ThemeOverlay_Onyx_Accent_Amber),
-        AccentPreset(BrowserPreferences.ACCENT_PRESET_PINK, "Pink", "#EC4899", R.style.ThemeOverlay_Onyx_Accent_Pink),
-        AccentPreset(BrowserPreferences.ACCENT_PRESET_SLATE, "Slate", "#64748B", R.style.ThemeOverlay_Onyx_Accent_Slate)
+        AccentPreset(BrowserPreferences.ACCENT_PRESET_GREEN, "Green", "#10C888", R.style.ThemeOverlay_Onyx_Accent_Green),
+        AccentPreset(BrowserPreferences.ACCENT_PRESET_CYAN, "Cyan", "#06B6D4", R.style.ThemeOverlay_Onyx_Accent_Cyan),
+        AccentPreset(BrowserPreferences.ACCENT_PRESET_BLUE, "Blue", "#2F80ED", R.style.ThemeOverlay_Onyx_Accent_Blue),
+        AccentPreset(BrowserPreferences.ACCENT_PRESET_VIOLET, "Violet", "#8B5CF6", R.style.ThemeOverlay_Onyx_Accent_Violet),
+        AccentPreset(BrowserPreferences.ACCENT_PRESET_PINK, "Pink", "#EC4899", R.style.ThemeOverlay_Onyx_Accent_Pink)
     )
 
     fun applyThemeOverlay(activity: Activity) {
@@ -37,15 +37,34 @@ object AccentColorManager {
         activity.theme.applyStyle(overlayResId, true)
     }
 
+    fun applyThemeOverlay(context: Context) {
+        if (context is Activity) {
+            applyThemeOverlay(context)
+        } else {
+            val prefs = BrowserPreferences.getInstance(context)
+            val overlayResId = getThemeOverlayRes(prefs)
+            context.theme?.applyStyle(overlayResId, true)
+        }
+    }
+
     @StyleRes
     fun getThemeOverlayRes(prefs: BrowserPreferences): Int {
         val presetId = prefs.accentColorPreset
         if (presetId != BrowserPreferences.ACCENT_PRESET_CUSTOM) {
+            if (presetId.equals(BrowserPreferences.ACCENT_PRESET_SLATE, ignoreCase = true)) {
+                return R.style.ThemeOverlay_Onyx_Accent_Cyan
+            }
             val preset = PRESETS.find { it.id.equals(presetId, ignoreCase = true) }
             if (preset != null) return preset.overlayResId
         }
         val customColor = getAccentColor(prefs)
         return findClosestPreset(customColor).overlayResId
+    }
+
+    @ColorInt
+    fun getAccentColorContainer(context: Context): Int {
+        val accent = getAccentColor(context)
+        return Color.argb(0x26, Color.red(accent), Color.green(accent), Color.blue(accent))
     }
 
     @ColorInt

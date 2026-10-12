@@ -22,7 +22,7 @@
         android:background="@drawable/bg_circle_action"
         android:padding="7dp"
         app:srcCompat="@drawable/ic_download"
-        app:tint="@color/primary" />
+        app:tint="?attr/colorPrimary" />
 
     <LinearLayout
         android:layout_width="0dp"

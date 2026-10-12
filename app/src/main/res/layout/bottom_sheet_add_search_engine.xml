@@ -38,7 +38,7 @@
                 android:layout_height="22dp"
                 android:layout_gravity="center"
                 app:srcCompat="@drawable/ic_web"
-                app:tint="@color/primary" />
+                app:tint="?attr/colorPrimary" />
         </FrameLayout>
 
         <!-- Title + subtitle -->
@@ -136,8 +136,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 android:hint="Search engine name"
-                app:boxStrokeColor="@color/primary"
-                app:hintTextColor="@color/primary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:hintTextColor="?attr/colorPrimary"
                 app:startIconDrawable="@drawable/ic_web"
                 app:startIconTint="?android:attr/textColorSecondary">
 
@@ -160,8 +160,8 @@
                 android:hint="Shortcut keyword (e.g. e or :k)"
                 app:helperText="Type keyword + space in address bar to trigger"
                 app:helperTextEnabled="true"
-                app:boxStrokeColor="@color/primary"
-                app:hintTextColor="@color/primary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:hintTextColor="?attr/colorPrimary"
                 app:startIconDrawable="@drawable/ic_search"
                 app:startIconTint="?android:attr/textColorSecondary">
 
@@ -184,8 +184,8 @@
                 android:hint="URL with %s in place of query"
                 app:helperText="e.g. https://www.ecosia.org/search?q=%s"
                 app:helperTextEnabled="true"
-                app:boxStrokeColor="@color/primary"
-                app:hintTextColor="@color/primary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:hintTextColor="?attr/colorPrimary"
                 app:startIconDrawable="@drawable/ic_link"
                 app:startIconTint="?android:attr/textColorSecondary">
 

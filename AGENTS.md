@@ -176,11 +176,13 @@ onyx-browser/
 - **Downloads Categorical Filter Badge Counts**: Real-time item counters dynamically rendered inside categorical filter chips (`All (N)`, `APKs (N)`, `Images (N)`, `Videos (N)`, `Documents (N)`).
 
 ### 4.8. Dynamic Accent Color & Theme Customization Subsystem (`AccentColorManager`)
-- **Two-Tier Color Engine**:
-  - *Tier 1 (Theme Overlays)*: 8 curated pre-compiled `ThemeOverlay.Onyx.Accent.*` overlays (Crimson `#DC4B64`, Brave Orange `#FB542B`, Electric Blue `#1A73E8`, Emerald Green `#10B981`, Cyberpunk Violet `#8B5CF6`, Sunset Amber `#F59E0B`, Neon Pink `#EC4899`, Minimal Slate `#64748B`) applied dynamically in Activity `onCreate` before view inflation.
-  - *Tier 2 (Precision Dynamic Tinting & Custom Hex)*: Accepts arbitrary 6-digit hex color codes (`#RRGGBB`). Euclidean distance matching in RGB color space maps custom colors to the closest preset theme overlay for base Android widgets, while `AccentColorManager` directly tints active tab strokes/headers (`TabsAdapter`), Omnibox progress bars, buttons, and switches.
+- **Balanced 8-Preset Palette & Two-Tier Color Engine**:
+  - *Golden Luminance Balancing*: Presets are calibrated to match the exact luminance/saturation sweet spot of signature Coral Crimson `#DC4B64` (~58% lightness, ~68-90% saturation): Crimson `#DC4B64`, Coral Orange `#FF5C38`, Sunset Amber `#F59E0B`, Emerald Mint `#10C888`, Ocean Cyan `#06B6D4`, Electric Blue `#2F80ED`, Cyber Violet `#8B5CF6`, Neon Rose `#EC4899`.
+  - *Tier 1 (Universal Theme Overlays)*: 8 pre-compiled `ThemeOverlay.Onyx.Accent.*` overlays providing `colorPrimary`, `colorSecondary`, and `colorPrimaryContainer` (`#26[HEX]`) applied dynamically in Activity `onCreate` before view inflation.
+  - *Tier 2 (Precision Dynamic Tinting & Custom Hex)*: Accepts arbitrary 6-digit hex color codes (`#RRGGBB`). Euclidean distance matching maps custom colors to the closest preset theme overlay for base Android widgets, while `AccentColorManager` directly tints active tab strokes/headers (`TabsAdapter`), Tab Switcher FAB & pill drawables (`TabSwitcherBottomSheet`), home search widget avatars, popup menus, and bottom sheets.
+- **Universal Dynamic Attribute Resolution**: All 40 layout XML files and vector/shape drawables (`bg_circle_danger`, `bg_chip_suggestion`, `bg_qr_frame`, `bg_tab_pill_selected`, `ic_check`) reference `?attr/colorPrimary` and `?attr/colorPrimaryContainer` rather than static `@color/primary`, ensuring 100% of UI elements immediately adapt when accent colors change.
 - **Web Template & Error Page Integration**: Dynamically replaces `#DC4B64` with `preferences.accentColorHex` in `error_page.html` CSS variables (`--link-color`, `--primary-btn-bg`) and `LocalFileLoader` document styles so internal browser error and document pages harmonize with the selected theme.
-- **Unified Appearance Sheet (`ThemePickerSheet`)**: Accessible via Settings → Appearance. Combines Display Theme selection (System Default, Dark, Light) with real-time accent preset swatch selection, live custom hex preview, and non-destructive on-dismiss recreation synchronization.
+- **Unified Appearance Sheet (`ThemePickerSheet`)**: Accessible via Settings → Appearance. Features real-time theme mode tinting, active swatch stroke outlines and checkmark indicators, live custom hex preview, and non-destructive on-dismiss recreation synchronization.
 
 ---
 

@@ -53,7 +53,7 @@
                     android:paddingEnd="7dp"
                     android:paddingBottom="2dp"
                     android:text="@string/filter_badge_custom"
-                    android:textColor="@color/primary"
+                    android:textColor="?attr/colorPrimary"
                     android:textSize="10sp"
                     android:textStyle="bold"
                     android:visibility="gone"

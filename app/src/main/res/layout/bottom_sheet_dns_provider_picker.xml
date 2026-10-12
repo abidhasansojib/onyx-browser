@@ -71,7 +71,7 @@
                     android:layout_height="22dp"
                     android:layout_gravity="center"
                     app:srcCompat="@drawable/ic_web"
-                    app:tint="@color/primary" />
+                    app:tint="?attr/colorPrimary" />
             </FrameLayout>
 
             <LinearLayout
@@ -105,7 +105,7 @@
                 android:layout_height="24dp"
                 android:visibility="invisible"
                 app:srcCompat="@drawable/ic_check"
-                app:tint="@color/primary" />
+                app:tint="?attr/colorPrimary" />
 
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
@@ -175,7 +175,7 @@
                 android:layout_height="24dp"
                 android:visibility="invisible"
                 app:srcCompat="@drawable/ic_check"
-                app:tint="@color/primary" />
+                app:tint="?attr/colorPrimary" />
 
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
@@ -212,7 +212,7 @@
                     android:layout_height="22dp"
                     android:layout_gravity="center"
                     app:srcCompat="@drawable/ic_shield"
-                    app:tint="@color/primary" />
+                    app:tint="?attr/colorPrimary" />
             </FrameLayout>
 
             <LinearLayout
@@ -246,7 +246,7 @@
                 android:layout_height="24dp"
                 android:visibility="invisible"
                 app:srcCompat="@drawable/ic_check"
-                app:tint="@color/primary" />
+                app:tint="?attr/colorPrimary" />
 
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
@@ -283,7 +283,7 @@
                     android:layout_height="22dp"
                     android:layout_gravity="center"
                     app:srcCompat="@drawable/ic_edit"
-                    app:tint="@color/primary" />
+                    app:tint="?attr/colorPrimary" />
             </FrameLayout>
 
             <LinearLayout
@@ -318,7 +318,7 @@
                 android:layout_height="24dp"
                 android:visibility="invisible"
                 app:srcCompat="@drawable/ic_check"
-                app:tint="@color/primary" />
+                app:tint="?attr/colorPrimary" />
 
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
