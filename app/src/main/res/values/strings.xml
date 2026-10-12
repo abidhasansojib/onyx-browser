@@ -520,7 +520,6 @@
     <string name="add_bookmark_title">Add Bookmark</string>
     <string name="bookmarklet_hint_tip">Tip: Enter javascript:... to create a bookmarklet script</string>
     <string name="search_bookmarks_hint">Search bookmarks…</string>
-    <string name="link_copied">Link copied to clipboard</string>
     <string name="script_copied">JavaScript copied to clipboard</string>
     <string name="running_bookmarklet">Running: %s</string>
     <string name="no_active_page_for_bookmarklet">Open a webpage first to run bookmarklet</string>
