@@ -43,7 +43,12 @@ class OnyxWebView @JvmOverloads constructor(
     @Volatile var isPopupPendingDisplay: Boolean = false
     @Volatile var isPopupTab: Boolean = false
     @Volatile var lastOAuthInteractionTimestamp: Long = 0L
-    @Volatile var pageBlockedCount: Int = 0
+    private val _pageBlockedCount = java.util.concurrent.atomic.AtomicInteger(0)
+    var pageBlockedCount: Int
+        get() = _pageBlockedCount.get()
+        set(value) { _pageBlockedCount.set(value) }
+
+    fun incrementPageBlockedCount(): Int = _pageBlockedCount.incrementAndGet()
 
     fun isWithinOAuthGracePeriod(): Boolean {
         val elapsed = System.currentTimeMillis() - lastOAuthInteractionTimestamp

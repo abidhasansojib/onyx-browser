@@ -111,6 +111,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 78. [x] Webpage 3-Dot Menu Overhaul & Live Blocked Counter (1-tap bookmark quick toggle with Room DB persistence and tinting; long-press opens bookmarks manager; dedicated "New Tab" and "New Incognito Tab" rows; live per-page tracker/ad blocked counter in Site Shield panel)
 79. [x] Downloads Search & Categorical Filter Chips (real-time omni-search by filename and URL; category filter chips for All, APKs, Images, Videos, Documents)
 80. [x] Advanced Accessibility & Privacy Controls (Clear data on exit toggle; user toggle for pull-to-refresh; algorithmic force dark mode for web contents)
+81. [x] Omnibox Quick Site Shields Access & Multi-Surface Tab Consistency (1-tap lock icon in address bar opens Site Shields bottom sheet; New Tab row added to home menu; Downloads adapter category-aware icon rendering for APKs, Web Archives, Images, Videos, and Documents; AtomicInteger-backed page blocked counter thread-safety; centralized active tab state synchronization in TabManager; non-cancellable coroutine and complete cache/credentials purging for Clear on Exit)
 
 ---
 

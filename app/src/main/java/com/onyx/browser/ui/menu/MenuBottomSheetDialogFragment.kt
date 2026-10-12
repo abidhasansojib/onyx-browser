@@ -137,6 +137,12 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
 
 
 
+        // New Tab Button
+        binding.menuItemHomeNewTab.setOnClickListener {
+            main?.openNewTab(isIncognito = false)
+            dismiss()
+        }
+
         // New Incognito Tab Button
         binding.menuItemHomeNewIncognitoTab.setOnClickListener {
             main?.openNewTab(isIncognito = true)

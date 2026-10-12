@@ -119,13 +119,17 @@
                     app:srcCompat="@drawable/ic_incognito"
                     app:tint="?attr/colorControlNormal" />
 
-                <!-- SSL Lock Icon -->
+                <!-- SSL Lock Icon (Tapping opens Site Shields) -->
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/ivSslLock"
-                    android:layout_width="15dp"
-                    android:layout_height="15dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:layout_marginEnd="4dp"
-                    android:contentDescription="SSL Lock"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="3dp"
+                    android:contentDescription="SSL Lock &amp; Site Shields"
                     app:srcCompat="@drawable/ic_lock"
                     app:tint="?attr/colorControlNormal" />
 

@@ -56,6 +56,13 @@ class TabManager(
     private val _activeTab = MutableStateFlow<TabItem?>(null)
     val activeTab: StateFlow<TabItem?> = _activeTab.asStateFlow()
 
+    private fun setActiveTab(tab: TabItem?) {
+        _activeTab.value = tab
+        if (tab != null && !tab.isIncognito) {
+            com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).lastActiveTabId = tab.id
+        }
+    }
+
     private val webViewPool = mutableMapOf<String, OnyxWebView>()
     var isIncognitoUnlocked: Boolean = false
     var onTabClosedListener: ((TabItem) -> Unit)? = null
@@ -322,7 +329,7 @@ class TabManager(
             _normalTabs.value = savedTabs
             val lastActiveId = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).lastActiveTabId
             val targetTab = savedTabs.find { it.id == lastActiveId } ?: savedTabs.first()
-            _activeTab.value = targetTab
+            setActiveTab(targetTab)
             cleanupOrphanedTabStates()
         } else {
             // Create default initial tab
@@ -335,7 +342,7 @@ class TabManager(
             )
             database.tabDao().insertTab(defaultTab)
             _normalTabs.value = listOf(defaultTab)
-            _activeTab.value = defaultTab
+            setActiveTab(defaultTab)
         }
         withContext(Dispatchers.Main) {
             purgeIncognitoProfile()
@@ -426,14 +433,13 @@ class TabManager(
             }
         }
 
-        _activeTab.value = newTab
+        setActiveTab(newTab)
         return newTab
     }
 
     fun selectTab(tab: TabItem) {
         val updatedTab = tab.copy(lastAccessedAt = System.currentTimeMillis(), isHibernated = false)
         if (!updatedTab.isIncognito) {
-            com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).lastActiveTabId = updatedTab.id
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().updateTab(updatedTab)
             }
@@ -443,7 +449,7 @@ class TabManager(
             val newList = _incognitoTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
             _incognitoTabs.value = newList
         }
-        _activeTab.value = updatedTab
+        setActiveTab(updatedTab)
     }
 
     fun hibernateIdleTabs() {
@@ -776,9 +782,9 @@ class TabManager(
 
             val activeState = batch.states.firstOrNull { it.wasActive }
             if (activeState != null && current.any { it.id == activeState.tab.id }) {
-                _activeTab.value = activeState.tab
+                setActiveTab(activeState.tab)
             } else if (_activeTab.value == null || _activeTab.value?.isIncognito == false) {
-                _activeTab.value = current.lastOrNull()
+                setActiveTab(current.lastOrNull())
             }
             return batch
         }
@@ -823,9 +829,9 @@ class TabManager(
 
         val activeState = batch.states.firstOrNull { it.wasActive }
         if (activeState != null && current.any { it.id == activeState.tab.id }) {
-            _activeTab.value = activeState.tab
+            setActiveTab(activeState.tab)
         } else if (_activeTab.value == null || _activeTab.value?.id == batch.autoCreatedTabId) {
-            _activeTab.value = current.lastOrNull()
+            setActiveTab(current.lastOrNull())
         }
 
         return batch
@@ -893,7 +899,7 @@ class TabManager(
                 purgeIncognitoProfile()
             }
             if (_activeTab.value?.id == tab.id) {
-                _activeTab.value = parentTab ?: updated.lastOrNull() ?: _normalTabs.value.lastOrNull()
+                setActiveTab(parentTab ?: updated.lastOrNull() ?: _normalTabs.value.lastOrNull())
             }
         } else {
             val updated = _normalTabs.value
@@ -906,9 +912,9 @@ class TabManager(
             }
             if (_activeTab.value?.id == tab.id) {
                 if (parentTab != null) {
-                    _activeTab.value = parentTab
+                    setActiveTab(parentTab)
                 } else if (updated.isNotEmpty()) {
-                    _activeTab.value = updated.last()
+                    setActiveTab(updated.last())
                 } else {
                     // Always maintain at least one tab
                     val newTab = createNewTab(isIncognito = false)
@@ -977,7 +983,7 @@ class TabManager(
             _incognitoTabs.value = emptyList()
             purgeIncognitoProfile()
             if (_activeTab.value?.isIncognito == true) {
-                _activeTab.value = _normalTabs.value.lastOrNull() ?: createNewTab(isIncognito = false)
+                setActiveTab(_normalTabs.value.lastOrNull() ?: createNewTab(isIncognito = false))
             }
 
             if (canUndo && states.isNotEmpty()) {
@@ -1045,7 +1051,7 @@ class TabManager(
                 database.tabDao().clearNormalTabs()
             }
             val newTab = createNewTab(isIncognito = false)
-            _activeTab.value = newTab
+            setActiveTab(newTab)
 
             if (canUndo && states.isNotEmpty()) {
                 val batch = ClosedTabBatch(
@@ -1105,14 +1111,14 @@ class TabManager(
 
         if (remainingNormal.isEmpty() && remainingIncognito.isEmpty()) {
             val newTab = createNewTab(isIncognito = false)
-            _activeTab.value = newTab
+            setActiveTab(newTab)
         } else if (_activeTab.value == null || normalToClose.any { it.id == _activeTab.value?.id } || incognitoToClose.any { it.id == _activeTab.value?.id }) {
             val wasIncognito = incognitoToClose.any { it.id == _activeTab.value?.id } || _activeTab.value?.isIncognito == true
-            _activeTab.value = if (wasIncognito && remainingIncognito.isNotEmpty()) {
+            setActiveTab(if (wasIncognito && remainingIncognito.isNotEmpty()) {
                 remainingIncognito.last()
             } else {
                 remainingNormal.lastOrNull() ?: remainingIncognito.lastOrNull() ?: createNewTab(isIncognito = false)
-            }
+            })
         }
     }
 
@@ -1151,7 +1157,7 @@ class TabManager(
 
         // Strictly guard: only update _activeTab if this specific tab is currently active
         if (_activeTab.value?.id == tabId) {
-            _activeTab.value = updatedTab
+            setActiveTab(updatedTab)
         }
     }
 

@@ -46,17 +46,32 @@ class DownloadsAdapter(
             binding.tvDownloadFileName.text = item.fileName
 
             val lowerName = item.fileName.lowercase()
+            val mime = item.mimeType.lowercase()
             when {
                 ApkInstallerHelper.isApkFile(item.fileName, item.mimeType) -> {
                     binding.ivDownloadIcon.setImageResource(R.drawable.ic_android)
                 }
                 lowerName.endsWith(".mht") || lowerName.endsWith(".mhtml") ||
                 lowerName.endsWith(".html") || lowerName.endsWith(".htm") ||
-                item.mimeType.contains("html") || item.mimeType.contains("multipart") -> {
+                mime.contains("html") || mime.contains("multipart") -> {
                     binding.ivDownloadIcon.setImageResource(R.drawable.ic_web)
                 }
-                lowerName.endsWith(".md") || lowerName.endsWith(".markdown") ||
-                lowerName.endsWith(".txt") -> {
+                mime.startsWith("image/") || lowerName.endsWith(".png") || lowerName.endsWith(".jpg") ||
+                lowerName.endsWith(".jpeg") || lowerName.endsWith(".webp") || lowerName.endsWith(".gif") ||
+                lowerName.endsWith(".svg") || lowerName.endsWith(".bmp") -> {
+                    binding.ivDownloadIcon.setImageResource(R.drawable.ic_image)
+                }
+                mime.startsWith("video/") || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") ||
+                lowerName.endsWith(".webm") || lowerName.endsWith(".mov") || lowerName.endsWith(".avi") ||
+                lowerName.endsWith(".flv") -> {
+                    binding.ivDownloadIcon.setImageResource(R.drawable.ic_play_circle)
+                }
+                mime.startsWith("text/") || mime.contains("pdf") || mime.contains("document") ||
+                mime.contains("sheet") || lowerName.endsWith(".pdf") || lowerName.endsWith(".doc") ||
+                lowerName.endsWith(".docx") || lowerName.endsWith(".xls") || lowerName.endsWith(".xlsx") ||
+                lowerName.endsWith(".ppt") || lowerName.endsWith(".pptx") || lowerName.endsWith(".txt") ||
+                lowerName.endsWith(".md") || lowerName.endsWith(".markdown") || lowerName.endsWith(".epub") ||
+                lowerName.endsWith(".zip") || lowerName.endsWith(".tar") || lowerName.endsWith(".gz") -> {
                     binding.ivDownloadIcon.setImageResource(R.drawable.ic_file)
                 }
                 else -> {

@@ -1052,6 +1052,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         binding.swipeRefreshLayout.setDistanceToTriggerSync(triggerDp)
 
         binding.swipeRefreshLayout.setOnChildScrollUpCallback { _, _ ->
+            // Block pull-to-refresh if disabled in settings
+            if (!preferences.isPullToRefreshEnabled) return@setOnChildScrollUpCallback true
             // Block pull-to-refresh on homepage and when webview can't scroll up
             if (binding.homeLayout.root.visibility == View.VISIBLE) return@setOnChildScrollUpCallback true
             val webView = tabManager.getActiveWebView() ?: return@setOnChildScrollUpCallback true
@@ -1183,6 +1185,19 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 displayTab(newTab)
             } else {
                 showHomeScreen()
+            }
+        }
+
+        // SSL Lock Icon: opens per-site adblock controls (Brave Shields panel)
+        binding.ivSslLock.setOnClickListener {
+            val activeTab = tabManager.activeTab.value ?: return@setOnClickListener
+            val url = activeTab.url
+            if (url.isNotBlank() && !url.startsWith("about:blank", ignoreCase = true)) {
+                val blockedCount = tabManager.getActiveWebView()?.pageBlockedCount ?: 0
+                val dialog = com.onyx.browser.ui.menu.SiteShieldBottomSheetDialog(url, blockedCount) {
+                    tabManager.getActiveWebView()?.reload()
+                }
+                dialog.show(supportFragmentManager, com.onyx.browser.ui.menu.SiteShieldBottomSheetDialog.TAG)
             }
         }
 
@@ -3089,6 +3104,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             wv.settings.javaScriptEnabled = !preferences.isGlobalScriptBlockingEnabled
         }
 
+        // 5. Sync pull to refresh & force dark settings
+        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
+        tabManager.getAllWebViews().forEach { it.applyForceDark() }
+
         updatePipParams()
         binding.root.post {
             wv?.resumeTimers()
@@ -3371,14 +3390,17 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (preferences.isClearOnExitEnabled) {
                 try {
                     val db = AppDatabase.getInstance(applicationContext)
-                    lifecycleScope.launch(Dispatchers.IO) {
+                    kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.NonCancellable).launch {
                         try {
                             db.historyDao().clearAllHistory()
                         } catch (_: Throwable) {}
                     }
+                    tabManager.getAllWebViews().forEach { it.clearCache(true) }
                     android.webkit.CookieManager.getInstance().removeAllCookies(null)
                     android.webkit.CookieManager.getInstance().flush()
                     android.webkit.WebStorage.getInstance().deleteAllData()
+                    android.webkit.WebViewDatabase.getInstance(applicationContext).clearHttpAuthUsernamePassword()
+                    android.webkit.WebViewDatabase.getInstance(applicationContext).clearFormData()
                 } catch (_: Throwable) {}
             }
             tabManager.closeAllTabs(incognitoOnly = true)

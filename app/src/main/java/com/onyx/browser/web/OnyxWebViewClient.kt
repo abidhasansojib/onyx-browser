@@ -526,7 +526,7 @@ class OnyxWebViewClient(
 
     private fun recordBlockedRequest(view: WebView?) {
         preferences.incrementBlockedRequests()
-        (view as? OnyxWebView)?.let { it.pageBlockedCount++ }
+        (view as? OnyxWebView)?.incrementPageBlockedCount()
     }
 
     override fun shouldInterceptRequest(
