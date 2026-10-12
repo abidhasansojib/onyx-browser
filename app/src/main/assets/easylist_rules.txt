@@ -33623,6 +33623,7 @@ oklivetv.com##+js(no-fetch-if, method:POST body:tracker)
 ||oklivetv.com/p/e
 ||t.xfeed.com^
 ||ua.xstory-fr.com^
+||metricsjs.link^
 ||sentry.efabrica.sk^
 @@||awstrack.me/*auth.coindesk.com$doc,popup
 @@||awstrack.me/*cmd=ac-inactive-restore$doc,popup
@@ -43252,6 +43253,7 @@ omni.soundestlink.com$image
 ||colossalclouds.com^
 ||colossalcoat.com^
 ||colossalcry.com^
+||colwinners.com^
 ||combativedetail.com^
 ||combbit.com^
 ||combcattle.com^
@@ -43421,6 +43423,7 @@ omni.soundestlink.com$image
 ||detourgame.com^
 ||devilishdinner.com^
 ||dewdroplagoon.com^
+||dharmabrats.com^
 ||dicecandies.com^
 ||difficultfog.com^
 ||digestiondrawer.com^
