@@ -2,6 +2,7 @@ package com.onyx.browser.ui.settings
 
 import android.app.AppOpsManager
 import android.content.Context
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.content.Intent
 import android.net.Uri
@@ -59,6 +60,25 @@ class VideoSettingsActivity : AppCompatActivity() {
         }
 
         binding.toolbar.setNavigationOnClickListener { finish() }
+
+        // Pin top heading color statically to canvasBg (disable lift-on-scroll elevation tint)
+        binding.appBarLayout.apply {
+            isLiftOnScroll = false
+            setLiftable(false)
+            setLifted(false)
+            elevation = 0f
+            stateListAnimator = null
+            outlineProvider = null
+            statusBarForeground = null
+            setBackgroundColor(canvasBg)
+            backgroundTintList = ColorStateList.valueOf(canvasBg)
+        }
+        binding.toolbar.apply {
+            elevation = 0f
+            outlineProvider = null
+            setBackgroundColor(canvasBg)
+            backgroundTintList = ColorStateList.valueOf(canvasBg)
+        }
 
         setupPlaybackControls()
     }

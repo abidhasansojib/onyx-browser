@@ -121,6 +121,9 @@ This document tracks all features of Onyx Browser, their current implementation 
    - **Bookmarklet Execution Engine**: Direct execution of `javascript:...` code on the active WebView via `evaluateJavascript` without page navigation or search redirection, complete with percent decoding and `+` operator preservation.
    - **Omnibox & Suggestion Integration**: Bookmarklets detected in search suggestions display `< / >` code icon (`ic_code`) and `"Bookmarklet (JavaScript)"` badge; Omnibox execution bypasses `https://` prefixing and search engine fallback.
    - **Modern Bookmarks Manager & Favicons**: Live search filtering in `BookmarksActivity`, Add Bookmark FAB with clipboard pre-fill, enhanced overflow menu (Open in new tab, Open in incognito, Copy link/script, Share, Edit, Delete), and asynchronous website favicon loading via `FaviconManager`.
+84. [x] Matte Charcoal Settings Canvas & Lift-on-Scroll Header Color Lock:
+   - **Matte Charcoal Canvas Calibration**: Replaced legacy reddish `#0B0305` background with refined Matte Charcoal `#161616` across all canvas settings screens (`@color/settings_canvas_bg`), harmonizing with the dark `#202020` card containers and night mode edge-to-edge system bars.
+   - **Lift-on-Scroll Header Color Pinning**: Statically locked `AppBarLayout` and `MaterialToolbar` across all settings screens (`SettingsActivity`, `DownloadSettingsActivity`, `AccessibilitySettingsActivity`, `VideoSettingsActivity`, `SiteSettingsActivity`) with `app:liftOnScroll="false"`, `app:elevation="0dp"`, `app:statusBarForeground="@null"`, `stateListAnimator = null`, and runtime color pinning to `@color/settings_canvas_bg`, completely preventing Material 3 elevation tint shifts during scrolling.
 
 ---
 

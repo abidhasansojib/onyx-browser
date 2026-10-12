@@ -12,12 +12,19 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/settings_canvas_bg"
-        app:elevation="0dp">
+        android:stateListAnimator="@null"
+        app:backgroundTint="@color/settings_canvas_bg"
+        app:elevation="0dp"
+        app:liftOnScroll="false"
+        app:statusBarForeground="@null">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
+            android:background="@color/settings_canvas_bg"
+            app:backgroundTint="@color/settings_canvas_bg"
+            app:elevation="0dp"
             app:navigationIcon="@drawable/ic_arrow_back"
             app:navigationIconTint="@color/settings_title_text"
             app:title="@string/site_settings_title"
