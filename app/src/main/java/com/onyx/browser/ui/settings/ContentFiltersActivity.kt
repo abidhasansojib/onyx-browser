@@ -23,6 +23,7 @@ import com.onyx.browser.data.filter.FilterListManager
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityContentFiltersBinding
 import com.onyx.browser.databinding.ItemContentFilterBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -37,6 +38,7 @@ class ContentFiltersActivity : AppCompatActivity() {
     private var recompileJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
 
         // Enable edge-to-edge transparent system bars

@@ -8,6 +8,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityDownloadSettingsBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 
 class DownloadSettingsActivity : AppCompatActivity() {
 
@@ -21,6 +22,7 @@ class DownloadSettingsActivity : AppCompatActivity() {
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
 
         // Edge-to-edge system bars

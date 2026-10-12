@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityShieldsBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 
 class ShieldsActivity : AppCompatActivity() {
 
@@ -13,6 +14,7 @@ class ShieldsActivity : AppCompatActivity() {
     private lateinit var prefs: BrowserPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
         binding = ActivityShieldsBinding.inflate(layoutInflater)
         setContentView(binding.root)

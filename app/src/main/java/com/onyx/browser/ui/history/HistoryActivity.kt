@@ -14,6 +14,7 @@ import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.databinding.ActivityHistoryBinding
 import com.onyx.browser.ui.browser.TabManager
 import com.onyx.browser.ui.tabs.ClearBrowsingDataDialog
+import com.onyx.browser.ui.theme.AccentColorManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -29,6 +30,7 @@ class HistoryActivity : AppCompatActivity() {
     private var currentQuery: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
         binding = ActivityHistoryBinding.inflate(layoutInflater)
         setContentView(binding.root)

@@ -46,4 +46,53 @@
         <item name="cornerSizeTopLeft">18dp</item>
         <item name="cornerSizeTopRight">18dp</item>
     </style>
+
+    <!-- Accent Color Theme Overlays -->
+    <style name="ThemeOverlay.Onyx.Accent.Crimson" parent="">
+        <item name="colorPrimary">#DC4B64</item>
+        <item name="colorSecondary">#DC4B64</item>
+        <item name="colorPrimaryVariant">#C73A53</item>
+    </style>
+
+    <style name="ThemeOverlay.Onyx.Accent.Orange" parent="">
+        <item name="colorPrimary">#FB542B</item>
+        <item name="colorSecondary">#FB542B</item>
+        <item name="colorPrimaryVariant">#E0441D</item>
+    </style>
+
+    <style name="ThemeOverlay.Onyx.Accent.Blue" parent="">
+        <item name="colorPrimary">#1A73E8</item>
+        <item name="colorSecondary">#1A73E8</item>
+        <item name="colorPrimaryVariant">#1557B0</item>
+    </style>
+
+    <style name="ThemeOverlay.Onyx.Accent.Green" parent="">
+        <item name="colorPrimary">#10B981</item>
+        <item name="colorSecondary">#10B981</item>
+        <item name="colorPrimaryVariant">#059669</item>
+    </style>
+
+    <style name="ThemeOverlay.Onyx.Accent.Violet" parent="">
+        <item name="colorPrimary">#8B5CF6</item>
+        <item name="colorSecondary">#8B5CF6</item>
+        <item name="colorPrimaryVariant">#7C3AED</item>
+    </style>
+
+    <style name="ThemeOverlay.Onyx.Accent.Amber" parent="">
+        <item name="colorPrimary">#F59E0B</item>
+        <item name="colorSecondary">#F59E0B</item>
+        <item name="colorPrimaryVariant">#D97706</item>
+    </style>
+
+    <style name="ThemeOverlay.Onyx.Accent.Pink" parent="">
+        <item name="colorPrimary">#EC4899</item>
+        <item name="colorSecondary">#EC4899</item>
+        <item name="colorPrimaryVariant">#DB2777</item>
+    </style>
+
+    <style name="ThemeOverlay.Onyx.Accent.Slate" parent="">
+        <item name="colorPrimary">#64748B</item>
+        <item name="colorSecondary">#64748B</item>
+        <item name="colorPrimaryVariant">#475569</item>
+    </style>
 </resources>

@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityAutofillSettingsBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 
 class AutofillSettingsActivity : AppCompatActivity() {
 
@@ -13,6 +14,7 @@ class AutofillSettingsActivity : AppCompatActivity() {
     private var activeManager: ActivePasswordManagerInfo? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
         binding = ActivityAutofillSettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)

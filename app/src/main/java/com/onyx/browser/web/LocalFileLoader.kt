@@ -568,6 +568,7 @@ object LocalFileLoader {
 
         val rawStream = openInputStream(context, uri)
         if (rawStream == null) {
+            val accentHex = try { BrowserPreferences.getInstance(context).accentColorHex } catch (_: Exception) { "#DC4B64" }
             val errorHtml = """
                 <!DOCTYPE html>
                 <html>
@@ -578,7 +579,7 @@ object LocalFileLoader {
                     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #202124; color: #E8EAED; padding: 24px; line-height: 1.6; }
                     h2 { color: #F28B82; font-size: 20px; font-weight: 500; }
                     p { font-size: 14px; color: #9AA0A6; }
-                    code { background: #303134; color: #DC4B64; padding: 4px 8px; border-radius: 6px; word-break: break-all; font-size: 13px; }
+                    code { background: #303134; color: $accentHex; padding: 4px 8px; border-radius: 6px; word-break: break-all; font-size: 13px; }
                   </style>
                 </head>
                 <body>
@@ -848,6 +849,7 @@ object LocalFileLoader {
      * Displays a clean, styled Material error card inside the WebView.
      */
     fun showErrorPage(webView: OnyxWebView, pathOrUrl: String, errorDescription: String) {
+        val accentHex = try { BrowserPreferences.getInstance(webView.context).accentColorHex } catch (_: Exception) { "#DC4B64" }
         val errorHtml = """
             <!DOCTYPE html>
             <html>
@@ -866,14 +868,14 @@ object LocalFileLoader {
                 }
                 @media (prefers-color-scheme: light) {
                   body { background: #FFFFFF; color: #202124; }
-                  code { background: #F1F3F4 !important; color: #DC4B64 !important; }
+                  code { background: #F1F3F4 !important; color: $accentHex !important; }
                   .card { background: #F8F9FA !important; border-color: #DFE1E5 !important; }
                 }
                 h2 { color: #F28B82; font-size: 20px; font-weight: 600; margin-top: 0; }
                 p { font-size: 14px; margin: 8px 0; }
                 code {
                   background: #303134;
-                  color: #DC4B64;
+                  color: $accentHex;
                   padding: 6px 10px;
                   border-radius: 6px;
                   word-break: break-all;

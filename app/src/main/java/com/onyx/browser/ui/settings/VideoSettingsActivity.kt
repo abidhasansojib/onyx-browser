@@ -16,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityVideoSettingsBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 
 class VideoSettingsActivity : AppCompatActivity() {
 
@@ -24,6 +25,7 @@ class VideoSettingsActivity : AppCompatActivity() {
     private var pendingPipEnable: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
 
         // Edge-to-edge system bars

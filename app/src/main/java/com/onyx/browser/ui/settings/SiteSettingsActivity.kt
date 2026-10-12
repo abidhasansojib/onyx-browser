@@ -7,6 +7,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivitySiteSettingsBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.SiteDataManager
 
 class SiteSettingsActivity : AppCompatActivity() {
@@ -15,6 +16,7 @@ class SiteSettingsActivity : AppCompatActivity() {
     private lateinit var prefs: BrowserPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
         binding = ActivitySiteSettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)

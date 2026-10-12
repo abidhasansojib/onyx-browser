@@ -17,6 +17,7 @@ import com.onyx.browser.databinding.ActivityBookmarksBinding
 import com.onyx.browser.databinding.DialogEditBookmarkBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
+import com.onyx.browser.ui.theme.AccentColorManager
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -27,6 +28,7 @@ class BookmarksActivity : AppCompatActivity() {
     private lateinit var database: AppDatabase
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
         binding = ActivityBookmarksBinding.inflate(layoutInflater)
         setContentView(binding.root)

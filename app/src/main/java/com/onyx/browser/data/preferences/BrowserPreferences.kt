@@ -82,6 +82,19 @@ class BrowserPreferences private constructor(private val context: Context) {
             prefs.edit().putInt(KEY_THEME_MODE, value).apply()
         }
 
+    var accentColorPreset: String
+        get() = prefs.getString(KEY_ACCENT_COLOR_PRESET, ACCENT_PRESET_CRIMSON) ?: ACCENT_PRESET_CRIMSON
+        set(value) {
+            prefs.edit().putString(KEY_ACCENT_COLOR_PRESET, value).apply()
+        }
+
+    var accentColorHex: String
+        get() = prefs.getString(KEY_ACCENT_COLOR_HEX, DEFAULT_ACCENT_HEX) ?: DEFAULT_ACCENT_HEX
+        set(value) {
+            val formatted = if (value.startsWith("#")) value.uppercase() else "#${value.uppercase()}"
+            prefs.edit().putString(KEY_ACCENT_COLOR_HEX, formatted).apply()
+        }
+
     // ── Ad & Tracker Blocking ────────────────────────────────────────────────
 
     var isAdBlockEnabled: Boolean
@@ -1142,6 +1155,20 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val THEME_DARK = 1
         const val THEME_LIGHT = 2
         const val THEME_DYNAMIC = 0 // Legacy alias to THEME_SYSTEM
+
+        const val DEFAULT_ACCENT_HEX = "#DC4B64"
+        const val KEY_ACCENT_COLOR_PRESET = "pref_accent_color_preset"
+        const val KEY_ACCENT_COLOR_HEX = "pref_accent_color_hex"
+
+        const val ACCENT_PRESET_CRIMSON = "crimson"
+        const val ACCENT_PRESET_ORANGE = "orange"
+        const val ACCENT_PRESET_BLUE = "blue"
+        const val ACCENT_PRESET_GREEN = "green"
+        const val ACCENT_PRESET_VIOLET = "violet"
+        const val ACCENT_PRESET_AMBER = "amber"
+        const val ACCENT_PRESET_PINK = "pink"
+        const val ACCENT_PRESET_SLATE = "slate"
+        const val ACCENT_PRESET_CUSTOM = "custom"
 
         /** Blocking level constants (used with KEY_BLOCKING_LEVEL) */
         const val BLOCKING_STANDARD = 0   // third-party ads & trackers only

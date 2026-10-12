@@ -30,6 +30,7 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import com.onyx.browser.R
 import com.onyx.browser.databinding.ActivityQrScannerBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -60,6 +61,7 @@ class QrScannerActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
 
         // Enable edge-to-edge transparent system bars

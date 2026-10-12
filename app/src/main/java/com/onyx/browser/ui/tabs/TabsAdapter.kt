@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.onyx.browser.R
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.databinding.ItemTabBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 
 class TabsAdapter(
     private val onTabClicked: (TabItem) -> Unit,
@@ -61,8 +62,9 @@ class TabsAdapter(
             val isActive = item.id == activeTabId
             val density = context.resources.displayMetrics.density
 
+            val accentColor = AccentColorManager.getAccentColor(context)
+
             if (isActive) {
-                val accentColor = ContextCompat.getColor(context, R.color.tab_switcher_accent)
                 binding.cardTab.strokeColor = accentColor
                 binding.cardTab.strokeWidth = (2.5f * density).toInt().coerceAtLeast(3)
 
@@ -86,7 +88,7 @@ class TabsAdapter(
 
             if (locked) {
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_lock)
-                binding.ivTabFavicon.setColorFilter(if (isActive) android.graphics.Color.WHITE else ContextCompat.getColor(context, R.color.primary))
+                binding.ivTabFavicon.setColorFilter(if (isActive) android.graphics.Color.WHITE else accentColor)
             } else if (item.isIncognito) {
                 binding.ivTabFavicon.setImageResource(R.drawable.ic_incognito)
                 binding.ivTabFavicon.setColorFilter(if (isActive) android.graphics.Color.WHITE else ContextCompat.getColor(context, R.color.incognito_purple))

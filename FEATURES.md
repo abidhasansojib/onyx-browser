@@ -51,7 +51,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 35. [x] User Agent Spoofer Manager (custom UA strings, presets for Chrome, Safari, Edge, Firefox)
 36. [x] Accessibility Settings (search widget toggle, webpage menu "Add to Home screen" toggle, text scaling)
 37. [x] Add to Home Screen & App Launcher Shortcuts (PWA launcher shortcuts via `ShortcutManagerCompat`, and launcher icon long-press quick shortcuts ordered: 1st Search web, 2nd New Incognito tab, 3rd Scan QR code via `shortcuts.xml`)
-38. [x] Theme System (Google Light, Google Dark `#202124`, and pure AMOLED Black)
+38. [x] Theme & Accent Color System (Google Light, Google Dark `#202124`, pure AMOLED Black, 8 curated accent presets + arbitrary custom hex code input with real-time preview and dynamic UI/HTML sync)
 39. [x] Hardened WebView Sandboxing (cloud backups disabled with `android:allowBackup="false"`, `allowFileAccessFromFileURLs`/`Universal` disabled, **third-party cookies blocked by default** with automatic smart exemptions for OAuth/SSO/identity/payment providers — Google Sign-In, Apple ID, Microsoft Azure AD, GitHub OAuth, PayPal, Stripe, Auth0, Okta, Firebase Auth, Amazon Cognito, etc. — to prevent login breakage; fully blocked in Incognito, safe intent routing)
 40. [x] Offline Eruda Developer Tools (bundled mobile DOM inspector, console, network monitor)
 41. [x] Console & Error Pre-Buffering (captures startup logs & JS errors before DevTools opens)
@@ -197,7 +197,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 - **Logcat Output**: Pipes web console messages directly to Android Logcat with tag `[OnyxDevTools]`.
 
 ### 8. Customization & Accessibility
-- **Themes**: Pure Google Dark (`#202124`), Google Light (`#FFFFFF`), and pure AMOLED Black (`#000000`).
+- **Themes & Dynamic Accent Colors**: Pure Google Dark (`#202124`), Google Light (`#FFFFFF`), and pure AMOLED Black (`#000000`). Custom accent color engine (`AccentColorManager`) featuring 8 curated presets (Crimson `#DC4B64`, Brave Orange `#FB542B`, Electric Blue `#1A73E8`, Emerald Green `#10B981`, Cyberpunk Violet `#8B5CF6`, Sunset Amber `#F59E0B`, Neon Pink `#EC4899`, Minimal Slate `#64748B`) plus arbitrary `#RRGGBB` custom hex code input with real-time preview, automated format validation, and synchronized styling across active tab headers, Omnibox progress bars, dialogs, buttons, and internal error page HTML templates.
 - **User Agent Spoofer**: Select from built-in presets (Chrome Mobile, Chrome Desktop, Safari iOS, Safari macOS, Edge, Firefox) or input a custom UA string.
 - **Accessibility Settings**: Toggle the Search widget, toggle the "Add to Home screen" option in the webpage 3-dot menu, adjust text scaling, and force dark mode on web content.
 - **Home Screen Shortcuts**: Pin progressive web app shortcuts directly to the Android launcher via `ShortcutManagerCompat`.

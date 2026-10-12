@@ -175,6 +175,13 @@ onyx-browser/
 - **Global Site Settings Activity (`SiteSettingsActivity`)**: Accessible via Settings → Privacy & Security → Site settings. Manages global policies ("Ask before accessing" vs "Blocked globally") for Camera, Microphone, and Location, provides granular Allowed/Blocked domain management sheets with 1-tap revocation (`SitePermissionCategorySheet`), and an "All sites" hub (`AllSitesSheet`) with real-time domain search and site data purging.
 - **Downloads Categorical Filter Badge Counts**: Real-time item counters dynamically rendered inside categorical filter chips (`All (N)`, `APKs (N)`, `Images (N)`, `Videos (N)`, `Documents (N)`).
 
+### 4.8. Dynamic Accent Color & Theme Customization Subsystem (`AccentColorManager`)
+- **Two-Tier Color Engine**:
+  - *Tier 1 (Theme Overlays)*: 8 curated pre-compiled `ThemeOverlay.Onyx.Accent.*` overlays (Crimson `#DC4B64`, Brave Orange `#FB542B`, Electric Blue `#1A73E8`, Emerald Green `#10B981`, Cyberpunk Violet `#8B5CF6`, Sunset Amber `#F59E0B`, Neon Pink `#EC4899`, Minimal Slate `#64748B`) applied dynamically in Activity `onCreate` before view inflation.
+  - *Tier 2 (Precision Dynamic Tinting & Custom Hex)*: Accepts arbitrary 6-digit hex color codes (`#RRGGBB`). Euclidean distance matching in RGB color space maps custom colors to the closest preset theme overlay for base Android widgets, while `AccentColorManager` directly tints active tab strokes/headers (`TabsAdapter`), Omnibox progress bars, buttons, and switches.
+- **Web Template & Error Page Integration**: Dynamically replaces `#DC4B64` with `preferences.accentColorHex` in `error_page.html` CSS variables (`--link-color`, `--primary-btn-bg`) and `LocalFileLoader` document styles so internal browser error and document pages harmonize with the selected theme.
+- **Unified Appearance Sheet (`ThemePickerSheet`)**: Accessible via Settings → Appearance. Combines Display Theme selection (System Default, Dark, Light) with real-time accent preset swatch selection, live custom hex preview, and non-destructive on-dismiss recreation synchronization.
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents

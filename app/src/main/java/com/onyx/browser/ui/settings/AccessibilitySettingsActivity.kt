@@ -9,6 +9,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityAccessibilitySettingsBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 
 class AccessibilitySettingsActivity : AppCompatActivity() {
 
@@ -16,6 +17,7 @@ class AccessibilitySettingsActivity : AppCompatActivity() {
     private lateinit var preferences: BrowserPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
 
         // Edge-to-edge system bars

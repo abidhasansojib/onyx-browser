@@ -34,6 +34,7 @@ import com.onyx.browser.update.AppUpdateDownloader
 import com.onyx.browser.update.AppUpdateManager
 import com.onyx.browser.update.UpdateCheckResult
 import com.onyx.browser.update.UpdateInfo
+import com.onyx.browser.ui.theme.AccentColorManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,6 +48,7 @@ class AboutActivity : AppCompatActivity() {
     private var progressDialog: AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
 
         // Enable edge-to-edge transparent system bars

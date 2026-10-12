@@ -12,6 +12,7 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivitySearchEngineSettingsBinding
 import com.onyx.browser.databinding.ItemSearchEngineSettingBinding
 import com.onyx.browser.ui.common.SearchEngineIconHelper
+import com.onyx.browser.ui.theme.AccentColorManager
 
 class SearchEngineSettingsActivity : AppCompatActivity() {
 
@@ -19,6 +20,7 @@ class SearchEngineSettingsActivity : AppCompatActivity() {
     private lateinit var preferences: BrowserPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
         binding = ActivitySearchEngineSettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)

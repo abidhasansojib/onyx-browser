@@ -21,6 +21,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityDownloadPromptBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.DownloadHandler
 
 class DownloadPromptActivity : AppCompatActivity() {
@@ -54,6 +55,7 @@ class DownloadPromptActivity : AppCompatActivity() {
     ) { _ -> }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
         preferences = BrowserPreferences.getInstance(this)
         preferences.applyTheme()

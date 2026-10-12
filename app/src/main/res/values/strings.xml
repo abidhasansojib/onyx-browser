@@ -79,6 +79,24 @@
     <string name="theme_light">Light</string>
     <string name="theme_light_desc">Clean, bright display for daytime</string>
 
+    <!-- Accent Color Options -->
+    <string name="accent_color_title">Accent color</string>
+    <string name="accent_color_subtitle">Highlights, active tabs, buttons &amp; badges</string>
+    <string name="accent_crimson">Crimson</string>
+    <string name="accent_orange">Orange</string>
+    <string name="accent_blue">Blue</string>
+    <string name="accent_green">Green</string>
+    <string name="accent_violet">Violet</string>
+    <string name="accent_amber">Amber</string>
+    <string name="accent_pink">Pink</string>
+    <string name="accent_slate">Slate</string>
+    <string name="accent_custom">Custom</string>
+    <string name="accent_custom_hex">Custom Hex Code</string>
+    <string name="accent_hex_hint">e.g. 1A73E8</string>
+    <string name="accent_apply">Apply</string>
+    <string name="accent_invalid_hex">Invalid 6-digit hex code</string>
+    <string name="done">Done</string>
+
     <string name="adblock_master_toggle">Enable Ad &amp; Tracker Blocking</string>
     <string name="adblock_master_desc">Block ads, malicious trackers, and unwanted scripts</string>
     <string name="cosmetic_filtering_toggle">Cosmetic Element Hiding</string>

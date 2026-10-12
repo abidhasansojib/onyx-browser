@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.webkit.MimeTypeMap
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.LocalFileLoader
 import java.io.File
 
@@ -63,6 +64,7 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
         binding = ActivityDownloadsBinding.inflate(layoutInflater)
         setContentView(binding.root)

@@ -98,6 +98,7 @@ import com.onyx.browser.media.MediaPlaybackService
 import com.onyx.browser.web.DevToolsManager
 import com.onyx.browser.web.MediaPlaybackManager
 import com.onyx.browser.web.translate.PageTranslateManager
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.TabActionCallback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -140,6 +141,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private var pendingIntent: Intent? = null
     private var lastThemeMode: Int = -1
     private var lastNightMode: Int = -1
+    private var lastAccentColor: String = ""
 
     companion object {
         var currentInstance: java.lang.ref.WeakReference<MainActivity>? = null
@@ -1014,6 +1016,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
         currentInstance = java.lang.ref.WeakReference(this)
         window.setFlags(
@@ -1026,6 +1029,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         preferences.applyTheme()
         lastThemeMode = preferences.themeMode
         lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        lastAccentColor = preferences.accentColorHex
         com.onyx.browser.download.OnyxDownloadManager.init(this)
         pageExportManager = PageExportManager(this, lifecycleScope)
         tabManager = TabManager(this, lifecycleScope)
@@ -1037,6 +1041,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        val accentTint = AccentColorManager.getAccentColorStateList(this)
+        binding.progressBar.progressTint = accentTint
+        binding.ivTranslateIcon.imageTintList = accentTint
+        binding.pbTranslateLoading.indeterminateTintList = accentTint
 
         // Handle Scroll to Top FAB
         binding.fabScrollToTop.setOnClickListener {
@@ -3118,9 +3127,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         preferences.applyTheme()
         val currentNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         if ((lastThemeMode != -1 && lastThemeMode != preferences.themeMode) ||
-            (lastNightMode != -1 && lastNightMode != currentNightMode)) {
+            (lastNightMode != -1 && lastNightMode != currentNightMode) ||
+            (lastAccentColor.isNotBlank() && lastAccentColor != preferences.accentColorHex)) {
             lastThemeMode = preferences.themeMode
             lastNightMode = currentNightMode
+            lastAccentColor = preferences.accentColorHex
             recreate()
             return
         }

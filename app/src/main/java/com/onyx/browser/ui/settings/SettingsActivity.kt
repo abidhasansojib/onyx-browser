@@ -12,6 +12,7 @@ import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivitySettingsBinding
 import com.onyx.browser.ui.common.SearchEngineIconHelper
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.UserAgentManager
 
 class SettingsActivity : AppCompatActivity() {
@@ -20,6 +21,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var preferences: BrowserPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
 
         // Edge-to-edge system bars matching #0B0305 canvas
@@ -68,13 +70,10 @@ class SettingsActivity : AppCompatActivity() {
         // 2. Appearance
         updateThemeDisplay()
         binding.settingAppearanceRow.setOnClickListener {
-            val sheet = ThemePickerSheet(preferences.themeMode) { selectedMode ->
-                if (preferences.themeMode != selectedMode) {
-                    preferences.themeMode = selectedMode
-                    preferences.applyTheme()
-                    updateThemeDisplay()
-                    recreate()
-                }
+            val sheet = ThemePickerSheet {
+                preferences.applyTheme()
+                updateThemeDisplay()
+                recreate()
             }
             sheet.show(supportFragmentManager, ThemePickerSheet.TAG)
         }
@@ -137,7 +136,8 @@ class SettingsActivity : AppCompatActivity() {
             BrowserPreferences.THEME_LIGHT -> getString(R.string.theme_light)
             else -> getString(R.string.theme_system)
         }
-        binding.tvCurrentTheme.text = themeText
+        val accentName = AccentColorManager.getAccentName(preferences)
+        binding.tvCurrentTheme.text = "$themeText • $accentName"
     }
 
     private fun updateUaSpooferText() {
