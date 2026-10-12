@@ -13,6 +13,9 @@ interface BookmarkDao {
     @Query("SELECT * FROM bookmarks ORDER BY createdAt DESC")
     fun getAllBookmarksFlow(): Flow<List<BookmarkItem>>
 
+    @Query("SELECT * FROM bookmarks WHERE title LIKE '%' || :query || '%' OR url LIKE '%' || :query || '%' ORDER BY createdAt DESC")
+    fun searchAllBookmarksFlow(query: String): Flow<List<BookmarkItem>>
+
     @Query("SELECT * FROM bookmarks WHERE url = :url LIMIT 1")
     suspend fun getBookmarkByUrl(url: String): BookmarkItem?
 

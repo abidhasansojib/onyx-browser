@@ -950,8 +950,34 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val url = result.data?.getStringExtra(BookmarksActivity.EXTRA_URL)
+            val action = result.data?.getStringExtra(BookmarksActivity.EXTRA_ACTION) ?: BookmarksActivity.ACTION_OPEN
+            val title = result.data?.getStringExtra(BookmarksActivity.EXTRA_TITLE)
+            val isBookmarklet = result.data?.getBooleanExtra(BookmarksActivity.EXTRA_IS_BOOKMARKLET, false) == true ||
+                    url?.trim()?.startsWith("javascript:", ignoreCase = true) == true
+
             if (!url.isNullOrBlank()) {
-                performSearchOrLoad(url)
+                when {
+                    isBookmarklet || action == BookmarksActivity.ACTION_RUN_BOOKMARKLET -> {
+                        executeBookmarklet(url, title)
+                    }
+                    action == BookmarksActivity.ACTION_OPEN_NEW_TAB -> {
+                        val newTab = tabManager.createNewTab(url, isIncognito = false)
+                        tabManager.selectTab(newTab)
+                        currentDisplayedTabId = newTab.id
+                        updateTabBadgeCount()
+                        showWebView(newTab, forceUrl = url)
+                    }
+                    action == BookmarksActivity.ACTION_OPEN_INCOGNITO -> {
+                        val newTab = tabManager.createNewTab(url, isIncognito = true)
+                        tabManager.selectTab(newTab)
+                        currentDisplayedTabId = newTab.id
+                        updateTabBadgeCount()
+                        showWebView(newTab, forceUrl = url)
+                    }
+                    else -> {
+                        performSearchOrLoad(url)
+                    }
+                }
             }
         }
     }
@@ -965,6 +991,42 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (!url.isNullOrBlank()) {
                 performSearchOrLoad(url)
             }
+        }
+    }
+
+    fun executeBookmarklet(scriptOrUrl: String, title: String? = null) {
+        val webView = tabManager.getActiveWebView()
+        if (webView == null) {
+            Toast.makeText(this, R.string.no_active_page_for_bookmarklet, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        var script = if (scriptOrUrl.trim().startsWith("javascript:", ignoreCase = true)) {
+            scriptOrUrl.trim().substring(11).trim()
+        } else {
+            scriptOrUrl.trim()
+        }
+
+        if (script.contains("%")) {
+            try {
+                val protectedScript = script.replace("+", "%2B")
+                script = java.net.URLDecoder.decode(protectedScript, "UTF-8")
+            } catch (_: Exception) {
+                // Fallback to raw script
+            }
+        }
+
+        if (script.isBlank()) return
+
+        val displayName = if (!title.isNullOrBlank()) title else getString(R.string.bookmarklet_badge)
+        Toast.makeText(this, getString(R.string.running_bookmarklet, displayName), Toast.LENGTH_SHORT).show()
+
+        runOnUiThread {
+            webView.evaluateJavascript(script, null)
+        }
+
+        if (searchController.isSearchMode) {
+            searchController.exitSearchMode()
         }
     }
 
@@ -2160,6 +2222,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     fun performSearchOrLoad(input: String) {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return
+
+        if (trimmed.startsWith("javascript:", ignoreCase = true)) {
+            executeBookmarklet(trimmed)
+            return
+        }
 
         if (trimmed == "onyx://bookmarks") {
             openBookmarks()

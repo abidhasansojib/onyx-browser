@@ -184,6 +184,15 @@ onyx-browser/
 - **Web Template & Error Page Integration**: Dynamically replaces `#DC4B64` with `preferences.accentColorHex` in `error_page.html` CSS variables (`--link-color`, `--primary-btn-bg`) and `LocalFileLoader` document styles so internal browser error and document pages harmonize with the selected theme.
 - **Unified Appearance Sheet (`ThemePickerSheet`)**: Accessible via Settings → Appearance. Features real-time theme mode tinting, active swatch stroke outlines and checkmark indicators, live custom hex preview, and non-destructive on-dismiss recreation synchronization.
 
+### 4.9. Bookmarks & Bookmarklets Subsystem (Chrome & Brave Parity)
+- **Bookmarklet Execution Engine (`MainActivity.executeBookmarklet`)**: Evaluates `javascript:...` bookmarklets natively on the active tab via `webView.evaluateJavascript(script, null)` without page navigation or search redirection. Strips scheme, decodes percent-encoded sequences while preserving literal `+` operators, and displays execution feedback toast.
+- **Omnibox & Suggestion Routing (`SearchController` & `SuggestionsAdapter`)**: Detects `javascript:` bookmark suggestions, renders them with `< / >` code icon (`ic_code`) and `"Bookmarklet (JavaScript)"` badge, and prevents `https://` prefixing or search engine queries when executed from omnibox or suggestion list.
+- **Modern Bookmark Management (`BookmarksActivity` & `BookmarksAdapter`)**:
+  - *Real-Time Search*: Live search bar querying SQLite Room database (`searchAllBookmarksFlow`) with instant filtering.
+  - *Add Bookmark FAB & Clipboard Pre-fill*: Floating action button supporting manual bookmark and bookmarklet creation, pre-populating clipboard links or scripts.
+  - *Contextual Actions*: Menu features Open in new tab, Open in incognito (both hidden for bookmarklets), Copy link / Copy script, Share, Edit (BottomSheet with multiline script support), and Delete.
+  - *Visual Parity & Favicons*: Distinctive `< / >` icon for scripts, file icon for local documents, and real website favicons loaded asynchronously via `FaviconManager`.
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents

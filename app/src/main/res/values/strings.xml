@@ -513,6 +513,17 @@
     <string name="paste_clipboard">Paste</string>
     <string name="link_you_copied">Link you copied</string>
     <string name="text_you_copied">Text you copied</string>
+    <string name="copy_link">Copy link</string>
+    <string name="copy_script">Copy script</string>
+    <string name="run_bookmarklet">Run on current page</string>
+    <string name="bookmarklet_badge">Bookmarklet (JavaScript)</string>
+    <string name="add_bookmark_title">Add Bookmark</string>
+    <string name="bookmarklet_hint_tip">Tip: Enter javascript:... to create a bookmarklet script</string>
+    <string name="search_bookmarks_hint">Search bookmarks…</string>
+    <string name="link_copied">Link copied to clipboard</string>
+    <string name="script_copied">JavaScript copied to clipboard</string>
+    <string name="running_bookmarklet">Running: %s</string>
+    <string name="no_active_page_for_bookmarklet">Open a webpage first to run bookmarklet</string>
 
     <!-- Content Filters & Custom Filters -->
     <string name="action_add_filter_via_url">+ Add filter via URL</string>

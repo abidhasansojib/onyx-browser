@@ -117,6 +117,10 @@ This document tracks all features of Onyx Browser, their current implementation 
    - **Modern 3-Option Permission Prompt**: Web permission prompts feature standard actions ("Always allow", "Allow this time", "Block") supporting session-isolated grants without permanent persistence.
    - **Global Site Settings Activity (`SiteSettingsActivity`)**: Accessible from Settings → Privacy & Security → Site settings. Provides global toggles ("Ask before accessing" vs "Blocked") for Camera, Microphone, and Location, granular lists of Allowed and Blocked origins with 1-tap revocation (`SitePermissionCategorySheet`), and an "All sites" management hub (`AllSitesSheet`) with real-time search and site data purging.
    - **Downloads Filter Chip Badge Counts**: Real-time item count indicators displayed directly inside categorical filter chips (`All (N)`, `APKs (N)`, `Images (N)`, `Videos (N)`, `Documents (N)`).
+83. [x] Chrome & Brave Parity Bookmarks & Bookmarklets Subsystem:
+   - **Bookmarklet Execution Engine**: Direct execution of `javascript:...` code on the active WebView via `evaluateJavascript` without page navigation or search redirection, complete with percent decoding and `+` operator preservation.
+   - **Omnibox & Suggestion Integration**: Bookmarklets detected in search suggestions display `< / >` code icon (`ic_code`) and `"Bookmarklet (JavaScript)"` badge; Omnibox execution bypasses `https://` prefixing and search engine fallback.
+   - **Modern Bookmarks Manager & Favicons**: Live search filtering in `BookmarksActivity`, Add Bookmark FAB with clipboard pre-fill, enhanced overflow menu (Open in new tab, Open in incognito, Copy link/script, Share, Edit, Delete), and asynchronous website favicon loading via `FaviconManager`.
 
 ---
 
@@ -262,6 +266,11 @@ This document tracks all features of Onyx Browser, their current implementation 
 - **Global Site Settings Activity (`SiteSettingsActivity`)**: Dedicated settings screen under Privacy & Security exposing global access controls ("Ask before accessing" vs "Blocked globally") for Camera, Microphone, and Location, granular inspect/revoke lists for Allowed and Blocked domains (`SitePermissionCategorySheet`), and an "All sites" hub (`AllSitesSheet`) with real-time domain search and site data purging.
 - **Downloads Categorical Filter Badge Counts**: Real-time item counters dynamically rendered inside categorical filter chips (`All (N)`, `APKs (N)`, `Images (N)`, `Videos (N)`, `Documents (N)`) on the Downloads screen.
 
-
-
-
+### 17. Bookmarks & Bookmarklets Subsystem (Chrome & Brave Parity)
+- **Bookmarklet Execution Engine (`MainActivity.executeBookmarklet`)**: Evaluates `javascript:...` bookmarklets natively on the active tab via `webView.evaluateJavascript(script, null)` without triggering web page navigation or defaulting to web searches. Strips the scheme, decodes percent-encoded characters while protecting `+` operators, and provides visual feedback via a confirmation toast (`Running: <Title>`).
+- **Omnibox & Search Suggestions (`SearchController` & `SuggestionsAdapter`)**: Detects `javascript:` bookmark suggestions, renders them with `< / >` code icon (`ic_code`) and `"Bookmarklet (JavaScript)"` badge, and prevents `https://` prefixing or search engine queries when executed from omnibox or suggestion list.
+- **Modern Bookmarks Manager (`BookmarksActivity` & `BookmarksAdapter`)**:
+  - *Real-Time Search*: Live search bar querying SQLite Room database (`searchAllBookmarksFlow`) with instant filtering.
+  - *Add Bookmark FAB & Clipboard Pre-fill*: Floating action button supporting manual bookmark and bookmarklet creation, pre-populating clipboard links or scripts.
+  - *Contextual Actions*: Menu features Open in new tab, Open in incognito (both hidden for bookmarklets), Copy link / Copy script, Share, Edit (BottomSheet with multiline script support), and Delete.
+  - *Visual Parity & Favicons*: Distinctive `< / >` icon for scripts, file icon for local documents, and real website favicons loaded asynchronously via `FaviconManager`.

@@ -63,9 +63,16 @@ class SuggestionsAdapter(
 
             when {
                 item.isBookmark -> {
-                    binding.ivSuggestionIcon.setImageResource(R.drawable.ic_bookmark)
-                    binding.tvSuggestionSubtext.visibility = View.VISIBLE
-                    binding.tvSuggestionSubtext.text = item.queryOrUrl
+                    val isBookmarklet = item.queryOrUrl.trim().startsWith("javascript:", ignoreCase = true)
+                    if (isBookmarklet) {
+                        binding.ivSuggestionIcon.setImageResource(R.drawable.ic_code)
+                        binding.tvSuggestionSubtext.visibility = View.VISIBLE
+                        binding.tvSuggestionSubtext.text = binding.root.context.getString(R.string.bookmarklet_badge)
+                    } else {
+                        binding.ivSuggestionIcon.setImageResource(R.drawable.ic_bookmark)
+                        binding.tvSuggestionSubtext.visibility = View.VISIBLE
+                        binding.tvSuggestionSubtext.text = item.queryOrUrl
+                    }
                     binding.btnInsertQuery.visibility = View.VISIBLE
                 }
                 item.isHistory -> {
@@ -102,8 +109,14 @@ class SuggestionsAdapter(
 
             when {
                 item.isBookmark -> {
-                    binding.ivSuggestionIcon.setImageResource(R.drawable.ic_bookmark)
-                    binding.tvSuggestionSubtext.text = item.queryOrUrl
+                    val isBookmarklet = item.queryOrUrl.trim().startsWith("javascript:", ignoreCase = true)
+                    if (isBookmarklet) {
+                        binding.ivSuggestionIcon.setImageResource(R.drawable.ic_code)
+                        binding.tvSuggestionSubtext.text = binding.root.context.getString(R.string.bookmarklet_badge)
+                    } else {
+                        binding.ivSuggestionIcon.setImageResource(R.drawable.ic_bookmark)
+                        binding.tvSuggestionSubtext.text = item.queryOrUrl
+                    }
                 }
                 item.isHistory -> {
                     binding.ivSuggestionIcon.setImageResource(R.drawable.ic_history)

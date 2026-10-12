@@ -59,7 +59,8 @@ class SearchController(
                         raw.startsWith("https://", ignoreCase = true) ||
                         raw.startsWith("file://", ignoreCase = true) ||
                         raw.startsWith("about:", ignoreCase = true) ||
-                        raw.startsWith("data:", ignoreCase = true)
+                        raw.startsWith("data:", ignoreCase = true) ||
+                        raw.startsWith("javascript:", ignoreCase = true)
                     ) {
                         raw
                     } else {

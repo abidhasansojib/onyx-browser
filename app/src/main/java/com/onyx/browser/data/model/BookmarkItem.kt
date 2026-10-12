@@ -10,4 +10,7 @@ data class BookmarkItem(
     val url: String,
     val title: String,
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    val isBookmarklet: Boolean
+        get() = url.trim().startsWith("javascript:", ignoreCase = true)
+}
