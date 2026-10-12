@@ -68,6 +68,7 @@
         <item name="colorSecondary">#F59E0B</item>
         <item name="colorPrimaryVariant">#D97706</item>
         <item name="colorPrimaryContainer">#26F59E0B</item>
+        <item name="colorOnPrimary">#000000</item>
     </style>
 
     <style name="ThemeOverlay.Onyx.Accent.Green" parent="">
@@ -75,6 +76,7 @@
         <item name="colorSecondary">#10C888</item>
         <item name="colorPrimaryVariant">#0EB37A</item>
         <item name="colorPrimaryContainer">#2610C888</item>
+        <item name="colorOnPrimary">#000000</item>
     </style>
 
     <style name="ThemeOverlay.Onyx.Accent.Cyan" parent="">
@@ -82,6 +84,7 @@
         <item name="colorSecondary">#06B6D4</item>
         <item name="colorPrimaryVariant">#0891B2</item>
         <item name="colorPrimaryContainer">#2606B6D4</item>
+        <item name="colorOnPrimary">#000000</item>
     </style>
 
     <!-- Backward compatibility alias for Slate -->

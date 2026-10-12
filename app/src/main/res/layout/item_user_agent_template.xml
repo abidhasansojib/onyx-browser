@@ -100,7 +100,7 @@
             android:layout_height="22dp"
             android:visibility="gone"
             app:srcCompat="@drawable/ic_check"
-            app:tint="@color/google_blue"
+            app:tint="?attr/colorPrimary"
             tools:visibility="visible" />
 
     </LinearLayout>

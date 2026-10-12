@@ -2,6 +2,7 @@ package com.onyx.browser.ui.settings
 
 import android.app.AppOpsManager
 import android.content.Context
+import android.content.res.Configuration
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -10,10 +11,12 @@ import android.os.Process
 import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityVideoSettingsBinding
 import com.onyx.browser.ui.theme.AccentColorManager
@@ -30,9 +33,14 @@ class VideoSettingsActivity : AppCompatActivity() {
 
         // Edge-to-edge system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val canvasBg = androidx.core.content.ContextCompat.getColor(this, R.color.settings_canvas_bg)
+        val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
         window.statusBarColor = canvasBg
         window.navigationBarColor = canvasBg
+
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        insetsController.isAppearanceLightStatusBars = !isNightMode
+        insetsController.isAppearanceLightNavigationBars = !isNightMode
 
         binding = ActivityVideoSettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)

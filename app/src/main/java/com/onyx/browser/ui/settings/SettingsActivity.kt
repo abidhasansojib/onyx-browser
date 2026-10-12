@@ -1,6 +1,7 @@
 package com.onyx.browser.ui.settings
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -30,6 +31,11 @@ class SettingsActivity : AppCompatActivity() {
         val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
         window.statusBarColor = canvasBg
         window.navigationBarColor = canvasBg
+
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        insetsController.isAppearanceLightStatusBars = !isNightMode
+        insetsController.isAppearanceLightNavigationBars = !isNightMode
 
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)

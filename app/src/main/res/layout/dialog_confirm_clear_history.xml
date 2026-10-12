@@ -88,7 +88,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
                 android:text="@string/clear"
-                android:textColor="#FFFFFF"
+                android:textColor="?attr/colorOnPrimary"
                 app:backgroundTint="?attr/colorPrimary"
                 app:cornerRadius="24dp" />
         </LinearLayout>

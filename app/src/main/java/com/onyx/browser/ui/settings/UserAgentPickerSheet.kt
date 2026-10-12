@@ -2,12 +2,15 @@ package com.onyx.browser.ui.settings
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.core.widget.addTextChangedListener
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
@@ -16,6 +19,7 @@ import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetUserAgentPickerBinding
 import com.onyx.browser.databinding.ItemUserAgentTemplateBinding
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.UserAgentManager
 import com.onyx.browser.web.UserAgentTemplate
 
@@ -55,12 +59,21 @@ class UserAgentPickerSheet(
 
     private fun setupCustomCard() {
         val isCustomActive = preferences.userAgentSpoofTemplate == UserAgentManager.KEY_CUSTOM
-        val colorActive = ContextCompat.getColor(requireContext(), R.color.google_blue)
+        val colorActive = AccentColorManager.getAccentColor(requireContext())
         val colorCardStroke = ContextCompat.getColor(requireContext(), R.color.settings_card_stroke)
 
         binding.tvCustomActiveBadge.visibility = if (isCustomActive) View.VISIBLE else View.GONE
+        binding.tvCustomActiveBadge.setTextColor(colorActive)
         binding.cardCustomUa.strokeColor = if (isCustomActive) colorActive else colorCardStroke
         binding.cardCustomUa.strokeWidth = dpToPx(if (isCustomActive) 2 else 1)
+
+        binding.tilCustomUa.boxStrokeColor = colorActive
+        binding.tilCustomUa.hintTextColor = ColorStateList.valueOf(colorActive)
+
+        val onColor = if (ColorUtils.calculateLuminance(colorActive) > 0.5) Color.BLACK else Color.WHITE
+        binding.btnApplyCustomUa.backgroundTintList = ColorStateList.valueOf(colorActive)
+        binding.btnApplyCustomUa.setTextColor(onColor)
+        binding.btnApplyCustomUa.iconTint = ColorStateList.valueOf(onColor)
 
         val savedCustomUa = preferences.customUserAgent
         if (savedCustomUa.isNotBlank()) {
@@ -150,7 +163,7 @@ class UserAgentPickerSheet(
             val context = binding.root.context
             val isSelected = template.key == currentSelectedKey
 
-            val colorActive = ContextCompat.getColor(context, R.color.google_blue)
+            val colorActive = AccentColorManager.getAccentColor(context)
             val colorCardStroke = ContextCompat.getColor(context, R.color.settings_card_stroke)
             val colorTextPrimary = MaterialColors.getColor(binding.root, android.R.attr.textColorPrimary)
             val colorTextSecondary = MaterialColors.getColor(binding.root, android.R.attr.textColorSecondary)
@@ -163,6 +176,7 @@ class UserAgentPickerSheet(
             binding.ivTemplateIcon.setColorFilter(if (isSelected) colorActive else colorTextPrimary)
 
             binding.ivSelectedCheck.visibility = if (isSelected) View.VISIBLE else View.GONE
+            binding.ivSelectedCheck.imageTintList = ColorStateList.valueOf(colorActive)
             binding.cardTemplate.strokeColor = if (isSelected) colorActive else colorCardStroke
             binding.cardTemplate.strokeWidth = ((if (isSelected) 2 else 1) * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
 

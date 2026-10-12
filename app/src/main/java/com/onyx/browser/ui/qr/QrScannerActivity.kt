@@ -69,6 +69,10 @@ class QrScannerActivity : AppCompatActivity() {
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
 
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        insetsController.isAppearanceLightStatusBars = false
+        insetsController.isAppearanceLightNavigationBars = false
+
         binding = ActivityQrScannerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

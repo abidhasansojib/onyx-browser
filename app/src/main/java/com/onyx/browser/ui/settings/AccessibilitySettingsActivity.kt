@@ -1,12 +1,15 @@
 package com.onyx.browser.ui.settings
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityAccessibilitySettingsBinding
 import com.onyx.browser.ui.theme.AccentColorManager
@@ -22,9 +25,14 @@ class AccessibilitySettingsActivity : AppCompatActivity() {
 
         // Edge-to-edge system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val canvasBg = androidx.core.content.ContextCompat.getColor(this, R.color.settings_canvas_bg)
+        val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
         window.statusBarColor = canvasBg
         window.navigationBarColor = canvasBg
+
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        insetsController.isAppearanceLightStatusBars = !isNightMode
+        insetsController.isAppearanceLightNavigationBars = !isNightMode
 
         binding = ActivityAccessibilitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)

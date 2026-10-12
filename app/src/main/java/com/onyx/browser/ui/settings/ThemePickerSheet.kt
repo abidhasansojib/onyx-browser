@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.core.widget.doAfterTextChanged
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
@@ -198,9 +199,12 @@ class ThemePickerSheet(
 
     private fun updatePreviewColor(hex: String) {
         val color = AccentColorManager.parseColorOrFallback(hex)
+        val onColor = if (ColorUtils.calculateLuminance(color) > 0.5) Color.BLACK else Color.WHITE
         binding.previewCustomColor.setCardBackgroundColor(color)
         binding.btnDone.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
+        binding.btnDone.setTextColor(onColor)
         binding.btnApplyHex.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
+        binding.btnApplyHex.setTextColor(onColor)
     }
 
     private fun saveChangesAndDismiss() {

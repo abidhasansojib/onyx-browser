@@ -5,8 +5,7 @@
     android:id="@+id/downloadSettingsRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/settings_canvas_bg"
-    android:fitsSystemWindows="true">
+    android:background="@color/settings_canvas_bg">
 
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"

@@ -122,7 +122,7 @@
         android:layout_margin="20dp"
         android:contentDescription="@string/add_bookmark_title"
         app:srcCompat="@drawable/ic_add"
-        app:tint="#FFFFFF"
+        app:tint="?attr/colorOnPrimary"
         app:backgroundTint="?attr/colorPrimary"
         app:elevation="4dp" />
 
