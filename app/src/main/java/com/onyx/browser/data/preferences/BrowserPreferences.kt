@@ -352,6 +352,26 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_BLOCK_APP_BANNER, true)
         set(value) = prefs.edit().putBoolean(KEY_BLOCK_APP_BANNER, value).apply()
 
+    // ── Last Active Tab ID ──────────────────────────────────────────────────
+    var lastActiveTabId: String
+        get() = prefs.getString(KEY_LAST_ACTIVE_TAB_ID, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_LAST_ACTIVE_TAB_ID, value).apply()
+
+    // ── Clear Browsing Data on Exit ──────────────────────────────────────────
+    var isClearOnExitEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLEAR_ON_EXIT, false)
+        set(value) = prefs.edit().putBoolean(KEY_CLEAR_ON_EXIT, value).apply()
+
+    // ── Pull to Refresh ──────────────────────────────────────────────────────
+    var isPullToRefreshEnabled: Boolean
+        get() = prefs.getBoolean(KEY_PULL_TO_REFRESH, true)
+        set(value) = prefs.edit().putBoolean(KEY_PULL_TO_REFRESH, value).apply()
+
+    // ── Force Dark Mode for Web Contents ─────────────────────────────────────
+    var isForceDarkModeEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FORCE_DARK_MODE, false)
+        set(value) = prefs.edit().putBoolean(KEY_FORCE_DARK_MODE, value).apply()
+
     // ── Anti-Adblock Detection Spoofing ──────────────────────────────────────
     /**
      * When enabled (Adblocker Spoofing), injects JS stubs (adsbygoogle.loaded, window.ga, window.gtag, fbq, etc.)
@@ -1031,6 +1051,10 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_BLOCKED_MIC_DOMAINS = "pref_blocked_mic_domains"
         const val KEY_ALLOWED_LOCATION_DOMAINS = "pref_allowed_location_domains"
         const val KEY_BLOCKED_LOCATION_DOMAINS = "pref_blocked_location_domains"
+        const val KEY_LAST_ACTIVE_TAB_ID = "pref_last_active_tab_id"
+        const val KEY_CLEAR_ON_EXIT = "pref_clear_on_exit"
+        const val KEY_PULL_TO_REFRESH = "pref_pull_to_refresh"
+        const val KEY_FORCE_DARK_MODE = "pref_force_dark_mode"
 
         /**
          * Default filter lists matching Brave Android:

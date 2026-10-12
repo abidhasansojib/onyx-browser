@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
  */
 class SiteShieldBottomSheetDialog(
     private val currentUrl: String,
+    private val pageBlockedCount: Int = -1,
     private val onShieldSettingsChanged: () -> Unit
 ) : BottomSheetDialogFragment() {
 
@@ -248,9 +249,15 @@ class SiteShieldBottomSheetDialog(
     // ── Live Blocked Counter ──────────────────────────────────────────────────
 
     private fun setupBlockedCounter() {
-        scope.launch {
-            prefs.blockedRequestsFlow.collectLatest { count ->
-                _binding?.tvBlockedCount?.text = count.toString()
+        if (pageBlockedCount >= 0) {
+            binding.tvBlockedCount.text = pageBlockedCount.toString()
+            binding.tvBlockedCounterScope.text = getString(R.string.blocked_on_this_page)
+        } else {
+            scope.launch {
+                prefs.blockedRequestsFlow.collectLatest { count ->
+                    _binding?.tvBlockedCount?.text = count.toString()
+                    _binding?.tvBlockedCounterScope?.text = getString(R.string.blocked_all_time)
+                }
             }
         }
     }

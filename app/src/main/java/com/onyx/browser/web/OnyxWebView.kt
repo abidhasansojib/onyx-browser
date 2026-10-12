@@ -43,6 +43,7 @@ class OnyxWebView @JvmOverloads constructor(
     @Volatile var isPopupPendingDisplay: Boolean = false
     @Volatile var isPopupTab: Boolean = false
     @Volatile var lastOAuthInteractionTimestamp: Long = 0L
+    @Volatile var pageBlockedCount: Int = 0
 
     fun isWithinOAuthGracePeriod(): Boolean {
         val elapsed = System.currentTimeMillis() - lastOAuthInteractionTimestamp
@@ -230,6 +231,8 @@ class OnyxWebView @JvmOverloads constructor(
         // Apply UA Spoofer and all persisted settings — one singleton lookup for the whole function
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         settings.userAgentString = getBaseUserAgent(prefs)
+
+        applyForceDark()
 
         try {
             // Android Autofill & Password Manager support
@@ -542,6 +545,22 @@ class OnyxWebView @JvmOverloads constructor(
 
     /** @deprecated Use toggleDesktopModeForPage / isDesktopModeEnabledForCurrentPage */
     fun isDesktopModeEnabled(): Boolean = isDesktopModeEnabledForCurrentPage()
+
+    fun applyForceDark() {
+        try {
+            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+            val isEnabled = prefs.isForceDarkModeEnabled
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.ALGORITHMIC_DARKENING)) {
+                androidx.webkit.WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isEnabled)
+            } else if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.FORCE_DARK)) {
+                @Suppress("DEPRECATION")
+                androidx.webkit.WebSettingsCompat.setForceDark(
+                    settings,
+                    if (isEnabled) androidx.webkit.WebSettingsCompat.FORCE_DARK_ON else androidx.webkit.WebSettingsCompat.FORCE_DARK_OFF
+                )
+            }
+        } catch (_: Throwable) {}
+    }
 
     fun updateShieldsLevel(level: Int) {
         evaluateJavascript("if (window.__onyx_set_blocking_level) window.__onyx_set_blocking_level($level);", null)

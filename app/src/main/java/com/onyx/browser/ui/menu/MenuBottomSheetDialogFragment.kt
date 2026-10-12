@@ -137,6 +137,12 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
 
 
 
+        // New Incognito Tab Button
+        binding.menuItemHomeNewIncognitoTab.setOnClickListener {
+            main?.openNewTab(isIncognito = true)
+            dismiss()
+        }
+
         // Settings Button (under default browser banner)
         binding.menuItemHomeSettings.setOnClickListener {
             startActivity(Intent(requireContext(), SettingsActivity::class.java))
@@ -168,19 +174,9 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
             }
         }
 
-        // 1. Web Shortcuts: Bookmarks
+        // 1. Web Shortcuts: Bookmarks (1-tap toggles active page bookmark, long-press opens bookmarks list)
         binding.webQuickBookmarks.setOnClickListener {
-            if (main != null) {
-                main.openBookmarks()
-            } else {
-                startActivity(Intent(requireContext(), BookmarksActivity::class.java))
-            }
-            dismiss()
-        }
-
-        binding.webQuickBookmarks.setOnLongClickListener {
             if (currentUrl.isNotBlank()) {
-                it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                 viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                     val isBookmarked = db.bookmarkDao().isBookmarked(currentUrl)
                     if (isBookmarked) {
@@ -204,10 +200,21 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
                         }
                     }
                 }
-                true
             } else {
-                false
+                if (main != null) main.openBookmarks() else startActivity(Intent(requireContext(), BookmarksActivity::class.java))
+                dismiss()
             }
+        }
+
+        binding.webQuickBookmarks.setOnLongClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            if (main != null) {
+                main.openBookmarks()
+            } else {
+                startActivity(Intent(requireContext(), BookmarksActivity::class.java))
+            }
+            dismiss()
+            true
         }
 
         // 2. Web Shortcuts: History
@@ -250,7 +257,8 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
 
         // Shield with lock icon button: opens per-site adblock controls (Brave Shields panel)
         binding.btnSiteShield.setOnClickListener {
-            val dialog = SiteShieldBottomSheetDialog(currentUrl) {
+            val blockedCount = main?.getActiveWebView()?.pageBlockedCount ?: 0
+            val dialog = SiteShieldBottomSheetDialog(currentUrl, blockedCount) {
                 onSiteShieldWhitelistChanged?.invoke(true)
             }
             dialog.show(childFragmentManager, SiteShieldBottomSheetDialog.TAG)
@@ -268,6 +276,17 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
             } else {
                 Toast.makeText(requireContext(), "No webpage to share", Toast.LENGTH_SHORT).show()
             }
+            dismiss()
+        }
+
+        // New Tab & New Incognito Tab
+        binding.menuItemNewTab.setOnClickListener {
+            main?.openNewTab(isIncognito = false)
+            dismiss()
+        }
+
+        binding.menuItemNewIncognitoTab.setOnClickListener {
+            main?.openNewTab(isIncognito = true)
             dismiss()
         }
 

@@ -130,6 +130,12 @@ class ShieldsActivity : AppCompatActivity() {
             prefs.isCookieAutoclearOnCloseEnabled = !prefs.isCookieAutoclearOnCloseEnabled
             binding.switchCookieAutoclear.isChecked = prefs.isCookieAutoclearOnCloseEnabled
         }
+
+        binding.switchClearOnExit.isChecked = prefs.isClearOnExitEnabled
+        binding.rowClearOnExit.setOnClickListener {
+            prefs.isClearOnExitEnabled = !prefs.isClearOnExitEnabled
+            binding.switchClearOnExit.isChecked = prefs.isClearOnExitEnabled
+        }
     }
 
     private fun updateCookieModeDisplay() {

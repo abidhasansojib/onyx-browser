@@ -49,9 +49,17 @@ class DownloadsActivity : AppCompatActivity() {
     private lateinit var adapter: DownloadsAdapter
     private lateinit var database: AppDatabase
     private var pendingApkInstallPath: String? = null
+    private var rawDownloadsList: List<DownloadItem> = emptyList()
+    private var currentSearchQuery: String = ""
+    private var currentCategoryFilter: Int = FILTER_ALL
 
     companion object {
         const val EXTRA_INSTALL_APK_PATH = "com.onyx.browser.extra.INSTALL_APK_PATH"
+        private const val FILTER_ALL = 0
+        private const val FILTER_APKS = 1
+        private const val FILTER_IMAGES = 2
+        private const val FILTER_VIDEOS = 3
+        private const val FILTER_DOCUMENTS = 4
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,6 +76,7 @@ class DownloadsActivity : AppCompatActivity() {
         }
 
         setupRecyclerView()
+        setupSearchAndFilters()
         observeDownloads()
         handleIncomingIntent(intent)
     }
@@ -148,12 +157,84 @@ class DownloadsActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupSearchAndFilters() {
+        binding.etSearchDownloads.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                currentSearchQuery = s?.toString().orEmpty()
+                binding.btnClearSearch.visibility = if (currentSearchQuery.isNotEmpty()) View.VISIBLE else View.GONE
+                applyDownloadsFilter()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        binding.btnClearSearch.setOnClickListener {
+            binding.etSearchDownloads.text?.clear()
+        }
+
+        binding.chipGroupFilter.setOnCheckedStateChangeListener { _, checkedIds ->
+            currentCategoryFilter = when {
+                checkedIds.contains(R.id.chipApks) -> FILTER_APKS
+                checkedIds.contains(R.id.chipImages) -> FILTER_IMAGES
+                checkedIds.contains(R.id.chipVideos) -> FILTER_VIDEOS
+                checkedIds.contains(R.id.chipDocuments) -> FILTER_DOCUMENTS
+                else -> FILTER_ALL
+            }
+            applyDownloadsFilter()
+        }
+    }
+
+    private fun applyDownloadsFilter() {
+        val query = currentSearchQuery.trim().lowercase()
+        val filtered = rawDownloadsList.filter { item ->
+            val matchesQuery = query.isEmpty() ||
+                    item.fileName.lowercase().contains(query) ||
+                    item.url.lowercase().contains(query)
+            if (!matchesQuery) return@filter false
+
+            when (currentCategoryFilter) {
+                FILTER_APKS -> ApkInstallerHelper.isApkFile(item.fileName, item.mimeType)
+                FILTER_IMAGES -> isImageFile(item.fileName, item.mimeType)
+                FILTER_VIDEOS -> isVideoFile(item.fileName, item.mimeType)
+                FILTER_DOCUMENTS -> isDocumentFile(item.fileName, item.mimeType)
+                else -> true
+            }
+        }
+        adapter.submitList(filtered)
+        binding.emptyDownloadsView.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+        binding.rvDownloads.visibility = if (filtered.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun isImageFile(fileName: String, mimeType: String): Boolean {
+        val lower = fileName.lowercase()
+        return mimeType.startsWith("image/", ignoreCase = true) ||
+                lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") ||
+                lower.endsWith(".webp") || lower.endsWith(".gif") || lower.endsWith(".svg") || lower.endsWith(".bmp")
+    }
+
+    private fun isVideoFile(fileName: String, mimeType: String): Boolean {
+        val lower = fileName.lowercase()
+        return mimeType.startsWith("video/", ignoreCase = true) ||
+                lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".webm") ||
+                lower.endsWith(".mov") || lower.endsWith(".avi") || lower.endsWith(".flv")
+    }
+
+    private fun isDocumentFile(fileName: String, mimeType: String): Boolean {
+        val lower = fileName.lowercase()
+        return mimeType.startsWith("text/", ignoreCase = true) ||
+                mimeType.contains("pdf") || mimeType.contains("document") || mimeType.contains("sheet") ||
+                lower.endsWith(".pdf") || lower.endsWith(".doc") || lower.endsWith(".docx") ||
+                lower.endsWith(".xls") || lower.endsWith(".xlsx") || lower.endsWith(".ppt") ||
+                lower.endsWith(".pptx") || lower.endsWith(".txt") || lower.endsWith(".html") ||
+                lower.endsWith(".mht") || lower.endsWith(".mhtml") || lower.endsWith(".epub") ||
+                lower.endsWith(".zip") || lower.endsWith(".tar") || lower.endsWith(".gz")
+    }
+
     private fun observeDownloads() {
         lifecycleScope.launch {
             database.downloadDao().getAllDownloadsFlow().collectLatest { list ->
-                adapter.submitList(list)
-                binding.emptyDownloadsView.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
-                binding.rvDownloads.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
+                rawDownloadsList = list
+                applyDownloadsFilter()
             }
         }
 

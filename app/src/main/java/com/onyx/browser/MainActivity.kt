@@ -222,6 +222,25 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         pendingGeoCallback = null
     }
 
+    private fun promptWebPermission(
+        title: String,
+        message: String,
+        onAllowed: () -> Unit,
+        onDenied: () -> Unit
+    ) {
+        if (isFinishing || isDestroyed) {
+            onDenied()
+            return
+        }
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("Allow") { _, _ -> onAllowed() }
+            .setNegativeButton("Block") { _, _ -> onDenied() }
+            .setOnCancelListener { onDenied() }
+            .show()
+    }
+
     private fun handleGeolocationPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
         if (origin == null || callback == null) return
         val host = try {
@@ -249,7 +268,34 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             return
         }
 
-        // Delegate directly to Android system location permission dialog
+        if (locAllowed == null) {
+            promptWebPermission(
+                title = "$host wants to access your location",
+                message = "Allow $host to access your precise location?",
+                onAllowed = {
+                    if (fine || coarse) {
+                        preferences.setWebLocationAllowed(host, true)
+                        try { callback.invoke(origin, true, true) } catch (_: Exception) {}
+                    } else {
+                        pendingGeoOrigin = origin
+                        pendingGeoCallback = callback
+                        isSystemDialogOrChooserPending = true
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
+                },
+                onDenied = {
+                    preferences.setWebLocationAllowed(host, false)
+                    try { callback.invoke(origin, false, true) } catch (_: Exception) {}
+                }
+            )
+            return
+        }
+
         if (fine || coarse) {
             preferences.setWebLocationAllowed(host, true)
             try { callback.invoke(origin, true, true) } catch (_: Exception) {}
@@ -400,8 +446,23 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             return
         }
 
-        // Directly delegate to Android system runtime permissions without custom alert dialog
-        grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = true)
+        val promptItems = mutableListOf<String>()
+        if (needsVideo && camAllowed == null) promptItems.add("Camera")
+        if (needsAudio && micAllowed == null) promptItems.add("Microphone")
+        val itemsStr = promptItems.joinToString(" and ")
+
+        promptWebPermission(
+            title = "$host wants to access your $itemsStr",
+            message = "Allow $host to access your $itemsStr?",
+            onAllowed = {
+                grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = true)
+            },
+            onDenied = {
+                if (needsVideo) preferences.setWebCameraAllowed(host, false)
+                if (needsAudio) preferences.setWebMicAllowed(host, false)
+                safeDenyWebPermission(request)
+            }
+        )
     }
 
     private fun grantWebMediaPermission(
@@ -1117,8 +1178,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val currentTab = tabManager.activeTab.value
             if (isLocalFileView(currentTab)) {
                 onBackPressedDispatcher.onBackPressed()
+            } else if (currentTab != null && currentTab.url.isNotBlank() && !currentTab.url.startsWith("about:blank", ignoreCase = true)) {
+                val newTab = tabManager.createNewTab(url = "", isIncognito = currentTab.isIncognito)
+                displayTab(newTab)
             } else {
-                tabManager.updateActiveTab("", "New Tab")
                 showHomeScreen()
             }
         }
@@ -1456,7 +1519,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         binding.homeLayout.root.visibility = View.GONE
         binding.webViewContainer.visibility = View.VISIBLE
-        binding.swipeRefreshLayout.isEnabled = true
+        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
 
         updateIncognitoUI(tab.isIncognito)
 
@@ -1731,7 +1794,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                                     closeTabById(newTab.id)
                                 }
                             }
-                        }, 4000)
+                        }, 12000)
 
                         true
                     } else {
@@ -2709,10 +2772,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         return
                     }
 
-                    if (binding.homeLayout.root.visibility != View.VISIBLE || (activeTab.url.isNotBlank() && !activeTab.url.startsWith("about:blank", ignoreCase = true))) {
-                        // Navigate back to home screen on this tab
-                        tabManager.updateActiveTab("", "New Tab")
-                        showHomeScreen()
+                    if (binding.homeLayout.root.visibility != View.VISIBLE && (activeTab.url.isNotBlank() && !activeTab.url.startsWith("about:blank", ignoreCase = true))) {
+                        // All navigation steps in this tab are exhausted.
+                        // Standard browser parity (Chrome/Brave/Firefox): Exit / minimize the app,
+                        // preserving the tab and its URL intact for when the user returns.
+                        finish()
                         return
                     }
                 }
@@ -3283,6 +3347,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         pageExportManager.showSavePageDialog(activeWebView, currentTab.title)
     }
 
+    fun openNewTab(isIncognito: Boolean = false) {
+        val newTab = tabManager.createNewTab(url = "", isIncognito = isIncognito)
+        displayTab(newTab)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         pendingFilePathCallback?.onReceiveValue(null)
@@ -3299,6 +3368,19 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         MediaPlaybackService.mediaActionListener = null
         if (isFinishing) {
+            if (preferences.isClearOnExitEnabled) {
+                try {
+                    val db = AppDatabase.getInstance(applicationContext)
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        try {
+                            db.historyDao().clearAllHistory()
+                        } catch (_: Throwable) {}
+                    }
+                    android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                    android.webkit.CookieManager.getInstance().flush()
+                    android.webkit.WebStorage.getInstance().deleteAllData()
+                } catch (_: Throwable) {}
+            }
             tabManager.closeAllTabs(incognitoOnly = true)
             com.onyx.browser.incognito.IncognitoNotificationHelper.dismissNotification(this)
             if (TabManager.activeInstance == tabManager) {

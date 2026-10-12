@@ -320,8 +320,9 @@ class TabManager(
         val savedTabs = database.tabDao().getAllNormalTabs()
         if (savedTabs.isNotEmpty()) {
             _normalTabs.value = savedTabs
-            val firstTab = savedTabs.first()
-            _activeTab.value = firstTab
+            val lastActiveId = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).lastActiveTabId
+            val targetTab = savedTabs.find { it.id == lastActiveId } ?: savedTabs.first()
+            _activeTab.value = targetTab
             cleanupOrphanedTabStates()
         } else {
             // Create default initial tab
@@ -432,6 +433,7 @@ class TabManager(
     fun selectTab(tab: TabItem) {
         val updatedTab = tab.copy(lastAccessedAt = System.currentTimeMillis(), isHibernated = false)
         if (!updatedTab.isIncognito) {
+            com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).lastActiveTabId = updatedTab.id
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().updateTab(updatedTab)
             }

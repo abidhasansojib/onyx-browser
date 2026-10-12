@@ -49,6 +49,8 @@ class AccessibilitySettingsActivity : AppCompatActivity() {
         binding.settingAddToHomeScreenSwitch.isChecked = preferences.isAddToHomeScreenEnabled
         binding.settingScrollToTopSwitch.isChecked = preferences.isScrollToTopEnabled
         binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
+        binding.settingPullToRefreshSwitch.isChecked = preferences.isPullToRefreshEnabled
+        binding.settingForceDarkModeSwitch.isChecked = preferences.isForceDarkModeEnabled
         com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
     }
 
@@ -72,6 +74,22 @@ class AccessibilitySettingsActivity : AppCompatActivity() {
             val newState = !binding.settingScrollToTopSwitch.isChecked
             binding.settingScrollToTopSwitch.isChecked = newState
             preferences.isScrollToTopEnabled = newState
+        }
+
+        // Pull to Refresh Toggle
+        binding.settingPullToRefreshSwitch.isChecked = preferences.isPullToRefreshEnabled
+        binding.settingPullToRefreshRow.setOnClickListener {
+            val newState = !binding.settingPullToRefreshSwitch.isChecked
+            binding.settingPullToRefreshSwitch.isChecked = newState
+            preferences.isPullToRefreshEnabled = newState
+        }
+
+        // Force Dark Mode for Web Contents
+        binding.settingForceDarkModeSwitch.isChecked = preferences.isForceDarkModeEnabled
+        binding.settingForceDarkModeRow.setOnClickListener {
+            val newState = !binding.settingForceDarkModeSwitch.isChecked
+            binding.settingForceDarkModeSwitch.isChecked = newState
+            preferences.isForceDarkModeEnabled = newState
         }
 
         // Biometric Incognito Protection

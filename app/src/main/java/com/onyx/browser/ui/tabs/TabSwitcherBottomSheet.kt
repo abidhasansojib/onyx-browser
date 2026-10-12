@@ -62,9 +62,13 @@ class TabSwitcherBottomSheet(
         dialog?.window?.apply {
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             setBackgroundDrawableResource(android.R.color.transparent)
-            statusBarColor = android.graphics.Color.parseColor("#131314")
-            navigationBarColor = android.graphics.Color.parseColor("#131314")
+            val bgColor = androidx.core.content.ContextCompat.getColor(context, R.color.tab_switcher_bg)
+            statusBarColor = bgColor
+            navigationBarColor = bgColor
             WindowCompat.setDecorFitsSystemWindows(this, false)
+            val controller = WindowCompat.getInsetsController(this, decorView)
+            controller.isAppearanceLightStatusBars = false
+            controller.isAppearanceLightNavigationBars = false
         }
     }
 

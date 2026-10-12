@@ -524,6 +524,11 @@ class OnyxWebViewClient(
         }
     }
 
+    private fun recordBlockedRequest(view: WebView?) {
+        preferences.incrementBlockedRequests()
+        (view as? OnyxWebView)?.let { it.pageBlockedCount++ }
+    }
+
     override fun shouldInterceptRequest(
         view: WebView?,
         request: WebResourceRequest?
@@ -589,7 +594,7 @@ class OnyxWebViewClient(
                         // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
                         // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave), UNLESS it is a child popup tab.
                         if (isPopupTab && isPopupAd(url, onyxWv)) {
-                            preferences.incrementBlockedRequests()
+                            recordBlockedRequest(view)
                             if (onyxWv != null) {
                                 onyxWv.post {
                                     val tabId = onyxWv.tabId
@@ -618,7 +623,7 @@ class OnyxWebViewClient(
                             val blockedByAggressive = AdBlockDomainManager.isBlockedInAggressive(reqDomain)
 
                             if (blockedByEngine || blockedByAggressive) {
-                                preferences.incrementBlockedRequests()
+                                recordBlockedRequest(view)
                                 return WebResourceResponse(
                                     "text/html",
                                     "UTF-8",
@@ -770,7 +775,7 @@ class OnyxWebViewClient(
                 } || (!preferences.allowFacebookLogins && (reqDomain == "connect.facebook.net" || reqDomain == "graph.facebook.com"))
 
                 if (isSocialTrackerDomain) {
-                    preferences.incrementBlockedRequests()
+                    recordBlockedRequest(view)
                     return createBlockedResponse(resourceType)
                 }
             }
@@ -779,6 +784,7 @@ class OnyxWebViewClient(
             if (!isWhitelisted && (preferences.isGlobalScriptBlockingEnabled ||
                     preferences.isScriptBlockingEnabledForDomain(pageDomain))) {
                 if (resourceType == "script") {
+                    recordBlockedRequest(view)
                     return createBlockedResponse("script")
                 }
             }
@@ -799,7 +805,7 @@ class OnyxWebViewClient(
                 if (resourceType == "media") {
                     val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, "media")
                     if (blockedByEngine) {
-                        preferences.incrementBlockedRequests()
+                        recordBlockedRequest(view)
                         return createBlockedResponse("media")
                     }
                     return null // Allow media playback!
@@ -827,7 +833,7 @@ class OnyxWebViewClient(
                 val rewrittenUrl = engineResult?.rewrittenUrl
 
                 if (isAdTestResource || blockedByEngine) {
-                    preferences.incrementBlockedRequests()
+                    recordBlockedRequest(view)
 
                     // If a surrogate redirect ($redirect rule) is matched, serve the surrogate script directly!
                     if (!redirectData.isNullOrBlank()) {
@@ -845,6 +851,15 @@ class OnyxWebViewClient(
                     if (rewrittenUrl.startsWith("data:", ignoreCase = true)) {
                         val dataResponse = createSurrogateResponse(rewrittenUrl, resourceType)
                         if (dataResponse != null) return dataResponse
+                    } else if (rewrittenUrl.startsWith("http://", ignoreCase = true) || rewrittenUrl.startsWith("https://", ignoreCase = true)) {
+                        return WebResourceResponse(
+                            "text/plain",
+                            "UTF-8",
+                            307,
+                            "Temporary Redirect",
+                            mapOf("Location" to rewrittenUrl),
+                            ByteArrayInputStream(ByteArray(0))
+                        )
                     }
                 }
             }
@@ -1504,6 +1519,7 @@ class OnyxWebViewClient(
                 // Do not let data: or asset error pages overwrite the active URL or clear synthetic error state!
                 return
             }
+            onyxWv?.pageBlockedCount = 0
             val previousUrl = currentPageUrl
             currentPageUrl = url
             pendingMainFrameUrl = url
@@ -1568,7 +1584,7 @@ class OnyxWebViewClient(
             // If this is a pending popup window that successfully started navigating to a valid URL, display it ONLY IF IT IS NOT AN AD
             if (onyxWv?.isPopupPendingDisplay == true && url != "about:blank") {
                 if (isPopupAd(url, onyxWv)) {
-                    preferences.incrementBlockedRequests()
+                    recordBlockedRequest(view)
                     val tabId = onyxWv.tabId
                     if (tabId.isNotBlank()) {
                         onyxWv.post {
@@ -1989,15 +2005,6 @@ class OnyxWebViewClient(
         // Phase 5: Check session-scoped SSL bypass
         if (!host.isNullOrBlank() && (view as? OnyxWebView)?.sessionSslBypasses?.contains(host) == true) {
             handler?.proceed()
-            return
-        }
-
-        val fallbackUrl = failingUrl.replaceFirst("https://", "http://")
-        val normalizedFallback = fallbackUrl.trimEnd('/')
-        if (preferences.httpsUpgradeMode != BrowserPreferences.HTTPS_MODE_STRICT &&
-            (upgradedUrls.contains(fallbackUrl) || upgradedUrls.contains(normalizedFallback))) {
-            handler?.cancel()
-            view?.post { view.loadUrl(fallbackUrl) }
             return
         }
 

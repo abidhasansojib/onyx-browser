@@ -105,6 +105,12 @@ This document tracks all features of Onyx Browser, their current implementation 
 72. [x] Pure Filter-List Architecture & Kotlin LRU Decision Cache (eliminated hardcoded Kotlin domain lists; all blocking decisions are driven 100% by filter lists in native `adblock-rust`; high-performance thread-safe LRU Decision Caches with 8,192 request entries and 4,096 URL entries ensure sub-microsecond in-memory repeat lookups without JNI overhead; static CNAME uncloaking uncloaks first-party tracker subdomains prior to rule evaluation)
 73. [x] On-Demand Filter Download & Ad-Blocking Engine Parity (automatic on-demand filter fetching on toggle or startup, video ad overlay cosmetic rule preservation, strictly scoped auth/login shield bypass, and third-party social tracker filter evaluation)
 74. [x] Complete Web Permissions & HTML File Chooser Subsystem (Material 3 website permission prompts for microphone, camera, and geolocation; camera photo capture, gallery picking, and file uploads via system chooser sheet and MediaStore FileProvider)
+75. [x] Per-Origin Web Permission Security Prompts (Material 3 per-origin permission prompts for Camera, Microphone, and Geolocation before granting access or launching OS permission dialogs; per-domain decisions securely remembered in BrowserPreferences)
+76. [x] Tab State Preservation & Non-Destructive Navigation (hardware back button at root history exits/minimizes browser without wiping tab URL in database; Home button creates fresh tab while keeping active tab intact; persists and restores `lastActiveTabId` across app recreations)
+77. [x] SSL Handshake Downgrade Defense (eliminated silent plaintext HTTP fallback on SSL handshake failures to prevent downgrade MITM attacks; routes to custom SSL error interstitial)
+78. [x] Webpage 3-Dot Menu Overhaul & Live Blocked Counter (1-tap bookmark quick toggle with Room DB persistence and tinting; long-press opens bookmarks manager; dedicated "New Tab" and "New Incognito Tab" rows; live per-page tracker/ad blocked counter in Site Shield panel)
+79. [x] Downloads Search & Categorical Filter Chips (real-time omni-search by filename and URL; category filter chips for All, APKs, Images, Videos, Documents)
+80. [x] Advanced Accessibility & Privacy Controls (Clear data on exit toggle; user toggle for pull-to-refresh; algorithmic force dark mode for web contents)
 
 ---
 

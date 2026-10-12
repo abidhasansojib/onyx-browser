@@ -143,6 +143,7 @@
     <string name="shields_down_desc">Protection paused for this site</string>
     <string name="trackers_blocked_label">TRACKERS &amp; ADS BLOCKED</string>
     <string name="blocked_all_time">all time</string>
+    <string name="blocked_on_this_page">on this page</string>
     <string name="blocking_level_title">Ad &amp; Tracker Blocking</string>
     <string name="blocking_level_desc">Standard blocks 3rd-party · Aggressive blocks all</string>
     <string name="blocking_standard">Standard</string>
@@ -506,6 +507,22 @@
     <string name="bookmark_name">Name</string>
     <string name="bookmark_url">URL</string>
     <string name="bookmark_saved">Bookmark saved</string>
+
+    <!-- Clear on exit, pull to refresh, and force dark mode -->
+    <string name="clear_on_exit_title">Clear data on exit</string>
+    <string name="clear_on_exit_desc">Clear cache, cookies, and web storage when exiting the browser</string>
+    <string name="pull_to_refresh_title">Pull to refresh</string>
+    <string name="pull_to_refresh_desc">Swipe down from the top to refresh web pages</string>
+    <string name="force_dark_title">Force dark mode</string>
+    <string name="force_dark_desc">Automatically darken web contents when using dark theme</string>
+
+    <!-- Downloads search and categories -->
+    <string name="search_downloads_hint">Search downloads…</string>
+    <string name="filter_all">All</string>
+    <string name="filter_apks">APKs</string>
+    <string name="filter_images">Images</string>
+    <string name="filter_videos">Videos</string>
+    <string name="filter_documents">Documents</string>
 </resources>
 
 
