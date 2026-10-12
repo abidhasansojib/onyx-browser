@@ -112,6 +112,11 @@ This document tracks all features of Onyx Browser, their current implementation 
 79. [x] Downloads Search & Categorical Filter Chips (real-time omni-search by filename and URL; category filter chips for All, APKs, Images, Videos, Documents)
 80. [x] Advanced Accessibility & Privacy Controls (Clear data on exit toggle; user toggle for pull-to-refresh; algorithmic force dark mode for web contents)
 81. [x] Omnibox Quick Site Shields Access & Multi-Surface Tab Consistency (1-tap lock icon in address bar opens Site Shields bottom sheet; New Tab row added to home menu; Downloads adapter category-aware icon rendering for APKs, Web Archives, Images, Videos, and Documents; AtomicInteger-backed page blocked counter thread-safety; centralized active tab state synchronization in TabManager; non-cancellable coroutine and complete cache/credentials purging for Clear on Exit)
+82. [x] Chrome/Brave Parity Per-Site Permissions Hub & Global Site Settings:
+   - **Omnibox Page Info & Permissions Hub**: Tapping address bar lock icon opens an integrated `SiteShieldBottomSheetDialog` featuring Connection Security card (verified HTTPS state), Per-Site Hardware Permissions (Camera, Microphone, Location with Allowed/Blocked/Ask 3-state selector and 1-tap Reset), Per-Site Cookie & WebStorage Purging (`SiteDataManager`), and Shields toggles.
+   - **Modern 3-Option Permission Prompt**: Web permission prompts feature standard actions ("Always allow", "Allow this time", "Block") supporting session-isolated grants without permanent persistence.
+   - **Global Site Settings Activity (`SiteSettingsActivity`)**: Accessible from Settings → Privacy & Security → Site settings. Provides global toggles ("Ask before accessing" vs "Blocked") for Camera, Microphone, and Location, granular lists of Allowed and Blocked origins with 1-tap revocation (`SitePermissionCategorySheet`), and an "All sites" management hub (`AllSitesSheet`) with real-time search and site data purging.
+   - **Downloads Filter Chip Badge Counts**: Real-time item count indicators displayed directly inside categorical filter chips (`All (N)`, `APKs (N)`, `Images (N)`, `Videos (N)`, `Documents (N)`).
 
 ---
 
@@ -249,6 +254,14 @@ This document tracks all features of Onyx Browser, their current implementation 
 - **Renderer Crash Resilience (`onRenderProcessGone`)**: Overrides `onRenderProcessGone` in `OnyxWebViewClient` to safely detach dead WebViews and return `true`, preventing the OS from terminating the entire app process if a sandboxed renderer or camera HAL experiences a fault.
 - **Leak & Freeze Guarding**: Overrides `onPermissionRequestCanceled` to dismiss active dialogs and safely discard canceled media requests, cancels pending file chooser callbacks with `onReceiveValue(null)` on replacement or activity destruction, and cleans up empty temporary photo files to prevent WebView deadlocks.
 - **Manifest & Queries Declarations**: Declared Android 13+ media permissions (`READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`, `READ_MEDIA_VISUAL_USER_SELECTED`), optional camera features (`camera`, `autofocus`, `front`), and camera capture intent queries under `<queries>` to ensure package visibility on Android 11+.
+
+### 16. Per-Site Permissions Hub, Storage Purging & Global Site Settings
+- **Omnibox Page Info & Permissions Panel (`SiteShieldBottomSheetDialog`)**: Address bar SSL lock icon opens an integrated dialog displaying connection security status (HTTPS encryption validation), Camera/Microphone/Location permission rows with real-time badges (`Allowed`, `Blocked`, `Ask every time`) and a single-choice modal selector, a 1-tap "Reset permissions" button that clears remembered hardware authorizations, and a "Clear data for this site" action.
+- **Selective Per-Origin Storage & Cookie Purging (`SiteDataManager`)**: Completely purges cookies, origin `WebStorage` (localStorage, IndexedDB), and HTTP auth credentials strictly matching the target domain and parent root domain across both standard and isolated incognito profiles, without invalidating logins or caching on other active tabs.
+- **3-Option Permission Prompt Modernization**: Upgraded web permission prompts to offer "Always allow" (persisted in preferences), "Allow this time" (ephemeral session permission without persisting), and "Block" (persisted block).
+- **Global Site Settings Activity (`SiteSettingsActivity`)**: Dedicated settings screen under Privacy & Security exposing global access controls ("Ask before accessing" vs "Blocked globally") for Camera, Microphone, and Location, granular inspect/revoke lists for Allowed and Blocked domains (`SitePermissionCategorySheet`), and an "All sites" hub (`AllSitesSheet`) with real-time domain search and site data purging.
+- **Downloads Categorical Filter Badge Counts**: Real-time item counters dynamically rendered inside categorical filter chips (`All (N)`, `APKs (N)`, `Images (N)`, `Videos (N)`, `Documents (N)`) on the Downloads screen.
+
 
 
 

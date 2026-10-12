@@ -230,10 +230,34 @@ class DownloadsActivity : AppCompatActivity() {
                 lower.endsWith(".zip") || lower.endsWith(".tar") || lower.endsWith(".gz")
     }
 
+    private fun updateFilterChipCounts(list: List<DownloadItem>) {
+        val totalCount = list.size
+        var apkCount = 0
+        var imgCount = 0
+        var vidCount = 0
+        var docCount = 0
+
+        for (item in list) {
+            when {
+                ApkInstallerHelper.isApkFile(item.fileName, item.mimeType) -> apkCount++
+                isImageFile(item.fileName, item.mimeType) -> imgCount++
+                isVideoFile(item.fileName, item.mimeType) -> vidCount++
+                isDocumentFile(item.fileName, item.mimeType) -> docCount++
+            }
+        }
+
+        binding.chipAll.text = if (totalCount > 0) "All ($totalCount)" else "All"
+        binding.chipApks.text = if (apkCount > 0) "APKs ($apkCount)" else "APKs"
+        binding.chipImages.text = if (imgCount > 0) "Images ($imgCount)" else "Images"
+        binding.chipVideos.text = if (vidCount > 0) "Videos ($vidCount)" else "Videos"
+        binding.chipDocuments.text = if (docCount > 0) "Documents ($docCount)" else "Documents"
+    }
+
     private fun observeDownloads() {
         lifecycleScope.launch {
             database.downloadDao().getAllDownloadsFlow().collectLatest { list ->
                 rawDownloadsList = list
+                updateFilterChipCounts(list)
                 applyDownloadsFilter()
             }
         }

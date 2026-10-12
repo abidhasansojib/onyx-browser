@@ -14,6 +14,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import java.util.concurrent.atomic.AtomicLong
 
+enum class SitePermissionState {
+    ALLOWED,
+    BLOCKED,
+    ASK
+}
+
 class BrowserPreferences private constructor(private val context: Context) {
 
     private val prefs: SharedPreferences =
@@ -669,6 +675,170 @@ class BrowserPreferences private constructor(private val context: Context) {
             .apply()
     }
 
+    var isCameraEnabledGlobal: Boolean
+        get() = prefs.getBoolean(KEY_CAMERA_ENABLED_GLOBAL, true)
+        set(value) = prefs.edit().putBoolean(KEY_CAMERA_ENABLED_GLOBAL, value).apply()
+
+    var isMicEnabledGlobal: Boolean
+        get() = prefs.getBoolean(KEY_MIC_ENABLED_GLOBAL, true)
+        set(value) = prefs.edit().putBoolean(KEY_MIC_ENABLED_GLOBAL, value).apply()
+
+    var isLocationEnabledGlobal: Boolean
+        get() = prefs.getBoolean(KEY_LOCATION_ENABLED_GLOBAL, true)
+        set(value) = prefs.edit().putBoolean(KEY_LOCATION_ENABLED_GLOBAL, value).apply()
+
+    fun getSiteCameraPermission(domainOrUrl: String): SitePermissionState {
+        return when (isWebCameraAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+    }
+
+    fun setSiteCameraPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val allowedSet = prefs.getStringSet(KEY_ALLOWED_CAMERA_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val blockedSet = prefs.getStringSet(KEY_BLOCKED_CAMERA_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> {
+                allowedSet.add(domain)
+                blockedSet.remove(domain)
+            }
+            SitePermissionState.BLOCKED -> {
+                blockedSet.add(domain)
+                allowedSet.remove(domain)
+            }
+            SitePermissionState.ASK -> {
+                allowedSet.remove(domain)
+                blockedSet.remove(domain)
+            }
+        }
+        cachedAllowedCameraDomains = allowedSet
+        cachedBlockedCameraDomains = blockedSet
+        prefs.edit()
+            .putStringSet(KEY_ALLOWED_CAMERA_DOMAINS, allowedSet)
+            .putStringSet(KEY_BLOCKED_CAMERA_DOMAINS, blockedSet)
+            .apply()
+    }
+
+    fun getSiteMicPermission(domainOrUrl: String): SitePermissionState {
+        return when (isWebMicAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+    }
+
+    fun setSiteMicPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val allowedSet = prefs.getStringSet(KEY_ALLOWED_MIC_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val blockedSet = prefs.getStringSet(KEY_BLOCKED_MIC_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> {
+                allowedSet.add(domain)
+                blockedSet.remove(domain)
+            }
+            SitePermissionState.BLOCKED -> {
+                blockedSet.add(domain)
+                allowedSet.remove(domain)
+            }
+            SitePermissionState.ASK -> {
+                allowedSet.remove(domain)
+                blockedSet.remove(domain)
+            }
+        }
+        cachedAllowedMicDomains = allowedSet
+        cachedBlockedMicDomains = blockedSet
+        prefs.edit()
+            .putStringSet(KEY_ALLOWED_MIC_DOMAINS, allowedSet)
+            .putStringSet(KEY_BLOCKED_MIC_DOMAINS, blockedSet)
+            .apply()
+    }
+
+    fun getSiteLocationPermission(domainOrUrl: String): SitePermissionState {
+        return when (isWebLocationAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+    }
+
+    fun setSiteLocationPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val allowedSet = prefs.getStringSet(KEY_ALLOWED_LOCATION_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val blockedSet = prefs.getStringSet(KEY_BLOCKED_LOCATION_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> {
+                allowedSet.add(domain)
+                blockedSet.remove(domain)
+            }
+            SitePermissionState.BLOCKED -> {
+                blockedSet.add(domain)
+                allowedSet.remove(domain)
+            }
+            SitePermissionState.ASK -> {
+                allowedSet.remove(domain)
+                blockedSet.remove(domain)
+            }
+        }
+        cachedAllowedLocationDomains = allowedSet
+        cachedBlockedLocationDomains = blockedSet
+        prefs.edit()
+            .putStringSet(KEY_ALLOWED_LOCATION_DOMAINS, allowedSet)
+            .putStringSet(KEY_BLOCKED_LOCATION_DOMAINS, blockedSet)
+            .apply()
+    }
+
+    fun hasCustomSitePermissions(domainOrUrl: String): Boolean {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return false
+        return isWebCameraAllowed(domain) != null ||
+               isWebMicAllowed(domain) != null ||
+               isWebLocationAllowed(domain) != null
+    }
+
+    fun resetSitePermissions(domainOrUrl: String) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        setSiteCameraPermission(domain, SitePermissionState.ASK)
+        setSiteMicPermission(domain, SitePermissionState.ASK)
+        setSiteLocationPermission(domain, SitePermissionState.ASK)
+    }
+
+    fun getAllowedCameraDomains(): Set<String> =
+        prefs.getStringSet(KEY_ALLOWED_CAMERA_DOMAINS, emptySet()) ?: emptySet()
+
+    fun getBlockedCameraDomains(): Set<String> =
+        prefs.getStringSet(KEY_BLOCKED_CAMERA_DOMAINS, emptySet()) ?: emptySet()
+
+    fun getAllowedMicDomains(): Set<String> =
+        prefs.getStringSet(KEY_ALLOWED_MIC_DOMAINS, emptySet()) ?: emptySet()
+
+    fun getBlockedMicDomains(): Set<String> =
+        prefs.getStringSet(KEY_BLOCKED_MIC_DOMAINS, emptySet()) ?: emptySet()
+
+    fun getAllowedLocationDomains(): Set<String> =
+        prefs.getStringSet(KEY_ALLOWED_LOCATION_DOMAINS, emptySet()) ?: emptySet()
+
+    fun getBlockedLocationDomains(): Set<String> =
+        prefs.getStringSet(KEY_BLOCKED_LOCATION_DOMAINS, emptySet()) ?: emptySet()
+
+    fun getAllConfiguredDomains(): Set<String> {
+        val domains = sortedSetOf<String>()
+        domains.addAll(getAllowedCameraDomains())
+        domains.addAll(getBlockedCameraDomains())
+        domains.addAll(getAllowedMicDomains())
+        domains.addAll(getBlockedMicDomains())
+        domains.addAll(getAllowedLocationDomains())
+        domains.addAll(getBlockedLocationDomains())
+        val whitelist = prefs.getStringSet(KEY_ADBLOCK_WHITELIST, emptySet()) ?: emptySet()
+        domains.addAll(whitelist)
+        return domains
+    }
+
     fun getBlockedRequestsCount(): Long {
         return prefs.getLong(KEY_BLOCKED_REQUESTS_COUNT, 0L)
     }
@@ -1051,6 +1221,9 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_BLOCKED_MIC_DOMAINS = "pref_blocked_mic_domains"
         const val KEY_ALLOWED_LOCATION_DOMAINS = "pref_allowed_location_domains"
         const val KEY_BLOCKED_LOCATION_DOMAINS = "pref_blocked_location_domains"
+        const val KEY_CAMERA_ENABLED_GLOBAL = "pref_camera_enabled_global"
+        const val KEY_MIC_ENABLED_GLOBAL = "pref_mic_enabled_global"
+        const val KEY_LOCATION_ENABLED_GLOBAL = "pref_location_enabled_global"
         const val KEY_LAST_ACTIVE_TAB_ID = "pref_last_active_tab_id"
         const val KEY_CLEAR_ON_EXIT = "pref_clear_on_exit"
         const val KEY_PULL_TO_REFRESH = "pref_pull_to_refresh"

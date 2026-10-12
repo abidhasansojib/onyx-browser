@@ -155,6 +155,39 @@
     <string name="script_blocking_title">Block Scripts</string>
     <string name="script_blocking_desc">Block JavaScript on this site (may break pages)</string>
 
+    <!-- Page Info & Site Permissions -->
+    <string name="connection_secure">Connection is secure</string>
+    <string name="connection_secure_desc">Your information (passwords, messages, or payment details) is private when sent to this site.</string>
+    <string name="connection_not_secure">Connection is not secure</string>
+    <string name="connection_not_secure_desc">You should not enter sensitive information on this site because it could be intercepted.</string>
+    <string name="site_permissions_header">Permissions</string>
+    <string name="permission_camera">Camera</string>
+    <string name="permission_microphone">Microphone</string>
+    <string name="permission_location">Location</string>
+    <string name="permission_allowed">Allowed</string>
+    <string name="permission_blocked">Blocked</string>
+    <string name="permission_ask">Ask every time</string>
+    <string name="permission_reset">Reset</string>
+    <string name="permission_reset_done">Permissions reset for %s</string>
+    <string name="site_data_header">Cookies &amp; site data</string>
+    <string name="site_data_desc">Data stored on your device</string>
+    <string name="clear_site_data">Clear data</string>
+    <string name="clear_site_data_dialog_title">Clear data for %s?</string>
+    <string name="clear_site_data_dialog_message">This will sign you out and delete cookies and local storage stored by this site.</string>
+    <string name="clear_site_data_done">Cleared cookies and data for %s</string>
+    <string name="site_settings_title">Site Settings</string>
+    <string name="site_settings_desc">Camera, microphone, location, and stored data</string>
+    <string name="all_sites_title">All sites</string>
+    <string name="all_sites_desc">Manage permissions and data across all sites</string>
+    <string name="camera_settings_title">Camera</string>
+    <string name="mic_settings_title">Microphone</string>
+    <string name="location_settings_title">Location</string>
+    <string name="ask_before_accessing">Ask before accessing (recommended)</string>
+    <string name="blocked_globally">Blocked</string>
+    <string name="allowed_sites_header">Allowed</string>
+    <string name="blocked_sites_header">Blocked</string>
+    <string name="no_sites_configured">No sites configured</string>
+
     <!-- Settings: new rows -->
     <string name="pref_blocking_level_title">Blocking Level</string>
     <string name="pref_blocking_level_desc">Standard (3rd-party) or Aggressive (all ads)</string>

@@ -351,6 +351,11 @@
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
+            android:name=".ui.settings.SiteSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
             android:name=".ui.settings.ContentFiltersActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />

@@ -37,6 +37,8 @@ ICONS=(
     "monitor:ic_desktop"
     "folder:ic_folder"
     "globe:ic_web"
+    "camera:ic_camera"
+    "map-pin:ic_location"
 )
 
 echo "==> Downloading official Lucide icons..."

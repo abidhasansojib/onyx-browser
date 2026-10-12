@@ -111,6 +111,11 @@ class SettingsActivity : AppCompatActivity() {
         binding.settingUaSpooferRow.setOnClickListener {
             showUaSpooferDialog()
         }
+
+        // 3. Site permissions
+        binding.settingSitePermissionsRow.setOnClickListener {
+            startActivity(Intent(this, SiteSettingsActivity::class.java))
+        }
     }
 
     private fun setupCategoryAbout() {

@@ -493,47 +493,9 @@ class TabManager(
         }
     }
 
-    private val MULTI_PART_TLD_PARTS = setOf(
-        "co", "com", "org", "net", "gov", "edu", "ac", "ne", "or", "go", "mil", "nom"
-    )
+    private fun extractRootDomain(host: String): String = com.onyx.browser.web.SiteDataManager.extractRootDomain(host)
 
-    private fun extractRootDomain(host: String): String {
-        val cleanHost = host.trim().lowercase().removePrefix("www.")
-        if (cleanHost.isEmpty()) return ""
-        if (cleanHost.all { it.isDigit() || it == '.' || it == ':' }) return cleanHost
-        val parts = cleanHost.split('.')
-        if (parts.size <= 2) return cleanHost
-
-        val secondToLast = parts[parts.size - 2]
-        val last = parts.last()
-        val isMultiPartTld = last.length == 2 && secondToLast in MULTI_PART_TLD_PARTS
-
-        return if (isMultiPartTld && parts.size >= 3) {
-            parts.takeLast(3).joinToString(".")
-        } else {
-            parts.takeLast(2).joinToString(".")
-        }
-    }
-
-    private fun getPurgeDomains(host: String): Set<String> {
-        val result = linkedSetOf<String>()
-        val cleanHost = host.trim().lowercase().removePrefix("www.")
-        if (cleanHost.isEmpty()) return result
-
-        result.add(cleanHost)
-        result.add(host.trim().lowercase())
-
-        val root = extractRootDomain(cleanHost)
-        if (root.isNotEmpty()) {
-            result.add(root)
-            result.add("www.$root")
-            result.add("m.$root")
-            result.add("login.$root")
-            result.add("auth.$root")
-            result.add("accounts.$root")
-        }
-        return result
-    }
+    private fun getPurgeDomains(host: String): Set<String> = com.onyx.browser.web.SiteDataManager.getPurgeDomains(host)
 
     private fun extractCandidateUrls(tab: TabItem, webView: OnyxWebView?): List<String> {
         val urls = linkedSetOf<String>()

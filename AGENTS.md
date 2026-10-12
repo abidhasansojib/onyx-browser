@@ -168,6 +168,13 @@ onyx-browser/
 - **Renderer Crash Resilience (`onRenderProcessGone`)**: Overrides `onRenderProcessGone` in `OnyxWebViewClient` returning `true` to isolate sandboxed renderer or camera HAL faults, preventing process death.
 - **Package Visibility & Permissions**: Manifest declares Android 13+ media permissions (`READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`, `READ_MEDIA_VISUAL_USER_SELECTED`), optional camera features (`camera`, `autofocus`, `front`), and camera/video capture intent filters inside `<queries>` for Android 11+ compatibility.
 
+### 4.7. Per-Site Permissions & Site Data Management Subsystem
+- **Omnibox Page Info & Permissions Panel (`SiteShieldBottomSheetDialog`)**: Address bar SSL lock icon provides instant access to connection security verification (valid HTTPS certificate status), per-site hardware permissions (Camera, Microphone, Location with 3-state selector: Allowed, Blocked, Ask every time), a 1-tap "Reset permissions" button that clears remembered hardware decisions, and a "Clear data for this site" action.
+- **Selective Per-Origin Storage & Cookie Purging (`SiteDataManager`)**: Completely purges cookies, origin `WebStorage` (localStorage, IndexedDB), and HTTP authentication credentials strictly matching the target domain and parent root domain across both normal and isolated incognito profiles without invalidating sessions on other open tabs.
+- **Modern 3-Option Web Permission Prompts**: Features standard 3-option prompts ("Always allow", "Allow this time", "Block") supporting session-isolated grants (`remember = false`) that do not persist across browser restarts.
+- **Global Site Settings Activity (`SiteSettingsActivity`)**: Accessible via Settings → Privacy & Security → Site settings. Manages global policies ("Ask before accessing" vs "Blocked globally") for Camera, Microphone, and Location, provides granular Allowed/Blocked domain management sheets with 1-tap revocation (`SitePermissionCategorySheet`), and an "All sites" hub (`AllSitesSheet`) with real-time domain search and site data purging.
+- **Downloads Categorical Filter Badge Counts**: Real-time item counters dynamically rendered inside categorical filter chips (`All (N)`, `APKs (N)`, `Images (N)`, `Videos (N)`, `Documents (N)`).
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents

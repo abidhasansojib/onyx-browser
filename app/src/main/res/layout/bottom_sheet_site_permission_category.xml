@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="24dp">
+
+        <!-- Drag handle -->
+        <View
+            android:layout_width="36dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_drag_handle"
+            android:alpha="0.4" />
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="12dp">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/ivCategoryIcon"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                app:srcCompat="@drawable/ic_camera"
+                app:tint="@color/primary" />
+
+            <TextView
+                android:id="@+id/tvCategoryTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                tools:text="Camera permissions" />
+        </LinearLayout>
+
+        <!-- Master Switch Row -->
+        <LinearLayout
+            android:id="@+id/layoutGlobalToggle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvGlobalToggleTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/ask_before_accessing"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvGlobalToggleDesc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Sites must ask for permission before using this device"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switchGlobalToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="false"
+                android:focusable="false" />
+        </LinearLayout>
+
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginEnd="20dp"
+            android:background="?attr/colorOutline"
+            android:alpha="0.5" />
+
+        <!-- Allowed Sites Header -->
+        <TextView
+            android:id="@+id/tvAllowedHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="20dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="6dp"
+            android:text="@string/allowed_sites_header"
+            android:textColor="@color/green_success"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <LinearLayout
+            android:id="@+id/containerAllowedSites"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <!-- Blocked Sites Header -->
+        <TextView
+            android:id="@+id/tvBlockedHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="20dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="6dp"
+            android:text="@string/blocked_sites_header"
+            android:textColor="?attr/colorError"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <LinearLayout
+            android:id="@+id/containerBlockedSites"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <!-- Empty State -->
+        <TextView
+            android:id="@+id/tvEmptySites"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:padding="28dp"
+            android:text="@string/no_sites_configured"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="13sp"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

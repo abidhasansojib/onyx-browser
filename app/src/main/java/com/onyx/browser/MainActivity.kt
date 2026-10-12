@@ -198,6 +198,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     private var pendingGeoOrigin: String? = null
     private var pendingGeoCallback: GeolocationPermissions.Callback? = null
+    private var pendingGeoRemember: Boolean = true
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -213,19 +214,23 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             } catch (_: Exception) {
                 origin
             }
-            preferences.setWebLocationAllowed(host, granted)
+            if (pendingGeoRemember) {
+                preferences.setWebLocationAllowed(host, granted)
+            }
         }
         try {
-            pendingGeoCallback?.invoke(pendingGeoOrigin, granted, true)
+            pendingGeoCallback?.invoke(pendingGeoOrigin, granted, pendingGeoRemember)
         } catch (_: Exception) {}
         pendingGeoOrigin = null
         pendingGeoCallback = null
+        pendingGeoRemember = true
     }
 
     private fun promptWebPermission(
         title: String,
         message: String,
-        onAllowed: () -> Unit,
+        onAllowedAlways: () -> Unit,
+        onAllowedWhileVisiting: () -> Unit,
         onDenied: () -> Unit
     ) {
         if (isFinishing || isDestroyed) {
@@ -235,7 +240,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setTitle(title)
             .setMessage(message)
-            .setPositiveButton("Allow") { _, _ -> onAllowed() }
+            .setPositiveButton("Always allow") { _, _ -> onAllowedAlways() }
+            .setNeutralButton("Allow this time") { _, _ -> onAllowedWhileVisiting() }
             .setNegativeButton("Block") { _, _ -> onDenied() }
             .setOnCancelListener { onDenied() }
             .show()
@@ -247,6 +253,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             Uri.parse(origin).host?.takeIf { it.isNotBlank() } ?: origin
         } catch (_: Exception) {
             origin
+        }
+
+        if (!preferences.isLocationEnabledGlobal) {
+            try { callback.invoke(origin, false, true) } catch (_: Exception) {}
+            return
         }
 
         val locAllowed = preferences.isWebLocationAllowed(host)
@@ -272,13 +283,30 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             promptWebPermission(
                 title = "$host wants to access your location",
                 message = "Allow $host to access your precise location?",
-                onAllowed = {
+                onAllowedAlways = {
                     if (fine || coarse) {
                         preferences.setWebLocationAllowed(host, true)
                         try { callback.invoke(origin, true, true) } catch (_: Exception) {}
                     } else {
                         pendingGeoOrigin = origin
                         pendingGeoCallback = callback
+                        pendingGeoRemember = true
+                        isSystemDialogOrChooserPending = true
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
+                },
+                onAllowedWhileVisiting = {
+                    if (fine || coarse) {
+                        try { callback.invoke(origin, true, false) } catch (_: Exception) {}
+                    } else {
+                        pendingGeoOrigin = origin
+                        pendingGeoCallback = callback
+                        pendingGeoRemember = false
                         isSystemDialogOrChooserPending = true
                         locationPermissionLauncher.launch(
                             arrayOf(
@@ -321,6 +349,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private var pendingWebMediaNeedsAudio: Boolean = false
     private var pendingWebMediaNeedsVideo: Boolean = false
     private var pendingWebMediaHost: String? = null
+    private var pendingWebMediaRemember: Boolean = true
 
     private fun safeGrantWebPermission(request: PermissionRequest, resources: Array<String>) {
         if (handledWebRequests.contains(request)) return
@@ -365,12 +394,14 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         val needsAudio = pendingWebMediaNeedsAudio
         val needsVideo = pendingWebMediaNeedsVideo
         val host = pendingWebMediaHost ?: ""
+        val remember = pendingWebMediaRemember
 
         pendingWebMediaRequest = null
         pendingWebMediaResources = null
         pendingWebMediaNeedsAudio = false
         pendingWebMediaNeedsVideo = false
         pendingWebMediaHost = null
+        pendingWebMediaRemember = true
 
         if (request == null || allResources == null) return@registerForActivityResult
 
@@ -382,11 +413,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         val grantedList = mutableListOf<String>()
         if (needsAudio && audioGranted) {
             grantedList.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-            if (host.isNotBlank()) preferences.setWebMicAllowed(host, true)
+            if (remember && host.isNotBlank()) preferences.setWebMicAllowed(host, true)
         }
         if (needsVideo && videoGranted) {
             grantedList.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-            if (host.isNotBlank()) preferences.setWebCameraAllowed(host, true)
+            if (remember && host.isNotBlank()) preferences.setWebCameraAllowed(host, true)
         }
         for (res in allResources) {
             if (res != PermissionRequest.RESOURCE_AUDIO_CAPTURE && res != PermissionRequest.RESOURCE_VIDEO_CAPTURE) {
@@ -428,6 +459,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             origin
         }
 
+        if ((needsVideo && !preferences.isCameraEnabledGlobal) || (needsAudio && !preferences.isMicEnabledGlobal)) {
+            safeDenyWebPermission(request)
+            return
+        }
+
         val camAllowed = if (needsVideo) preferences.isWebCameraAllowed(host) else true
         val micAllowed = if (needsAudio) preferences.isWebMicAllowed(host) else true
 
@@ -454,8 +490,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         promptWebPermission(
             title = "$host wants to access your $itemsStr",
             message = "Allow $host to access your $itemsStr?",
-            onAllowed = {
+            onAllowedAlways = {
                 grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = true)
+            },
+            onAllowedWhileVisiting = {
+                grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = false)
             },
             onDenied = {
                 if (needsVideo) preferences.setWebCameraAllowed(host, false)
@@ -492,6 +531,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             pendingWebMediaNeedsAudio = needsAudio
             pendingWebMediaNeedsVideo = needsVideo
             pendingWebMediaHost = host
+            pendingWebMediaRemember = remember
 
             isSystemDialogOrChooserPending = true
             webMediaPermissionLauncher.launch(neededOs.toTypedArray())
@@ -1194,7 +1234,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val url = activeTab.url
             if (url.isNotBlank() && !url.startsWith("about:blank", ignoreCase = true)) {
                 val blockedCount = tabManager.getActiveWebView()?.pageBlockedCount ?: 0
-                val dialog = com.onyx.browser.ui.menu.SiteShieldBottomSheetDialog(url, blockedCount) {
+                val dialog = com.onyx.browser.ui.menu.SiteShieldBottomSheetDialog(
+                    currentUrl = url,
+                    pageBlockedCount = blockedCount,
+                    isIncognito = activeTab.isIncognito
+                ) {
                     tabManager.getActiveWebView()?.reload()
                 }
                 dialog.show(supportFragmentManager, com.onyx.browser.ui.menu.SiteShieldBottomSheetDialog.TAG)
