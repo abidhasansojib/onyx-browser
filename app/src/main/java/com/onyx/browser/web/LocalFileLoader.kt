@@ -10,6 +10,7 @@ import android.util.Base64
 import android.webkit.MimeTypeMap
 import android.webkit.WebResourceResponse
 import android.widget.Toast
+import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.download.FileUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

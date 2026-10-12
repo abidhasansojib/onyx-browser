@@ -1043,7 +1043,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         setContentView(binding.root)
 
         val accentTint = AccentColorManager.getAccentColorStateList(this)
-        binding.progressBar.progressTint = accentTint
+        binding.progressBar.progressTintList = accentTint
         binding.ivTranslateIcon.imageTintList = accentTint
         binding.pbTranslateLoading.indeterminateTintList = accentTint
 
