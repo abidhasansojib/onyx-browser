@@ -112,8 +112,8 @@ class TabSwitcherBottomSheet(
         }
 
         val accentColor = com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(requireContext())
-        b.btnNewTabFab.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
-        b.tvUndoAction.setTextColor(accentColor)
+        b.fabNewTab.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+        b.btnUndoCloseTab.setTextColor(accentColor)
 
         setupRecyclerView(b)
         setupTopControls(b)
