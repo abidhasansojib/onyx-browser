@@ -227,15 +227,20 @@ onyx-browser/
 
 ## 6. Current Status & Release Information
 
-- **Current Release**: `v1.0.281`
+- **Current Release**: `v1.0.283`
 - **Build Status**: Production signed APKs published across all ABIs (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`) on GitHub Releases.
 - **Feature Tracking**: Complete feature statuses and technical verification notes are maintained in `FEATURES.md`.
 
-### v1.0.281 Changes
-- **Tab Switcher FAB Plus Button Tint Fix**: Fixed FAB plus icon inheriting Material 3 default container tint (`#381E72`), now explicitly styled with pure white `#FFFFFF` in XML (`app:tint="@android:color/white"`), in runtime code (`imageTintList`), and in theme attributes (`colorOnPrimaryContainer`).
-- **Appearance Theme Picker Auto-Confirm**: Removed manual "Done" button from `bottom_sheet_theme_picker.xml`; selecting any theme option (System, Dark, Light) immediately saves preferences, applies the theme, and dismisses the bottom sheet.
-- **Pull-to-Refresh Direction Fix (`OnyxTouchBridge.kt`)**: Added `touchmove` direction-aware gating. Tracks swipe direction (6px threshold) so upward swipes never trigger pull-to-refresh. Also detects downward swipes inside scrolled inner containers (`scrollTop > 0`) and blocks pull-to-refresh in those cases. Fixes "scroll up triggers page refresh" bug on sites like `obfusgated.com/tools/ad-block-test` and any page with scrollable inner divs.
-- **Bottom Sheet Background Consistency**: Unified all 20 bottom sheets and 2 dialogs to use `@color/settings_canvas_bg` (light: `#F1F3F4`, dark: `#161616`). Previously 14 sheets used `?attr/colorSurface`, no background, or `@drawable/bg_drag_handle` as background. Sheets corrected: `blocking_level_picker`, `cookie_mode_picker`, `dns_provider_picker`, `https_mode_picker`, `download_item_menu`, `download_manager_picker`, `add_filter_url`, `add_search_engine`, `context_menu`, `create_custom_filter`, `download_prompt`, `image_search`, `manage_shortcuts`, `select_downloader`, `filter_lists`, `custom_rules`, `dialog_edit_bookmark`, `dialog_adjust_quick_actions`.
-- **Main Menu Background**: Updated `bg_bottom_sheet_soft_menu.xml` drawable solid color from `?attr/colorSurface` to `@color/settings_canvas_bg` for light/dark consistency.
-- **Drag Handle Fix**: Fixed `bottom_sheet_filter_lists` and `bottom_sheet_custom_rules` that incorrectly used `@drawable/ic_close` as drag handle background — replaced with `@drawable/bg_drag_handle`.
+### v1.0.283 Changes
+- **Site Settings Bug Fixes**:
+  - Eliminated `onResume` JavaScript setting overwrite in `MainActivity.kt` that disregarded per-site rules.
+  - Fixed `OnyxWebView.kt` desktop mode evaluation to honor the global `isDesktopMode` setting.
+  - Added missing count badges for Zoom and Mixed Content categories in `SiteSettingsActivity.kt`.
+  - Fixed `getAllConfiguredDomains()` in `BrowserPreferences.kt` to include `desktopDomains` and `scriptBlockingDomains`.
+  - Hardened "Clear all site data" with complete `WebStorage.deleteAllData()` and `CookieManager.removeAllCookies()` purging.
+  - Wired `AllSitesSheet` domain rows to open `SingleSiteSettingsSheet` and completed permission summary labels.
+- **Brave-Parity Site Settings Features**:
+  - Added "Advanced" section to Site Settings featuring *Cookies and site data* (with `CookieModePickerSheet`), *Desktop site* (global toggle and per-domain rules), and *Protected content* (DRM/EME control).
+  - Added "+ Add site exception" action button and modal dialog to `SitePermissionCategorySheet` allowing manual allow/block rule addition.
+  - Created `SingleSiteSettingsSheet` enabling granular per-domain inspection/editing across all 11 permissions, site storage purging, and 1-tap permission reset.
 
