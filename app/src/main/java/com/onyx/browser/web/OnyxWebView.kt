@@ -243,8 +243,7 @@ class OnyxWebView @JvmOverloads constructor(
         isScrollbarFadingEnabled = true
 
 
-        // Apply UA Spoofer and all persisted settings — one singleton lookup for the whole function
-        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        // Apply UA Spoofer and all persisted settings
         settings.userAgentString = getBaseUserAgent(prefs)
 
         applyForceDark()

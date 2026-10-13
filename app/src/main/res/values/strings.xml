@@ -614,7 +614,7 @@
     <string name="perm_dialog_always_allow">Always allow</string>
     <string name="perm_dialog_allow_once">Allow this time</string>
     <string name="perm_dialog_block">Block</string>
-    <string name="perm_dialog_wants_access">%s wants to access your %s</string>
+    <string name="perm_dialog_wants_access">%1$s wants to access your %2$s</string>
     <string name="perm_notifications_desc">This site wants to send you browser notifications.</string>
     <string name="perm_camera_desc">This site wants to access your camera.</string>
     <string name="perm_mic_desc">This site wants to access your microphone.</string>
