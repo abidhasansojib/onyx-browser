@@ -457,9 +457,14 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         val needsAudio = resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
         val needsVideo = resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
 
-        // If no hardware sensors (microphone/camera) requested (e.g. Protected Media ID), grant directly
+        // If no hardware sensors (microphone/camera) requested — check for Protected Media ID (DRM/EME)
         if (!needsAudio && !needsVideo) {
-            safeGrantWebPermission(request, resources)
+            val needsProtectedMedia = resources.contains(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)
+            if (needsProtectedMedia && !preferences.isProtectedContentEnabledGlobal) {
+                safeDenyWebPermission(request)
+            } else {
+                safeGrantWebPermission(request, resources)
+            }
             return
         }
 
@@ -3289,7 +3294,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 preferences.cookieBlockingMode != BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY &&
                 preferences.cookieBlockingMode != BrowserPreferences.COOKIE_BLOCK_ALL
             )
-            wv.settings.javaScriptEnabled = !preferences.isGlobalScriptBlockingEnabled
+            // JS enablement is managed by applySiteSettingsForUrl (called above in applyUserAgentForUrl),
+            // which correctly applies both the global isJavaScriptEnabledGlobal toggle and
+            // per-site exceptions. Do NOT blindly overwrite it here.
         }
 
         // 5. Sync pull to refresh & force dark settings

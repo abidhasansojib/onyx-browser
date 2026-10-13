@@ -630,6 +630,30 @@
     <string name="policy_allowed_label">Allowed</string>
     <string name="policy_ask_label">Ask (default)</string>
     <string name="no_exceptions_set">No site exceptions</string>
+
+    <!-- Advanced site settings -->
+    <string name="cookies_site_data_title">Cookies and site data</string>
+    <string name="cookies_site_data_desc">Control how sites store cookies and data</string>
+    <string name="desktop_site_settings_title">Desktop site</string>
+    <string name="desktop_site_settings_desc">Show the desktop version of websites</string>
+    <string name="protected_content_settings_title">Protected content</string>
+    <string name="protected_content_settings_desc">Allow sites to play protected (DRM) content</string>
+    <string name="add_site_exception">Add site exception</string>
+    <string name="add_site_exception_hint">Enter a site (e.g. example.com)</string>
+    <string name="site_permissions_for">Permissions for %s</string>
+    <string name="clear_site_data_for">Clear data for %s</string>
+    <string name="advanced_site_settings_header">Advanced</string>
+    <string name="cookies_all_allowed">All cookies allowed</string>
+    <string name="cookies_third_party_blocked">Third-party blocked</string>
+    <string name="cookies_all_blocked">All blocked</string>
+    <string name="desktop_site_enabled">Enabled</string>
+    <string name="desktop_site_disabled">Disabled</string>
+    <string name="protected_content_allow">Allow</string>
+    <string name="protected_content_block">Block</string>
+    <string name="single_site_settings_tag">SingleSiteSettingsSheet</string>
+    <string name="reset_site_permissions">Reset permissions</string>
+    <string name="default_permission">Default</string>
+    <string name="permission_default_label">Ask (default)</string>
 </resources>
 
 

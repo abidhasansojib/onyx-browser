@@ -168,14 +168,26 @@ class AllSitesSheet(
         if (notif == SitePermissionState.ALLOWED) summaryParts.add("Notif: allowed")
         else if (notif == SitePermissionState.BLOCKED) summaryParts.add("Notif: blocked")
         val js = prefs.getSiteJavaScriptPermission(domain)
-        if (js == SitePermissionState.BLOCKED) summaryParts.add("JS: blocked")
+        if (js == SitePermissionState.ALLOWED) summaryParts.add("JS: allowed")
+        else if (js == SitePermissionState.BLOCKED) summaryParts.add("JS: blocked")
         val popup = prefs.getSitePopupsPermission(domain)
         if (popup == SitePermissionState.ALLOWED) summaryParts.add("Popups: allowed")
+        else if (popup == SitePermissionState.BLOCKED) summaryParts.add("Popups: blocked")
         val auto = prefs.getSiteAutoplayPermission(domain)
-        if (auto == SitePermissionState.BLOCKED) summaryParts.add("Autoplay: blocked")
+        if (auto == SitePermissionState.ALLOWED) summaryParts.add("Autoplay: allowed")
+        else if (auto == SitePermissionState.BLOCKED) summaryParts.add("Autoplay: blocked")
         val img = prefs.getSiteImagesPermission(domain)
-        if (img == SitePermissionState.BLOCKED) summaryParts.add("Images: blocked")
-        if (prefs.isDomainWhitelisted(domain)) summaryParts.add("Shields: off")
+        if (img == SitePermissionState.ALLOWED) summaryParts.add("Images: allowed")
+        else if (img == SitePermissionState.BLOCKED) summaryParts.add("Images: blocked")
+        val zoom = prefs.getSiteZoomPermission(domain)
+        if (zoom == SitePermissionState.ALLOWED) summaryParts.add("Zoom: allowed")
+        else if (zoom == SitePermissionState.BLOCKED) summaryParts.add("Zoom: blocked")
+        val mixed = prefs.getSiteMixedContentPermission(domain)
+        if (mixed == SitePermissionState.ALLOWED) summaryParts.add("Mixed: allowed")
+        else if (mixed == SitePermissionState.BLOCKED) summaryParts.add("Mixed: blocked")
+        val cleanDomain = prefs.cleanDomain(domain)
+        if (prefs.desktopDomains.contains(cleanDomain) || prefs.desktopDomains.contains(domain)) summaryParts.add("Desktop: on")
+        if (prefs.isDomainWhitelisted(domain) || prefs.isDomainWhitelisted(cleanDomain)) summaryParts.add("Shields: off")
 
         val tvSummary = TextView(requireContext()).apply {
             text = if (summaryParts.isNotEmpty()) summaryParts.joinToString(" · ") else "Default permissions"
@@ -186,6 +198,14 @@ class AllSitesSheet(
 
         textContainer.addView(tvDomain)
         textContainer.addView(tvSummary)
+
+        row.setOnClickListener {
+            val sheet = SingleSiteSettingsSheet(domain) {
+                loadDomains()
+                onSitesChanged()
+            }
+            sheet.show(parentFragmentManager, SingleSiteSettingsSheet.TAG)
+        }
 
         // Clear data icon button (using delete icon, represents clearing)
         val btnClearData = ImageView(requireContext()).apply {
@@ -216,6 +236,9 @@ class AllSitesSheet(
                         // Reset permissions too for clean slate
                         prefs.resetSitePermissions(domain)
                         prefs.setDomainWhitelisted(domain, false)
+                        val d = prefs.desktopDomains.toMutableSet()
+                        d.remove(domain)
+                        prefs.desktopDomains = d
                         loadDomains()
                         onSitesChanged()
                     }

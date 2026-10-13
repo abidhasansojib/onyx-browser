@@ -1077,6 +1077,11 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_MIXED_CONTENT_BLOCKED_GLOBAL, true) // default: block mixed content
         set(value) = prefs.edit().putBoolean(KEY_MIXED_CONTENT_BLOCKED_GLOBAL, value).apply()
 
+    /** Protected content (DRM / EME Media) — allow sites to use protected device identifiers. */
+    var isProtectedContentEnabledGlobal: Boolean
+        get() = prefs.getBoolean(KEY_PROTECTED_CONTENT_ENABLED_GLOBAL, true) // default: allow (Brave default)
+        set(value) = prefs.edit().putBoolean(KEY_PROTECTED_CONTENT_ENABLED_GLOBAL, value).apply()
+
     fun getAllConfiguredDomains(): Set<String> {
         val domains = sortedSetOf<String>()
         domains.addAll(getAllowedCameraDomains())
@@ -1099,6 +1104,11 @@ class BrowserPreferences private constructor(private val context: Context) {
         domains.addAll(getBlockedZoomDomains())
         domains.addAll(getAllowedMixedDomains())
         domains.addAll(getBlockedMixedDomains())
+        // Desktop mode per-domain overrides
+        domains.addAll(desktopDomains)
+        // Per-domain script blocking
+        val scriptBlocked = prefs.getStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, emptySet()) ?: emptySet()
+        domains.addAll(scriptBlocked)
         val whitelist = prefs.getStringSet(KEY_ADBLOCK_WHITELIST, emptySet()) ?: emptySet()
         domains.addAll(whitelist)
         return domains
@@ -1531,6 +1541,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_ALLOWED_MIXED_DOMAINS = "pref_allowed_mixed_domains"
         const val KEY_BLOCKED_MIXED_DOMAINS = "pref_blocked_mixed_domains"
         const val KEY_MIXED_CONTENT_BLOCKED_GLOBAL = "pref_mixed_content_blocked_global"
+        const val KEY_PROTECTED_CONTENT_ENABLED_GLOBAL = "pref_protected_content_enabled_global"
 
 
         /**

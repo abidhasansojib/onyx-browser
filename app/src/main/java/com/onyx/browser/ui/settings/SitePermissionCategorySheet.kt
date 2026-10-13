@@ -33,6 +33,7 @@ class SitePermissionCategorySheet(
         const val CATEGORY_IMAGES = 8
         const val CATEGORY_ZOOM = 9
         const val CATEGORY_MIXED_CONTENT = 10
+        const val CATEGORY_DESKTOP = 11
     }
 
     private var _binding: BottomSheetSitePermissionCategoryBinding? = null
@@ -68,6 +69,7 @@ class SitePermissionCategorySheet(
         setupHeader()
         setupGlobalToggle()
         populateSiteLists()
+        binding.btnAddSiteException.setOnClickListener { showAddExceptionDialog() }
     }
 
     private fun setupHeader() {
@@ -82,6 +84,7 @@ class SitePermissionCategorySheet(
             CATEGORY_IMAGES -> Pair(R.drawable.ic_image, R.string.images_settings_title)
             CATEGORY_ZOOM -> Pair(R.drawable.ic_aspect_ratio, R.string.zoom_settings_title)
             CATEGORY_MIXED_CONTENT -> Pair(R.drawable.ic_lock, R.string.mixed_content_settings_title)
+            CATEGORY_DESKTOP -> Pair(R.drawable.ic_desktop, R.string.desktop_site_settings_title)
             else -> Pair(R.drawable.ic_web, R.string.site_settings_title)
         }
         binding.ivCategoryIcon.setImageResource(iconRes)
@@ -121,6 +124,7 @@ class SitePermissionCategorySheet(
         CATEGORY_IMAGES -> prefs.isImagesEnabledGlobal
         CATEGORY_ZOOM -> prefs.isZoomEnabledGlobal
         CATEGORY_MIXED_CONTENT -> !prefs.isMixedContentBlockedGlobal
+        CATEGORY_DESKTOP -> prefs.isDesktopMode
         else -> true
     }
 
@@ -135,6 +139,7 @@ class SitePermissionCategorySheet(
         CATEGORY_IMAGES -> prefs.isImagesEnabledGlobal = value
         CATEGORY_ZOOM -> prefs.isZoomEnabledGlobal = value
         CATEGORY_MIXED_CONTENT -> prefs.isMixedContentBlockedGlobal = !value
+        CATEGORY_DESKTOP -> prefs.isDesktopMode = value
         else -> {}
     }
 
@@ -169,6 +174,10 @@ class SitePermissionCategorySheet(
                 Pair(getString(R.string.ask_before_accessing), "Sites must ask before sending notifications")
             else
                 Pair(getString(R.string.blocked_globally), "All sites are blocked from sending notifications")
+            CATEGORY_DESKTOP -> if (isEnabled)
+                Pair("Desktop site on", "Pages show the desktop version of websites")
+            else
+                Pair("Desktop site off", "Pages show the mobile version of websites")
             else -> if (isEnabled)
                 Pair(getString(R.string.ask_before_accessing), "Sites must ask for permission before using this device")
             else
@@ -189,6 +198,7 @@ class SitePermissionCategorySheet(
         CATEGORY_IMAGES -> prefs.getAllowedImagesDomains()
         CATEGORY_ZOOM -> prefs.getAllowedZoomDomains()
         CATEGORY_MIXED_CONTENT -> prefs.getAllowedMixedDomains()
+        CATEGORY_DESKTOP -> prefs.desktopDomains
         else -> emptySet()
     }
 
@@ -203,6 +213,7 @@ class SitePermissionCategorySheet(
         CATEGORY_IMAGES -> prefs.getBlockedImagesDomains()
         CATEGORY_ZOOM -> prefs.getBlockedZoomDomains()
         CATEGORY_MIXED_CONTENT -> prefs.getBlockedMixedDomains()
+        CATEGORY_DESKTOP -> emptySet()
         else -> emptySet()
     }
 
@@ -217,7 +228,94 @@ class SitePermissionCategorySheet(
         CATEGORY_IMAGES -> prefs.setSiteImagesPermission(domain, SitePermissionState.ASK)
         CATEGORY_ZOOM -> prefs.setSiteZoomPermission(domain, SitePermissionState.ASK)
         CATEGORY_MIXED_CONTENT -> prefs.setSiteMixedContentPermission(domain, SitePermissionState.ASK)
+        CATEGORY_DESKTOP -> {
+            val d = prefs.desktopDomains.toMutableSet()
+            d.remove(domain)
+            prefs.desktopDomains = d
+        }
         else -> {}
+    }
+
+    private fun setSitePermissionAllowed(domain: String) = when (categoryType) {
+        CATEGORY_CAMERA -> prefs.setSiteCameraPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_MIC -> prefs.setSiteMicPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_LOCATION -> prefs.setSiteLocationPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_NOTIFICATIONS -> prefs.setSiteNotificationsPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_JAVASCRIPT -> prefs.setSiteJavaScriptPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_POPUPS -> prefs.setSitePopupsPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_AUTOPLAY -> prefs.setSiteAutoplayPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_IMAGES -> prefs.setSiteImagesPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_ZOOM -> prefs.setSiteZoomPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_MIXED_CONTENT -> prefs.setSiteMixedContentPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_DESKTOP -> {
+            val d = prefs.desktopDomains.toMutableSet()
+            d.add(domain)
+            prefs.desktopDomains = d
+        }
+        else -> {}
+    }
+
+    private fun setSitePermissionBlocked(domain: String) = when (categoryType) {
+        CATEGORY_CAMERA -> prefs.setSiteCameraPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_MIC -> prefs.setSiteMicPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_LOCATION -> prefs.setSiteLocationPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_NOTIFICATIONS -> prefs.setSiteNotificationsPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_JAVASCRIPT -> prefs.setSiteJavaScriptPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_POPUPS -> prefs.setSitePopupsPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_AUTOPLAY -> prefs.setSiteAutoplayPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_IMAGES -> prefs.setSiteImagesPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_ZOOM -> prefs.setSiteZoomPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_MIXED_CONTENT -> prefs.setSiteMixedContentPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_DESKTOP -> clearSitePermission(domain)
+        else -> {}
+    }
+
+    private fun showAddExceptionDialog() {
+        val inputET = android.widget.EditText(requireContext()).apply {
+            hint = getString(R.string.add_site_exception_hint)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+        }
+        val padding = (16 * resources.displayMetrics.density).toInt()
+        val container = android.widget.FrameLayout(requireContext()).apply {
+            setPadding(padding, 0, padding, 0)
+            addView(inputET)
+        }
+        val isDesktopCategory = categoryType == CATEGORY_DESKTOP
+        val builder = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.add_site_exception)
+            .setView(container)
+            .setNeutralButton(R.string.cancel, null)
+        if (!isDesktopCategory) {
+            builder
+                .setPositiveButton(getString(R.string.permission_allowed)) { _, _ ->
+                    val domain = prefs.cleanDomain(inputET.text.toString().trim())
+                    if (domain.isNotBlank()) {
+                        clearSitePermission(domain)
+                        setSitePermissionAllowed(domain)
+                        populateSiteLists()
+                        onPermissionChanged()
+                    }
+                }
+                .setNegativeButton(getString(R.string.permission_blocked)) { _, _ ->
+                    val domain = prefs.cleanDomain(inputET.text.toString().trim())
+                    if (domain.isNotBlank()) {
+                        clearSitePermission(domain)
+                        setSitePermissionBlocked(domain)
+                        populateSiteLists()
+                        onPermissionChanged()
+                    }
+                }
+        } else {
+            builder.setPositiveButton("Enable desktop") { _, _ ->
+                val domain = prefs.cleanDomain(inputET.text.toString().trim())
+                if (domain.isNotBlank()) {
+                    setSitePermissionAllowed(domain)
+                    populateSiteLists()
+                    onPermissionChanged()
+                }
+            }
+        }
+        builder.show()
     }
 
     private fun populateSiteLists() {

@@ -590,7 +590,8 @@ class OnyxWebView @JvmOverloads constructor(
         }
 
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        val wantsDesktop = key != null && prefs.desktopDomains.any { key == it || key.endsWith(".$it") }
+        val domainWantsDesktop = key != null && prefs.desktopDomains.any { key == it || key.endsWith(".$it") }
+        val wantsDesktop = domainWantsDesktop || prefs.isDesktopMode
         
         val targetUa = if (wantsDesktop) {
             if (prefs.userAgentSpoofTemplate in UserAgentManager.DESKTOP_KEYS) {

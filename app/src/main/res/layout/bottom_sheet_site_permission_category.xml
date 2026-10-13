@@ -140,6 +140,18 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Add site exception button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAddSiteException"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="-10dp"
+            android:layout_marginBottom="12dp"
+            android:text="@string/add_site_exception"
+            app:icon="@drawable/ic_add" />
+
         <!-- Allowed Sites Section -->
         <TextView
             android:id="@+id/tvAllowedHeader"

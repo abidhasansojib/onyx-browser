@@ -157,17 +157,68 @@ class SiteSettingsActivity : AppCompatActivity() {
             sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
         }
 
+        binding.rowCookiesSiteData.setOnClickListener {
+            val sheet = CookieModePickerSheet(prefs.cookieBlockingMode) { selectedMode ->
+                prefs.cookieBlockingMode = selectedMode
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, CookieModePickerSheet.TAG)
+        }
+
+        binding.rowDesktopSite.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_DESKTOP) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowProtectedContent.setOnClickListener {
+            val items = arrayOf(
+                getString(R.string.protected_content_allow),
+                getString(R.string.protected_content_block)
+            )
+            val checkedItem = if (prefs.isProtectedContentEnabledGlobal) 0 else 1
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.protected_content_settings_title)
+                .setSingleChoiceItems(items, checkedItem) { dialog, which ->
+                    prefs.isProtectedContentEnabledGlobal = (which == 0)
+                    updateStatuses()
+                    dialog.dismiss()
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
+
         binding.rowClearAllSiteData.setOnClickListener {
             val domains = prefs.getAllConfiguredDomains()
+            val count = domains.size
+            val message = if (count == 0) {
+                "Clear all cookies and browsing data stored on this device?"
+            } else {
+                "Clear all cookies and browsing data for $count sites on this device? All site permission exceptions will also be reset."
+            }
             MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.clear_site_data)
-                .setMessage("Clear cookies and site data for all ${domains.size} configured sites?")
+                .setMessage(message)
                 .setPositiveButton(R.string.clear_site_data) { _, _ ->
                     val ctx = applicationContext
+                    // 1. Reset all per-site permission exceptions
+                    for (domain in domains) {
+                        prefs.resetSitePermissions(domain)
+                        prefs.setDomainWhitelisted(domain, false)
+                    }
+                    // 2. Clear desktop mode domain overrides
+                    prefs.desktopDomains = emptySet()
+                    // 3. Full WebStorage wipe
+                    android.webkit.WebStorage.getInstance().deleteAllData()
+                    // 4. Full cookie wipe
+                    android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                    android.webkit.CookieManager.getInstance().flush()
+                    // 5. Per-domain cookie clear for good measure
                     for (domain in domains) {
                         SiteDataManager.clearSiteData(ctx, domain)
                     }
-                    Toast.makeText(this, "Cleared cookies and site data for all sites", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Cleared all cookies and site data", Toast.LENGTH_SHORT).show()
                     updateStatuses()
                 }
                 .setNegativeButton(R.string.cancel, null)
@@ -270,6 +321,7 @@ class SiteSettingsActivity : AppCompatActivity() {
         } else {
             getString(R.string.policy_blocked_label)
         }
+        updateCountBadge(binding.tvZoomCount, prefs.getAllowedZoomDomains().size, prefs.getBlockedZoomDomains().size)
 
         // Mixed Content
         val mixedBlocked = prefs.isMixedContentBlockedGlobal
@@ -277,6 +329,33 @@ class SiteSettingsActivity : AppCompatActivity() {
             getString(R.string.policy_blocked_label)
         } else {
             getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvMixedContentCount, prefs.getAllowedMixedDomains().size, prefs.getBlockedMixedDomains().size)
+
+        // Cookies & site data
+        binding.tvCookiesStatus.text = when (prefs.cookieBlockingMode) {
+            BrowserPreferences.COOKIE_BLOCK_NONE -> getString(R.string.cookies_all_allowed)
+            BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY -> getString(R.string.cookies_third_party_blocked)
+            BrowserPreferences.COOKIE_BLOCK_ALL -> getString(R.string.cookies_all_blocked)
+            else -> getString(R.string.cookies_site_data_desc)
+        }
+
+        // Desktop site
+        val desktopGlobal = prefs.isDesktopMode
+        binding.tvDesktopSiteStatus.text = if (desktopGlobal) {
+            getString(R.string.desktop_site_enabled)
+        } else {
+            getString(R.string.desktop_site_disabled)
+        }
+        val desktopExceptionsCount = prefs.desktopDomains.size
+        updateCountBadge(binding.tvDesktopSiteCount, desktopExceptionsCount, 0)
+
+        // Protected content
+        val protectedEnabled = prefs.isProtectedContentEnabledGlobal
+        binding.tvProtectedContentStatus.text = if (protectedEnabled) {
+            getString(R.string.policy_allowed_label)
+        } else {
+            getString(R.string.policy_blocked_label)
         }
 
         // Clear data subtitle
