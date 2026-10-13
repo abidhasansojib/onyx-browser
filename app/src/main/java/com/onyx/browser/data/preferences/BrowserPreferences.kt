@@ -833,7 +833,13 @@ class BrowserPreferences private constructor(private val context: Context) {
                isWebFontsAllowed(domain) != null ||
                isWebBluetoothAllowed(domain) != null ||
                isWebWakeLockAllowed(domain) != null ||
-               isWebPaymentAllowed(domain) != null
+               isWebPaymentAllowed(domain) != null ||
+               isWebFileEditingAllowed(domain) != null ||
+               isWebVrAllowed(domain) != null ||
+               isWebNfcAllowed(domain) != null ||
+               isWebWindowManagementAllowed(domain) != null ||
+               isWebStorageAccessAllowed(domain) != null ||
+               isWebWebRtcExplicitlySet(domain) != null
     }
 
     fun resetSitePermissions(domainOrUrl: String) {
@@ -865,6 +871,12 @@ class BrowserPreferences private constructor(private val context: Context) {
         setSiteBluetoothPermission(domain, SitePermissionState.ASK)
         setSiteWakeLockPermission(domain, SitePermissionState.ASK)
         setSitePaymentPermission(domain, SitePermissionState.ASK)
+        setSiteFileEditingPermission(domain, SitePermissionState.ASK)
+        setSiteVrPermission(domain, SitePermissionState.ASK)
+        setSiteNfcPermission(domain, SitePermissionState.ASK)
+        setSiteWindowManagementPermission(domain, SitePermissionState.ASK)
+        setSiteStorageAccessPermission(domain, SitePermissionState.ASK)
+        setSiteWebRtcPermission(domain, SitePermissionState.ASK)
     }
 
     fun getAllowedCameraDomains(): Set<String> =
@@ -1911,6 +1923,321 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_PAYMENT_BLOCKED_GLOBAL, false)
         set(value) = prefs.edit().putBoolean(KEY_PAYMENT_BLOCKED_GLOBAL, value).apply()
 
+    // ── File System / Editing Permission (per-domain) ────────────────────────
+    @Volatile private var cachedAllowedFileEditingDomains: Set<String>? = null
+    @Volatile private var cachedBlockedFileEditingDomains: Set<String>? = null
+
+    fun isWebFileEditingAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedFileEditingDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_FILE_EDITING_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedFileEditingDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedFileEditingDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_FILE_EDITING_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedFileEditingDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun getSiteFileEditingPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebFileEditingAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteFileEditingPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_FILE_EDITING_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_FILE_EDITING_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedFileEditingDomains = a
+        cachedBlockedFileEditingDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_FILE_EDITING_DOMAINS, a).putStringSet(KEY_BLOCKED_FILE_EDITING_DOMAINS, b).apply()
+    }
+
+    fun getAllowedFileEditingDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_FILE_EDITING_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedFileEditingDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_FILE_EDITING_DOMAINS, emptySet()) ?: emptySet()
+
+    var isFileEditingBlockedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_FILE_EDITING_BLOCKED_GLOBAL, false)
+        set(value) = prefs.edit().putBoolean(KEY_FILE_EDITING_BLOCKED_GLOBAL, value).apply()
+
+    // ── Virtual Reality & XR Permission (per-domain) ─────────────────────────
+    @Volatile private var cachedAllowedVrDomains: Set<String>? = null
+    @Volatile private var cachedBlockedVrDomains: Set<String>? = null
+
+    fun isWebVrAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedVrDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_VR_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedVrDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedVrDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_VR_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedVrDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun getSiteVrPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebVrAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteVrPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_VR_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_VR_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedVrDomains = a
+        cachedBlockedVrDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_VR_DOMAINS, a).putStringSet(KEY_BLOCKED_VR_DOMAINS, b).apply()
+    }
+
+    fun getAllowedVrDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_VR_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedVrDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_VR_DOMAINS, emptySet()) ?: emptySet()
+
+    var isVrBlockedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_VR_BLOCKED_GLOBAL, false)
+        set(value) = prefs.edit().putBoolean(KEY_VR_BLOCKED_GLOBAL, value).apply()
+
+    // ── Web NFC Permission (per-domain) ──────────────────────────────────────
+    @Volatile private var cachedAllowedNfcDomains: Set<String>? = null
+    @Volatile private var cachedBlockedNfcDomains: Set<String>? = null
+
+    fun isWebNfcAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedNfcDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_NFC_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedNfcDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedNfcDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_NFC_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedNfcDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun getSiteNfcPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebNfcAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteNfcPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_NFC_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_NFC_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedNfcDomains = a
+        cachedBlockedNfcDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_NFC_DOMAINS, a).putStringSet(KEY_BLOCKED_NFC_DOMAINS, b).apply()
+    }
+
+    fun getAllowedNfcDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_NFC_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedNfcDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_NFC_DOMAINS, emptySet()) ?: emptySet()
+
+    var isNfcBlockedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_NFC_BLOCKED_GLOBAL, false)
+        set(value) = prefs.edit().putBoolean(KEY_NFC_BLOCKED_GLOBAL, value).apply()
+
+    // ── Window Management Permission (per-domain) ────────────────────────────
+    @Volatile private var cachedAllowedWindowManagementDomains: Set<String>? = null
+    @Volatile private var cachedBlockedWindowManagementDomains: Set<String>? = null
+
+    fun isWebWindowManagementAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedWindowManagementDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_WINDOW_MANAGEMENT_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedWindowManagementDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedWindowManagementDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_WINDOW_MANAGEMENT_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedWindowManagementDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun getSiteWindowManagementPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebWindowManagementAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteWindowManagementPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_WINDOW_MANAGEMENT_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_WINDOW_MANAGEMENT_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedWindowManagementDomains = a
+        cachedBlockedWindowManagementDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_WINDOW_MANAGEMENT_DOMAINS, a).putStringSet(KEY_BLOCKED_WINDOW_MANAGEMENT_DOMAINS, b).apply()
+    }
+
+    fun getAllowedWindowManagementDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_WINDOW_MANAGEMENT_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedWindowManagementDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_WINDOW_MANAGEMENT_DOMAINS, emptySet()) ?: emptySet()
+
+    var isWindowManagementBlockedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_WINDOW_MANAGEMENT_BLOCKED_GLOBAL, false)
+        set(value) = prefs.edit().putBoolean(KEY_WINDOW_MANAGEMENT_BLOCKED_GLOBAL, value).apply()
+
+    // ── Storage Access Permission (per-domain) ───────────────────────────────
+    @Volatile private var cachedAllowedStorageAccessDomains: Set<String>? = null
+    @Volatile private var cachedBlockedStorageAccessDomains: Set<String>? = null
+
+    fun isWebStorageAccessAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedStorageAccessDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_STORAGE_ACCESS_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedStorageAccessDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedStorageAccessDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_STORAGE_ACCESS_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedStorageAccessDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun getSiteStorageAccessPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebStorageAccessAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteStorageAccessPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_STORAGE_ACCESS_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_STORAGE_ACCESS_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedStorageAccessDomains = a
+        cachedBlockedStorageAccessDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_STORAGE_ACCESS_DOMAINS, a).putStringSet(KEY_BLOCKED_STORAGE_ACCESS_DOMAINS, b).apply()
+    }
+
+    fun getAllowedStorageAccessDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_STORAGE_ACCESS_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedStorageAccessDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_STORAGE_ACCESS_DOMAINS, emptySet()) ?: emptySet()
+
+    var isStorageAccessBlockedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_STORAGE_ACCESS_BLOCKED_GLOBAL, false)
+        set(value) = prefs.edit().putBoolean(KEY_STORAGE_ACCESS_BLOCKED_GLOBAL, value).apply()
+
+    // ── WebRTC IP Handling / Leak Protection (per-domain) ────────────────────
+    @Volatile private var cachedAllowedWebRtcDomains: Set<String>? = null
+    @Volatile private var cachedBlockedWebRtcDomains: Set<String>? = null
+
+    fun isWebWebRtcExplicitlySet(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedWebRtcDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_WEBRTC_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedWebRtcDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedWebRtcDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_WEBRTC_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedWebRtcDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    /** Returns true if WebRTC local IP leak protection is actively enforced for the domain. */
+    fun isWebRtcProtected(domainOrUrl: String): Boolean {
+        return when (isWebWebRtcExplicitlySet(domainOrUrl)) {
+            false -> false // Excluded from leak protection (raw IP allowed)
+            true -> true  // Explicitly protected
+            null -> isWebRtcProtectedGlobal // Fallback to global setting (defaults to true)
+        }
+    }
+
+    fun getSiteWebRtcPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebWebRtcExplicitlySet(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteWebRtcPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_WEBRTC_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_WEBRTC_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedWebRtcDomains = a
+        cachedBlockedWebRtcDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_WEBRTC_DOMAINS, a).putStringSet(KEY_BLOCKED_WEBRTC_DOMAINS, b).apply()
+    }
+
+    fun getAllowedWebRtcDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_WEBRTC_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedWebRtcDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_WEBRTC_DOMAINS, emptySet()) ?: emptySet()
+
+    var isWebRtcProtectedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_WEBRTC_PROTECTED_GLOBAL, true)
+        set(value) = prefs.edit().putBoolean(KEY_WEBRTC_PROTECTED_GLOBAL, value).apply()
+
     fun getAllConfiguredDomains(): Set<String> {
         val domains = sortedSetOf<String>()
         domains.addAll(getAllowedCameraDomains())
@@ -1964,6 +2291,18 @@ class BrowserPreferences private constructor(private val context: Context) {
         domains.addAll(getBlockedWakeLockDomains())
         domains.addAll(getAllowedPaymentDomains())
         domains.addAll(getBlockedPaymentDomains())
+        domains.addAll(getAllowedFileEditingDomains())
+        domains.addAll(getBlockedFileEditingDomains())
+        domains.addAll(getAllowedVrDomains())
+        domains.addAll(getBlockedVrDomains())
+        domains.addAll(getAllowedNfcDomains())
+        domains.addAll(getBlockedNfcDomains())
+        domains.addAll(getAllowedWindowManagementDomains())
+        domains.addAll(getBlockedWindowManagementDomains())
+        domains.addAll(getAllowedStorageAccessDomains())
+        domains.addAll(getBlockedStorageAccessDomains())
+        domains.addAll(getAllowedWebRtcDomains())
+        domains.addAll(getBlockedWebRtcDomains())
         // Desktop mode per-domain overrides
         domains.addAll(desktopDomains)
         // Per-domain script blocking
@@ -2465,6 +2804,30 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_ALLOWED_PAYMENT_DOMAINS = "pref_allowed_payment_domains"
         const val KEY_BLOCKED_PAYMENT_DOMAINS = "pref_blocked_payment_domains"
         const val KEY_PAYMENT_BLOCKED_GLOBAL = "pref_payment_blocked_global"
+
+        const val KEY_ALLOWED_FILE_EDITING_DOMAINS = "pref_allowed_file_editing_domains"
+        const val KEY_BLOCKED_FILE_EDITING_DOMAINS = "pref_blocked_file_editing_domains"
+        const val KEY_FILE_EDITING_BLOCKED_GLOBAL = "pref_file_editing_blocked_global"
+
+        const val KEY_ALLOWED_VR_DOMAINS = "pref_allowed_vr_domains"
+        const val KEY_BLOCKED_VR_DOMAINS = "pref_blocked_vr_domains"
+        const val KEY_VR_BLOCKED_GLOBAL = "pref_vr_blocked_global"
+
+        const val KEY_ALLOWED_NFC_DOMAINS = "pref_allowed_nfc_domains"
+        const val KEY_BLOCKED_NFC_DOMAINS = "pref_blocked_nfc_domains"
+        const val KEY_NFC_BLOCKED_GLOBAL = "pref_nfc_blocked_global"
+
+        const val KEY_ALLOWED_WINDOW_MANAGEMENT_DOMAINS = "pref_allowed_window_management_domains"
+        const val KEY_BLOCKED_WINDOW_MANAGEMENT_DOMAINS = "pref_blocked_window_management_domains"
+        const val KEY_WINDOW_MANAGEMENT_BLOCKED_GLOBAL = "pref_window_management_blocked_global"
+
+        const val KEY_ALLOWED_STORAGE_ACCESS_DOMAINS = "pref_allowed_storage_access_domains"
+        const val KEY_BLOCKED_STORAGE_ACCESS_DOMAINS = "pref_blocked_storage_access_domains"
+        const val KEY_STORAGE_ACCESS_BLOCKED_GLOBAL = "pref_storage_access_blocked_global"
+
+        const val KEY_ALLOWED_WEBRTC_DOMAINS = "pref_allowed_webrtc_domains"
+        const val KEY_BLOCKED_WEBRTC_DOMAINS = "pref_blocked_webrtc_domains"
+        const val KEY_WEBRTC_PROTECTED_GLOBAL = "pref_webrtc_protected_global"
 
 
         /**

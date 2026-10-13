@@ -384,6 +384,66 @@ class SingleSiteSettingsSheet(
                 }
             ),
             PermissionItem(
+                key = "file_editing",
+                iconRes = R.drawable.ic_file_edit,
+                title = getString(R.string.file_editing_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteFileEditingPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteFileEditingPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "vr",
+                iconRes = R.drawable.ic_vr,
+                title = getString(R.string.vr_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteVrPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteVrPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "nfc",
+                iconRes = R.drawable.ic_nfc,
+                title = getString(R.string.nfc_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteNfcPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteNfcPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "window_management",
+                iconRes = R.drawable.ic_window_management,
+                title = getString(R.string.window_management_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteWindowManagementPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteWindowManagementPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "storage_access",
+                iconRes = R.drawable.ic_storage_access,
+                title = getString(R.string.storage_access_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteStorageAccessPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteStorageAccessPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "webrtc",
+                iconRes = R.drawable.ic_network,
+                title = getString(R.string.webrtc_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteWebRtcPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteWebRtcPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
                 key = "auto_shred",
                 iconRes = R.drawable.ic_broom,
                 title = getString(R.string.forget_site_on_close),

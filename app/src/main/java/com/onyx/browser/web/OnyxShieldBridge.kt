@@ -173,6 +173,42 @@ class OnyxShieldBridge(private val context: Context) {
     }
 
     @JavascriptInterface
+    fun isFileEditingAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isFileEditingBlockedGlobal
+        return preferences.isWebFileEditingAllowed(target) ?: !preferences.isFileEditingBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isVrAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isVrBlockedGlobal
+        return preferences.isWebVrAllowed(target) ?: !preferences.isVrBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isNfcAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isNfcBlockedGlobal
+        return preferences.isWebNfcAllowed(target) ?: !preferences.isNfcBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isWindowManagementAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isWindowManagementBlockedGlobal
+        return preferences.isWebWindowManagementAllowed(target) ?: !preferences.isWindowManagementBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isStorageAccessAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isStorageAccessBlockedGlobal
+        return preferences.isWebStorageAccessAllowed(target) ?: !preferences.isStorageAccessBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isWebRtcProtected(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return preferences.isWebRtcProtectedGlobal
+        return preferences.isWebRtcProtected(target)
+    }
+
+    @JavascriptInterface
     fun getHiddenSelectors(classesJson: String?, idsJson: String?, pageUrl: String?): String {
         if (!preferences.isAdBlockEnabled || !preferences.isCosmeticFilteringEnabled) return "[]"
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return "[]"

@@ -206,6 +206,48 @@ class SiteSettingsActivity : AppCompatActivity() {
             sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
         }
 
+        binding.rowFileEditingPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_FILE_EDITING) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowVrPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_VR) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowNfcPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_NFC) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowWindowManagementPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_WINDOW_MANAGEMENT) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowStorageAccessPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_STORAGE_ACCESS) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowWebRtcPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_WEBRTC) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
         binding.rowJavaScriptPermission.setOnClickListener {
             val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_JAVASCRIPT) {
                 updateStatuses()
@@ -568,6 +610,54 @@ class SiteSettingsActivity : AppCompatActivity() {
             getString(R.string.policy_allowed_label)
         }
         updateCountBadge(binding.tvPaymentCount, prefs.getAllowedPaymentDomains().size, prefs.getBlockedPaymentDomains().size)
+
+        // File Editing
+        binding.tvFileEditingStatus.text = if (prefs.isFileEditingBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvFileEditingCount, prefs.getAllowedFileEditingDomains().size, prefs.getBlockedFileEditingDomains().size)
+
+        // Virtual Reality & XR
+        binding.tvVrStatus.text = if (prefs.isVrBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvVrCount, prefs.getAllowedVrDomains().size, prefs.getBlockedVrDomains().size)
+
+        // NFC Devices
+        binding.tvNfcStatus.text = if (prefs.isNfcBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvNfcCount, prefs.getAllowedNfcDomains().size, prefs.getBlockedNfcDomains().size)
+
+        // Window Management
+        binding.tvWindowManagementStatus.text = if (prefs.isWindowManagementBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvWindowManagementCount, prefs.getAllowedWindowManagementDomains().size, prefs.getBlockedWindowManagementDomains().size)
+
+        // Storage Access
+        binding.tvStorageAccessStatus.text = if (prefs.isStorageAccessBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvStorageAccessCount, prefs.getAllowedStorageAccessDomains().size, prefs.getBlockedStorageAccessDomains().size)
+
+        // WebRTC IP Leak Protection
+        binding.tvWebRtcStatus.text = if (prefs.isWebRtcProtectedGlobal) {
+            getString(R.string.policy_allowed_label)
+        } else {
+            getString(R.string.policy_blocked_label)
+        }
+        updateCountBadge(binding.tvWebRtcCount, prefs.getAllowedWebRtcDomains().size, prefs.getBlockedWebRtcDomains().size)
 
         // Cookies & site data
         binding.tvCookiesStatus.text = when (prefs.cookieBlockingMode) {

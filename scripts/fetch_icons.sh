@@ -53,6 +53,12 @@ ICONS=(
     "bluetooth:ic_bluetooth"
     "sun:ic_sun"
     "credit-card:ic_credit_card"
+    "file-pen:ic_file_edit"
+    "glasses:ic_vr"
+    "nfc:ic_nfc"
+    "layout:ic_window_management"
+    "database:ic_storage_access"
+    "network:ic_network"
 )
 
 echo "==> Downloading official Lucide icons..."

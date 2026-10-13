@@ -50,6 +50,12 @@ class SitePermissionCategorySheet(
         const val CATEGORY_BLUETOOTH = 25
         const val CATEGORY_WAKE_LOCK = 26
         const val CATEGORY_PAYMENT = 27
+        const val CATEGORY_FILE_EDITING = 28
+        const val CATEGORY_VR = 29
+        const val CATEGORY_NFC = 30
+        const val CATEGORY_WINDOW_MANAGEMENT = 31
+        const val CATEGORY_STORAGE_ACCESS = 32
+        const val CATEGORY_WEBRTC = 33
     }
 
     private var _binding: BottomSheetSitePermissionCategoryBinding? = null
@@ -117,6 +123,12 @@ class SitePermissionCategorySheet(
             CATEGORY_BLUETOOTH -> Pair(R.drawable.ic_bluetooth, R.string.bluetooth_settings_title)
             CATEGORY_WAKE_LOCK -> Pair(R.drawable.ic_sun, R.string.wake_lock_settings_title)
             CATEGORY_PAYMENT -> Pair(R.drawable.ic_credit_card, R.string.payment_settings_title)
+            CATEGORY_FILE_EDITING -> Pair(R.drawable.ic_file_edit, R.string.file_editing_settings_title)
+            CATEGORY_VR -> Pair(R.drawable.ic_vr, R.string.vr_settings_title)
+            CATEGORY_NFC -> Pair(R.drawable.ic_nfc, R.string.nfc_settings_title)
+            CATEGORY_WINDOW_MANAGEMENT -> Pair(R.drawable.ic_window_management, R.string.window_management_settings_title)
+            CATEGORY_STORAGE_ACCESS -> Pair(R.drawable.ic_storage_access, R.string.storage_access_settings_title)
+            CATEGORY_WEBRTC -> Pair(R.drawable.ic_network, R.string.webrtc_settings_title)
             else -> Pair(R.drawable.ic_web, R.string.site_settings_title)
         }
         binding.ivCategoryIcon.setImageResource(iconRes)
@@ -173,6 +185,12 @@ class SitePermissionCategorySheet(
         CATEGORY_BLUETOOTH -> !prefs.isBluetoothBlockedGlobal
         CATEGORY_WAKE_LOCK -> !prefs.isWakeLockBlockedGlobal
         CATEGORY_PAYMENT -> !prefs.isPaymentBlockedGlobal
+        CATEGORY_FILE_EDITING -> !prefs.isFileEditingBlockedGlobal
+        CATEGORY_VR -> !prefs.isVrBlockedGlobal
+        CATEGORY_NFC -> !prefs.isNfcBlockedGlobal
+        CATEGORY_WINDOW_MANAGEMENT -> !prefs.isWindowManagementBlockedGlobal
+        CATEGORY_STORAGE_ACCESS -> !prefs.isStorageAccessBlockedGlobal
+        CATEGORY_WEBRTC -> prefs.isWebRtcProtectedGlobal
         else -> true
     }
 
@@ -204,6 +222,12 @@ class SitePermissionCategorySheet(
         CATEGORY_BLUETOOTH -> prefs.isBluetoothBlockedGlobal = !value
         CATEGORY_WAKE_LOCK -> prefs.isWakeLockBlockedGlobal = !value
         CATEGORY_PAYMENT -> prefs.isPaymentBlockedGlobal = !value
+        CATEGORY_FILE_EDITING -> prefs.isFileEditingBlockedGlobal = !value
+        CATEGORY_VR -> prefs.isVrBlockedGlobal = !value
+        CATEGORY_NFC -> prefs.isNfcBlockedGlobal = !value
+        CATEGORY_WINDOW_MANAGEMENT -> prefs.isWindowManagementBlockedGlobal = !value
+        CATEGORY_STORAGE_ACCESS -> prefs.isStorageAccessBlockedGlobal = !value
+        CATEGORY_WEBRTC -> prefs.isWebRtcProtectedGlobal = value
         else -> {}
     }
 
@@ -306,6 +330,30 @@ class SitePermissionCategorySheet(
                 Pair("Payment methods allowed", "Sites can query and request payment methods (recommended)")
             else
                 Pair("Payment methods blocked", "All sites are blocked from querying payment methods")
+            CATEGORY_FILE_EDITING -> if (isEnabled)
+                Pair("File editing allowed", "Sites can ask to edit files and folders")
+            else
+                Pair("File editing blocked", "All sites are blocked from editing files (recommended)")
+            CATEGORY_VR -> if (isEnabled)
+                Pair("Virtual reality allowed", "Sites can access VR/XR hardware and headsets")
+            else
+                Pair("Virtual reality blocked", "All sites are blocked from using VR/XR hardware (recommended)")
+            CATEGORY_NFC -> if (isEnabled)
+                Pair("NFC allowed", "Sites can ask to scan and write NFC tags")
+            else
+                Pair("NFC blocked", "All sites are blocked from using NFC (recommended)")
+            CATEGORY_WINDOW_MANAGEMENT -> if (isEnabled)
+                Pair("Window management allowed", "Sites can detect screen configuration and place windows")
+            else
+                Pair("Window management blocked", "Multi-screen enumeration is blocked to prevent fingerprinting (recommended)")
+            CATEGORY_STORAGE_ACCESS -> if (isEnabled)
+                Pair("Storage access allowed", "Sites can request cross-site storage access")
+            else
+                Pair("Storage access blocked", "Cross-site storage access is blocked (recommended)")
+            CATEGORY_WEBRTC -> if (isEnabled)
+                Pair("WebRTC IP protection enabled", "Local LAN IP leaks are masked and stripped during peer connections (recommended)")
+            else
+                Pair("WebRTC IP protection disabled", "Local IP addresses are exposed during WebRTC connections")
             else -> if (isEnabled)
                 Pair(getString(R.string.ask_before_accessing), "Sites must ask for permission before using this device")
             else
@@ -343,6 +391,12 @@ class SitePermissionCategorySheet(
         CATEGORY_BLUETOOTH -> prefs.getAllowedBluetoothDomains()
         CATEGORY_WAKE_LOCK -> prefs.getAllowedWakeLockDomains()
         CATEGORY_PAYMENT -> prefs.getAllowedPaymentDomains()
+        CATEGORY_FILE_EDITING -> prefs.getAllowedFileEditingDomains()
+        CATEGORY_VR -> prefs.getAllowedVrDomains()
+        CATEGORY_NFC -> prefs.getAllowedNfcDomains()
+        CATEGORY_WINDOW_MANAGEMENT -> prefs.getAllowedWindowManagementDomains()
+        CATEGORY_STORAGE_ACCESS -> prefs.getAllowedStorageAccessDomains()
+        CATEGORY_WEBRTC -> prefs.getAllowedWebRtcDomains()
         else -> emptySet()
     }
 
@@ -374,6 +428,12 @@ class SitePermissionCategorySheet(
         CATEGORY_BLUETOOTH -> prefs.getBlockedBluetoothDomains()
         CATEGORY_WAKE_LOCK -> prefs.getBlockedWakeLockDomains()
         CATEGORY_PAYMENT -> prefs.getBlockedPaymentDomains()
+        CATEGORY_FILE_EDITING -> prefs.getBlockedFileEditingDomains()
+        CATEGORY_VR -> prefs.getBlockedVrDomains()
+        CATEGORY_NFC -> prefs.getBlockedNfcDomains()
+        CATEGORY_WINDOW_MANAGEMENT -> prefs.getBlockedWindowManagementDomains()
+        CATEGORY_STORAGE_ACCESS -> prefs.getBlockedStorageAccessDomains()
+        CATEGORY_WEBRTC -> prefs.getBlockedWebRtcDomains()
         else -> emptySet()
     }
 
@@ -409,6 +469,12 @@ class SitePermissionCategorySheet(
         CATEGORY_BLUETOOTH -> prefs.setSiteBluetoothPermission(domain, SitePermissionState.ASK)
         CATEGORY_WAKE_LOCK -> prefs.setSiteWakeLockPermission(domain, SitePermissionState.ASK)
         CATEGORY_PAYMENT -> prefs.setSitePaymentPermission(domain, SitePermissionState.ASK)
+        CATEGORY_FILE_EDITING -> prefs.setSiteFileEditingPermission(domain, SitePermissionState.ASK)
+        CATEGORY_VR -> prefs.setSiteVrPermission(domain, SitePermissionState.ASK)
+        CATEGORY_NFC -> prefs.setSiteNfcPermission(domain, SitePermissionState.ASK)
+        CATEGORY_WINDOW_MANAGEMENT -> prefs.setSiteWindowManagementPermission(domain, SitePermissionState.ASK)
+        CATEGORY_STORAGE_ACCESS -> prefs.setSiteStorageAccessPermission(domain, SitePermissionState.ASK)
+        CATEGORY_WEBRTC -> prefs.setSiteWebRtcPermission(domain, SitePermissionState.ASK)
         else -> {}
     }
 
@@ -444,6 +510,12 @@ class SitePermissionCategorySheet(
         CATEGORY_BLUETOOTH -> prefs.setSiteBluetoothPermission(domain, SitePermissionState.ALLOWED)
         CATEGORY_WAKE_LOCK -> prefs.setSiteWakeLockPermission(domain, SitePermissionState.ALLOWED)
         CATEGORY_PAYMENT -> prefs.setSitePaymentPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_FILE_EDITING -> prefs.setSiteFileEditingPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_VR -> prefs.setSiteVrPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_NFC -> prefs.setSiteNfcPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_WINDOW_MANAGEMENT -> prefs.setSiteWindowManagementPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_STORAGE_ACCESS -> prefs.setSiteStorageAccessPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_WEBRTC -> prefs.setSiteWebRtcPermission(domain, SitePermissionState.ALLOWED)
         else -> {}
     }
 
@@ -475,6 +547,12 @@ class SitePermissionCategorySheet(
         CATEGORY_BLUETOOTH -> prefs.setSiteBluetoothPermission(domain, SitePermissionState.BLOCKED)
         CATEGORY_WAKE_LOCK -> prefs.setSiteWakeLockPermission(domain, SitePermissionState.BLOCKED)
         CATEGORY_PAYMENT -> prefs.setSitePaymentPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_FILE_EDITING -> prefs.setSiteFileEditingPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_VR -> prefs.setSiteVrPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_NFC -> prefs.setSiteNfcPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_WINDOW_MANAGEMENT -> prefs.setSiteWindowManagementPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_STORAGE_ACCESS -> prefs.setSiteStorageAccessPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_WEBRTC -> prefs.setSiteWebRtcPermission(domain, SitePermissionState.BLOCKED)
         else -> {}
     }
 

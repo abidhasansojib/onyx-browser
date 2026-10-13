@@ -443,6 +443,159 @@ object ChromeEnvironmentBridge {
                             }
                         }
                     } catch (_) {}
+
+                    // ── 18. File Editing / System Access Control ─────────────────────────
+                    try {
+                        var allowFileEditing = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isFileEditingAllowed === 'function') {
+                            allowFileEditing = window.OnyxShieldBridge.isFileEditingAllowed(host);
+                        }
+                        if (!allowFileEditing) {
+                            if (typeof window.showOpenFilePicker === 'function') {
+                                window.showOpenFilePicker = makeNative(function() {
+                                    return Promise.reject(new DOMException('File editing access denied.', 'SecurityError'));
+                                }, 'showOpenFilePicker');
+                            }
+                            if (typeof window.showSaveFilePicker === 'function') {
+                                window.showSaveFilePicker = makeNative(function() {
+                                    return Promise.reject(new DOMException('File editing access denied.', 'SecurityError'));
+                                }, 'showSaveFilePicker');
+                            }
+                            if (typeof window.showDirectoryPicker === 'function') {
+                                window.showDirectoryPicker = makeNative(function() {
+                                    return Promise.reject(new DOMException('File editing access denied.', 'SecurityError'));
+                                }, 'showDirectoryPicker');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 19. Virtual Reality & WebXR Device Access Control ────────────────
+                    try {
+                        var allowVr = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isVrAllowed === 'function') {
+                            allowVr = window.OnyxShieldBridge.isVrAllowed(host);
+                        }
+                        if (!allowVr && navigator.xr) {
+                            if (typeof navigator.xr.isSessionSupported === 'function') {
+                                navigator.xr.isSessionSupported = makeNative(function() {
+                                    return Promise.resolve(false);
+                                }, 'isSessionSupported');
+                            }
+                            if (typeof navigator.xr.requestSession === 'function') {
+                                navigator.xr.requestSession = makeNative(function() {
+                                    return Promise.reject(new DOMException('WebXR session access denied by user settings.', 'NotAllowedError'));
+                                }, 'requestSession');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 20. Web NFC Access Control ──────────────────────────────────────
+                    try {
+                        var allowNfc = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isNfcAllowed === 'function') {
+                            allowNfc = window.OnyxShieldBridge.isNfcAllowed(host);
+                        }
+                        if (!allowNfc && window.NDEFReader) {
+                            if (window.NDEFReader.prototype) {
+                                if (typeof window.NDEFReader.prototype.scan === 'function') {
+                                    window.NDEFReader.prototype.scan = makeNative(function() {
+                                        return Promise.reject(new DOMException('NFC scan permission denied.', 'NotAllowedError'));
+                                    }, 'scan');
+                                }
+                                if (typeof window.NDEFReader.prototype.write === 'function') {
+                                    window.NDEFReader.prototype.write = makeNative(function() {
+                                        return Promise.reject(new DOMException('NFC write permission denied.', 'NotAllowedError'));
+                                    }, 'write');
+                                }
+                                if (typeof window.NDEFReader.prototype.makeReadOnly === 'function') {
+                                    window.NDEFReader.prototype.makeReadOnly = makeNative(function() {
+                                        return Promise.reject(new DOMException('NFC makeReadOnly permission denied.', 'NotAllowedError'));
+                                    }, 'makeReadOnly');
+                                }
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 21. Window Management & Multi-Screen Access Control ──────────────
+                    try {
+                        var allowWindowMgmt = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isWindowManagementAllowed === 'function') {
+                            allowWindowMgmt = window.OnyxShieldBridge.isWindowManagementAllowed(host);
+                        }
+                        if (!allowWindowMgmt) {
+                            if (typeof window.getScreenDetails === 'function') {
+                                window.getScreenDetails = makeNative(function() {
+                                    return Promise.reject(new DOMException('Window management permission denied.', 'NotAllowedError'));
+                                }, 'getScreenDetails');
+                            }
+                            if (typeof window.openWindow === 'function') {
+                                window.openWindow = makeNative(function() {
+                                    return Promise.reject(new DOMException('Window management permission denied.', 'NotAllowedError'));
+                                }, 'openWindow');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 22. Storage Access API Control ──────────────────────────────────
+                    try {
+                        var allowStorageAccess = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isStorageAccessAllowed === 'function') {
+                            allowStorageAccess = window.OnyxShieldBridge.isStorageAccessAllowed(host);
+                        }
+                        if (!allowStorageAccess && document) {
+                            if (typeof document.requestStorageAccess === 'function') {
+                                document.requestStorageAccess = makeNative(function() {
+                                    return Promise.reject(new DOMException('Storage access permission denied.', 'NotAllowedError'));
+                                }, 'requestStorageAccess');
+                            }
+                            if (typeof document.hasStorageAccess === 'function') {
+                                document.hasStorageAccess = makeNative(function() {
+                                    return Promise.resolve(false);
+                                }, 'hasStorageAccess');
+                            }
+                            if (typeof document.requestStorageAccessFor === 'function') {
+                                document.requestStorageAccessFor = makeNative(function() {
+                                    return Promise.reject(new DOMException('Storage access permission denied.', 'NotAllowedError'));
+                                }, 'requestStorageAccessFor');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 23. WebRTC Local Host IP Leak Protection ────────────────────────
+                    try {
+                        var protectWebRtc = false;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isWebRtcProtected === 'function') {
+                            protectWebRtc = window.OnyxShieldBridge.isWebRtcProtected(host);
+                        }
+                        if (protectWebRtc && window.RTCPeerConnection) {
+                            var origAddIceCandidate = window.RTCPeerConnection.prototype.addIceCandidate;
+                            if (typeof origAddIceCandidate === 'function') {
+                                window.RTCPeerConnection.prototype.addIceCandidate = makeNative(function(candidate) {
+                                    if (candidate && candidate.candidate && candidate.candidate.indexOf(' typ host') !== -1) {
+                                        return Promise.resolve();
+                                    }
+                                    return origAddIceCandidate.apply(this, arguments);
+                                }, 'addIceCandidate');
+                            }
+
+                            var origSetLocalDesc = window.RTCPeerConnection.prototype.setLocalDescription;
+                            if (typeof origSetLocalDesc === 'function') {
+                                window.RTCPeerConnection.prototype.setLocalDescription = makeNative(function(description) {
+                                    if (description && description.sdp) {
+                                        var lines = description.sdp.split('\r\n');
+                                        var filtered = lines.filter(function(line) {
+                                            return !(line.indexOf('a=candidate:') === 0 && line.indexOf(' typ host') !== -1);
+                                        });
+                                        description = new RTCSessionDescription({
+                                            type: description.type,
+                                            sdp: filtered.join('\r\n')
+                                        });
+                                    }
+                                    return origSetLocalDesc.call(this, description);
+                                }, 'setLocalDescription');
+                            }
+                        }
+                    } catch (_) {}
                 }
             } catch (_) {}
         })();
