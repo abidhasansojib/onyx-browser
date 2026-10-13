@@ -1,6 +1,5 @@
 package com.onyx.browser.ui.settings
 
-import android.content.DialogInterface
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -50,29 +49,33 @@ class ThemePickerSheet(
 
         updateThemeSelection(selectedThemeMode)
 
-        // Theme Mode Clicks
+        // Theme Mode Clicks — automatically confirm, apply, and dismiss
         binding.optionSystem.setOnClickListener {
-            selectedThemeMode = BrowserPreferences.THEME_SYSTEM
-            updateThemeSelection(selectedThemeMode)
+            selectThemeMode(BrowserPreferences.THEME_SYSTEM)
         }
 
         binding.optionDark.setOnClickListener {
-            selectedThemeMode = BrowserPreferences.THEME_DARK
-            updateThemeSelection(selectedThemeMode)
+            selectThemeMode(BrowserPreferences.THEME_DARK)
         }
 
         binding.optionLight.setOnClickListener {
-            selectedThemeMode = BrowserPreferences.THEME_LIGHT
-            updateThemeSelection(selectedThemeMode)
-        }
-
-        binding.btnDone.setOnClickListener {
-            saveChangesAndDismiss()
+            selectThemeMode(BrowserPreferences.THEME_LIGHT)
         }
 
         binding.btnDismiss.setOnClickListener {
-            saveChangesAndDismiss()
+            dismiss()
         }
+    }
+
+    private fun selectThemeMode(mode: Int) {
+        selectedThemeMode = mode
+        updateThemeSelection(mode)
+        if (mode != initialThemeMode) {
+            preferences.themeMode = mode
+            preferences.applyTheme()
+            onAppearanceChanged?.invoke()
+        }
+        dismiss()
     }
 
     private fun updateThemeSelection(selectedTheme: Int) {
@@ -106,24 +109,6 @@ class ThemePickerSheet(
         binding.optionLight.strokeColor = if (isLight) activeColor else defaultStroke
         binding.optionLight.strokeWidth = if (isLight) activeStrokeWidth else defaultStrokeWidth
         binding.ivIconLight.setColorFilter(if (isLight) activeColor else defaultIcon)
-    }
-
-    private fun saveChangesAndDismiss() {
-        if (selectedThemeMode != initialThemeMode) {
-            preferences.themeMode = selectedThemeMode
-            preferences.applyTheme()
-            onAppearanceChanged?.invoke()
-        }
-        dismiss()
-    }
-
-    override fun onDismiss(dialog: DialogInterface) {
-        super.onDismiss(dialog)
-        if (selectedThemeMode != initialThemeMode) {
-            preferences.themeMode = selectedThemeMode
-            preferences.applyTheme()
-            onAppearanceChanged?.invoke()
-        }
     }
 
     private fun dpToPx(dp: Float): Int {

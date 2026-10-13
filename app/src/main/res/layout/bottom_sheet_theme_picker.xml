@@ -236,7 +236,7 @@
             android:id="@+id/optionLight"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="8dp"
             android:clickable="true"
             android:focusable="true"
             app:cardBackgroundColor="@color/settings_card_bg"
@@ -300,17 +300,6 @@
                     app:tint="?attr/colorPrimary" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
-
-        <!-- Done / Apply Button -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnDone"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="16dp"
-            android:text="@string/done"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            app:cornerRadius="14dp" />
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

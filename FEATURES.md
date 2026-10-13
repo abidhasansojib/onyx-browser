@@ -51,7 +51,7 @@ This document tracks all features of Onyx Browser, their current implementation 
 35. [x] User Agent Spoofer Manager (custom UA strings, presets for Chrome, Safari, Edge, Firefox)
 36. [x] Accessibility Settings (search widget toggle, webpage menu "Add to Home screen" toggle, text scaling)
 37. [x] Add to Home Screen & App Launcher Shortcuts (PWA launcher shortcuts via `ShortcutManagerCompat`, and launcher icon long-press quick shortcuts ordered: 1st Search web, 2nd New Incognito tab, 3rd Scan QR code via `shortcuts.xml`)
-38. [x] Theme & Accent Color System (Google Light, Google Dark `#202124`, pure AMOLED Black, 8 curated accent presets + arbitrary custom hex code input with real-time preview and dynamic UI/HTML sync)
+38. [x] Theme & Accent Color System (Google Light, Google Dark `#202124`, pure AMOLED Black, auto-confirm theme selector bottom sheet without redundant done button, 8 curated accent presets + arbitrary custom hex code input with real-time preview and dynamic UI/HTML sync)
 39. [x] Hardened WebView Sandboxing (cloud backups disabled with `android:allowBackup="false"`, `allowFileAccessFromFileURLs`/`Universal` disabled, **third-party cookies blocked by default** with automatic smart exemptions for OAuth/SSO/identity/payment providers — Google Sign-In, Apple ID, Microsoft Azure AD, GitHub OAuth, PayPal, Stripe, Auth0, Okta, Firebase Auth, Amazon Cognito, etc. — to prevent login breakage; fully blocked in Incognito, safe intent routing)
 40. [x] Offline Eruda Developer Tools (bundled mobile DOM inspector, console, network monitor)
 41. [x] Console & Error Pre-Buffering (captures startup logs & JS errors before DevTools opens)
