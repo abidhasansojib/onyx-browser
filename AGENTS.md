@@ -233,20 +233,21 @@ onyx-browser/
 
 ## 6. Current Status & Release Information
 
-- **Current Release**: `v1.0.283`
+- **Current Release**: `v1.0.284`
 - **Build Status**: Production signed APKs published across all ABIs (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`) on GitHub Releases.
 - **Feature Tracking**: Complete feature statuses and technical verification notes are maintained in `FEATURES.md`.
 
-### v1.0.283 Changes
-- **Site Settings Bug Fixes**:
-  - Eliminated `onResume` JavaScript setting overwrite in `MainActivity.kt` that disregarded per-site rules.
-  - Fixed `OnyxWebView.kt` desktop mode evaluation to honor the global `isDesktopMode` setting.
-  - Added missing count badges for Zoom and Mixed Content categories in `SiteSettingsActivity.kt`.
-  - Fixed `getAllConfiguredDomains()` in `BrowserPreferences.kt` to include `desktopDomains` and `scriptBlockingDomains`.
-  - Hardened "Clear all site data" with complete `WebStorage.deleteAllData()` and `CookieManager.removeAllCookies()` purging.
-  - Wired `AllSitesSheet` domain rows to open `SingleSiteSettingsSheet` and completed permission summary labels.
-- **Brave-Parity Site Settings Features**:
-  - Added "Advanced" section to Site Settings featuring *Cookies and site data* (with `CookieModePickerSheet`), *Desktop site* (global toggle and per-domain rules), and *Protected content* (DRM/EME control).
-  - Added "+ Add site exception" action button and modal dialog to `SitePermissionCategorySheet` allowing manual allow/block rule addition.
-  - Created `SingleSiteSettingsSheet` enabling granular per-domain inspection/editing across all 11 permissions, site storage purging, and 1-tap permission reset.
+### v1.0.284 Changes
+- **33 Chromium & Brave Parity Site Settings Categories**:
+  - Implemented all 33 site settings and privacy guard categories across UI (`SiteSettingsActivity`, `SitePermissionCategorySheet`, `SingleSiteSettingsSheet`), preference store (`BrowserPreferences`), and runtime interfaces (`OnyxShieldBridge`, `ChromeEnvironmentBridge`).
+  - Added vector drawables: `ic_file_edit`, `ic_vr`, `ic_nfc`, `ic_window_management`, `ic_storage_access`, `ic_network`.
+  - Added runtime document-start neutralization with anti-bot `makeNative` masking for:
+    - File System Access API (`showOpenFilePicker`, `showSaveFilePicker`, `showDirectoryPicker`).
+    - WebXR device session initiation (`navigator.xr.requestSession`, `isSessionSupported`).
+    - Web NFC (`NDEFReader.prototype.scan`, `write`, `makeReadOnly`).
+    - Multi-screen enumeration fingerprinting guard (`window.getScreenDetails`, `openWindow`).
+    - Storage Access API (`document.requestStorageAccess`, `hasStorageAccess`).
+    - WebRTC local private LAN host candidate leak protection (sanitizing SDP and stripping `typ host` candidates).
+- **Hardware & Device Guard Subsystems**:
+  - Full support for USB Devices, Serial Ports, HID Devices, MIDI Devices, Bluetooth Devices, Hand Tracking, Idle Detection, Local Fonts, Screen Wake Lock, and Payment Request methods.
 
