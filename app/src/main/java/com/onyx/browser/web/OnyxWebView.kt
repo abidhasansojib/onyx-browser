@@ -187,20 +187,18 @@ class OnyxWebView @JvmOverloads constructor(
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureSettings() {
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         with(settings) {
-            javaScriptEnabled = true
+            javaScriptEnabled = prefs.isJavaScriptEnabledGlobal && !prefs.isGlobalScriptBlockingEnabled
             domStorageEnabled = true
             databaseEnabled = true
             setSupportMultipleWindows(true)
-            // Set to false so ALL window.open() calls are routed through our
-            // onCreateWindow callback — where we enforce the isUserGesture gate.
-            // This prevents ad scripts from bypassing the callback entirely.
-            javaScriptCanOpenWindowsAutomatically = false
+            javaScriptCanOpenWindowsAutomatically = !prefs.isPopupsBlockedGlobal
 
             // Performance & Rendering (Local Hardware Acceleration & 120Hz Support)
             cacheMode = WebSettings.LOAD_DEFAULT
-            setSupportZoom(true)
-            builtInZoomControls = true
+            setSupportZoom(prefs.isZoomEnabledGlobal)
+            builtInZoomControls = prefs.isZoomEnabledGlobal
             displayZoomControls = false
             useWideViewPort = true
             loadWithOverviewMode = true
@@ -216,8 +214,20 @@ class OnyxWebView @JvmOverloads constructor(
             allowFileAccessFromFileURLs = false
             allowUniversalAccessFromFileURLs = false
 
+            // Images
+            loadsImagesAutomatically = prefs.isImagesEnabledGlobal
+            blockNetworkImage = !prefs.isImagesEnabledGlobal
+
             // Media & Streaming Support (YouTube, Twitch, Video players)
-            mediaPlaybackRequiresUserGesture = false
+            mediaPlaybackRequiresUserGesture = prefs.isAutoplayBlockedGlobal
+
+            // Insecure / Mixed Content
+            mixedContentMode = if (!prefs.isMixedContentBlockedGlobal) {
+                WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            } else {
+                WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            }
+
             // Suppress X-Requested-With header to avoid identifying as an embedded WebView to anti-bot systems
             try {
                 if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
@@ -307,6 +317,19 @@ class OnyxWebView @JvmOverloads constructor(
             )
         } catch (_: Exception) {}
 
+        // W3C Web Notifications Bridge (backed by per-site and global permissions)
+        if (activity != null) {
+            try {
+                val mainAct = activity as? com.onyx.browser.MainActivity
+                addJavascriptInterface(
+                    OnyxNotificationBridge(activity, this) { host, callback ->
+                        mainAct?.requestNotificationPermissionForSite(host, callback) ?: callback("denied")
+                    },
+                    OnyxNotificationBridge.BRIDGE_NAME
+                )
+            } catch (_: Exception) {}
+        }
+
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
         try {
             val currentBlockingLevel = prefs.blockingLevel
@@ -325,6 +348,11 @@ class OnyxWebView @JvmOverloads constructor(
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
                     PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(),
+                    setOf("*")
+                )
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    OnyxNotificationBridge.POLYFILL_SCRIPT,
                     setOf("*")
                 )
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
@@ -476,6 +504,59 @@ class OnyxWebView @JvmOverloads constructor(
     }
 
     /**
+     * Applies per-site configuration (JavaScript, Images, Pop-ups, Autoplay, Zoom, Mixed Content)
+     * based on domain preferences and global fallbacks.
+     */
+    fun applySiteSettingsForUrl(urlString: String) {
+        if (urlString.isBlank() || isSyntheticOrDataUrl(urlString)) return
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        val domain = prefs.cleanDomain(urlString)
+        if (domain.isBlank()) return
+
+        // 1. JavaScript
+        val jsPerm = prefs.isWebJavaScriptAllowed(domain)
+        val jsGloballyEnabled = prefs.isJavaScriptEnabledGlobal && !prefs.isGlobalScriptBlockingEnabled && !prefs.isScriptBlockingEnabledForDomain(domain)
+        val jsAllowed = jsPerm ?: jsGloballyEnabled
+        settings.javaScriptEnabled = jsAllowed
+
+        // 2. Images
+        val imgPerm = prefs.isWebImagesAllowed(domain)
+        val imgGloballyEnabled = prefs.isImagesEnabledGlobal
+        val imgAllowed = imgPerm ?: imgGloballyEnabled
+        settings.loadsImagesAutomatically = imgAllowed
+        settings.blockNetworkImage = !imgAllowed
+
+        // 3. Pop-ups
+        val popupPerm = prefs.isWebPopupsAllowed(domain)
+        val popupGloballyBlocked = prefs.isPopupsBlockedGlobal
+        val popupAllowed = popupPerm ?: !popupGloballyBlocked
+        settings.javaScriptCanOpenWindowsAutomatically = popupAllowed
+
+        // 4. Autoplay (mediaPlaybackRequiresUserGesture = !autoplayAllowed)
+        val autoPerm = prefs.isWebAutoplayAllowed(domain)
+        val autoGloballyBlocked = prefs.isAutoplayBlockedGlobal
+        val autoAllowed = autoPerm ?: !autoGloballyBlocked
+        settings.mediaPlaybackRequiresUserGesture = !autoAllowed
+
+        // 5. Zoom
+        val zoomPerm = prefs.isWebZoomAllowed(domain)
+        val zoomGloballyEnabled = prefs.isZoomEnabledGlobal
+        val zoomAllowed = zoomPerm ?: zoomGloballyEnabled
+        settings.setSupportZoom(zoomAllowed)
+        settings.builtInZoomControls = zoomAllowed
+
+        // 6. Insecure / Mixed Content
+        val mixedPerm = prefs.isWebMixedContentAllowed(domain)
+        val mixedGloballyBlocked = prefs.isMixedContentBlockedGlobal
+        val mixedAllowed = mixedPerm ?: !mixedGloballyBlocked
+        settings.mixedContentMode = if (mixedAllowed) {
+            WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        } else {
+            WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        }
+    }
+
+    /**
      * Called on every page navigation (from OnyxWebViewClient.onPageStarted).
      * Applies the correct UA (desktop or mobile) for the new URL's domain —
      * this is the core mechanism that makes desktop mode per-domain.
@@ -484,6 +565,7 @@ class OnyxWebView @JvmOverloads constructor(
      * UA before the page loads is sufficient for the server to serve the right version.
      */
     fun applyUserAgentForUrl(urlString: String, forceRefreshLayout: Boolean = false) {
+        applySiteSettingsForUrl(urlString)
         val key = hostKey(urlString)
         val host = try { android.net.Uri.parse(urlString).host?.lowercase() ?: "" } catch (_: Exception) { "" }
         val isAuthOrMeta = host == "facebook.com" || host.endsWith(".facebook.com") ||

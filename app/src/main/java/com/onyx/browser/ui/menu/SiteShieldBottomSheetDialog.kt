@@ -172,6 +172,19 @@ class SiteShieldBottomSheetDialog(
             }
         }
 
+        binding.layoutNotificationsPermission.setOnClickListener {
+            val current = prefs.getSiteNotificationsPermission(domain)
+            showPermissionPicker(
+                title = "${getString(R.string.permission_notifications)} — $domain",
+                currentState = current
+            ) { newState ->
+                prefs.setSiteNotificationsPermission(domain, newState)
+                updatePermissionBadges()
+                updateResetPermissionsVisibility()
+                onShieldSettingsChanged()
+            }
+        }
+
         binding.btnResetPermissions.setOnClickListener {
             prefs.resetSitePermissions(domain)
             updatePermissionBadges()
@@ -189,6 +202,7 @@ class SiteShieldBottomSheetDialog(
         updatePermissionBadge(binding.tvCameraPermissionState, prefs.getSiteCameraPermission(domain))
         updatePermissionBadge(binding.tvMicPermissionState, prefs.getSiteMicPermission(domain))
         updatePermissionBadge(binding.tvLocationPermissionState, prefs.getSiteLocationPermission(domain))
+        updatePermissionBadge(binding.tvNotificationsPermissionState, prefs.getSiteNotificationsPermission(domain))
     }
 
     private fun updatePermissionBadge(textView: TextView, state: SitePermissionState) {

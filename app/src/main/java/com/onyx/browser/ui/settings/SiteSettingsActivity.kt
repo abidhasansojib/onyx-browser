@@ -108,6 +108,55 @@ class SiteSettingsActivity : AppCompatActivity() {
             sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
         }
 
+        binding.rowNotificationsPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_NOTIFICATIONS) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowJavaScriptPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_JAVASCRIPT) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowPopupsPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_POPUPS) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowAutoplayPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_AUTOPLAY) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowImagesPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_IMAGES) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowZoomPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_ZOOM) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowMixedContentPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_MIXED_CONTENT) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
         binding.rowClearAllSiteData.setOnClickListener {
             val domains = prefs.getAllConfiguredDomains()
             MaterialAlertDialogBuilder(this)
@@ -168,6 +217,67 @@ class SiteSettingsActivity : AppCompatActivity() {
         val locAllowed = prefs.getAllowedLocationDomains().size
         val locBlocked = prefs.getBlockedLocationDomains().size
         updateCountBadge(binding.tvLocationCount, locAllowed, locBlocked)
+
+        // Notifications
+        val notifEnabled = prefs.isNotificationsEnabledGlobal
+        binding.tvNotificationsStatus.text = if (notifEnabled) {
+            getString(R.string.ask_before_accessing)
+        } else {
+            getString(R.string.blocked_globally)
+        }
+        updateCountBadge(binding.tvNotificationsCount, prefs.getAllowedNotifDomains().size, prefs.getBlockedNotifDomains().size)
+
+        // JavaScript
+        val jsEnabled = prefs.isJavaScriptEnabledGlobal
+        binding.tvJavaScriptStatus.text = if (jsEnabled) {
+            getString(R.string.policy_allowed_label)
+        } else {
+            getString(R.string.policy_blocked_label)
+        }
+        updateCountBadge(binding.tvJavaScriptCount, prefs.getAllowedJsDomains().size, prefs.getBlockedJsDomains().size)
+
+        // Popups
+        val popupsBlocked = prefs.isPopupsBlockedGlobal
+        binding.tvPopupsStatus.text = if (popupsBlocked) {
+            getString(R.string.policy_blocked_label)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvPopupsCount, prefs.getAllowedPopupDomains().size, prefs.getBlockedPopupDomains().size)
+
+        // Autoplay
+        val autoplayBlocked = prefs.isAutoplayBlockedGlobal
+        binding.tvAutoplayStatus.text = if (autoplayBlocked) {
+            getString(R.string.policy_blocked_label)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvAutoplayCount, prefs.getAllowedAutoplayDomains().size, prefs.getBlockedAutoplayDomains().size)
+
+        // Images
+        val imagesEnabled = prefs.isImagesEnabledGlobal
+        binding.tvImagesStatus.text = if (imagesEnabled) {
+            getString(R.string.policy_allowed_label)
+        } else {
+            getString(R.string.policy_blocked_label)
+        }
+        updateCountBadge(binding.tvImagesCount, prefs.getAllowedImagesDomains().size, prefs.getBlockedImagesDomains().size)
+
+        // Zoom
+        val zoomEnabled = prefs.isZoomEnabledGlobal
+        binding.tvZoomStatus.text = if (zoomEnabled) {
+            getString(R.string.policy_allowed_label)
+        } else {
+            getString(R.string.policy_blocked_label)
+        }
+
+        // Mixed Content
+        val mixedBlocked = prefs.isMixedContentBlockedGlobal
+        binding.tvMixedContentStatus.text = if (mixedBlocked) {
+            getString(R.string.policy_blocked_label)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
 
         // Clear data subtitle
         val siteCount = prefs.getAllConfiguredDomains().size

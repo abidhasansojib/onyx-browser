@@ -164,6 +164,17 @@ class AllSitesSheet(
         val loc = prefs.getSiteLocationPermission(domain)
         if (loc == SitePermissionState.ALLOWED) summaryParts.add("Location: allowed")
         else if (loc == SitePermissionState.BLOCKED) summaryParts.add("Location: blocked")
+        val notif = prefs.getSiteNotificationsPermission(domain)
+        if (notif == SitePermissionState.ALLOWED) summaryParts.add("Notif: allowed")
+        else if (notif == SitePermissionState.BLOCKED) summaryParts.add("Notif: blocked")
+        val js = prefs.getSiteJavaScriptPermission(domain)
+        if (js == SitePermissionState.BLOCKED) summaryParts.add("JS: blocked")
+        val popup = prefs.getSitePopupsPermission(domain)
+        if (popup == SitePermissionState.ALLOWED) summaryParts.add("Popups: allowed")
+        val auto = prefs.getSiteAutoplayPermission(domain)
+        if (auto == SitePermissionState.BLOCKED) summaryParts.add("Autoplay: blocked")
+        val img = prefs.getSiteImagesPermission(domain)
+        if (img == SitePermissionState.BLOCKED) summaryParts.add("Images: blocked")
         if (prefs.isDomainWhitelisted(domain)) summaryParts.add("Shields: off")
 
         val tvSummary = TextView(requireContext()).apply {

@@ -585,6 +585,51 @@
     <string name="filter_images">Images</string>
     <string name="filter_videos">Videos</string>
     <string name="filter_documents">Documents</string>
+
+    <!-- Extended Site Permission categories -->
+    <string name="permission_notifications">Notifications</string>
+    <string name="permission_javascript">JavaScript</string>
+    <string name="permission_popups">Pop-ups &amp; redirects</string>
+    <string name="permission_autoplay">Autoplay</string>
+    <string name="permission_images">Images</string>
+    <string name="permission_zoom">Zoom</string>
+    <string name="permission_mixed_content">Insecure content</string>
+
+    <string name="notifications_settings_title">Notifications</string>
+    <string name="notifications_settings_desc">Sites that send notifications in your browser</string>
+    <string name="javascript_settings_title">JavaScript</string>
+    <string name="javascript_settings_desc">JavaScript powers most modern websites</string>
+    <string name="popups_settings_title">Pop-ups &amp; redirects</string>
+    <string name="popups_settings_desc">Sites allowed to open new windows or tabs</string>
+    <string name="autoplay_settings_title">Sound &amp; autoplay</string>
+    <string name="autoplay_settings_desc">Sites that can autoplay audio or video</string>
+    <string name="images_settings_title">Images</string>
+    <string name="images_settings_desc">Sites allowed to show images</string>
+    <string name="zoom_settings_title">Zoom</string>
+    <string name="zoom_settings_desc">Allow sites to control or prevent pinch-to-zoom</string>
+    <string name="mixed_content_settings_title">Insecure content</string>
+    <string name="mixed_content_settings_desc">Sites allowed to load insecure (HTTP) resources on HTTPS pages</string>
+
+    <!-- Permission dialog redesign -->
+    <string name="perm_dialog_always_allow">Always allow</string>
+    <string name="perm_dialog_allow_once">Allow this time</string>
+    <string name="perm_dialog_block">Block</string>
+    <string name="perm_dialog_wants_access">%s wants to access your %s</string>
+    <string name="perm_notifications_desc">This site wants to send you browser notifications.</string>
+    <string name="perm_camera_desc">This site wants to access your camera.</string>
+    <string name="perm_mic_desc">This site wants to access your microphone.</string>
+    <string name="perm_location_desc">This site wants to know your precise location.</string>
+    <string name="perm_camera_mic_desc">This site wants to access your camera and microphone.</string>
+
+    <!-- Content sections -->
+    <string name="site_permissions_content_header">Content</string>
+    <string name="site_content_desc">JavaScript, images, pop-ups, autoplay, and zoom settings per site</string>
+
+    <!-- Global policy labels -->
+    <string name="policy_blocked_label">Blocked</string>
+    <string name="policy_allowed_label">Allowed</string>
+    <string name="policy_ask_label">Ask (default)</string>
+    <string name="no_exceptions_set">No site exceptions</string>
 </resources>
 
 

@@ -39,6 +39,7 @@ ICONS=(
     "globe:ic_web"
     "camera:ic_camera"
     "map-pin:ic_location"
+    "bell:ic_bell"
 )
 
 echo "==> Downloading official Lucide icons..."

@@ -130,6 +130,7 @@ object ChromeEnvironmentBridge {
                     var bridgeNames = [
                         'OnyxShieldBridge', 'OnyxMediaBridge', 'OnyxErrorBridge',
                         'OnyxBlobBridge', 'OnyxTouchBridge', 'OnyxTranslateBridge',
+                        'OnyxNotificationBridge',
                         'PasskeyWebAuthnBridge', '__onyx_shields_active', '__onyxAdBlockEnabled',
                         '__onyxTouchInitialized', '__onyxPasskeyInstalled'
                     ];

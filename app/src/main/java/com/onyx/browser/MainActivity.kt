@@ -229,8 +229,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private fun promptWebPermission(
+        host: String,
         title: String,
         message: String,
+        iconResId: Int = R.drawable.ic_lock,
+        isHttps: Boolean = true,
         onAllowedAlways: () -> Unit,
         onAllowedWhileVisiting: () -> Unit,
         onDenied: () -> Unit
@@ -239,14 +242,17 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             onDenied()
             return
         }
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setTitle(title)
-            .setMessage(message)
-            .setPositiveButton("Always allow") { _, _ -> onAllowedAlways() }
-            .setNeutralButton("Allow this time") { _, _ -> onAllowedWhileVisiting() }
-            .setNegativeButton("Block") { _, _ -> onDenied() }
-            .setOnCancelListener { onDenied() }
-            .show()
+        val sheet = com.onyx.browser.ui.dialog.WebPermissionBottomSheetDialog(
+            host = host,
+            permissionTitle = title,
+            permissionDesc = message,
+            iconResId = iconResId,
+            isHttps = isHttps,
+            onAllowedAlways = onAllowedAlways,
+            onAllowedOnce = onAllowedWhileVisiting,
+            onDenied = onDenied
+        )
+        sheet.show(supportFragmentManager, com.onyx.browser.ui.dialog.WebPermissionBottomSheetDialog.TAG)
     }
 
     private fun handleGeolocationPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
@@ -282,9 +288,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         if (locAllowed == null) {
+            val isHttps = origin.startsWith("https://", ignoreCase = true)
             promptWebPermission(
+                host = host,
                 title = "$host wants to access your location",
                 message = "Allow $host to access your precise location?",
+                iconResId = R.drawable.ic_location,
+                isHttps = isHttps,
                 onAllowedAlways = {
                     if (fine || coarse) {
                         preferences.setWebLocationAllowed(host, true)
@@ -488,10 +498,19 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (needsVideo && camAllowed == null) promptItems.add("Camera")
         if (needsAudio && micAllowed == null) promptItems.add("Microphone")
         val itemsStr = promptItems.joinToString(" and ")
+        val icon = when {
+            needsVideo && needsAudio -> R.drawable.ic_camera
+            needsVideo -> R.drawable.ic_camera
+            else -> R.drawable.ic_mic
+        }
+        val isHttps = origin.startsWith("https://", ignoreCase = true)
 
         promptWebPermission(
+            host = host,
             title = "$host wants to access your $itemsStr",
             message = "Allow $host to access your $itemsStr?",
+            iconResId = icon,
+            isHttps = isHttps,
             onAllowedAlways = {
                 grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = true)
             },
@@ -551,6 +570,48 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 pendingWebMediaHost = null
             }
         }
+    }
+
+    fun requestNotificationPermissionForSite(host: String, callback: (String) -> Unit) {
+        if (host.isBlank() || isFinishing || isDestroyed) {
+            callback("denied")
+            return
+        }
+        val notifPerm = preferences.isWebNotificationsAllowed(host)
+        if (notifPerm == true) {
+            callback("granted")
+            return
+        }
+        if (notifPerm == false || !preferences.isNotificationsEnabledGlobal) {
+            callback("denied")
+            return
+        }
+        promptWebPermission(
+            host = host,
+            title = "$host wants to send notifications",
+            message = "Allow $host to send you browser notifications?",
+            iconResId = R.drawable.ic_bell,
+            isHttps = true,
+            onAllowedAlways = {
+                preferences.setSiteNotificationsPermission(host, com.onyx.browser.data.preferences.SitePermissionState.ALLOWED)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                callback("granted")
+            },
+            onAllowedWhileVisiting = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                callback("granted")
+            },
+            onDenied = {
+                preferences.setSiteNotificationsPermission(host, com.onyx.browser.data.preferences.SitePermissionState.BLOCKED)
+                callback("denied")
+            }
+        )
     }
 
     // ── File Chooser Subsystem (File uploads, Gallery selection & Photo capture) ──
@@ -1871,11 +1932,16 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 handleWebPermissionRequestCanceled(request)
             },
             onCreateWindowCallback = { sourceWebView, isDialog, isUserGesture, resultMsg ->
-                // Only open a new tab when triggered by an explicit user gesture (tap/click)
-                // or within a recent touch window (1500ms) to support OAuth/payment async flows
-                // where Blink clears isUserGesture after promise resolution.
+                // Check per-domain and global popup blocking preferences
+                val parentUrl = (sourceWebView as? OnyxWebView)?.url ?: ""
+                val parentDomain = preferences.cleanDomain(parentUrl)
+                val popupPerm = if (parentDomain.isNotBlank()) preferences.isWebPopupsAllowed(parentDomain) else null
                 val recentTouch = (sourceWebView as? OnyxWebView)?.isWithinRecentTouchWindow() ?: false
-                if ((!isUserGesture && !recentTouch) || resultMsg == null) {
+
+                if (popupPerm == false) {
+                    // Site explicitly blocked from opening popups/new windows
+                    false
+                } else if ((!isUserGesture && !recentTouch) || resultMsg == null) {
                     false
                 } else {
                     val parentTab = (sourceWebView as? OnyxWebView)?.tabId?.let { tabManager.getTabById(it) }
