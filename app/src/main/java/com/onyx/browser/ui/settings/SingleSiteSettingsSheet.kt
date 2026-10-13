@@ -284,6 +284,106 @@ class SingleSiteSettingsSheet(
                 }
             ),
             PermissionItem(
+                key = "usb",
+                iconRes = R.drawable.ic_usb,
+                title = getString(R.string.usb_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteUsbPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteUsbPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "serial",
+                iconRes = R.drawable.ic_cpu,
+                title = getString(R.string.serial_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteSerialPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteSerialPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "hid",
+                iconRes = R.drawable.ic_gamepad,
+                title = getString(R.string.hid_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteHidPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteHidPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "midi",
+                iconRes = R.drawable.ic_music,
+                title = getString(R.string.midi_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteMidiPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteMidiPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "hand_tracking",
+                iconRes = R.drawable.ic_hand,
+                title = getString(R.string.hand_tracking_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteHandTrackingPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteHandTrackingPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "idle",
+                iconRes = R.drawable.ic_idle,
+                title = getString(R.string.idle_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteIdlePermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteIdlePermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "fonts",
+                iconRes = R.drawable.ic_fonts,
+                title = getString(R.string.fonts_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteFontsPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteFontsPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "bluetooth",
+                iconRes = R.drawable.ic_bluetooth,
+                title = getString(R.string.bluetooth_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteBluetoothPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteBluetoothPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "wake_lock",
+                iconRes = R.drawable.ic_sun,
+                title = getString(R.string.wake_lock_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteWakeLockPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteWakeLockPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "payment",
+                iconRes = R.drawable.ic_credit_card,
+                title = getString(R.string.payment_settings_title),
+                getState = { getStandardStateLabel(prefs.getSitePaymentPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSitePaymentPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
                 key = "auto_shred",
                 iconRes = R.drawable.ic_broom,
                 title = getString(R.string.forget_site_on_close),

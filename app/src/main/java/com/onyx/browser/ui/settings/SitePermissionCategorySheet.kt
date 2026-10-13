@@ -40,6 +40,16 @@ class SitePermissionCategorySheet(
         const val CATEGORY_CLIPBOARD = 15
         const val CATEGORY_SOUND = 16
         const val CATEGORY_AUTO_DOWNLOADS = 17
+        const val CATEGORY_USB = 18
+        const val CATEGORY_SERIAL = 19
+        const val CATEGORY_HID = 20
+        const val CATEGORY_MIDI = 21
+        const val CATEGORY_HAND_TRACKING = 22
+        const val CATEGORY_IDLE = 23
+        const val CATEGORY_FONTS = 24
+        const val CATEGORY_BLUETOOTH = 25
+        const val CATEGORY_WAKE_LOCK = 26
+        const val CATEGORY_PAYMENT = 27
     }
 
     private var _binding: BottomSheetSitePermissionCategoryBinding? = null
@@ -97,6 +107,16 @@ class SitePermissionCategorySheet(
             CATEGORY_CLIPBOARD -> Pair(R.drawable.ic_clipboard, R.string.clipboard_settings_title)
             CATEGORY_SOUND -> Pair(R.drawable.ic_volume, R.string.sound_settings_title)
             CATEGORY_AUTO_DOWNLOADS -> Pair(R.drawable.ic_download, R.string.auto_downloads_settings_title)
+            CATEGORY_USB -> Pair(R.drawable.ic_usb, R.string.usb_settings_title)
+            CATEGORY_SERIAL -> Pair(R.drawable.ic_cpu, R.string.serial_settings_title)
+            CATEGORY_HID -> Pair(R.drawable.ic_gamepad, R.string.hid_settings_title)
+            CATEGORY_MIDI -> Pair(R.drawable.ic_music, R.string.midi_settings_title)
+            CATEGORY_HAND_TRACKING -> Pair(R.drawable.ic_hand, R.string.hand_tracking_settings_title)
+            CATEGORY_IDLE -> Pair(R.drawable.ic_idle, R.string.idle_settings_title)
+            CATEGORY_FONTS -> Pair(R.drawable.ic_fonts, R.string.fonts_settings_title)
+            CATEGORY_BLUETOOTH -> Pair(R.drawable.ic_bluetooth, R.string.bluetooth_settings_title)
+            CATEGORY_WAKE_LOCK -> Pair(R.drawable.ic_sun, R.string.wake_lock_settings_title)
+            CATEGORY_PAYMENT -> Pair(R.drawable.ic_credit_card, R.string.payment_settings_title)
             else -> Pair(R.drawable.ic_web, R.string.site_settings_title)
         }
         binding.ivCategoryIcon.setImageResource(iconRes)
@@ -143,6 +163,16 @@ class SitePermissionCategorySheet(
         CATEGORY_CLIPBOARD -> !prefs.isClipboardBlockedGlobal
         CATEGORY_SOUND -> !prefs.isSoundMutedGlobal
         CATEGORY_AUTO_DOWNLOADS -> !prefs.isAutoDownloadsBlockedGlobal
+        CATEGORY_USB -> !prefs.isUsbBlockedGlobal
+        CATEGORY_SERIAL -> !prefs.isSerialBlockedGlobal
+        CATEGORY_HID -> !prefs.isHidBlockedGlobal
+        CATEGORY_MIDI -> !prefs.isMidiBlockedGlobal
+        CATEGORY_HAND_TRACKING -> !prefs.isHandTrackingBlockedGlobal
+        CATEGORY_IDLE -> !prefs.isIdleBlockedGlobal
+        CATEGORY_FONTS -> !prefs.isFontsBlockedGlobal
+        CATEGORY_BLUETOOTH -> !prefs.isBluetoothBlockedGlobal
+        CATEGORY_WAKE_LOCK -> !prefs.isWakeLockBlockedGlobal
+        CATEGORY_PAYMENT -> !prefs.isPaymentBlockedGlobal
         else -> true
     }
 
@@ -164,6 +194,16 @@ class SitePermissionCategorySheet(
         CATEGORY_CLIPBOARD -> prefs.isClipboardBlockedGlobal = !value
         CATEGORY_SOUND -> prefs.isSoundMutedGlobal = !value
         CATEGORY_AUTO_DOWNLOADS -> prefs.isAutoDownloadsBlockedGlobal = !value
+        CATEGORY_USB -> prefs.isUsbBlockedGlobal = !value
+        CATEGORY_SERIAL -> prefs.isSerialBlockedGlobal = !value
+        CATEGORY_HID -> prefs.isHidBlockedGlobal = !value
+        CATEGORY_MIDI -> prefs.isMidiBlockedGlobal = !value
+        CATEGORY_HAND_TRACKING -> prefs.isHandTrackingBlockedGlobal = !value
+        CATEGORY_IDLE -> prefs.isIdleBlockedGlobal = !value
+        CATEGORY_FONTS -> prefs.isFontsBlockedGlobal = !value
+        CATEGORY_BLUETOOTH -> prefs.isBluetoothBlockedGlobal = !value
+        CATEGORY_WAKE_LOCK -> prefs.isWakeLockBlockedGlobal = !value
+        CATEGORY_PAYMENT -> prefs.isPaymentBlockedGlobal = !value
         else -> {}
     }
 
@@ -226,6 +266,46 @@ class SitePermissionCategorySheet(
                 Pair("Automatic downloads allowed", "Sites can download multiple files automatically")
             else
                 Pair("Automatic downloads blocked", "Sites cannot download multiple files in succession")
+            CATEGORY_USB -> if (isEnabled)
+                Pair("USB devices allowed", "Sites can ask to connect to USB devices")
+            else
+                Pair("USB devices blocked", "All sites are blocked from connecting to USB devices (recommended)")
+            CATEGORY_SERIAL -> if (isEnabled)
+                Pair("Serial ports allowed", "Sites can ask to connect to serial ports")
+            else
+                Pair("Serial ports blocked", "All sites are blocked from connecting to serial ports (recommended)")
+            CATEGORY_HID -> if (isEnabled)
+                Pair("HID devices allowed", "Sites can ask to connect to human interface devices")
+            else
+                Pair("HID devices blocked", "All sites are blocked from connecting to HID devices (recommended)")
+            CATEGORY_MIDI -> if (isEnabled)
+                Pair("MIDI devices allowed", "Sites can access MIDI musical instruments and send SysEx")
+            else
+                Pair("MIDI devices blocked", "All sites are blocked from accessing MIDI devices (recommended)")
+            CATEGORY_HAND_TRACKING -> if (isEnabled)
+                Pair("Hand tracking allowed", "Sites can track hand pose and gestures in WebXR")
+            else
+                Pair("Hand tracking blocked", "Hand tracking sensors are disabled (recommended)")
+            CATEGORY_IDLE -> if (isEnabled)
+                Pair("Idle detection allowed", "Sites can detect when you are actively using your device")
+            else
+                Pair("Idle detection blocked", "All sites are blocked from monitoring user idle status (recommended)")
+            CATEGORY_FONTS -> if (isEnabled)
+                Pair("Local fonts allowed", "Sites can query fonts installed on your device")
+            else
+                Pair("Local fonts blocked", "Local font enumeration is blocked to prevent fingerprinting (recommended)")
+            CATEGORY_BLUETOOTH -> if (isEnabled)
+                Pair("Bluetooth allowed", "Sites can ask to connect to nearby Bluetooth devices")
+            else
+                Pair("Bluetooth blocked", "All sites are blocked from connecting to Bluetooth devices (recommended)")
+            CATEGORY_WAKE_LOCK -> if (isEnabled)
+                Pair("Screen wake lock allowed", "Sites can prevent your screen from turning off (recommended)")
+            else
+                Pair("Screen wake lock blocked", "All sites are prevented from keeping your screen awake")
+            CATEGORY_PAYMENT -> if (isEnabled)
+                Pair("Payment methods allowed", "Sites can query and request payment methods (recommended)")
+            else
+                Pair("Payment methods blocked", "All sites are blocked from querying payment methods")
             else -> if (isEnabled)
                 Pair(getString(R.string.ask_before_accessing), "Sites must ask for permission before using this device")
             else
@@ -253,6 +333,16 @@ class SitePermissionCategorySheet(
         CATEGORY_CLIPBOARD -> prefs.getAllowedClipboardDomains()
         CATEGORY_SOUND -> prefs.getAllowedSoundDomains()
         CATEGORY_AUTO_DOWNLOADS -> prefs.getAllowedAutoDownloadsDomains()
+        CATEGORY_USB -> prefs.getAllowedUsbDomains()
+        CATEGORY_SERIAL -> prefs.getAllowedSerialDomains()
+        CATEGORY_HID -> prefs.getAllowedHidDomains()
+        CATEGORY_MIDI -> prefs.getAllowedMidiDomains()
+        CATEGORY_HAND_TRACKING -> prefs.getAllowedHandTrackingDomains()
+        CATEGORY_IDLE -> prefs.getAllowedIdleDomains()
+        CATEGORY_FONTS -> prefs.getAllowedFontsDomains()
+        CATEGORY_BLUETOOTH -> prefs.getAllowedBluetoothDomains()
+        CATEGORY_WAKE_LOCK -> prefs.getAllowedWakeLockDomains()
+        CATEGORY_PAYMENT -> prefs.getAllowedPaymentDomains()
         else -> emptySet()
     }
 
@@ -274,6 +364,16 @@ class SitePermissionCategorySheet(
         CATEGORY_CLIPBOARD -> prefs.getBlockedClipboardDomains()
         CATEGORY_SOUND -> prefs.getBlockedSoundDomains()
         CATEGORY_AUTO_DOWNLOADS -> prefs.getBlockedAutoDownloadsDomains()
+        CATEGORY_USB -> prefs.getBlockedUsbDomains()
+        CATEGORY_SERIAL -> prefs.getBlockedSerialDomains()
+        CATEGORY_HID -> prefs.getBlockedHidDomains()
+        CATEGORY_MIDI -> prefs.getBlockedMidiDomains()
+        CATEGORY_HAND_TRACKING -> prefs.getBlockedHandTrackingDomains()
+        CATEGORY_IDLE -> prefs.getBlockedIdleDomains()
+        CATEGORY_FONTS -> prefs.getBlockedFontsDomains()
+        CATEGORY_BLUETOOTH -> prefs.getBlockedBluetoothDomains()
+        CATEGORY_WAKE_LOCK -> prefs.getBlockedWakeLockDomains()
+        CATEGORY_PAYMENT -> prefs.getBlockedPaymentDomains()
         else -> emptySet()
     }
 
@@ -299,6 +399,16 @@ class SitePermissionCategorySheet(
         CATEGORY_CLIPBOARD -> prefs.setSiteClipboardPermission(domain, SitePermissionState.ASK)
         CATEGORY_SOUND -> prefs.setSiteSoundPermission(domain, SitePermissionState.ASK)
         CATEGORY_AUTO_DOWNLOADS -> prefs.setSiteAutoDownloadsPermission(domain, SitePermissionState.ASK)
+        CATEGORY_USB -> prefs.setSiteUsbPermission(domain, SitePermissionState.ASK)
+        CATEGORY_SERIAL -> prefs.setSiteSerialPermission(domain, SitePermissionState.ASK)
+        CATEGORY_HID -> prefs.setSiteHidPermission(domain, SitePermissionState.ASK)
+        CATEGORY_MIDI -> prefs.setSiteMidiPermission(domain, SitePermissionState.ASK)
+        CATEGORY_HAND_TRACKING -> prefs.setSiteHandTrackingPermission(domain, SitePermissionState.ASK)
+        CATEGORY_IDLE -> prefs.setSiteIdlePermission(domain, SitePermissionState.ASK)
+        CATEGORY_FONTS -> prefs.setSiteFontsPermission(domain, SitePermissionState.ASK)
+        CATEGORY_BLUETOOTH -> prefs.setSiteBluetoothPermission(domain, SitePermissionState.ASK)
+        CATEGORY_WAKE_LOCK -> prefs.setSiteWakeLockPermission(domain, SitePermissionState.ASK)
+        CATEGORY_PAYMENT -> prefs.setSitePaymentPermission(domain, SitePermissionState.ASK)
         else -> {}
     }
 
@@ -324,6 +434,16 @@ class SitePermissionCategorySheet(
         CATEGORY_CLIPBOARD -> prefs.setSiteClipboardPermission(domain, SitePermissionState.ALLOWED)
         CATEGORY_SOUND -> prefs.setSiteSoundPermission(domain, SitePermissionState.ALLOWED)
         CATEGORY_AUTO_DOWNLOADS -> prefs.setSiteAutoDownloadsPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_USB -> prefs.setSiteUsbPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_SERIAL -> prefs.setSiteSerialPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_HID -> prefs.setSiteHidPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_MIDI -> prefs.setSiteMidiPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_HAND_TRACKING -> prefs.setSiteHandTrackingPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_IDLE -> prefs.setSiteIdlePermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_FONTS -> prefs.setSiteFontsPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_BLUETOOTH -> prefs.setSiteBluetoothPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_WAKE_LOCK -> prefs.setSiteWakeLockPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_PAYMENT -> prefs.setSitePaymentPermission(domain, SitePermissionState.ALLOWED)
         else -> {}
     }
 
@@ -345,6 +465,16 @@ class SitePermissionCategorySheet(
         CATEGORY_CLIPBOARD -> prefs.setSiteClipboardPermission(domain, SitePermissionState.BLOCKED)
         CATEGORY_SOUND -> prefs.setSiteSoundPermission(domain, SitePermissionState.BLOCKED)
         CATEGORY_AUTO_DOWNLOADS -> prefs.setSiteAutoDownloadsPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_USB -> prefs.setSiteUsbPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_SERIAL -> prefs.setSiteSerialPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_HID -> prefs.setSiteHidPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_MIDI -> prefs.setSiteMidiPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_HAND_TRACKING -> prefs.setSiteHandTrackingPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_IDLE -> prefs.setSiteIdlePermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_FONTS -> prefs.setSiteFontsPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_BLUETOOTH -> prefs.setSiteBluetoothPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_WAKE_LOCK -> prefs.setSiteWakeLockPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_PAYMENT -> prefs.setSitePaymentPermission(domain, SitePermissionState.BLOCKED)
         else -> {}
     }
 

@@ -43,6 +43,16 @@ ICONS=(
     "volume-2:ic_volume"
     "activity:ic_sensors"
     "clipboard:ic_clipboard"
+    "usb:ic_usb"
+    "cpu:ic_cpu"
+    "gamepad-2:ic_gamepad"
+    "music:ic_music"
+    "hand:ic_hand"
+    "timer:ic_idle"
+    "type:ic_fonts"
+    "bluetooth:ic_bluetooth"
+    "sun:ic_sun"
+    "credit-card:ic_credit_card"
 )
 
 echo "==> Downloading official Lucide icons..."

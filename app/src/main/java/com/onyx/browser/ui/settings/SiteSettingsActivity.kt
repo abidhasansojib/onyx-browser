@@ -136,6 +136,76 @@ class SiteSettingsActivity : AppCompatActivity() {
             sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
         }
 
+        binding.rowUsbPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_USB) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowSerialPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_SERIAL) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowHidPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_HID) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowMidiPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_MIDI) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowBluetoothPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_BLUETOOTH) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowHandTrackingPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_HAND_TRACKING) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowIdlePermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_IDLE) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowFontsPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_FONTS) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowWakeLockPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_WAKE_LOCK) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowPaymentPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_PAYMENT) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
         binding.rowJavaScriptPermission.setOnClickListener {
             val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_JAVASCRIPT) {
                 updateStatuses()
@@ -418,6 +488,86 @@ class SiteSettingsActivity : AppCompatActivity() {
             getString(R.string.policy_allowed_label)
         }
         updateCountBadge(binding.tvAutoDownloadsCount, prefs.getAllowedAutoDownloadsDomains().size, prefs.getBlockedAutoDownloadsDomains().size)
+
+        // USB Devices
+        binding.tvUsbStatus.text = if (prefs.isUsbBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvUsbCount, prefs.getAllowedUsbDomains().size, prefs.getBlockedUsbDomains().size)
+
+        // Serial Ports
+        binding.tvSerialStatus.text = if (prefs.isSerialBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvSerialCount, prefs.getAllowedSerialDomains().size, prefs.getBlockedSerialDomains().size)
+
+        // HID Devices
+        binding.tvHidStatus.text = if (prefs.isHidBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvHidCount, prefs.getAllowedHidDomains().size, prefs.getBlockedHidDomains().size)
+
+        // MIDI Devices
+        binding.tvMidiStatus.text = if (prefs.isMidiBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvMidiCount, prefs.getAllowedMidiDomains().size, prefs.getBlockedMidiDomains().size)
+
+        // Bluetooth Devices
+        binding.tvBluetoothStatus.text = if (prefs.isBluetoothBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvBluetoothCount, prefs.getAllowedBluetoothDomains().size, prefs.getBlockedBluetoothDomains().size)
+
+        // Hand Tracking
+        binding.tvHandTrackingStatus.text = if (prefs.isHandTrackingBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvHandTrackingCount, prefs.getAllowedHandTrackingDomains().size, prefs.getBlockedHandTrackingDomains().size)
+
+        // Idle Detection
+        binding.tvIdleStatus.text = if (prefs.isIdleBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvIdleCount, prefs.getAllowedIdleDomains().size, prefs.getBlockedIdleDomains().size)
+
+        // Local Fonts
+        binding.tvFontsStatus.text = if (prefs.isFontsBlockedGlobal) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvFontsCount, prefs.getAllowedFontsDomains().size, prefs.getBlockedFontsDomains().size)
+
+        // Screen Wake Lock
+        binding.tvWakeLockStatus.text = if (prefs.isWakeLockBlockedGlobal) {
+            getString(R.string.policy_blocked_label)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvWakeLockCount, prefs.getAllowedWakeLockDomains().size, prefs.getBlockedWakeLockDomains().size)
+
+        // Payment Methods
+        binding.tvPaymentStatus.text = if (prefs.isPaymentBlockedGlobal) {
+            getString(R.string.policy_blocked_label)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvPaymentCount, prefs.getAllowedPaymentDomains().size, prefs.getBlockedPaymentDomains().size)
 
         // Cookies & site data
         binding.tvCookiesStatus.text = when (prefs.cookieBlockingMode) {

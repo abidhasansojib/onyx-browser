@@ -256,6 +256,193 @@ object ChromeEnvironmentBridge {
                             } catch (_) {}
                         }
                     } catch (_) {}
+
+                    // ── 8. USB Devices Access Control ──────────────────────────────────
+                    try {
+                        var allowUsb = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isUsbAllowed === 'function') {
+                            allowUsb = window.OnyxShieldBridge.isUsbAllowed(host);
+                        }
+                        if (!allowUsb && navigator.usb) {
+                            if (typeof navigator.usb.requestDevice === 'function') {
+                                navigator.usb.requestDevice = makeNative(function() {
+                                    return Promise.reject(new DOMException('No device selected.', 'NotFoundError'));
+                                }, 'requestDevice');
+                            }
+                            if (typeof navigator.usb.getDevices === 'function') {
+                                navigator.usb.getDevices = makeNative(function() {
+                                    return Promise.resolve([]);
+                                }, 'getDevices');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 9. Serial Ports Access Control ─────────────────────────────────
+                    try {
+                        var allowSerial = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isSerialAllowed === 'function') {
+                            allowSerial = window.OnyxShieldBridge.isSerialAllowed(host);
+                        }
+                        if (!allowSerial && navigator.serial) {
+                            if (typeof navigator.serial.requestPort === 'function') {
+                                navigator.serial.requestPort = makeNative(function() {
+                                    return Promise.reject(new DOMException('No port selected.', 'NotFoundError'));
+                                }, 'requestPort');
+                            }
+                            if (typeof navigator.serial.getPorts === 'function') {
+                                navigator.serial.getPorts = makeNative(function() {
+                                    return Promise.resolve([]);
+                                }, 'getPorts');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 10. HID Devices Access Control ─────────────────────────────────
+                    try {
+                        var allowHid = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isHidAllowed === 'function') {
+                            allowHid = window.OnyxShieldBridge.isHidAllowed(host);
+                        }
+                        if (!allowHid && navigator.hid) {
+                            if (typeof navigator.hid.requestDevice === 'function') {
+                                navigator.hid.requestDevice = makeNative(function() {
+                                    return Promise.reject(new DOMException('No device selected.', 'NotFoundError'));
+                                }, 'requestDevice');
+                            }
+                            if (typeof navigator.hid.getDevices === 'function') {
+                                navigator.hid.getDevices = makeNative(function() {
+                                    return Promise.resolve([]);
+                                }, 'getDevices');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 11. MIDI Devices Access Control ────────────────────────────────
+                    try {
+                        var allowMidi = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isMidiAllowed === 'function') {
+                            allowMidi = window.OnyxShieldBridge.isMidiAllowed(host);
+                        }
+                        if (!allowMidi && typeof navigator.requestMIDIAccess === 'function') {
+                            navigator.requestMIDIAccess = makeNative(function() {
+                                return Promise.reject(new DOMException('Web MIDI access denied.', 'SecurityError'));
+                            }, 'requestMIDIAccess');
+                        }
+                    } catch (_) {}
+
+                    // ── 12. Hand Tracking Access Control ───────────────────────────────
+                    try {
+                        var allowHandTracking = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isHandTrackingAllowed === 'function') {
+                            allowHandTracking = window.OnyxShieldBridge.isHandTrackingAllowed(host);
+                        }
+                        if (!allowHandTracking) {
+                            if (window.XRHand) {
+                                window.XRHand = undefined;
+                            }
+                            if (window.XRInputSource && window.XRInputSource.prototype) {
+                                try {
+                                    Object.defineProperty(window.XRInputSource.prototype, 'hand', {
+                                        get: function() { return null; },
+                                        configurable: true
+                                    });
+                                } catch (_) {}
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 13. Idle Detection Access Control ──────────────────────────────
+                    try {
+                        var allowIdle = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isIdleDetectionAllowed === 'function') {
+                            allowIdle = window.OnyxShieldBridge.isIdleDetectionAllowed(host);
+                        }
+                        if (!allowIdle && window.IdleDetector) {
+                            if (typeof window.IdleDetector.requestPermission === 'function') {
+                                window.IdleDetector.requestPermission = makeNative(function() {
+                                    return Promise.resolve('denied');
+                                }, 'requestPermission');
+                            }
+                            if (window.IdleDetector.prototype && typeof window.IdleDetector.prototype.start === 'function') {
+                                window.IdleDetector.prototype.start = makeNative(function() {
+                                    return Promise.reject(new DOMException('Idle detection permission denied.', 'NotAllowedError'));
+                                }, 'start');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 14. Local Fonts Access Control ─────────────────────────────────
+                    try {
+                        var allowFonts = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isLocalFontsAllowed === 'function') {
+                            allowFonts = window.OnyxShieldBridge.isLocalFontsAllowed(host);
+                        }
+                        if (!allowFonts) {
+                            if (typeof window.queryLocalFonts === 'function') {
+                                window.queryLocalFonts = makeNative(function() {
+                                    return Promise.reject(new DOMException('Local fonts permission denied.', 'SecurityError'));
+                                }, 'queryLocalFonts');
+                            }
+                            if (navigator.fonts && typeof navigator.fonts.queryLocalFonts === 'function') {
+                                navigator.fonts.queryLocalFonts = makeNative(function() {
+                                    return Promise.reject(new DOMException('Local fonts permission denied.', 'SecurityError'));
+                                }, 'queryLocalFonts');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 15. Bluetooth Devices Access Control ───────────────────────────
+                    try {
+                        var allowBluetooth = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isBluetoothAllowed === 'function') {
+                            allowBluetooth = window.OnyxShieldBridge.isBluetoothAllowed(host);
+                        }
+                        if (!allowBluetooth && navigator.bluetooth) {
+                            if (typeof navigator.bluetooth.requestDevice === 'function') {
+                                navigator.bluetooth.requestDevice = makeNative(function() {
+                                    return Promise.reject(new DOMException('User cancelled the requestDevice() chooser.', 'NotFoundError'));
+                                }, 'requestDevice');
+                            }
+                            if (typeof navigator.bluetooth.getDevices === 'function') {
+                                navigator.bluetooth.getDevices = makeNative(function() {
+                                    return Promise.resolve([]);
+                                }, 'getDevices');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 16. Screen Wake Lock Access Control ────────────────────────────
+                    try {
+                        var allowWakeLock = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isWakeLockAllowed === 'function') {
+                            allowWakeLock = window.OnyxShieldBridge.isWakeLockAllowed(host);
+                        }
+                        if (!allowWakeLock && navigator.wakeLock && typeof navigator.wakeLock.request === 'function') {
+                            navigator.wakeLock.request = makeNative(function() {
+                                return Promise.reject(new DOMException('Wake Lock permission denied.', 'NotAllowedError'));
+                            }, 'request');
+                        }
+                    } catch (_) {}
+
+                    // ── 17. Payment Request Access Control ─────────────────────────────
+                    try {
+                        var allowPayment = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isPaymentHandlerAllowed === 'function') {
+                            allowPayment = window.OnyxShieldBridge.isPaymentHandlerAllowed(host);
+                        }
+                        if (!allowPayment && window.PaymentRequest) {
+                            if (window.PaymentRequest.prototype && typeof window.PaymentRequest.prototype.canMakePayment === 'function') {
+                                window.PaymentRequest.prototype.canMakePayment = makeNative(function() {
+                                    return Promise.resolve(false);
+                                }, 'canMakePayment');
+                            }
+                            if (window.PaymentRequest.prototype && typeof window.PaymentRequest.prototype.show === 'function') {
+                                window.PaymentRequest.prototype.show = makeNative(function() {
+                                    return Promise.reject(new DOMException('Payment Request is disabled by user settings.', 'NotAllowedError'));
+                                }, 'show');
+                            }
+                        }
+                    } catch (_) {}
                 }
             } catch (_) {}
         })();

@@ -113,6 +113,66 @@ class OnyxShieldBridge(private val context: Context) {
     }
 
     @JavascriptInterface
+    fun isUsbAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isUsbBlockedGlobal
+        return preferences.isWebUsbAllowed(target) ?: !preferences.isUsbBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isSerialAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isSerialBlockedGlobal
+        return preferences.isWebSerialAllowed(target) ?: !preferences.isSerialBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isHidAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isHidBlockedGlobal
+        return preferences.isWebHidAllowed(target) ?: !preferences.isHidBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isMidiAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isMidiBlockedGlobal
+        return preferences.isWebMidiAllowed(target) ?: !preferences.isMidiBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isHandTrackingAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isHandTrackingBlockedGlobal
+        return preferences.isWebHandTrackingAllowed(target) ?: !preferences.isHandTrackingBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isIdleDetectionAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isIdleBlockedGlobal
+        return preferences.isWebIdleAllowed(target) ?: !preferences.isIdleBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isLocalFontsAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isFontsBlockedGlobal
+        return preferences.isWebFontsAllowed(target) ?: !preferences.isFontsBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isBluetoothAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isBluetoothBlockedGlobal
+        return preferences.isWebBluetoothAllowed(target) ?: !preferences.isBluetoothBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isWakeLockAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isWakeLockBlockedGlobal
+        return preferences.isWebWakeLockAllowed(target) ?: !preferences.isWakeLockBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isPaymentHandlerAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isPaymentBlockedGlobal
+        return preferences.isWebPaymentAllowed(target) ?: !preferences.isPaymentBlockedGlobal
+    }
+
+    @JavascriptInterface
     fun getHiddenSelectors(classesJson: String?, idsJson: String?, pageUrl: String?): String {
         if (!preferences.isAdBlockEnabled || !preferences.isCosmeticFilteringEnabled) return "[]"
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return "[]"
