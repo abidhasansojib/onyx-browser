@@ -34,6 +34,12 @@ class SitePermissionCategorySheet(
         const val CATEGORY_ZOOM = 9
         const val CATEGORY_MIXED_CONTENT = 10
         const val CATEGORY_DESKTOP = 11
+        const val CATEGORY_GOOGLE_SIGNIN = 12
+        const val CATEGORY_AUTO_SHRED = 13
+        const val CATEGORY_SENSORS = 14
+        const val CATEGORY_CLIPBOARD = 15
+        const val CATEGORY_SOUND = 16
+        const val CATEGORY_AUTO_DOWNLOADS = 17
     }
 
     private var _binding: BottomSheetSitePermissionCategoryBinding? = null
@@ -85,6 +91,12 @@ class SitePermissionCategorySheet(
             CATEGORY_ZOOM -> Pair(R.drawable.ic_aspect_ratio, R.string.zoom_settings_title)
             CATEGORY_MIXED_CONTENT -> Pair(R.drawable.ic_lock, R.string.mixed_content_settings_title)
             CATEGORY_DESKTOP -> Pair(R.drawable.ic_desktop, R.string.desktop_site_settings_title)
+            CATEGORY_GOOGLE_SIGNIN -> Pair(R.drawable.ic_brand_google, R.string.google_signin_settings_title)
+            CATEGORY_AUTO_SHRED -> Pair(R.drawable.ic_broom, R.string.auto_shred_settings_title)
+            CATEGORY_SENSORS -> Pair(R.drawable.ic_sensors, R.string.sensors_settings_title)
+            CATEGORY_CLIPBOARD -> Pair(R.drawable.ic_clipboard, R.string.clipboard_settings_title)
+            CATEGORY_SOUND -> Pair(R.drawable.ic_volume, R.string.sound_settings_title)
+            CATEGORY_AUTO_DOWNLOADS -> Pair(R.drawable.ic_download, R.string.auto_downloads_settings_title)
             else -> Pair(R.drawable.ic_web, R.string.site_settings_title)
         }
         binding.ivCategoryIcon.setImageResource(iconRes)
@@ -125,6 +137,12 @@ class SitePermissionCategorySheet(
         CATEGORY_ZOOM -> prefs.isZoomEnabledGlobal
         CATEGORY_MIXED_CONTENT -> !prefs.isMixedContentBlockedGlobal
         CATEGORY_DESKTOP -> prefs.isDesktopMode
+        CATEGORY_GOOGLE_SIGNIN -> !prefs.isGoogleSignInBlockedGlobal
+        CATEGORY_AUTO_SHRED -> prefs.isCookieAutoclearOnCloseEnabled
+        CATEGORY_SENSORS -> !prefs.isSensorsBlockedGlobal
+        CATEGORY_CLIPBOARD -> !prefs.isClipboardBlockedGlobal
+        CATEGORY_SOUND -> !prefs.isSoundMutedGlobal
+        CATEGORY_AUTO_DOWNLOADS -> !prefs.isAutoDownloadsBlockedGlobal
         else -> true
     }
 
@@ -140,6 +158,12 @@ class SitePermissionCategorySheet(
         CATEGORY_ZOOM -> prefs.isZoomEnabledGlobal = value
         CATEGORY_MIXED_CONTENT -> prefs.isMixedContentBlockedGlobal = !value
         CATEGORY_DESKTOP -> prefs.isDesktopMode = value
+        CATEGORY_GOOGLE_SIGNIN -> prefs.isGoogleSignInBlockedGlobal = !value
+        CATEGORY_AUTO_SHRED -> prefs.isCookieAutoclearOnCloseEnabled = value
+        CATEGORY_SENSORS -> prefs.isSensorsBlockedGlobal = !value
+        CATEGORY_CLIPBOARD -> prefs.isClipboardBlockedGlobal = !value
+        CATEGORY_SOUND -> prefs.isSoundMutedGlobal = !value
+        CATEGORY_AUTO_DOWNLOADS -> prefs.isAutoDownloadsBlockedGlobal = !value
         else -> {}
     }
 
@@ -178,6 +202,30 @@ class SitePermissionCategorySheet(
                 Pair("Desktop site on", "Pages show the desktop version of websites")
             else
                 Pair("Desktop site off", "Pages show the mobile version of websites")
+            CATEGORY_GOOGLE_SIGNIN -> if (isEnabled)
+                Pair("Google Sign-In allowed", "Sites can display third-party Google Sign-In prompts")
+            else
+                Pair("Google Sign-In blocked", "Third-party Google Sign-In prompts are blocked (recommended)")
+            CATEGORY_AUTO_SHRED -> if (isEnabled)
+                Pair("Forget all sites on close", "Cookies and site data are cleared when tabs close")
+            else
+                Pair("Forget configured sites on close", "Only configured sites below are cleared when closed")
+            CATEGORY_SENSORS -> if (isEnabled)
+                Pair("Motion sensors allowed", "Sites can access motion and light sensors")
+            else
+                Pair("Motion sensors blocked", "Sensor APIs are disabled to prevent fingerprinting (recommended)")
+            CATEGORY_CLIPBOARD -> if (isEnabled)
+                Pair("Ask before clipboard access", "Sites must ask before reading clipboard contents")
+            else
+                Pair("Clipboard blocked", "All sites are blocked from reading clipboard")
+            CATEGORY_SOUND -> if (isEnabled)
+                Pair("Sound allowed", "Sites can play audio and sound")
+            else
+                Pair("Sound muted", "All sites are muted by default")
+            CATEGORY_AUTO_DOWNLOADS -> if (isEnabled)
+                Pair("Automatic downloads allowed", "Sites can download multiple files automatically")
+            else
+                Pair("Automatic downloads blocked", "Sites cannot download multiple files in succession")
             else -> if (isEnabled)
                 Pair(getString(R.string.ask_before_accessing), "Sites must ask for permission before using this device")
             else
@@ -199,6 +247,12 @@ class SitePermissionCategorySheet(
         CATEGORY_ZOOM -> prefs.getAllowedZoomDomains()
         CATEGORY_MIXED_CONTENT -> prefs.getAllowedMixedDomains()
         CATEGORY_DESKTOP -> prefs.desktopDomains
+        CATEGORY_GOOGLE_SIGNIN -> prefs.getAllowedGoogleSignInDomains()
+        CATEGORY_AUTO_SHRED -> prefs.autoShredDomains
+        CATEGORY_SENSORS -> prefs.getAllowedSensorsDomains()
+        CATEGORY_CLIPBOARD -> prefs.getAllowedClipboardDomains()
+        CATEGORY_SOUND -> prefs.getAllowedSoundDomains()
+        CATEGORY_AUTO_DOWNLOADS -> prefs.getAllowedAutoDownloadsDomains()
         else -> emptySet()
     }
 
@@ -214,6 +268,12 @@ class SitePermissionCategorySheet(
         CATEGORY_ZOOM -> prefs.getBlockedZoomDomains()
         CATEGORY_MIXED_CONTENT -> prefs.getBlockedMixedDomains()
         CATEGORY_DESKTOP -> emptySet()
+        CATEGORY_GOOGLE_SIGNIN -> prefs.getBlockedGoogleSignInDomains()
+        CATEGORY_AUTO_SHRED -> emptySet()
+        CATEGORY_SENSORS -> prefs.getBlockedSensorsDomains()
+        CATEGORY_CLIPBOARD -> prefs.getBlockedClipboardDomains()
+        CATEGORY_SOUND -> prefs.getBlockedSoundDomains()
+        CATEGORY_AUTO_DOWNLOADS -> prefs.getBlockedAutoDownloadsDomains()
         else -> emptySet()
     }
 
@@ -233,6 +293,12 @@ class SitePermissionCategorySheet(
             d.remove(domain)
             prefs.desktopDomains = d
         }
+        CATEGORY_GOOGLE_SIGNIN -> prefs.setSiteGoogleSignInPermission(domain, SitePermissionState.ASK)
+        CATEGORY_AUTO_SHRED -> prefs.setSiteAutoShredEnabled(domain, false)
+        CATEGORY_SENSORS -> prefs.setSiteSensorsPermission(domain, SitePermissionState.ASK)
+        CATEGORY_CLIPBOARD -> prefs.setSiteClipboardPermission(domain, SitePermissionState.ASK)
+        CATEGORY_SOUND -> prefs.setSiteSoundPermission(domain, SitePermissionState.ASK)
+        CATEGORY_AUTO_DOWNLOADS -> prefs.setSiteAutoDownloadsPermission(domain, SitePermissionState.ASK)
         else -> {}
     }
 
@@ -252,6 +318,12 @@ class SitePermissionCategorySheet(
             d.add(domain)
             prefs.desktopDomains = d
         }
+        CATEGORY_GOOGLE_SIGNIN -> prefs.setSiteGoogleSignInPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_AUTO_SHRED -> prefs.setSiteAutoShredEnabled(domain, true)
+        CATEGORY_SENSORS -> prefs.setSiteSensorsPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_CLIPBOARD -> prefs.setSiteClipboardPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_SOUND -> prefs.setSiteSoundPermission(domain, SitePermissionState.ALLOWED)
+        CATEGORY_AUTO_DOWNLOADS -> prefs.setSiteAutoDownloadsPermission(domain, SitePermissionState.ALLOWED)
         else -> {}
     }
 
@@ -267,6 +339,12 @@ class SitePermissionCategorySheet(
         CATEGORY_ZOOM -> prefs.setSiteZoomPermission(domain, SitePermissionState.BLOCKED)
         CATEGORY_MIXED_CONTENT -> prefs.setSiteMixedContentPermission(domain, SitePermissionState.BLOCKED)
         CATEGORY_DESKTOP -> clearSitePermission(domain)
+        CATEGORY_GOOGLE_SIGNIN -> prefs.setSiteGoogleSignInPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_AUTO_SHRED -> prefs.setSiteAutoShredEnabled(domain, false)
+        CATEGORY_SENSORS -> prefs.setSiteSensorsPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_CLIPBOARD -> prefs.setSiteClipboardPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_SOUND -> prefs.setSiteSoundPermission(domain, SitePermissionState.BLOCKED)
+        CATEGORY_AUTO_DOWNLOADS -> prefs.setSiteAutoDownloadsPermission(domain, SitePermissionState.BLOCKED)
         else -> {}
     }
 
@@ -280,12 +358,12 @@ class SitePermissionCategorySheet(
             setPadding(padding, 0, padding, 0)
             addView(inputET)
         }
-        val isDesktopCategory = categoryType == CATEGORY_DESKTOP
+        val isSingleActionCategory = categoryType == CATEGORY_DESKTOP || categoryType == CATEGORY_AUTO_SHRED
         val builder = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.add_site_exception)
             .setView(container)
             .setNeutralButton(R.string.cancel, null)
-        if (!isDesktopCategory) {
+        if (!isSingleActionCategory) {
             builder
                 .setPositiveButton(getString(R.string.permission_allowed)) { _, _ ->
                     val domain = prefs.cleanDomain(inputET.text.toString().trim())
@@ -306,7 +384,8 @@ class SitePermissionCategorySheet(
                     }
                 }
         } else {
-            builder.setPositiveButton("Enable desktop") { _, _ ->
+            val btnText = if (categoryType == CATEGORY_DESKTOP) "Enable desktop" else "Add to forget list"
+            builder.setPositiveButton(btnText) { _, _ ->
                 val domain = prefs.cleanDomain(inputET.text.toString().trim())
                 if (domain.isNotBlank()) {
                     setSitePermissionAllowed(domain)
@@ -383,10 +462,14 @@ class SitePermissionCategorySheet(
         }
 
         val tvStatus = TextView(requireContext()).apply {
-            text = if (isAllowed) getString(R.string.permission_allowed) else getString(R.string.permission_blocked)
+            text = when {
+                categoryType == CATEGORY_AUTO_SHRED -> getString(R.string.permission_auto_shred)
+                isAllowed -> getString(R.string.permission_allowed)
+                else -> getString(R.string.permission_blocked)
+            }
             textSize = 11.5f
             setTextColor(
-                if (isAllowed) ContextCompat.getColor(context, R.color.green_success)
+                if (isAllowed || categoryType == CATEGORY_AUTO_SHRED) ContextCompat.getColor(context, R.color.green_success)
                 else ContextCompat.getColor(context, R.color.red_danger)
             )
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {

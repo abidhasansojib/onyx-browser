@@ -182,6 +182,81 @@ object ChromeEnvironmentBridge {
                         }
                     } catch (_) {}
                 }
+
+                // ── 5. Motion & Light Sensors Control (Brave parity) ─────────────────
+                if (!isAuthOrChallenge) {
+                    try {
+                        var allowSensors = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isSensorsAllowed === 'function') {
+                            allowSensors = window.OnyxShieldBridge.isSensorsAllowed(host);
+                        }
+                        if (!allowSensors) {
+                            var sensorTypes = ['Accelerometer', 'LinearAccelerationSensor', 'Gyroscope',
+                                               'AbsoluteOrientationSensor', 'RelativeOrientationSensor',
+                                               'AmbientLightSensor', 'Magnetometer'];
+                            for (var si = 0; si < sensorTypes.length; si++) {
+                                var sName = sensorTypes[si];
+                                if (window[sName]) {
+                                    window[sName] = makeNative(function() {
+                                        throw new DOMException('Sensor access blocked', 'NotAllowedError');
+                                    }, sName);
+                                }
+                            }
+                            if (window.DeviceMotionEvent && typeof window.DeviceMotionEvent.requestPermission === 'function') {
+                                window.DeviceMotionEvent.requestPermission = makeNative(function() {
+                                    return Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
+                                }, 'requestPermission');
+                            }
+                            if (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function') {
+                                window.DeviceOrientationEvent.requestPermission = makeNative(function() {
+                                    return Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
+                                }, 'requestPermission');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 6. Clipboard Access Control ───────────────────────────────────
+                    try {
+                        var allowClipboard = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isClipboardAllowed === 'function') {
+                            allowClipboard = window.OnyxShieldBridge.isClipboardAllowed(host);
+                        }
+                        if (!allowClipboard && navigator.clipboard) {
+                            if (typeof navigator.clipboard.readText === 'function') {
+                                navigator.clipboard.readText = makeNative(function() {
+                                    return Promise.reject(new DOMException('Clipboard read permission denied', 'NotAllowedError'));
+                                }, 'readText');
+                            }
+                            if (typeof navigator.clipboard.read === 'function') {
+                                navigator.clipboard.read = makeNative(function() {
+                                    return Promise.reject(new DOMException('Clipboard read permission denied', 'NotAllowedError'));
+                                }, 'read');
+                            }
+                        }
+                    } catch (_) {}
+
+                    // ── 7. Sound / Audio Muting ────────────────────────────────────────
+                    try {
+                        var allowSound = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isSoundAllowed === 'function') {
+                            allowSound = window.OnyxShieldBridge.isSoundAllowed(host);
+                        }
+                        if (!allowSound) {
+                            var origPlay = HTMLMediaElement.prototype.play;
+                            HTMLMediaElement.prototype.play = function() {
+                                this.muted = true;
+                                return origPlay.apply(this, arguments);
+                            };
+                            try {
+                                Object.defineProperty(HTMLMediaElement.prototype, 'volume', {
+                                    get: function() { return 0; },
+                                    set: function(_) {},
+                                    configurable: true
+                                });
+                            } catch (_) {}
+                        }
+                    } catch (_) {}
+                }
             } catch (_) {}
         })();
     """.trimIndent()

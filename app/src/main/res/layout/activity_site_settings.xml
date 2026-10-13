@@ -421,6 +421,213 @@
                             app:tint="#9AA0A6" />
                     </LinearLayout>
 
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="70dp"
+                        android:background="@color/settings_card_stroke" />
+
+                    <!-- Motion Sensors -->
+                    <LinearLayout
+                        android:id="@+id/rowSensorsPermission"
+                        android:layout_width="match_parent"
+                        android:layout_height="72dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
+
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_box_tile">
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                app:srcCompat="@drawable/ic_sensors"
+                                app:tint="@color/settings_title_text" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/sensors_settings_title"
+                                android:textColor="@color/settings_title_text"
+                                android:textSize="15sp" />
+                            <TextView
+                                android:id="@+id/tvSensorsStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="@string/blocked_globally"
+                                android:textColor="@color/settings_subtitle_text"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvSensorsCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:textColor="@color/settings_subtitle_text"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:srcCompat="@drawable/ic_chevron_right"
+                            app:tint="#9AA0A6" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="70dp"
+                        android:background="@color/settings_card_stroke" />
+
+                    <!-- Clipboard -->
+                    <LinearLayout
+                        android:id="@+id/rowClipboardPermission"
+                        android:layout_width="match_parent"
+                        android:layout_height="72dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
+
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_box_tile">
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                app:srcCompat="@drawable/ic_clipboard"
+                                app:tint="@color/settings_title_text" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/clipboard_settings_title"
+                                android:textColor="@color/settings_title_text"
+                                android:textSize="15sp" />
+                            <TextView
+                                android:id="@+id/tvClipboardStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="@string/ask_before_accessing"
+                                android:textColor="@color/settings_subtitle_text"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvClipboardCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:textColor="@color/settings_subtitle_text"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:srcCompat="@drawable/ic_chevron_right"
+                            app:tint="#9AA0A6" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="70dp"
+                        android:background="@color/settings_card_stroke" />
+
+                    <!-- Google Sign-In -->
+                    <LinearLayout
+                        android:id="@+id/rowGoogleSignInPermission"
+                        android:layout_width="match_parent"
+                        android:layout_height="72dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
+
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_box_tile">
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                app:srcCompat="@drawable/ic_brand_google"
+                                app:tint="@color/settings_title_text" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/google_signin_settings_title"
+                                android:textColor="@color/settings_title_text"
+                                android:textSize="15sp" />
+                            <TextView
+                                android:id="@+id/tvGoogleSignInStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="@string/policy_allowed_label"
+                                android:textColor="@color/settings_subtitle_text"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvGoogleSignInCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:textColor="@color/settings_subtitle_text"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:srcCompat="@drawable/ic_chevron_right"
+                            app:tint="#9AA0A6" />
+                    </LinearLayout>
+
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -851,6 +1058,146 @@
                             app:tint="#9AA0A6" />
                     </LinearLayout>
 
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="70dp"
+                        android:background="@color/settings_card_stroke" />
+
+                    <!-- Sound -->
+                    <LinearLayout
+                        android:id="@+id/rowSoundPermission"
+                        android:layout_width="match_parent"
+                        android:layout_height="72dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
+
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_box_tile">
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                app:srcCompat="@drawable/ic_volume"
+                                app:tint="@color/settings_title_text" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/sound_settings_title"
+                                android:textColor="@color/settings_title_text"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:id="@+id/tvSoundStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="@string/policy_allowed_label"
+                                android:textColor="@color/settings_subtitle_text"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvSoundCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:textColor="@color/settings_subtitle_text"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:srcCompat="@drawable/ic_chevron_right"
+                            app:tint="#9AA0A6" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="70dp"
+                        android:background="@color/settings_card_stroke" />
+
+                    <!-- Automatic Downloads -->
+                    <LinearLayout
+                        android:id="@+id/rowAutoDownloadsPermission"
+                        android:layout_width="match_parent"
+                        android:layout_height="72dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
+
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_box_tile">
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                app:srcCompat="@drawable/ic_download"
+                                app:tint="@color/settings_title_text" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/auto_downloads_settings_title"
+                                android:textColor="@color/settings_title_text"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:id="@+id/tvAutoDownloadsStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="@string/ask_before_accessing"
+                                android:textColor="@color/settings_subtitle_text"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvAutoDownloadsCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:textColor="@color/settings_subtitle_text"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:srcCompat="@drawable/ic_chevron_right"
+                            app:tint="#9AA0A6" />
+                    </LinearLayout>
+
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -1057,6 +1404,75 @@
                                 android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:srcCompat="@drawable/ic_chevron_right"
+                            app:tint="#9AA0A6" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="70dp"
+                        android:background="@color/settings_card_stroke" />
+
+                    <!-- Auto-shred on tab close -->
+                    <LinearLayout
+                        android:id="@+id/rowAutoShredPermission"
+                        android:layout_width="match_parent"
+                        android:layout_height="72dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
+
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_box_tile">
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                app:srcCompat="@drawable/ic_broom"
+                                app:tint="@color/settings_title_text" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/auto_shred_settings_title"
+                                android:textColor="@color/settings_title_text"
+                                android:textSize="15sp" />
+                            <TextView
+                                android:id="@+id/tvAutoShredStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="@string/auto_shred_settings_desc"
+                                android:textColor="@color/settings_subtitle_text"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvAutoShredCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:textColor="@color/settings_subtitle_text"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
 
                         <androidx.appcompat.widget.AppCompatImageView
                             android:layout_width="20dp"

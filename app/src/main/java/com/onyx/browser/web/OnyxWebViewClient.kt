@@ -718,6 +718,42 @@ class OnyxWebViewClient(
                 return null
             }
 
+            // ── Google Sign-In Prompts Blocking (Brave parity) ─────────────────────
+            // Third-party websites load Google One-Tap via accounts.google.com/gsi/client or iframes.
+            // When Google Sign-In is blocked for the origin (or globally blocked), defuse the prompt.
+            if (url.contains("accounts.google.com/gsi/")) {
+                val isGoogleSignInAllowed = preferences.isWebGoogleSignInAllowed(pageDomain)
+                    ?: preferences.isWebGoogleSignInAllowed(currentDomain)
+                    ?: !preferences.isGoogleSignInBlockedGlobal
+                if (!isGoogleSignInAllowed && !pageDomain.endsWith("google.com") && !currentDomain.endsWith("google.com")) {
+                    recordBlockedRequest(view)
+                    val gsiStub = """
+                        window.google = window.google || {};
+                        window.google.accounts = window.google.accounts || {};
+                        window.google.accounts.id = {
+                            initialize: function() {},
+                            prompt: function() {},
+                            renderButton: function() {},
+                            disableAutoSelect: function() {},
+                            storeCredential: function() {},
+                            cancel: function() {},
+                            revoke: function() {}
+                        };
+                    """.trimIndent()
+                    return WebResourceResponse(
+                        "application/javascript",
+                        "UTF-8",
+                        200,
+                        "OK",
+                        mapOf(
+                            "Access-Control-Allow-Origin" to "*",
+                            "Content-Type" to "application/javascript; charset=utf-8"
+                        ),
+                        ByteArrayInputStream(gsiStub.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+                    )
+                }
+            }
+
             if (isOAuthResource) {
                 return null
             }

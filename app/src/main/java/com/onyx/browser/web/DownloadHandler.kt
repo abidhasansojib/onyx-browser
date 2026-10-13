@@ -129,9 +129,11 @@ object DownloadHandler {
 
         val preferences = BrowserPreferences.getInstance(activity)
         val behavior = preferences.downloadManagerBehavior
+        val autoDownloadsBlocked = preferences.isWebAutoDownloadsAllowed(effectivePageUrl)?.let { !it }
+            ?: preferences.isAutoDownloadsBlockedGlobal
 
-        if (behavior == 0) {
-            // Ask before download
+        if (behavior == 0 || autoDownloadsBlocked) {
+            // Ask before download (always enforced when automatic downloads are blocked for the site)
             if (activity is FragmentActivity) {
                 val sheet = DownloadPromptBottomSheet.newInstance(
                     url = effectiveUrl,

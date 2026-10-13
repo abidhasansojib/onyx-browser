@@ -817,7 +817,13 @@ class BrowserPreferences private constructor(private val context: Context) {
                isWebAutoplayAllowed(domain) != null ||
                isWebImagesAllowed(domain) != null ||
                isWebZoomAllowed(domain) != null ||
-               isWebMixedContentAllowed(domain) != null
+               isWebMixedContentAllowed(domain) != null ||
+               isWebGoogleSignInAllowed(domain) != null ||
+               isSiteAutoShredEnabled(domain) ||
+               isWebSensorsAllowed(domain) != null ||
+               isWebClipboardAllowed(domain) != null ||
+               isWebSoundAllowed(domain) != null ||
+               isWebAutoDownloadsAllowed(domain) != null
     }
 
     fun resetSitePermissions(domainOrUrl: String) {
@@ -833,6 +839,12 @@ class BrowserPreferences private constructor(private val context: Context) {
         setSiteImagesPermission(domain, SitePermissionState.ASK)
         setSiteZoomPermission(domain, SitePermissionState.ASK)
         setSiteMixedContentPermission(domain, SitePermissionState.ASK)
+        setSiteGoogleSignInPermission(domain, SitePermissionState.ASK)
+        setSiteAutoShredEnabled(domain, false)
+        setSiteSensorsPermission(domain, SitePermissionState.ASK)
+        setSiteClipboardPermission(domain, SitePermissionState.ASK)
+        setSiteSoundPermission(domain, SitePermissionState.ASK)
+        setSiteAutoDownloadsPermission(domain, SitePermissionState.ASK)
     }
 
     fun getAllowedCameraDomains(): Set<String> =
@@ -1082,6 +1094,293 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_PROTECTED_CONTENT_ENABLED_GLOBAL, true) // default: allow (Brave default)
         set(value) = prefs.edit().putBoolean(KEY_PROTECTED_CONTENT_ENABLED_GLOBAL, value).apply()
 
+    // ── Google Sign-In Permission (per-domain, Brave parity) ─────────────────
+    @Volatile private var cachedAllowedGoogleSignInDomains: Set<String>? = null
+    @Volatile private var cachedBlockedGoogleSignInDomains: Set<String>? = null
+
+    fun isWebGoogleSignInAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedGoogleSignInDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_GOOGLE_SIGNIN_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedGoogleSignInDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedGoogleSignInDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_GOOGLE_SIGNIN_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedGoogleSignInDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun getSiteGoogleSignInPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebGoogleSignInAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteGoogleSignInPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_GOOGLE_SIGNIN_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_GOOGLE_SIGNIN_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedGoogleSignInDomains = a
+        cachedBlockedGoogleSignInDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_GOOGLE_SIGNIN_DOMAINS, a).putStringSet(KEY_BLOCKED_GOOGLE_SIGNIN_DOMAINS, b).apply()
+    }
+
+    fun getAllowedGoogleSignInDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_GOOGLE_SIGNIN_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedGoogleSignInDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_GOOGLE_SIGNIN_DOMAINS, emptySet()) ?: emptySet()
+
+    var isGoogleSignInBlockedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_GOOGLE_SIGNIN_BLOCKED_GLOBAL, false)
+        set(value) = prefs.edit().putBoolean(KEY_GOOGLE_SIGNIN_BLOCKED_GLOBAL, value).apply()
+
+    // ── Auto-Shred Site Data on Tab Close (per-domain, Brave parity) ─────────
+    @Volatile private var cachedAutoShredDomains: Set<String>? = null
+
+    var autoShredDomains: Set<String>
+        get() = cachedAutoShredDomains ?: run {
+            val s = prefs.getStringSet(KEY_AUTO_SHRED_DOMAINS, emptySet()) ?: emptySet()
+            cachedAutoShredDomains = s
+            s
+        }
+        set(value) {
+            cachedAutoShredDomains = value
+            prefs.edit().putStringSet(KEY_AUTO_SHRED_DOMAINS, value).apply()
+        }
+
+    fun isSiteAutoShredEnabled(domainOrUrl: String): Boolean {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return false
+        return autoShredDomains.contains(domain)
+    }
+
+    fun setSiteAutoShredEnabled(domainOrUrl: String, enabled: Boolean) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val current = autoShredDomains.toMutableSet()
+        if (enabled) {
+            current.add(domain)
+        } else {
+            current.remove(domain)
+        }
+        autoShredDomains = current
+    }
+
+    // ── Motion & Light Sensors (per-domain, Brave parity) ────────────────────
+    @Volatile private var cachedAllowedSensorsDomains: Set<String>? = null
+    @Volatile private var cachedBlockedSensorsDomains: Set<String>? = null
+
+    fun isWebSensorsAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedSensorsDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_SENSORS_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedSensorsDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedSensorsDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_SENSORS_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedSensorsDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun getSiteSensorsPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebSensorsAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteSensorsPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_SENSORS_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_SENSORS_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedSensorsDomains = a
+        cachedBlockedSensorsDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_SENSORS_DOMAINS, a).putStringSet(KEY_BLOCKED_SENSORS_DOMAINS, b).apply()
+    }
+
+    fun getAllowedSensorsDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_SENSORS_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedSensorsDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_SENSORS_DOMAINS, emptySet()) ?: emptySet()
+
+    var isSensorsBlockedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_SENSORS_BLOCKED_GLOBAL, true) // Brave default: blocked
+        set(value) = prefs.edit().putBoolean(KEY_SENSORS_BLOCKED_GLOBAL, value).apply()
+
+    // ── Clipboard Permission (per-domain) ────────────────────────────────────
+    @Volatile private var cachedAllowedClipboardDomains: Set<String>? = null
+    @Volatile private var cachedBlockedClipboardDomains: Set<String>? = null
+
+    fun isWebClipboardAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedClipboardDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_CLIPBOARD_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedClipboardDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedClipboardDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_CLIPBOARD_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedClipboardDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun getSiteClipboardPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebClipboardAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteClipboardPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_CLIPBOARD_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_CLIPBOARD_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedClipboardDomains = a
+        cachedBlockedClipboardDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_CLIPBOARD_DOMAINS, a).putStringSet(KEY_BLOCKED_CLIPBOARD_DOMAINS, b).apply()
+    }
+
+    fun getAllowedClipboardDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_CLIPBOARD_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedClipboardDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_CLIPBOARD_DOMAINS, emptySet()) ?: emptySet()
+
+    var isClipboardBlockedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_CLIPBOARD_BLOCKED_GLOBAL, false)
+        set(value) = prefs.edit().putBoolean(KEY_CLIPBOARD_BLOCKED_GLOBAL, value).apply()
+
+    // ── Sound / Audio Muting (per-domain) ────────────────────────────────────
+    @Volatile private var cachedAllowedSoundDomains: Set<String>? = null
+    @Volatile private var cachedBlockedSoundDomains: Set<String>? = null
+
+    fun isWebSoundAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedSoundDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_SOUND_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedSoundDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedSoundDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_SOUND_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedSoundDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun getSiteSoundPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebSoundAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteSoundPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_SOUND_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_SOUND_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedSoundDomains = a
+        cachedBlockedSoundDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_SOUND_DOMAINS, a).putStringSet(KEY_BLOCKED_SOUND_DOMAINS, b).apply()
+    }
+
+    fun getAllowedSoundDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_SOUND_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedSoundDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_SOUND_DOMAINS, emptySet()) ?: emptySet()
+
+    var isSoundMutedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_SOUND_MUTED_GLOBAL, false)
+        set(value) = prefs.edit().putBoolean(KEY_SOUND_MUTED_GLOBAL, value).apply()
+
+    // ── Automatic Downloads (per-domain) ─────────────────────────────────────
+    @Volatile private var cachedAllowedAutoDownloadsDomains: Set<String>? = null
+    @Volatile private var cachedBlockedAutoDownloadsDomains: Set<String>? = null
+
+    fun isWebAutoDownloadsAllowed(domainOrUrl: String): Boolean? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val allowed = cachedAllowedAutoDownloadsDomains ?: run {
+            val s = prefs.getStringSet(KEY_ALLOWED_AUTO_DOWNLOADS_DOMAINS, emptySet()) ?: emptySet()
+            cachedAllowedAutoDownloadsDomains = s
+            s
+        }
+        if (allowed.contains(domain)) return true
+        val blocked = cachedBlockedAutoDownloadsDomains ?: run {
+            val s = prefs.getStringSet(KEY_BLOCKED_AUTO_DOWNLOADS_DOMAINS, emptySet()) ?: emptySet()
+            cachedBlockedAutoDownloadsDomains = s
+            s
+        }
+        if (blocked.contains(domain)) return false
+        return null
+    }
+
+    fun getSiteAutoDownloadsPermission(domainOrUrl: String): SitePermissionState =
+        when (isWebAutoDownloadsAllowed(domainOrUrl)) {
+            true -> SitePermissionState.ALLOWED
+            false -> SitePermissionState.BLOCKED
+            null -> SitePermissionState.ASK
+        }
+
+    fun setSiteAutoDownloadsPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val a = prefs.getStringSet(KEY_ALLOWED_AUTO_DOWNLOADS_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_AUTO_DOWNLOADS_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
+        cachedAllowedAutoDownloadsDomains = a
+        cachedBlockedAutoDownloadsDomains = b
+        prefs.edit().putStringSet(KEY_ALLOWED_AUTO_DOWNLOADS_DOMAINS, a).putStringSet(KEY_BLOCKED_AUTO_DOWNLOADS_DOMAINS, b).apply()
+    }
+
+    fun getAllowedAutoDownloadsDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_AUTO_DOWNLOADS_DOMAINS, emptySet()) ?: emptySet()
+    fun getBlockedAutoDownloadsDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_AUTO_DOWNLOADS_DOMAINS, emptySet()) ?: emptySet()
+
+    var isAutoDownloadsBlockedGlobal: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_DOWNLOADS_BLOCKED_GLOBAL, false)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_DOWNLOADS_BLOCKED_GLOBAL, value).apply()
+
     fun getAllConfiguredDomains(): Set<String> {
         val domains = sortedSetOf<String>()
         domains.addAll(getAllowedCameraDomains())
@@ -1104,6 +1403,17 @@ class BrowserPreferences private constructor(private val context: Context) {
         domains.addAll(getBlockedZoomDomains())
         domains.addAll(getAllowedMixedDomains())
         domains.addAll(getBlockedMixedDomains())
+        domains.addAll(getAllowedGoogleSignInDomains())
+        domains.addAll(getBlockedGoogleSignInDomains())
+        domains.addAll(autoShredDomains)
+        domains.addAll(getAllowedSensorsDomains())
+        domains.addAll(getBlockedSensorsDomains())
+        domains.addAll(getAllowedClipboardDomains())
+        domains.addAll(getBlockedClipboardDomains())
+        domains.addAll(getAllowedSoundDomains())
+        domains.addAll(getBlockedSoundDomains())
+        domains.addAll(getAllowedAutoDownloadsDomains())
+        domains.addAll(getBlockedAutoDownloadsDomains())
         // Desktop mode per-domain overrides
         domains.addAll(desktopDomains)
         // Per-domain script blocking
@@ -1542,6 +1852,29 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_BLOCKED_MIXED_DOMAINS = "pref_blocked_mixed_domains"
         const val KEY_MIXED_CONTENT_BLOCKED_GLOBAL = "pref_mixed_content_blocked_global"
         const val KEY_PROTECTED_CONTENT_ENABLED_GLOBAL = "pref_protected_content_enabled_global"
+
+        // ── Brave-Parity Site Settings Keys ───────────────────────────────────
+        const val KEY_ALLOWED_GOOGLE_SIGNIN_DOMAINS = "pref_allowed_google_signin_domains"
+        const val KEY_BLOCKED_GOOGLE_SIGNIN_DOMAINS = "pref_blocked_google_signin_domains"
+        const val KEY_GOOGLE_SIGNIN_BLOCKED_GLOBAL = "pref_google_signin_blocked_global"
+
+        const val KEY_AUTO_SHRED_DOMAINS = "pref_auto_shred_domains"
+
+        const val KEY_ALLOWED_SENSORS_DOMAINS = "pref_allowed_sensors_domains"
+        const val KEY_BLOCKED_SENSORS_DOMAINS = "pref_blocked_sensors_domains"
+        const val KEY_SENSORS_BLOCKED_GLOBAL = "pref_sensors_blocked_global"
+
+        const val KEY_ALLOWED_CLIPBOARD_DOMAINS = "pref_allowed_clipboard_domains"
+        const val KEY_BLOCKED_CLIPBOARD_DOMAINS = "pref_blocked_clipboard_domains"
+        const val KEY_CLIPBOARD_BLOCKED_GLOBAL = "pref_clipboard_blocked_global"
+
+        const val KEY_ALLOWED_SOUND_DOMAINS = "pref_allowed_sound_domains"
+        const val KEY_BLOCKED_SOUND_DOMAINS = "pref_blocked_sound_domains"
+        const val KEY_SOUND_MUTED_GLOBAL = "pref_sound_muted_global"
+
+        const val KEY_ALLOWED_AUTO_DOWNLOADS_DOMAINS = "pref_allowed_auto_downloads_domains"
+        const val KEY_BLOCKED_AUTO_DOWNLOADS_DOMAINS = "pref_blocked_auto_downloads_domains"
+        const val KEY_AUTO_DOWNLOADS_BLOCKED_GLOBAL = "pref_auto_downloads_blocked_global"
 
 
         /**

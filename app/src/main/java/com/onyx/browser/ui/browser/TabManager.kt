@@ -520,7 +520,11 @@ class TabManager(
         isIncognito: Boolean = false
     ) {
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        if (!prefs.isCookieAutoclearOnCloseEnabled || candidateUrls.isEmpty()) return
+        val hasAutoShred = candidateUrls.any { u ->
+            val host = try { Uri.parse(u).host?.lowercase() } catch (_: Throwable) { null }
+            host != null && (prefs.isSiteAutoShredEnabled(host) || prefs.isSiteAutoShredEnabled(extractRootDomain(host)))
+        }
+        if ((!prefs.isCookieAutoclearOnCloseEnabled && !hasAutoShred) || candidateUrls.isEmpty()) return
 
         // Fast main-thread snapshot of URLs from remaining open tabs of the matching mode (normal vs incognito)
         val targetTabs = if (isIncognito) _incognitoTabs.value else _normalTabs.value
@@ -565,8 +569,12 @@ class TabManager(
                     }
 
                     if (!stillOpen) {
-                        hostsToPurge.add(host)
-                        if (root.isNotEmpty()) rootsToPurge.add(root)
+                        val isAutoShredTarget = prefs.isSiteAutoShredEnabled(host) ||
+                            (root.isNotEmpty() && prefs.isSiteAutoShredEnabled(root))
+                        if (prefs.isCookieAutoclearOnCloseEnabled || isAutoShredTarget) {
+                            hostsToPurge.add(host)
+                            if (root.isNotEmpty()) rootsToPurge.add(root)
+                        }
                     }
                 }
 

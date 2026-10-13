@@ -90,6 +90,8 @@ class SiteShieldBottomSheetDialog(
         setupHttpsUpgradeToggle()
         setupScriptBlockingToggle()
         setupCosmeticFilteringToggle()
+        setupGoogleSignInToggle()
+        setupAutoShredToggle()
         setupCustomBlockedElements()
         setupBlockedCounter()
 
@@ -332,7 +334,8 @@ class SiteShieldBottomSheetDialog(
             binding.layoutFingerprintProtection,
             binding.layoutHttpsUpgrade,
             binding.layoutScriptBlocking,
-            binding.layoutCosmeticFiltering
+            binding.layoutCosmeticFiltering,
+            binding.layoutGoogleSignIn
         ).forEach {
             it.isEnabled = enabled
             it.alpha = alpha
@@ -341,6 +344,7 @@ class SiteShieldBottomSheetDialog(
         binding.switchHttpsUpgrade.isEnabled = enabled
         binding.switchScriptBlocking.isEnabled = enabled
         binding.switchCosmeticFiltering.isEnabled = enabled
+        binding.switchGoogleSignIn.isEnabled = enabled
     }
 
     // ── Blocking Level ────────────────────────────────────────────────────────
@@ -421,6 +425,37 @@ class SiteShieldBottomSheetDialog(
             val newState = !binding.switchCosmeticFiltering.isChecked
             binding.switchCosmeticFiltering.isChecked = newState
             prefs.isCosmeticFilteringEnabled = newState
+            onShieldSettingsChanged()
+        }
+    }
+
+    // ── Google Sign-In Prompts ───────────────────────────────────────────────
+
+    private fun setupGoogleSignInToggle() {
+        val isAllowed = prefs.isWebGoogleSignInAllowed(domain) ?: !prefs.isGoogleSignInBlockedGlobal
+        binding.switchGoogleSignIn.isChecked = isAllowed
+        binding.layoutGoogleSignIn.setOnClickListener {
+            if (!it.isEnabled) return@setOnClickListener
+            val newState = !binding.switchGoogleSignIn.isChecked
+            binding.switchGoogleSignIn.isChecked = newState
+            prefs.setSiteGoogleSignInPermission(
+                domain,
+                if (newState) SitePermissionState.ALLOWED else SitePermissionState.BLOCKED
+            )
+            onShieldSettingsChanged()
+        }
+    }
+
+    // ── Auto-Shred Site Data on Tab Close ────────────────────────────────────
+
+    private fun setupAutoShredToggle() {
+        val isAutoShred = prefs.isSiteAutoShredEnabled(domain)
+        binding.switchAutoShred.isChecked = isAutoShred
+        binding.layoutAutoShred.setOnClickListener {
+            if (!it.isEnabled) return@setOnClickListener
+            val newState = !binding.switchAutoShred.isChecked
+            binding.switchAutoShred.isChecked = newState
+            prefs.setSiteAutoShredEnabled(domain, newState)
             onShieldSettingsChanged()
         }
     }

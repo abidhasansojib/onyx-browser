@@ -40,6 +40,9 @@ ICONS=(
     "camera:ic_camera"
     "map-pin:ic_location"
     "bell:ic_bell"
+    "volume-2:ic_volume"
+    "activity:ic_sensors"
+    "clipboard:ic_clipboard"
 )
 
 echo "==> Downloading official Lucide icons..."

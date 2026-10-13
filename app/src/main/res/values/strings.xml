@@ -594,6 +594,12 @@
     <string name="permission_images">Images</string>
     <string name="permission_zoom">Zoom</string>
     <string name="permission_mixed_content">Insecure content</string>
+    <string name="permission_google_signin">Google Sign-In</string>
+    <string name="permission_auto_shred">Forget on close</string>
+    <string name="permission_sensors">Motion sensors</string>
+    <string name="permission_clipboard">Clipboard</string>
+    <string name="permission_sound">Sound</string>
+    <string name="permission_auto_downloads">Automatic downloads</string>
 
     <string name="notifications_settings_title">Notifications</string>
     <string name="notifications_settings_desc">Sites that send notifications in your browser</string>
@@ -601,7 +607,7 @@
     <string name="javascript_settings_desc">JavaScript powers most modern websites</string>
     <string name="popups_settings_title">Pop-ups &amp; redirects</string>
     <string name="popups_settings_desc">Sites allowed to open new windows or tabs</string>
-    <string name="autoplay_settings_title">Sound &amp; autoplay</string>
+    <string name="autoplay_settings_title">Autoplay</string>
     <string name="autoplay_settings_desc">Sites that can autoplay audio or video</string>
     <string name="images_settings_title">Images</string>
     <string name="images_settings_desc">Sites allowed to show images</string>
@@ -609,6 +615,20 @@
     <string name="zoom_settings_desc">Allow sites to control or prevent pinch-to-zoom</string>
     <string name="mixed_content_settings_title">Insecure content</string>
     <string name="mixed_content_settings_desc">Sites allowed to load insecure (HTTP) resources on HTTPS pages</string>
+    <string name="google_signin_settings_title">Google Sign-In</string>
+    <string name="google_signin_settings_desc">Sites allowed to show Google Sign-In prompts</string>
+    <string name="auto_shred_settings_title">Auto-shred on tab close</string>
+    <string name="auto_shred_settings_desc">Sites that automatically delete cookies and data when closed</string>
+    <string name="forget_site_on_close">Forget this site when closed</string>
+    <string name="forget_site_on_close_desc">Clears cookies and site data whenever this site\'s tab is closed</string>
+    <string name="sensors_settings_title">Motion sensors</string>
+    <string name="sensors_settings_desc">Sites allowed to access motion and light sensors</string>
+    <string name="clipboard_settings_title">Clipboard</string>
+    <string name="clipboard_settings_desc">Sites allowed to read and write to your clipboard</string>
+    <string name="sound_settings_title">Sound</string>
+    <string name="sound_settings_desc">Sites allowed to play sound</string>
+    <string name="auto_downloads_settings_title">Automatic downloads</string>
+    <string name="auto_downloads_settings_desc">Sites allowed to download multiple files automatically</string>
 
     <!-- Permission dialog redesign -->
     <string name="perm_dialog_always_allow">Always allow</string>

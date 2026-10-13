@@ -115,6 +115,27 @@ class SiteSettingsActivity : AppCompatActivity() {
             sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
         }
 
+        binding.rowSensorsPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_SENSORS) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowClipboardPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_CLIPBOARD) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowGoogleSignInPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_GOOGLE_SIGNIN) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
         binding.rowJavaScriptPermission.setOnClickListener {
             val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_JAVASCRIPT) {
                 updateStatuses()
@@ -157,6 +178,20 @@ class SiteSettingsActivity : AppCompatActivity() {
             sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
         }
 
+        binding.rowSoundPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_SOUND) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowAutoDownloadsPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_AUTO_DOWNLOADS) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
         binding.rowCookiesSiteData.setOnClickListener {
             val sheet = CookieModePickerSheet(prefs.cookieBlockingMode) { selectedMode ->
                 prefs.cookieBlockingMode = selectedMode
@@ -187,6 +222,13 @@ class SiteSettingsActivity : AppCompatActivity() {
                 }
                 .setNegativeButton(R.string.cancel, null)
                 .show()
+        }
+
+        binding.rowAutoShredPermission.setOnClickListener {
+            val sheet = SitePermissionCategorySheet(SitePermissionCategorySheet.CATEGORY_AUTO_SHRED) {
+                updateStatuses()
+            }
+            sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
         }
 
         binding.rowClearAllSiteData.setOnClickListener {
@@ -278,6 +320,33 @@ class SiteSettingsActivity : AppCompatActivity() {
         }
         updateCountBadge(binding.tvNotificationsCount, prefs.getAllowedNotifDomains().size, prefs.getBlockedNotifDomains().size)
 
+        // Sensors
+        val sensorsBlocked = prefs.isSensorsBlockedGlobal
+        binding.tvSensorsStatus.text = if (sensorsBlocked) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvSensorsCount, prefs.getAllowedSensorsDomains().size, prefs.getBlockedSensorsDomains().size)
+
+        // Clipboard
+        val clipboardBlocked = prefs.isClipboardBlockedGlobal
+        binding.tvClipboardStatus.text = if (clipboardBlocked) {
+            getString(R.string.blocked_globally)
+        } else {
+            getString(R.string.ask_before_accessing)
+        }
+        updateCountBadge(binding.tvClipboardCount, prefs.getAllowedClipboardDomains().size, prefs.getBlockedClipboardDomains().size)
+
+        // Google Sign-In
+        val googleSignInBlocked = prefs.isGoogleSignInBlockedGlobal
+        binding.tvGoogleSignInStatus.text = if (googleSignInBlocked) {
+            getString(R.string.policy_blocked_label)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvGoogleSignInCount, prefs.getAllowedGoogleSignInDomains().size, prefs.getBlockedGoogleSignInDomains().size)
+
         // JavaScript
         val jsEnabled = prefs.isJavaScriptEnabledGlobal
         binding.tvJavaScriptStatus.text = if (jsEnabled) {
@@ -332,6 +401,24 @@ class SiteSettingsActivity : AppCompatActivity() {
         }
         updateCountBadge(binding.tvMixedContentCount, prefs.getAllowedMixedDomains().size, prefs.getBlockedMixedDomains().size)
 
+        // Sound
+        val soundMuted = prefs.isSoundMutedGlobal
+        binding.tvSoundStatus.text = if (soundMuted) {
+            getString(R.string.policy_blocked_label)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvSoundCount, prefs.getAllowedSoundDomains().size, prefs.getBlockedSoundDomains().size)
+
+        // Automatic Downloads
+        val autoDownloadsBlocked = prefs.isAutoDownloadsBlockedGlobal
+        binding.tvAutoDownloadsStatus.text = if (autoDownloadsBlocked) {
+            getString(R.string.policy_blocked_label)
+        } else {
+            getString(R.string.policy_allowed_label)
+        }
+        updateCountBadge(binding.tvAutoDownloadsCount, prefs.getAllowedAutoDownloadsDomains().size, prefs.getBlockedAutoDownloadsDomains().size)
+
         // Cookies & site data
         binding.tvCookiesStatus.text = when (prefs.cookieBlockingMode) {
             BrowserPreferences.COOKIE_BLOCK_NONE -> getString(R.string.cookies_all_allowed)
@@ -357,6 +444,18 @@ class SiteSettingsActivity : AppCompatActivity() {
         } else {
             getString(R.string.policy_blocked_label)
         }
+
+        // Auto-shred on tab close
+        val autoShredAll = prefs.isCookieAutoclearOnCloseEnabled
+        val autoShredSites = prefs.autoShredDomains.size
+        binding.tvAutoShredStatus.text = if (autoShredAll) {
+            "All sites on close"
+        } else if (autoShredSites > 0) {
+            "$autoShredSites configured sites"
+        } else {
+            getString(R.string.auto_shred_settings_desc)
+        }
+        updateCountBadge(binding.tvAutoShredCount, autoShredSites, 0)
 
         // Clear data subtitle
         val siteCount = prefs.getAllConfiguredDomains().size

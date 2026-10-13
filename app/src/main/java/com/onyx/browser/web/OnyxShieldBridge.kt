@@ -89,6 +89,30 @@ class OnyxShieldBridge(private val context: Context) {
     }
 
     @JavascriptInterface
+    fun isSensorsAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isSensorsBlockedGlobal
+        return preferences.isWebSensorsAllowed(target) ?: !preferences.isSensorsBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isClipboardAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isClipboardBlockedGlobal
+        return preferences.isWebClipboardAllowed(target) ?: !preferences.isClipboardBlockedGlobal
+    }
+
+    @JavascriptInterface
+    fun isSoundAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isSoundMutedGlobal
+        return preferences.isWebSoundAllowed(target) ?: !preferences.isSoundMutedGlobal
+    }
+
+    @JavascriptInterface
+    fun isGoogleSignInAllowed(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return !preferences.isGoogleSignInBlockedGlobal
+        return preferences.isWebGoogleSignInAllowed(target) ?: !preferences.isGoogleSignInBlockedGlobal
+    }
+
+    @JavascriptInterface
     fun getHiddenSelectors(classesJson: String?, idsJson: String?, pageUrl: String?): String {
         if (!preferences.isAdBlockEnabled || !preferences.isCosmeticFilteringEnabled) return "[]"
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return "[]"

@@ -232,6 +232,69 @@ class SingleSiteSettingsSheet(
                     prefs.desktopDomains = d
                     refresh()
                 }
+            ),
+            PermissionItem(
+                key = "google_signin",
+                iconRes = R.drawable.ic_brand_google,
+                title = getString(R.string.google_signin_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteGoogleSignInPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteGoogleSignInPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "sensors",
+                iconRes = R.drawable.ic_sensors,
+                title = getString(R.string.sensors_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteSensorsPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteSensorsPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "clipboard",
+                iconRes = R.drawable.ic_clipboard,
+                title = getString(R.string.clipboard_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteClipboardPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteClipboardPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "sound",
+                iconRes = R.drawable.ic_volume,
+                title = getString(R.string.sound_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteSoundPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteSoundPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "auto_downloads",
+                iconRes = R.drawable.ic_download,
+                title = getString(R.string.auto_downloads_settings_title),
+                getState = { getStandardStateLabel(prefs.getSiteAutoDownloadsPermission(domain)) },
+                onChoose = { which ->
+                    prefs.setSiteAutoDownloadsPermission(domain, indexToState(which))
+                    refresh()
+                }
+            ),
+            PermissionItem(
+                key = "auto_shred",
+                iconRes = R.drawable.ic_broom,
+                title = getString(R.string.forget_site_on_close),
+                getState = {
+                    if (prefs.isSiteAutoShredEnabled(domain)) getString(R.string.permission_allowed)
+                    else getString(R.string.default_permission)
+                },
+                onChoose = { which ->
+                    prefs.setSiteAutoShredEnabled(domain, which == 0)
+                    refresh()
+                }
             )
         )
 
