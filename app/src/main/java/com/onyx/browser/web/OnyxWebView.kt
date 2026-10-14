@@ -563,7 +563,9 @@ class OnyxWebView @JvmOverloads constructor(
                 true  -> false   // site explicitly unmuted
                 null  -> globalMuted
             }
-            setAudioMuted(muted)
+            if (muted) {
+                evaluateJavascript("try { document.querySelectorAll('video, audio').forEach(function(m) { m.muted = true; }); } catch(e){}", null)
+            }
         } catch (_: Exception) {}
     }
 

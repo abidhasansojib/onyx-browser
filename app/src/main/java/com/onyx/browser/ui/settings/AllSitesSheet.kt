@@ -16,7 +16,6 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
-import com.onyx.browser.data.preferences.AdBlockLevel
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.preferences.SitePermissionState
 import com.onyx.browser.databinding.BottomSheetAllSitesBinding
@@ -190,7 +189,7 @@ class AllSitesSheet(
         if (prefs.isDomainWhitelisted(domain)) summaryParts.add("Shields: off")
         val blockingLevel = prefs.getSiteBlockingLevel(domain)
         if (blockingLevel != null) {
-            summaryParts.add("Shields: ${if (blockingLevel == AdBlockLevel.AGGRESSIVE) "aggressive" else "standard"}")
+            summaryParts.add("Shields: ${if (blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) "aggressive" else "standard"}")
         }
         if (prefs.isScriptBlockingEnabledForDomain(domain)) summaryParts.add("Scripts: blocked")
         val customCount = prefs.getCustomBlockedSelectorsForDomain(domain).size

@@ -14,7 +14,6 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
-import com.onyx.browser.data.preferences.AdBlockLevel
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.preferences.SitePermissionState
 import com.onyx.browser.databinding.BottomSheetSingleSiteSettingsBinding
@@ -147,27 +146,27 @@ class SingleSiteSettingsSheet(
                 title = getString(R.string.single_site_blocking_level_title),
                 getState = {
                     when (prefs.getSiteBlockingLevel(domain)) {
-                        AdBlockLevel.STANDARD -> getString(R.string.blocking_standard)
-                        AdBlockLevel.AGGRESSIVE -> getString(R.string.blocking_aggressive)
-                        null -> "${getString(R.string.default_permission)} (${if (prefs.blockingLevel == AdBlockLevel.AGGRESSIVE) getString(R.string.blocking_aggressive) else getString(R.string.blocking_standard)})"
+                        BrowserPreferences.BLOCKING_STANDARD -> getString(R.string.blocking_standard)
+                        BrowserPreferences.BLOCKING_AGGRESSIVE -> getString(R.string.blocking_aggressive)
+                        else -> "${getString(R.string.default_permission)} (${if (prefs.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) getString(R.string.blocking_aggressive) else getString(R.string.blocking_standard)})"
                     }
                 },
                 options = listOf(
                     getString(R.string.blocking_standard),
                     getString(R.string.blocking_aggressive),
-                    "${getString(R.string.default_permission)} (${if (prefs.blockingLevel == AdBlockLevel.AGGRESSIVE) getString(R.string.blocking_aggressive) else getString(R.string.blocking_standard)})"
+                    "${getString(R.string.default_permission)} (${if (prefs.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) getString(R.string.blocking_aggressive) else getString(R.string.blocking_standard)})"
                 ),
                 getCheckedIndex = {
                     when (prefs.getSiteBlockingLevel(domain)) {
-                        AdBlockLevel.STANDARD -> 0
-                        AdBlockLevel.AGGRESSIVE -> 1
-                        null -> 2
+                        BrowserPreferences.BLOCKING_STANDARD -> 0
+                        BrowserPreferences.BLOCKING_AGGRESSIVE -> 1
+                        else -> 2
                     }
                 },
                 onChoose = { which ->
                     when (which) {
-                        0 -> prefs.setSiteBlockingLevel(domain, AdBlockLevel.STANDARD)
-                        1 -> prefs.setSiteBlockingLevel(domain, AdBlockLevel.AGGRESSIVE)
+                        0 -> prefs.setSiteBlockingLevel(domain, BrowserPreferences.BLOCKING_STANDARD)
+                        1 -> prefs.setSiteBlockingLevel(domain, BrowserPreferences.BLOCKING_AGGRESSIVE)
                         else -> prefs.setSiteBlockingLevel(domain, null)
                     }
                     refresh()
