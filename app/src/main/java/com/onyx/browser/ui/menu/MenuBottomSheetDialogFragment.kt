@@ -263,9 +263,16 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
 
         // Shield with lock icon button: opens per-site adblock controls (Brave Shields panel)
         binding.btnSiteShield.setOnClickListener {
-            val blockedCount = main?.getActiveWebView()?.pageBlockedCount ?: 0
-            val isIncognito = main?.getActiveWebView()?.isIncognito ?: false
-            val dialog = SiteShieldBottomSheetDialog(currentUrl, blockedCount, isIncognito) {
+            val activeWv = main?.getActiveWebView()
+            val blockedCount = activeWv?.pageBlockedCount ?: 0
+            val isIncognito = activeWv?.isIncognito ?: false
+            val cert = activeWv?.certificate
+            val dialog = SiteShieldBottomSheetDialog(
+                currentUrl = currentUrl,
+                pageBlockedCount = blockedCount,
+                isIncognito = isIncognito,
+                sslCertificate = cert
+            ) {
                 onSiteShieldWhitelistChanged?.invoke(true)
             }
             dialog.show(childFragmentManager, SiteShieldBottomSheetDialog.TAG)

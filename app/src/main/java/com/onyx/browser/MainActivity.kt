@@ -1370,11 +1370,14 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val activeTab = tabManager.activeTab.value ?: return@setOnClickListener
             val url = activeTab.url
             if (url.isNotBlank() && !url.startsWith("about:blank", ignoreCase = true)) {
-                val blockedCount = tabManager.getActiveWebView()?.pageBlockedCount ?: 0
+                val activeWv = tabManager.getActiveWebView()
+                val blockedCount = activeWv?.pageBlockedCount ?: 0
+                val cert = activeWv?.certificate
                 val dialog = com.onyx.browser.ui.menu.SiteShieldBottomSheetDialog(
                     currentUrl = url,
                     pageBlockedCount = blockedCount,
-                    isIncognito = activeTab.isIncognito
+                    isIncognito = activeTab.isIncognito,
+                    sslCertificate = cert
                 ) {
                     tabManager.getActiveWebView()?.reload()
                 }

@@ -805,6 +805,73 @@ class BrowserPreferences private constructor(private val context: Context) {
             .apply()
     }
 
+    // ── Per-domain Ad & Tracker Blocking Level (Standard / Aggressive) ─────────
+    @Volatile private var cachedAggressiveDomains: Set<String>? = null
+    @Volatile private var cachedStandardDomains: Set<String>? = null
+
+    fun getSiteBlockingLevel(domainOrUrl: String): Int? {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return null
+        val aggressive = cachedAggressiveDomains ?: run {
+            val s = prefs.getStringSet(KEY_AGGRESSIVE_DOMAINS, emptySet()) ?: emptySet()
+            cachedAggressiveDomains = s
+            s
+        }
+        if (aggressive.contains(domain)) return BLOCKING_AGGRESSIVE
+        val standard = cachedStandardDomains ?: run {
+            val s = prefs.getStringSet(KEY_STANDARD_DOMAINS, emptySet()) ?: emptySet()
+            cachedStandardDomains = s
+            s
+        }
+        if (standard.contains(domain)) return BLOCKING_STANDARD
+        return null
+    }
+
+    fun getEffectiveBlockingLevel(domainOrUrl: String): Int {
+        return getSiteBlockingLevel(domainOrUrl) ?: blockingLevel
+    }
+
+    fun setSiteBlockingLevel(domainOrUrl: String, level: Int?) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val aggressive = prefs.getStringSet(KEY_AGGRESSIVE_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val standard = prefs.getStringSet(KEY_STANDARD_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        when (level) {
+            BLOCKING_AGGRESSIVE -> {
+                aggressive.add(domain)
+                standard.remove(domain)
+            }
+            BLOCKING_STANDARD -> {
+                standard.add(domain)
+                aggressive.remove(domain)
+            }
+            null -> {
+                aggressive.remove(domain)
+                standard.remove(domain)
+            }
+        }
+        cachedAggressiveDomains = aggressive
+        cachedStandardDomains = standard
+        prefs.edit()
+            .putStringSet(KEY_AGGRESSIVE_DOMAINS, aggressive)
+            .putStringSet(KEY_STANDARD_DOMAINS, standard)
+            .apply()
+    }
+
+    fun isDesktopModeForDomain(domainOrUrl: String): Boolean {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return false
+        return desktopDomains.contains(domain)
+    }
+
+    fun setDesktopModeForDomain(domainOrUrl: String, enabled: Boolean) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        val current = desktopDomains.toMutableSet()
+        if (enabled) current.add(domain) else current.remove(domain)
+        desktopDomains = current
+    }
+
     fun hasCustomSitePermissions(domainOrUrl: String): Boolean {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return false
@@ -839,7 +906,12 @@ class BrowserPreferences private constructor(private val context: Context) {
                isWebNfcAllowed(domain) != null ||
                isWebWindowManagementAllowed(domain) != null ||
                isWebStorageAccessAllowed(domain) != null ||
-               isWebWebRtcExplicitlySet(domain) != null
+               isWebWebRtcExplicitlySet(domain) != null ||
+               isDomainWhitelisted(domain) ||
+               isScriptBlockingEnabledForDomain(domain) ||
+               isDesktopModeForDomain(domain) ||
+               getSiteBlockingLevel(domain) != null ||
+               getCustomBlockedSelectorsForDomain(domain).isNotEmpty()
     }
 
     fun resetSitePermissions(domainOrUrl: String) {
@@ -877,6 +949,11 @@ class BrowserPreferences private constructor(private val context: Context) {
         setSiteWindowManagementPermission(domain, SitePermissionState.ASK)
         setSiteStorageAccessPermission(domain, SitePermissionState.ASK)
         setSiteWebRtcPermission(domain, SitePermissionState.ASK)
+        setDomainWhitelisted(domain, false)
+        setScriptBlockingForDomain(domain, false)
+        setDesktopModeForDomain(domain, false)
+        setSiteBlockingLevel(domain, null)
+        clearCustomBlockedRulesForDomain(domain)
     }
 
     fun getAllowedCameraDomains(): Set<String> =
@@ -2310,6 +2387,10 @@ class BrowserPreferences private constructor(private val context: Context) {
         domains.addAll(scriptBlocked)
         val whitelist = prefs.getStringSet(KEY_ADBLOCK_WHITELIST, emptySet()) ?: emptySet()
         domains.addAll(whitelist)
+        val aggressive = prefs.getStringSet(KEY_AGGRESSIVE_DOMAINS, emptySet()) ?: emptySet()
+        domains.addAll(aggressive)
+        val standard = prefs.getStringSet(KEY_STANDARD_DOMAINS, emptySet()) ?: emptySet()
+        domains.addAll(standard)
         return domains
     }
 
@@ -2650,6 +2731,8 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_THEME_MODE = "pref_theme_mode"
         const val KEY_ADBLOCK_ENABLED = "pref_adblock_enabled"
         const val KEY_BLOCKING_LEVEL = "pref_blocking_level"
+        const val KEY_AGGRESSIVE_DOMAINS = "pref_aggressive_domains"
+        const val KEY_STANDARD_DOMAINS = "pref_standard_domains"
         const val KEY_COSMETIC_FILTERING = "pref_cosmetic_filtering"
         const val KEY_FINGERPRINT_PROTECTION = "pref_fingerprint_protection"
         const val KEY_HTTPS_UPGRADE = "pref_https_upgrade"

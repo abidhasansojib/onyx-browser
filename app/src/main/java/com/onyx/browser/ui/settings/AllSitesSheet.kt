@@ -16,6 +16,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
+import com.onyx.browser.data.preferences.AdBlockLevel
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.preferences.SitePermissionState
 import com.onyx.browser.databinding.BottomSheetAllSitesBinding
@@ -185,9 +186,15 @@ class AllSitesSheet(
         val mixed = prefs.getSiteMixedContentPermission(domain)
         if (mixed == SitePermissionState.ALLOWED) summaryParts.add("Mixed: allowed")
         else if (mixed == SitePermissionState.BLOCKED) summaryParts.add("Mixed: blocked")
-        val cleanDomain = prefs.cleanDomain(domain)
-        if (prefs.desktopDomains.contains(cleanDomain) || prefs.desktopDomains.contains(domain)) summaryParts.add("Desktop: on")
-        if (prefs.isDomainWhitelisted(domain) || prefs.isDomainWhitelisted(cleanDomain)) summaryParts.add("Shields: off")
+        if (prefs.isDesktopModeForDomain(domain)) summaryParts.add("Desktop: on")
+        if (prefs.isDomainWhitelisted(domain)) summaryParts.add("Shields: off")
+        val blockingLevel = prefs.getSiteBlockingLevel(domain)
+        if (blockingLevel != null) {
+            summaryParts.add("Shields: ${if (blockingLevel == AdBlockLevel.AGGRESSIVE) "aggressive" else "standard"}")
+        }
+        if (prefs.isScriptBlockingEnabledForDomain(domain)) summaryParts.add("Scripts: blocked")
+        val customCount = prefs.getCustomBlockedSelectorsForDomain(domain).size
+        if (customCount > 0) summaryParts.add("$customCount elements blocked")
 
         val tvSummary = TextView(requireContext()).apply {
             text = if (summaryParts.isNotEmpty()) summaryParts.joinToString(" · ") else "Default permissions"
@@ -235,10 +242,6 @@ class AllSitesSheet(
                         }
                         // Reset permissions too for clean slate
                         prefs.resetSitePermissions(domain)
-                        prefs.setDomainWhitelisted(domain, false)
-                        val d = prefs.desktopDomains.toMutableSet()
-                        d.remove(domain)
-                        prefs.desktopDomains = d
                         loadDomains()
                         onSitesChanged()
                     }

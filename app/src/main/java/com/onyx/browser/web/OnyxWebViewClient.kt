@@ -358,7 +358,8 @@ class OnyxWebViewClient(
         }
 
         // In Aggressive blocking mode, block any unverified cross-domain popup
-        if (preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) {
+        val effectiveBlocking = preferences.getEffectiveBlockingLevel(onyxWv?.url ?: "")
+        if (effectiveBlocking == BrowserPreferences.BLOCKING_AGGRESSIVE) {
             return true
         }
 
@@ -586,7 +587,7 @@ class OnyxWebViewClient(
                     val isWhitelisted = preferences.isDomainWhitelisted(pageDomain) || preferences.isDomainWhitelisted(reqDomain)
 
                     if (preferences.isAdBlockEnabled && !isWhitelisted) {
-                        val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
+                        val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
                         val onyxWv = view as? OnyxWebView
                         val isPopupTab = onyxWv != null && (onyxWv.isPopupTab || onyxWv.isPopupPendingDisplay ||
                                 (tabActionCallback?.getTabById(onyxWv.tabId)?.parentId != null))
@@ -827,7 +828,7 @@ class OnyxWebViewClient(
 
             // ── Ad & Tracker Blocking ─────────────────────────────────────────
             if (preferences.isAdBlockEnabled && !isWhitelisted) {
-                val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
+                val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
 
                 // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
                 // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave). Only subresources and trackers
@@ -1010,7 +1011,7 @@ class OnyxWebViewClient(
                 val isWhitelisted = preferences.isDomainWhitelisted(pageDomain) || preferences.isDomainWhitelisted(reqDomain)
 
                 if (preferences.isAdBlockEnabled && !isWhitelisted) {
-                    val isAggressive = preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE
+                    val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
                     val onyxWv = view as? OnyxWebView
                     val isPopupTab = onyxWv != null && (onyxWv.isPopupTab || onyxWv.isPopupPendingDisplay ||
                             (tabActionCallback?.getTabById(onyxWv.tabId)?.parentId != null))
@@ -1384,7 +1385,7 @@ class OnyxWebViewClient(
             DesktopModeManager.enforceDesktopViewport(view)
         }
 
-        if (preferences.isAdBlockEnabled && preferences.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE && !isWhitelisted && !isAuthOrMeta) {
+        if (preferences.isAdBlockEnabled && preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE && !isWhitelisted && !isAuthOrMeta) {
             val urlLower = url.lowercase()
             val isCloudflareChallengePage = urlLower.contains("__cf_chl") ||
                     urlLower.contains("/cdn-cgi/challenge-platform") ||
@@ -1639,7 +1640,7 @@ class OnyxWebViewClient(
                 val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)
                 view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
                 if (isAdBlockActiveForPage) {
-                    val lvl = preferences.blockingLevel
+                    val lvl = preferences.getEffectiveBlockingLevel(url)
                     view?.evaluateJavascript(AdBlockDocumentStart.getScript(lvl), null)
                     view?.evaluateJavascript("if (window.__onyx_set_blocking_level) window.__onyx_set_blocking_level($lvl);", null)
 

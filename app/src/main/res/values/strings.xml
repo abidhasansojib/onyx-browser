@@ -726,6 +726,33 @@
     <string name="reset_site_permissions">Reset permissions</string>
     <string name="default_permission">Default</string>
     <string name="permission_default_label">Ask (default)</string>
+
+    <!-- Custom Blocked Elements strings -->
+    <string name="custom_blocked_elements_title">Custom Blocked Elements</string>
+    <string name="custom_blocked_elements_single">1 element blocked on this site</string>
+    <string name="custom_blocked_elements_plural">%d elements blocked on this site</string>
+    <string name="custom_blocked_elements_reset_done">Reset blocked elements on %s</string>
+
+    <!-- Certificate & Security Dialog strings -->
+    <string name="certificate_info_title">Security Details</string>
+    <string name="certificate_issued_to">Issued to</string>
+    <string name="certificate_issued_by">Issued by</string>
+    <string name="certificate_validity">Validity</string>
+    <string name="certificate_valid_from">Issued on: %s</string>
+    <string name="certificate_valid_to">Expires on: %s</string>
+    <string name="certificate_common_name">Common name (CN): %s</string>
+    <string name="certificate_organization">Organization (O): %s</string>
+    <string name="certificate_organizational_unit">Organizational unit (OU): %s</string>
+    <string name="certificate_secure_explanation">Your connection to this site is encrypted. Third parties on the network cannot see or tamper with your browsing activity, passwords, or personal data.</string>
+    <string name="certificate_insecure_explanation">Your connection to this site is unencrypted (HTTP). Anyone on the same network or Wi-Fi can monitor or modify the content of this page.</string>
+
+    <!-- Desktop Site toggle in Shields panel -->
+    <string name="desktop_site_toggle_title">Desktop site</string>
+    <string name="desktop_site_toggle_desc">Request the desktop version of this website</string>
+
+    <!-- Shields / Ad blocking per-site item in SingleSiteSettingsSheet -->
+    <string name="single_site_shields_title">Brave Shields</string>
+    <string name="single_site_blocking_level_title">Ad &amp; tracker blocking level</string>
 </resources>
 
 

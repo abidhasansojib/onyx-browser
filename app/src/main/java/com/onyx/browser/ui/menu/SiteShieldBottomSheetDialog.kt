@@ -1,6 +1,7 @@
 package com.onyx.browser.ui.menu
 
 import android.content.Intent
+import android.net.http.SslCertificate
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -22,6 +23,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 /**
  * Integrated Page Info & Shields panel — an expandable BottomSheet with:
@@ -40,6 +43,7 @@ class SiteShieldBottomSheetDialog(
     private val currentUrl: String,
     private val pageBlockedCount: Int = -1,
     private val isIncognito: Boolean = false,
+    private val sslCertificate: SslCertificate? = null,
     private val onShieldSettingsChanged: () -> Unit
 ) : BottomSheetDialogFragment() {
 
@@ -92,6 +96,7 @@ class SiteShieldBottomSheetDialog(
         setupCosmeticFilteringToggle()
         setupGoogleSignInToggle()
         setupAutoShredToggle()
+        setupDesktopModeToggle()
         setupCustomBlockedElements()
         setupBlockedCounter()
 
@@ -116,6 +121,9 @@ class SiteShieldBottomSheetDialog(
             )
             binding.tvConnectionSecurityTitle.text = getString(R.string.connection_secure)
             binding.tvConnectionSecurityDesc.text = getString(R.string.connection_secure_desc)
+            binding.cardConnectionSecurity.setOnClickListener {
+                showCertificateDetailsDialog(isHttps = true)
+            }
         } else if (isHttp) {
             binding.cardConnectionSecurity.visibility = View.VISIBLE
             binding.ivConnectionSecurityIcon.setImageResource(R.drawable.ic_lock)
@@ -124,9 +132,56 @@ class SiteShieldBottomSheetDialog(
             )
             binding.tvConnectionSecurityTitle.text = getString(R.string.connection_not_secure)
             binding.tvConnectionSecurityDesc.text = getString(R.string.connection_not_secure_desc)
+            binding.cardConnectionSecurity.setOnClickListener {
+                showCertificateDetailsDialog(isHttps = false)
+            }
         } else {
             binding.cardConnectionSecurity.visibility = View.GONE
         }
+    }
+
+    private fun showCertificateDetailsDialog(isHttps: Boolean) {
+        val messageBuilder = StringBuilder()
+        if (isHttps) {
+            messageBuilder.append(getString(R.string.certificate_secure_explanation)).append("\n\n")
+            val cert = sslCertificate
+            if (cert != null) {
+                val issuedTo = cert.issuedTo
+                if (issuedTo != null) {
+                    messageBuilder.append("• ").append(getString(R.string.certificate_issued_to)).append(":\n")
+                    if (!issuedTo.cName.isNullOrBlank()) messageBuilder.append("  ").append(getString(R.string.certificate_common_name, issuedTo.cName)).append("\n")
+                    if (!issuedTo.oName.isNullOrBlank()) messageBuilder.append("  ").append(getString(R.string.certificate_organization, issuedTo.oName)).append("\n")
+                    if (!issuedTo.uName.isNullOrBlank()) messageBuilder.append("  ").append(getString(R.string.certificate_organizational_unit, issuedTo.uName)).append("\n")
+                }
+                val issuedBy = cert.issuedBy
+                if (issuedBy != null) {
+                    messageBuilder.append("\n• ").append(getString(R.string.certificate_issued_by)).append(":\n")
+                    if (!issuedBy.cName.isNullOrBlank()) messageBuilder.append("  ").append(getString(R.string.certificate_common_name, issuedBy.cName)).append("\n")
+                    if (!issuedBy.oName.isNullOrBlank()) messageBuilder.append("  ").append(getString(R.string.certificate_organization, issuedBy.oName)).append("\n")
+                }
+                val validFrom = cert.validNotBeforeDate
+                val validTo = cert.validNotAfterDate
+                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                messageBuilder.append("\n• ").append(getString(R.string.certificate_validity)).append(":\n")
+                if (validFrom != null) messageBuilder.append("  ").append(getString(R.string.certificate_valid_from, sdf.format(validFrom))).append("\n")
+                if (validTo != null) messageBuilder.append("  ").append(getString(R.string.certificate_valid_to, sdf.format(validTo))).append("\n")
+            } else {
+                messageBuilder.append("Host: ").append(domain.ifBlank { currentUrl }).append("\n")
+                messageBuilder.append("Protocol: HTTPS / TLS\n")
+                messageBuilder.append("Status: Verified & Encrypted")
+            }
+        } else {
+            messageBuilder.append(getString(R.string.certificate_insecure_explanation)).append("\n\n")
+            messageBuilder.append("Host: ").append(domain.ifBlank { currentUrl }).append("\n")
+            messageBuilder.append("Protocol: HTTP (Plaintext)\n")
+            messageBuilder.append("Status: Unencrypted / Not Private")
+        }
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.certificate_info_title))
+            .setMessage(messageBuilder.toString().trim())
+            .setPositiveButton(R.string.close, null)
+            .show()
     }
 
     // ── Per-Site Hardware Permissions ──────────────────────────────────────────
@@ -189,8 +244,7 @@ class SiteShieldBottomSheetDialog(
 
         binding.btnResetPermissions.setOnClickListener {
             prefs.resetSitePermissions(domain)
-            updatePermissionBadges()
-            updateResetPermissionsVisibility()
+            refreshAllSiteShieldControls()
             Toast.makeText(
                 requireContext(),
                 getString(R.string.permission_reset_done, domain),
@@ -198,6 +252,22 @@ class SiteShieldBottomSheetDialog(
             ).show()
             onShieldSettingsChanged()
         }
+    }
+
+    private fun refreshAllSiteShieldControls() {
+        updatePermissionBadges()
+        val isWhitelisted = prefs.isDomainWhitelisted(domain)
+        updateMasterShieldUi(!isWhitelisted)
+        updateSubControlsEnabled(!isWhitelisted)
+        updateBlockingLevelUi(prefs.getEffectiveBlockingLevel(domain))
+        val isNetworkBlocked = prefs.isScriptBlockingEnabledForDomain(domain)
+        val isJsBlocked = prefs.getSiteJavaScriptPermission(domain) == SitePermissionState.BLOCKED
+        binding.switchScriptBlocking.isChecked = isNetworkBlocked || isJsBlocked
+        binding.switchGoogleSignIn.isChecked = prefs.isWebGoogleSignInAllowed(domain) ?: !prefs.isGoogleSignInBlockedGlobal
+        binding.switchAutoShred.isChecked = prefs.isSiteAutoShredEnabled(domain)
+        binding.switchDesktopMode.isChecked = prefs.isDesktopModeForDomain(domain)
+        setupCustomBlockedElements()
+        updateResetPermissionsVisibility()
     }
 
     private fun updatePermissionBadges() {
@@ -335,7 +405,9 @@ class SiteShieldBottomSheetDialog(
             binding.layoutHttpsUpgrade,
             binding.layoutScriptBlocking,
             binding.layoutCosmeticFiltering,
-            binding.layoutGoogleSignIn
+            binding.layoutGoogleSignIn,
+            binding.layoutAutoShred,
+            binding.layoutDesktopMode
         ).forEach {
             it.isEnabled = enabled
             it.alpha = alpha
@@ -345,20 +417,25 @@ class SiteShieldBottomSheetDialog(
         binding.switchScriptBlocking.isEnabled = enabled
         binding.switchCosmeticFiltering.isEnabled = enabled
         binding.switchGoogleSignIn.isEnabled = enabled
+        binding.switchAutoShred.isEnabled = enabled
+        binding.switchDesktopMode.isEnabled = enabled
     }
 
-    // ── Blocking Level ────────────────────────────────────────────────────────
+    // ── Blocking Level (Per-Domain with Global Fallback) ───────────────────────
 
     private fun setupBlockingLevelSelector() {
-        updateBlockingLevelUi(prefs.blockingLevel)
+        val currentLevel = prefs.getEffectiveBlockingLevel(domain)
+        updateBlockingLevelUi(currentLevel)
 
         binding.layoutBlockingLevel.setOnClickListener {
             if (!it.isEnabled) return@setOnClickListener
-            val newLevel = if (prefs.blockingLevel == BrowserPreferences.BLOCKING_STANDARD)
+            val current = prefs.getEffectiveBlockingLevel(domain)
+            val newLevel = if (current == BrowserPreferences.BLOCKING_STANDARD)
                 BrowserPreferences.BLOCKING_AGGRESSIVE
             else BrowserPreferences.BLOCKING_STANDARD
-            prefs.blockingLevel = newLevel
+            prefs.setSiteBlockingLevel(domain, newLevel)
             updateBlockingLevelUi(newLevel)
+            updateResetPermissionsVisibility()
             onShieldSettingsChanged()
         }
     }
@@ -406,12 +483,23 @@ class SiteShieldBottomSheetDialog(
     // ── Script Blocking (per-domain) ─────────────────────────────────────────
 
     private fun setupScriptBlockingToggle() {
-        binding.switchScriptBlocking.isChecked = prefs.isScriptBlockingEnabledForDomain(domain)
+        // A domain blocks scripts if either the network-level interceptor is set
+        // OR the per-site JS permission is explicitly BLOCKED (set via SingleSiteSettings).
+        val isNetworkBlocked = prefs.isScriptBlockingEnabledForDomain(domain)
+        val isJsBlocked = prefs.getSiteJavaScriptPermission(domain) == com.onyx.browser.data.preferences.SitePermissionState.BLOCKED
+        val isBlocked = isNetworkBlocked || isJsBlocked
+        binding.switchScriptBlocking.isChecked = isBlocked
         binding.layoutScriptBlocking.setOnClickListener {
             if (!it.isEnabled) return@setOnClickListener
-            val newState = !binding.switchScriptBlocking.isChecked
-            binding.switchScriptBlocking.isChecked = newState
-            prefs.setScriptBlockingForDomain(domain, newState)
+            val newBlocked = !binding.switchScriptBlocking.isChecked
+            binding.switchScriptBlocking.isChecked = newBlocked
+            // Sync both mechanisms: network-level interceptor and WebSettings JS disable
+            prefs.setScriptBlockingForDomain(domain, newBlocked)
+            prefs.setSiteJavaScriptPermission(
+                domain,
+                if (newBlocked) com.onyx.browser.data.preferences.SitePermissionState.BLOCKED
+                else com.onyx.browser.data.preferences.SitePermissionState.ASK
+            )
             onShieldSettingsChanged()
         }
     }
@@ -456,6 +544,22 @@ class SiteShieldBottomSheetDialog(
             val newState = !binding.switchAutoShred.isChecked
             binding.switchAutoShred.isChecked = newState
             prefs.setSiteAutoShredEnabled(domain, newState)
+            updateResetPermissionsVisibility()
+            onShieldSettingsChanged()
+        }
+    }
+
+    // ── Desktop Site ──────────────────────────────────────────────────────────
+
+    private fun setupDesktopModeToggle() {
+        val isDesktop = prefs.isDesktopModeForDomain(domain)
+        binding.switchDesktopMode.isChecked = isDesktop
+        binding.layoutDesktopMode.setOnClickListener {
+            if (!it.isEnabled) return@setOnClickListener
+            val newState = !binding.switchDesktopMode.isChecked
+            binding.switchDesktopMode.isChecked = newState
+            prefs.setDesktopModeForDomain(domain, newState)
+            updateResetPermissionsVisibility()
             onShieldSettingsChanged()
         }
     }
@@ -473,7 +577,11 @@ class SiteShieldBottomSheetDialog(
         } else {
             binding.layoutCustomBlockedElements.visibility = View.VISIBLE
             val count = blockedSelectors.size
-            binding.tvCustomBlockedCount.text = if (count == 1) "1 element blocked on this site" else "$count elements blocked on this site"
+            binding.tvCustomBlockedCount.text = if (count == 1) {
+                getString(R.string.custom_blocked_elements_single)
+            } else {
+                getString(R.string.custom_blocked_elements_plural, count)
+            }
             binding.btnClearBlockedElements.setOnClickListener {
                 prefs.clearCustomBlockedRulesForDomain(domain)
                 val ctx = requireContext().applicationContext
@@ -483,7 +591,12 @@ class SiteShieldBottomSheetDialog(
                     } catch (_: Exception) {}
                 }
                 binding.layoutCustomBlockedElements.visibility = View.GONE
-                Toast.makeText(requireContext(), "Reset blocked elements on $domain", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.custom_blocked_elements_reset_done, domain),
+                    Toast.LENGTH_SHORT
+                ).show()
+                updateResetPermissionsVisibility()
                 onShieldSettingsChanged()
             }
         }

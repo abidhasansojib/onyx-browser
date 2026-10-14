@@ -14,6 +14,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
+import com.onyx.browser.data.preferences.AdBlockLevel
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.preferences.SitePermissionState
 import com.onyx.browser.databinding.BottomSheetSingleSiteSettingsBinding
@@ -77,10 +78,6 @@ class SingleSiteSettingsSheet(
                         ).show()
                     }
                     prefs.resetSitePermissions(domain)
-                    prefs.setDomainWhitelisted(domain, false)
-                    val d = prefs.desktopDomains.toMutableSet()
-                    d.remove(domain)
-                    prefs.desktopDomains = d
                     populatePermissions()
                     onSiteChanged()
                 }
@@ -90,13 +87,9 @@ class SingleSiteSettingsSheet(
 
         binding.btnResetPermissions.setOnClickListener {
             prefs.resetSitePermissions(domain)
-            prefs.setDomainWhitelisted(domain, false)
-            val d = prefs.desktopDomains.toMutableSet()
-            d.remove(domain)
-            prefs.desktopDomains = d
             populatePermissions()
             onSiteChanged()
-            Toast.makeText(requireContext(), "Permissions reset for $domain", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), getString(R.string.permission_reset_done, domain), Toast.LENGTH_SHORT).show()
         }
 
         populatePermissions()
@@ -107,13 +100,114 @@ class SingleSiteSettingsSheet(
         val iconRes: Int,
         val title: String,
         val getState: () -> String,
+        val options: List<String>? = null,
+        val getCheckedIndex: (() -> Int)? = null,
         val onChoose: (Int) -> Unit
     )
 
     private fun populatePermissions() {
         binding.containerPermissions.removeAllViews()
 
-        val items = listOf(
+        val items = mutableListOf<PermissionItem>()
+
+        // 1. Brave Shields (Shields Up / Down)
+        items.add(
+            PermissionItem(
+                key = "shields",
+                iconRes = R.drawable.ic_shield_lock,
+                title = getString(R.string.single_site_shields_title),
+                getState = {
+                    if (prefs.isDomainWhitelisted(domain)) getString(R.string.permission_blocked)
+                    else getString(R.string.permission_allowed)
+                },
+                options = listOf(
+                    getString(R.string.permission_allowed),
+                    getString(R.string.permission_blocked),
+                    getString(R.string.default_permission)
+                ),
+                getCheckedIndex = {
+                    if (prefs.isDomainWhitelisted(domain)) 1 else 0
+                },
+                onChoose = { which ->
+                    when (which) {
+                        0 -> prefs.setDomainWhitelisted(domain, false)
+                        1 -> prefs.setDomainWhitelisted(domain, true)
+                        else -> prefs.setDomainWhitelisted(domain, false)
+                    }
+                    refresh()
+                }
+            )
+        )
+
+        // 2. Ad & tracker blocking level (Standard / Aggressive / Default)
+        items.add(
+            PermissionItem(
+                key = "blocking_level",
+                iconRes = R.drawable.ic_shield,
+                title = getString(R.string.single_site_blocking_level_title),
+                getState = {
+                    when (prefs.getSiteBlockingLevel(domain)) {
+                        AdBlockLevel.STANDARD -> getString(R.string.blocking_standard)
+                        AdBlockLevel.AGGRESSIVE -> getString(R.string.blocking_aggressive)
+                        null -> "${getString(R.string.default_permission)} (${if (prefs.blockingLevel == AdBlockLevel.AGGRESSIVE) getString(R.string.blocking_aggressive) else getString(R.string.blocking_standard)})"
+                    }
+                },
+                options = listOf(
+                    getString(R.string.blocking_standard),
+                    getString(R.string.blocking_aggressive),
+                    "${getString(R.string.default_permission)} (${if (prefs.blockingLevel == AdBlockLevel.AGGRESSIVE) getString(R.string.blocking_aggressive) else getString(R.string.blocking_standard)})"
+                ),
+                getCheckedIndex = {
+                    when (prefs.getSiteBlockingLevel(domain)) {
+                        AdBlockLevel.STANDARD -> 0
+                        AdBlockLevel.AGGRESSIVE -> 1
+                        null -> 2
+                    }
+                },
+                onChoose = { which ->
+                    when (which) {
+                        0 -> prefs.setSiteBlockingLevel(domain, AdBlockLevel.STANDARD)
+                        1 -> prefs.setSiteBlockingLevel(domain, AdBlockLevel.AGGRESSIVE)
+                        else -> prefs.setSiteBlockingLevel(domain, null)
+                    }
+                    refresh()
+                }
+            )
+        )
+
+        // 3. Custom Blocked Elements (if any exist on this domain)
+        val customSelectors = prefs.getCustomBlockedSelectorsForDomain(domain)
+        if (customSelectors.isNotEmpty()) {
+            items.add(
+                PermissionItem(
+                    key = "custom_blocked",
+                    iconRes = R.drawable.ic_block_element,
+                    title = getString(R.string.custom_blocked_elements_title),
+                    getState = {
+                        if (customSelectors.size == 1) getString(R.string.custom_blocked_elements_single)
+                        else getString(R.string.custom_blocked_elements_plural, customSelectors.size)
+                    },
+                    options = listOf(
+                        getString(R.string.permission_reset),
+                        getString(R.string.cancel)
+                    ),
+                    getCheckedIndex = { 1 },
+                    onChoose = { which ->
+                        if (which == 0) {
+                            prefs.clearCustomBlockedRulesForDomain(domain)
+                            Toast.makeText(
+                                requireContext(),
+                                getString(R.string.custom_blocked_elements_reset_done, domain),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            refresh()
+                        }
+                    }
+                )
+            )
+        }
+
+        val standardItems = listOf(
             PermissionItem(
                 key = "camera",
                 iconRes = R.drawable.ic_camera,
@@ -219,17 +313,11 @@ class SingleSiteSettingsSheet(
                 iconRes = R.drawable.ic_desktop,
                 title = getString(R.string.desktop_site_settings_title),
                 getState = {
-                    if (prefs.desktopDomains.contains(domain)) getString(R.string.permission_allowed)
+                    if (prefs.isDesktopModeForDomain(domain)) getString(R.string.permission_allowed)
                     else getString(R.string.default_permission)
                 },
                 onChoose = { which ->
-                    val d = prefs.desktopDomains.toMutableSet()
-                    if (which == 0) { // Allowed
-                        d.add(domain)
-                    } else { // Blocked or Default
-                        d.remove(domain)
-                    }
-                    prefs.desktopDomains = d
+                    prefs.setDesktopModeForDomain(domain, which == 0)
                     refresh()
                 }
             ),
@@ -457,6 +545,7 @@ class SingleSiteSettingsSheet(
                 }
             )
         )
+        items.addAll(standardItems)
 
         for ((index, item) in items.withIndex()) {
             addPermissionRow(item, showDivider = index < items.size - 1)
@@ -559,12 +648,12 @@ class SingleSiteSettingsSheet(
         row.addView(chevron)
 
         row.setOnClickListener {
-            val options = arrayOf(
+            val options = item.options?.toTypedArray() ?: arrayOf(
                 getString(R.string.permission_allowed),
                 getString(R.string.permission_blocked),
                 getString(R.string.default_permission)
             )
-            val checkedIndex = stateToIndex(stateLabel)
+            val checkedIndex = item.getCheckedIndex?.invoke() ?: stateToIndex(stateLabel)
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle(item.title)
                 .setSingleChoiceItems(options, checkedIndex) { dialog, which ->

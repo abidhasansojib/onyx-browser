@@ -553,6 +553,18 @@ class OnyxWebView @JvmOverloads constructor(
         } else {
             WebSettings.MIXED_CONTENT_NEVER_ALLOW
         }
+
+        // 7. Sound muting — per-site BLOCKED = muted, ALLOWED = unmuted, ASK = follow global
+        try {
+            val soundPerm = prefs.isWebSoundAllowed(domain)
+            val globalMuted = prefs.isSoundMutedGlobal
+            val muted = when (soundPerm) {
+                false -> true    // site explicitly muted
+                true  -> false   // site explicitly unmuted
+                null  -> globalMuted
+            }
+            setAudioMuted(muted)
+        } catch (_: Exception) {}
     }
 
     /**
