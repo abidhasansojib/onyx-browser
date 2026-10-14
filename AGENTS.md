@@ -233,21 +233,20 @@ onyx-browser/
 
 ## 6. Current Status & Release Information
 
-- **Current Release**: `v1.0.284`
+- **Current Release**: `v1.0.286`
 - **Build Status**: Production signed APKs published across all ABIs (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`) on GitHub Releases.
 - **Feature Tracking**: Complete feature statuses and technical verification notes are maintained in `FEATURES.md`.
 
-### v1.0.284 Changes
-- **33 Chromium & Brave Parity Site Settings Categories**:
-  - Implemented all 33 site settings and privacy guard categories across UI (`SiteSettingsActivity`, `SitePermissionCategorySheet`, `SingleSiteSettingsSheet`), preference store (`BrowserPreferences`), and runtime interfaces (`OnyxShieldBridge`, `ChromeEnvironmentBridge`).
-  - Added vector drawables: `ic_file_edit`, `ic_vr`, `ic_nfc`, `ic_window_management`, `ic_storage_access`, `ic_network`.
-  - Added runtime document-start neutralization with anti-bot `makeNative` masking for:
-    - File System Access API (`showOpenFilePicker`, `showSaveFilePicker`, `showDirectoryPicker`).
-    - WebXR device session initiation (`navigator.xr.requestSession`, `isSessionSupported`).
-    - Web NFC (`NDEFReader.prototype.scan`, `write`, `makeReadOnly`).
-    - Multi-screen enumeration fingerprinting guard (`window.getScreenDetails`, `openWindow`).
-    - Storage Access API (`document.requestStorageAccess`, `hasStorageAccess`).
-    - WebRTC local private LAN host candidate leak protection (sanitizing SDP and stripping `typ host` candidates).
-- **Hardware & Device Guard Subsystems**:
-  - Full support for USB Devices, Serial Ports, HID Devices, MIDI Devices, Bluetooth Devices, Hand Tracking, Idle Detection, Local Fonts, Screen Wake Lock, and Payment Request methods.
+### v1.0.286 Changes
+- **Per-Domain Ad & Tracker Blocking Level**:
+  - Implemented per-domain blocking levels (`BLOCKING_STANDARD` / `BLOCKING_AGGRESSIVE` with global fallback) evaluated across navigation, subresource interception, popup detection, and document-start scriptlet injection.
+- **Interactive SSL Certificate Inspector**:
+  - Integrated full certificate inspection dialog in `SiteShieldBottomSheetDialog` displaying Common Name, Organization, Issuer, Validity dates, and connection security explanation.
+- **Site Shields Panel Hardening**:
+  - Added per-site Desktop Site toggle (`layoutDesktopMode`), synchronized Script Blocking with WebSettings JavaScript execution, Custom Blocked Elements inspector with 1-tap reset, and dynamic refresh on permission reset.
+- **Single Site Settings Hub & All Sites Overhaul**:
+  - Added Brave Shields (Shields Up / Down / Default), Ad & Tracker Blocking Level, and Custom Blocked Elements count & reset to `SingleSiteSettingsSheet`.
+  - Comprehensive `resetSitePermissions` clearing all 33 categories, whitelist, script blocking, desktop mode, custom rules, and blocking levels without orphaned data.
+- **Runtime Sound Muting**:
+  - Dynamic media element muting evaluation in `OnyxWebView` based on per-site permissions and global mute state.
 
