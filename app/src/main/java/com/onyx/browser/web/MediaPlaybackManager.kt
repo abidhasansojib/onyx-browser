@@ -703,7 +703,13 @@ object MediaPlaybackManager {
                 // ── 3. Brave MediaBackgrounding: userHitPause & Auto-Resume ────────────────
                 var origPause = HTMLMediaElement.prototype.pause;
                 HTMLMediaElement.prototype.pause = function() {
-                    this.userHitPause = true;
+                    var timeSinceTouch = Date.now() - (window.__onyx_last_user_touch || 0);
+                    var isUserIntent = (timeSinceTouch < 1000) || !!window.__onyx_allow_explicit_pause;
+                    if (window.__onyx_in_background && !isUserIntent) {
+                        this.userHitPause = false;
+                    } else {
+                        this.userHitPause = true;
+                    }
                     return origPause.apply(this, arguments);
                 };
 

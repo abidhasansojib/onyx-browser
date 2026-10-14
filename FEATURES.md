@@ -310,3 +310,10 @@ This document tracks all features of Onyx Browser, their current implementation 
   - *Add Bookmark FAB & Clipboard Pre-fill*: Floating action button supporting manual bookmark and bookmarklet creation, pre-populating clipboard links or scripts.
   - *Contextual Actions*: Menu features Open in new tab, Open in incognito (both hidden for bookmarklets), Copy link / Copy script, Share, Edit (BottomSheet with multiline script support), and Delete.
   - *Visual Parity & Favicons*: Distinctive `< / >` icon for scripts, file icon for local documents, and real website favicons loaded asynchronously via `FaviconManager`.
+
+### 18. Media Playback, Audio Focus & Background Keep-Alive Subsystem (Brave Parity)
+- **Android Audio Focus Management (`AudioManager.requestAudioFocus`)**: Coordinates audio focus via Android's `AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)` with `AudioAttributes.USAGE_MEDIA`. Automatically yields audio and pauses during transient interruptions (incoming telephone calls, alarm rings, turn-by-turn navigation) with automatic resumption on `AUDIOFOCUS_GAIN`, and stops cleanly on permanent focus loss (`AUDIOFOCUS_LOSS`).
+- **Audio Becoming Noisy System Protection (`ACTION_AUDIO_BECOMING_NOISY`)**: Dedicated broadcast receiver halts playback and releases audio focus when wired headphones or Bluetooth devices disconnect, eliminating sudden loudspeaker audio blaring in public spaces.
+- **Hardware Audio Playback Watchdog (`AudioPlaybackCallback`)**: Uses Android 8.0+ `AudioManager.AudioPlaybackCallback` to monitor physical audio stream states, ensuring background wake locks release if audio mixing terminates.
+- **Hardened `userHitPause` Keep-Alive**: Distinguishes intentional user pause gestures (touch/click within 1000ms or explicit notification actions) from background script auto-pauses, auto-resuming background audio/video if paused without user intent while background playback is active.
+- **Lockscreen & Notification Controls (`MediaPlaybackService`)**: Rich `NotificationCompat.MediaStyle` notification with seekbar, fast-forward/rewind 10s, play/pause, and task relaunch integration.
