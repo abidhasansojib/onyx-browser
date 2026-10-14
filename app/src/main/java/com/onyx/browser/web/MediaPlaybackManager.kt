@@ -592,18 +592,33 @@ object MediaPlaybackManager {
             window.__onyx_bg_script_installed = true;
 
             try {
-                // ── 1. Brave kYoutubeBackgroundPlayback: Filter visibilitychange listeners ──
-                if (document._addEventListener === undefined) {
-                    document._addEventListener = document.addEventListener;
-                    document.addEventListener = function(type, listener, options) {
-                        if (window.__onyx_bg_play_active && (type === 'visibilitychange' || type === 'webkitvisibilitychange')) {
-                            return; // Filter out website pause-on-hide listeners only while active!
-                        }
-                        return document._addEventListener.call(this, type, listener, options);
-                    };
+                var isYouTube = /youtube\.com|youtu\.be/i.test(_bgHost);
+
+                // ── 1. YouTube-Only kYoutubeBackgroundPlayback (Brave Parity) ───────
+                // Brave strictly restricts visibilitychange listener filtering to YouTube domains.
+                // Doing this universally breaks carousels, timers, and React component lifecycles!
+                if (isYouTube) {
+                    if (document._addEventListener === undefined) {
+                        document._addEventListener = document.addEventListener;
+                        document.addEventListener = function(type, listener, options) {
+                            if (window.__onyx_bg_play_active && (type === 'visibilitychange' || type === 'webkitvisibilitychange')) {
+                                return;
+                            }
+                            return document._addEventListener.call(this, type, listener, options);
+                        };
+                    }
+                    try {
+                        Object.defineProperty(document, 'visibilityState', {
+                            configurable: true,
+                            get: function() { return 'visible'; }
+                        });
+                    } catch (_) {}
                 }
 
-                // ── 2. Brave MediaBackgrounding: Document.prototype.visibilityState ─────────
+                // ── 2. Universal Brave MediaBackgrounding: Document.prototype.visibilityState ──
+                // Proxies Document.prototype.visibilityState so that when the app is in the background
+                // with active media, 'visible' is returned to prevent background pausing. In the foreground,
+                // the genuine document visibility is preserved for all websites!
                 try {
                     var descriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState');
                     if (descriptor && descriptor.get) {
@@ -613,88 +628,33 @@ object MediaPlaybackManager {
                             configurable: true,
                             get: function() {
                                 var res = origGet.call(this);
-                                if (!window.__onyx_bg_play_active) return res;
-                                return (res !== 'visible') ? 'visible' : res;
+                                if (window.__onyx_in_background && window.__onyx_bg_play_active) {
+                                    return 'visible';
+                                }
+                                return res;
                             }
                         });
                     }
                 } catch (_) {}
 
                 try {
-                    var origDocVis = Object.getOwnPropertyDescriptor(document, 'visibilityState');
-                    var origDocVisGet = origDocVis ? origDocVis.get : null;
-                    Object.defineProperty(document, 'visibilityState', {
-                        configurable: true,
-                        get: function() {
-                            if (!window.__onyx_bg_play_active) {
-                                return origDocVisGet ? origDocVisGet.call(document) : 'visible';
+                    var hiddenDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'hidden');
+                    if (hiddenDesc && hiddenDesc.get) {
+                        var origHiddenGet = hiddenDesc.get;
+                        Object.defineProperty(Document.prototype, 'hidden', {
+                            enumerable: hiddenDesc.enumerable,
+                            configurable: true,
+                            get: function() {
+                                if (window.__onyx_in_background && window.__onyx_bg_play_active) {
+                                    return false;
+                                }
+                                return origHiddenGet.call(this);
                             }
-                            return 'visible';
-                        }
-                    });
-                    Object.defineProperty(document, 'hidden', {
-                        configurable: true,
-                        get: function() {
-                            if (!window.__onyx_bg_play_active) return false;
-                            return false;
-                        }
-                    });
-                    Object.defineProperty(document, 'webkitHidden', {
-                        configurable: true,
-                        get: function() {
-                            if (!window.__onyx_bg_play_active) return false;
-                            return false;
-                        }
-                    });
-                    Object.defineProperty(document, 'webkitVisibilityState', {
-                        configurable: true,
-                        get: function() {
-                            if (!window.__onyx_bg_play_active) return 'visible';
-                            return 'visible';
-                        }
-                    });
-                    document.hasFocus = function() { return true; };
-                    if (typeof Document !== 'undefined' && Document.prototype) {
-                        Document.prototype.hasFocus = function() { return true; };
+                        });
                     }
                 } catch (_) {}
 
-                // Suppress window blur & focusout events during background transitions
-                var stopWindowBlur = function(e) {
-                    if (!window.__onyx_bg_play_active) return;
-                    if (e.target === window || e.target === document) {
-                        e.stopImmediatePropagation();
-                    }
-                };
-                window.addEventListener('blur', stopWindowBlur, true);
-                window.addEventListener('focusout', stopWindowBlur, true);
-
-                try {
-                    Object.defineProperty(window, 'onblur', {
-                        get: function() { return null; },
-                        set: function() {},
-                        configurable: true
-                    });
-                } catch (_) {}
-
-                var stopVisibilityInBg = function(e) {
-                    if (!window.__onyx_bg_play_active) return;
-                    if (window.__onyx_in_background) {
-                        e.stopImmediatePropagation();
-                    }
-                };
-                window.addEventListener('visibilitychange', stopVisibilityInBg, true);
-                document.addEventListener('visibilitychange', stopVisibilityInBg, true);
-
-                try {
-                    Object.defineProperty(document, 'onvisibilitychange', {
-                        get: function() { return null; },
-                        set: function() {},
-                        configurable: true
-                    });
-                } catch (_) {}
-
-                // ── 3. Brave MediaBackgrounding: userHitPause & Auto-Resume ────────────────
+                // ── 3. Universal Brave MediaBackgrounding: userHitPause & Auto-Resume ──
                 var origPause = HTMLMediaElement.prototype.pause;
                 HTMLMediaElement.prototype.pause = function() {
                     this.userHitPause = true;
@@ -714,7 +674,7 @@ object MediaPlaybackManager {
                     element.addEventListener('pause', function() {
                         if (!window.__onyx_bg_play_active || !window.__onyx_in_background) return;
                         if (!element.userHitPause && !element.ended) {
-                            // Video paused by page visibility, blur, or OS suspend while in background: auto-resume!
+                            // Video paused by OS blur or background transition without user intent: auto-resume!
                             origPlay.call(element).catch(function(){});
                         }
                     }, false);
@@ -732,53 +692,53 @@ object MediaPlaybackManager {
                     }
                 }, true);
 
-                // ── 4. Brave kYoutubePictureInPictureSupport: ytcfg Flag Patching ──────────
-                function modifyYtcfgFlags() {
-                    try {
-                        if (!window.ytcfg || typeof window.ytcfg.get !== 'function') return;
-                        var configs = [
-                            window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIGS')?.WEB_PLAYER_CONTEXT_CONFIG_ID_MWEB_WATCH,
-                            window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIGS')?.WEB_PLAYER_CONTEXT_CONFIG_ID_KEVLAR_WATCH,
-                            window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIG_ID_MWEB_WATCH'),
-                            window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIG_ID_KEVLAR_WATCH')
-                        ];
-                        configs.forEach(function(config) {
-                            if (config && config.serializedExperimentFlags && typeof config.serializedExperimentFlags === 'string') {
-                                config.serializedExperimentFlags = config.serializedExperimentFlags
-                                    .replace(/html5_picture_in_picture_blocking_\w+=true/g, function(m) { return m.replace('=true', '=false'); })
-                                    .replace('html5_picture_in_picture_blocking_ontimeupdate=true', 'html5_picture_in_picture_blocking_ontimeupdate=false')
-                                    .replace('html5_picture_in_picture_blocking_onresize=true', 'html5_picture_in_picture_blocking_onresize=false')
-                                    .replace('html5_picture_in_picture_blocking_document_fullscreen=true', 'html5_picture_in_picture_blocking_document_fullscreen=false')
-                                    .replace('html5_picture_in_picture_blocking_standard_api=true', 'html5_picture_in_picture_blocking_standard_api=false')
-                                    .replace('html5_picture_in_picture_logging_onresize=true', 'html5_picture_in_picture_logging_onresize=false');
-                            }
-                        });
-                        if (window.ytcfg.set) {
-                            window.ytcfg.set({
-                                'html5_picture_in_picture_blocking_web': false,
-                                'html5_picture_in_picture_blocking_android': false,
-                                'html5_picture_in_picture_blocking_standard_api': false
+                // ── 4. YouTube-Only kYoutubePictureInPictureSupport: ytcfg Flag Patching ──
+                if (isYouTube) {
+                    function modifyYtcfgFlags() {
+                        try {
+                            if (!window.ytcfg || typeof window.ytcfg.get !== 'function') return;
+                            var configs = [
+                                window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIGS')?.WEB_PLAYER_CONTEXT_CONFIG_ID_MWEB_WATCH,
+                                window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIGS')?.WEB_PLAYER_CONTEXT_CONFIG_ID_KEVLAR_WATCH,
+                                window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIG_ID_MWEB_WATCH'),
+                                window.ytcfg.get('WEB_PLAYER_CONTEXT_CONFIG_ID_KEVLAR_WATCH')
+                            ];
+                            configs.forEach(function(config) {
+                                if (config && config.serializedExperimentFlags && typeof config.serializedExperimentFlags === 'string') {
+                                    config.serializedExperimentFlags = config.serializedExperimentFlags
+                                        .replace(/html5_picture_in_picture_blocking_\w+=true/g, function(m) { return m.replace('=true', '=false'); })
+                                        .replace('html5_picture_in_picture_blocking_ontimeupdate=true', 'html5_picture_in_picture_blocking_ontimeupdate=false')
+                                        .replace('html5_picture_in_picture_blocking_onresize=true', 'html5_picture_in_picture_blocking_onresize=false')
+                                        .replace('html5_picture_in_picture_blocking_document_fullscreen=true', 'html5_picture_in_picture_blocking_document_fullscreen=false')
+                                        .replace('html5_picture_in_picture_blocking_standard_api=true', 'html5_picture_in_picture_blocking_standard_api=false')
+                                        .replace('html5_picture_in_picture_logging_onresize=true', 'html5_picture_in_picture_logging_onresize=false');
+                                }
                             });
-                        }
-                    } catch (_) {}
-                }
-
-                modifyYtcfgFlags();
-                document.addEventListener('load', function(event) {
-                    if (event.target && event.target.tagName === 'SCRIPT' && window.ytcfg) {
-                        modifyYtcfgFlags();
+                            if (window.ytcfg.set) {
+                                window.ytcfg.set({
+                                    'html5_picture_in_picture_blocking_web': false,
+                                    'html5_picture_in_picture_blocking_android': false,
+                                    'html5_picture_in_picture_blocking_standard_api': false
+                                });
+                            }
+                        } catch (_) {}
                     }
-                }, true);
 
-                // Brave kYoutubeFullscreenVideoFitWorkaround: Fit mobile video to viewport
-                try {
-                    if (location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be')) {
+                    modifyYtcfgFlags();
+                    document.addEventListener('load', function(event) {
+                        if (event.target && event.target.tagName === 'SCRIPT' && window.ytcfg) {
+                            modifyYtcfgFlags();
+                        }
+                    }, true);
+
+                    // Brave kYoutubeFullscreenVideoFitWorkaround: Fit mobile video to viewport
+                    try {
                         var ytFitStyle = document.createElement('style');
                         ytFitStyle.id = '__onyx_yt_fit_style';
                         ytFitStyle.textContent = '#player-container-id:fullscreen video.html5-main-video { width: 100% !important; height: 100dvh !important; left: 0 !important; top: 0 !important; object-fit: contain !important; }';
                         (document.head || document.documentElement).appendChild(ytFitStyle);
-                    }
-                } catch (_) {}
+                    } catch (_) {}
+                }
 
                 // ── 5. Prevent Site Scripts From Muting in Background ─────────────────────
                 try {
@@ -787,8 +747,8 @@ object MediaPlaybackManager {
                         Object.defineProperty(HTMLMediaElement.prototype, 'muted', {
                             get: function() { return origMuted.get.call(this); },
                             set: function(val) {
-                                if (window.__onyx_bg_play_active && val && (window.__onyx_in_background || document.hidden || document.visibilityState === 'hidden')) {
-                                    return;
+                                if (window.__onyx_bg_play_active && window.__onyx_in_background && val) {
+                                    return; // Don't allow websites to mute when in background
                                 }
                                 return origMuted.set.call(this, val);
                             },
