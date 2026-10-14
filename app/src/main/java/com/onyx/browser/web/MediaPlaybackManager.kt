@@ -694,22 +694,10 @@ object MediaPlaybackManager {
                     });
                 } catch (_) {}
 
-                // Track user interaction to differentiate manual pauses from background auto-pauses
-                window.__onyx_last_user_touch = 0;
-                window.addEventListener('pointerdown', function() { window.__onyx_last_user_touch = Date.now(); }, true);
-                window.addEventListener('touchstart', function() { window.__onyx_last_user_touch = Date.now(); }, true);
-                window.addEventListener('click', function() { window.__onyx_last_user_touch = Date.now(); }, true);
-
                 // ── 3. Brave MediaBackgrounding: userHitPause & Auto-Resume ────────────────
                 var origPause = HTMLMediaElement.prototype.pause;
                 HTMLMediaElement.prototype.pause = function() {
-                    var timeSinceTouch = Date.now() - (window.__onyx_last_user_touch || 0);
-                    var isUserIntent = (timeSinceTouch < 1000) || !!window.__onyx_allow_explicit_pause;
-                    if (window.__onyx_in_background && !isUserIntent) {
-                        this.userHitPause = false;
-                    } else {
-                        this.userHitPause = true;
-                    }
+                    this.userHitPause = true;
                     return origPause.apply(this, arguments);
                 };
 
