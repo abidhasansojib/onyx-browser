@@ -484,16 +484,29 @@ class BrowserPreferences private constructor(private val context: Context) {
 
     @Volatile
     private var cachedDesktopDomains: Set<String>? = null
+    @Volatile
+    private var cachedMobileDomains: Set<String>? = null
 
     var desktopDomains: Set<String>
         get() = cachedDesktopDomains ?: run {
-            val s = prefs.getStringSet("desktop_domains", emptySet()) ?: emptySet()
+            val s = prefs.getStringSet(KEY_DESKTOP_DOMAINS, emptySet()) ?: emptySet()
             cachedDesktopDomains = s
             s
         }
         set(value) {
             cachedDesktopDomains = value
-            prefs.edit().putStringSet("desktop_domains", value).apply()
+            prefs.edit().putStringSet(KEY_DESKTOP_DOMAINS, value).apply()
+        }
+
+    var mobileDomains: Set<String>
+        get() = cachedMobileDomains ?: run {
+            val s = prefs.getStringSet(KEY_MOBILE_DOMAINS, emptySet()) ?: emptySet()
+            cachedMobileDomains = s
+            s
+        }
+        set(value) {
+            cachedMobileDomains = value
+            prefs.edit().putStringSet(KEY_MOBILE_DOMAINS, value).apply()
         }
 
     var targetTranslateLanguage: String
@@ -512,24 +525,25 @@ class BrowserPreferences private constructor(private val context: Context) {
     private var cachedWhitelist: Set<String>? = null
 
     fun cleanDomain(domainOrUrl: String): String {
-        if (domainOrUrl.isBlank()) return ""
-        val startIdx = if (domainOrUrl.startsWith("http://", ignoreCase = true)) {
+        val trimmed = domainOrUrl.trim()
+        if (trimmed.isBlank()) return ""
+        val startIdx = if (trimmed.startsWith("http://", ignoreCase = true)) {
             7
-        } else if (domainOrUrl.startsWith("https://", ignoreCase = true)) {
+        } else if (trimmed.startsWith("https://", ignoreCase = true)) {
             8
         } else {
-            val schemeIdx = domainOrUrl.indexOf("://")
+            val schemeIdx = trimmed.indexOf("://")
             if (schemeIdx != -1) schemeIdx + 3 else 0
         }
-        var endIdx = domainOrUrl.length
-        for (i in startIdx until domainOrUrl.length) {
-            val c = domainOrUrl[i]
+        var endIdx = trimmed.length
+        for (i in startIdx until trimmed.length) {
+            val c = trimmed[i]
             if (c == '/' || c == ':' || c == '?' || c == '#') {
                 endIdx = i
                 break
             }
         }
-        val host = if (startIdx < endIdx) domainOrUrl.substring(startIdx, endIdx) else domainOrUrl
+        val host = if (startIdx < endIdx) trimmed.substring(startIdx, endIdx) else trimmed
         val clean = host.lowercase()
         return if (clean.startsWith("www.")) clean.substring(4) else clean
     }
@@ -864,12 +878,45 @@ class BrowserPreferences private constructor(private val context: Context) {
         return desktopDomains.contains(domain)
     }
 
-    fun setDesktopModeForDomain(domainOrUrl: String, enabled: Boolean) {
+    fun isMobileModeForDomain(domainOrUrl: String): Boolean {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return false
+        return mobileDomains.contains(domain)
+    }
+
+    fun getSiteDesktopModeState(domainOrUrl: String): SitePermissionState {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return SitePermissionState.ASK
+        if (desktopDomains.contains(domain)) return SitePermissionState.ALLOWED
+        if (mobileDomains.contains(domain)) return SitePermissionState.BLOCKED
+        return SitePermissionState.ASK
+    }
+
+    fun setSiteDesktopModeState(domainOrUrl: String, state: SitePermissionState) {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return
-        val current = desktopDomains.toMutableSet()
-        if (enabled) current.add(domain) else current.remove(domain)
-        desktopDomains = current
+        val desk = desktopDomains.toMutableSet()
+        val mob = mobileDomains.toMutableSet()
+        when (state) {
+            SitePermissionState.ALLOWED -> { desk.add(domain); mob.remove(domain) }
+            SitePermissionState.BLOCKED -> { mob.add(domain); desk.remove(domain) }
+            SitePermissionState.ASK -> { desk.remove(domain); mob.remove(domain) }
+        }
+        desktopDomains = desk
+        mobileDomains = mob
+    }
+
+    fun setDesktopModeForDomain(domainOrUrl: String, enabled: Boolean) {
+        setSiteDesktopModeState(domainOrUrl, if (enabled) SitePermissionState.ALLOWED else SitePermissionState.ASK)
+    }
+
+    fun getEffectiveDesktopMode(domainOrUrl: String): Boolean {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isNotBlank()) {
+            if (desktopDomains.any { domain == it || domain.endsWith(".$it") }) return true
+            if (mobileDomains.any { domain == it || domain.endsWith(".$it") }) return false
+        }
+        return isDesktopMode
     }
 
     fun hasCustomSitePermissions(domainOrUrl: String): Boolean {
@@ -887,6 +934,7 @@ class BrowserPreferences private constructor(private val context: Context) {
                isWebMixedContentAllowed(domain) != null ||
                isWebGoogleSignInAllowed(domain) != null ||
                isSiteAutoShredEnabled(domain) ||
+               isSiteAutoKeepEnabled(domain) ||
                isWebSensorsAllowed(domain) != null ||
                isWebClipboardAllowed(domain) != null ||
                isWebSoundAllowed(domain) != null ||
@@ -909,7 +957,7 @@ class BrowserPreferences private constructor(private val context: Context) {
                isWebWebRtcExplicitlySet(domain) != null ||
                isDomainWhitelisted(domain) ||
                isScriptBlockingEnabledForDomain(domain) ||
-               isDesktopModeForDomain(domain) ||
+               getSiteDesktopModeState(domain) != SitePermissionState.ASK ||
                getSiteBlockingLevel(domain) != null ||
                getCustomBlockedSelectorsForDomain(domain).isNotEmpty()
     }
@@ -928,7 +976,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         setSiteZoomPermission(domain, SitePermissionState.ASK)
         setSiteMixedContentPermission(domain, SitePermissionState.ASK)
         setSiteGoogleSignInPermission(domain, SitePermissionState.ASK)
-        setSiteAutoShredEnabled(domain, false)
+        setSiteAutoShredState(domain, SitePermissionState.ASK)
         setSiteSensorsPermission(domain, SitePermissionState.ASK)
         setSiteClipboardPermission(domain, SitePermissionState.ASK)
         setSiteSoundPermission(domain, SitePermissionState.ASK)
@@ -951,7 +999,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         setSiteWebRtcPermission(domain, SitePermissionState.ASK)
         setDomainWhitelisted(domain, false)
         setScriptBlockingForDomain(domain, false)
-        setDesktopModeForDomain(domain, false)
+        setSiteDesktopModeState(domain, SitePermissionState.ASK)
         setSiteBlockingLevel(domain, null)
         clearCustomBlockedRulesForDomain(domain)
     }
@@ -1256,6 +1304,7 @@ class BrowserPreferences private constructor(private val context: Context) {
 
     // ── Auto-Shred Site Data on Tab Close (per-domain, Brave parity) ─────────
     @Volatile private var cachedAutoShredDomains: Set<String>? = null
+    @Volatile private var cachedAutoKeepDomains: Set<String>? = null
 
     var autoShredDomains: Set<String>
         get() = cachedAutoShredDomains ?: run {
@@ -1268,22 +1317,53 @@ class BrowserPreferences private constructor(private val context: Context) {
             prefs.edit().putStringSet(KEY_AUTO_SHRED_DOMAINS, value).apply()
         }
 
+    var autoKeepDomains: Set<String>
+        get() = cachedAutoKeepDomains ?: run {
+            val s = prefs.getStringSet(KEY_AUTO_KEEP_DOMAINS, emptySet()) ?: emptySet()
+            cachedAutoKeepDomains = s
+            s
+        }
+        set(value) {
+            cachedAutoKeepDomains = value
+            prefs.edit().putStringSet(KEY_AUTO_KEEP_DOMAINS, value).apply()
+        }
+
     fun isSiteAutoShredEnabled(domainOrUrl: String): Boolean {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return false
         return autoShredDomains.contains(domain)
     }
 
-    fun setSiteAutoShredEnabled(domainOrUrl: String, enabled: Boolean) {
+    fun isSiteAutoKeepEnabled(domainOrUrl: String): Boolean {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return false
+        return autoKeepDomains.contains(domain)
+    }
+
+    fun getSiteAutoShredState(domainOrUrl: String): SitePermissionState {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return SitePermissionState.ASK
+        if (autoShredDomains.contains(domain)) return SitePermissionState.ALLOWED
+        if (autoKeepDomains.contains(domain)) return SitePermissionState.BLOCKED
+        return SitePermissionState.ASK
+    }
+
+    fun setSiteAutoShredState(domainOrUrl: String, state: SitePermissionState) {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return
-        val current = autoShredDomains.toMutableSet()
-        if (enabled) {
-            current.add(domain)
-        } else {
-            current.remove(domain)
+        val shred = autoShredDomains.toMutableSet()
+        val keep = autoKeepDomains.toMutableSet()
+        when (state) {
+            SitePermissionState.ALLOWED -> { shred.add(domain); keep.remove(domain) }
+            SitePermissionState.BLOCKED -> { keep.add(domain); shred.remove(domain) }
+            SitePermissionState.ASK -> { shred.remove(domain); keep.remove(domain) }
         }
-        autoShredDomains = current
+        autoShredDomains = shred
+        autoKeepDomains = keep
+    }
+
+    fun setSiteAutoShredEnabled(domainOrUrl: String, enabled: Boolean) {
+        setSiteAutoShredState(domainOrUrl, if (enabled) SitePermissionState.ALLOWED else SitePermissionState.ASK)
     }
 
     // ── Motion & Light Sensors (per-domain, Brave parity) ────────────────────
@@ -2340,6 +2420,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         domains.addAll(getAllowedGoogleSignInDomains())
         domains.addAll(getBlockedGoogleSignInDomains())
         domains.addAll(autoShredDomains)
+        domains.addAll(autoKeepDomains)
         domains.addAll(getAllowedSensorsDomains())
         domains.addAll(getBlockedSensorsDomains())
         domains.addAll(getAllowedClipboardDomains())
@@ -2380,8 +2461,9 @@ class BrowserPreferences private constructor(private val context: Context) {
         domains.addAll(getBlockedStorageAccessDomains())
         domains.addAll(getAllowedWebRtcDomains())
         domains.addAll(getBlockedWebRtcDomains())
-        // Desktop mode per-domain overrides
+        // Desktop mode per-domain overrides (both Desktop and Mobile)
         domains.addAll(desktopDomains)
+        domains.addAll(mobileDomains)
         // Per-domain script blocking
         val scriptBlocked = prefs.getStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, emptySet()) ?: emptySet()
         domains.addAll(scriptBlocked)
@@ -2391,6 +2473,13 @@ class BrowserPreferences private constructor(private val context: Context) {
         domains.addAll(aggressive)
         val standard = prefs.getStringSet(KEY_STANDARD_DOMAINS, emptySet()) ?: emptySet()
         domains.addAll(standard)
+        // Custom Blocked Elements / Custom Cosmetic Filter rules per domain
+        ensureDomainRulesCache()
+        for ((d, selectors) in domainCustomRulesCache) {
+            if (selectors.isNotEmpty()) {
+                domains.add(d)
+            }
+        }
         return domains
     }
 
@@ -2687,7 +2776,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_ADD_TO_HOME_SCREEN, value).apply()
 
     var isBlockElementEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BLOCK_ELEMENT_ENABLED, false)
+        get() = prefs.getBoolean(KEY_BLOCK_ELEMENT_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_BLOCK_ELEMENT_ENABLED, value).apply()
 
     companion object {
@@ -2740,6 +2829,8 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_DO_NOT_TRACK = "pref_do_not_track"
         const val KEY_SCRIPT_BLOCKING_DOMAINS = "pref_script_blocking_domains"
         const val KEY_DESKTOP_MODE = "pref_desktop_mode"
+        const val KEY_DESKTOP_DOMAINS = "desktop_domains"
+        const val KEY_MOBILE_DOMAINS = "mobile_domains"
         const val KEY_JAVASCRIPT_ENABLED = "pref_javascript_enabled"
         const val KEY_BLOCKED_REQUESTS_COUNT = "pref_blocked_requests_count"
         const val KEY_FILTER_UPDATED = "pref_filter_updated"
@@ -2831,6 +2922,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_GOOGLE_SIGNIN_BLOCKED_GLOBAL = "pref_google_signin_blocked_global"
 
         const val KEY_AUTO_SHRED_DOMAINS = "pref_auto_shred_domains"
+        const val KEY_AUTO_KEEP_DOMAINS = "pref_auto_keep_domains"
 
         const val KEY_ALLOWED_SENSORS_DOMAINS = "pref_allowed_sensors_domains"
         const val KEY_BLOCKED_SENSORS_DOMAINS = "pref_blocked_sensors_domains"

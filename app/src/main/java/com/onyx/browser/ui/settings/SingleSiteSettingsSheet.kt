@@ -18,6 +18,9 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.preferences.SitePermissionState
 import com.onyx.browser.databinding.BottomSheetSingleSiteSettingsBinding
 import com.onyx.browser.web.SiteDataManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class SingleSiteSettingsSheet(
     private val rawDomain: String,
@@ -77,6 +80,11 @@ class SingleSiteSettingsSheet(
                         ).show()
                     }
                     prefs.resetSitePermissions(domain)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
+                        } catch (_: Exception) {}
+                    }
                     populatePermissions()
                     onSiteChanged()
                 }
@@ -85,7 +93,13 @@ class SingleSiteSettingsSheet(
         }
 
         binding.btnResetPermissions.setOnClickListener {
+            val ctx = requireContext().applicationContext
             prefs.resetSitePermissions(domain)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
+                } catch (_: Exception) {}
+            }
             populatePermissions()
             onSiteChanged()
             Toast.makeText(requireContext(), getString(R.string.permission_reset_done, domain), Toast.LENGTH_SHORT).show()
@@ -116,12 +130,12 @@ class SingleSiteSettingsSheet(
                 iconRes = R.drawable.ic_shield_lock,
                 title = getString(R.string.single_site_shields_title),
                 getState = {
-                    if (prefs.isDomainWhitelisted(domain)) getString(R.string.permission_blocked)
-                    else getString(R.string.permission_allowed)
+                    if (prefs.isDomainWhitelisted(domain)) getString(R.string.shields_down)
+                    else getString(R.string.shields_up)
                 },
                 options = listOf(
-                    getString(R.string.permission_allowed),
-                    getString(R.string.permission_blocked),
+                    getString(R.string.shields_up),
+                    getString(R.string.shields_down),
                     getString(R.string.default_permission)
                 ),
                 getCheckedIndex = {
@@ -193,7 +207,13 @@ class SingleSiteSettingsSheet(
                     getCheckedIndex = { 1 },
                     onChoose = { which ->
                         if (which == 0) {
+                            val ctx = requireContext().applicationContext
                             prefs.clearCustomBlockedRulesForDomain(domain)
+                            CoroutineScope(Dispatchers.IO).launch {
+                                try {
+                                    com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
+                                } catch (_: Exception) {}
+                            }
                             Toast.makeText(
                                 requireContext(),
                                 getString(R.string.custom_blocked_elements_reset_done, domain),
@@ -312,11 +332,30 @@ class SingleSiteSettingsSheet(
                 iconRes = R.drawable.ic_desktop,
                 title = getString(R.string.desktop_site_settings_title),
                 getState = {
-                    if (prefs.isDesktopModeForDomain(domain)) getString(R.string.permission_allowed)
-                    else getString(R.string.default_permission)
+                    when (prefs.getSiteDesktopModeState(domain)) {
+                        SitePermissionState.ALLOWED -> getString(R.string.desktop_site)
+                        SitePermissionState.BLOCKED -> "Mobile"
+                        SitePermissionState.ASK -> getString(R.string.default_permission)
+                    }
+                },
+                options = listOf(
+                    getString(R.string.desktop_site),
+                    "Mobile",
+                    getString(R.string.default_permission)
+                ),
+                getCheckedIndex = {
+                    when (prefs.getSiteDesktopModeState(domain)) {
+                        SitePermissionState.ALLOWED -> 0
+                        SitePermissionState.BLOCKED -> 1
+                        SitePermissionState.ASK -> 2
+                    }
                 },
                 onChoose = { which ->
-                    prefs.setDesktopModeForDomain(domain, which == 0)
+                    when (which) {
+                        0 -> prefs.setSiteDesktopModeState(domain, SitePermissionState.ALLOWED)
+                        1 -> prefs.setSiteDesktopModeState(domain, SitePermissionState.BLOCKED)
+                        else -> prefs.setSiteDesktopModeState(domain, SitePermissionState.ASK)
+                    }
                     refresh()
                 }
             ),
@@ -524,9 +563,31 @@ class SingleSiteSettingsSheet(
                 key = "webrtc",
                 iconRes = R.drawable.ic_network,
                 title = getString(R.string.webrtc_settings_title),
-                getState = { getStandardStateLabel(prefs.getSiteWebRtcPermission(domain)) },
+                getState = {
+                    when (prefs.getSiteWebRtcPermission(domain)) {
+                        SitePermissionState.ALLOWED -> "Protected"
+                        SitePermissionState.BLOCKED -> "Unprotected"
+                        SitePermissionState.ASK -> getString(R.string.default_permission)
+                    }
+                },
+                options = listOf(
+                    "Protect local IP",
+                    "Allow local IP (unprotected)",
+                    getString(R.string.default_permission)
+                ),
+                getCheckedIndex = {
+                    when (prefs.getSiteWebRtcPermission(domain)) {
+                        SitePermissionState.ALLOWED -> 0
+                        SitePermissionState.BLOCKED -> 1
+                        SitePermissionState.ASK -> 2
+                    }
+                },
                 onChoose = { which ->
-                    prefs.setSiteWebRtcPermission(domain, indexToState(which))
+                    when (which) {
+                        0 -> prefs.setSiteWebRtcPermission(domain, SitePermissionState.ALLOWED)
+                        1 -> prefs.setSiteWebRtcPermission(domain, SitePermissionState.BLOCKED)
+                        else -> prefs.setSiteWebRtcPermission(domain, SitePermissionState.ASK)
+                    }
                     refresh()
                 }
             ),
@@ -535,11 +596,30 @@ class SingleSiteSettingsSheet(
                 iconRes = R.drawable.ic_broom,
                 title = getString(R.string.forget_site_on_close),
                 getState = {
-                    if (prefs.isSiteAutoShredEnabled(domain)) getString(R.string.permission_allowed)
-                    else getString(R.string.default_permission)
+                    when (prefs.getSiteAutoShredState(domain)) {
+                        SitePermissionState.ALLOWED -> getString(R.string.forget_site_on_close)
+                        SitePermissionState.BLOCKED -> "Keep site data"
+                        SitePermissionState.ASK -> getString(R.string.default_permission)
+                    }
+                },
+                options = listOf(
+                    getString(R.string.forget_site_on_close),
+                    "Keep site data",
+                    getString(R.string.default_permission)
+                ),
+                getCheckedIndex = {
+                    when (prefs.getSiteAutoShredState(domain)) {
+                        SitePermissionState.ALLOWED -> 0
+                        SitePermissionState.BLOCKED -> 1
+                        SitePermissionState.ASK -> 2
+                    }
                 },
                 onChoose = { which ->
-                    prefs.setSiteAutoShredEnabled(domain, which == 0)
+                    when (which) {
+                        0 -> prefs.setSiteAutoShredState(domain, SitePermissionState.ALLOWED)
+                        1 -> prefs.setSiteAutoShredState(domain, SitePermissionState.BLOCKED)
+                        else -> prefs.setSiteAutoShredState(domain, SitePermissionState.ASK)
+                    }
                     refresh()
                 }
             )
@@ -622,8 +702,11 @@ class SingleSiteSettingsSheet(
             text = stateLabel
             textSize = 12f
             when (stateLabel) {
-                getString(R.string.permission_allowed) -> setTextColor(ContextCompat.getColor(context, R.color.green_success))
-                getString(R.string.permission_blocked) -> setTextColor(ContextCompat.getColor(context, R.color.red_danger))
+                getString(R.string.permission_allowed),
+                getString(R.string.shields_up),
+                getString(R.string.desktop_site) -> setTextColor(ContextCompat.getColor(context, R.color.green_success))
+                getString(R.string.permission_blocked),
+                getString(R.string.shields_down) -> setTextColor(ContextCompat.getColor(context, R.color.red_danger))
                 else -> setTextColor(ContextCompat.getColor(context, R.color.settings_subtitle_text))
             }
             layoutParams = LinearLayout.LayoutParams(

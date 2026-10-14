@@ -141,9 +141,16 @@ object SiteDataManager {
                 val expiry = "expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0"
                 for (domain in allPurgeDomains) {
                     val httpsUrl = "https://$domain/"
+                    val httpUrl = "http://$domain/"
                     for (cookieName in cookieNames) {
+                        // Secure variants (HTTPS)
                         cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry; path=/; domain=.$domain; Secure")
+                        cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry; path=/; domain=$domain; Secure")
                         cookieManager.setCookie(httpsUrl, "$cookieName=; $expiry; path=/; Secure")
+                        // Non-secure variants (HTTP & host-only)
+                        cookieManager.setCookie(httpUrl, "$cookieName=; $expiry; path=/; domain=.$domain")
+                        cookieManager.setCookie(httpUrl, "$cookieName=; $expiry; path=/; domain=$domain")
+                        cookieManager.setCookie(httpUrl, "$cookieName=; $expiry; path=/")
                     }
                 }
                 cookieManager.flush()

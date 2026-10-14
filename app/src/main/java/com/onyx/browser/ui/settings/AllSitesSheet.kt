@@ -20,6 +20,9 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.preferences.SitePermissionState
 import com.onyx.browser.databinding.BottomSheetAllSitesBinding
 import com.onyx.browser.web.SiteDataManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AllSitesSheet(
     private val onSitesChanged: () -> Unit
@@ -185,7 +188,39 @@ class AllSitesSheet(
         val mixed = prefs.getSiteMixedContentPermission(domain)
         if (mixed == SitePermissionState.ALLOWED) summaryParts.add("Mixed: allowed")
         else if (mixed == SitePermissionState.BLOCKED) summaryParts.add("Mixed: blocked")
-        if (prefs.isDesktopModeForDomain(domain)) summaryParts.add("Desktop: on")
+        val desktopState = prefs.getSiteDesktopModeState(domain)
+        if (desktopState == SitePermissionState.ALLOWED) summaryParts.add("Desktop: on")
+        else if (desktopState == SitePermissionState.BLOCKED) summaryParts.add("Desktop: off")
+        val autoShredState = prefs.getSiteAutoShredState(domain)
+        if (autoShredState == SitePermissionState.ALLOWED) summaryParts.add("Auto-shred: on")
+        else if (autoShredState == SitePermissionState.BLOCKED) summaryParts.add("Keep data")
+        val gSignIn = prefs.getSiteGoogleSignInPermission(domain)
+        if (gSignIn == SitePermissionState.ALLOWED) summaryParts.add("Google Sign-In: allowed")
+        else if (gSignIn == SitePermissionState.BLOCKED) summaryParts.add("Google Sign-In: blocked")
+        val sensors = prefs.getSiteSensorsPermission(domain)
+        if (sensors == SitePermissionState.ALLOWED) summaryParts.add("Sensors: allowed")
+        else if (sensors == SitePermissionState.BLOCKED) summaryParts.add("Sensors: blocked")
+        val clip = prefs.getSiteClipboardPermission(domain)
+        if (clip == SitePermissionState.ALLOWED) summaryParts.add("Clipboard: allowed")
+        else if (clip == SitePermissionState.BLOCKED) summaryParts.add("Clipboard: blocked")
+        val sound = prefs.getSiteSoundPermission(domain)
+        if (sound == SitePermissionState.ALLOWED) summaryParts.add("Sound: unmuted")
+        else if (sound == SitePermissionState.BLOCKED) summaryParts.add("Sound: muted")
+        val autoDl = prefs.getSiteAutoDownloadsPermission(domain)
+        if (autoDl == SitePermissionState.ALLOWED) summaryParts.add("Downloads: allowed")
+        else if (autoDl == SitePermissionState.BLOCKED) summaryParts.add("Downloads: blocked")
+        val usb = prefs.getSiteUsbPermission(domain)
+        if (usb == SitePermissionState.ALLOWED) summaryParts.add("USB: allowed")
+        else if (usb == SitePermissionState.BLOCKED) summaryParts.add("USB: blocked")
+        val bt = prefs.getSiteBluetoothPermission(domain)
+        if (bt == SitePermissionState.ALLOWED) summaryParts.add("Bluetooth: allowed")
+        else if (bt == SitePermissionState.BLOCKED) summaryParts.add("Bluetooth: blocked")
+        val webrtc = prefs.getSiteWebRtcPermission(domain)
+        if (webrtc == SitePermissionState.ALLOWED) summaryParts.add("WebRTC: allowed")
+        else if (webrtc == SitePermissionState.BLOCKED) summaryParts.add("WebRTC: blocked")
+        val storage = prefs.getSiteStorageAccessPermission(domain)
+        if (storage == SitePermissionState.ALLOWED) summaryParts.add("Storage Access: allowed")
+        else if (storage == SitePermissionState.BLOCKED) summaryParts.add("Storage Access: blocked")
         if (prefs.isDomainWhitelisted(domain)) summaryParts.add("Shields: off")
         val blockingLevel = prefs.getSiteBlockingLevel(domain)
         if (blockingLevel != null) {
@@ -241,6 +276,11 @@ class AllSitesSheet(
                         }
                         // Reset permissions too for clean slate
                         prefs.resetSitePermissions(domain)
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
+                            } catch (_: Exception) {}
+                        }
                         loadDomains()
                         onSitesChanged()
                     }

@@ -571,7 +571,9 @@ class TabManager(
                     if (!stillOpen) {
                         val isAutoShredTarget = prefs.isSiteAutoShredEnabled(host) ||
                             (root.isNotEmpty() && prefs.isSiteAutoShredEnabled(root))
-                        if (prefs.isCookieAutoclearOnCloseEnabled || isAutoShredTarget) {
+                        val isAutoKeepTarget = prefs.isSiteAutoKeepEnabled(host) ||
+                            (root.isNotEmpty() && prefs.isSiteAutoKeepEnabled(root))
+                        if (!isAutoKeepTarget && (prefs.isCookieAutoclearOnCloseEnabled || isAutoShredTarget)) {
                             hostsToPurge.add(host)
                             if (root.isNotEmpty()) rootsToPurge.add(root)
                         }

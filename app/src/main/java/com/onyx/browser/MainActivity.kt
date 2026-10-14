@@ -182,10 +182,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (!isGranted) {
-            Toast.makeText(this, "Download notifications disabled", Toast.LENGTH_SHORT).show()
-        }
+    ) { _ ->
+        isSystemDialogOrChooserPending = false
     }
 
     private val voiceSearchMicLauncher = registerForActivityResult(
@@ -216,8 +214,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             } catch (_: Exception) {
                 origin
             }
-            if (pendingGeoRemember) {
-                preferences.setWebLocationAllowed(host, granted)
+            if (pendingGeoRemember && granted) {
+                preferences.setWebLocationAllowed(host, true)
             }
         }
         try {
@@ -236,10 +234,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         isHttps: Boolean = true,
         onAllowedAlways: () -> Unit,
         onAllowedWhileVisiting: () -> Unit,
-        onDenied: () -> Unit
+        onDenied: (permanently: Boolean) -> Unit
     ) {
         if (isFinishing || isDestroyed) {
-            onDenied()
+            onDenied(false)
             return
         }
         val sheet = com.onyx.browser.ui.dialog.WebPermissionBottomSheetDialog(
@@ -328,9 +326,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         )
                     }
                 },
-                onDenied = {
-                    preferences.setWebLocationAllowed(host, false)
-                    try { callback.invoke(origin, false, true) } catch (_: Exception) {}
+                onDenied = { permanently ->
+                    if (permanently) {
+                        preferences.setWebLocationAllowed(host, false)
+                    }
+                    try { callback.invoke(origin, false, permanently) } catch (_: Exception) {}
                 }
             )
             return
@@ -437,7 +437,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
         }
 
-        if (grantedList.isNotEmpty() && (!needsAudio || audioGranted) && (!needsVideo || videoGranted)) {
+        if (grantedList.isNotEmpty()) {
             safeGrantWebPermission(request, grantedList.toTypedArray())
         } else {
             safeDenyWebPermission(request)
@@ -484,7 +484,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         val camAllowed = if (needsVideo) preferences.isWebCameraAllowed(host) else true
         val micAllowed = if (needsAudio) preferences.isWebMicAllowed(host) else true
 
-        if (camAllowed == false || micAllowed == false) {
+        if (camAllowed == false && micAllowed == false) {
             safeDenyWebPermission(request)
             return
         }
@@ -494,18 +494,30 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             return
         }
 
+        if (camAllowed == true && micAllowed == false) {
+            grantWebMediaPermission(request, needsAudio = false, needsVideo = true, arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE), host, remember = false)
+            return
+        }
+        if (camAllowed == false && micAllowed == true) {
+            grantWebMediaPermission(request, needsAudio = true, needsVideo = false, arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE), host, remember = false)
+            return
+        }
+
         if (isFinishing || isDestroyed) {
             safeDenyWebPermission(request)
             return
         }
 
+        val promptForCam = needsVideo && camAllowed == null
+        val promptForMic = needsAudio && micAllowed == null
+
         val promptItems = mutableListOf<String>()
-        if (needsVideo && camAllowed == null) promptItems.add("Camera")
-        if (needsAudio && micAllowed == null) promptItems.add("Microphone")
+        if (promptForCam) promptItems.add("Camera")
+        if (promptForMic) promptItems.add("Microphone")
         val itemsStr = promptItems.joinToString(" and ")
         val icon = when {
-            needsVideo && needsAudio -> R.drawable.ic_camera
-            needsVideo -> R.drawable.ic_camera
+            promptForCam && promptForMic -> R.drawable.ic_camera
+            promptForCam -> R.drawable.ic_camera
             else -> R.drawable.ic_mic
         }
         val isHttps = origin.startsWith("https://", ignoreCase = true)
@@ -517,15 +529,38 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             iconResId = icon,
             isHttps = isHttps,
             onAllowedAlways = {
-                grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = true)
+                if (promptForCam) preferences.setWebCameraAllowed(host, true)
+                if (promptForMic) preferences.setWebMicAllowed(host, true)
+                val grantAudio = (needsAudio && micAllowed == true) || promptForMic
+                val grantVideo = (needsVideo && camAllowed == true) || promptForCam
+                val toGrant = mutableListOf<String>()
+                if (grantAudio) toGrant.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+                if (grantVideo) toGrant.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+                grantWebMediaPermission(request, grantAudio, grantVideo, toGrant.toTypedArray(), host, remember = false)
             },
             onAllowedWhileVisiting = {
-                grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = false)
+                val grantAudio = (needsAudio && micAllowed == true) || promptForMic
+                val grantVideo = (needsVideo && camAllowed == true) || promptForCam
+                val toGrant = mutableListOf<String>()
+                if (grantAudio) toGrant.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+                if (grantVideo) toGrant.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+                grantWebMediaPermission(request, grantAudio, grantVideo, toGrant.toTypedArray(), host, remember = false)
             },
-            onDenied = {
-                if (needsVideo) preferences.setWebCameraAllowed(host, false)
-                if (needsAudio) preferences.setWebMicAllowed(host, false)
-                safeDenyWebPermission(request)
+            onDenied = { permanently ->
+                if (permanently) {
+                    if (promptForCam) preferences.setWebCameraAllowed(host, false)
+                    if (promptForMic) preferences.setWebMicAllowed(host, false)
+                }
+                val grantAudio = needsAudio && micAllowed == true
+                val grantVideo = needsVideo && camAllowed == true
+                if (grantAudio || grantVideo) {
+                    val toGrant = mutableListOf<String>()
+                    if (grantAudio) toGrant.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+                    if (grantVideo) toGrant.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+                    grantWebMediaPermission(request, grantAudio, grantVideo, toGrant.toTypedArray(), host, remember = false)
+                } else {
+                    safeDenyWebPermission(request)
+                }
             }
         )
     }
@@ -601,6 +636,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 preferences.setSiteNotificationsPermission(host, com.onyx.browser.data.preferences.SitePermissionState.ALLOWED)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                     ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    isSystemDialogOrChooserPending = true
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 callback("granted")
@@ -608,12 +644,15 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             onAllowedWhileVisiting = {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                     ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    isSystemDialogOrChooserPending = true
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 callback("granted")
             },
-            onDenied = {
-                preferences.setSiteNotificationsPermission(host, com.onyx.browser.data.preferences.SitePermissionState.BLOCKED)
+            onDenied = { permanently ->
+                if (permanently) {
+                    preferences.setSiteNotificationsPermission(host, com.onyx.browser.data.preferences.SitePermissionState.BLOCKED)
+                }
                 callback("denied")
             }
         )
@@ -1946,10 +1985,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 val popupPerm = if (parentDomain.isNotBlank()) preferences.isWebPopupsAllowed(parentDomain) else null
                 val recentTouch = (sourceWebView as? OnyxWebView)?.isWithinRecentTouchWindow() ?: false
 
-                if (popupPerm == false) {
-                    // Site explicitly blocked from opening popups/new windows
-                    false
-                } else if ((!isUserGesture && !recentTouch) || resultMsg == null) {
+                val allowPopups = when (popupPerm) {
+                    true -> true
+                    false -> false
+                    null -> !preferences.isPopupsBlockedGlobal || isUserGesture || recentTouch
+                }
+
+                if (!allowPopups || resultMsg == null) {
                     false
                 } else {
                     val parentTab = (sourceWebView as? OnyxWebView)?.tabId?.let { tabManager.getTabById(it) }
@@ -2479,6 +2521,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     fun checkNotificationPermissionForDownloads() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                isSystemDialogOrChooserPending = true
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
@@ -3292,11 +3335,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         wv?.onResume()
         wv?.applyUserAgentForUrl(wv.url ?: "")
         if (wv != null) {
-            wv.cookieManager.setAcceptThirdPartyCookies(
-                wv,
-                preferences.cookieBlockingMode != BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY &&
-                preferences.cookieBlockingMode != BrowserPreferences.COOKIE_BLOCK_ALL
-            )
+            wv.applyCookieSettings()
             // JS enablement is managed by applySiteSettingsForUrl (called above in applyUserAgentForUrl),
             // which correctly applies both the global isJavaScriptEnabledGlobal toggle and
             // per-site exceptions. Do NOT blindly overwrite it here.

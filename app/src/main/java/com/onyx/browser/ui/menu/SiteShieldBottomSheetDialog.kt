@@ -244,6 +244,12 @@ class SiteShieldBottomSheetDialog(
 
         binding.btnResetPermissions.setOnClickListener {
             prefs.resetSitePermissions(domain)
+            val ctx = requireContext().applicationContext
+            scope.launch(Dispatchers.IO) {
+                try {
+                    com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
+                } catch (_: Exception) {}
+            }
             refreshAllSiteShieldControls()
             Toast.makeText(
                 requireContext(),
@@ -265,7 +271,7 @@ class SiteShieldBottomSheetDialog(
         binding.switchScriptBlocking.isChecked = isNetworkBlocked || isJsBlocked
         binding.switchGoogleSignIn.isChecked = prefs.isWebGoogleSignInAllowed(domain) ?: !prefs.isGoogleSignInBlockedGlobal
         binding.switchAutoShred.isChecked = prefs.isSiteAutoShredEnabled(domain)
-        binding.switchDesktopMode.isChecked = prefs.isDesktopModeForDomain(domain)
+        binding.switchDesktopMode.isChecked = prefs.getEffectiveDesktopMode(domain)
         setupCustomBlockedElements()
         updateResetPermissionsVisibility()
     }
@@ -367,6 +373,7 @@ class SiteShieldBottomSheetDialog(
             prefs.setDomainWhitelisted(domain, !newShieldsUp)
             updateMasterShieldUi(newShieldsUp)
             updateSubControlsEnabled(newShieldsUp)
+            updateResetPermissionsVisibility()
             onShieldSettingsChanged()
         }
 
@@ -404,10 +411,7 @@ class SiteShieldBottomSheetDialog(
             binding.layoutFingerprintProtection,
             binding.layoutHttpsUpgrade,
             binding.layoutScriptBlocking,
-            binding.layoutCosmeticFiltering,
-            binding.layoutGoogleSignIn,
-            binding.layoutAutoShred,
-            binding.layoutDesktopMode
+            binding.layoutCosmeticFiltering
         ).forEach {
             it.isEnabled = enabled
             it.alpha = alpha
@@ -416,9 +420,16 @@ class SiteShieldBottomSheetDialog(
         binding.switchHttpsUpgrade.isEnabled = enabled
         binding.switchScriptBlocking.isEnabled = enabled
         binding.switchCosmeticFiltering.isEnabled = enabled
-        binding.switchGoogleSignIn.isEnabled = enabled
-        binding.switchAutoShred.isEnabled = enabled
-        binding.switchDesktopMode.isEnabled = enabled
+        // Independent site controls (Desktop Mode, Auto-shred, Google Sign-in) always remain enabled
+        binding.layoutGoogleSignIn.isEnabled = true
+        binding.layoutGoogleSignIn.alpha = 1.0f
+        binding.switchGoogleSignIn.isEnabled = true
+        binding.layoutAutoShred.isEnabled = true
+        binding.layoutAutoShred.alpha = 1.0f
+        binding.switchAutoShred.isEnabled = true
+        binding.layoutDesktopMode.isEnabled = true
+        binding.layoutDesktopMode.alpha = 1.0f
+        binding.switchDesktopMode.isEnabled = true
     }
 
     // ── Blocking Level (Per-Domain with Global Fallback) ───────────────────────
@@ -500,6 +511,7 @@ class SiteShieldBottomSheetDialog(
                 if (newBlocked) com.onyx.browser.data.preferences.SitePermissionState.BLOCKED
                 else com.onyx.browser.data.preferences.SitePermissionState.ASK
             )
+            updateResetPermissionsVisibility()
             onShieldSettingsChanged()
         }
     }
@@ -530,6 +542,7 @@ class SiteShieldBottomSheetDialog(
                 domain,
                 if (newState) SitePermissionState.ALLOWED else SitePermissionState.BLOCKED
             )
+            updateResetPermissionsVisibility()
             onShieldSettingsChanged()
         }
     }
@@ -552,13 +565,14 @@ class SiteShieldBottomSheetDialog(
     // ── Desktop Site ──────────────────────────────────────────────────────────
 
     private fun setupDesktopModeToggle() {
-        val isDesktop = prefs.isDesktopModeForDomain(domain)
+        val isDesktop = prefs.getEffectiveDesktopMode(domain)
         binding.switchDesktopMode.isChecked = isDesktop
         binding.layoutDesktopMode.setOnClickListener {
             if (!it.isEnabled) return@setOnClickListener
-            val newState = !binding.switchDesktopMode.isChecked
-            binding.switchDesktopMode.isChecked = newState
-            prefs.setDesktopModeForDomain(domain, newState)
+            val currentEffective = prefs.getEffectiveDesktopMode(domain)
+            val newState = if (currentEffective) SitePermissionState.BLOCKED else SitePermissionState.ALLOWED
+            prefs.setSiteDesktopModeState(domain, newState)
+            binding.switchDesktopMode.isChecked = !currentEffective
             updateResetPermissionsVisibility()
             onShieldSettingsChanged()
         }

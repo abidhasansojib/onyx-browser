@@ -17,6 +17,9 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivitySiteSettingsBinding
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.SiteDataManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class SiteSettingsActivity : AppCompatActivity() {
 
@@ -361,13 +364,31 @@ class SiteSettingsActivity : AppCompatActivity() {
                         prefs.resetSitePermissions(domain)
                         prefs.setDomainWhitelisted(domain, false)
                     }
-                    // 2. Clear desktop mode domain overrides
+                    // 2. Clear desktop mode domain overrides and exceptions
                     prefs.desktopDomains = emptySet()
+                    prefs.mobileDomains = emptySet()
+                    prefs.autoShredDomains = emptySet()
+                    prefs.autoKeepDomains = emptySet()
+                    prefs.clearAllCustomBlockedRules()
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
+                        } catch (_: Exception) {}
+                    }
                     // 3. Full WebStorage wipe
                     android.webkit.WebStorage.getInstance().deleteAllData()
                     // 4. Full cookie wipe
                     android.webkit.CookieManager.getInstance().removeAllCookies(null)
                     android.webkit.CookieManager.getInstance().flush()
+                    try {
+                        if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
+                            androidx.webkit.ProfileStore.getInstance().getProfile("incognito")?.let { incognitoProfile ->
+                                incognitoProfile.cookieManager.removeAllCookies(null)
+                                incognitoProfile.cookieManager.flush()
+                                incognitoProfile.webStorage.deleteAllData()
+                            }
+                        }
+                    } catch (_: Throwable) {}
                     // 5. Per-domain cookie clear for good measure
                     for (domain in domains) {
                         SiteDataManager.clearSiteData(ctx, domain)
@@ -674,8 +695,9 @@ class SiteSettingsActivity : AppCompatActivity() {
         } else {
             getString(R.string.desktop_site_disabled)
         }
-        val desktopExceptionsCount = prefs.desktopDomains.size
-        updateCountBadge(binding.tvDesktopSiteCount, desktopExceptionsCount, 0)
+        val desktopExceptionsAllowed = prefs.desktopDomains.size
+        val desktopExceptionsBlocked = prefs.mobileDomains.size
+        updateCountBadge(binding.tvDesktopSiteCount, desktopExceptionsAllowed, desktopExceptionsBlocked)
 
         // Protected content
         val protectedEnabled = prefs.isProtectedContentEnabledGlobal
@@ -688,14 +710,15 @@ class SiteSettingsActivity : AppCompatActivity() {
         // Auto-shred on tab close
         val autoShredAll = prefs.isCookieAutoclearOnCloseEnabled
         val autoShredSites = prefs.autoShredDomains.size
+        val autoKeepSites = prefs.autoKeepDomains.size
         binding.tvAutoShredStatus.text = if (autoShredAll) {
-            "All sites on close"
+            if (autoKeepSites > 0) "All sites on close ($autoKeepSites kept)" else "All sites on close"
         } else if (autoShredSites > 0) {
             "$autoShredSites configured sites"
         } else {
             getString(R.string.auto_shred_settings_desc)
         }
-        updateCountBadge(binding.tvAutoShredCount, autoShredSites, 0)
+        updateCountBadge(binding.tvAutoShredCount, autoShredSites, autoKeepSites)
 
         // Clear data subtitle
         val siteCount = prefs.getAllConfiguredDomains().size

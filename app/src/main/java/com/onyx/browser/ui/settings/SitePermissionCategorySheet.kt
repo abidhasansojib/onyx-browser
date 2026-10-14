@@ -140,8 +140,10 @@ class SitePermissionCategorySheet(
         val allowed = getAllowedDomains()
         val blocked = getBlockedDomains()
         val parts = mutableListOf<String>()
-        if (allowed.isNotEmpty()) parts.add("${allowed.size} ${if (allowed.size == 1) "site" else "sites"} allowed")
-        if (blocked.isNotEmpty()) parts.add("${blocked.size} blocked")
+        val allowedWord = if (categoryType == CATEGORY_AUTO_SHRED) "to forget" else if (categoryType == CATEGORY_DESKTOP) "desktop" else "allowed"
+        val blockedWord = if (categoryType == CATEGORY_AUTO_SHRED) "kept" else if (categoryType == CATEGORY_DESKTOP) "mobile" else "blocked"
+        if (allowed.isNotEmpty()) parts.add("${allowed.size} $allowedWord")
+        if (blocked.isNotEmpty()) parts.add("${blocked.size} $blockedWord")
         binding.tvCategorySubtitle.text = if (parts.isEmpty()) getString(R.string.no_exceptions_set) else parts.joinToString(" · ")
     }
 
@@ -411,9 +413,9 @@ class SitePermissionCategorySheet(
         CATEGORY_IMAGES -> prefs.getBlockedImagesDomains()
         CATEGORY_ZOOM -> prefs.getBlockedZoomDomains()
         CATEGORY_MIXED_CONTENT -> prefs.getBlockedMixedDomains()
-        CATEGORY_DESKTOP -> emptySet()
+        CATEGORY_DESKTOP -> prefs.mobileDomains
         CATEGORY_GOOGLE_SIGNIN -> prefs.getBlockedGoogleSignInDomains()
-        CATEGORY_AUTO_SHRED -> emptySet()
+        CATEGORY_AUTO_SHRED -> prefs.autoKeepDomains
         CATEGORY_SENSORS -> prefs.getBlockedSensorsDomains()
         CATEGORY_CLIPBOARD -> prefs.getBlockedClipboardDomains()
         CATEGORY_SOUND -> prefs.getBlockedSoundDomains()
@@ -448,13 +450,9 @@ class SitePermissionCategorySheet(
         CATEGORY_IMAGES -> prefs.setSiteImagesPermission(domain, SitePermissionState.ASK)
         CATEGORY_ZOOM -> prefs.setSiteZoomPermission(domain, SitePermissionState.ASK)
         CATEGORY_MIXED_CONTENT -> prefs.setSiteMixedContentPermission(domain, SitePermissionState.ASK)
-        CATEGORY_DESKTOP -> {
-            val d = prefs.desktopDomains.toMutableSet()
-            d.remove(domain)
-            prefs.desktopDomains = d
-        }
+        CATEGORY_DESKTOP -> prefs.setSiteDesktopModeState(domain, SitePermissionState.ASK)
         CATEGORY_GOOGLE_SIGNIN -> prefs.setSiteGoogleSignInPermission(domain, SitePermissionState.ASK)
-        CATEGORY_AUTO_SHRED -> prefs.setSiteAutoShredEnabled(domain, false)
+        CATEGORY_AUTO_SHRED -> prefs.setSiteAutoShredState(domain, SitePermissionState.ASK)
         CATEGORY_SENSORS -> prefs.setSiteSensorsPermission(domain, SitePermissionState.ASK)
         CATEGORY_CLIPBOARD -> prefs.setSiteClipboardPermission(domain, SitePermissionState.ASK)
         CATEGORY_SOUND -> prefs.setSiteSoundPermission(domain, SitePermissionState.ASK)
@@ -489,13 +487,9 @@ class SitePermissionCategorySheet(
         CATEGORY_IMAGES -> prefs.setSiteImagesPermission(domain, SitePermissionState.ALLOWED)
         CATEGORY_ZOOM -> prefs.setSiteZoomPermission(domain, SitePermissionState.ALLOWED)
         CATEGORY_MIXED_CONTENT -> prefs.setSiteMixedContentPermission(domain, SitePermissionState.ALLOWED)
-        CATEGORY_DESKTOP -> {
-            val d = prefs.desktopDomains.toMutableSet()
-            d.add(domain)
-            prefs.desktopDomains = d
-        }
+        CATEGORY_DESKTOP -> prefs.setSiteDesktopModeState(domain, SitePermissionState.ALLOWED)
         CATEGORY_GOOGLE_SIGNIN -> prefs.setSiteGoogleSignInPermission(domain, SitePermissionState.ALLOWED)
-        CATEGORY_AUTO_SHRED -> prefs.setSiteAutoShredEnabled(domain, true)
+        CATEGORY_AUTO_SHRED -> prefs.setSiteAutoShredState(domain, SitePermissionState.ALLOWED)
         CATEGORY_SENSORS -> prefs.setSiteSensorsPermission(domain, SitePermissionState.ALLOWED)
         CATEGORY_CLIPBOARD -> prefs.setSiteClipboardPermission(domain, SitePermissionState.ALLOWED)
         CATEGORY_SOUND -> prefs.setSiteSoundPermission(domain, SitePermissionState.ALLOWED)
@@ -530,9 +524,9 @@ class SitePermissionCategorySheet(
         CATEGORY_IMAGES -> prefs.setSiteImagesPermission(domain, SitePermissionState.BLOCKED)
         CATEGORY_ZOOM -> prefs.setSiteZoomPermission(domain, SitePermissionState.BLOCKED)
         CATEGORY_MIXED_CONTENT -> prefs.setSiteMixedContentPermission(domain, SitePermissionState.BLOCKED)
-        CATEGORY_DESKTOP -> clearSitePermission(domain)
+        CATEGORY_DESKTOP -> prefs.setSiteDesktopModeState(domain, SitePermissionState.BLOCKED)
         CATEGORY_GOOGLE_SIGNIN -> prefs.setSiteGoogleSignInPermission(domain, SitePermissionState.BLOCKED)
-        CATEGORY_AUTO_SHRED -> prefs.setSiteAutoShredEnabled(domain, false)
+        CATEGORY_AUTO_SHRED -> prefs.setSiteAutoShredState(domain, SitePermissionState.BLOCKED)
         CATEGORY_SENSORS -> prefs.setSiteSensorsPermission(domain, SitePermissionState.BLOCKED)
         CATEGORY_CLIPBOARD -> prefs.setSiteClipboardPermission(domain, SitePermissionState.BLOCKED)
         CATEGORY_SOUND -> prefs.setSiteSoundPermission(domain, SitePermissionState.BLOCKED)
@@ -566,43 +560,41 @@ class SitePermissionCategorySheet(
             setPadding(padding, 0, padding, 0)
             addView(inputET)
         }
-        val isSingleActionCategory = categoryType == CATEGORY_DESKTOP || categoryType == CATEGORY_AUTO_SHRED
-        val builder = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+        val posBtnText = when (categoryType) {
+            CATEGORY_DESKTOP -> getString(R.string.desktop_site)
+            CATEGORY_AUTO_SHRED -> "Forget on close"
+            CATEGORY_WEBRTC -> "Protect IP"
+            else -> getString(R.string.permission_allowed)
+        }
+        val negBtnText = when (categoryType) {
+            CATEGORY_DESKTOP -> "Mobile"
+            CATEGORY_AUTO_SHRED -> "Keep data"
+            CATEGORY_WEBRTC -> "Allow local IP"
+            else -> getString(R.string.permission_blocked)
+        }
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.add_site_exception)
             .setView(container)
             .setNeutralButton(R.string.cancel, null)
-        if (!isSingleActionCategory) {
-            builder
-                .setPositiveButton(getString(R.string.permission_allowed)) { _, _ ->
-                    val domain = prefs.cleanDomain(inputET.text.toString().trim())
-                    if (domain.isNotBlank()) {
-                        clearSitePermission(domain)
-                        setSitePermissionAllowed(domain)
-                        populateSiteLists()
-                        onPermissionChanged()
-                    }
-                }
-                .setNegativeButton(getString(R.string.permission_blocked)) { _, _ ->
-                    val domain = prefs.cleanDomain(inputET.text.toString().trim())
-                    if (domain.isNotBlank()) {
-                        clearSitePermission(domain)
-                        setSitePermissionBlocked(domain)
-                        populateSiteLists()
-                        onPermissionChanged()
-                    }
-                }
-        } else {
-            val btnText = if (categoryType == CATEGORY_DESKTOP) "Enable desktop" else "Add to forget list"
-            builder.setPositiveButton(btnText) { _, _ ->
+            .setPositiveButton(posBtnText) { _, _ ->
                 val domain = prefs.cleanDomain(inputET.text.toString().trim())
-                if (domain.isNotBlank()) {
+                if (domain.isNotBlank() && (domain.contains(".") || domain == "localhost")) {
+                    clearSitePermission(domain)
                     setSitePermissionAllowed(domain)
                     populateSiteLists()
                     onPermissionChanged()
                 }
             }
-        }
-        builder.show()
+            .setNegativeButton(negBtnText) { _, _ ->
+                val domain = prefs.cleanDomain(inputET.text.toString().trim())
+                if (domain.isNotBlank() && (domain.contains(".") || domain == "localhost")) {
+                    clearSitePermission(domain)
+                    setSitePermissionBlocked(domain)
+                    populateSiteLists()
+                    onPermissionChanged()
+                }
+            }
+            .show()
     }
 
     private fun populateSiteLists() {
@@ -614,6 +606,19 @@ class SitePermissionCategorySheet(
 
         val hasAllowed = allowedDomains.isNotEmpty()
         val hasBlocked = blockedDomains.isNotEmpty()
+
+        binding.tvAllowedHeader.text = when (categoryType) {
+            CATEGORY_DESKTOP -> "ALWAYS DESKTOP"
+            CATEGORY_AUTO_SHRED -> "ALWAYS FORGET ON CLOSE"
+            CATEGORY_WEBRTC -> "ALWAYS PROTECT IP"
+            else -> getString(R.string.allowed_sites_header)
+        }
+        binding.tvBlockedHeader.text = when (categoryType) {
+            CATEGORY_DESKTOP -> "ALWAYS MOBILE"
+            CATEGORY_AUTO_SHRED -> "NEVER FORGET (KEEP DATA)"
+            CATEGORY_WEBRTC -> "ALLOW LOCAL IP (UNPROTECTED)"
+            else -> getString(R.string.blocked_sites_header)
+        }
 
         binding.tvAllowedHeader.visibility = if (hasAllowed) View.VISIBLE else View.GONE
         binding.cardAllowedSites.visibility = if (hasAllowed) View.VISIBLE else View.GONE
@@ -671,13 +676,19 @@ class SitePermissionCategorySheet(
 
         val tvStatus = TextView(requireContext()).apply {
             text = when {
-                categoryType == CATEGORY_AUTO_SHRED -> getString(R.string.permission_auto_shred)
+                categoryType == CATEGORY_AUTO_SHRED && isAllowed -> "Forget"
+                categoryType == CATEGORY_AUTO_SHRED && !isAllowed -> "Keep data"
+                categoryType == CATEGORY_DESKTOP && isAllowed -> getString(R.string.desktop_site)
+                categoryType == CATEGORY_DESKTOP && !isAllowed -> "Mobile"
+                categoryType == CATEGORY_WEBRTC && isAllowed -> "Protected"
+                categoryType == CATEGORY_WEBRTC && !isAllowed -> "Unprotected"
                 isAllowed -> getString(R.string.permission_allowed)
                 else -> getString(R.string.permission_blocked)
             }
             textSize = 11.5f
             setTextColor(
-                if (isAllowed || categoryType == CATEGORY_AUTO_SHRED) ContextCompat.getColor(context, R.color.green_success)
+                if (isAllowed) ContextCompat.getColor(context, R.color.green_success)
+                else if (categoryType == CATEGORY_AUTO_SHRED && !isAllowed) ContextCompat.getColor(context, R.color.settings_subtitle_text)
                 else ContextCompat.getColor(context, R.color.red_danger)
             )
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {

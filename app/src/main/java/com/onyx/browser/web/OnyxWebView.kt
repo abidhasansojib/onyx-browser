@@ -129,6 +129,7 @@ class OnyxWebView @JvmOverloads constructor(
         if (currentUrl != null) {
             pendingMainFrameUrl = currentUrl
             isMainFrameDocumentLoaded = false
+            applyUserAgentForUrl(currentUrl)
         }
         super.reload()
     }
@@ -433,14 +434,16 @@ class OnyxWebView @JvmOverloads constructor(
         applyCookieSettings()
     }
 
-    private fun applyCookieSettings() {
+    internal fun applyCookieSettings() {
         try {
+            val currentUrl = url ?: ""
+            val isStreaming = OnyxWebViewClient.isStreamingOrMediaPage(currentUrl)
             if (isIncognito) {
                 // Incognito: always accept first-party cookies so login works.
                 // Enable third-party cookies during active OAuth/auth flows (Facebook, Arkose,
                 // checkpoint confirmation), block them when fully outside any auth session.
                 cookieManager.setAcceptCookie(true)
-                val allow3pIncognito = isPopupTab || isWithinOAuthGracePeriod()
+                val allow3pIncognito = isPopupTab || isWithinOAuthGracePeriod() || isStreaming
                 cookieManager.setAcceptThirdPartyCookies(this, allow3pIncognito)
             } else {
                 val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
@@ -450,7 +453,7 @@ class OnyxWebView @JvmOverloads constructor(
                     }
                     com.onyx.browser.data.preferences.BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY -> {
                         cookieManager.setAcceptCookie(true)
-                        val allow3p = isPopupTab || isWithinOAuthGracePeriod()
+                        val allow3p = isPopupTab || isWithinOAuthGracePeriod() || isStreaming
                         cookieManager.setAcceptThirdPartyCookies(this, allow3p)
                     }
                     else -> {
@@ -464,22 +467,15 @@ class OnyxWebView @JvmOverloads constructor(
 
     // ── Desktop Mode (per-domain) ────────────────────────────────────────────
 
-    /** Canonical hostname key for a URL: strips "www." so www.google.com == google.com */
-    private fun hostKey(urlString: String): String? {
-        if (urlString.isBlank() || !urlString.startsWith("http")) return null
-        return try {
-            Uri.parse(urlString).host?.removePrefix("www.")?.lowercase()
-        } catch (_: Exception) { null }
-    }
-
     /**
-     * Returns true if the user has enabled desktop mode for the *current page's* domain.
+     * Returns true if desktop mode is active for the *current page's* domain.
+     * Takes into account per-site overrides (desktop or mobile) and global desktop mode.
      * This is what the menu toggle should read to show the correct checked state.
      */
     fun isDesktopModeEnabledForCurrentPage(): Boolean {
-        val key = hostKey(url ?: "") ?: return false
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        return prefs.desktopDomains.any { key == it || key.endsWith(".$it") }
+        val key = prefs.cleanDomain(url ?: "").takeIf { it.isNotBlank() } ?: return prefs.isDesktopMode
+        return prefs.getEffectiveDesktopMode(key)
     }
 
     /**
@@ -487,18 +483,14 @@ class OnyxWebView @JvmOverloads constructor(
      * Called by the 3-dot menu toggle.
      */
     fun toggleDesktopModeForPage(pageUrl: String) {
-        val key = hostKey(pageUrl) ?: return
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        val currentDomains = prefs.desktopDomains.toMutableSet()
-        
-        if (currentDomains.any { key == it || key.endsWith(".$it") }) {
-            currentDomains.removeAll { key == it || key.endsWith(".$it") || it.endsWith(".$key") }
-            currentDomains.remove(key)
-        } else {
-            currentDomains.add(key)
-        }
-        prefs.desktopDomains = currentDomains
-        
+        val key = prefs.cleanDomain(pageUrl).takeIf { it.isNotBlank() } ?: return
+        val currentlyDesktop = prefs.getEffectiveDesktopMode(key)
+        prefs.setSiteDesktopModeState(
+            key,
+            if (currentlyDesktop) com.onyx.browser.data.preferences.SitePermissionState.BLOCKED
+            else com.onyx.browser.data.preferences.SitePermissionState.ALLOWED
+        )
         applyUserAgentForUrl(pageUrl, forceRefreshLayout = true)
     }
 
@@ -567,6 +559,9 @@ class OnyxWebView @JvmOverloads constructor(
                 evaluateJavascript("try { document.querySelectorAll('video, audio').forEach(function(m) { m.muted = true; }); } catch(e){}", null)
             }
         } catch (_: Exception) {}
+
+        // 8. Cookies
+        applyCookieSettings()
     }
 
     /**
@@ -603,8 +598,11 @@ class OnyxWebView @JvmOverloads constructor(
         }
 
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        val domainWantsDesktop = key != null && prefs.desktopDomains.any { key == it || key.endsWith(".$it") }
-        val wantsDesktop = domainWantsDesktop || prefs.isDesktopMode
+        val wantsDesktop = if (key != null) {
+            prefs.getEffectiveDesktopMode(key)
+        } else {
+            prefs.isDesktopMode
+        }
         
         val targetUa = if (wantsDesktop) {
             if (prefs.userAgentSpoofTemplate in UserAgentManager.DESKTOP_KEYS) {
@@ -688,6 +686,7 @@ class OnyxWebView @JvmOverloads constructor(
         if (!isSyntheticOrDataUrl(url)) {
             pendingMainFrameUrl = url
             isMainFrameDocumentLoaded = false
+            applyUserAgentForUrl(url)
         }
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         if (prefs.isDoNotTrackEnabled) {
@@ -703,6 +702,7 @@ class OnyxWebView @JvmOverloads constructor(
         if (!isSyntheticOrDataUrl(url)) {
             pendingMainFrameUrl = url
             isMainFrameDocumentLoaded = false
+            applyUserAgentForUrl(url)
         }
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         if (prefs.isDoNotTrackEnabled) {

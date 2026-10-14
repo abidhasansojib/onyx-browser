@@ -91,10 +91,8 @@ class OnyxShieldBridge(private val context: Context) {
 
     @JavascriptInterface
     fun isDesktopModeActive(domainOrUrl: String?): Boolean {
-        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return false
-        val clean = preferences.cleanDomain(target)
-        val desktopDomains = preferences.desktopDomains
-        return desktopDomains.any { clean == it || clean.endsWith(".$it") }
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return preferences.isDesktopMode
+        return preferences.getEffectiveDesktopMode(target)
     }
 
     @JavascriptInterface

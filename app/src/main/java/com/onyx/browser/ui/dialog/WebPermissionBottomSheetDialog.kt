@@ -26,7 +26,7 @@ class WebPermissionBottomSheetDialog(
     private val isHttps: Boolean = true,
     private val onAllowedAlways: () -> Unit,
     private val onAllowedOnce: () -> Unit,
-    private val onDenied: () -> Unit
+    private val onDenied: (permanently: Boolean) -> Unit
 ) : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetWebPermissionRequestBinding? = null
@@ -91,14 +91,14 @@ class WebPermissionBottomSheetDialog(
         binding.btnBlock.setOnClickListener {
             actionHandled = true
             dismiss()
-            onDenied()
+            onDenied(true)
         }
     }
 
     override fun onDismiss(dialog: DialogInterface) {
         super.onDismiss(dialog)
         if (!actionHandled) {
-            onDenied()
+            onDenied(false)
         }
     }
 

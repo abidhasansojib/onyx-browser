@@ -256,36 +256,9 @@ class OnyxWebViewClient(
                 u.contains("state=") && (u.contains("auth") || u.contains("login") || u.contains("oauth"))
     }
 
-    fun isStreamingOrMediaPage(url: String): Boolean {
-        if (url.isBlank()) return false
-        val lower = url.lowercase()
-        val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
-        val streamingHostKeywords = listOf(
-            "anime", "stream", "movie", "video", "watch", "film", "cinema", "player", "embed",
-            "tube", "crunchyroll", "funimation", "hidive", "dailymotion", "vimeo", "twitch",
-            "bilibili", "animesalt", "aniwatch", "zoro", "9anime", "gogoanime", "kissonline",
-            "kickassanime", "hianime", "kaido", "allanime", "flv", "hls"
-        )
-        if (streamingHostKeywords.any { host.contains(it) }) return true
-        val streamingPathKeywords = listOf(
-            "/episode/", "/watch/", "/series/", "/movie/", "/video/", "/stream/", "/player/", "/embed/", "/play/"
-        )
-        return streamingPathKeywords.any { lower.contains(it) }
-    }
+    fun isStreamingOrMediaPage(url: String): Boolean = Companion.isStreamingOrMediaPage(url)
 
-    fun isMediaOrStreamingHost(host: String): Boolean {
-        if (host.isBlank()) return false
-        val lower = host.lowercase()
-        val mediaHostKeywords = listOf(
-            "ravok", "abyssplayer", "fireplayer", "jwpcdn", "jwplayer", "streamtape", "megacloud",
-            "vidstream", "dood", "mixdrop", "mp4upload", "filemoon", "streamwish", "streamhide",
-            "vidmoly", "upstream", "cloudstream", "vidsrc", "2embed", "autoembed", "superembed",
-            "multiembed", "storage.fireplayer", "fireplayer.stream"
-        )
-        if (mediaHostKeywords.any { lower.contains(it) }) return true
-        if (lower.endsWith(".stream") || lower.endsWith(".video") || lower.endsWith(".watch")) return true
-        return false
-    }
+    fun isMediaOrStreamingHost(host: String): Boolean = Companion.isMediaOrStreamingHost(host)
 
     fun isMediaUrl(url: String): Boolean {
         if (url.isBlank()) return false
@@ -393,6 +366,37 @@ class OnyxWebViewClient(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
             Base64.DEFAULT
         )
+
+        fun isStreamingOrMediaPage(url: String): Boolean {
+            if (url.isBlank()) return false
+            val lower = url.lowercase()
+            val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+            val streamingHostKeywords = listOf(
+                "anime", "stream", "movie", "video", "watch", "film", "cinema", "player", "embed",
+                "tube", "crunchyroll", "funimation", "hidive", "dailymotion", "vimeo", "twitch",
+                "bilibili", "animesalt", "aniwatch", "zoro", "9anime", "gogoanime", "kissonline",
+                "kickassanime", "hianime", "kaido", "allanime", "flv", "hls"
+            )
+            if (streamingHostKeywords.any { host.contains(it) }) return true
+            val streamingPathKeywords = listOf(
+                "/episode/", "/watch/", "/series/", "/movie/", "/video/", "/stream/", "/player/", "/embed/", "/play/"
+            )
+            return streamingPathKeywords.any { lower.contains(it) }
+        }
+
+        fun isMediaOrStreamingHost(host: String): Boolean {
+            if (host.isBlank()) return false
+            val lower = host.lowercase()
+            val mediaHostKeywords = listOf(
+                "ravok", "abyssplayer", "fireplayer", "jwpcdn", "jwplayer", "streamtape", "megacloud",
+                "vidstream", "dood", "mixdrop", "mp4upload", "filemoon", "streamwish", "streamhide",
+                "vidmoly", "upstream", "cloudstream", "vidsrc", "2embed", "autoembed", "superembed",
+                "multiembed", "storage.fireplayer", "fireplayer.stream"
+            )
+            if (mediaHostKeywords.any { lower.contains(it) }) return true
+            if (lower.endsWith(".stream") || lower.endsWith(".video") || lower.endsWith(".watch")) return true
+            return false
+        }
     }
 
     private fun createBlockedResponse(resourceType: String): WebResourceResponse {
@@ -951,6 +955,7 @@ class OnyxWebViewClient(
                 (view as? OnyxWebView)?.let {
                     it.pendingMainFrameUrl = url
                     it.isMainFrameDocumentLoaded = false
+                    it.applyUserAgentForUrl(url)
                 }
             }
 
