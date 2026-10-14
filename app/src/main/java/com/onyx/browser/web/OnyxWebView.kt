@@ -574,7 +574,8 @@ class OnyxWebView @JvmOverloads constructor(
      */
     fun applyUserAgentForUrl(urlString: String, forceRefreshLayout: Boolean = false) {
         applySiteSettingsForUrl(urlString)
-        val key = hostKey(urlString)
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        val key = prefs.cleanDomain(urlString).takeIf { it.isNotBlank() }
         val host = try { android.net.Uri.parse(urlString).host?.lowercase() ?: "" } catch (_: Exception) { "" }
         val isAuthOrMeta = host == "facebook.com" || host.endsWith(".facebook.com") ||
                 host == "meta.com" || host.endsWith(".meta.com") ||
@@ -597,7 +598,6 @@ class OnyxWebView @JvmOverloads constructor(
             } catch (_: Exception) {}
         }
 
-        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         val wantsDesktop = if (key != null) {
             prefs.getEffectiveDesktopMode(key)
         } else {
