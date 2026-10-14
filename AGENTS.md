@@ -235,20 +235,19 @@ onyx-browser/
 
 ## 6. Current Status & Release Information
 
-- **Current Release**: `v1.0.286`
+- **Current Release**: `v1.0.288`
 - **Build Status**: Production signed APKs published across all ABIs (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`) on GitHub Releases.
 - **Feature Tracking**: Complete feature statuses and technical verification notes are maintained in `FEATURES.md`.
 
-### v1.0.286 Changes
-- **Per-Domain Ad & Tracker Blocking Level**:
-  - Implemented per-domain blocking levels (`BLOCKING_STANDARD` / `BLOCKING_AGGRESSIVE` with global fallback) evaluated across navigation, subresource interception, popup detection, and document-start scriptlet injection.
-- **Interactive SSL Certificate Inspector**:
-  - Integrated full certificate inspection dialog in `SiteShieldBottomSheetDialog` displaying Common Name, Organization, Issuer, Validity dates, and connection security explanation.
-- **Site Shields Panel Hardening**:
-  - Added per-site Desktop Site toggle (`layoutDesktopMode`), synchronized Script Blocking with WebSettings JavaScript execution, Custom Blocked Elements inspector with 1-tap reset, and dynamic refresh on permission reset.
-- **Single Site Settings Hub & All Sites Overhaul**:
-  - Added Brave Shields (Shields Up / Down / Default), Ad & Tracker Blocking Level, and Custom Blocked Elements count & reset to `SingleSiteSettingsSheet`.
-  - Comprehensive `resetSitePermissions` clearing all 33 categories, whitelist, script blocking, desktop mode, custom rules, and blocking levels without orphaned data.
-- **Runtime Sound Muting**:
-  - Dynamic media element muting evaluation in `OnyxWebView` based on per-site permissions and global mute state.
+### v1.0.288 Changes
+- **Android Audio Focus Management (`AudioManager`)**:
+  - `MediaPlaybackService` dynamically acquires and manages Android Audio Focus via `AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)` with `AudioAttributes.USAGE_MEDIA` and `delayedFocusGain = true`. Safely handles `AUDIOFOCUS_LOSS`, `AUDIOFOCUS_LOSS_TRANSIENT`, and `AUDIOFOCUS_GAIN` (auto-resuming playback after calls or alarms conclude).
+- **Audio Becoming Noisy Protection (Brave Parity)**:
+  - Registers `AudioManager.ACTION_AUDIO_BECOMING_NOISY` receiver to automatically pause media and abandon audio focus when headphones or Bluetooth devices disconnect.
+- **Hardware Audio Playback Watchdog (`AudioPlaybackCallback`)**:
+  - Registers `AudioManager.AudioPlaybackCallback` (Android 8.0+ / API 26+) to monitor physical audio mixing and release background wake locks when audio streams finish.
+- **Hardened `userHitPause` Keep-Alive**:
+  - Distinguishes real user gestures (touch/click within 1000ms or explicit notification actions) from background script auto-pauses in `MediaPlaybackManager.kt`.
+- **Navigation Desktop Mode Resolution**:
+  - Resolved `hostKey` reference in `applyUserAgentForUrl` via `prefs.cleanDomain(urlString)`.
 
