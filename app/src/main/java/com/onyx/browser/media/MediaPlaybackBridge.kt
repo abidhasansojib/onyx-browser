@@ -234,15 +234,17 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
                 onMediaPlaybackStartedListener?.invoke(webView)
             }
             if (isBackgroundPlayActive && isPlaying) {
-                MediaPlaybackService.start(
-                    context,
-                    cleanTitle,
-                    cleanArtist,
-                    currentArtworkUrl,
-                    currentPositionMs,
-                    currentDurationMs,
-                    true
-                )
+                if (isAppInBackground || isScreenOffOrLocked(context)) {
+                    MediaPlaybackService.start(
+                        context,
+                        cleanTitle,
+                        cleanArtist,
+                        currentArtworkUrl,
+                        currentPositionMs,
+                        currentDurationMs,
+                        true
+                    )
+                }
             } else if (!isPlaying && MediaPlaybackService.isServiceRunning) {
                 MediaPlaybackService.updateState(context, false, currentPositionMs, currentDurationMs)
             }
@@ -292,15 +294,17 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
                 onMediaPlaybackStartedListener?.invoke(webView)
             }
             if (isBackgroundPlayActive) {
-                MediaPlaybackService.start(
-                    context,
-                    cleanTitle,
-                    cleanArtist,
-                    currentArtworkUrl,
-                    currentPositionMs,
-                    currentDurationMs,
-                    true
-                )
+                if (isAppInBackground || isScreenOffOrLocked(context)) {
+                    MediaPlaybackService.start(
+                        context,
+                        cleanTitle,
+                        cleanArtist,
+                        currentArtworkUrl,
+                        currentPositionMs,
+                        currentDurationMs,
+                        true
+                    )
+                }
             }
         }
     }

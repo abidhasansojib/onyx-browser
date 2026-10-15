@@ -1681,7 +1681,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (previousTabId != null) {
                 val outgoingWebView = tabManager.getWebView(previousTabId)
                 if (outgoingWebView != null) {
-                    outgoingWebView.onPause()
+                    val isPlayingMedia = preferences.isBackgroundPlayEnabled && (previousTabId == MediaPlaybackBridge.currentPlayingTabId)
+                    if (!isPlayingMedia) {
+                        outgoingWebView.onPause()
+                    }
                     tabManager.captureTabSnapshot(previousTabId, outgoingWebView)
                     tabManager.saveTabState(previousTabId, outgoingWebView)
                 }
@@ -1729,7 +1732,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         updateIncognitoUI(isIncognito)
 
         val child = if (binding.webViewContainer.childCount > 0) binding.webViewContainer.getChildAt(0) as? OnyxWebView else null
-        child?.onPause()
+        val isPlayingChild = preferences.isBackgroundPlayEnabled && (child?.tabId == MediaPlaybackBridge.currentPlayingTabId)
+        if (!isPlayingChild) {
+            child?.onPause()
+        }
         binding.webViewContainer.removeAllViews()
     }
 
@@ -1800,7 +1806,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val currentChild = if (binding.webViewContainer.childCount > 0) {
                 binding.webViewContainer.getChildAt(0) as? OnyxWebView
             } else null
-            currentChild?.onPause()
+            val isPlayingCurrent = preferences.isBackgroundPlayEnabled && (currentChild?.tabId == MediaPlaybackBridge.currentPlayingTabId)
+            if (!isPlayingCurrent) {
+                currentChild?.onPause()
+            }
 
             (webView.parent as? ViewGroup)?.removeView(webView)
             binding.webViewContainer.removeAllViews()
@@ -3166,6 +3175,17 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 )
             }
             tabManager.getActiveWebView()?.resumeTimers()
+            if (!isPip && (MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isAudioOrVideoPlaying)) {
+                MediaPlaybackService.start(
+                    this,
+                    MediaPlaybackBridge.currentTitle,
+                    MediaPlaybackBridge.currentArtist,
+                    MediaPlaybackBridge.currentArtworkUrl,
+                    MediaPlaybackBridge.currentPositionMs,
+                    MediaPlaybackBridge.currentDurationMs,
+                    true
+                )
+            }
         }
         if (!isPip && !preferences.isBackgroundPlayEnabled && !isSystemDialogOrChooserPending) {
             tabManager.getActiveWebView()?.onPause()
@@ -3356,6 +3376,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 null
             )
         }
+        // Stop background notification on returning to foreground so WebView player takes full control
+        if (MediaPlaybackService.isServiceRunning) {
+            MediaPlaybackService.stopNotificationOnly(this)
+        }
+
         // Restore screen-on flag if video was still playing when we came back to the app
         if (MediaPlaybackBridge.isVideoPlaying) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -3377,7 +3402,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
                 androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-                wv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+                if (justExitedPip || isCurrentlyInPip) {
+                    wv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+                }
                 binding.topBar.requestLayout()
                 binding.webViewContainer.requestLayout()
             } else {
@@ -3417,7 +3444,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         binding.webViewContainer.requestLayout()
                     }
                 }
-                wv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+                if (justExitedPip || isCurrentlyInPip) {
+                    wv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+                }
             }
         }
     }

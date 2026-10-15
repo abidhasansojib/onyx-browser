@@ -201,8 +201,11 @@ object MediaPlaybackManager {
                         // Filter out tiny invisible ad beacons (< 32px)
                         if (elem.hasAttribute('width') && parseInt(elem.getAttribute('width')) < 32 && parseInt(elem.getAttribute('width')) > 0) return false;
                         if (elem.hasAttribute('height') && parseInt(elem.getAttribute('height')) < 32 && parseInt(elem.getAttribute('height')) > 0) return false;
-                        // Filter out short looping decorative background animations with no audio
-                        if (elem.loop && (elem.muted || elem.volume === 0) && elem.duration > 0 && elem.duration < 4) return false;
+                        // Filter out muted looping decorative animations or muted autoplay background visuals
+                        var isMuted = elem.muted || elem.volume === 0 || elem.hasAttribute('muted');
+                        if (isMuted && (elem.loop || elem.hasAttribute('loop') || (!elem.controls && !elem.hasAttribute('controls')))) {
+                            return false;
+                        }
                         return true;
                     }
                     if (elem instanceof HTMLAudioElement) {
@@ -657,7 +660,13 @@ object MediaPlaybackManager {
                 // ── 3. Universal Brave MediaBackgrounding: userHitPause & Auto-Resume ──
                 var origPause = HTMLMediaElement.prototype.pause;
                 HTMLMediaElement.prototype.pause = function() {
-                    this.userHitPause = true;
+                    var timeSinceTouch = Date.now() - (window.__onyx_last_user_touch || 0);
+                    var isUserIntent = (timeSinceTouch < 1500) || !!window.__onyx_allow_explicit_pause;
+                    if (window.__onyx_in_background && !isUserIntent) {
+                        this.userHitPause = false;
+                    } else {
+                        this.userHitPause = isUserIntent;
+                    }
                     return origPause.apply(this, arguments);
                 };
 
@@ -1401,6 +1410,13 @@ object MediaPlaybackManager {
     val restoreVideoFromPipScript: String = """
         (function() {
             try {
+                var style = document.getElementById('__onyx_pip_style');
+                var hasTarget = document.querySelector('[data-onyx-pip-target]');
+                var hasAncestor = document.querySelector('[data-onyx-pip-ancestor]');
+                var hasPipElem = (typeof currentPipElem !== 'undefined' && currentPipElem) || window.__onyx_current_pip_element;
+                if (!style && !hasTarget && !hasAncestor && !hasPipElem) {
+                    return; // PiP was not active; avoid dispatching unsolicited resize events to web apps
+                }
                 if (window.__onyx_current_pip_element) {
                     try {
                         window.__onyx_current_pip_element.dispatchEvent(new Event('leavepictureinpicture', { bubbles: true }));

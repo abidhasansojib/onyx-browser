@@ -24,6 +24,14 @@ class OnyxWebChromeClient(
     private val onCloseWindowCallback: ((WebView?) -> Unit)? = null
 ) : WebChromeClient() {
 
+    companion object {
+        private val TRANSPARENT_VIDEO_POSTER: Bitmap by lazy {
+            Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        }
+    }
+
+    override fun getDefaultVideoPoster(): Bitmap? = TRANSPARENT_VIDEO_POSTER
+
     override fun onProgressChanged(view: WebView?, newProgress: Int) {
         super.onProgressChanged(view, newProgress)
         onProgressChangedCallback(newProgress)
