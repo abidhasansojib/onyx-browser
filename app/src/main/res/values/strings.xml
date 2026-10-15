@@ -484,10 +484,11 @@
     <string name="install">Install</string>
 
     <!-- Open in App Confirmation Prompt -->
-    <string name="open_in_app_prompt_title">Open this page in App?</string>
-    <string name="open_in_app_prompt_desc">The site is trying to redirect to its associated app. You can disable this permanently in settings.</string>
-    <string name="stay_in_onyx">Stay In Onyx</string>
-    <string name="open_in_app_action">Open in app</string>
+    <string name="open_in_app_prompt_title">Open in external app?</string>
+    <string name="open_in_specific_app_title">Open in %1$s?</string>
+    <string name="open_in_app_prompt_desc">This website wants to open an external application on your device.</string>
+    <string name="stay_in_onyx">Stay in Onyx</string>
+    <string name="open_in_app_action">Open app</string>
 
     <!-- Context Menu -->
     <string name="open_in_incognito_tab">Open in incognito tab</string>

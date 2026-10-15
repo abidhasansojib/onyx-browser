@@ -5,9 +5,9 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_gravity="center"
-    app:cardBackgroundColor="?attr/colorSurface"
+    app:cardBackgroundColor="@color/dialog_clear_data_bg"
     app:cardCornerRadius="24dp"
-    app:cardElevation="12dp"
+    app:cardElevation="10dp"
     app:strokeColor="?attr/colorOutline"
     app:strokeWidth="1dp">
 
@@ -23,16 +23,17 @@
 
         <!-- App / External Launch Icon Badge -->
         <FrameLayout
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:background="@drawable/bg_circle_action">
+            android:id="@+id/flIconContainer"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_box_tile">
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/ivDialogIcon"
                 android:layout_width="28dp"
                 android:layout_height="28dp"
                 android:layout_gravity="center"
-                app:srcCompat="@drawable/ic_open_in_new"
+                app:srcCompat="@drawable/ic_external"
                 app:tint="?attr/colorPrimary" />
         </FrameLayout>
 
@@ -41,64 +42,94 @@
             android:id="@+id/tvDialogTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="16dp"
             android:gravity="center"
             android:text="@string/open_in_app_prompt_title"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="21sp"
-            android:textStyle="bold" />
+            android:textSize="20sp"
+            android:textStyle="bold"
+            tools:text="Open in Telegram?" />
 
         <!-- Subtitle / Warning Message -->
         <TextView
             android:id="@+id/tvDialogMessage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="8dp"
             android:gravity="center"
             android:lineSpacingMultiplier="1.2"
             android:text="@string/open_in_app_prompt_desc"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="15sp" />
+            android:textColor="@color/settings_subtitle_text"
+            android:textSize="14sp" />
 
-        <!-- Target App / URL Summary Pill -->
-        <LinearLayout
-            android:id="@+id/targetAppPill"
-            android:layout_width="wrap_content"
+        <!-- Target App / URL Info Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/targetAppCard"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/bg_search_bar"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="14dp"
-            android:paddingTop="6dp"
-            android:paddingEnd="14dp"
-            android:paddingBottom="6dp"
+            android:layout_marginTop="18dp"
+            app:cardBackgroundColor="?attr/colorSurfaceVariant"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="1dp"
             android:visibility="gone"
             tools:visibility="visible">
 
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/ivTargetAppIcon"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                app:srcCompat="@drawable/ic_link"
-                app:tint="?android:attr/textColorSecondary" />
-
-            <TextView
-                android:id="@+id/tvTargetAppName"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                tools:text="Telegram" />
-        </LinearLayout>
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="12dp">
 
-        <!-- Action Buttons (Stay In Onyx on Left, Open in app on Right) -->
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/ivTargetAppIcon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    app:srcCompat="@drawable/ic_link"
+                    app:tint="?android:attr/textColorSecondary" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvTargetAppName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        tools:text="Telegram" />
+
+                    <TextView
+                        android:id="@+id/tvTargetUrl"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="middle"
+                        android:maxLines="1"
+                        android:textColor="@color/settings_subtitle_text"
+                        android:textSize="12sp"
+                        tools:text="https://t.me/example_channel" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Action Buttons (Stay In Onyx on Left, Open app on Right) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="22dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -111,7 +142,8 @@
                 android:layout_weight="1"
                 android:text="@string/stay_in_onyx"
                 android:textColor="?android:attr/textColorPrimary"
-                app:backgroundTint="?attr/colorSurfaceVariant"
+                android:textSize="14sp"
+                app:backgroundTint="@color/btn_cancel_bg"
                 app:cornerRadius="24dp" />
 
             <com.google.android.material.button.MaterialButton
@@ -122,9 +154,14 @@
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
                 android:text="@string/open_in_app_action"
-                android:textColor="?attr/colorOnPrimary"
+                android:textColor="@color/on_primary"
+                android:textSize="14sp"
                 app:backgroundTint="?attr/colorPrimary"
-                app:cornerRadius="24dp" />
+                app:cornerRadius="24dp"
+                app:icon="@drawable/ic_external"
+                app:iconGravity="textStart"
+                app:iconSize="18dp"
+                app:iconTint="@color/on_primary" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

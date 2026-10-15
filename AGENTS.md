@@ -214,6 +214,12 @@ onyx-browser/
   - *Contextual Actions*: Menu features Open in new tab, Open in incognito (both hidden for bookmarklets), Copy link / Copy script, Share, Edit (BottomSheet with multiline script support), and Delete.
   - *Visual Parity & Favicons*: Distinctive `< / >` icon for scripts, file icon for local documents, and real website favicons loaded asynchronously via `FaviconManager`.
 
+### 4.10. External Application Intent Handoff (`OpenInAppPromptDialog`)
+- **Theme-Integrated Open in App Prompt**: Styled with `@color/dialog_clear_data_bg` (Google Light white `#FFFFFF` / Google Dark `#282A2D`), 24dp corner radius, and `?attr/colorOutline` border matching all native Onyx dialogs.
+- **Dynamic Package Manager Icon & Title Resolution**: Queries Android's `PackageManager` via `targetIntent` to extract native app icons (`resolveInfo.loadIcon` / `getApplicationIcon`) and labels ("Open in Telegram?"). If no specific app icon is resolved, falls back to Lucide `ic_external` with `?attr/colorPrimary` tint inside a 56×56dp squircle tile (`bg_box_tile`).
+- **Target URL & Destination Inspection Card**: Surfaces the target deep-link or website URL with middle ellipsizing inside `targetAppCard` for total user transparency before launching an external process.
+- **Material 3 Tonal Button Hierarchy & Safe Dismissal**: Paired "Stay in Onyx" (`@color/btn_cancel_bg`) and "Open app" (primary with `ic_external` icon) buttons, with `onCancel` safely routing to the webpage fallback if the user dismisses the dialog via hardware back or touch outside.
+
 ---
 
 ## 5. Architectural Coding Standards for AI Agents
