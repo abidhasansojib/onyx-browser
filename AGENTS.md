@@ -245,9 +245,19 @@ onyx-browser/
 
 ## 6. Current Status & Release Information
 
-- **Current Release**: `v1.0.289`
+- **Current Release**: `v1.0.290`
 - **Build Status**: Production signed APKs published across all ABIs (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`) on GitHub Releases.
 - **Feature Tracking**: Complete feature statuses and technical verification notes are maintained in `FEATURES.md`.
+
+### v1.0.290 Changes
+- **Open in App Dialog Redesign**:
+  - Re-architected `dialog_open_in_app_prompt.xml` and `OpenInAppPromptDialog.kt` to match Google Material 3 theming (`@color/dialog_clear_data_bg`, `?attr/colorOutline`, 24dp rounded corners).
+  - Dynamically extracts high-resolution native app icons (`PackageManager.resolveActivity`/`getApplicationIcon`) and labels ("Open in Telegram?", "Open in YouTube?"), with Lucide `ic_external` fallback inside a 56×56dp squircle tile (`bg_box_tile`).
+  - Added target destination card (`targetAppCard`) with deep-link/URL middle ellipsizing, alongside balanced "Stay in Onyx" (`@color/btn_cancel_bg`) and "Open app" buttons.
+- **Media Engine Hardening & Video Placeholder Cleanup**:
+  - Overrode `getDefaultVideoPoster()` to eliminate Android WebView's gray video box with black play arrow.
+  - Guarded PiP layout restoration in `MainActivity` and DOM script, eliminating synthetic `resize` oscillations on responsive sites like GitHub.
+  - Cleaned up foreground/background media handshake, deferring `MediaPlaybackService.start(...)` until actual background transition or screen-lock so videos do not auto-pause when background playback is active.
 
 ### v1.0.289 Changes
 - **Site Settings Streamlining & Dead Desktop APIs Purge**:
