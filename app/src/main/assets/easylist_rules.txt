@@ -12328,6 +12328,9 @@ beaumontenterprise.com,chron.com,ctpost.com,expressnews.com,greenwichtime.com,ho
 beaumontenterprise.com,chron.com,ctinsider.com,ctpost.com,expressnews.com,greenwichtime.com,houstonchronicle.com,lmtonline.com,manisteenews.com,michigansthumb.com,middletownpress.com,mrt.com,myjournalcourier.com,myplainview.com,mysanantonio.com,newstimes.com,nhregister.com,ourmidland.com,registercitizen.com,sfchronicle.com,stamfordadvocate.com,thehour.com,theintelligencer.com##.mb32:has-text(Advertisement)
 chron.com,ctinsider.com,ctpost.com,middletownpress.com,mysanantonio.com,beaumontenterprise.com,expressnews.com,houstonchronicle.com,lmtonline.com,mrt.com,newstimes.com,nhregister.com,registercitizen.com,seattlepi.com,sfchronicle.com,sfgate.com,stamfordadvocate.com,thehour.com,timesunion.com##.bg-black.td300
 chron.com,ctinsider.com,ctpost.com,middletownpress.com,mysanantonio.com,beaumontenterprise.com,expressnews.com,houstonchronicle.com,lmtonline.com,mrt.com,newstimes.com,nhregister.com,registercitizen.com,seattlepi.com,sfchronicle.com,sfgate.com,stamfordadvocate.com,thehour.com,timesunion.com##.jcc.z1004
+beaumontenterprise.com,chron.com,ctinsider.com,ctpost.com,expressnews.com,greenwichtime.com,houstonchronicle.com,lmtonline.com,manisteenews.com,michigansthumb.com,middletownpress.com,mrt.com,myjournalcourier.com,myplainview.com,mysanantonio.com,newstimes.com,nhregister.com,ourmidland.com,registercitizen.com,sfchronicle.com,sfgate.com,stamfordadvocate.com,thehour.com,theintelligencer.com###modalOuter:has-text(Your Ad Blocker)
+beaumontenterprise.com,chron.com,ctinsider.com,ctpost.com,expressnews.com,greenwichtime.com,houstonchronicle.com,lmtonline.com,manisteenews.com,michigansthumb.com,middletownpress.com,mrt.com,myjournalcourier.com,myplainview.com,mysanantonio.com,newstimes.com,nhregister.com,ourmidland.com,registercitizen.com,sfchronicle.com,sfgate.com,stamfordadvocate.com,thehour.com,theintelligencer.com##.z1006.fix
+beaumontenterprise.com,chron.com,ctinsider.com,ctpost.com,expressnews.com,greenwichtime.com,houstonchronicle.com,lmtonline.com,manisteenews.com,michigansthumb.com,middletownpress.com,mrt.com,myjournalcourier.com,myplainview.com,mysanantonio.com,newstimes.com,nhregister.com,ourmidland.com,registercitizen.com,sfchronicle.com,sfgate.com,stamfordadvocate.com,thehour.com,theintelligencer.com##.fix:has(#modalOuter)
 beaumontenterprise.com,chron.com,ctinsider.com,ctpost.com,expressnews.com,houstonchronicle.com,lmtonline.com,middletownpress.com,mrt.com,mysanantonio.com,newstimes.com,nhregister.com,registercitizen.com,seattlepi.com,sfchronicle.com,sfgate.com,stamfordadvocate.com,thehour.com,timesunion.com,ctpost.com###modals
 beaumontenterprise.com,chron.com,ctinsider.com,ctpost.com,expressnews.com,houstonchronicle.com,lmtonline.com,middletownpress.com,mrt.com,mysanantonio.com,newstimes.com,nhregister.com,registercitizen.com,seattlepi.com,sfchronicle.com,sfgate.com,stamfordadvocate.com,thehour.com,timesunion.com,ctpost.com##body:style(overflow: auto !important;)
 sfchronicle.com##div[class^="ad-module-"]
@@ -43492,6 +43495,7 @@ omni.soundestlink.com$image
 ||earthups.com^
 ||earthyfarm.com^
 ||eastcapelots.com^
+||eastpalms.com^
 ||easysecurity.net^
 ||easysyncnews.com^
 ||eatablesquare.com^
@@ -47098,6 +47102,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||check.ddos-guard.net^$third-party
 ||checkout.com/logger/
 ||checkout.com/logging
+||choices.trustarc.com/get?
 ||cimage.adobe.com^
 ||circonus.com/hit?
 ||citygridmedia.com/tracker/
@@ -53486,6 +53491,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 /api/v2/jsonlogger
 ||naiadsystems.com/api/v1/xment/
 ||analytics.fibwatch.com^
+||astrologyanswers.com/gtmmetrics/
 ||contents1.00110.citi.com^
 ||contents2.00110.citi.com^
 ||kaspersky.com/assets/logSender.
