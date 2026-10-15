@@ -235,9 +235,16 @@ onyx-browser/
 
 ## 6. Current Status & Release Information
 
-- **Current Release**: `v1.0.288`
+- **Current Release**: `v1.0.289`
 - **Build Status**: Production signed APKs published across all ABIs (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`) on GitHub Releases.
 - **Feature Tracking**: Complete feature statuses and technical verification notes are maintained in `FEATURES.md`.
+
+### v1.0.289 Changes
+- **Site Settings Streamlining & Dead Desktop APIs Purge**:
+  - Dropped 14 dead desktop-only APIs (WebUSB, Web Serial, WebHID, Web MIDI, WebXR Hand Tracking, Idle Detection, Local Font Enumeration, Web Bluetooth, PaymentRequest API, File System Access API, WebXR VR, Web NFC, Window Management API, and Storage Access API), eliminating >3,300 lines of dead code, unused string resources, orphaned drawables, and document-start JavaScript shim overhead.
+  - Streamlined `SiteSettingsActivity` to 19 active mobile categories with dynamic allowed/blocked override count badges.
+  - Retained Screen Wake Lock (`CATEGORY_WAKE_LOCK`) and WebRTC IP Handling (`CATEGORY_WEBRTC`) with clear UI controls.
+  - Cleaned up lingering summary calls in `AllSitesSheet` and wired active status for Wake Lock and WebRTC.
 
 ### v1.0.288 Changes
 - **Android Audio Focus Management (`AudioManager`)**:
