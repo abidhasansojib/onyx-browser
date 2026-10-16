@@ -33,8 +33,7 @@
                 android:layout_width="28dp"
                 android:layout_height="28dp"
                 android:layout_gravity="center"
-                app:srcCompat="@drawable/ic_external"
-                app:tint="?attr/colorPrimary" />
+                app:srcCompat="@drawable/ic_external" />
         </FrameLayout>
 
         <!-- Title -->

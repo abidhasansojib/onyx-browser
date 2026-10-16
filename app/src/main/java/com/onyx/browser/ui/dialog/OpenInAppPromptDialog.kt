@@ -11,6 +11,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import android.content.res.ColorStateList
+import androidx.core.widget.ImageViewCompat
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.color.MaterialColors
 import com.onyx.browser.R
@@ -90,8 +92,10 @@ class OpenInAppPromptDialog : DialogFragment() {
         // Setup Header Icon (Real App Icon or Themed Vector Fallback)
         if (resolvedIcon != null) {
             b.ivDialogIcon.setImageDrawable(resolvedIcon)
+            b.ivDialogIcon.imageTintList = null
+            ImageViewCompat.setImageTintList(b.ivDialogIcon, null)
             b.ivDialogIcon.colorFilter = null
-            val iconSize = (34 * resources.displayMetrics.density).toInt()
+            val iconSize = (36 * resources.displayMetrics.density).toInt()
             b.ivDialogIcon.layoutParams.width = iconSize
             b.ivDialogIcon.layoutParams.height = iconSize
         } else {
@@ -100,7 +104,9 @@ class OpenInAppPromptDialog : DialogFragment() {
                 b.ivDialogIcon,
                 com.google.android.material.R.attr.colorPrimary
             )
-            b.ivDialogIcon.setColorFilter(primaryColor)
+            val tintList = ColorStateList.valueOf(primaryColor)
+            b.ivDialogIcon.imageTintList = tintList
+            ImageViewCompat.setImageTintList(b.ivDialogIcon, tintList)
             val iconSize = (26 * resources.displayMetrics.density).toInt()
             b.ivDialogIcon.layoutParams.width = iconSize
             b.ivDialogIcon.layoutParams.height = iconSize
