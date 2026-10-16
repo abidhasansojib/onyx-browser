@@ -142,6 +142,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private var lastThemeMode: Int = -1
     private var lastNightMode: Int = -1
     private var lastAccentColor: String = ""
+    private var isToolbarHidden = false
+    private var toolbarAnimator: android.animation.ValueAnimator? = null
+    private var lastKnownTopBarHeight: Int = 0
 
     companion object {
         var currentInstance: java.lang.ref.WeakReference<MainActivity>? = null
@@ -1219,6 +1222,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val wv = tabManager.getActiveWebView()
             wv?.scrollTo(0, 0)
             binding.fabScrollToTop.visibility = android.view.View.GONE
+            showToolbar(animated = true)
         }
         
         // Handle edge-to-edge system bars (Status Bar & Gesture Nav Bar)
@@ -1237,6 +1241,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 binding.topBar.paddingRight,
                 bottomPaddingPx
             )
+            binding.topBar.post {
+                if (binding.topBar.height > 0) {
+                    lastKnownTopBarHeight = binding.topBar.height
+                }
+            }
 
             binding.contentContainer.setPadding(
                 binding.contentContainer.paddingLeft,
@@ -1712,7 +1721,82 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
+    fun hideToolbar(animated: Boolean = true) {
+        if (isToolbarHidden) return
+        if (!preferences.isAutoHideToolbarEnabled) return
+        if (binding.homeLayout.root.visibility == View.VISIBLE) return
+        if (binding.searchOverlay.visibility == View.VISIBLE || binding.etUrl.hasFocus()) return
+        if (binding.findInPageBar.visibility == View.VISIBLE) return
+        if (binding.translateBar.visibility == View.VISIBLE) return
+        if (customVideoView != null) return
+
+        isToolbarHidden = true
+        if (binding.topBar.height > 0) {
+            lastKnownTopBarHeight = binding.topBar.height
+        }
+        val barHeight = if (lastKnownTopBarHeight > 0) {
+            lastKnownTopBarHeight
+        } else {
+            (56 * resources.displayMetrics.density).toInt()
+        }
+        val targetMargin = -barHeight
+
+        toolbarAnimator?.cancel()
+        if (animated) {
+            val currentMargin = (binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin ?: 0
+            toolbarAnimator = android.animation.ValueAnimator.ofInt(currentMargin, targetMargin).apply {
+                duration = 180L
+                interpolator = android.view.animation.DecelerateInterpolator()
+                addUpdateListener { animator ->
+                    val margin = animator.animatedValue as Int
+                    val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return@addUpdateListener
+                    if (lp.topMargin != margin) {
+                        lp.topMargin = margin
+                        binding.topBar.layoutParams = lp
+                    }
+                }
+                start()
+            }
+        } else {
+            val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
+            if (lp != null && lp.topMargin != targetMargin) {
+                lp.topMargin = targetMargin
+                binding.topBar.layoutParams = lp
+            }
+        }
+    }
+
+    fun showToolbar(animated: Boolean = true) {
+        val currentMargin = (binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin ?: 0
+        if (!isToolbarHidden && currentMargin == 0) return
+
+        isToolbarHidden = false
+        toolbarAnimator?.cancel()
+        if (animated) {
+            toolbarAnimator = android.animation.ValueAnimator.ofInt(currentMargin, 0).apply {
+                duration = 180L
+                interpolator = android.view.animation.DecelerateInterpolator()
+                addUpdateListener { animator ->
+                    val margin = animator.animatedValue as Int
+                    val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return@addUpdateListener
+                    if (lp.topMargin != margin) {
+                        lp.topMargin = margin
+                        binding.topBar.layoutParams = lp
+                    }
+                }
+                start()
+            }
+        } else {
+            val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
+            if (lp != null && lp.topMargin != 0) {
+                lp.topMargin = 0
+                binding.topBar.layoutParams = lp
+            }
+        }
+    }
+
     fun showHomeScreen() {
+        showToolbar(animated = false)
         if (customVideoView == null) {
             binding.topBar.visibility = View.VISIBLE
             binding.topBarDivider.visibility = View.GONE
@@ -1756,6 +1840,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private fun showWebView(tab: TabItem, forceUrl: String? = null, reloadIfChanged: Boolean = false) {
+        showToolbar(animated = false)
         if (customVideoView == null) {
             binding.topBar.visibility = View.VISIBLE
             binding.topBarDivider.visibility = View.GONE
@@ -1835,12 +1920,27 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     binding.fabScrollToTop.visibility = android.view.View.GONE
                 }
             }
+
+            if (preferences.isAutoHideToolbarEnabled && currentDisplayedTabId == tabId && tabManager.activeTab.value?.id == tabId && binding.homeLayout.root.visibility != View.VISIBLE) {
+                val deltaY = t - oldt
+                val threshold = (12 * resources.displayMetrics.density).toInt()
+                if (t <= 5) {
+                    showToolbar(animated = true)
+                } else if (deltaY > threshold && t > (lastKnownTopBarHeight.takeIf { it > 0 } ?: binding.topBar.height)) {
+                    hideToolbar(animated = true)
+                } else if (deltaY < -threshold) {
+                    showToolbar(animated = true)
+                }
+            }
         }
 
         val client = OnyxWebViewClient(
             context = this,
             coroutineScope = lifecycleScope,
             onUrlChanged = { newUrl ->
+                if (isToolbarHidden && currentDisplayedTabId == tabId) {
+                    showToolbar(animated = true)
+                }
                 val isPreview = LocalFileLoader.isPreviewUrl(newUrl)
                 val currentTab = tabManager.getTabById(tabId)
                 val realTabUrl = currentTab?.url ?: ""
@@ -1940,6 +2040,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     binding.progressBar.visibility = android.view.View.VISIBLE
                     binding.progressBar.alpha = 1f
                     binding.progressBar.progress = 0
+                    if (isToolbarHidden) {
+                        showToolbar(animated = true)
+                    }
                 }
                 
                 val animator = android.animation.ObjectAnimator.ofInt(binding.progressBar, "progress", binding.progressBar.progress, progress)
@@ -2801,6 +2904,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         } finally {
             isUpdatingTranslateUi = false
         }
+        showToolbar(animated = false)
         binding.translateBar.visibility = View.VISIBLE
     }
 
@@ -3355,9 +3459,12 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         updateSearchEngineIcon()
         com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
 
-        // 3. Sync scroll to top FAB visibility
+        // 3. Sync scroll to top FAB visibility & auto-hide toolbar state
         if (!preferences.isScrollToTopEnabled) {
             binding.fabScrollToTop.visibility = View.GONE
+        }
+        if (!preferences.isAutoHideToolbarEnabled) {
+            showToolbar(animated = false)
         }
 
         // 4. Sync webview settings
@@ -3442,7 +3549,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             wv?.requestFocus()
             val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
             if (!isPip && customVideoView == null) {
-                if (binding.topBar.visibility != View.VISIBLE) {
+                if (!isToolbarHidden && binding.topBar.visibility != View.VISIBLE) {
                     binding.topBar.visibility = View.VISIBLE
                     binding.topBarDivider.visibility = View.VISIBLE
                 }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Color
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
@@ -81,6 +82,11 @@ class FindInPageController(
 
     fun show() {
         val webView = getActiveWebView() ?: return
+        val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
+        if (lp != null && lp.topMargin != 0) {
+            lp.topMargin = 0
+            binding.topBar.layoutParams = lp
+        }
         binding.findInPageBar.visibility = View.VISIBLE
         binding.tvFindMatches.text = activity.getString(R.string.no_matches)
 

@@ -79,6 +79,7 @@ class AccessibilitySettingsActivity : AppCompatActivity() {
         super.onResume()
         binding.settingAddToHomeScreenSwitch.isChecked = preferences.isAddToHomeScreenEnabled
         binding.settingScrollToTopSwitch.isChecked = preferences.isScrollToTopEnabled
+        binding.settingAutoHideToolbarSwitch.isChecked = preferences.isAutoHideToolbarEnabled
         binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
         binding.settingPullToRefreshSwitch.isChecked = preferences.isPullToRefreshEnabled
         binding.settingForceDarkModeSwitch.isChecked = preferences.isForceDarkModeEnabled
@@ -105,6 +106,14 @@ class AccessibilitySettingsActivity : AppCompatActivity() {
             val newState = !binding.settingScrollToTopSwitch.isChecked
             binding.settingScrollToTopSwitch.isChecked = newState
             preferences.isScrollToTopEnabled = newState
+        }
+
+        // Auto-Hide Address Bar
+        binding.settingAutoHideToolbarSwitch.isChecked = preferences.isAutoHideToolbarEnabled
+        binding.settingAutoHideToolbarRow.setOnClickListener {
+            val newState = !binding.settingAutoHideToolbarSwitch.isChecked
+            binding.settingAutoHideToolbarSwitch.isChecked = newState
+            preferences.isAutoHideToolbarEnabled = newState
         }
 
         // Pull to Refresh Toggle

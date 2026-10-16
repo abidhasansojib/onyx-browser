@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.onyx.browser.R
@@ -142,6 +143,12 @@ class SearchController(
     fun enterSearchMode() {
         if (isSearchMode) return
         isSearchMode = true
+
+        val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
+        if (lp != null && lp.topMargin != 0) {
+            lp.topMargin = 0
+            binding.topBar.layoutParams = lp
+        }
 
         // 1. Transform top toolbar into search mode
         binding.btnHome.visibility = View.GONE
