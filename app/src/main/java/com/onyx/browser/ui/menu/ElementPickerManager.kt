@@ -402,24 +402,55 @@ object ElementPickerManager {
     };
 
     // ── Document Event Listeners ──────────────────────────────────────────────
-    function onDocClick(e) {
-        if (bar.contains(e.target)) return;
-        e.preventDefault(); e.stopPropagation();
-        toggleElementSelection(e.target);
+    var touchStartX = 0;
+    var touchStartY = 0;
+    var isTouchMoved = false;
+
+    function onDocTouchStart(e) {
+        if (!e.touches || e.touches.length === 0) return;
+        var t = e.touches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        isTouchMoved = false;
     }
 
-    function onDocTouch(e) {
+    function onDocTouchMove(e) {
         if (!e.touches || e.touches.length === 0) return;
-        var touch = e.touches[0];
-        var el = document.elementFromPoint(touch.clientX, touch.clientY);
+        var t = e.touches[0];
+        var dx = Math.abs(t.clientX - touchStartX);
+        var dy = Math.abs(t.clientY - touchStartY);
+        if (dx > 10 || dy > 10) {
+            isTouchMoved = true;
+        }
+    }
+
+    function onDocTouchEnd(e) {
+        if (isTouchMoved) return;
+        if (!e.changedTouches || e.changedTouches.length === 0) return;
+        var t = e.changedTouches[0];
+        var el = document.elementFromPoint(t.clientX, t.clientY);
         if (el && !bar.contains(el)) {
-            e.preventDefault(); e.stopPropagation();
+            e.preventDefault();
+            e.stopPropagation();
             toggleElementSelection(el);
         }
     }
 
+    function onDocClick(e) {
+        if (bar.contains(e.target)) return;
+        // Suppress synthetic clicks on touch-capable screens to prevent double-toggle
+        if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        toggleElementSelection(e.target);
+    }
+
     document.addEventListener('click', onDocClick, true);
-    document.addEventListener('touchstart', onDocTouch, { capture: true, passive: false });
+    document.addEventListener('touchstart', onDocTouchStart, { capture: true, passive: true });
+    document.addEventListener('touchmove', onDocTouchMove, { capture: true, passive: true });
+    document.addEventListener('touchend', onDocTouchEnd, { capture: true, passive: false });
 })();
 """
 

@@ -155,6 +155,15 @@ This document tracks all features of Onyx Browser, their current implementation 
    - **Asynchronous Broadcast Receiver Execution (`goAsync`)**: Wrapped SQLite database updates in `DownloadCompleteReceiver` and multi-profile incognito destruction in `IncognitoNotificationReceiver` with `goAsync()` to prevent premature process termination.
    - **Large Heap & Blob/Data URI Memory Safety**: Configured `android:largeHeap="true"` in `AndroidManifest.xml`, capped data URI handling at 64MB, and added defensive `OutOfMemoryError` guards in `DownloadHandler.handleDataUriDownload`.
 
+90. [x] Logic, UI & Performance Optimizations (Phase 2 Audit Fixes):
+   - **Synchronized HTTPS Upgrade Preferences**: Harmonized `isHttpsUpgradeEnabled` and `httpsUpgradeMode` in `BrowserPreferences` so toggling HTTPS upgrade in Site Shields immediately propagates to `OnyxWebViewClient` network routing.
+   - **Warm Browser Resumption (`moveTaskToBack`)**: Root back button press transitions the browser via `moveTaskToBack(true)` instead of `finish()`, preserving warm WebView instances, cache, and tab state in RAM for instant resumption.
+   - **Accurate Tracking Parameter Stripping (`stripTrackingParams`)**: Operates directly on raw `encodedQuery`, stripping tracking tokens while perfectly preserving duplicate query keys (`?tag=1&tag=2`) and valueless flags (`?preview`) without converting them to `=null`.
+   - **Touch Dynamics & Element Picker Resilience**: Tracked touch displacement in `ElementPickerManager` to prevent accidental element selection during page scrolling and suppressed coarse-pointer synthetic clicks to eliminate toggle oscillation.
+   - **Clipboard Snooping Guard & Privacy Cache (`SearchController`)**: Checked `ClipDescription` MIME types before reading clipboard content and implemented a 10-second suggestion cache, permanently eliminating continuous system clipboard toasts on Android 12+.
+   - **Streaming Filter Compilation (`FilterListManager`)**: Sized `StringBuilder` capacity up front and streamed filter files with an 8KB buffer, eliminating intermediate string allocations across 54 lists and freeing buffer memory early.
+   - **Asynchronous Package Installation (`ApkInstallerHelper`)**: Offloaded APK intent preparation and content URI file copying to `Dispatchers.IO`, preventing main thread freezes and ANRs on large APK installations.
+
 ---
 
 ## Feature Details
@@ -348,4 +357,13 @@ This document tracks all features of Onyx Browser, their current implementation 
 - **Renderer Crash Self-Healing**: Handled `onRenderProcessGone` with `TabActionCallback.onRendererCrash()` and `TabManager.handleRendererCrash()`, cleanly evicting crashed WebViews from the pool and automatically reloading the active tab with a fresh instance.
 - **Asynchronous Broadcast Receiver Execution (`goAsync`)**: Wrapped SQLite database updates in `DownloadCompleteReceiver` and multi-profile incognito destruction in `IncognitoNotificationReceiver` with `goAsync()` to prevent premature process termination.
 - **Large Heap & Blob/Data URI Memory Safety**: Configured `android:largeHeap="true"` in `AndroidManifest.xml`, capped data URI handling at 64MB, and added defensive `OutOfMemoryError` guards in `DownloadHandler.handleDataUriDownload`.
+
+### 21. Logic, UI & Performance Optimizations (Phase 2 Fixes)
+- **Synchronized HTTPS Upgrade Preferences**: Harmonized `isHttpsUpgradeEnabled` and `httpsUpgradeMode` in `BrowserPreferences` so toggling HTTPS upgrade in Site Shields (`SiteShieldBottomSheetDialog`) immediately updates both preferences and propagates to `OnyxWebViewClient` network routing.
+- **Warm Browser Resumption (`moveTaskToBack`)**: Root back button press transitions the browser via `moveTaskToBack(true)` instead of `finish()`, preserving warm WebView instances, cache, and tab state in RAM matching Chrome and Brave behavior.
+- **Accurate Tracking Parameter Stripping (`stripTrackingParams`)**: Operates directly on raw `encodedQuery`, stripping tracking tokens while perfectly preserving duplicate query keys (`?tag=1&tag=2`) and valueless flags (`?preview`) without converting them to `=null`.
+- **Touch Dynamics & Element Picker Resilience (`ElementPickerManager`)**: Added touch displacement threshold tracking to prevent accidental selections while scrolling, and suppressed coarse-pointer synthetic clicks to stop toggle oscillation on touchscreens.
+- **Clipboard Snooping Guard & Privacy Cache (`SearchController`)**: Checked `ClipDescription` MIME types before reading clipboard content and implemented a 10-second suggestion cache, permanently eliminating continuous system clipboard toasts on Android 12+.
+- **Streaming Filter Compilation (`FilterListManager`)**: Sized `StringBuilder` capacity up front and streamed filter files with an 8KB buffer, eliminating intermediate string allocations across 54 lists and freeing buffer memory early.
+- **Asynchronous Package Installation (`ApkInstallerHelper`)**: Offloaded APK intent preparation and content URI file copying to `Dispatchers.IO` and dispatched to `startActivity` on `Dispatchers.Main`, preventing UI freezes and ANRs on large APK installations.
 

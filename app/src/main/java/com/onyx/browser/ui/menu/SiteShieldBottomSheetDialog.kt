@@ -489,6 +489,12 @@ class SiteShieldBottomSheetDialog(
             prefs.isHttpsUpgradeEnabled = newState
             onShieldSettingsChanged()
         }
+        binding.switchHttpsUpgrade.setOnCheckedChangeListener { _, isChecked ->
+            if (prefs.isHttpsUpgradeEnabled != isChecked) {
+                prefs.isHttpsUpgradeEnabled = isChecked
+                onShieldSettingsChanged()
+            }
+        }
     }
 
     // ── Script Blocking (per-domain) ─────────────────────────────────────────

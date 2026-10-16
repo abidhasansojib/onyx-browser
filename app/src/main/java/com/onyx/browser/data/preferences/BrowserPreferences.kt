@@ -140,8 +140,9 @@ class BrowserPreferences private constructor(private val context: Context) {
      * Implemented in OnyxWebViewClient.shouldOverrideUrlLoading.
      */
     var isHttpsUpgradeEnabled: Boolean
-        get() = prefs.getBoolean(KEY_HTTPS_UPGRADE, true)
+        get() = httpsUpgradeMode != HTTPS_MODE_DISABLED
         set(value) {
+            httpsUpgradeMode = if (value) HTTPS_MODE_WHEN_POSSIBLE else HTTPS_MODE_DISABLED
             prefs.edit().putBoolean(KEY_HTTPS_UPGRADE, value).apply()
         }
 

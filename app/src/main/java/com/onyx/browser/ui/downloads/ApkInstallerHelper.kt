@@ -10,6 +10,10 @@ import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 object ApkInstallerHelper {
@@ -149,15 +153,26 @@ object ApkInstallerHelper {
     }
 
     fun launchPackageInstaller(context: Context, filePath: String) {
-        try {
-            val installIntent = createInstallIntent(context, filePath)
-            if (installIntent != null) {
-                context.startActivity(installIntent)
-            } else {
-                Toast.makeText(context, "Cannot prepare installer for APK", Toast.LENGTH_SHORT).show()
+        val appContext = context.applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val installIntent = createInstallIntent(appContext, filePath)
+                withContext(Dispatchers.Main) {
+                    if (installIntent != null) {
+                        try {
+                            context.startActivity(installIntent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Cannot start installer: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Cannot prepare installer for APK", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Cannot prepare installer: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
             }
-        } catch (e: Exception) {
-            Toast.makeText(context, "Cannot start installer: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 }

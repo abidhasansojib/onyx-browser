@@ -1326,16 +1326,19 @@ class OnyxWebViewClient(
         return try {
             val uri = Uri.parse(url)
             val queryParams = uri.queryParameterNames
-            val stripped = queryParams.intersect(trackingParams)
-            if (stripped.isEmpty()) return url
+            if (queryParams.none { trackingParams.contains(it) }) return url
 
-            val builder = uri.buildUpon().clearQuery()
-            for (param in queryParams) {
-                if (!trackingParams.contains(param)) {
-                    builder.appendQueryParameter(param, uri.getQueryParameter(param))
+            val rawQuery = uri.encodedQuery ?: return url
+            val cleanParts = rawQuery.split('&').filter { part ->
+                if (part.isBlank()) return@filter false
+                val key = part.substringBefore('=').let {
+                    try { Uri.decode(it) } catch (_: Exception) { it }
                 }
+                !trackingParams.contains(key)
             }
-            builder.build().toString()
+
+            val newQuery = if (cleanParts.isNotEmpty()) cleanParts.joinToString("&") else null
+            uri.buildUpon().encodedQuery(newQuery).build().toString()
         } catch (_: Exception) {
             url
         }

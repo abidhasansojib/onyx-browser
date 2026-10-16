@@ -2,6 +2,7 @@ package com.onyx.browser.ui.browser
 
 import android.app.Activity
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -168,13 +169,14 @@ class SearchController(
         showSoftKeyboard()
 
         // 5. Inject clipboard suggestion if available
-        val clipboardOpt = getClipboardSuggestion()
+        val clipboardOpt = getClipboardSuggestion(forceRefresh = true)
         suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
     }
 
     fun exitSearchMode() {
         if (!isSearchMode) return
         isSearchMode = false
+        cachedClipboardSuggestion = null
 
         suggestionJob?.cancel()
 
@@ -318,42 +320,63 @@ class SearchController(
             .trimEnd('/')
     }
 
-    fun getClipboardSuggestion(): SearchSuggestion? {
+    private var cachedClipboardSuggestion: SearchSuggestion? = null
+    private var lastClipboardQueryTime: Long = 0L
+
+    fun getClipboardSuggestion(forceRefresh: Boolean = false): SearchSuggestion? {
+        val now = System.currentTimeMillis()
+        if (!forceRefresh && cachedClipboardSuggestion != null && (now - lastClipboardQueryTime < 10_000L)) {
+            return cachedClipboardSuggestion
+        }
+        lastClipboardQueryTime = now
         try {
             val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return null
-            if (clipboard.hasPrimaryClip()) {
-                val clipData = clipboard.primaryClip
-                if (clipData != null && clipData.itemCount > 0) {
-                    val rawText = clipData.getItemAt(0).text?.toString()?.trim()
-                    if (!rawText.isNullOrBlank()) {
-                        // Suppress if identical to active page URL (Brave/Chromium standard)
-                        val activeUrl = getActivePageUrl().trim()
-                        if (activeUrl.isNotBlank()) {
-                            val cleanActive = cleanUrlForComparison(activeUrl)
-                            val cleanRaw = cleanUrlForComparison(rawText)
-                            if (cleanActive.equals(cleanRaw, ignoreCase = true)) {
-                                return null
-                            }
+            if (!clipboard.hasPrimaryClip()) {
+                cachedClipboardSuggestion = null
+                return null
+            }
+            // Check primaryClipDescription first — does NOT trigger Android 12+ privacy toast
+            val desc = clipboard.primaryClipDescription
+            if (desc == null || (!desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) && !desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML))) {
+                cachedClipboardSuggestion = null
+                return null
+            }
+
+            val clipData = clipboard.primaryClip
+            if (clipData != null && clipData.itemCount > 0) {
+                val rawText = clipData.getItemAt(0).text?.toString()?.trim()
+                if (!rawText.isNullOrBlank()) {
+                    // Suppress if identical to active page URL (Brave/Chromium standard)
+                    val activeUrl = getActivePageUrl().trim()
+                    if (activeUrl.isNotBlank()) {
+                        val cleanActive = cleanUrlForComparison(activeUrl)
+                        val cleanRaw = cleanUrlForComparison(rawText)
+                        if (cleanActive.equals(cleanRaw, ignoreCase = true)) {
+                            cachedClipboardSuggestion = null
+                            return null
                         }
-
-                        val isLink = android.util.Patterns.WEB_URL.matcher(rawText).matches() ||
-                                rawText.startsWith("http://", ignoreCase = true) ||
-                                rawText.startsWith("https://", ignoreCase = true) ||
-                                rawText.startsWith("www.", ignoreCase = true) ||
-                                isLikelyUrl(rawText)
-
-                        val title = if (isLink) activity.getString(R.string.link_you_copied) else activity.getString(R.string.text_you_copied)
-                        return SearchSuggestion(
-                            title = title,
-                            queryOrUrl = rawText,
-                            isUrl = isLink,
-                            isDomain = isLink && !rawText.startsWith("http://", ignoreCase = true) && !rawText.startsWith("https://", ignoreCase = true),
-                            isClipboard = true
-                        )
                     }
+
+                    val isLink = android.util.Patterns.WEB_URL.matcher(rawText).matches() ||
+                            rawText.startsWith("http://", ignoreCase = true) ||
+                            rawText.startsWith("https://", ignoreCase = true) ||
+                            rawText.startsWith("www.", ignoreCase = true) ||
+                            isLikelyUrl(rawText)
+
+                    val title = if (isLink) activity.getString(R.string.link_you_copied) else activity.getString(R.string.text_you_copied)
+                    val suggestion = SearchSuggestion(
+                        title = title,
+                        queryOrUrl = rawText,
+                        isUrl = isLink,
+                        isDomain = isLink && !rawText.startsWith("http://", ignoreCase = true) && !rawText.startsWith("https://", ignoreCase = true),
+                        isClipboard = true
+                    )
+                    cachedClipboardSuggestion = suggestion
+                    return suggestion
                 }
             }
         } catch (_: Exception) {}
+        cachedClipboardSuggestion = null
         return null
     }
 }

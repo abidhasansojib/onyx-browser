@@ -3046,15 +3046,15 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
                     if (binding.homeLayout.root.visibility != View.VISIBLE && (activeTab.url.isNotBlank() && !activeTab.url.startsWith("about:blank", ignoreCase = true))) {
                         // All navigation steps in this tab are exhausted.
-                        // Standard browser parity (Chrome/Brave/Firefox): Exit / minimize the app,
-                        // preserving the tab and its URL intact for when the user returns.
-                        finish()
+                        // Standard browser parity (Chrome/Brave/Firefox): Minimize the app to background,
+                        // preserving the tab and its URL intact for instant resumption.
+                        moveTaskToBack(true)
                         return
                     }
                 }
 
-                // Default activity back behavior
-                finish()
+                // Default activity back behavior: minimize to home screen
+                moveTaskToBack(true)
             }
         })
     }

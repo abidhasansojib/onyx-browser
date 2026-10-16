@@ -768,40 +768,72 @@ object FilterListManager {
         try {
             val prefs = BrowserPreferences.getInstance(context)
             val cacheDir = getCacheDir(context)
-            val sb = StringBuilder()
+
+            // Estimate total capacity to avoid repeated StringBuilder reallocations
+            var estimatedBytes = 3 * 1024 * 1024L // base asset estimate ~3MB
+            val enabledIds = prefs.enabledFilterLists
+            for (id in enabledIds) {
+                val f = File(cacheDir, "$id.txt")
+                if (f.exists()) estimatedBytes += f.length()
+            }
+            val customFilters = prefs.getCustomFilters().filter { it.isEnabled }
+            for (custom in customFilters) {
+                if (custom.isUrlType) {
+                    val f = File(cacheDir, "${custom.id}.txt")
+                    if (f.exists()) estimatedBytes += f.length()
+                } else {
+                    estimatedBytes += custom.rules.length
+                }
+            }
+
+            val initialCapacity = minOf(estimatedBytes + 65536, 64 * 1024 * 1024L).toInt()
+            val sb = StringBuilder(initialCapacity)
+            val buffer = CharArray(8192)
 
             // 1. Base bundled asset rules
             try {
-                val assetStream: InputStream = context.assets.open(DEFAULT_ASSET_RULES)
-                val assetContent = assetStream.bufferedReader().use { it.readText() }
-                sb.append(assetContent).append("\n")
+                context.assets.open(DEFAULT_ASSET_RULES).bufferedReader().use { reader ->
+                    var n: Int
+                    while (reader.read(buffer).also { n = it } != -1) {
+                        sb.append(buffer, 0, n)
+                    }
+                }
+                sb.append("\n")
             } catch (e: Exception) {
                 Log.w(TAG, "Error reading base asset rules", e)
             }
 
             // 2. Enabled cached filter lists
-            val enabledIds = prefs.enabledFilterLists
             for (id in enabledIds) {
                 val cachedFile = File(cacheDir, "$id.txt")
                 if (cachedFile.exists() && cachedFile.length() > 0) {
                     try {
-                        val text = cachedFile.readText()
                         sb.append("\n! Filter List: ").append(id).append("\n")
-                        sb.append(text).append("\n")
+                        cachedFile.bufferedReader().use { reader ->
+                            var n: Int
+                            while (reader.read(buffer).also { n = it } != -1) {
+                                sb.append(buffer, 0, n)
+                            }
+                        }
+                        sb.append("\n")
                     } catch (_: Exception) {}
                 }
             }
 
             // 2b. Enabled custom filter lists (URL & Manual Rules)
-            val customFilters = prefs.getCustomFilters().filter { it.isEnabled }
             for (custom in customFilters) {
                 if (custom.isUrlType) {
                     val cachedFile = File(cacheDir, "${custom.id}.txt")
                     if (cachedFile.exists() && cachedFile.length() > 0) {
                         try {
-                            val text = cachedFile.readText()
                             sb.append("\n! Custom URL List: ").append(custom.name).append("\n")
-                            sb.append(text).append("\n")
+                            cachedFile.bufferedReader().use { reader ->
+                                var n: Int
+                                while (reader.read(buffer).also { n = it } != -1) {
+                                    sb.append(buffer, 0, n)
+                                }
+                            }
+                            sb.append("\n")
                         } catch (_: Exception) {}
                     }
                 } else if (custom.rules.isNotBlank()) {
@@ -818,6 +850,7 @@ object FilterListManager {
             }
 
             val mergedRules = sb.toString()
+            sb.setLength(0) // Release builder buffer memory early
             if (mergedRules.isBlank()) return 0
 
             val compiledBytes = AdBlockEngine.initFromRules(mergedRules)
