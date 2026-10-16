@@ -263,8 +263,9 @@ class SiteShieldBottomSheetDialog(
     private fun refreshAllSiteShieldControls() {
         updatePermissionBadges()
         val isWhitelisted = prefs.isDomainWhitelisted(domain)
-        updateMasterShieldUi(!isWhitelisted)
-        updateSubControlsEnabled(!isWhitelisted)
+        val shieldsUp = prefs.isAdBlockEnabled && !isWhitelisted
+        updateMasterShieldUi(shieldsUp)
+        updateSubControlsEnabled(shieldsUp)
         updateBlockingLevelUi(prefs.getEffectiveBlockingLevel(domain))
         val isNetworkBlocked = prefs.isScriptBlockingEnabledForDomain(domain)
         val isJsBlocked = prefs.getSiteJavaScriptPermission(domain) == SitePermissionState.BLOCKED
@@ -364,20 +365,27 @@ class SiteShieldBottomSheetDialog(
     // ── Shields Master Toggle ──────────────────────────────────────────────────
 
     private fun setupShieldsMasterToggle() {
-        val isWhitelisted = prefs.isDomainWhitelisted(domain)
-        updateMasterShieldUi(!isWhitelisted)
+        val shieldsUp = prefs.isAdBlockEnabled && !prefs.isDomainWhitelisted(domain)
+        updateMasterShieldUi(shieldsUp)
 
-        binding.layoutShieldsMaster.setOnClickListener {
-            val currentlyWhitelisted = prefs.isDomainWhitelisted(domain)
-            val newShieldsUp = currentlyWhitelisted
-            prefs.setDomainWhitelisted(domain, !newShieldsUp)
-            updateMasterShieldUi(newShieldsUp)
-            updateSubControlsEnabled(newShieldsUp)
-            updateResetPermissionsVisibility()
+        val toggleAction = {
+            if (!prefs.isAdBlockEnabled) {
+                // If adblocker was globally disabled, tapping master shield turns it on
+                prefs.isAdBlockEnabled = true
+                prefs.setDomainWhitelisted(domain, false)
+            } else {
+                val currentlyWhitelisted = prefs.isDomainWhitelisted(domain)
+                val newShieldsUp = currentlyWhitelisted
+                prefs.setDomainWhitelisted(domain, !newShieldsUp)
+            }
+            refreshAllSiteShieldControls()
             onShieldSettingsChanged()
         }
 
-        updateSubControlsEnabled(!isWhitelisted)
+        binding.layoutShieldsMaster.setOnClickListener { toggleAction() }
+        binding.switchShieldsMaster.setOnClickListener { toggleAction() }
+
+        updateSubControlsEnabled(shieldsUp)
     }
 
     private fun updateMasterShieldUi(shieldsUp: Boolean) {

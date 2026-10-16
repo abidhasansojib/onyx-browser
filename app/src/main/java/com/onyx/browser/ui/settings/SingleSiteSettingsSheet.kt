@@ -130,8 +130,9 @@ class SingleSiteSettingsSheet(
                 iconRes = R.drawable.ic_shield_lock,
                 title = getString(R.string.single_site_shields_title),
                 getState = {
-                    if (prefs.isDomainWhitelisted(domain)) getString(R.string.shields_down)
-                    else getString(R.string.shields_up)
+                    val shieldsUp = prefs.isAdBlockEnabled && !prefs.isDomainWhitelisted(domain)
+                    if (shieldsUp) getString(R.string.shields_up)
+                    else getString(R.string.shields_down)
                 },
                 options = listOf(
                     getString(R.string.shields_up),
@@ -139,11 +140,15 @@ class SingleSiteSettingsSheet(
                     getString(R.string.default_permission)
                 ),
                 getCheckedIndex = {
-                    if (prefs.isDomainWhitelisted(domain)) 1 else 0
+                    val shieldsUp = prefs.isAdBlockEnabled && !prefs.isDomainWhitelisted(domain)
+                    if (shieldsUp) 0 else 1
                 },
                 onChoose = { which ->
                     when (which) {
-                        0 -> prefs.setDomainWhitelisted(domain, false)
+                        0 -> {
+                            prefs.isAdBlockEnabled = true
+                            prefs.setDomainWhitelisted(domain, false)
+                        }
                         1 -> prefs.setDomainWhitelisted(domain, true)
                         else -> prefs.setDomainWhitelisted(domain, false)
                     }

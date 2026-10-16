@@ -17,10 +17,12 @@ object AdBlockDocumentStart {
         return """
         (function() {
             // ── 0. Synchronous Shield & Whitelist Status Check ─────────────────────
-            var isShieldActive = true;
+            var isShieldActive = false;
             try {
                 if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isAdBlockActive === 'function') {
                     isShieldActive = window.OnyxShieldBridge.isAdBlockActive(location.hostname || location.href);
+                } else if (typeof window.__onyxAdBlockEnabled !== 'undefined') {
+                    isShieldActive = !!window.__onyxAdBlockEnabled;
                 }
             } catch(e) {}
 

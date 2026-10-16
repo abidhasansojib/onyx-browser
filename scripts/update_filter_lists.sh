@@ -30,9 +30,6 @@ sources = [
     os.path.join(external, 'brave-lists/brave-firstparty-cname.txt'),
     os.path.join(external, 'brave-lists/brave-social.txt'),
     os.path.join(external, 'brave-lists/brave-cookie-specific.txt'),
-    os.path.join(external, 'brave-lists/yt-shorts.txt'),
-    os.path.join(external, 'brave-lists/yt-distracting.txt'),
-    os.path.join(external, 'brave-lists/yt-recommended.txt'),
     os.path.join(external, 'brave-lists/experimental.txt')
 ]
 

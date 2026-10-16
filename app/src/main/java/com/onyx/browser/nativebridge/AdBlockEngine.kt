@@ -19,6 +19,7 @@ object AdBlockEngine {
     private const val BRAVE_RESOURCES_ASSET = "brave-resources.json"
 
     private var isNativeLoaded = false
+    private var appContext: Context? = null
 
     init {
         try {
@@ -75,10 +76,15 @@ object AdBlockEngine {
             Log.w(TAG, "Skipping initialization: native library not loaded")
             return@withContext
         }
+        appContext = context.applicationContext
 
         try {
+            val prefs = BrowserPreferences.getInstance(context)
+            val currentSig = com.onyx.browser.data.filter.FilterListManager.getCurrentFilterSignature(prefs)
+            val isCacheValid = prefs.compiledFilterSignature == currentSig
+
             val cacheFile = File(context.filesDir, BINARY_CACHE_FILE)
-            if (cacheFile.exists() && cacheFile.length() > 0) {
+            if (isCacheValid && cacheFile.exists() && cacheFile.length() > 0) {
                 val bytes = cacheFile.readBytes()
                 val success = initEngine(bytes)
                 if (success) {
@@ -88,6 +94,9 @@ object AdBlockEngine {
                     clearDecisionCache()
                     return@withContext
                 }
+            } else if (!isCacheValid && cacheFile.exists()) {
+                Log.i(TAG, "Filter binary cache signature mismatch or stale. Invalidating cache.")
+                cacheFile.delete()
             }
 
             // Fallback to bundled asset rules
@@ -97,6 +106,7 @@ object AdBlockEngine {
             val compiledBytes = initFromRules(rulesText)
             if (compiledBytes != null && compiledBytes.isNotEmpty()) {
                 FileOutputStream(cacheFile).use { it.write(compiledBytes) }
+                prefs.compiledFilterSignature = currentSig
                 Log.i(TAG, "Compiled and cached filter database (${compiledBytes.size} bytes)")
             }
 
@@ -277,11 +287,53 @@ object AdBlockEngine {
             val json = getCosmeticResources(url) ?: return ""
             if (json.isEmpty()) return ""
             val obj = JSONObject(json)
-            obj.optString("css", "")
+            val css = obj.optString("css", "")
+            if (css.isBlank()) return ""
+            sanitizeCosmeticCss(url, css)
         } catch (t: Throwable) {
             Log.e(TAG, "Error parsing cosmetic CSS from getCosmeticResources", t)
             ""
         }
+    }
+
+    private fun sanitizeCosmeticCss(url: String, rawCss: String): String {
+        val lowerUrl = url.lowercase()
+        val isYouTube = lowerUrl.contains("youtube.com") || lowerUrl.contains("youtu.be")
+        if (!isYouTube) return rawCss
+
+        val ctx = appContext
+        if (ctx != null) {
+            val prefs = BrowserPreferences.getInstance(ctx)
+            val enabled = prefs.enabledFilterLists
+            val isYtRecAllowed = enabled.contains("yt_recommendations")
+            val isYtDistAllowed = enabled.contains("yt_distractions")
+            val isYtShortsAllowed = enabled.contains("yt_shorts")
+            // If user has explicitly enabled all relevant YouTube filters, permit the rules
+            if (isYtRecAllowed && isYtDistAllowed && isYtShortsAllowed) {
+                return rawCss
+            }
+        }
+
+        // Secondary defense: prevent rogue rules from hiding YouTube's core feed, recommendations,
+        // header, search bar, or comments on mobile YouTube unless the specific filter lists are enabled.
+        val destructiveSelectors = listOf(
+            ".rich-section-content",
+            ".ytGridShelfViewModelHost",
+            "ytm-topbar-menu-button-renderer",
+            ".mobile-topbar-header-content",
+            ".mobile-topbar-header-sign-in-button",
+            ".pivot-bar-slide-in",
+            "ytm-comments-entry-point-header-renderer",
+            "ytm-slim-video-metadata-section-renderer",
+            ".feed-nudge-wrapper"
+        )
+        var sanitized = rawCss
+        for (sel in destructiveSelectors) {
+            if (sanitized.contains(sel)) {
+                sanitized = sanitized.replace(Regex("""[^;}]*""" + Regex.escape(sel) + """[^;}]*\{[^}]*\}"""), "")
+            }
+        }
+        return sanitized
     }
 
     /**

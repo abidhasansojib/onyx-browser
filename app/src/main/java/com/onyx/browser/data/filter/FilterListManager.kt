@@ -33,12 +33,13 @@ object FilterListManager {
     private const val DEFAULT_ASSET_RULES = "easylist_rules.txt"
 
     private val isUpdating = AtomicBoolean(false)
+    private const val ASSET_RULES_VERSION = 2 // Invalidate legacy cache that contained mobile YouTube breaking rules
 
     fun getCurrentFilterSignature(prefs: BrowserPreferences): String {
         val enabledBuiltIn = prefs.enabledFilterLists.sorted().joinToString(",")
         val enabledCustom = prefs.getCustomFilters().filter { it.isEnabled }.map { "${it.id}:${it.rules.hashCode()}" }.sorted().joinToString(";")
         val legacyRulesHash = prefs.customFilterRules.hashCode()
-        return "$enabledBuiltIn|$enabledCustom|$legacyRulesHash"
+        return "v$ASSET_RULES_VERSION|$enabledBuiltIn|$enabledCustom|$legacyRulesHash"
     }
 
     /**

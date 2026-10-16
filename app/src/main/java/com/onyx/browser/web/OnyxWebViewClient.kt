@@ -1494,6 +1494,11 @@ class OnyxWebViewClient(
             DesktopModeManager.enforceDesktopViewport(view)
         }
 
+        if (!isAuthOrMeta) {
+            val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !isWhitelisted
+            view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
+        }
+
         if (preferences.isAdBlockEnabled && preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE && !isWhitelisted && !isAuthOrMeta) {
             val urlLower = url.lowercase()
             val isCloudflareChallengePage = urlLower.contains("__cf_chl") ||
@@ -1565,7 +1570,7 @@ class OnyxWebViewClient(
         }
 
         // Cosmetic element hiding (CSS injection) — never hide containers on auth/checkpoint pages
-        if (preferences.isCosmeticFilteringEnabled && !isWhitelisted && !isAuthOrMeta) {
+        if (preferences.isCosmeticFilteringEnabled && preferences.isAdBlockEnabled && !isWhitelisted && !isAuthOrMeta) {
             try {
                 val cosmeticCss = AdBlockEngine.getCosmeticCss(url)
                 if (cosmeticCss.isNotBlank()) {

@@ -40,14 +40,35 @@ class ShieldsActivity : AppCompatActivity() {
         setupPrivacy()
     }
 
+    private fun setupSwitchRow(
+        row: android.view.View,
+        switch: com.google.android.material.materialswitch.MaterialSwitch,
+        getter: () -> Boolean,
+        setter: (Boolean) -> Unit,
+        onChanged: (() -> Unit)? = null
+    ) {
+        switch.setOnCheckedChangeListener(null)
+        switch.isChecked = getter()
+        switch.setOnCheckedChangeListener { _, isChecked ->
+            if (getter() != isChecked) {
+                setter(isChecked)
+                onChanged?.invoke()
+            }
+        }
+        row.setOnClickListener {
+            switch.toggle()
+        }
+    }
+
     // ── TRACKERS & ADS ────────────────────────────────────────────────────────
 
     private fun setupTrackersAds() {
-        binding.switchAdBlock.isChecked = prefs.isAdBlockEnabled
-        binding.rowAdBlock.setOnClickListener {
-            prefs.isAdBlockEnabled = !prefs.isAdBlockEnabled
-            binding.switchAdBlock.isChecked = prefs.isAdBlockEnabled
-        }
+        setupSwitchRow(
+            binding.rowAdBlock,
+            binding.switchAdBlock,
+            { prefs.isAdBlockEnabled },
+            { prefs.isAdBlockEnabled = it }
+        )
 
         updateBlockingLevelDisplay()
         binding.rowBlockingLevel.setOnClickListener {
@@ -58,11 +79,12 @@ class ShieldsActivity : AppCompatActivity() {
             sheet.show(supportFragmentManager, BlockingLevelPickerSheet.TAG)
         }
 
-        binding.switchAntiAdblockDetection.isChecked = prefs.isAntiAdblockDetectionEnabled
-        binding.rowAntiAdblockDetection.setOnClickListener {
-            prefs.isAntiAdblockDetectionEnabled = !prefs.isAntiAdblockDetectionEnabled
-            binding.switchAntiAdblockDetection.isChecked = prefs.isAntiAdblockDetectionEnabled
-        }
+        setupSwitchRow(
+            binding.rowAntiAdblockDetection,
+            binding.switchAntiAdblockDetection,
+            { prefs.isAntiAdblockDetectionEnabled },
+            { prefs.isAntiAdblockDetectionEnabled = it }
+        )
     }
 
     private fun updateBlockingLevelDisplay() {
@@ -75,17 +97,19 @@ class ShieldsActivity : AppCompatActivity() {
     // ── CONNECTIONS ───────────────────────────────────────────────────────────
 
     private fun setupConnections() {
-        binding.switchAmpRedirect.isChecked = prefs.isAutoRedirectAmpEnabled
-        binding.rowAmpRedirect.setOnClickListener {
-            prefs.isAutoRedirectAmpEnabled = !prefs.isAutoRedirectAmpEnabled
-            binding.switchAmpRedirect.isChecked = prefs.isAutoRedirectAmpEnabled
-        }
+        setupSwitchRow(
+            binding.rowAmpRedirect,
+            binding.switchAmpRedirect,
+            { prefs.isAutoRedirectAmpEnabled },
+            { prefs.isAutoRedirectAmpEnabled = it }
+        )
 
-        binding.switchTrackingRedirect.isChecked = prefs.isAutoRedirectTrackingUrlsEnabled
-        binding.rowTrackingRedirect.setOnClickListener {
-            prefs.isAutoRedirectTrackingUrlsEnabled = !prefs.isAutoRedirectTrackingUrlsEnabled
-            binding.switchTrackingRedirect.isChecked = prefs.isAutoRedirectTrackingUrlsEnabled
-        }
+        setupSwitchRow(
+            binding.rowTrackingRedirect,
+            binding.switchTrackingRedirect,
+            { prefs.isAutoRedirectTrackingUrlsEnabled },
+            { prefs.isAutoRedirectTrackingUrlsEnabled = it }
+        )
 
         updateHttpsModeDisplay()
         binding.rowHttpsMode.setOnClickListener {
@@ -108,11 +132,12 @@ class ShieldsActivity : AppCompatActivity() {
     // ── SCRIPTS ───────────────────────────────────────────────────────────────
 
     private fun setupScripts() {
-        binding.switchGlobalScriptBlock.isChecked = prefs.isGlobalScriptBlockingEnabled
-        binding.rowGlobalScriptBlock.setOnClickListener {
-            prefs.isGlobalScriptBlockingEnabled = !prefs.isGlobalScriptBlockingEnabled
-            binding.switchGlobalScriptBlock.isChecked = prefs.isGlobalScriptBlockingEnabled
-        }
+        setupSwitchRow(
+            binding.rowGlobalScriptBlock,
+            binding.switchGlobalScriptBlock,
+            { prefs.isGlobalScriptBlockingEnabled },
+            { prefs.isGlobalScriptBlockingEnabled = it }
+        )
     }
 
     // ── COOKIES ───────────────────────────────────────────────────────────────
@@ -127,17 +152,19 @@ class ShieldsActivity : AppCompatActivity() {
             sheet.show(supportFragmentManager, CookieModePickerSheet.TAG)
         }
 
-        binding.switchCookieAutoclear.isChecked = prefs.isCookieAutoclearOnCloseEnabled
-        binding.rowCookieAutoclear.setOnClickListener {
-            prefs.isCookieAutoclearOnCloseEnabled = !prefs.isCookieAutoclearOnCloseEnabled
-            binding.switchCookieAutoclear.isChecked = prefs.isCookieAutoclearOnCloseEnabled
-        }
+        setupSwitchRow(
+            binding.rowCookieAutoclear,
+            binding.switchCookieAutoclear,
+            { prefs.isCookieAutoclearOnCloseEnabled },
+            { prefs.isCookieAutoclearOnCloseEnabled = it }
+        )
 
-        binding.switchClearOnExit.isChecked = prefs.isClearOnExitEnabled
-        binding.rowClearOnExit.setOnClickListener {
-            prefs.isClearOnExitEnabled = !prefs.isClearOnExitEnabled
-            binding.switchClearOnExit.isChecked = prefs.isClearOnExitEnabled
-        }
+        setupSwitchRow(
+            binding.rowClearOnExit,
+            binding.switchClearOnExit,
+            { prefs.isClearOnExitEnabled },
+            { prefs.isClearOnExitEnabled = it }
+        )
     }
 
     private fun updateCookieModeDisplay() {
@@ -151,23 +178,26 @@ class ShieldsActivity : AppCompatActivity() {
     // ── FINGERPRINTING ────────────────────────────────────────────────────────
 
     private fun setupFingerprinting() {
-        binding.switchFingerprintProtection.isChecked = prefs.isFingerprintProtectionEnabled
-        binding.rowFingerprintProtection.setOnClickListener {
-            prefs.isFingerprintProtectionEnabled = !prefs.isFingerprintProtectionEnabled
-            binding.switchFingerprintProtection.isChecked = prefs.isFingerprintProtectionEnabled
-        }
+        setupSwitchRow(
+            binding.rowFingerprintProtection,
+            binding.switchFingerprintProtection,
+            { prefs.isFingerprintProtectionEnabled },
+            { prefs.isFingerprintProtectionEnabled = it }
+        )
 
-        binding.switchFingerprintLang.isChecked = prefs.isFingerprintLangEnabled
-        binding.rowFingerprintLang.setOnClickListener {
-            prefs.isFingerprintLangEnabled = !prefs.isFingerprintLangEnabled
-            binding.switchFingerprintLang.isChecked = prefs.isFingerprintLangEnabled
-        }
+        setupSwitchRow(
+            binding.rowFingerprintLang,
+            binding.switchFingerprintLang,
+            { prefs.isFingerprintLangEnabled },
+            { prefs.isFingerprintLangEnabled = it }
+        )
 
-        binding.switchWebRtcProtection.isChecked = prefs.isWebRtcProtectedGlobal
-        binding.rowWebRtcProtection.setOnClickListener {
-            prefs.isWebRtcProtectedGlobal = !prefs.isWebRtcProtectedGlobal
-            binding.switchWebRtcProtection.isChecked = prefs.isWebRtcProtectedGlobal
-        }
+        setupSwitchRow(
+            binding.rowWebRtcProtection,
+            binding.switchWebRtcProtection,
+            { prefs.isWebRtcProtectedGlobal },
+            { prefs.isWebRtcProtectedGlobal = it }
+        )
     }
 
     // ── CONTENT FILTERING ─────────────────────────────────────────────────────
@@ -187,18 +217,20 @@ class ShieldsActivity : AppCompatActivity() {
             binding.rowElementBlockingPrivate.isEnabled = enabled
         }
 
-        binding.switchBlockElement.isChecked = prefs.isBlockElementEnabled
-        binding.rowBlockElement.setOnClickListener {
-            prefs.isBlockElementEnabled = !prefs.isBlockElementEnabled
-            binding.switchBlockElement.isChecked = prefs.isBlockElementEnabled
-            updateElementSubRowVisibility()
-        }
+        setupSwitchRow(
+            binding.rowBlockElement,
+            binding.switchBlockElement,
+            { prefs.isBlockElementEnabled },
+            { prefs.isBlockElementEnabled = it },
+            { updateElementSubRowVisibility() }
+        )
 
-        binding.switchElementBlockingPrivate.isChecked = prefs.isElementBlockingInPrivateEnabled
-        binding.rowElementBlockingPrivate.setOnClickListener {
-            prefs.isElementBlockingInPrivateEnabled = !prefs.isElementBlockingInPrivateEnabled
-            binding.switchElementBlockingPrivate.isChecked = prefs.isElementBlockingInPrivateEnabled
-        }
+        setupSwitchRow(
+            binding.rowElementBlockingPrivate,
+            binding.switchElementBlockingPrivate,
+            { prefs.isElementBlockingInPrivateEnabled },
+            { prefs.isElementBlockingInPrivateEnabled = it }
+        )
 
         updateElementSubRowVisibility()
     }
@@ -218,36 +250,41 @@ class ShieldsActivity : AppCompatActivity() {
             binding.rowAllowLinkedInEmbeds.isEnabled = show
         }
 
-        binding.switchSocialMediaBlocking.isChecked = prefs.isSocialMediaBlockingEnabled
-        binding.rowSocialMediaBlocking.setOnClickListener {
-            prefs.isSocialMediaBlockingEnabled = !prefs.isSocialMediaBlockingEnabled
-            binding.switchSocialMediaBlocking.isChecked = prefs.isSocialMediaBlockingEnabled
-            updateSubRowVisibility()
-        }
+        setupSwitchRow(
+            binding.rowSocialMediaBlocking,
+            binding.switchSocialMediaBlocking,
+            { prefs.isSocialMediaBlockingEnabled },
+            { prefs.isSocialMediaBlockingEnabled = it },
+            { updateSubRowVisibility() }
+        )
 
-        binding.switchAllowGoogleSignIn.isChecked = !prefs.isGoogleSignInBlockedGlobal
-        binding.rowAllowGoogleSignIn.setOnClickListener {
-            prefs.isGoogleSignInBlockedGlobal = !prefs.isGoogleSignInBlockedGlobal
-            binding.switchAllowGoogleSignIn.isChecked = !prefs.isGoogleSignInBlockedGlobal
-        }
+        setupSwitchRow(
+            binding.rowAllowGoogleSignIn,
+            binding.switchAllowGoogleSignIn,
+            { !prefs.isGoogleSignInBlockedGlobal },
+            { prefs.isGoogleSignInBlockedGlobal = !it }
+        )
 
-        binding.switchAllowFbLogins.isChecked = prefs.allowFacebookLogins
-        binding.rowAllowFbLogins.setOnClickListener {
-            prefs.allowFacebookLogins = !prefs.allowFacebookLogins
-            binding.switchAllowFbLogins.isChecked = prefs.allowFacebookLogins
-        }
+        setupSwitchRow(
+            binding.rowAllowFbLogins,
+            binding.switchAllowFbLogins,
+            { prefs.allowFacebookLogins },
+            { prefs.allowFacebookLogins = it }
+        )
 
-        binding.switchAllowTwitterEmbeds.isChecked = prefs.allowTwitterEmbeds
-        binding.rowAllowTwitterEmbeds.setOnClickListener {
-            prefs.allowTwitterEmbeds = !prefs.allowTwitterEmbeds
-            binding.switchAllowTwitterEmbeds.isChecked = prefs.allowTwitterEmbeds
-        }
+        setupSwitchRow(
+            binding.rowAllowTwitterEmbeds,
+            binding.switchAllowTwitterEmbeds,
+            { prefs.allowTwitterEmbeds },
+            { prefs.allowTwitterEmbeds = it }
+        )
 
-        binding.switchAllowLinkedInEmbeds.isChecked = prefs.allowLinkedInEmbeds
-        binding.rowAllowLinkedInEmbeds.setOnClickListener {
-            prefs.allowLinkedInEmbeds = !prefs.allowLinkedInEmbeds
-            binding.switchAllowLinkedInEmbeds.isChecked = prefs.allowLinkedInEmbeds
-        }
+        setupSwitchRow(
+            binding.rowAllowLinkedInEmbeds,
+            binding.switchAllowLinkedInEmbeds,
+            { prefs.allowLinkedInEmbeds },
+            { prefs.allowLinkedInEmbeds = it }
+        )
 
         updateSubRowVisibility()
     }
@@ -255,11 +292,12 @@ class ShieldsActivity : AppCompatActivity() {
     // ── LINKS ─────────────────────────────────────────────────────────────────
 
     private fun setupLinks() {
-        binding.switchOpenLinksInApp.isChecked = prefs.isOpenLinksInAppEnabled
-        binding.rowOpenLinksInApp.setOnClickListener {
-            prefs.isOpenLinksInAppEnabled = !prefs.isOpenLinksInAppEnabled
-            binding.switchOpenLinksInApp.isChecked = prefs.isOpenLinksInAppEnabled
-        }
+        setupSwitchRow(
+            binding.rowOpenLinksInApp,
+            binding.switchOpenLinksInApp,
+            { prefs.isOpenLinksInAppEnabled },
+            { prefs.isOpenLinksInAppEnabled = it }
+        )
     }
 
     // ── SECURE DNS ────────────────────────────────────────────────────────────
@@ -272,11 +310,12 @@ class ShieldsActivity : AppCompatActivity() {
     )
 
     private fun setupSecureDns() {
-        binding.switchSecureDns.isChecked = prefs.isSecureDnsEnabled
-        binding.rowSecureDns.setOnClickListener {
-            prefs.isSecureDnsEnabled = !prefs.isSecureDnsEnabled
-            binding.switchSecureDns.isChecked = prefs.isSecureDnsEnabled
-        }
+        setupSwitchRow(
+            binding.rowSecureDns,
+            binding.switchSecureDns,
+            { prefs.isSecureDnsEnabled },
+            { prefs.isSecureDnsEnabled = it }
+        )
 
         updateDnsProviderDisplay()
         binding.rowDnsProvider.setOnClickListener {
@@ -297,16 +336,18 @@ class ShieldsActivity : AppCompatActivity() {
     // ── PRIVACY ───────────────────────────────────────────────────────────────
 
     private fun setupPrivacy() {
-        binding.switchBlockAppBanner.isChecked = prefs.isBlockAppBannerEnabled
-        binding.rowBlockAppBanner.setOnClickListener {
-            prefs.isBlockAppBannerEnabled = !prefs.isBlockAppBannerEnabled
-            binding.switchBlockAppBanner.isChecked = prefs.isBlockAppBannerEnabled
-        }
+        setupSwitchRow(
+            binding.rowBlockAppBanner,
+            binding.switchBlockAppBanner,
+            { prefs.isBlockAppBannerEnabled },
+            { prefs.isBlockAppBannerEnabled = it }
+        )
 
-        binding.switchDoNotTrack.isChecked = prefs.isDoNotTrackEnabled
-        binding.rowDoNotTrack.setOnClickListener {
-            prefs.isDoNotTrackEnabled = !prefs.isDoNotTrackEnabled
-            binding.switchDoNotTrack.isChecked = prefs.isDoNotTrackEnabled
-        }
+        setupSwitchRow(
+            binding.rowDoNotTrack,
+            binding.switchDoNotTrack,
+            { prefs.isDoNotTrackEnabled },
+            { prefs.isDoNotTrackEnabled = it }
+        )
     }
 }

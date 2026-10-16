@@ -215,7 +215,7 @@ class AllSitesSheet(
         val webrtc = prefs.getSiteWebRtcPermission(domain)
         if (webrtc == SitePermissionState.ALLOWED) summaryParts.add("WebRTC: allowed")
         else if (webrtc == SitePermissionState.BLOCKED) summaryParts.add("WebRTC: blocked")
-        if (prefs.isDomainWhitelisted(domain)) summaryParts.add("Shields: off")
+        if (!prefs.isAdBlockEnabled || prefs.isDomainWhitelisted(domain)) summaryParts.add("Shields: off")
         val blockingLevel = prefs.getSiteBlockingLevel(domain)
         if (blockingLevel != null) {
             summaryParts.add("Shields: ${if (blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) "aggressive" else "standard"}")

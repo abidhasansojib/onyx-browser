@@ -100,6 +100,10 @@ class VideoSettingsActivity : AppCompatActivity() {
             }
         }
 
+        binding.settingBackgroundPlaySwitch.setOnClickListener {
+            binding.settingBackgroundPlayRow.performClick()
+        }
+
         // Picture-in-picture switch
         binding.settingPipSwitch.isChecked = preferences.isPipEnabled && isPipPermissionAllowed()
         binding.settingPipRow.setOnClickListener {
@@ -118,6 +122,9 @@ class VideoSettingsActivity : AppCompatActivity() {
                 binding.settingPipSwitch.isChecked = false
                 com.onyx.browser.media.MediaPlaybackBridge.isVideoPlaying = false
             }
+        }
+        binding.settingPipSwitch.setOnClickListener {
+            binding.settingPipRow.performClick()
         }
 
         binding.settingPipRow.setOnLongClickListener {
