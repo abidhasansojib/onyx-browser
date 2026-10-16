@@ -356,7 +356,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/accessibility_force_dark_mode_title"
+                        android:text="@string/force_dark_title"
                         android:textColor="@color/settings_title_text"
                         android:textSize="14sp"
                         android:textStyle="bold" />
@@ -365,7 +365,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="@string/accessibility_force_dark_mode_desc"
+                        android:text="@string/force_dark_desc"
                         android:textColor="@color/settings_subtitle_text"
                         android:textSize="11sp" />
                 </LinearLayout>

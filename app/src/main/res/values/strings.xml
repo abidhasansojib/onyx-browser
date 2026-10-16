@@ -580,6 +580,8 @@
     <string name="pull_to_refresh_desc">Swipe down from the top to refresh web pages</string>
     <string name="force_dark_title">Force dark mode</string>
     <string name="force_dark_desc">Automatically darken web contents when using dark theme</string>
+    <string name="accessibility_force_dark_mode_title">Force dark mode</string>
+    <string name="accessibility_force_dark_mode_desc">Automatically darken web contents when using dark theme</string>
 
     <!-- Downloads search and categories -->
     <string name="search_downloads_hint">Search downloads…</string>
