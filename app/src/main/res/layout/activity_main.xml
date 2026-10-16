@@ -7,6 +7,18 @@
     android:layout_height="match_parent"
     android:background="?android:attr/windowBackground">
 
+    <!-- Dedicated Status Bar Space (reserves system status bar height for auto-hide toolbar scroll) -->
+    <View
+        android:id="@+id/statusBarSpace"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@color/homepage_bg"
+        android:elevation="4dp"
+        android:outlineProvider="none"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Network Status Banner -->
     <TextView
         android:id="@+id/tvNetworkStatus"
@@ -23,7 +35,7 @@
         tools:visibility="visible"
         tools:text="No Internet Connection"
         tools:background="#EA4335"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/statusBarSpace"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 

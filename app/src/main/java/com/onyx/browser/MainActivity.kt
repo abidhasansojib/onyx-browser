@@ -145,6 +145,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private var isToolbarHidden = false
     private var toolbarAnimator: android.animation.ValueAnimator? = null
     private var lastKnownTopBarHeight: Int = 0
+    private var lastStatusBarTopInset: Int = 0
 
     companion object {
         var currentInstance: java.lang.ref.WeakReference<MainActivity>? = null
@@ -1195,6 +1196,12 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         )
         enforceHighRefreshRate()
         
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        insetsController.isAppearanceLightStatusBars = !isNightMode
+        
         preferences = BrowserPreferences.getInstance(this)
         preferences.applyTheme()
         lastThemeMode = preferences.themeMode
@@ -1232,12 +1239,21 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             )
             val navBarInsets = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars())
             lastNavBarBottomInset = navBarInsets.bottom
+            lastStatusBarTopInset = statusBarInsets.top
+
+            val statusBarHeight = statusBarInsets.top
+            val spaceLp = binding.statusBarSpace.layoutParams
+            if (spaceLp != null && spaceLp.height != statusBarHeight) {
+                spaceLp.height = statusBarHeight
+                binding.statusBarSpace.layoutParams = spaceLp
+            }
+            binding.statusBarSpace.visibility = if (statusBarHeight > 0) View.VISIBLE else View.GONE
 
             val bottomPaddingPx = (8 * resources.displayMetrics.density).toInt()
-            val topPaddingPx = (4 * resources.displayMetrics.density).toInt()
+            val topPaddingPx = (6 * resources.displayMetrics.density).toInt()
             binding.topBar.setPadding(
                 binding.topBar.paddingLeft,
-                statusBarInsets.top + topPaddingPx,
+                topPaddingPx,
                 binding.topBar.paddingRight,
                 bottomPaddingPx
             )
@@ -1329,6 +1345,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             getMediaTargetWebView = { getMediaTargetWebView() },
             onHideUiForPip = {
                 binding.contentContainer.setPadding(0, 0, 0, 0)
+                binding.statusBarSpace.visibility = View.GONE
                 binding.topBar.visibility = View.GONE
                 binding.topBarDivider.visibility = View.GONE
                 binding.homeLayout.root.visibility = View.GONE
@@ -1339,6 +1356,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             },
             onRestoreUiFromPip = { isCustomVideo ->
                 binding.contentContainer.setPadding(0, 0, 0, lastNavBarBottomInset)
+                if (lastStatusBarTopInset > 0) {
+                    binding.statusBarSpace.visibility = View.VISIBLE
+                }
                 if (!isCustomVideo) {
                     val activeTab = tabManager.activeTab.value
                     if (activeTab != null && activeTab.url.isNotBlank() &&
@@ -3510,6 +3530,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (customVideoView == null) {
                 binding.fullscreenCustomViewContainer.visibility = View.GONE
                 binding.fullscreenControlsOverlay.visibility = View.GONE
+                if (lastStatusBarTopInset > 0) {
+                    binding.statusBarSpace.visibility = View.VISIBLE
+                }
                 binding.topBar.visibility = View.VISIBLE
                 binding.topBarDivider.visibility = View.VISIBLE
                 val activeTab = tabManager.activeTab.value

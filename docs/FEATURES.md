@@ -105,7 +105,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 ## 8. UI, Theming & Accessibility
 
 - `[x]` **Theme Modes & Web Dark Mode**: Seamless switching between System, Dark, and Light themes, with algorithmic Force Dark Web Contents toggleable directly in the Theme Picker and Accessibility settings.
-- `[x]` **Auto-Hide Address Bar on Scroll (Scroll-to-Hide)**: Address bar smoothly slides out of view when scrolling down to maximize screen space and slides back into view when scrolling up, with dedicated toggle in Accessibility settings.
+- `[x]` **Auto-Hide Address Bar on Scroll (Scroll-to-Hide)**: Address bar smoothly slides out of view when scrolling down to maximize screen space and slides back into view when scrolling up (with reserved status bar space preventing web content overlap), with dedicated toggle in Accessibility settings.
 - `[x]` **Material 3 Site Settings & Permission Dialogs**: Clean bottom-sheet dialogs for Camera, Microphone, Location, and Notification permissions.
 - `[x]` **Configurable Pull-to-Refresh**: Density-scaled pull sensitivity with user disable toggle.
 - `[x]` **Homepage Shortcuts**: Customizable tile grid with drag-and-drop reordering and cached high-resolution favicons.
