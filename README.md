@@ -13,7 +13,7 @@ A fast, private, and lightweight browser for Android.
 
 <br />
 
-[**Download APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**Full Features**](docs/FEATURES.md) • [**Report an Issue**](https://github.com/abidhasansojib/onyx-browser/issues)
+[**Download APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**Features**](docs/FEATURES.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Report an Issue**](https://github.com/abidhasansojib/onyx-browser/issues)
 
 </div>
 
