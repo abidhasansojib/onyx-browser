@@ -118,6 +118,9 @@
     <string name="file_size_unknown">Size unknown</string>
 
     <!-- History & Bookmarks -->
+    <string name="history_today">Today</string>
+    <string name="history_yesterday">Yesterday</string>
+    <string name="history_section_title">History</string>
     <string name="search_history">Search history…</string>
     <string name="no_history">No browsing history yet</string>
     <string name="no_bookmarks">No bookmarks saved yet</string>

@@ -97,6 +97,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Bookmarks & Bookmarklets Engine**: Create, edit, and organize bookmarks with live search and direct `javascript:...` bookmarklet execution.
 - `[x]` **Smart "Open in App" Intent Prompt**: Material 3 dialog resolving native app icons and labels for deep links (`tg://`, `intent://`, etc.).
 - `[x]` **Channel-Aware In-App Updater & Rolling Odometer Versioning**: Dual release channels (Release vs Pre-release) checking GitHub Releases / Pre-releases with zero-rate-limit public Atom feed fallback. Automatic rolling odometer versioning (`MAJOR.MINOR.PATCH`) increments patch up to 99 before advancing minor, and minor up to 9 before advancing major.
+- `[x]` **Day-by-Day Grouped Browsing History with Website Favicons**: Grouped history cards by calendar days ("Today", "Yesterday", and formatted dates) with expandable/collapsible chevron controls and dynamic circular website favicon/logo resolution with fallback placeholder badges.
 
 ---
 

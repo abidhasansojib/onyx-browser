@@ -76,5 +76,9 @@
     <!-- Settings text colors — light mode -->
     <color name="settings_title_text">#202124</color>
     <color name="settings_subtitle_text">#5F6368</color>
+
+    <!-- History Screen Colors — Light mode -->
+    <color name="history_icon_placeholder_bg">#E8EAED</color>
+    <color name="history_icon_placeholder_tint">#5F6368</color>
 </resources>
 

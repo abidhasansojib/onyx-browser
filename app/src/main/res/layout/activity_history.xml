@@ -83,45 +83,71 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <FrameLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:orientation="vertical"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- History Items Recycler -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvHistory"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            tools:listitem="@layout/item_history" />
-
-        <!-- Empty State -->
-        <LinearLayout
-            android:id="@+id/emptyHistoryView"
+        <!-- Uppercase Section Header: HISTORY -->
+        <TextView
+            android:id="@+id/tvHistorySectionTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:visibility="gone"
-            tools:visibility="visible">
+            android:layout_marginStart="20dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/history_section_title"
+            android:textAllCaps="true"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.06" />
 
-            <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:alpha="0.3"
-                app:srcCompat="@drawable/ic_history"
-                app:tint="?attr/colorControlNormal" />
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
 
-            <TextView
+            <!-- History Items Recycler with Day-by-Day Groups -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvHistory"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingTop="2dp"
+                android:paddingBottom="24dp"
+                tools:listitem="@layout/item_history" />
+
+            <!-- Empty State -->
+            <LinearLayout
+                android:id="@+id/emptyHistoryView"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/no_history"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="16sp" />
-        </LinearLayout>
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
 
-    </FrameLayout>
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:alpha="0.3"
+                    app:srcCompat="@drawable/ic_history"
+                    app:tint="?attr/colorControlNormal" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/no_history"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+        </FrameLayout>
+
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

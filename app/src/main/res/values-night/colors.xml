@@ -51,5 +51,9 @@
     <!-- Settings text colors — dark mode -->
     <color name="settings_title_text">#FFFFFFFF</color>
     <color name="settings_subtitle_text">#9AA0A6</color>
+
+    <!-- History Screen Colors — Dark mode -->
+    <color name="history_icon_placeholder_bg">#2C2D30</color>
+    <color name="history_icon_placeholder_tint">#E8EAED</color>
 </resources>
 
