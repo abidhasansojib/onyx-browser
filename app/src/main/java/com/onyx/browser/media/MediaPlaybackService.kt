@@ -14,7 +14,9 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.support.v4.media.MediaMetadataCompat
@@ -57,6 +59,27 @@ class MediaPlaybackService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var artworkJob: Job? = null
 
+    // --- UI-lag fix: throttle notification updates ---
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var notificationUpdatePending = false
+    private var lastNotificationUpdateMs = 0L
+
+    // Cache built notification & its key inputs to avoid unnecessary rebuilds
+    private var cachedNotification: Notification? = null
+    private var cachedIsPlaying: Boolean = false
+    private var cachedArtworkBitmap: Bitmap? = null
+
+    // Lazy-decode fallback icon once, not on every buildNotification() call
+    private var fallbackIcon: Bitmap? = null
+    private fun getFallbackIcon(): Bitmap? {
+        if (fallbackIcon == null) {
+            fallbackIcon = try {
+                BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
+            } catch (_: Exception) { null }
+        }
+        return fallbackIcon
+    }
+
     private val screenStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -79,7 +102,7 @@ class MediaPlaybackService : Service() {
                         releaseWakeLock()
                         updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
                         mediaActionListener?.onPauseMedia()
-                        updateNotification()
+                        scheduleNotificationUpdate(force = true)
                     }
                 }
             }
@@ -133,6 +156,8 @@ class MediaPlaybackService : Service() {
                 description = "Shows controls for web audio and video playback"
                 setShowBadge(false)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setSound(null, null)
+                enableVibration(false)
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -151,7 +176,7 @@ class MediaPlaybackService : Service() {
                     acquireWakeLock()
                     updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
                     mediaActionListener?.onPlayMedia()
-                    updateNotification()
+                    scheduleNotificationUpdate(force = true)
                 }
 
                 override fun onPause() {
@@ -160,7 +185,7 @@ class MediaPlaybackService : Service() {
                     releaseWakeLock()
                     updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
                     mediaActionListener?.onPauseMedia()
-                    updateNotification()
+                    scheduleNotificationUpdate(force = true)
                 }
 
                 override fun onSkipToNext() {
@@ -185,7 +210,7 @@ class MediaPlaybackService : Service() {
                         if (isMediaPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
                     )
                     mediaActionListener?.onSeekToMedia(pos)
-                    updateNotification()
+                    scheduleNotificationUpdate(force = false)
                 }
 
                 override fun onStop() {
@@ -226,7 +251,7 @@ class MediaPlaybackService : Service() {
                 acquireWakeLock()
                 updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
                 mediaActionListener?.onPlayMedia()
-                updateNotification()
+                startForegroundCompat(buildNotification())
             }
             ACTION_PAUSE -> {
                 MediaPlaybackBridge.isExplicitUserPause = true
@@ -234,7 +259,7 @@ class MediaPlaybackService : Service() {
                 releaseWakeLock()
                 updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
                 mediaActionListener?.onPauseMedia()
-                updateNotification()
+                startForegroundCompat(buildNotification())
             }
             ACTION_REWIND -> {
                 mediaActionListener?.onSeekMedia(-10)
@@ -278,9 +303,14 @@ class MediaPlaybackService : Service() {
                 startForegroundCompat(buildNotification())
             }
             ACTION_UPDATE_PROGRESS -> {
+                // Only update MediaSession playback state (seekbar position) — do NOT rebuild
+                // or re-post the full notification. This prevents UI jank from binder IPC spam
+                // on every timeupdate event (~250ms interval).
                 updatePlaybackState(
                     if (isMediaPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
                 )
+                // Schedule a throttled notification refresh (max once per 5s for progress)
+                scheduleNotificationUpdate(force = false)
             }
             else -> {
                 // Initial start
@@ -297,6 +327,52 @@ class MediaPlaybackService : Service() {
         }
 
         return START_STICKY
+    }
+
+    /**
+     * Throttled notification update dispatcher.
+     * - force=true: post update immediately (play/pause state change).
+     * - force=false: only post if 5+ seconds have elapsed since last update (progress tick).
+     * This eliminates the main cause of UI lag: rapid-fire binder IPC to NotificationManager
+     * triggered by every timeupdate JS event.
+     */
+    private fun scheduleNotificationUpdate(force: Boolean) {
+        val now = SystemClock.elapsedRealtime()
+        if (force) {
+            mainHandler.removeCallbacks(notificationUpdateRunnable)
+            notificationUpdatePending = false
+            lastNotificationUpdateMs = now
+            doUpdateNotification()
+            return
+        }
+        // Throttle: only refresh notification at most once every 5 seconds for progress
+        val elapsed = now - lastNotificationUpdateMs
+        if (elapsed >= NOTIFICATION_THROTTLE_MS) {
+            mainHandler.removeCallbacks(notificationUpdateRunnable)
+            notificationUpdatePending = false
+            lastNotificationUpdateMs = now
+            doUpdateNotification()
+        } else if (!notificationUpdatePending) {
+            notificationUpdatePending = true
+            mainHandler.postDelayed(notificationUpdateRunnable, NOTIFICATION_THROTTLE_MS - elapsed)
+        }
+    }
+
+    private val notificationUpdateRunnable = Runnable {
+        notificationUpdatePending = false
+        lastNotificationUpdateMs = SystemClock.elapsedRealtime()
+        doUpdateNotification()
+    }
+
+    private fun doUpdateNotification() {
+        try {
+            val n = buildNotification()
+            // Always call startForeground to guarantee the notification stays attached to
+            // the foreground service and won't be dismissed by the OS on newer Android versions.
+            startForegroundCompat(n)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update media notification", e)
+        }
     }
 
     private fun loadArtworkAsync(urlStr: String) {
@@ -335,10 +411,11 @@ class MediaPlaybackService : Service() {
             }
             if (bitmap != null) {
                 currentArtworkBitmap = bitmap
+                cachedArtworkBitmap = null // invalidate cache so next build picks it up
                 updatePlaybackState(
                     if (isMediaPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
                 )
-                updateNotification()
+                scheduleNotificationUpdate(force = true)
             }
         }
     }
@@ -371,11 +448,8 @@ class MediaPlaybackService : Service() {
             metadataBuilder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, currentDurationMs)
         }
 
-        val art = currentArtworkBitmap ?: try {
-            BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
-        } catch (_: Exception) {
-            null
-        }
+        // Use cached artwork to avoid repeated BitmapFactory.decodeResource calls
+        val art = currentArtworkBitmap ?: getFallbackIcon()
 
         if (art != null) {
             metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, art)
@@ -426,14 +500,10 @@ class MediaPlaybackService : Service() {
         }
 
         val forwardIntent = getMediaPendingIntent(3, ACTION_FORWARD)
-
         val stopIntent = getMediaPendingIntent(4, ACTION_STOP)
 
-        val largeIcon = currentArtworkBitmap ?: try {
-            BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
-        } catch (_: Exception) {
-            null
-        }
+        // Use cached or current artwork, fallback to lazy-decoded launcher icon
+        val largeIcon = currentArtworkBitmap ?: getFallbackIcon()
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_play_circle)
@@ -444,6 +514,9 @@ class MediaPlaybackService : Service() {
             .setDeleteIntent(stopIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(isMediaPlaying)
+            .setSilent(true)                                          // No sound/vibration on update
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)       // Correct category for media
+            .setColorized(false)
             .addAction(R.drawable.ic_fast_rewind, "Rewind 10s", rewindIntent)
             .addAction(playPauseAction)
             .addAction(R.drawable.ic_fast_forward, "Forward 10s", forwardIntent)
@@ -452,19 +525,10 @@ class MediaPlaybackService : Service() {
                 MediaStyle()
                     .setMediaSession(mediaSession.sessionToken)
                     .setShowActionsInCompactView(0, 1, 2)
-                    .setShowCancelButton(true)
-                    .setCancelButtonIntent(stopIntent)
+                    .setShowCancelButton(false)
             )
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)         // Bumped from LOW for visibility
             .build()
-    }
-
-    private fun updateNotification() {
-        try {
-            notificationManager.notify(NOTIFICATION_ID, buildNotification())
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to update media notification", e)
-        }
     }
 
     private fun startForegroundCompat(notification: Notification) {
@@ -533,11 +597,13 @@ class MediaPlaybackService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isServiceRunning = false
+        mainHandler.removeCallbacks(notificationUpdateRunnable)
         try {
             unregisterReceiver(screenStateReceiver)
         } catch (_: Exception) {}
         artworkJob?.cancel()
         currentArtworkBitmap = null
+        fallbackIcon = null
         releaseWakeLock()
         isMediaPlaying = false
         stopForegroundCompat()
@@ -556,6 +622,9 @@ class MediaPlaybackService : Service() {
         private const val TAG = "MediaPlaybackService"
         const val CHANNEL_ID = "onyx_media_playback_channel"
         const val NOTIFICATION_ID = 4040
+
+        // Throttle progress-triggered notification rebuilds to once every 5 seconds
+        private const val NOTIFICATION_THROTTLE_MS = 5000L
 
         const val ACTION_PLAY = "com.onyx.browser.action.MEDIA_PLAY"
         const val ACTION_PAUSE = "com.onyx.browser.action.MEDIA_PAUSE"
