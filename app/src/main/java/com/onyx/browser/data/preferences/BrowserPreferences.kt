@@ -377,8 +377,8 @@ class BrowserPreferences private constructor(private val context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_BLOCK_APP_BANNER, value).apply()
 
     // ── Last Active Tab ID ──────────────────────────────────────────────────
-    var lastActiveTabId: String
-        get() = prefs.getString(KEY_LAST_ACTIVE_TAB_ID, "") ?: ""
+    var lastActiveTabId: String?
+        get() = prefs.getString(KEY_LAST_ACTIVE_TAB_ID, null)
         set(value) = prefs.edit().putString(KEY_LAST_ACTIVE_TAB_ID, value).apply()
 
     // ── Clear Browsing Data on Exit ──────────────────────────────────────────

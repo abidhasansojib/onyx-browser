@@ -103,12 +103,14 @@ class OnyxWebViewClient(
     private var isMainFrameDocumentLoaded: Boolean = false
 
     // Bounded LRU cache of URLs where user explicitly chose "Stay in Onyx", avoiding unbounded memory growth
-    private val bypassAppInterceptUrls = java.util.Collections.synchronizedSet(
-        object : java.util.LinkedHashMap<String, Boolean>(64, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean {
-                return size > 100
+    private val bypassAppInterceptUrls: MutableSet<String> = java.util.Collections.synchronizedSet(
+        java.util.Collections.newSetFromMap(
+            object : java.util.LinkedHashMap<String, java.lang.Boolean>(64, 0.75f, true) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, java.lang.Boolean>?): Boolean {
+                    return size > 100
+                }
             }
-        }.keySet()
+        )
     )
 
     // Social media tracker domains (analytics/pixel only, not content)

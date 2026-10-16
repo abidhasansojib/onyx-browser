@@ -41,6 +41,9 @@ sealed class SyntheticNavigationState(
         failingUrl
     }
 
+    val isSslError: Boolean
+        get() = category == ErrorCategory.SECURITY
+
     fun toJson(): String {
         val escapedTitle = escapeJson(title)
         val escapedDesc = escapeJson(description)
