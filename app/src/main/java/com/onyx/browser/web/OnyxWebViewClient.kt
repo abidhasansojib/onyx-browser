@@ -1632,8 +1632,9 @@ class OnyxWebViewClient(
             injectFingerprintProtection(view)
         }
 
-        // Passkey / WebAuthn support — only when not in an auth checkpoint that uses native navigator.credentials
-        if (preferences.isPasskeysEnabled && !isAuthOrMeta) {
+        // Passkey / WebAuthn support — allow on all auth & login sites (GitHub, Google, Microsoft, etc.), only skip Meta/Facebook internal flows
+        val isMetaAuthOnly = isMetaDomain(pageDomain) || isMetaDomain(preferences.cleanDomain(url ?: ""))
+        if (preferences.isPasskeysEnabled && !isMetaAuthOnly) {
             view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
         }
 
@@ -1822,7 +1823,8 @@ class OnyxWebViewClient(
                     view?.evaluateJavascript(cleanupJs, null)
                 }
             }
-            if (preferences.isPasskeysEnabled && !isAuthOrMeta) {
+            val isMetaAuthOnly = isMetaDomain(pageDomain) || isMetaDomain(preferences.cleanDomain(url))
+            if (preferences.isPasskeysEnabled && !isMetaAuthOnly) {
                 view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
             }
             if (!isAuthOrMeta) {

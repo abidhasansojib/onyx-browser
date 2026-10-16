@@ -256,15 +256,24 @@ class PasskeyWebAuthnBridge(
         } else null
 
         if (genuineOrigin != null) {
-            // Under W3C WebAuthn spec, web scripts cannot forge or override origin.
-            // If caller provided an origin, verify that it matches genuineOrigin.
-            if (origin.isNotBlank() && origin != "null") {
-                val trimmed = origin.trimEnd('/')
-                if (!trimmed.equals(genuineOrigin, ignoreCase = true)) {
-                    android.util.Log.w("PasskeyBridge", "Blocked origin spoofing attempt: requested '$origin', genuine '$genuineOrigin'")
-                }
-            }
             return genuineOrigin
+        }
+
+        // Fallback: validate and normalize caller origin when webView.url is temporarily blank
+        if (origin.isNotBlank() && origin != "null") {
+            try {
+                val uri = Uri.parse(origin)
+                val scheme = uri.scheme?.lowercase()
+                val host = uri.host
+                val port = uri.port
+                if ((scheme == "https" || scheme == "http") && !host.isNullOrBlank()) {
+                    return if (port != -1 && port != 80 && port != 443) {
+                        "$scheme://$host:$port"
+                    } else {
+                        "$scheme://$host"
+                    }
+                }
+            } catch (_: Exception) {}
         }
         return ""
     }
@@ -374,7 +383,7 @@ class PasskeyWebAuthnBridge(
                     // Android CredentialManager which cannot satisfy Facebook's internal challenge,
                     // causing "confirmation failed" errors on login.
                     var ref = (document.referrer || '').toLowerCase();
-                    if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|github\.com|arkose|funcaptcha/i.test(ref)) return;
+                    if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha/i.test(ref)) return;
 
                     var isMetaAuthDomain =
                         host === 'facebook.com' || host.endsWith('.facebook.com') ||
@@ -387,14 +396,7 @@ class PasskeyWebAuthnBridge(
                         host === 'threads.net' || host.endsWith('.threads.net') ||
                         host === 'fbcdn.net' || host.endsWith('.fbcdn.net') ||
                         host === 'facebook.net' || host.endsWith('.facebook.net') ||
-                        host === 'accounts.google.com' || host.endsWith('.accounts.google.com') ||
-                        host === 'appleid.apple.com' || host.endsWith('.appleid.apple.com') ||
-                        host === 'github.com' || host.endsWith('.github.com') ||
-                        host === 'api.github.com' ||
-                        host.indexOf('arkose') !== -1 || host.indexOf('funcaptcha') !== -1 ||
-                        path.indexOf('/checkpoint/') !== -1 ||
-                        path.indexOf('/login/') !== -1 ||
-                        path.indexOf('/two_step_verification') !== -1;
+                        host.indexOf('arkose') !== -1 || host.indexOf('funcaptcha') !== -1;
 
                     if (isMetaAuthDomain) return;
 
@@ -479,6 +481,57 @@ class PasskeyWebAuthnBridge(
                     window.PublicKeyCredential.isConditionalMediationAvailable = function() {
                         return Promise.resolve(true);
                     };
+                    if (typeof window.PublicKeyCredential.getClientCapabilities !== 'function') {
+                        window.PublicKeyCredential.getClientCapabilities = function() {
+                            return Promise.resolve({
+                                conditionalCreate: true,
+                                conditionalGet: true,
+                                hybridTransport: true,
+                                passkeyPlatformAuthenticator: true,
+                                userVerifyingPlatformAuthenticator: true,
+                                relatedOrigins: true
+                            });
+                        };
+                    }
+                    if (typeof window.PublicKeyCredential.parseCreationOptionsFromJSON !== 'function') {
+                        window.PublicKeyCredential.parseCreationOptionsFromJSON = function(json) {
+                            if (!json) return json;
+                            var res = Object.assign({}, json);
+                            if (typeof res.challenge === 'string') {
+                                res.challenge = base64UrlToBuffer(res.challenge);
+                            }
+                            if (res.user && typeof res.user.id === 'string') {
+                                res.user = Object.assign({}, res.user, { id: base64UrlToBuffer(res.user.id) });
+                            }
+                            if (Array.isArray(res.excludeCredentials)) {
+                                res.excludeCredentials = res.excludeCredentials.map(function(item) {
+                                    if (item && typeof item.id === 'string') {
+                                        return Object.assign({}, item, { id: base64UrlToBuffer(item.id) });
+                                    }
+                                    return item;
+                                });
+                            }
+                            return res;
+                        };
+                    }
+                    if (typeof window.PublicKeyCredential.parseRequestOptionsFromJSON !== 'function') {
+                        window.PublicKeyCredential.parseRequestOptionsFromJSON = function(json) {
+                            if (!json) return json;
+                            var res = Object.assign({}, json);
+                            if (typeof res.challenge === 'string') {
+                                res.challenge = base64UrlToBuffer(res.challenge);
+                            }
+                            if (Array.isArray(res.allowCredentials)) {
+                                res.allowCredentials = res.allowCredentials.map(function(item) {
+                                    if (item && typeof item.id === 'string') {
+                                        return Object.assign({}, item, { id: base64UrlToBuffer(item.id) });
+                                    }
+                                    return item;
+                                });
+                            }
+                            return res;
+                        };
+                    }
 
                     var origCredentials = navigator.credentials;
                     var origCreate = origCredentials ? origCredentials.create.bind(origCredentials) : null;
@@ -541,7 +594,13 @@ class PasskeyWebAuthnBridge(
                                             getAuthenticatorData: function() { return authData.byteLength > 0 ? authData : new ArrayBuffer(0); },
                                             getPublicKey: function() { return null; },
                                             getPublicKeyAlgorithm: function() { return -7; },
-                                            toJSON: function() { return resp.response || {}; }
+                                            toJSON: function() {
+                                                return {
+                                                    clientDataJSON: (resp.response && resp.response.clientDataJSON) || '',
+                                                    attestationObject: (resp.response && resp.response.attestationObject) || '',
+                                                    transports: (resp.response && resp.response.transports) || ['internal', 'hybrid']
+                                                };
+                                            }
                                         };
                                         if (window.AuthenticatorAttestationResponse && window.AuthenticatorAttestationResponse.prototype) {
                                             Object.setPrototypeOf(attestationResponse, window.AuthenticatorAttestationResponse.prototype);
@@ -553,8 +612,22 @@ class PasskeyWebAuthnBridge(
                                             type: resp.type || 'public-key',
                                             authenticatorAttachment: resp.authenticatorAttachment || 'platform',
                                             response: attestationResponse,
-                                            getClientExtensionResults: function() { return resp.clientExtensionResults || {}; },
-                                            toJSON: function() { return resp; }
+                                            getClientExtensionResults: function() { return resp.clientExtensionResults || { credProps: { rk: true } }; },
+                                            toJSON: function() {
+                                                return {
+                                                    id: resp.id || resp.rawId,
+                                                    rawId: resp.id || resp.rawId,
+                                                    type: resp.type || 'public-key',
+                                                    authenticatorAttachment: resp.authenticatorAttachment || 'platform',
+                                                    response: {
+                                                        clientDataJSON: (resp.response && resp.response.clientDataJSON) || '',
+                                                        attestationObject: (resp.response && resp.response.attestationObject) || '',
+                                                        transports: (resp.response && resp.response.transports) || ['internal', 'hybrid'],
+                                                        publicKeyAlgorithm: -7
+                                                    },
+                                                    clientExtensionResults: resp.clientExtensionResults || { credProps: { rk: true } }
+                                                };
+                                            }
                                         };
                                         if (window.PublicKeyCredential && window.PublicKeyCredential.prototype) {
                                             Object.setPrototypeOf(result, window.PublicKeyCredential.prototype);
@@ -625,7 +698,14 @@ class PasskeyWebAuthnBridge(
                                             authenticatorData: authData,
                                             signature: sig,
                                             userHandle: userHandle,
-                                            toJSON: function() { return resp.response || {}; }
+                                            toJSON: function() {
+                                                return {
+                                                    clientDataJSON: (resp.response && resp.response.clientDataJSON) || '',
+                                                    authenticatorData: (resp.response && resp.response.authenticatorData) || '',
+                                                    signature: (resp.response && resp.response.signature) || '',
+                                                    userHandle: (resp.response && resp.response.userHandle) || null
+                                                };
+                                            }
                                         };
                                         if (window.AuthenticatorAssertionResponse && window.AuthenticatorAssertionResponse.prototype) {
                                             Object.setPrototypeOf(assertionResponse, window.AuthenticatorAssertionResponse.prototype);
@@ -638,7 +718,21 @@ class PasskeyWebAuthnBridge(
                                             authenticatorAttachment: resp.authenticatorAttachment || 'platform',
                                             response: assertionResponse,
                                             getClientExtensionResults: function() { return resp.clientExtensionResults || {}; },
-                                            toJSON: function() { return resp; }
+                                            toJSON: function() {
+                                                return {
+                                                    id: resp.id || resp.rawId,
+                                                    rawId: resp.id || resp.rawId,
+                                                    type: resp.type || 'public-key',
+                                                    authenticatorAttachment: resp.authenticatorAttachment || 'platform',
+                                                    response: {
+                                                        clientDataJSON: (resp.response && resp.response.clientDataJSON) || '',
+                                                        authenticatorData: (resp.response && resp.response.authenticatorData) || '',
+                                                        signature: (resp.response && resp.response.signature) || '',
+                                                        userHandle: (resp.response && resp.response.userHandle) || null
+                                                    },
+                                                    clientExtensionResults: resp.clientExtensionResults || {}
+                                                };
+                                            }
                                         };
                                         if (window.PublicKeyCredential && window.PublicKeyCredential.prototype) {
                                             Object.setPrototypeOf(result, window.PublicKeyCredential.prototype);

@@ -156,7 +156,8 @@ Exposing native Java/Kotlin methods to JavaScript via `addJavascriptInterface` i
 Security challenge providers (Arkose Labs FunCaptcha, Cloudflare Turnstile, Meta Risk Engine) inspect `window` properties for presence of test automation or WebView wrapper bridges.
 - `ChromeEnvironmentBridge.SCRIPT` runs at document-start:
   - Deletes and masks `OnyxShieldBridge`, `OnyxMediaBridge`, `OnyxTouchBridge`, etc. on authentication, CAPTCHA, and Meta domains.
-  - Restores `window.chrome = {}` and `navigator.userAgentData` to match standalone Chromium.
+  - Retains `_OnyxPasskeyBridge` so FIDO2 / WebAuthn passkeys remain active on authentication domains (`github.com`, `accounts.google.com`).
+  - Restores `window.chrome = {}` and polyfills `navigator.userAgentData` (with clean Chromium/Chrome brands) to eliminate the embedded `"Android WebView"` signature that causes Google Sign-In to be blocked (`disallowed_useragent`).
   - Enforces `navigator.webdriver = false`.
 
 ### 5.3 Asynchronous Script Evaluation

@@ -102,18 +102,20 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
 
 - **Clean Foreground/Background Media Service Handshake**:
   - In the foreground, Android System WebView retains 100% native control over playback and MediaSession without focus collisions.
-  - `MediaPlaybackService` is launched strictly upon background transition (`onPause` when media is active) or screen-lock, and is dismissed upon `onResume()`, resolving video auto-pause issues on start when background playback is enabled.
+  - `MediaPlaybackService` holds both `PARTIAL_WAKE_LOCK` and `WifiLock` (low latency / high performance) to completely prevent CPU suspension and Wi-Fi chip sleep during long background playback sessions with screen off. Separate PendingIntent request codes prevent SystemUI action collisions.
+  - `MediaPlaybackService` is launched on background transition or tab-switch away from an active media tab, and `outgoingWebView.resumeTimers()` maintains JavaScript decoding on detached WebViews.
 
 - **Partitioned Media Cookies & CDN Stream Playback (Brave Parity)**:
   - Automatically permits third-party cookies for media subresources, video stream CDNs (such as HLS `.m3u8` playlists and segments), and embedded player iframes (e.g. `ravok.buzz`, `fireplayer.stream`), preventing HTTP 403 Forbidden on token/cookie-authenticated streams.
 
-- **Brave `userHitPause` Architecture & Auto-Resume**:
-  - Direct port of Brave's `MediaBackgroundingScript.js`. Sets `HTMLMediaElement.prototype.userHitPause = true` only upon genuine user touch gestures (`window.__onyx_last_user_touch < 1500`) or explicit bridge pause commands, and `false` on `play`.
-  - When web pages or OS blur events trigger auto-pause while in the background without explicit user intent (`!element.userHitPause`), Onyx automatically re-invokes `play()` to sustain seamless background playback.
+- **Brave & Firefox `userHitPause` Architecture & Auto-Resume**:
+  - Sets `HTMLMediaElement.prototype.userHitPause = true` only upon genuine user player touch interactions (`window.__onyx_last_player_touch < 2500`) or explicit bridge pause commands (`__onyx_allow_explicit_pause`), and `false` on `play`.
+  - When web pages, tab switches, or OS blur events trigger auto-pause without explicit user intent (`!element.userHitPause`), Onyx automatically re-invokes `play()` and suppresses bridge pause callbacks to sustain seamless playback.
 
-- **Universal DOM Preservation & Scoped YouTube Visibility Filtering**:
-  - `document.addEventListener` filtering for `visibilitychange`, `ytcfg` Picture-in-Picture flags, and fullscreen video workarounds are strictly scoped to YouTube domains (matching Brave's `YouTubeScriptInjectorTabHelper`).
-  - For universal websites, standard DOM events, `document.visibilityState`, `window.onblur`, and focus events remain 100% untouched and native in the foreground, preventing carousels, timers, video tabs, and modern React components from breaking. In background mode, `Document.prototype.visibilityState` dynamically returns `'visible'` only when media is active.
+- **Universal Page Visibility Interception & YouTube Keep-Alive**:
+  - Capturing `visibilitychange` and `webkitvisibilitychange` listeners intercept visibility events with `stopImmediatePropagation()` before website scripts receive them.
+  - `Document.prototype.visibilityState` returns `'visible'` and `Document.prototype.hidden` returns `false` when background playback is active.
+  - YouTube mobile tracks user inactivity via `window._lact`; Onyx refreshes `_lact` every 30 seconds to prevent "Video paused. Continue watching?" interruptions, and automatically re-binds media listeners on SPA page transitions (`yt-navigate-finish`, `yt-page-data-updated`).
 
 - **Audio Becoming Noisy Broadcast Protection (Brave Parity)**:
   - Registers a system `BroadcastReceiver` for `AudioManager.ACTION_AUDIO_BECOMING_NOISY`. When wired headphones are unplugged or Bluetooth audio disconnects during media playback, the service immediately pauses playback and updates lockscreen notification controls.
@@ -154,6 +156,12 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
 
 - **Touch Dynamics & Micro-Timing Preservation**:
   - Touch event listeners on `document` with capture phase are suppressed in challenge iframes, eliminating DOM traversal and Java bridge IPC latency so Arkose's sensor telemetry records authentic human touch gesture dynamics.
+
+- **WebAuthn Level 3 Passkeys & Google OAuth Compatibility**:
+  - WebAuthn passkey polyfill (`PasskeyWebAuthnBridge.kt`) routes through Android `CredentialManager` with `CREDENTIAL_MANAGER_SET_ORIGIN` privilege.
+  - Implements W3C WebAuthn Level 3 static methods (`PublicKeyCredential.parseCreationOptionsFromJSON`, `parseRequestOptionsFromJSON`, `getClientCapabilities`) and spec-compliant `toJSON()` serialization for `@github/webauthn-json` and modern WebAuthn libraries.
+  - `ChromeEnvironmentBridge.kt` masks native Android WebView fingerprints while polyfilling `navigator.userAgentData.brands` with standard Chrome/Chromium brands, preventing Google Sign-In from throwing `403: disallowed_useragent`.
+  - Passkey injection is enabled across all login domains (e.g. GitHub, Google, Microsoft), omitting only Meta's internal challenge frames (`fbsbx.com`).
 
 ---
 

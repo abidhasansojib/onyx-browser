@@ -24,11 +24,11 @@ object ChromeEnvironmentBridge {
                 var ref = (document.referrer || '').toLowerCase();
                 var path = (location.pathname || '').toLowerCase();
 
-                var isAuthOrChallenge = /facebook\.com|meta\.com|fb\.com|fb\.me|fbcdn\.net|facebook\.net|fbsbx\.com|instagram\.com|cdninstagram\.com|messenger\.com|threads\.net|accountkit\.com|github\.com|githubassets\.com|githubusercontent\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
-                    path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
+                var isAuthOrChallenge = /facebook\.com|meta\.com|fb\.com|fb\.me|fbcdn\.net|facebook\.net|fbsbx\.com|instagram\.com|cdninstagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
+                    path.indexOf('/checkpoint/') !== -1 || path.indexOf('/auth/') !== -1 ||
                     path.indexOf('/captcha/') !== -1 || path.indexOf('/challenge/') !== -1 || path.indexOf('/fc/') !== -1 ||
                     href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 || href.indexOf('/captcha/') !== -1 ||
-                    href.indexOf('/login/') !== -1 || href.indexOf('/auth/') !== -1 || href.indexOf('lsd=') !== -1 ||
+                    href.indexOf('/auth/') !== -1 || href.indexOf('lsd=') !== -1 ||
                     href.indexOf('jazoest=') !== -1 || href.indexOf('datr=') !== -1;
 
                 if (!isAuthOrChallenge) {
@@ -47,7 +47,11 @@ object ChromeEnvironmentBridge {
                 // ── 1. Polyfill window.chrome for Android WebView ──────────────────
                 if (!window.chrome) {
                     window.chrome = {
-                        app: { isInstalled: false },
+                        app: {
+                            isInstalled: false,
+                            InstallState: { DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' },
+                            RunningState: { CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' }
+                        },
                         csi: makeNative(function() {}, 'csi'),
                         loadTimes: makeNative(function() {
                             var now = (Date.now ? Date.now() : +new Date()) / 1000;
@@ -71,7 +75,8 @@ object ChromeEnvironmentBridge {
                 }
 
                 // ── 2. Polyfill navigator.userAgentData for Android WebView ─────────
-                if (!navigator.userAgentData) {
+                // Always define authentic Chrome brands on userAgentData (removes "Android WebView" leak that blocks Google Login)
+                try {
                     var ua = navigator.userAgent || '';
                     var match = ua.match(/Chrome\/([0-9]+)/);
                     var chromeMajor = match ? match[1] : '131';
@@ -105,14 +110,21 @@ object ChromeEnvironmentBridge {
                         }, 'toJSON')
                     };
 
-                    try {
-                        Object.defineProperty(navigator, 'userAgentData', {
-                            get: function() { return uaData; },
-                            enumerable: true,
-                            configurable: true
-                        });
-                    } catch (_) {}
-                }
+                    Object.defineProperty(navigator, 'userAgentData', {
+                        get: makeNative(function() { return uaData; }, 'get userAgentData'),
+                        enumerable: true,
+                        configurable: true
+                    });
+                    if (window.Navigator && window.Navigator.prototype) {
+                        try {
+                            Object.defineProperty(window.Navigator.prototype, 'userAgentData', {
+                                get: makeNative(function() { return uaData; }, 'get userAgentData'),
+                                enumerable: true,
+                                configurable: true
+                            });
+                        } catch (_) {}
+                    }
+                } catch (_) {}
 
                 // ── 3. Enforce navigator.webdriver = false ───────────────────────────
                 try {
@@ -127,12 +139,14 @@ object ChromeEnvironmentBridge {
                 if (isAuthOrChallenge) {
                     var bridgePattern = /^(Onyx|__onyx|_Onyx|Passkey|_orig)/;
 
+                    // Note: _OnyxPasskeyBridge is excluded from bridgeNames so passkeys remain functional on login pages.
+                    // It is already hidden from window reflection (Object.getOwnPropertyNames, Reflect.ownKeys) via bridgePattern below.
                     var bridgeNames = [
                         'OnyxShieldBridge', 'OnyxMediaBridge', 'OnyxErrorBridge',
                         'OnyxBlobBridge', 'OnyxTouchBridge', 'OnyxTranslateBridge',
-                        'OnyxNotificationBridge', '_OnyxPasskeyBridge',
-                        'PasskeyWebAuthnBridge', '__onyx_shields_active', '__onyxAdBlockEnabled',
-                        '__onyxTouchInitialized', '__onyxPasskeyInstalled', '_origFetch', '_origXHR'
+                        'OnyxNotificationBridge',
+                        '__onyx_shields_active', '__onyxAdBlockEnabled',
+                        '__onyxTouchInitialized', '_origFetch', '_origXHR'
                     ];
 
                     for (var i = 0; i < bridgeNames.length; i++) {
