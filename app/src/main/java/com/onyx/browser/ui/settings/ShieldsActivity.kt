@@ -162,6 +162,12 @@ class ShieldsActivity : AppCompatActivity() {
             prefs.isFingerprintLangEnabled = !prefs.isFingerprintLangEnabled
             binding.switchFingerprintLang.isChecked = prefs.isFingerprintLangEnabled
         }
+
+        binding.switchWebRtcProtection.isChecked = prefs.isWebRtcProtectedGlobal
+        binding.rowWebRtcProtection.setOnClickListener {
+            prefs.isWebRtcProtectedGlobal = !prefs.isWebRtcProtectedGlobal
+            binding.switchWebRtcProtection.isChecked = prefs.isWebRtcProtectedGlobal
+        }
     }
 
     // ── CONTENT FILTERING ─────────────────────────────────────────────────────
@@ -175,11 +181,26 @@ class ShieldsActivity : AppCompatActivity() {
     // ── ELEMENT BLOCKING ──────────────────────────────────────────────────────
 
     private fun setupElementBlocking() {
+        fun updateElementSubRowVisibility() {
+            val enabled = prefs.isBlockElementEnabled
+            binding.rowElementBlockingPrivate.alpha = if (enabled) 1f else 0.4f
+            binding.rowElementBlockingPrivate.isEnabled = enabled
+        }
+
+        binding.switchBlockElement.isChecked = prefs.isBlockElementEnabled
+        binding.rowBlockElement.setOnClickListener {
+            prefs.isBlockElementEnabled = !prefs.isBlockElementEnabled
+            binding.switchBlockElement.isChecked = prefs.isBlockElementEnabled
+            updateElementSubRowVisibility()
+        }
+
         binding.switchElementBlockingPrivate.isChecked = prefs.isElementBlockingInPrivateEnabled
         binding.rowElementBlockingPrivate.setOnClickListener {
             prefs.isElementBlockingInPrivateEnabled = !prefs.isElementBlockingInPrivateEnabled
             binding.switchElementBlockingPrivate.isChecked = prefs.isElementBlockingInPrivateEnabled
         }
+
+        updateElementSubRowVisibility()
     }
 
     // ── SOCIAL MEDIA ──────────────────────────────────────────────────────────
@@ -187,6 +208,8 @@ class ShieldsActivity : AppCompatActivity() {
     private fun setupSocialMedia() {
         fun updateSubRowVisibility() {
             val show = prefs.isSocialMediaBlockingEnabled
+            binding.rowAllowGoogleSignIn.alpha = if (show) 1f else 0.4f
+            binding.rowAllowGoogleSignIn.isEnabled = show
             binding.rowAllowFbLogins.alpha = if (show) 1f else 0.4f
             binding.rowAllowFbLogins.isEnabled = show
             binding.rowAllowTwitterEmbeds.alpha = if (show) 1f else 0.4f
@@ -200,6 +223,12 @@ class ShieldsActivity : AppCompatActivity() {
             prefs.isSocialMediaBlockingEnabled = !prefs.isSocialMediaBlockingEnabled
             binding.switchSocialMediaBlocking.isChecked = prefs.isSocialMediaBlockingEnabled
             updateSubRowVisibility()
+        }
+
+        binding.switchAllowGoogleSignIn.isChecked = !prefs.isGoogleSignInBlockedGlobal
+        binding.rowAllowGoogleSignIn.setOnClickListener {
+            prefs.isGoogleSignInBlockedGlobal = !prefs.isGoogleSignInBlockedGlobal
+            binding.switchAllowGoogleSignIn.isChecked = !prefs.isGoogleSignInBlockedGlobal
         }
 
         binding.switchAllowFbLogins.isChecked = prefs.allowFacebookLogins
@@ -278,12 +307,6 @@ class ShieldsActivity : AppCompatActivity() {
         binding.rowDoNotTrack.setOnClickListener {
             prefs.isDoNotTrackEnabled = !prefs.isDoNotTrackEnabled
             binding.switchDoNotTrack.isChecked = prefs.isDoNotTrackEnabled
-        }
-
-        binding.switchBlockElement.isChecked = prefs.isBlockElementEnabled
-        binding.rowBlockElement.setOnClickListener {
-            prefs.isBlockElementEnabled = !prefs.isBlockElementEnabled
-            binding.switchBlockElement.isChecked = prefs.isBlockElementEnabled
         }
     }
 }

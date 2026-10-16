@@ -62,6 +62,13 @@ class ThemePickerSheet(
             selectThemeMode(BrowserPreferences.THEME_LIGHT)
         }
 
+        binding.switchForceDarkMode.isChecked = preferences.isForceDarkModeEnabled
+        binding.cardForceDarkMode.setOnClickListener {
+            val newState = !binding.switchForceDarkMode.isChecked
+            binding.switchForceDarkMode.isChecked = newState
+            preferences.isForceDarkModeEnabled = newState
+        }
+
         binding.btnDismiss.setOnClickListener {
             dismiss()
         }

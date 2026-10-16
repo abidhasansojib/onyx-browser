@@ -25,7 +25,10 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **In-Memory LRU Decision Cache**: Sub-microsecond (<0.01µs) repeated URL and request decisions cached in Kotlin memory without JNI crossing.
 - `[x]` **In-Page Visual Element Blocker (Zapper)**: Interactive element picker with touch selection, preview toggles, and persistent CSS hiding rules.
 - `[x]` **Per-Site Shields & Exceptions**: Easily toggle adblocking, HTTPS upgrades, and script rules per domain from the omnibox shield icon.
-- `[x]` **Cookie & Site Storage Autoclear on Tab Close**: Non-blocking background session cookie and WebStorage purging upon closing tabs.
+- `[x]` **Unified Script Blocking & JavaScript Control**: Shields "Block Scripts" and Site Settings "JavaScript" are fully synchronized bidirectionally at both global and per-domain levels.
+- `[x]` **Cookie & Site Storage Autoclear on Tab Close**: Standardized "Clear data on tab close" lifecycle and exit-time cookie/WebStorage purging.
+- `[x]` **Social Media SSO Shield**: Comprehensive third-party authentication blocking (Google Sign-In, Facebook logins, Twitter, LinkedIn embeds).
+- `[x]` **WebRTC IP Leak Protection**: WebRTC IP handling toggleable in both Shields & Privacy and Site Settings.
 - `[x]` **DNS-over-HTTPS (DoH)**: Built-in support for Cloudflare, Google, NextDNS, and custom DoH resolver endpoints.
 - `[x]` **SQLCipher AES-256 Storage Encryption**: All bookmarks, history, tabs, and downloads are encrypted on-disk with master keys in Android KeyStore.
 - `[x]` **Safe Browsing & SSL Defense**: Hardened SSL error interstitials and Google Safe Browsing integration.
@@ -98,10 +101,9 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 
 ## 8. UI, Theming & Accessibility
 
-- `[x]` **Theme Modes**: Seamless switching between Google Light (`#F1F3F4`), Google Dark (`#202124`), and pure AMOLED Black (`#000000`).
+- `[x]` **Theme Modes & Web Dark Mode**: Seamless switching between System, Dark, and Light themes, with algorithmic Force Dark Web Contents toggleable directly in the Theme Picker and Accessibility settings.
 - `[x]` **Material 3 Site Settings & Permission Dialogs**: Clean bottom-sheet dialogs for Camera, Microphone, Location, and Notification permissions.
 - `[x]` **Configurable Pull-to-Refresh**: Density-scaled pull sensitivity with user disable toggle.
-- `[x]` **Algorithmic Force Dark Web Contents**: Inverts web styling cleanly on dark displays.
 - `[x]` **Homepage Shortcuts**: Customizable tile grid with drag-and-drop reordering and cached high-resolution favicons.
 
 ---

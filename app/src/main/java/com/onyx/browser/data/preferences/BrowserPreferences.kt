@@ -172,10 +172,12 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getInt(KEY_HTTPS_UPGRADE_MODE, HTTPS_MODE_WHEN_POSSIBLE)
         set(value) = prefs.edit().putInt(KEY_HTTPS_UPGRADE_MODE, value).apply()
 
-    // ── Global Script Blocking ────────────────────────────────────────────────
+    // ── Global Script Blocking / JavaScript Execution ─────────────────────────
     var isGlobalScriptBlockingEnabled: Boolean
-        get() = prefs.getBoolean(KEY_GLOBAL_SCRIPT_BLOCKING, false)
-        set(value) = prefs.edit().putBoolean(KEY_GLOBAL_SCRIPT_BLOCKING, value).apply()
+        get() = !isJavaScriptEnabledGlobal
+        set(value) {
+            isJavaScriptEnabledGlobal = !value
+        }
 
     // ── Cookie Blocking Mode ──────────────────────────────────────────────────
     // 0 = Allow All, 1 = Block Third-Party (default, Brave parity), 2 = Block All
@@ -431,7 +433,23 @@ class BrowserPreferences private constructor(private val context: Context) {
         val current = prefs.getStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
         if (block) current.add(domain) else current.remove(domain)
         cachedScriptBlockingDomains = current
-        prefs.edit().putStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, current).apply()
+
+        val a = prefs.getStringSet(KEY_ALLOWED_JS_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val b = prefs.getStringSet(KEY_BLOCKED_JS_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (block) {
+            b.add(domain)
+            a.remove(domain)
+        } else {
+            b.remove(domain)
+        }
+        cachedAllowedJsDomains = a
+        cachedBlockedJsDomains = b
+
+        prefs.edit()
+            .putStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, current)
+            .putStringSet(KEY_ALLOWED_JS_DOMAINS, a)
+            .putStringSet(KEY_BLOCKED_JS_DOMAINS, b)
+            .apply()
     }
 
     // ── Misc ─────────────────────────────────────────────────────────────────
@@ -1055,9 +1073,26 @@ class BrowserPreferences private constructor(private val context: Context) {
         val domain = cleanDomain(domainOrUrl); if (domain.isBlank()) return
         val a = prefs.getStringSet(KEY_ALLOWED_JS_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
         val b = prefs.getStringSet(KEY_BLOCKED_JS_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
-        when (state) { SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }; SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }; SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) } }
+        when (state) {
+            SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }
+            SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }
+            SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) }
+        }
         cachedAllowedJsDomains = a; cachedBlockedJsDomains = b
-        prefs.edit().putStringSet(KEY_ALLOWED_JS_DOMAINS, a).putStringSet(KEY_BLOCKED_JS_DOMAINS, b).apply()
+
+        val scriptBlocked = prefs.getStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (state == SitePermissionState.BLOCKED) {
+            scriptBlocked.add(domain)
+        } else {
+            scriptBlocked.remove(domain)
+        }
+        cachedScriptBlockingDomains = scriptBlocked
+
+        prefs.edit()
+            .putStringSet(KEY_ALLOWED_JS_DOMAINS, a)
+            .putStringSet(KEY_BLOCKED_JS_DOMAINS, b)
+            .putStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, scriptBlocked)
+            .apply()
     }
 
     fun getAllowedJsDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_JS_DOMAINS, emptySet()) ?: emptySet()
@@ -1065,7 +1100,12 @@ class BrowserPreferences private constructor(private val context: Context) {
 
     var isJavaScriptEnabledGlobal: Boolean
         get() = prefs.getBoolean(KEY_JS_ENABLED_GLOBAL, true)
-        set(value) = prefs.edit().putBoolean(KEY_JS_ENABLED_GLOBAL, value).apply()
+        set(value) {
+            prefs.edit()
+                .putBoolean(KEY_JS_ENABLED_GLOBAL, value)
+                .putBoolean(KEY_GLOBAL_SCRIPT_BLOCKING, !value)
+                .apply()
+        }
 
     // ── Popups Permission (per-domain) ───────────────────────────────────────
     @Volatile private var cachedAllowedPopupDomains: Set<String>? = null

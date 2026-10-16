@@ -325,6 +325,8 @@
     <!-- Social Media -->
     <string name="social_media_blocking_title">Social media blocking</string>
     <string name="social_media_blocking_desc">Block social media trackers, pixels, and analytics</string>
+    <string name="allow_google_signin_title">Allow Google Sign-In prompts</string>
+    <string name="allow_google_signin_desc">Permit Google identity login buttons and One Tap prompts</string>
     <string name="allow_fb_logins_title">Allow Facebook logins &amp; embedded posts</string>
     <string name="allow_fb_logins_desc">Permit Facebook content for login buttons and post embeds</string>
     <string name="allow_twitter_embeds_title">Allow Twitter embedded content</string>
@@ -608,6 +610,8 @@
     <string name="wake_lock_settings_desc">Sites allowed to prevent your screen from turning off</string>
     <string name="webrtc_settings_title">WebRTC IP handling</string>
     <string name="webrtc_settings_desc">Prevent local host IP address leaks during WebRTC peer connections</string>
+    <string name="webrtc_protection_title">WebRTC IP leak protection</string>
+    <string name="webrtc_protection_desc">Prevent local and public IP address leaks via WebRTC peer connections</string>
 
     <string name="notifications_settings_title">Notifications</string>
     <string name="notifications_settings_desc">Sites that send notifications in your browser</string>
@@ -625,7 +629,7 @@
     <string name="mixed_content_settings_desc">Sites allowed to load insecure (HTTP) resources on HTTPS pages</string>
     <string name="google_signin_settings_title">Google Sign-In</string>
     <string name="google_signin_settings_desc">Sites allowed to show Google Sign-In prompts</string>
-    <string name="auto_shred_settings_title">Auto-shred on tab close</string>
+    <string name="auto_shred_settings_title">Clear data on tab close</string>
     <string name="auto_shred_settings_desc">Sites that automatically delete cookies and data when closed</string>
     <string name="forget_site_on_close">Forget this site when closed</string>
     <string name="forget_site_on_close_desc">Clears cookies and site data whenever this site\'s tab is closed</string>

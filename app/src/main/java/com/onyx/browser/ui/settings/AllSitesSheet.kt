@@ -172,7 +172,7 @@ class AllSitesSheet(
         else if (notif == SitePermissionState.BLOCKED) summaryParts.add("Notif: blocked")
         val js = prefs.getSiteJavaScriptPermission(domain)
         if (js == SitePermissionState.ALLOWED) summaryParts.add("JS: allowed")
-        else if (js == SitePermissionState.BLOCKED) summaryParts.add("JS: blocked")
+        else if (js == SitePermissionState.BLOCKED) summaryParts.add("Scripts: blocked")
         val popup = prefs.getSitePopupsPermission(domain)
         if (popup == SitePermissionState.ALLOWED) summaryParts.add("Popups: allowed")
         else if (popup == SitePermissionState.BLOCKED) summaryParts.add("Popups: blocked")
@@ -192,7 +192,7 @@ class AllSitesSheet(
         if (desktopState == SitePermissionState.ALLOWED) summaryParts.add("Desktop: on")
         else if (desktopState == SitePermissionState.BLOCKED) summaryParts.add("Desktop: off")
         val autoShredState = prefs.getSiteAutoShredState(domain)
-        if (autoShredState == SitePermissionState.ALLOWED) summaryParts.add("Auto-shred: on")
+        if (autoShredState == SitePermissionState.ALLOWED) summaryParts.add("Clear on close")
         else if (autoShredState == SitePermissionState.BLOCKED) summaryParts.add("Keep data")
         val gSignIn = prefs.getSiteGoogleSignInPermission(domain)
         if (gSignIn == SitePermissionState.ALLOWED) summaryParts.add("Google Sign-In: allowed")
@@ -220,7 +220,6 @@ class AllSitesSheet(
         if (blockingLevel != null) {
             summaryParts.add("Shields: ${if (blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) "aggressive" else "standard"}")
         }
-        if (prefs.isScriptBlockingEnabledForDomain(domain)) summaryParts.add("Scripts: blocked")
         val customCount = prefs.getCustomBlockedSelectorsForDomain(domain).size
         if (customCount > 0) summaryParts.add("$customCount elements blocked")
 
