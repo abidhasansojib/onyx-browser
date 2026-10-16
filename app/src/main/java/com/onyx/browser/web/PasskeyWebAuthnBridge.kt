@@ -55,6 +55,10 @@ class PasskeyWebAuthnBridge(
             sendError(callbackId, "NotAllowedError", "Passkeys are disabled in browser settings")
             return
         }
+        if (origin.isBlank() || origin == "null") {
+            sendError(callbackId, "SecurityError", "Passkeys are only supported on valid secure web origins")
+            return
+        }
 
         mainHandler.post {
             try {
@@ -145,6 +149,10 @@ class PasskeyWebAuthnBridge(
             sendError(callbackId, "NotAllowedError", "Passkeys are disabled in browser settings")
             return
         }
+        if (origin.isBlank() || origin == "null") {
+            sendError(callbackId, "SecurityError", "Passkeys are only supported on valid secure web origins")
+            return
+        }
 
         mainHandler.post {
             try {
@@ -230,26 +238,35 @@ class PasskeyWebAuthnBridge(
     }
 
     private fun getEffectiveOrigin(origin: String): String {
-        if (origin.isNotBlank() && origin != "null" && (origin.startsWith("http://") || origin.startsWith("https://"))) {
-            return origin.trimEnd('/')
-        }
         val webViewUrl = webView.url ?: ""
-        if (webViewUrl.isNotBlank()) {
+        val genuineOrigin = if (webViewUrl.isNotBlank()) {
             try {
                 val uri = Uri.parse(webViewUrl)
-                val scheme = uri.scheme ?: "https"
+                val scheme = uri.scheme?.lowercase()
                 val host = uri.host
                 val port = uri.port
-                if (host != null) {
-                    return if (port != -1 && port != 80 && port != 443) {
+                if ((scheme == "https" || scheme == "http") && !host.isNullOrBlank()) {
+                    if (port != -1 && port != 80 && port != 443) {
                         "$scheme://$host:$port"
                     } else {
                         "$scheme://$host"
                     }
+                } else null
+            } catch (_: Exception) { null }
+        } else null
+
+        if (genuineOrigin != null) {
+            // Under W3C WebAuthn spec, web scripts cannot forge or override origin.
+            // If caller provided an origin, verify that it matches genuineOrigin.
+            if (origin.isNotBlank() && origin != "null") {
+                val trimmed = origin.trimEnd('/')
+                if (!trimmed.equals(genuineOrigin, ignoreCase = true)) {
+                    android.util.Log.w("PasskeyBridge", "Blocked origin spoofing attempt: requested '$origin', genuine '$genuineOrigin'")
                 }
-            } catch (_: Exception) {}
+            }
+            return genuineOrigin
         }
-        return origin.trimEnd('/')
+        return ""
     }
 
     private fun computeClientData(

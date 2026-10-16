@@ -20,4 +20,7 @@ interface TabActionCallback {
 
     /** Return the [TabItem] for the given ID, or null if not found. */
     fun getTabById(tabId: String): TabItem?
+
+    /** Notify that a tab's render process crashed or was terminated. */
+    fun onRendererCrash(tabId: String)
 }

@@ -210,6 +210,7 @@
         android:name=".OnyxApplication"
         android:allowBackup="false"
         android:hardwareAccelerated="true"
+        android:largeHeap="true"
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@mipmap/ic_launcher"

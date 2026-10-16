@@ -921,6 +921,7 @@ class OnyxWebViewClient(
             if (tabId != null && tabId.isNotBlank()) {
                 val parent = onyxWv.parent as? android.view.ViewGroup
                 parent?.removeView(onyxWv)
+                tabActionCallback?.onRendererCrash(tabId)
                 onyxWv.destroy()
             }
         } catch (t: Throwable) {
@@ -1152,9 +1153,16 @@ class OnyxWebViewClient(
     private fun handleIntentScheme(view: WebView?, url: String): Boolean {
         return try {
             val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addCategory(Intent.CATEGORY_BROWSABLE)
                 component = null
                 selector = null
+                removeFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+
+            // Security check: Block attempts to target internal Onyx Browser components
+            val targetPkg = intent.`package`
+            if (targetPkg != null && targetPkg.equals(context.packageName, ignoreCase = true)) {
+                return false
             }
 
             fun resolveSafeWebUri(rawUrl: String?): Uri? {

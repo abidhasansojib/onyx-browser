@@ -18,6 +18,15 @@ class OnyxErrorBridge(
     private val activity: Activity?
 ) {
 
+    private fun isSyntheticErrorPageActive(): Boolean {
+        if (webView.isLoadingSyntheticPage) return true
+        if (webView.currentSyntheticState == null) return false
+        val url = webView.url ?: ""
+        return OnyxWebView.isSyntheticOrDataUrl(url) ||
+                url.startsWith("https://onyx.browser/", ignoreCase = true) ||
+                url.startsWith("file:///android_asset/error_page.html", ignoreCase = true)
+    }
+
     @JavascriptInterface
     fun reload() {
         reload(null)
@@ -26,6 +35,7 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun reload(targetUrl: String?) {
         webView.post {
+            if (!isSyntheticErrorPageActive()) return@post
             val target = when {
                 !targetUrl.isNullOrBlank() && !OnyxWebView.isSyntheticOrDataUrl(targetUrl) -> targetUrl
                 !webView.currentSyntheticState?.failingUrl.isNullOrBlank() -> webView.currentSyntheticState?.failingUrl
@@ -49,6 +59,7 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun goBack() {
         webView.post {
+            if (!isSyntheticErrorPageActive()) return@post
             val mainAct = activity as? MainActivity
             if (mainAct != null) {
                 mainAct.handleErrorPageBack(webView)
@@ -66,6 +77,7 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun goHome() {
         webView.post {
+            if (!isSyntheticErrorPageActive()) return@post
             webView.clearSyntheticState()
             webView.stopLoading()
             webView.loadUrl("about:blank")
@@ -80,6 +92,7 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun search(query: String?) {
         webView.post {
+            if (!isSyntheticErrorPageActive()) return@post
             webView.clearSyntheticState()
             val q = query?.trim() ?: ""
             if (q.isNotEmpty()) {
@@ -94,6 +107,7 @@ class OnyxErrorBridge(
 
     @JavascriptInterface
     fun openSettings() {
+        if (!isSyntheticErrorPageActive()) return
         activity?.let {
             it.startActivity(Intent(it, com.onyx.browser.ui.settings.SettingsActivity::class.java))
         }
@@ -101,6 +115,7 @@ class OnyxErrorBridge(
 
     @JavascriptInterface
     fun openNetworkSettings() {
+        if (!isSyntheticErrorPageActive()) return
         activity?.let { act ->
             try {
                 act.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
@@ -117,6 +132,7 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun checkWaybackMachine(url: String?) {
         webView.post {
+            if (!isSyntheticErrorPageActive()) return@post
             val target = if (!url.isNullOrBlank()) url else webView.currentSyntheticState?.failingUrl ?: webView.url ?: ""
             if (target.isNotBlank()) {
                 webView.clearSyntheticState()
@@ -128,6 +144,7 @@ class OnyxErrorBridge(
 
     @JavascriptInterface
     fun openShields() {
+        if (!isSyntheticErrorPageActive()) return
         activity?.let {
             it.startActivity(Intent(it, com.onyx.browser.ui.settings.ShieldsActivity::class.java))
         }
@@ -136,21 +153,28 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun allowSiteShield(domain: String?) {
         webView.post {
-            val d = if (!domain.isNullOrBlank()) domain else webView.currentSyntheticState?.domain ?: ""
-            if (d.isNotBlank()) {
-                (activity as? MainActivity)?.let { mainAct ->
-                    val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(mainAct)
-                    prefs.addWhitelistedDomain(d)
-                    val target = webView.currentSyntheticState?.failingUrl ?: "https://$d"
-                    webView.clearSyntheticState()
-                    webView.loadUrl(target)
-                }
+            if (!isSyntheticErrorPageActive()) return@post
+            val activeState = webView.currentSyntheticState ?: return@post
+            val validDomain = activeState.domain
+            if (validDomain.isBlank()) return@post
+            // Only allow whitelisting the domain that actually triggered the error
+            if (!domain.isNullOrBlank() && !domain.equals(validDomain, ignoreCase = true)) {
+                return@post
+            }
+            val d = validDomain
+            (activity as? MainActivity)?.let { mainAct ->
+                val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(mainAct)
+                prefs.addWhitelistedDomain(d)
+                val target = activeState.failingUrl.ifBlank { "https://$d" }
+                webView.clearSyntheticState()
+                webView.loadUrl(target)
             }
         }
     }
 
     @JavascriptInterface
     fun openDownloads() {
+        if (!isSyntheticErrorPageActive()) return
         activity?.let {
             it.startActivity(Intent(it, com.onyx.browser.ui.downloads.DownloadsActivity::class.java))
         }
@@ -159,7 +183,12 @@ class OnyxErrorBridge(
     @JavascriptInterface
     fun proceedSsl() {
         webView.post {
-            val currentUrl = webView.currentSyntheticState?.failingUrl ?: webView.lastFailingUrl ?: webView.url ?: ""
+            if (!isSyntheticErrorPageActive()) return@post
+            val activeState = webView.currentSyntheticState
+            if (activeState?.isSslError != true && webView.pendingSslHandler == null) {
+                return@post
+            }
+            val currentUrl = activeState?.failingUrl ?: webView.lastFailingUrl ?: ""
             val host = try { Uri.parse(currentUrl).host } catch (_: Exception) { null }
             if (!host.isNullOrBlank()) {
                 webView.sessionSslBypasses.add(host)

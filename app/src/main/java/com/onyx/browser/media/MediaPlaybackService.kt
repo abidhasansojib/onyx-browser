@@ -502,6 +502,17 @@ class MediaPlaybackService : Service() {
         } catch (_: Exception) {}
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        try {
+            isMediaPlaying = false
+            isServiceRunning = false
+            releaseWakeLock()
+            stopForegroundCompat()
+            stopSelf()
+        } catch (_: Exception) {}
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         isServiceRunning = false

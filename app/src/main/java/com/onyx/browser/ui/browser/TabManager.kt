@@ -43,6 +43,34 @@ class TabManager(
             set(value) {
                 _activeInstanceRef = value?.let { java.lang.ref.WeakReference(it) }
             }
+
+        /**
+         * Standalone purge of the isolated incognito profile partition.
+         * Can be called safely even when TabManager or MainActivity instance is null.
+         */
+        fun purgeIncognitoProfileStatic() {
+            if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return
+            try {
+                val store = ProfileStore.getInstance()
+                val incognitoProfile = store.getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
+                if (incognitoProfile != null) {
+                    try {
+                        incognitoProfile.cookieManager.removeAllCookies(null)
+                        incognitoProfile.cookieManager.flush()
+                    } catch (_: Throwable) {}
+                    try {
+                        incognitoProfile.webStorage.deleteAllData()
+                    } catch (_: Throwable) {}
+                    try {
+                        store.deleteProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
+                    } catch (e: Throwable) {
+                        android.util.Log.w("TabManager", "deleteProfile failed: ${e.message}")
+                    }
+                }
+            } catch (e: Throwable) {
+                android.util.Log.e("TabManager", "Error in purgeIncognitoProfileStatic", e)
+            }
+        }
     }
 
     private val database = AppDatabase.getInstance(context)
@@ -401,6 +429,20 @@ class TabManager(
     }
 
     fun getWebView(tabId: String): OnyxWebView? = webViewPool[tabId]
+
+    /**
+     * Handles a crashed or terminated render process for a tab.
+     * Evicts the dead WebView from the pool and cleanly destroys it so a fresh
+     * instance will be instantiated upon next access.
+     */
+    fun handleRendererCrash(tabId: String) {
+        val deadWv = webViewPool.remove(tabId)
+        try {
+            deadWv?.destroySafely()
+        } catch (e: Throwable) {
+            android.util.Log.e("TabManager", "Error safely destroying crashed webview for tab $tabId", e)
+        }
+    }
 
     /** Returns all WebViews currently in the pool (live tabs). */
     fun getAllWebViews(): List<OnyxWebView> = webViewPool.values.toList()

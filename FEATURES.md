@@ -146,6 +146,15 @@ This document tracks all features of Onyx Browser, their current implementation 
    - **Dynamic Contextual Copy & Target Inspection Card**: Features dynamic titles ("Open in Telegram?", "Open in YouTube?") and a clean inspection card (`targetAppCard`) presenting the resolved application label and target URL or deep-link scheme (`tg://`, `https://`, etc.) with middle text ellipsizing.
    - **Sleek Material 3 Action Hierarchy**: "Stay in Onyx" tonal button styled with `@color/btn_cancel_bg` on the left and primary "Open app" action button with Lucide external link icon (`ic_external`) on the right, backed by safe `onCancel` fallback dismissal handling.
 
+89. [x] Subsystem Hardening & Security Isolation (Phase 1 Audit Fixes):
+   - **Privileged Error Bridge Scoping (`OnyxErrorBridge`)**: Restricted all bridge actions (reload, navigate, bypass SSL warnings, open settings, whitelist site shields) to authentic synthetic error pages, eliminating malicious web-based setting launches or arbitrary site-shield whitelisting.
+   - **Authentic WebAuthn Origin Enforcement (`PasskeyWebAuthnBridge`)**: Enforced strict origin derivation from genuine top-level WebView context, preventing cross-origin passkey spoofing.
+   - **Intent Scheme URL Hardening (`handleIntentScheme`)**: Enforced `Intent.CATEGORY_BROWSABLE`, stripped dangerous permission grant flags, and blocked attempts to target internal Onyx Browser application components.
+   - **Foreground Media Service Lifecycle Handshake**: Stopped `MediaPlaybackService` in `MainActivity.onDestroy()` and implemented `onTaskRemoved()`, eliminating orphaned background services, sticky notifications, and wake lock leaks.
+   - **Renderer Crash Self-Healing**: Handled `onRenderProcessGone` with `TabActionCallback.onRendererCrash()` and `TabManager.handleRendererCrash()`, cleanly evicting crashed WebViews from the pool and automatically reloading the active tab with a fresh instance.
+   - **Asynchronous Broadcast Receiver Execution (`goAsync`)**: Wrapped SQLite database updates in `DownloadCompleteReceiver` and multi-profile incognito destruction in `IncognitoNotificationReceiver` with `goAsync()` to prevent premature process termination.
+   - **Large Heap & Blob/Data URI Memory Safety**: Configured `android:largeHeap="true"` in `AndroidManifest.xml`, capped data URI handling at 64MB, and added defensive `OutOfMemoryError` guards in `DownloadHandler.handleDataUriDownload`.
+
 ---
 
 ## Feature Details
@@ -330,3 +339,13 @@ This document tracks all features of Onyx Browser, their current implementation 
  
 ### 19. External Application Handoff & Intent Dispatch
 - **Open in App Dialog Redesign (`OpenInAppPromptDialog`)**: Replaced generic dialog with Material 3 styling aligned with the browser design system (`@color/dialog_clear_data_bg`, `@color/btn_cancel_bg`, 24dp rounded corners). Dynamically extracts target app icons and labels from `PackageManager`, provides an inspection card (`targetAppCard`) with the target destination/URI, and presents balanced "Stay in Onyx" and "Open app" buttons with safe dismissal fallback.
+
+### 20. Subsystem Hardening, Sandboxing & Reliability Guarantees (Phase 1 Fixes)
+- **Privileged Error Bridge Scoping (`OnyxErrorBridge`)**: Restricted all bridge actions (`reload`, `goBack`, `goHome`, `search`, `openSettings`, `openNetworkSettings`, `checkWaybackMachine`, `openShields`, `allowSiteShield`, `openDownloads`, `proceedSsl`) to genuine synthetic error pages (`isSyntheticErrorPageActive`). Arbitrary websites are blocked from whitelisting themselves from adblocking, proceeding past SSL warnings, or launching internal settings activities.
+- **Authentic WebAuthn Origin Enforcement (`PasskeyWebAuthnBridge`)**: Strictly derives effective registration/authentication origins from genuine top-level WebView context (`webView.url`), blocking caller-supplied spoofed origins from tricking Android's Credential Manager.
+- **Intent Scheme URL Hardening (`OnyxWebViewClient.handleIntentScheme`)**: Enforces `Intent.CATEGORY_BROWSABLE`, strips dangerous URI permission grant flags (`FLAG_GRANT_READ_URI_PERMISSION`, `FLAG_GRANT_WRITE_URI_PERMISSION`), and blocks untrusted web content from targeting internal Onyx Browser application components.
+- **Foreground Media Service Lifecycle Handshake**: Guarantees `MediaPlaybackService.stop(applicationContext)` is invoked in `MainActivity.onDestroy()` and implements `onTaskRemoved()`, eliminating orphaned background services, sticky notifications, and wake lock leaks.
+- **Renderer Crash Self-Healing**: Handled `onRenderProcessGone` with `TabActionCallback.onRendererCrash()` and `TabManager.handleRendererCrash()`, cleanly evicting crashed WebViews from the pool and automatically reloading the active tab with a fresh instance.
+- **Asynchronous Broadcast Receiver Execution (`goAsync`)**: Wrapped SQLite database updates in `DownloadCompleteReceiver` and multi-profile incognito destruction in `IncognitoNotificationReceiver` with `goAsync()` to prevent premature process termination.
+- **Large Heap & Blob/Data URI Memory Safety**: Configured `android:largeHeap="true"` in `AndroidManifest.xml`, capped data URI handling at 64MB, and added defensive `OutOfMemoryError` guards in `DownloadHandler.handleDataUriDownload`.
+

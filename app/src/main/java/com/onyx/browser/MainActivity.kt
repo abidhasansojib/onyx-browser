@@ -2340,6 +2340,17 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
+    override fun onRendererCrash(tabId: String) {
+        runOnUiThread {
+            tabManager.handleRendererCrash(tabId)
+            val currentTab = tabManager.activeTab.value
+            if (currentTab != null && currentTab.id == tabId) {
+                currentDisplayedTabId = null
+                displayTab(currentTab)
+            }
+        }
+    }
+
     private fun startQrScanner() {
         qrScannerLauncher.launch(Intent(this, com.onyx.browser.ui.qr.QrScannerActivity::class.java))
     }
@@ -3652,6 +3663,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             pipController.unregisterReceiver()
         }
         MediaPlaybackService.mediaActionListener = null
+        try {
+            MediaPlaybackService.stop(applicationContext)
+        } catch (_: Exception) {}
         if (isFinishing) {
             if (preferences.isClearOnExitEnabled) {
                 try {

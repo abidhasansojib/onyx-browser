@@ -243,9 +243,8 @@ object DownloadHandler {
         originalPageUrl: String = ""
     ) {
         // Guard: reject suspiciously large data URIs before decoding them into memory.
-        // A 256 MB data URI after base64 decoding (~192 MB raw) is already unreasonably large
-        // for a browser download trigger. Malicious pages could craft multi-GB URIs to OOM.
-        val MAX_DATA_URI_BYTES = 256 * 1024 * 1024 // 256 MB
+        // Capped at 64 MB to prevent OutOfMemoryError during base64 decoding on mobile devices.
+        val MAX_DATA_URI_BYTES = 64 * 1024 * 1024 // 64 MB
         if (dataUri.length > MAX_DATA_URI_BYTES) {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 Toast.makeText(context, "Download file is too large to process this way", Toast.LENGTH_LONG).show()
@@ -386,6 +385,10 @@ object DownloadHandler {
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Download complete: $fileName", Toast.LENGTH_SHORT).show()
+                }
+            } catch (oom: OutOfMemoryError) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Insufficient memory to process this download", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {

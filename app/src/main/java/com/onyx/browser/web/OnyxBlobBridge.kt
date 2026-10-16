@@ -24,7 +24,7 @@ class OnyxBlobBridge(
     ) {
         // Guard against OOM: a malicious page could send an enormous data URL.
         // The size check mirrors the same guard in handleDataUriDownload.
-        val MAX_DATA_URL_BYTES = 256 * 1024 * 1024 // 256 MB
+        val MAX_DATA_URL_BYTES = 64 * 1024 * 1024 // 64 MB safe ceiling
         if (dataUrl.length > MAX_DATA_URL_BYTES) {
             Handler(Looper.getMainLooper()).post {
                 Toast.makeText(context, "Blob is too large to download this way", Toast.LENGTH_LONG).show()

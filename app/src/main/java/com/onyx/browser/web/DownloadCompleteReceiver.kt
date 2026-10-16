@@ -58,12 +58,18 @@ class DownloadCompleteReceiver : BroadcastReceiver() {
                     else -> DownloadItem.STATUS_RUNNING
                 }
 
+                val pendingResult = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
-                    val db = AppDatabase.getInstance(context)
-                    if (resolvedPath.isNotBlank()) {
-                        db.downloadDao().updateDownloadStatusByDownloadId(downloadId, dbStatus, resolvedPath, totalSize)
-                    } else {
-                        db.downloadDao().updateStatus(downloadId, dbStatus)
+                    try {
+                        val db = AppDatabase.getInstance(context)
+                        if (resolvedPath.isNotBlank()) {
+                            db.downloadDao().updateDownloadStatusByDownloadId(downloadId, dbStatus, resolvedPath, totalSize)
+                        } else {
+                            db.downloadDao().updateStatus(downloadId, dbStatus)
+                        }
+                    } catch (_: Exception) {
+                    } finally {
+                        pendingResult.finish()
                     }
                 }
             }
