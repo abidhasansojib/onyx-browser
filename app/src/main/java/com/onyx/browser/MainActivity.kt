@@ -1648,6 +1648,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             tabManager.activeTab.collectLatest { activeTab ->
                 if (activeTab != null) {
                     displayTab(activeTab)
+                } else {
+                    currentDisplayedTabId = null
+                    showHomeScreen()
+                    updateTabBadgeCount()
                 }
             }
         }
@@ -3287,8 +3291,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (normalTabs.isNotEmpty()) {
             tabManager.selectTab(normalTabs.first())
         } else {
-            val newTab = tabManager.createNewTab(url = "", isIncognito = false)
-            tabManager.selectTab(newTab)
+            tabManager.clearActiveTab()
+            showHomeScreen()
+            updateTabBadgeCount()
         }
     }
 

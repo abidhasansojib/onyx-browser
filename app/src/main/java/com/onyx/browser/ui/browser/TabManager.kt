@@ -88,7 +88,13 @@ class TabManager(
         _activeTab.value = tab
         if (tab != null && !tab.isIncognito) {
             com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).lastActiveTabId = tab.id
+        } else if (tab == null) {
+            com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).lastActiveTabId = null
         }
+    }
+
+    fun clearActiveTab() {
+        setActiveTab(null)
     }
 
     private val webViewPool = mutableMapOf<String, OnyxWebView>()
@@ -360,17 +366,8 @@ class TabManager(
             setActiveTab(targetTab)
             cleanupOrphanedTabStates()
         } else {
-            // Create default initial tab
-            val defaultTab = TabItem(
-                id = UUID.randomUUID().toString(),
-                url = "",
-                title = "New Tab",
-                isIncognito = false,
-                position = 0
-            )
-            database.tabDao().insertTab(defaultTab)
-            _normalTabs.value = listOf(defaultTab)
-            setActiveTab(defaultTab)
+            _normalTabs.value = emptyList()
+            setActiveTab(null)
         }
         withContext(Dispatchers.Main) {
             purgeIncognitoProfile()
@@ -930,9 +927,8 @@ class TabManager(
                 } else if (updated.isNotEmpty()) {
                     setActiveTab(updated.last())
                 } else {
-                    // Always maintain at least one tab
-                    val newTab = createNewTab(isIncognito = false)
-                    autoCreatedTabId = newTab.id
+                    // Do not auto-create a new tab when the last tab is closed
+                    setActiveTab(null)
                 }
             }
         }
@@ -997,7 +993,7 @@ class TabManager(
             _incognitoTabs.value = emptyList()
             purgeIncognitoProfile()
             if (_activeTab.value?.isIncognito == true) {
-                setActiveTab(_normalTabs.value.lastOrNull() ?: createNewTab(isIncognito = false))
+                setActiveTab(_normalTabs.value.lastOrNull())
             }
 
             if (canUndo && states.isNotEmpty()) {
@@ -1064,13 +1060,14 @@ class TabManager(
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().clearNormalTabs()
             }
-            val newTab = createNewTab(isIncognito = false)
-            setActiveTab(newTab)
+            if (_activeTab.value?.isIncognito != true) {
+                setActiveTab(null)
+            }
 
             if (canUndo && states.isNotEmpty()) {
                 val batch = ClosedTabBatch(
                     states = states,
-                    autoCreatedTabId = newTab.id,
+                    autoCreatedTabId = null,
                     isIncognito = false
                 )
                 closedBatchesStack.addLast(batch)
@@ -1124,14 +1121,13 @@ class TabManager(
         }
 
         if (remainingNormal.isEmpty() && remainingIncognito.isEmpty()) {
-            val newTab = createNewTab(isIncognito = false)
-            setActiveTab(newTab)
+            setActiveTab(null)
         } else if (_activeTab.value == null || normalToClose.any { it.id == _activeTab.value?.id } || incognitoToClose.any { it.id == _activeTab.value?.id }) {
             val wasIncognito = incognitoToClose.any { it.id == _activeTab.value?.id } || _activeTab.value?.isIncognito == true
             setActiveTab(if (wasIncognito && remainingIncognito.isNotEmpty()) {
                 remainingIncognito.last()
             } else {
-                remainingNormal.lastOrNull() ?: remainingIncognito.lastOrNull() ?: createNewTab(isIncognito = false)
+                remainingNormal.lastOrNull() ?: remainingIncognito.lastOrNull()
             })
         }
     }

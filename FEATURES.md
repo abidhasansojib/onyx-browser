@@ -187,6 +187,11 @@ This document tracks all features of Onyx Browser, their current implementation 
    - **Comprehensive Resource Type Mapping**: Added `RESOURCE_TYPE_FONT` (8), `RESOURCE_TYPE_PING` (9), `RESOURCE_TYPE_WEBSOCKET` (10), and `RESOURCE_TYPE_OBJECT` (11) across native Rust NDK bridge, JNI bindings, Kotlin `AdBlockEngine`, and `OnyxWebViewClient`.
    - **Cargo Procedural Rule Validation (`css-validation`)**: Enabled `css-validation` in `rust_engine/Cargo.toml`, ensuring `adblock-rust` parses and evaluates complex procedural rules (`:has-text()`, `:upward()`, `:min-text-length()`).
 
+94. [x] Zero Unwanted Tab Auto-Creation on Close:
+   - **Last Tab & Batch Close Zero-Tab State**: Closing the last tab or executing "Close all tabs" sets active tab to `null` and empties `_normalTabs` without automatically generating an unwanted placeholder tab.
+   - **Tab Switcher Empty State**: `TabSwitcherBottomSheet` displays the dedicated empty view ("No tabs open", "Tap + to open a new tab") with pill count "0" and undo toast support, while `MainActivity` smoothly switches to the home screen with badge count "0".
+   - **On-Demand User Intent Creation**: New tabs are created strictly upon deliberate user actions (tapping the "+" FAB, typing in the omnibox/search, or launching a homepage shortcut).
+
 ---
 
 ## Feature Details
