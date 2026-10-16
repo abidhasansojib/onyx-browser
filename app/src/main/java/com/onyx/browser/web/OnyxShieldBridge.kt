@@ -288,6 +288,11 @@ class OnyxShieldBridge(private val context: Context) {
 
     @JavascriptInterface
     fun isUrlBlocked(url: String?, pageUrl: String?): Boolean {
+        return isUrlBlocked(url, pageUrl, "other")
+    }
+
+    @JavascriptInterface
+    fun isUrlBlocked(url: String?, pageUrl: String?, resourceType: String?): Boolean {
         if (!preferences.isAdBlockEnabled) return false
         val reqUrl = url?.takeIf { it.isNotBlank() } ?: return false
         val page = pageUrl?.takeIf { it.isNotBlank() } ?: ""
@@ -302,7 +307,8 @@ class OnyxShieldBridge(private val context: Context) {
         ) {
             return false
         }
-        return com.onyx.browser.nativebridge.AdBlockEngine.shouldBlock(reqUrl, page, "other")
+        val effectiveType = resourceType?.takeIf { it.isNotBlank() } ?: "other"
+        return com.onyx.browser.nativebridge.AdBlockEngine.shouldBlock(reqUrl, page, effectiveType)
     }
 }
 

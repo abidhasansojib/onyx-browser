@@ -197,6 +197,10 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkReq
             5 => "xhr",
             6 => "media",
             7 => "main_frame",
+            8 => "font",
+            9 => "ping",
+            10 => "websocket",
+            11 => "object",
             _ => "other",
         };
 
@@ -279,6 +283,10 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCspDi
             5 => "xhr",
             6 => "media",
             7 => "main_frame",
+            8 => "font",
+            9 => "ping",
+            10 => "websocket",
+            11 => "object",
             _ => "other",
         };
 

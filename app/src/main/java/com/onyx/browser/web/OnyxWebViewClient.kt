@@ -417,16 +417,33 @@ class OnyxWebViewClient(
         }
     }
 
-    private fun createBlockedResponse(resourceType: String): WebResourceResponse {
+    private fun createBlockedResponse(resourceType: String, requestUrl: String = ""): WebResourceResponse {
         val corsHeaders = mapOf(
             "Access-Control-Allow-Origin" to "*",
-            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
             "Access-Control-Allow-Headers" to "*",
-            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
-            "Pragma" to "no-cache"
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0"
         )
 
-        // When Adblocker Spoofing is disabled (default):
+        // Check if request is VAST / VMAP ad tag: return valid empty VAST XML
+        // so video players (JWPlayer, VideoJS, IMA SDK, FluidPlayer) immediately skip ads without crashing or pausing
+        val lowerUrl = requestUrl.lowercase()
+        val isVastOrVpaid = lowerUrl.contains("vast") || lowerUrl.contains("vpaid") ||
+                lowerUrl.contains("ima3") || lowerUrl.contains("/pagead/ads?") ||
+                lowerUrl.contains("doubleclick.net/gampad")
+
+        if (isVastOrVpaid) {
+            val emptyVast = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><VAST version=\"3.0\"/>"
+            return WebResourceResponse(
+                "application/xml",
+                "UTF-8",
+                200,
+                "OK",
+                corsHeaders + ("Content-Type" to "application/xml; charset=utf-8"),
+                ByteArrayInputStream(emptyVast.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+            )
+        }
+
         // Return HTTP 403 Forbidden with permissive CORS headers.
         // In-page fetch() and XMLHttpRequest calls are intercepted by the stealth client proxies
         // in AdBlockDocumentStart (throwing TypeError: net::ERR_BLOCKED_BY_CLIENT / onerror),
@@ -484,6 +501,26 @@ class OnyxWebViewClient(
                     "OK",
                     corsHeaders + ("Content-Type" to "text/html; charset=utf-8"),
                     ByteArrayInputStream("<!-- blocked subframe -->".toByteArray())
+                )
+            }
+            "font" -> {
+                WebResourceResponse(
+                    "font/woff2",
+                    "UTF-8",
+                    200,
+                    "OK",
+                    corsHeaders + ("Content-Type" to "font/woff2"),
+                    ByteArrayInputStream(ByteArray(0))
+                )
+            }
+            "media" -> {
+                WebResourceResponse(
+                    "video/mp4",
+                    "UTF-8",
+                    200,
+                    "OK",
+                    corsHeaders + ("Content-Type" to "video/mp4"),
+                    ByteArrayInputStream(ByteArray(0))
                 )
             }
             else -> {
@@ -862,10 +899,16 @@ class OnyxWebViewClient(
                 // Never block media streams (video/audio, HLS chunks, DASH segments) with generic domain lists.
                 // Only let the adblock engine check if there is an explicit media rule.
                 if (resourceType == "media") {
-                    val blockedByEngine = AdBlockEngine.shouldBlock(url, pageUrl, "media")
-                    if (blockedByEngine) {
+                    val uncloakedMediaUrl = AdBlockDomainManager.uncloakUrl(url)
+                    val mediaMethod = request.method ?: "GET"
+                    val mediaResult = AdBlockEngine.checkRequest(uncloakedMediaUrl, pageUrl, AdBlockEngine.RESOURCE_TYPE_MEDIA, mediaMethod)
+                    if (mediaResult.shouldBlock) {
                         recordBlockedRequest(view)
-                        return createBlockedResponse("media")
+                        if (!mediaResult.redirectData.isNullOrBlank()) {
+                            val surrogate = createSurrogateResponse(mediaResult.redirectData, "media")
+                            if (surrogate != null) return surrogate
+                        }
+                        return createBlockedResponse("media", url)
                     }
                     return null // Allow media playback!
                 }
@@ -902,7 +945,7 @@ class OnyxWebViewClient(
                         }
                     }
 
-                    return createBlockedResponse(resourceType)
+                    return createBlockedResponse(resourceType, url)
                 }
 
                 // If a rewrite rule ($rewrite / removeparam) modified the URL, serve the clean resource
@@ -1709,14 +1752,31 @@ class OnyxWebViewClient(
                                     scriptletJs.toByteArray(Charsets.UTF_8),
                                     android.util.Base64.NO_WRAP
                                 )
-                                // Decode and execute using Function() constructor approach for isolation
-                                // matching Brave's kScriptletInitScript self-removing <script> pattern
+                                // Decode and execute using Trusted Types / DOM injection with fallback to Function() constructor
                                 val wrappedScriptlet = """
                                     (function() {
                                         try {
-                                            var _b = atob('$b64');
-                                            var _f = new Function(_b);
-                                            _f();
+                                            var _code = atob('$b64');
+                                            var _tt = null;
+                                            if (window.trustedTypes && typeof window.trustedTypes.createPolicy === 'function') {
+                                                try {
+                                                    if (!window.__onyx_tt_policy) {
+                                                        window.__onyx_tt_policy = window.trustedTypes.createPolicy('onyx-shield-policy', {
+                                                            createScript: function(s) { return s; }
+                                                        });
+                                                    }
+                                                    _tt = window.__onyx_tt_policy;
+                                                } catch(_) {}
+                                            }
+                                            try {
+                                                var _script = document.createElement('script');
+                                                _script.textContent = _tt ? _tt.createScript(_code) : _code;
+                                                (document.head || document.documentElement).appendChild(_script);
+                                                _script.remove();
+                                            } catch(_) {
+                                                var _f = new Function(_code);
+                                                _f();
+                                            }
                                         } catch(ex) {
                                             /* scriptlet error suppressed */
                                         }
@@ -1858,18 +1918,26 @@ class OnyxWebViewClient(
         val fetchDest = request.requestHeaders?.get("Sec-Fetch-Dest")?.lowercase() ?: ""
         val reqWith = request.requestHeaders?.get("X-Requested-With")?.lowercase() ?: ""
         val urlPath = request.url?.path?.lowercase() ?: ""
+        val scheme = request.url?.scheme?.lowercase() ?: ""
 
+        if (scheme == "ws" || scheme == "wss" || fetchMode == "websocket") return "websocket"
         if (fetchDest == "iframe" || fetchDest == "frame") return "sub_frame"
         if (fetchDest == "script") return "script"
         if (fetchDest == "image") return "image"
         if (fetchDest == "style") return "stylesheet"
         if (fetchDest == "font") return "font"
+        if (fetchDest == "object" || fetchDest == "embed") return "object"
         if (fetchDest == "video" || fetchDest == "audio") return "media"
         if (urlPath.endsWith(".m3u8") || urlPath.endsWith(".ts") || urlPath.endsWith(".mpd") ||
             urlPath.endsWith(".m4s") || urlPath.endsWith(".mp4") || urlPath.endsWith(".webm") ||
             urlPath.endsWith(".ogg") || urlPath.endsWith(".mp3") || urlPath.endsWith(".m4a") ||
             urlPath.endsWith(".aac") || urlPath.endsWith(".flv")) {
             return "media"
+        }
+        if (request.requestHeaders?.containsKey("Ping-To") == true ||
+            request.requestHeaders?.containsKey("ping-to") == true ||
+            urlPath.contains("/ping") || urlPath.contains("/beacon")) {
+            return "ping"
         }
         if (fetchDest == "empty" || fetchMode == "cors" || reqWith == "xmlhttprequest") return "xmlhttprequest"
 
@@ -1899,17 +1967,26 @@ class OnyxWebViewClient(
         val fetchDest = request.requestHeaders?.get("Sec-Fetch-Dest")?.lowercase() ?: ""
         val reqWith = request.requestHeaders?.get("X-Requested-With")?.lowercase() ?: ""
         val urlPath = request.url?.path?.lowercase() ?: ""
+        val scheme = request.url?.scheme?.lowercase() ?: ""
 
+        if (scheme == "ws" || scheme == "wss" || fetchMode == "websocket") return AdBlockEngine.RESOURCE_TYPE_WEBSOCKET
         if (fetchDest == "iframe" || fetchDest == "frame") return AdBlockEngine.RESOURCE_TYPE_SUB_FRAME
         if (fetchDest == "script") return AdBlockEngine.RESOURCE_TYPE_SCRIPT
         if (fetchDest == "image") return AdBlockEngine.RESOURCE_TYPE_IMAGE
         if (fetchDest == "style") return AdBlockEngine.RESOURCE_TYPE_STYLESHEET
+        if (fetchDest == "font") return AdBlockEngine.RESOURCE_TYPE_FONT
+        if (fetchDest == "object" || fetchDest == "embed") return AdBlockEngine.RESOURCE_TYPE_OBJECT
         if (fetchDest == "video" || fetchDest == "audio") return AdBlockEngine.RESOURCE_TYPE_MEDIA
         if (urlPath.endsWith(".m3u8") || urlPath.endsWith(".ts") || urlPath.endsWith(".mpd") ||
             urlPath.endsWith(".m4s") || urlPath.endsWith(".mp4") || urlPath.endsWith(".webm") ||
             urlPath.endsWith(".ogg") || urlPath.endsWith(".mp3") || urlPath.endsWith(".m4a") ||
             urlPath.endsWith(".aac") || urlPath.endsWith(".flv")) {
             return AdBlockEngine.RESOURCE_TYPE_MEDIA
+        }
+        if (request.requestHeaders?.containsKey("Ping-To") == true ||
+            request.requestHeaders?.containsKey("ping-to") == true ||
+            urlPath.contains("/ping") || urlPath.contains("/beacon")) {
+            return AdBlockEngine.RESOURCE_TYPE_PING
         }
         if (fetchDest == "empty" || fetchMode == "cors" || reqWith == "xmlhttprequest") return AdBlockEngine.RESOURCE_TYPE_XHR
 
@@ -1920,6 +1997,9 @@ class OnyxWebViewClient(
                     urlPath.endsWith(".jpg") || urlPath.endsWith(".jpeg") ||
                     urlPath.endsWith(".webp") || urlPath.endsWith(".gif") ||
                     urlPath.endsWith(".svg") || urlPath.endsWith(".ico") -> AdBlockEngine.RESOURCE_TYPE_IMAGE
+            acceptHeader.contains("font/") || urlPath.endsWith(".woff") ||
+                    urlPath.endsWith(".woff2") || urlPath.endsWith(".ttf") ||
+                    urlPath.endsWith(".otf") -> AdBlockEngine.RESOURCE_TYPE_FONT
             acceptHeader.contains("video/") || acceptHeader.contains("audio/") ||
                     urlPath.endsWith(".mp4") || urlPath.endsWith(".mp3") || urlPath.endsWith(".webm") -> AdBlockEngine.RESOURCE_TYPE_MEDIA
             acceptHeader.contains("application/json") || acceptHeader.contains("xmlhttprequest") -> AdBlockEngine.RESOURCE_TYPE_XHR

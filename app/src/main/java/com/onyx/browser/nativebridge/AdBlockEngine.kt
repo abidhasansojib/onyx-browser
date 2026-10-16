@@ -39,6 +39,10 @@ object AdBlockEngine {
     const val RESOURCE_TYPE_XHR = 5
     const val RESOURCE_TYPE_MEDIA = 6
     const val RESOURCE_TYPE_MAIN_FRAME = 7
+    const val RESOURCE_TYPE_FONT = 8
+    const val RESOURCE_TYPE_PING = 9
+    const val RESOURCE_TYPE_WEBSOCKET = 10
+    const val RESOURCE_TYPE_OBJECT = 11
 
     data class RequestResult(
         val shouldBlock: Boolean,
@@ -226,10 +230,14 @@ object AdBlockEngine {
             "script" -> RESOURCE_TYPE_SCRIPT
             "image" -> RESOURCE_TYPE_IMAGE
             "stylesheet" -> RESOURCE_TYPE_STYLESHEET
-            "sub_frame" -> RESOURCE_TYPE_SUB_FRAME
-            "xhr" -> RESOURCE_TYPE_XHR
+            "sub_frame", "subdocument" -> RESOURCE_TYPE_SUB_FRAME
+            "xhr", "xmlhttprequest" -> RESOURCE_TYPE_XHR
             "media" -> RESOURCE_TYPE_MEDIA
-            "main_frame" -> RESOURCE_TYPE_MAIN_FRAME
+            "main_frame", "document" -> RESOURCE_TYPE_MAIN_FRAME
+            "font" -> RESOURCE_TYPE_FONT
+            "ping", "beacon" -> RESOURCE_TYPE_PING
+            "websocket" -> RESOURCE_TYPE_WEBSOCKET
+            "object" -> RESOURCE_TYPE_OBJECT
             else -> RESOURCE_TYPE_OTHER
         }
         return shouldBlock(url, sourceUrl, typeInt, method)

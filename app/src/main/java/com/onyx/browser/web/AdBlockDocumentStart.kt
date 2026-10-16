@@ -172,9 +172,40 @@ object AdBlockDocumentStart {
                     var scriptlet = typeof window.OnyxShieldBridge.getScriptletJs === 'function' ?
                         window.OnyxShieldBridge.getScriptletJs(location.href) : '';
                     if (scriptlet && typeof scriptlet === 'string' && scriptlet.length > 0) {
+                        var scriptCode = scriptlet;
+                        // Handle Trusted Types CSP (required by YouTube, Google, and modern hardened origins)
                         try {
-                            (new Function(scriptlet))();
+                            if (window.trustedTypes && typeof window.trustedTypes.createPolicy === 'function') {
+                                var onyxPolicy = window.trustedTypes.createPolicy('onyx-shield-policy', {
+                                    createScript: function(s) { return s; }
+                                });
+                                scriptCode = onyxPolicy.createScript(scriptlet);
+                            }
+                        } catch(_) {}
+
+                        var executed = false;
+                        try {
+                            (new Function(scriptCode))();
+                            executed = true;
                         } catch(e) {}
+
+                        // If new Function is blocked by strict CSP without unsafe-eval, inject via DOM script
+                        if (!executed) {
+                            try {
+                                var scriptEl = document.createElement('script');
+                                scriptEl.id = 'onyx-shield-scriptlet';
+                                if (typeof scriptCode !== 'string') {
+                                    scriptEl.text = scriptCode;
+                                } else {
+                                    scriptEl.textContent = scriptCode;
+                                }
+                                var sTarget = document.head || document.documentElement;
+                                if (sTarget) {
+                                    sTarget.appendChild(scriptEl);
+                                    scriptEl.remove();
+                                }
+                            } catch(_) {}
+                        }
                     }
                 }
             } catch(e) {}
@@ -196,7 +227,7 @@ object AdBlockDocumentStart {
 
             var aggSubPattern = /(aan\.amazon\.com|ads-api\.tiktok\.com|ads-api\.x\.com|ads-sg\.tiktok\.com|ads\.huawei\.com|ads\.microsoft\.com|ads\.pinterest\.com|ads\.tiktok\.com|ads\.x\.com|ads\.yahoo\.com|ads\.youtube\.com|adservice\.google\.com|adtago\.s3\.amazonaws\.com|adtech\.yahooinc\.com|advertising-api-eu\.amazon\.com|advertising\.apple\.com|advertising\.yahoo\.com|advertising\.yandex\.ru|advice-ads\.s3\.amazonaws\.com|analytics-sg\.tiktok\.com|analytics\.google\.com|analytics\.pinterest\.com|analytics\.query\.yahoo\.com|analytics\.x\.com|analytics\.yahoo\.com|analyticsengine\.s3\.amazonaws\.com|api-adservices\.apple\.com|api\.ad\.xiaomi\.com|bingads\.microsoft\.com|books-analytics-events\.apple\.com|browser\.events\.data\.msn\.com|business-api\.tiktok\.com|c\.bing\.com|dai\.google\.com|data\.mistat\.india\.xiaomi\.com|data\.mistat\.rus\.xiaomi\.com|data\.mistat\.xiaomi\.com|device-metrics-us-2\.amazon\.com|device-metrics-us\.amazon\.com|extmaps-api\.yandex\.net|firebase-settings\.crashlytics\.com|fundingchoicesmessages\.google\.com|gemini\.yahoo\.com|geo\.yahoo\.com|globalapi\.ad\.xiaomi\.com|graph\.instagram\.com|grs\.hicloud\.com|i\.instagram\.com|iadsdk\.apple\.com|iot-eu-logser\.realme\.com|iot-logser\.realme\.com|log\.fc\.yahoo\.com|log\.pinterest\.com|logbak\.hicloud\.com|logservice\.hicloud\.com|logservice1\.hicloud\.com|mads-eu\.amazon\.com|metrics\.apple\.com|metrics\.data\.hicloud\.com|metrics2\.data\.hicloud\.com|metrika\.yandex\.ru|nmetrics\.samsung\.com|notes-analytics-events\.apple\.com|offerwall\.yandex\.net|partnerads\.ysm\.yahoo\.com|pixel\.quora\.com|qevents\.quora\.com|s\.youtube\.com|sdkconfig\.ad\.intl\.xiaomi\.com|sdkconfig\.ad\.xiaomi\.com|settings-win\.data\.microsoft\.com|smetrics\.samsung\.com|tagmanager\.google\.com|telemetry\.microsoft\.com|tr\.facebook\.com|tr\.iadsdk\.apple\.com|tracking\.miui\.com|tracking\.rus\.miui\.com|trk\.pinterest\.com|udc\.yahoo\.com|udcm\.yahoo\.com|vk\.com|vortex-win\.data\.microsoft\.com|vortex\.data\.microsoft\.com|watson\.telemetry\.microsoft\.com|widgets\.pinterest\.com|xp\.apple\.com)/i;
 
-            function isBlockedUrl(rawUrl, level) {
+            function isBlockedUrl(rawUrl, level, resourceType) {
                 if (!rawUrl || typeof rawUrl !== 'string') return false;
                 if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:') || rawUrl.startsWith('javascript:')) return false;
 
@@ -216,7 +247,7 @@ object AdBlockDocumentStart {
                         if (aggSubPattern.test(rawUrl) || aggRootPattern.test(rawUrl)) return true;
                     }
                     if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isUrlBlocked === 'function') {
-                        return window.OnyxShieldBridge.isUrlBlocked(rawUrl, location.href);
+                        return window.OnyxShieldBridge.isUrlBlocked(rawUrl, location.href, resourceType || 'other');
                     }
                     return false;
                 } catch(e) {
@@ -240,7 +271,7 @@ object AdBlockDocumentStart {
                             return _origFetch.apply(this, arguments);
                         }
                         var lvl = window.__onyx_blocking_level || 0;
-                        if (isBlockedUrl(targetUrl, lvl)) {
+                        if (isBlockedUrl(targetUrl, lvl, 'xhr')) {
                             return Promise.reject(new TypeError('Failed to fetch: net::ERR_BLOCKED_BY_CLIENT'));
                         }
                         return _origFetch.apply(this, arguments);
@@ -258,7 +289,7 @@ object AdBlockDocumentStart {
                         this._onyxTargetUrl = url;
                         var isBlobOrData = typeof url === 'string' && (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('javascript:'));
                         var lvl = window.__onyx_blocking_level || 0;
-                        this._onyxBlocked = !isBlobOrData && isBlockedUrl(url, lvl);
+                        this._onyxBlocked = !isBlobOrData && isBlockedUrl(url, lvl, 'xhr');
                         return _origOpen.apply(this, arguments);
                     }, 'open');
                     XMLHttpRequest.prototype.send = makeNative(function() {
@@ -282,7 +313,7 @@ object AdBlockDocumentStart {
                 if (OriginalWebSocket) {
                     var PatchedWebSocket = makeNative(function(url, protocols) {
                         var lvl = window.__onyx_blocking_level || 0;
-                        if (typeof url === 'string' && (isBlockedUrl(url, lvl) || /ad|track|telemetry|analytics|stat|pixel|beacon|counter/i.test(url))) {
+                        if (typeof url === 'string' && (isBlockedUrl(url, lvl, 'websocket') || /ad|track|telemetry|analytics|stat|pixel|beacon|counter/i.test(url))) {
                             throw new Error('Blocked by Onyx Shields');
                         }
                         if (arguments.length === 1) {
@@ -357,6 +388,72 @@ object AdBlockDocumentStart {
                         }
                         return _origAnchorClick.apply(this, arguments);
                     }, 'click');
+                }
+            } catch(e) {}
+
+            // ── 3c. YouTube & Streaming Video Ad Defuser (Zero-Flicker Auto-Skip) ───
+            try {
+                var isYouTubeHost = /youtube\.com|youtu\.be/i.test(host);
+                if (isYouTubeHost) {
+                    function defuseYouTubeAds() {
+                        try {
+                            var player = document.querySelector('#movie_player, .html5-video-player, ytm-mobile-player, #player');
+                            if (!player) return;
+
+                            var isAdShowing = player.classList.contains('ad-showing') ||
+                                              player.classList.contains('ad-interrupting') ||
+                                              player.classList.contains('ytp-ad-showing');
+
+                            if (isAdShowing) {
+                                // 1. Instantly mute ad audio so user hears no ad sound
+                                var videos = player.querySelectorAll('video');
+                                for (var v = 0; v < videos.length; v++) {
+                                    var vid = videos[v];
+                                    if (vid && !vid.paused) {
+                                        vid.muted = true;
+                                        vid.playbackRate = 16.0;
+                                        if (vid.duration && !isNaN(vid.duration) && isFinite(vid.duration)) {
+                                            vid.currentTime = vid.duration - 0.05;
+                                        }
+                                    }
+                                }
+
+                                // 2. Trigger skip buttons automatically across desktop and mobile
+                                var skipBtn = player.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, button.ytp-ad-skip-button, .ytp-skip-ad-button, .videoAdUiSkipButton');
+                                if (skipBtn) {
+                                    skipBtn.click();
+                                }
+                            }
+
+                            // 3. Hide all video ad modules, overlays, banners, and promoted tiles
+                            var adElements = player.querySelectorAll('.ytp-ad-overlay-container, .ytp-ad-player-overlay, .ytp-ad-image-overlay, .ytp-ad-action-interstitial, ytm-promoted-sparkles-web-renderer, ytm-promoted-sparkles-text-search-web-renderer, ytd-promoted-video-renderer, ytd-display-ad-renderer, ytd-companion-slot-renderer, #masthead-ad');
+                            for (var a = 0; a < adElements.length; a++) {
+                                adElements[a].style.setProperty('display', 'none', 'important');
+                            }
+
+                            // 4. Auto-dismiss overlay close buttons
+                            var closeBtn = player.querySelector('.ytp-ad-overlay-close-button, button.ytp-ad-overlay-close-button');
+                            if (closeBtn) {
+                                closeBtn.click();
+                            }
+                        } catch(_) {}
+                    }
+
+                    // Observe player state changes
+                    var ytObserver = new MutationObserver(defuseYouTubeAds);
+                    function attachYtObserver() {
+                        var target = document.body || document.documentElement;
+                        if (target) {
+                            ytObserver.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+                            defuseYouTubeAds();
+                        } else {
+                            setTimeout(attachYtObserver, 50);
+                        }
+                    }
+                    attachYtObserver();
+
+                    // Periodic check during active video playback
+                    setInterval(defuseYouTubeAds, 250);
                 }
             } catch(e) {}
 
