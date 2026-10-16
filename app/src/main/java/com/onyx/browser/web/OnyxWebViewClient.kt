@@ -45,6 +45,16 @@ class OnyxWebViewClient(
     var onOpenInAppPrompt: ((intent: Intent, appName: String?, fallback: (() -> Unit)?) -> Unit)? = null
 
 
+    private fun isExternalAppInstalledForIntent(intent: Intent): Boolean {
+        return try {
+            val pm = context.packageManager
+            val resolveInfoList = pm.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            resolveInfoList.any { it.activityInfo?.packageName != context.packageName }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun getAppNameForIntent(intent: Intent, fallbackName: String? = null): String? {
         try {
             val pm = context.packageManager
@@ -62,6 +72,10 @@ class OnyxWebViewClient(
         appName: String? = null,
         fallback: (() -> Unit)? = null
     ): Boolean {
+        if (!isExternalAppInstalledForIntent(intent)) {
+            fallback?.invoke()
+            return false
+        }
         val resolvedName = getAppNameForIntent(intent, appName)
         val prompt = onOpenInAppPrompt
         if (prompt != null) {
@@ -88,9 +102,13 @@ class OnyxWebViewClient(
     @Volatile
     private var isMainFrameDocumentLoaded: Boolean = false
 
-    // Set of URLs where user explicitly chose "Stay in Onyx", bypassing external app interception
-    private val bypassAppInterceptUrls = java.util.Collections.newSetFromMap(
-        java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    // Bounded LRU cache of URLs where user explicitly chose "Stay in Onyx", avoiding unbounded memory growth
+    private val bypassAppInterceptUrls = java.util.Collections.synchronizedSet(
+        object : java.util.LinkedHashMap<String, Boolean>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean {
+                return size > 100
+            }
+        }.keySet()
     )
 
     // Social media tracker domains (analytics/pixel only, not content)
@@ -1147,7 +1165,10 @@ class OnyxWebViewClient(
             else -> null
         }
 
-        return promptOrLaunchApp(intent, appName, fallback = null)
+        if (!promptOrLaunchApp(intent, appName, fallback = null)) {
+            handleAppNotFoundFallback(view, scheme, uri)
+        }
+        return true
     }
 
     private fun handleIntentScheme(view: WebView?, url: String): Boolean {
@@ -1182,38 +1203,31 @@ class OnyxWebViewClient(
                 }
             }
 
-            if (preferences.isOpenLinksInAppEnabled) {
-                val fallbackAction: () -> Unit = {
-                    val fallbackUri = resolveSafeWebUri(intent.getStringExtra("browser_fallback_url"))
-                        ?: intent.data?.let { resolveSafeWebUri(it.toString()) }
-                    if (fallbackUri != null) {
-                        navigateSafeWebUri(fallbackUri)
-                    }
-                }
+            val fallbackUri = resolveSafeWebUri(intent.getStringExtra("browser_fallback_url"))
+                ?: intent.data?.let { resolveSafeWebUri(it.toString()) }
 
+            val fallbackAction: (() -> Unit)? = if (fallbackUri != null) {
+                { navigateSafeWebUri(fallbackUri) }
+            } else null
+
+            val isInstalled = isExternalAppInstalledForIntent(intent)
+
+            if (isInstalled && preferences.isOpenLinksInAppEnabled) {
                 return promptOrLaunchApp(
                     intent = intent,
-                    appName = intent.getPackage(),
+                    appName = null,
                     fallback = fallbackAction
                 )
             }
 
-            // 1st Fallback: browser_fallback_url extra
-            val fallbackUri = resolveSafeWebUri(intent.getStringExtra("browser_fallback_url"))
+            // 1st Fallback: If app is not installed or open-in-app is disabled, navigate to web fallback
             if (fallbackUri != null) {
                 navigateSafeWebUri(fallbackUri)
                 return true
             }
 
-            // 2nd Fallback: intent's data if it is http/https
-            val dataUri = intent.data?.let { resolveSafeWebUri(it.toString()) }
-            if (dataUri != null) {
-                navigateSafeWebUri(dataUri)
-                return true
-            }
-
-            // 3rd Fallback: explicit package -> Google Play Store
-            val pkg = intent.getPackage()
+            // 2nd Fallback: explicit package -> Google Play Store
+            val pkg = intent.`package`
             if (!pkg.isNullOrBlank() && preferences.isOpenLinksInAppEnabled) {
                 try {
                     val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")).apply {
@@ -1267,6 +1281,21 @@ class OnyxWebViewClient(
         if (!preferences.isOpenLinksInAppEnabled) return false
         val host = uri.host?.lowercase() ?: return false
 
+        // Prevent dialog harassment on internal same-site navigations (e.g. browsing inside youtube.com or reddit.com)
+        val currentUrl = view?.url
+        if (!currentUrl.isNullOrBlank()) {
+            val currentHost = try { Uri.parse(currentUrl).host?.lowercase() } catch (_: Exception) { null }
+            if (!currentHost.isNullOrBlank()) {
+                val isSameSite = currentHost == host ||
+                        (host.endsWith(".$currentHost") || currentHost.endsWith(".$host")) ||
+                        (host.contains("youtube.com") && currentHost.contains("youtube.com")) ||
+                        (host.contains("reddit.com") && currentHost.contains("reddit.com"))
+                if (isSameSite) {
+                    return false
+                }
+            }
+        }
+
         val stayInOnyxAction: () -> Unit = {
             bypassAppInterceptUrls.add(url)
             view?.post {
@@ -1283,7 +1312,9 @@ class OnyxWebViewClient(
                 val intent = Intent(Intent.ACTION_VIEW, tgUri).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                return promptOrLaunchApp(intent, "Telegram", fallback = stayInOnyxAction)
+                if (isExternalAppInstalledForIntent(intent)) {
+                    return promptOrLaunchApp(intent, "Telegram", fallback = stayInOnyxAction)
+                }
             }
         } else if (host == "wa.me") {
             val phone = uri.path?.removePrefix("/") ?: ""
@@ -1297,7 +1328,9 @@ class OnyxWebViewClient(
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                return promptOrLaunchApp(intent, "WhatsApp", fallback = stayInOnyxAction)
+                if (isExternalAppInstalledForIntent(intent)) {
+                    return promptOrLaunchApp(intent, "WhatsApp", fallback = stayInOnyxAction)
+                }
             }
         } else if (host.contains("youtube.com") || host == "youtu.be" || host.contains("reddit.com")) {
             val intent = Intent(Intent.ACTION_VIEW, uri).apply {
@@ -1306,8 +1339,12 @@ class OnyxWebViewClient(
             // To prevent an infinite loop where the system resolves the link back to Onyx Browser,
             // we query for activities and filter out our own package.
             val pm = context.packageManager
-            val resolveInfoList = pm.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
-            val externalApp = resolveInfoList.firstOrNull { it.activityInfo.packageName != context.packageName }
+            val resolveInfoList = try {
+                pm.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val externalApp = resolveInfoList.firstOrNull { it.activityInfo?.packageName != context.packageName }
             
             if (externalApp != null) {
                 intent.setPackage(externalApp.activityInfo.packageName)

@@ -231,9 +231,12 @@ onyx-browser/
 
 ### 4.10. External Application Intent Handoff (`OpenInAppPromptDialog`)
 - **Theme-Integrated Open in App Prompt**: Styled with `@color/dialog_clear_data_bg` (Google Light white `#FFFFFF` / Google Dark `#282A2D`), 24dp corner radius, and `?attr/colorOutline` border matching all native Onyx dialogs.
-- **Dynamic Package Manager Icon & Title Resolution**: Queries Android's `PackageManager` via `targetIntent` to extract native app icons (`resolveInfo.loadIcon` / `getApplicationIcon`) and labels ("Open in Telegram?"). If no specific app icon is resolved, falls back to Lucide `ic_external` with `?attr/colorPrimary` tint inside a 56×56dp squircle tile (`bg_box_tile`).
+- **Dynamic Package Manager Icon & Title Resolution**: Queries Android's `PackageManager` via `targetIntent` to extract native app icons (`resolveInfo.loadIcon` / `getApplicationIcon`) and labels ("Open in Telegram?"). If no specific app icon is resolved, falls back to Lucide `ic_external` with `?attr/colorPrimary` tint inside a 56×56dp squircle tile (`bg_box_tile`). Raw package name strings are sanitized to clean generic titles if unresolvable.
 - **Target URL & Destination Inspection Card**: Surfaces the target deep-link or website URL with middle ellipsizing inside `targetAppCard` for total user transparency before launching an external process.
 - **Material 3 Tonal Button Hierarchy & Safe Dismissal**: Paired "Stay in Onyx" (`@color/btn_cancel_bg`) and "Open app" (primary with `ic_external` icon) buttons, with `onCancel` safely routing to the webpage fallback if the user dismisses the dialog via hardware back or touch outside.
+- **Rotation Resilience & Safe Lifecycle Display**: Intent and app name are preserved across device configuration changes via `arguments: Bundle`. `showSafely()` verifies `!manager.isStateSaved` and prevents duplicate dialog stacking, eliminating `IllegalStateException`.
+- **Pre-Flight App Verification & Same-Domain Loop Prevention**: `promptOrLaunchApp` and `tryOpenAppForHttpLink` verify that an external handler is actually installed (`isExternalAppInstalledForIntent`) before prompting. Internal page clicks within supported domains (e.g. browsing inside `youtube.com` or `reddit.com`) are exempt from prompts, and uninstalled schemes route seamlessly to web fallbacks or the Play Store.
+- **Bounded Memory LRU**: Bounded 100-entry synchronized LRU cache manages `bypassAppInterceptUrls` to permanently prevent session memory leaks.
 
 ---
 

@@ -1924,7 +1924,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     onStayInOnyx = { fallback?.invoke() },
                     onOpenInApp = null
                 )
-                promptDialog.show(supportFragmentManager, com.onyx.browser.ui.dialog.OpenInAppPromptDialog.TAG)
+                promptDialog.showSafely(supportFragmentManager)
             }
         }
         webView.webViewClient = client

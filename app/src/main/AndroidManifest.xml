@@ -192,6 +192,10 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="market" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="spotify" />
+        </intent>
         <package android:name="org.telegram.messenger" />
         <package android:name="org.telegram.messenger.web" />
         <package android:name="org.thunderdog.challegram" />
@@ -204,6 +208,8 @@
         <package android:name="com.discord" />
         <package android:name="org.thoughtcrime.securesms" />
         <package android:name="com.google.android.youtube" />
+        <package android:name="com.spotify.music" />
+        <package android:name="com.reddit.frontpage" />
     </queries>
 
     <application

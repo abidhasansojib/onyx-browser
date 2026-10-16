@@ -31,6 +31,17 @@ class OpenInAppPromptDialog : DialogFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NO_TITLE, 0)
+        if (targetIntent == null) {
+            targetIntent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                arguments?.getParcelable(ARG_INTENT, Intent::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                arguments?.getParcelable(ARG_INTENT)
+            }
+        }
+        if (appName == null) {
+            appName = arguments?.getString(ARG_APP_NAME)
+        }
     }
 
     override fun onCreateView(
@@ -58,10 +69,8 @@ class OpenInAppPromptDialog : DialogFragment() {
                 val resolveInfo = pm.resolveActivity(intent, 0)
                 if (resolveInfo != null) {
                     resolvedIcon = resolveInfo.loadIcon(pm)
-                    if (resolvedName.isNullOrBlank()) {
-                        val label = resolveInfo.loadLabel(pm).toString()
-                        if (label.isNotBlank()) resolvedName = label
-                    }
+                    val label = resolveInfo.loadLabel(pm).toString()
+                    if (label.isNotBlank()) resolvedName = label
                 }
             } catch (_: Exception) {}
 
@@ -70,11 +79,9 @@ class OpenInAppPromptDialog : DialogFragment() {
                 if (!pkg.isNullOrBlank()) {
                     try {
                         resolvedIcon = pm.getApplicationIcon(pkg)
-                        if (resolvedName.isNullOrBlank()) {
-                            val appInfo = pm.getApplicationInfo(pkg, 0)
-                            val label = pm.getApplicationLabel(appInfo).toString()
-                            if (label.isNotBlank()) resolvedName = label
-                        }
+                        val appInfo = pm.getApplicationInfo(pkg, 0)
+                        val label = pm.getApplicationLabel(appInfo).toString()
+                        if (label.isNotBlank()) resolvedName = label
                     } catch (_: Exception) {}
                 }
             }
@@ -99,8 +106,9 @@ class OpenInAppPromptDialog : DialogFragment() {
             b.ivDialogIcon.layoutParams.height = iconSize
         }
 
-        // Setup Dynamic Title & Subtitle
-        if (!resolvedName.isNullOrBlank()) {
+        // Setup Dynamic Title & Subtitle (Avoid exposing raw Java/Android package identifiers to users)
+        val isRawPackageName = resolvedName?.contains(".") == true && !resolvedName.contains(" ")
+        if (!resolvedName.isNullOrBlank() && !isRawPackageName) {
             b.tvDialogTitle.text = getString(R.string.open_in_specific_app_title, resolvedName)
         } else {
             b.tvDialogTitle.text = getString(R.string.open_in_app_prompt_title)
@@ -112,9 +120,15 @@ class OpenInAppPromptDialog : DialogFragment() {
             ?: intent?.data?.toString()
             ?: intent?.`package`?.let { "package:$it" }
 
-        if (!resolvedName.isNullOrBlank() || !targetUrl.isNullOrBlank()) {
+        val displayTargetName = if (!resolvedName.isNullOrBlank() && !isRawPackageName) {
+            resolvedName
+        } else {
+            getString(R.string.open_in_app_action)
+        }
+
+        if (!targetUrl.isNullOrBlank() || (!resolvedName.isNullOrBlank() && !isRawPackageName)) {
             b.targetAppCard.visibility = View.VISIBLE
-            b.tvTargetAppName.text = resolvedName ?: getString(R.string.open_in_app_action)
+            b.tvTargetAppName.text = displayTargetName
             if (!targetUrl.isNullOrBlank()) {
                 b.tvTargetUrl.visibility = View.VISIBLE
                 b.tvTargetUrl.text = targetUrl
@@ -173,8 +187,18 @@ class OpenInAppPromptDialog : DialogFragment() {
         _binding = null
     }
 
+    fun showSafely(manager: androidx.fragment.app.FragmentManager) {
+        if (manager.isStateSaved || manager.isDestroyed) return
+        if (manager.findFragmentByTag(TAG) != null) return
+        try {
+            show(manager, TAG)
+        } catch (_: Exception) {}
+    }
+
     companion object {
         const val TAG = "OpenInAppPromptDialog"
+        private const val ARG_INTENT = "arg_intent"
+        private const val ARG_APP_NAME = "arg_app_name"
 
         fun newInstance(
             intent: Intent,
@@ -182,6 +206,10 @@ class OpenInAppPromptDialog : DialogFragment() {
             onStayInOnyx: (() -> Unit)? = null,
             onOpenInApp: (() -> Unit)? = null
         ) = OpenInAppPromptDialog().apply {
+            arguments = Bundle().apply {
+                putParcelable(ARG_INTENT, intent)
+                putString(ARG_APP_NAME, appName)
+            }
             this.targetIntent = intent
             this.appName = appName
             this.onStayInOnyx = onStayInOnyx
