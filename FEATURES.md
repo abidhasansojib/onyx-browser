@@ -164,6 +164,13 @@ This document tracks all features of Onyx Browser, their current implementation 
    - **Streaming Filter Compilation (`FilterListManager`)**: Sized `StringBuilder` capacity up front and streamed filter files with an 8KB buffer, eliminating intermediate string allocations across 54 lists and freeing buffer memory early.
    - **Asynchronous Package Installation (`ApkInstallerHelper`)**: Offloaded APK intent preparation and content URI file copying to `Dispatchers.IO`, preventing main thread freezes and ANRs on large APK installations.
 
+91. [x] Dynamic Blocking Level Reversion & Filter Engine Lifecycle Assurance:
+   - **Dynamic Document-Start Blocking Query**: `AdBlockDocumentStart.kt` queries `window.OnyxShieldBridge.getBlockingLevelForDomain()` dynamically at document start instead of baking static blocking levels into `WebViewCompat.addDocumentStartJavaScript`, guaranteeing instant reactivity to per-site and global shield changes without requiring tab re-creation.
+   - **Isolated Cosmetic Banner Management**: Extracted aggressive cookie consent selectors into `#onyx-aggressive-banners` dynamically appended and removed via `updateCosmeticBannerStyles(lvl)`, ensuring toggling back from Aggressive to Standard cleanly defuses aggressive hiding in the DOM.
+   - **LRU Decision Cache Invalidation**: Evicted Kotlin in-memory `requestDecisionCache` and `checkUrlCache` in `AdBlockEngine` whenever `isAdBlockEnabled`, `blockingLevel`, whitelist (`setDomainWhitelisted`), or per-site blocking level (`setSiteBlockingLevel`) changes, preventing stale Aggressive decisions from persisting in Standard mode.
+   - **Filter Signature Verification & Auto-Update Concurrency Guard**: Added `compiledFilterSignature` in `BrowserPreferences` and `FilterListManager` to detect when enabled lists or custom rules change during process downtime, automatically triggering binary recompilation on startup. Guarded background updates with an `AtomicBoolean` mutex to prevent concurrent file conflicts and wrapped `recompileFilters` in `NonCancellable` coroutine scope.
+   - **Canonical List ID Alignment & Resilience**: Normalized filter keys in `FilterListsBottomSheet` and `BrowserPreferences` (`"ublock_filters"`, `"social_media"`, `"cookie_notice"`), and safeguarded settings teardown in `ContentFiltersActivity` via `onDestroy` fallback dispatch.
+
 ---
 
 ## Feature Details

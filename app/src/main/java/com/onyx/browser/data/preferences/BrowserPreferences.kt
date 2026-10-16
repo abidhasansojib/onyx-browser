@@ -101,6 +101,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_ADBLOCK_ENABLED, true)
         set(value) {
             prefs.edit().putBoolean(KEY_ADBLOCK_ENABLED, value).apply()
+            com.onyx.browser.nativebridge.AdBlockEngine.clearDecisionCache()
         }
 
     /**
@@ -112,6 +113,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getInt(KEY_BLOCKING_LEVEL, BLOCKING_STANDARD)
         set(value) {
             prefs.edit().putInt(KEY_BLOCKING_LEVEL, value).apply()
+            com.onyx.browser.nativebridge.AdBlockEngine.clearDecisionCache()
         }
 
     var isCosmeticFilteringEnabled: Boolean
@@ -483,6 +485,10 @@ class BrowserPreferences private constructor(private val context: Context) {
             prefs.edit().putLong(KEY_FILTER_UPDATED, value).apply()
         }
 
+    var compiledFilterSignature: String
+        get() = prefs.getString(KEY_COMPILED_FILTER_SIGNATURE, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_COMPILED_FILTER_SIGNATURE, value).apply()
+
     @Volatile
     private var cachedDesktopDomains: Set<String>? = null
     @Volatile
@@ -571,6 +577,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         }
         cachedWhitelist = currentSet
         prefs.edit().putStringSet(KEY_ADBLOCK_WHITELIST, currentSet).apply()
+        com.onyx.browser.nativebridge.AdBlockEngine.clearDecisionCache()
     }
 
     fun addWhitelistedDomain(domainOrUrl: String) {
@@ -871,6 +878,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             .putStringSet(KEY_AGGRESSIVE_DOMAINS, aggressive)
             .putStringSet(KEY_STANDARD_DOMAINS, standard)
             .apply()
+        com.onyx.browser.nativebridge.AdBlockEngine.clearDecisionCache()
     }
 
     fun isDesktopModeForDomain(domainOrUrl: String): Boolean {
@@ -1862,11 +1870,27 @@ class BrowserPreferences private constructor(private val context: Context) {
         prefs.edit().putString(KEY_QUICK_ACTION_ORDER, order.joinToString(",")).apply()
     }
 
-    fun isFilterListEnabled(key: String): Boolean = enabledFilterLists.contains(key)
+    private fun normalizeFilterKey(key: String): String {
+        return when (key) {
+            "ublock" -> "ublock_filters"
+            "brave_social" -> "social_media"
+            "cookie_notices" -> "cookie_notice"
+            else -> key
+        }
+    }
+
+    fun isFilterListEnabled(key: String): Boolean = enabledFilterLists.contains(normalizeFilterKey(key))
 
     fun setFilterListEnabled(key: String, enabled: Boolean) {
+        val canonicalKey = normalizeFilterKey(key)
         val current = enabledFilterLists.toMutableSet()
-        if (enabled) current.add(key) else current.remove(key)
+        if (enabled) {
+            current.add(canonicalKey)
+            if (key != canonicalKey) current.remove(key)
+        } else {
+            current.remove(canonicalKey)
+            current.remove(key)
+        }
         enabledFilterLists = current
     }
 
@@ -2065,6 +2089,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_JAVASCRIPT_ENABLED = "pref_javascript_enabled"
         const val KEY_BLOCKED_REQUESTS_COUNT = "pref_blocked_requests_count"
         const val KEY_FILTER_UPDATED = "pref_filter_updated"
+        const val KEY_COMPILED_FILTER_SIGNATURE = "pref_compiled_filter_signature"
         const val KEY_ADBLOCK_WHITELIST = "pref_adblock_whitelist"
         const val KEY_TRANSLATE_TARGET_LANG = "pref_translate_target_lang"
         const val KEY_TRANSLATE_TARGET_NAME = "pref_translate_target_name"

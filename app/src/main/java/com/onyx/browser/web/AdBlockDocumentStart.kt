@@ -105,10 +105,41 @@ object AdBlockDocumentStart {
                 return;
             }
 
-            window.__onyx_blocking_level = $blockingLevel;
+            var currentLvl = $blockingLevel;
+            try {
+                if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.getBlockingLevelForDomain === 'function') {
+                    currentLvl = window.OnyxShieldBridge.getBlockingLevelForDomain(location.hostname || location.href);
+                } else if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.getBlockingLevel === 'function') {
+                    currentLvl = window.OnyxShieldBridge.getBlockingLevel();
+                }
+            } catch(e) {}
+
+            window.__onyx_blocking_level = currentLvl;
+
+            function updateCosmeticBannerStyles(lvl) {
+                try {
+                    var bannerStyle = document.getElementById('onyx-aggressive-banners');
+                    if (lvl === 1) {
+                        if (!bannerStyle) {
+                            bannerStyle = document.createElement('style');
+                            bannerStyle.id = 'onyx-aggressive-banners';
+                            bannerStyle.type = 'text/css';
+                            bannerStyle.textContent = '#onetrust-banner-sdk, #cookie-law-info-bar, .cc-window, .qc-cmp2-container, #CybotCookiebotDialog { display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; opacity: 0 !important; pointer-events: none !important; position: absolute !important; left: -9999px !important; }';
+                            var targetNode = document.head || document.documentElement;
+                            if (targetNode) targetNode.appendChild(bannerStyle);
+                        }
+                    } else if (bannerStyle) {
+                        bannerStyle.remove();
+                    }
+                } catch(e) {}
+            }
+
             window.__onyx_set_blocking_level = function(lvl) {
                 window.__onyx_blocking_level = lvl;
+                updateCosmeticBannerStyles(lvl);
             };
+
+            updateCosmeticBannerStyles(currentLvl);
 
             if (window.__onyx_shields_active) return;
             window.__onyx_shields_active = true;
@@ -1033,8 +1064,7 @@ object AdBlockDocumentStart {
                     '.dfp-ad-container, .taboola-ad, .outbrain-ad,',
                     '[class*="native-ad"], [id*="native-ad"], .ad-placeholder, .advertisement-box,',
                     '.adblockHostDiv_probe, [id*="ad_banner"], [id*="ad_unit"], [class*="sponsored-item"],',
-                    '[id*="yandex_rtb"], [class*="yandex_rtb"], [id*="pr_advertising"], [class*="pr_advertising"]' +
-                    (window.__onyx_blocking_level === 1 ? ', #onetrust-banner-sdk, #cookie-law-info-bar, .cc-window, .qc-cmp2-container, #CybotCookiebotDialog' : '') + ' {',
+                    '[id*="yandex_rtb"], [class*="yandex_rtb"], [id*="pr_advertising"], [class*="pr_advertising"] {',
                     '  display: none !important;',
                     '  visibility: hidden !important;',
                     '  height: 0 !important;',

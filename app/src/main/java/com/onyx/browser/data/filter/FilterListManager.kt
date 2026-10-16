@@ -5,6 +5,7 @@ import android.util.Log
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.nativebridge.AdBlockEngine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -12,6 +13,7 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 data class FilterListEntry(
     val id: String,
@@ -29,6 +31,15 @@ object FilterListManager {
     private const val FILTER_DIR = "filter_cache"
     private const val BINARY_CACHE_FILE = "onyx_filters.bin"
     private const val DEFAULT_ASSET_RULES = "easylist_rules.txt"
+
+    private val isUpdating = AtomicBoolean(false)
+
+    fun getCurrentFilterSignature(prefs: BrowserPreferences): String {
+        val enabledBuiltIn = prefs.enabledFilterLists.sorted().joinToString(",")
+        val enabledCustom = prefs.getCustomFilters().filter { it.isEnabled }.map { "${it.id}:${it.rules.hashCode()}" }.sorted().joinToString(";")
+        val legacyRulesHash = prefs.customFilterRules.hashCode()
+        return "$enabledBuiltIn|$enabledCustom|$legacyRulesHash"
+    }
 
     /**
      * All 54 filter lists corresponding to Brave Android's Content Filters screen
@@ -643,46 +654,54 @@ object FilterListManager {
         context: Context,
         onProgress: (current: Int, total: Int, name: String) -> Unit
     ): Result<Int> = withContext(Dispatchers.IO) {
-        val prefs = BrowserPreferences.getInstance(context)
-        val enabledBuiltIn = ALL_FILTER_LISTS.filter { prefs.isFilterListEnabled(it.id) }
-        val enabledCustomUrl = prefs.getCustomFilters().filter { it.isUrlType && it.isEnabled }
-        val cacheDir = getCacheDir(context)
-
-        var downloadedCount = 0
-        val totalToDownload = enabledBuiltIn.size + enabledCustomUrl.size
-        var currentIndex = 0
-
-        for (entry in enabledBuiltIn) {
-            currentIndex++
-            onProgress(currentIndex, totalToDownload, entry.title)
-            try {
-                val targetFile = File(cacheDir, "${entry.id}.txt")
-                downloadFilterList(entry.url, targetFile)
-                downloadedCount++
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed downloading filter list ${entry.id}: ${e.message}")
-            }
+        if (!isUpdating.compareAndSet(false, true)) {
+            Log.w(TAG, "Filter update already running, skipping concurrent call")
+            return@withContext Result.failure(IllegalStateException("Update already in progress"))
         }
+        try {
+            val prefs = BrowserPreferences.getInstance(context)
+            val enabledBuiltIn = ALL_FILTER_LISTS.filter { prefs.isFilterListEnabled(it.id) }
+            val enabledCustomUrl = prefs.getCustomFilters().filter { it.isUrlType && it.isEnabled }
+            val cacheDir = getCacheDir(context)
 
-        for (custom in enabledCustomUrl) {
-            currentIndex++
-            onProgress(currentIndex, totalToDownload, custom.name)
-            try {
-                val targetFile = File(cacheDir, "${custom.id}.txt")
-                downloadFilterList(custom.url, targetFile)
-                downloadedCount++
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed downloading custom filter ${custom.name}: ${e.message}")
+            var downloadedCount = 0
+            val totalToDownload = enabledBuiltIn.size + enabledCustomUrl.size
+            var currentIndex = 0
+
+            for (entry in enabledBuiltIn) {
+                currentIndex++
+                onProgress(currentIndex, totalToDownload, entry.title)
+                try {
+                    val targetFile = File(cacheDir, "${entry.id}.txt")
+                    downloadFilterList(entry.url, targetFile)
+                    downloadedCount++
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed downloading filter list ${entry.id}: ${e.message}")
+                }
             }
-        }
 
-        // Now merge and compile
-        val ruleCount = compileFilters(context)
-        if (ruleCount > 0) {
-            prefs.filterLastUpdatedTime = System.currentTimeMillis()
-            Result.success(ruleCount)
-        } else {
-            Result.failure(Exception("Failed to compile filter rules"))
+            for (custom in enabledCustomUrl) {
+                currentIndex++
+                onProgress(currentIndex, totalToDownload, custom.name)
+                try {
+                    val targetFile = File(cacheDir, "${custom.id}.txt")
+                    downloadFilterList(custom.url, targetFile)
+                    downloadedCount++
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed downloading custom filter ${custom.name}: ${e.message}")
+                }
+            }
+
+            // Now merge and compile
+            val ruleCount = compileFilters(context)
+            if (ruleCount > 0) {
+                prefs.filterLastUpdatedTime = System.currentTimeMillis()
+                Result.success(ruleCount)
+            } else {
+                Result.failure(Exception("Failed to compile filter rules"))
+            }
+        } finally {
+            isUpdating.set(false)
         }
     }
 
@@ -743,10 +762,18 @@ object FilterListManager {
      */
     suspend fun ensureDefaultFiltersCached(context: Context): Int = withContext(Dispatchers.IO) {
         autoEnableRegionalListsForLocale(context)
+        val prefs = BrowserPreferences.getInstance(context)
         val downloaded = ensureEnabledFiltersCached(context)
-        if (downloaded > 0) {
+        val cacheFile = File(context.filesDir, BINARY_CACHE_FILE)
+        val currentSig = getCurrentFilterSignature(prefs)
+        val needsRecompile = downloaded > 0 || !cacheFile.exists() || cacheFile.length() == 0L || prefs.compiledFilterSignature != currentSig
+
+        if (needsRecompile) {
             val count = compileFilters(context)
-            Log.i(TAG, "Cached and compiled $downloaded filter lists ($count rules active)")
+            if (prefs.filterLastUpdatedTime <= 0L) {
+                prefs.filterLastUpdatedTime = System.currentTimeMillis()
+            }
+            Log.i(TAG, "Cached and compiled filter lists (downloaded: $downloaded, rules active: $count)")
             return@withContext count
         }
         return@withContext 0
@@ -759,7 +786,7 @@ object FilterListManager {
     suspend fun recompileFilters(
         context: Context,
         onProgress: ((current: Int, total: Int, name: String) -> Unit)? = null
-    ): Int = withContext(Dispatchers.IO) {
+    ): Int = withContext(Dispatchers.IO + NonCancellable) {
         ensureEnabledFiltersCached(context, onProgress)
         return@withContext compileFilters(context)
     }
@@ -857,6 +884,7 @@ object FilterListManager {
             if (compiledBytes != null && compiledBytes.isNotEmpty()) {
                 val cacheFile = File(context.filesDir, BINARY_CACHE_FILE)
                 FileOutputStream(cacheFile).use { it.write(compiledBytes) }
+                prefs.compiledFilterSignature = getCurrentFilterSignature(prefs)
                 // Immediately apply new rules to the active in-memory Rust engine!
                 AdBlockEngine.initEngine(compiledBytes)
                 AdBlockEngine.loadBraveResources(context)

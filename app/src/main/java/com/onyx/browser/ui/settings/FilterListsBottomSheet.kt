@@ -23,14 +23,14 @@ class FilterListsBottomSheet : BottomSheetDialogFragment() {
         val FILTER_LISTS = linkedMapOf(
             "easylist" to "EasyList",
             "easyprivacy" to "EasyPrivacy",
-            "ublock" to "uBlock Filters",
+            "ublock_filters" to "uBlock Origin – Base Filters",
             "brave_default" to "Brave Default Filters",
             "fanboy_annoyance" to "Fanboy Annoyance",
             "adguard_base" to "AdGuard Base Filter",
             "adguard_mobile" to "AdGuard Mobile Ads",
             "peter_lowes" to "Peter Lowe's List",
-            "brave_social" to "Brave Social Media",
-            "cookie_notices" to "Cookie Consent Notices"
+            "social_media" to "Social Media Elements",
+            "cookie_notice" to "EasyList Cookie / Consent Notices"
         )
 
         fun newInstance() = FilterListsBottomSheet()

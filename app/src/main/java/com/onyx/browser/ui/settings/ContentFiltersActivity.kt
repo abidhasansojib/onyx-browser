@@ -209,25 +209,48 @@ class ContentFiltersActivity : AppCompatActivity() {
         }
     }
 
+    private var hasPendingRecompile = false
+
     private fun scheduleRecompile() {
         recompileJob?.cancel()
+        hasPendingRecompile = true
         recompileJob = lifecycleScope.launch {
             delay(500) // Debounce toggles
+            hasPendingRecompile = false
+            if (isFinishing || isDestroyed) {
+                FilterListManager.recompileFilters(applicationContext)
+                return@launch
+            }
             binding.progressUpdate.visibility = View.VISIBLE
             binding.tvUpdateStatus.visibility = View.VISIBLE
             binding.tvUpdateStatus.text = getString(R.string.updating_filters)
             val rulesCount = FilterListManager.recompileFilters(this@ContentFiltersActivity) { current, total, name ->
-                binding.tvUpdateStatus.text = "Downloading $current of $total: $name"
+                if (!isFinishing && !isDestroyed) {
+                    binding.tvUpdateStatus.text = "Downloading $current of $total: $name"
+                }
             }
-            binding.progressUpdate.visibility = View.GONE
-            binding.tvUpdateStatus.visibility = View.GONE
-            updateSubtitleDisplay()
-            if (rulesCount > 0) {
-                Toast.makeText(
-                    this@ContentFiltersActivity,
-                    getString(R.string.filters_updated, rulesCount),
-                    Toast.LENGTH_SHORT
-                ).show()
+            if (!isFinishing && !isDestroyed) {
+                binding.progressUpdate.visibility = View.GONE
+                binding.tvUpdateStatus.visibility = View.GONE
+                updateSubtitleDisplay()
+                if (rulesCount > 0) {
+                    Toast.makeText(
+                        this@ContentFiltersActivity,
+                        getString(R.string.filters_updated, rulesCount),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (hasPendingRecompile) {
+            hasPendingRecompile = false
+            val appCtx = applicationContext
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                FilterListManager.recompileFilters(appCtx)
             }
         }
     }

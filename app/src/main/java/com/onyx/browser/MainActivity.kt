@@ -1359,11 +1359,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 handleIncomingIntent(intentToHandle)
             }
         }
-
-        // Check and auto-update filter lists in background (every 24h by default)
-        lifecycleScope.launch(Dispatchers.IO) {
-            FilterListManager.checkAndAutoUpdateFilters(applicationContext)
-        }
     }
 
     private fun setupTopToolbar() {
