@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 import org.xmlpull.v1.XmlPullParser
 import java.io.StringReader
@@ -21,7 +22,9 @@ object AppUpdateManager {
     private const val GITHUB_REPO_NAME = "onyx-browser"
     private const val GITHUB_ATOM_URL = "https://github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases.atom"
     private const val GITHUB_LATEST_WEB_URL = "https://github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases/latest"
-    private const val GITHUB_API_URL = "https://api.github.com/repos/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases/latest"
+    private const val GITHUB_RELEASES_WEB_URL = "https://github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases"
+    private const val GITHUB_LATEST_API_URL = "https://api.github.com/repos/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases/latest"
+    private const val GITHUB_RELEASES_API_URL = "https://api.github.com/repos/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -33,43 +36,70 @@ object AppUpdateManager {
         .followRedirects(false)
         .build()
 
+    fun isPrerelease(context: Context): Boolean {
+        return BuildConfig.IS_PRERELEASE || context.packageName.endsWith(".prerelease")
+    }
+
+    fun isPrereleaseTag(tag: String): Boolean {
+        val lower = tag.lowercase()
+        return lower.contains("-") && (
+            lower.contains("prerelease") ||
+            lower.contains("pre") ||
+            lower.contains("alpha") ||
+            lower.contains("beta") ||
+            lower.contains("rc") ||
+            lower.contains("dev")
+        )
+    }
+
     suspend fun checkForUpdate(context: Context): UpdateCheckResult = withContext(Dispatchers.IO) {
         val currentVersion = getInstalledVersionName(context)
+        val isPrereleaseApp = isPrerelease(context)
 
-        // Tier 1: Public Atom RSS Feed (Zero rate limits, includes changelog & tag)
+        if (isPrereleaseApp) {
+            checkPrereleaseUpdate(currentVersion)
+        } else {
+            checkReleaseUpdate(currentVersion)
+        }
+    }
+
+    // ── Release Update Flow ──────────────────────────────────────────────────
+
+    private fun checkReleaseUpdate(currentVersion: String): UpdateCheckResult {
+        // Tier 1: Public Atom RSS Feed (Zero rate limits, filters out prerelease entries)
         try {
-            val atomResult = fetchFromAtomFeed(currentVersion)
+            val atomResult = fetchReleaseFromAtomFeed(currentVersion)
             if (atomResult != null) {
-                return@withContext atomResult
+                return atomResult
             }
         } catch (_: Exception) {
             // Fall through to Tier 2
         }
 
-        // Tier 2: Public GitHub Web Redirect (Zero rate limits, lightweight HEAD request)
+        // Tier 2: Public GitHub Web Redirect (/releases/latest is always stable release)
         try {
-            val redirectResult = fetchFromWebRedirect(currentVersion)
+            val redirectResult = fetchReleaseFromWebRedirect(currentVersion)
             if (redirectResult != null) {
-                return@withContext redirectResult
+                return redirectResult
             }
         } catch (_: Exception) {
             // Fall through to Tier 3
         }
 
-        // Tier 3: GitHub REST API (Fallback for standard environments)
+        // Tier 3: GitHub REST API (/releases/latest)
         try {
-            val apiResult = fetchFromRestApi(currentVersion)
+            val apiResult = fetchReleaseFromRestApi(currentVersion)
             if (apiResult != null) {
-                return@withContext apiResult
+                return apiResult
             }
         } catch (_: Exception) {
             // Fall through
         }
 
-        UpdateCheckResult.Error("Unable to check for updates. Please check your internet connection.")
+        return UpdateCheckResult.Error("Unable to check for updates. Please check your internet connection.")
     }
 
-    private fun fetchFromAtomFeed(currentVersion: String): UpdateCheckResult? {
+    private fun fetchReleaseFromAtomFeed(currentVersion: String): UpdateCheckResult? {
         val request = Request.Builder()
             .url(GITHUB_ATOM_URL)
             .header("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0")
@@ -80,16 +110,17 @@ object AppUpdateManager {
         if (!response.isSuccessful) return null
 
         val xmlBody = response.body?.string() ?: return null
-        val atomEntry = parseAtomEntry(xmlBody) ?: return null
+        val entries = parseAtomEntries(xmlBody)
+        val releaseEntry = entries.firstOrNull { !isPrereleaseTag(it.tag) } ?: return null
 
-        val tagName = atomEntry.tag
+        val tagName = releaseEntry.tag
         val hasUpdate = isUpdateAvailable(currentVersion = currentVersion, remoteTag = tagName)
         if (!hasUpdate) {
             return UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = tagName)
         }
 
         val assets = fetchAssetsFromExpandedWeb(tagName).ifEmpty {
-            buildDefaultAssetsForTag(tagName)
+            buildDefaultAssetsForTag(tagName, isPrerelease = false)
         }
 
         val bestAsset = selectBestAsset(assets) ?: return null
@@ -99,8 +130,8 @@ object AppUpdateManager {
             UpdateInfo(
                 tagName = tagName,
                 versionName = tagName.removePrefix("v"),
-                releaseTitle = atomEntry.title,
-                releaseNotes = atomEntry.contentHtml,
+                releaseTitle = releaseEntry.title,
+                releaseNotes = releaseEntry.contentHtml,
                 matchingAsset = sizedAsset,
                 allAssets = assets,
                 isUpdateAvailable = true
@@ -108,9 +139,308 @@ object AppUpdateManager {
         )
     }
 
+    private fun fetchReleaseFromWebRedirect(currentVersion: String): UpdateCheckResult? {
+        val request = Request.Builder()
+            .url(GITHUB_LATEST_WEB_URL)
+            .header("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0")
+            .head()
+            .build()
+
+        val response = noRedirectClient.newCall(request).execute()
+        val location = response.header("Location") ?: ""
+        if (!location.contains("/releases/tag/")) return null
+
+        val tagName = location.substringAfterLast("/releases/tag/").trim()
+        if (tagName.isBlank() || isPrereleaseTag(tagName)) return null
+
+        val hasUpdate = isUpdateAvailable(currentVersion = currentVersion, remoteTag = tagName)
+        if (!hasUpdate) {
+            return UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = tagName)
+        }
+
+        val assets = fetchAssetsFromExpandedWeb(tagName).ifEmpty {
+            buildDefaultAssetsForTag(tagName, isPrerelease = false)
+        }
+
+        val bestAsset = selectBestAsset(assets) ?: return null
+        val sizedAsset = resolveAssetSize(bestAsset, "Mozilla/5.0")
+
+        return UpdateCheckResult.Available(
+            UpdateInfo(
+                tagName = tagName,
+                versionName = tagName.removePrefix("v"),
+                releaseTitle = "Onyx Browser $tagName",
+                releaseNotes = "A new version of Onyx Browser ($tagName) is available on GitHub.",
+                matchingAsset = sizedAsset,
+                allAssets = assets,
+                isUpdateAvailable = true
+            )
+        )
+    }
+
+    private fun fetchReleaseFromRestApi(currentVersion: String): UpdateCheckResult? {
+        val request = Request.Builder()
+            .url(GITHUB_LATEST_API_URL)
+            .header("Accept", "application/vnd.github.v3+json")
+            .header("User-Agent", "OnyxBrowser/$currentVersion")
+            .build()
+
+        val response = client.newCall(request).execute()
+        if (response.code == 403 || !response.isSuccessful) {
+            return null
+        }
+
+        val bodyString = response.body?.string() ?: return null
+        val json = JSONObject(bodyString)
+        val tagName = json.optString("tag_name", "").trim()
+        if (tagName.isBlank() || isPrereleaseTag(tagName)) return null
+
+        val releaseTitle = json.optString("name", "Onyx Browser $tagName")
+        val releaseNotes = json.optString("body", "")
+
+        val assetsJson = json.optJSONArray("assets")
+        val assetsList = mutableListOf<ReleaseAsset>()
+        if (assetsJson != null) {
+            for (i in 0 until assetsJson.length()) {
+                val assetObj = assetsJson.getJSONObject(i)
+                val assetName = assetObj.optString("name", "")
+                val assetSize = assetObj.optLong("size", 0L)
+                val downloadUrl = assetObj.optString("browser_download_url", "")
+                if (assetName.endsWith(".apk", ignoreCase = true) &&
+                    downloadUrl.isNotBlank() &&
+                    isAllowedUpdateUrl(downloadUrl)) {
+                    assetsList.add(ReleaseAsset(name = assetName, size = assetSize, downloadUrl = downloadUrl))
+                }
+            }
+        }
+
+        val hasUpdate = isUpdateAvailable(currentVersion = currentVersion, remoteTag = tagName)
+        if (!hasUpdate) {
+            return UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = tagName)
+        }
+
+        val matchedAsset = selectBestAsset(assetsList.ifEmpty { buildDefaultAssetsForTag(tagName, isPrerelease = false) })
+            ?: return null
+
+        return UpdateCheckResult.Available(
+            UpdateInfo(
+                tagName = tagName,
+                versionName = tagName.removePrefix("v"),
+                releaseTitle = releaseTitle,
+                releaseNotes = releaseNotes,
+                matchingAsset = matchedAsset,
+                allAssets = assetsList,
+                isUpdateAvailable = true
+            )
+        )
+    }
+
+    // ── Prerelease Update Flow ───────────────────────────────────────────────
+
+    private fun checkPrereleaseUpdate(currentVersion: String): UpdateCheckResult {
+        // Tier 1: Public Atom RSS Feed (Zero rate limits, filters for prerelease entries)
+        try {
+            val atomResult = fetchPrereleaseFromAtomFeed(currentVersion)
+            if (atomResult != null) {
+                return atomResult
+            }
+        } catch (_: Exception) {
+            // Fall through to Tier 2
+        }
+
+        // Tier 2: GitHub REST API (all releases, finding latest prerelease)
+        try {
+            val apiResult = fetchPrereleaseFromRestApi(currentVersion)
+            if (apiResult != null) {
+                return apiResult
+            }
+        } catch (_: Exception) {
+            // Fall through to Tier 3
+        }
+
+        // Tier 3: Public GitHub Releases Web page (find latest prerelease tag)
+        try {
+            val webResult = fetchPrereleaseFromWeb(currentVersion)
+            if (webResult != null) {
+                return webResult
+            }
+        } catch (_: Exception) {
+            // Fall through
+        }
+
+        // If no prerelease release exists on GitHub yet, app is up to date
+        return UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = currentVersion)
+    }
+
+    private fun fetchPrereleaseFromAtomFeed(currentVersion: String): UpdateCheckResult? {
+        val request = Request.Builder()
+            .url(GITHUB_ATOM_URL)
+            .header("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0")
+            .header("Accept", "application/atom+xml, text/xml, */*")
+            .build()
+
+        val response = client.newCall(request).execute()
+        if (!response.isSuccessful) return null
+
+        val xmlBody = response.body?.string() ?: return null
+        val entries = parseAtomEntries(xmlBody)
+        val prereleaseEntry = entries.firstOrNull { isPrereleaseTag(it.tag) } ?: return null
+
+        val tagName = prereleaseEntry.tag
+        val hasUpdate = isUpdateAvailable(currentVersion = currentVersion, remoteTag = tagName)
+        if (!hasUpdate) {
+            return UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = tagName)
+        }
+
+        val assets = fetchAssetsFromExpandedWeb(tagName).ifEmpty {
+            buildDefaultAssetsForTag(tagName, isPrerelease = true)
+        }
+
+        val bestAsset = selectBestAsset(assets) ?: return null
+        val sizedAsset = resolveAssetSize(bestAsset, "Mozilla/5.0")
+
+        return UpdateCheckResult.Available(
+            UpdateInfo(
+                tagName = tagName,
+                versionName = tagName.removePrefix("v"),
+                releaseTitle = prereleaseEntry.title,
+                releaseNotes = prereleaseEntry.contentHtml,
+                matchingAsset = sizedAsset,
+                allAssets = assets,
+                isUpdateAvailable = true
+            )
+        )
+    }
+
+    private fun fetchPrereleaseFromRestApi(currentVersion: String): UpdateCheckResult? {
+        val request = Request.Builder()
+            .url("$GITHUB_RELEASES_API_URL?per_page=15")
+            .header("Accept", "application/vnd.github.v3+json")
+            .header("User-Agent", "OnyxBrowser/$currentVersion")
+            .build()
+
+        val response = client.newCall(request).execute()
+        if (response.code == 403 || !response.isSuccessful) {
+            return null
+        }
+
+        val bodyString = response.body?.string() ?: return null
+        val jsonArray = JSONArray(bodyString)
+
+        var prereleaseObj: JSONObject? = null
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            val isPre = obj.optBoolean("prerelease", false)
+            val isDraft = obj.optBoolean("draft", false)
+            val tag = obj.optString("tag_name", "")
+            if (!isDraft && (isPre || isPrereleaseTag(tag))) {
+                prereleaseObj = obj
+                break
+            }
+        }
+
+        if (prereleaseObj == null) {
+            return UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = currentVersion)
+        }
+
+        val tagName = prereleaseObj.optString("tag_name", "").trim()
+        if (tagName.isBlank()) return null
+
+        val releaseTitle = prereleaseObj.optString("name", "Onyx Browser $tagName (Pre-release)")
+        val releaseNotes = prereleaseObj.optString("body", "")
+
+        val assetsJson = prereleaseObj.optJSONArray("assets")
+        val assetsList = mutableListOf<ReleaseAsset>()
+        if (assetsJson != null) {
+            for (i in 0 until assetsJson.length()) {
+                val assetObj = assetsJson.getJSONObject(i)
+                val assetName = assetObj.optString("name", "")
+                val assetSize = assetObj.optLong("size", 0L)
+                val downloadUrl = assetObj.optString("browser_download_url", "")
+                if (assetName.endsWith(".apk", ignoreCase = true) &&
+                    downloadUrl.isNotBlank() &&
+                    isAllowedUpdateUrl(downloadUrl)) {
+                    assetsList.add(ReleaseAsset(name = assetName, size = assetSize, downloadUrl = downloadUrl))
+                }
+            }
+        }
+
+        val hasUpdate = isUpdateAvailable(currentVersion = currentVersion, remoteTag = tagName)
+        if (!hasUpdate) {
+            return UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = tagName)
+        }
+
+        val matchedAsset = selectBestAsset(assetsList.ifEmpty { buildDefaultAssetsForTag(tagName, isPrerelease = true) })
+            ?: return null
+
+        return UpdateCheckResult.Available(
+            UpdateInfo(
+                tagName = tagName,
+                versionName = tagName.removePrefix("v"),
+                releaseTitle = releaseTitle,
+                releaseNotes = releaseNotes,
+                matchingAsset = matchedAsset,
+                allAssets = assetsList,
+                isUpdateAvailable = true
+            )
+        )
+    }
+
+    private fun fetchPrereleaseFromWeb(currentVersion: String): UpdateCheckResult? {
+        val request = Request.Builder()
+            .url(GITHUB_RELEASES_WEB_URL)
+            .header("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0")
+            .header("Accept", "text/html, */*")
+            .build()
+
+        val response = client.newCall(request).execute()
+        if (!response.isSuccessful) return null
+
+        val html = response.body?.string() ?: return null
+        val pattern = Pattern.compile("""href=["'](/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases/tag/([^"'\s>]+))["']""")
+        val matcher = pattern.matcher(html)
+
+        var matchedTag: String? = null
+        while (matcher.find()) {
+            val tag = matcher.group(2)?.trim() ?: continue
+            if (isPrereleaseTag(tag)) {
+                matchedTag = tag
+                break
+            }
+        }
+
+        if (matchedTag == null) return null
+
+        val hasUpdate = isUpdateAvailable(currentVersion = currentVersion, remoteTag = matchedTag)
+        if (!hasUpdate) {
+            return UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = matchedTag)
+        }
+
+        val assets = fetchAssetsFromExpandedWeb(matchedTag).ifEmpty {
+            buildDefaultAssetsForTag(matchedTag, isPrerelease = true)
+        }
+        val bestAsset = selectBestAsset(assets) ?: return null
+        val sizedAsset = resolveAssetSize(bestAsset, "Mozilla/5.0")
+
+        return UpdateCheckResult.Available(
+            UpdateInfo(
+                tagName = matchedTag,
+                versionName = matchedTag.removePrefix("v"),
+                releaseTitle = "Onyx Browser $matchedTag (Pre-release)",
+                releaseNotes = "A new pre-release of Onyx Browser ($matchedTag) is available on GitHub.",
+                matchingAsset = sizedAsset,
+                allAssets = assets,
+                isUpdateAvailable = true
+            )
+        )
+    }
+
+    // ── Atom Feed Parsing ────────────────────────────────────────────────────
+
     private data class AtomEntry(val tag: String, val title: String, val contentHtml: String)
 
-    private fun parseAtomEntry(xml: String): AtomEntry? {
+    private fun parseAtomEntries(xml: String): List<AtomEntry> {
+        val entries = mutableListOf<AtomEntry>()
         try {
             val parser = Xml.newPullParser()
             parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
@@ -157,13 +487,18 @@ object AppUpdateManager {
                     XmlPullParser.END_TAG -> {
                         if (name.equals("entry", ignoreCase = true) && insideEntry) {
                             if (!tag.isNullOrBlank()) {
-                                return AtomEntry(
-                                    tag = tag,
-                                    title = title ?: "Onyx Browser $tag",
-                                    contentHtml = contentHtml ?: ""
+                                entries.add(
+                                    AtomEntry(
+                                        tag = tag,
+                                        title = title ?: "Onyx Browser $tag",
+                                        contentHtml = contentHtml ?: ""
+                                    )
                                 )
                             }
                             insideEntry = false
+                            title = null
+                            tag = null
+                            contentHtml = null
                         }
                     }
                 }
@@ -173,27 +508,29 @@ object AppUpdateManager {
             // Fall back to regex parsing
         }
 
-        return parseAtomEntryRegex(xml)
+        if (entries.isNotEmpty()) return entries
+        return parseAtomEntriesRegex(xml)
     }
 
-    private fun parseAtomEntryRegex(xml: String): AtomEntry? {
+    private fun parseAtomEntriesRegex(xml: String): List<AtomEntry> {
+        val entries = mutableListOf<AtomEntry>()
         val entryPattern = Pattern.compile("<entry>([\\s\\S]*?)</entry>")
         val entryMatcher = entryPattern.matcher(xml)
-        if (!entryMatcher.find()) return null
+        while (entryMatcher.find()) {
+            val entryContent = entryMatcher.group(1) ?: continue
+            val tagMatcher = Pattern.compile("""/releases/tag/([^"'\s>]+)""").matcher(entryContent)
+            val tag = if (tagMatcher.find()) tagMatcher.group(1).trim() else continue
 
-        val entryContent = entryMatcher.group(1) ?: return null
+            val titleMatcher = Pattern.compile("<title[^>]*>([^<]+)</title>").matcher(entryContent)
+            val title = if (titleMatcher.find()) titleMatcher.group(1).trim() else "Onyx Browser $tag"
 
-        val tagMatcher = Pattern.compile("""/releases/tag/([^"'\s>]+)""").matcher(entryContent)
-        val tag = if (tagMatcher.find()) tagMatcher.group(1).trim() else return null
+            val contentMatcher = Pattern.compile("<content[^>]*>([\\s\\S]*?)</content>").matcher(entryContent)
+            val rawHtml = if (contentMatcher.find()) contentMatcher.group(1) ?: "" else ""
+            val contentHtml = unescapeXmlEntities(rawHtml)
 
-        val titleMatcher = Pattern.compile("<title[^>]*>([^<]+)</title>").matcher(entryContent)
-        val title = if (titleMatcher.find()) titleMatcher.group(1).trim() else "Onyx Browser $tag"
-
-        val contentMatcher = Pattern.compile("<content[^>]*>([\\s\\S]*?)</content>").matcher(entryContent)
-        val rawHtml = if (contentMatcher.find()) contentMatcher.group(1) ?: "" else ""
-        val contentHtml = unescapeXmlEntities(rawHtml)
-
-        return AtomEntry(tag = tag, title = title, contentHtml = contentHtml)
+            entries.add(AtomEntry(tag = tag, title = title, contentHtml = contentHtml))
+        }
+        return entries
     }
 
     private fun unescapeXmlEntities(text: String): String {
@@ -205,101 +542,7 @@ object AppUpdateManager {
             .replace("&#39;", "'")
     }
 
-    private fun fetchFromWebRedirect(currentVersion: String): UpdateCheckResult? {
-        val request = Request.Builder()
-            .url(GITHUB_LATEST_WEB_URL)
-            .header("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0")
-            .head()
-            .build()
-
-        val response = noRedirectClient.newCall(request).execute()
-        val location = response.header("Location") ?: ""
-        if (!location.contains("/releases/tag/")) return null
-
-        val tagName = location.substringAfterLast("/releases/tag/").trim()
-        if (tagName.isBlank()) return null
-
-        val hasUpdate = isUpdateAvailable(currentVersion = currentVersion, remoteTag = tagName)
-        if (!hasUpdate) {
-            return UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = tagName)
-        }
-
-        val assets = fetchAssetsFromExpandedWeb(tagName).ifEmpty {
-            buildDefaultAssetsForTag(tagName)
-        }
-
-        val bestAsset = selectBestAsset(assets) ?: return null
-        val sizedAsset = resolveAssetSize(bestAsset, "Mozilla/5.0")
-
-        return UpdateCheckResult.Available(
-            UpdateInfo(
-                tagName = tagName,
-                versionName = tagName.removePrefix("v"),
-                releaseTitle = "Onyx Browser $tagName",
-                releaseNotes = "A new version of Onyx Browser ($tagName) is available on GitHub.",
-                matchingAsset = sizedAsset,
-                allAssets = assets,
-                isUpdateAvailable = true
-            )
-        )
-    }
-
-    private fun fetchFromRestApi(currentVersion: String): UpdateCheckResult? {
-        val request = Request.Builder()
-            .url(GITHUB_API_URL)
-            .header("Accept", "application/vnd.github.v3+json")
-            .header("User-Agent", "OnyxBrowser/$currentVersion")
-            .build()
-
-        val response = client.newCall(request).execute()
-        if (response.code == 403 || !response.isSuccessful) {
-            return null
-        }
-
-        val bodyString = response.body?.string() ?: return null
-        val json = JSONObject(bodyString)
-        val tagName = json.optString("tag_name", "").trim()
-        if (tagName.isBlank()) return null
-
-        val releaseTitle = json.optString("name", "Onyx Browser $tagName")
-        val releaseNotes = json.optString("body", "")
-
-        val assetsJson = json.optJSONArray("assets")
-        val assetsList = mutableListOf<ReleaseAsset>()
-        if (assetsJson != null) {
-            for (i in 0 until assetsJson.length()) {
-                val assetObj = assetsJson.getJSONObject(i)
-                val assetName = assetObj.optString("name", "")
-                val assetSize = assetObj.optLong("size", 0L)
-                val downloadUrl = assetObj.optString("browser_download_url", "")
-                if (assetName.endsWith(".apk", ignoreCase = true) &&
-                    downloadUrl.isNotBlank() &&
-                    isAllowedUpdateUrl(downloadUrl)) {
-                    assetsList.add(ReleaseAsset(name = assetName, size = assetSize, downloadUrl = downloadUrl))
-                }
-            }
-        }
-
-        val hasUpdate = isUpdateAvailable(currentVersion = currentVersion, remoteTag = tagName)
-        if (!hasUpdate) {
-            return UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = tagName)
-        }
-
-        val matchedAsset = selectBestAsset(assetsList.ifEmpty { buildDefaultAssetsForTag(tagName) })
-            ?: return null
-
-        return UpdateCheckResult.Available(
-            UpdateInfo(
-                tagName = tagName,
-                versionName = tagName.removePrefix("v"),
-                releaseTitle = releaseTitle,
-                releaseNotes = releaseNotes,
-                matchingAsset = matchedAsset,
-                allAssets = assetsList,
-                isUpdateAvailable = true
-            )
-        )
-    }
+    // ── Asset Discovery & Matching ───────────────────────────────────────────
 
     private fun fetchAssetsFromExpandedWeb(tagName: String): List<ReleaseAsset> {
         return try {
@@ -324,7 +567,6 @@ object AppUpdateManager {
                 val name = matcher.group(2) ?: continue
                 if (seenNames.add(name)) {
                     val fullUrl = "https://github.com$path"
-                    // Ensure the constructed URL is still on github.com (sanity check)
                     if (isAllowedUpdateUrl(fullUrl)) {
                         assets.add(ReleaseAsset(name = name, size = 0L, downloadUrl = fullUrl))
                     }
@@ -336,20 +578,16 @@ object AppUpdateManager {
         }
     }
 
-    fun buildDefaultAssetsForTag(tagName: String): List<ReleaseAsset> {
+    fun buildDefaultAssetsForTag(tagName: String, isPrerelease: Boolean = false): List<ReleaseAsset> {
         val abis = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "universal")
+        val suffix = if (isPrerelease) "prerelease" else "release"
         return abis.map { abi ->
-            val fileName = "Onyx-Browser-$tagName-$abi-release.apk"
+            val fileName = "Onyx-Browser-$tagName-$abi-$suffix.apk"
             val downloadUrl = "https://github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases/download/$tagName/$fileName"
             ReleaseAsset(name = fileName, size = 0L, downloadUrl = downloadUrl)
         }
     }
 
-    /**
-     * Validates that a download URL is from an expected trusted host.
-     * APK update URLs must only come from github.com or GitHub's CDN hosts.
-     * This prevents MITM/compromised feeds from redirecting to malicious hosts.
-     */
     private fun isAllowedUpdateUrl(url: String): Boolean {
         if (url.isBlank()) return false
         return try {
@@ -384,11 +622,14 @@ object AppUpdateManager {
     }
 
     fun isUpdateAvailable(currentVersion: String, remoteTag: String): Boolean {
-        val cleanCurrent = currentVersion.trim().removePrefix("v").substringBefore("-")
-        val cleanRemote = remoteTag.trim().removePrefix("v").substringBefore("-")
+        val cleanCurrent = currentVersion.trim().removePrefix("v")
+        val cleanRemote = remoteTag.trim().removePrefix("v")
 
-        val currentParts = cleanCurrent.split(".").mapNotNull { it.toIntOrNull() }
-        val remoteParts = cleanRemote.split(".").mapNotNull { it.toIntOrNull() }
+        val currentBase = cleanCurrent.substringBefore("-")
+        val remoteBase = cleanRemote.substringBefore("-")
+
+        val currentParts = currentBase.split(".").mapNotNull { it.toIntOrNull() }
+        val remoteParts = remoteBase.split(".").mapNotNull { it.toIntOrNull() }
 
         val maxLength = maxOf(currentParts.size, remoteParts.size)
         for (i in 0 until maxLength) {
@@ -397,6 +638,26 @@ object AppUpdateManager {
             if (rem > curr) return true
             if (rem < curr) return false
         }
+
+        val currentHasSuffix = cleanCurrent.contains("-")
+        val remoteHasSuffix = cleanRemote.contains("-")
+
+        // Stable release of the same base version is newer than its prerelease
+        if (currentHasSuffix && !remoteHasSuffix) {
+            return true
+        }
+
+        // Compare prerelease build numbers if both share the same base version
+        if (currentHasSuffix && remoteHasSuffix) {
+            val currentSuffix = cleanCurrent.substringAfter("-")
+            val remoteSuffix = cleanRemote.substringAfter("-")
+            if (currentSuffix != remoteSuffix) {
+                val currentSuffixNum = currentSuffix.filter { it.isDigit() }.toIntOrNull() ?: 0
+                val remoteSuffixNum = remoteSuffix.filter { it.isDigit() }.toIntOrNull() ?: 0
+                if (remoteSuffixNum > currentSuffixNum) return true
+            }
+        }
+
         return false
     }
 
@@ -436,4 +697,3 @@ object AppUpdateManager {
         }
     }
 }
-

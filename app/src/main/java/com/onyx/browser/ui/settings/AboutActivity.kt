@@ -125,7 +125,7 @@ class AboutActivity : AppCompatActivity() {
         binding.tvAppVersion.text = versionText
 
         val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "Universal"
-        val buildType = if (BuildConfig.DEBUG) "Debug" else "Release"
+        val buildType = if (AppUpdateManager.isPrerelease(this)) "Prerelease" else "Release"
         binding.tvAppBuildType.text = "$buildType • $abi"
 
         binding.rowAppVersion.setOnClickListener {

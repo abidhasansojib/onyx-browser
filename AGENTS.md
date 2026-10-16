@@ -30,29 +30,27 @@ For complete subsystem specifications and technical architecture, see:
 
 ### RULE 2: Explicit User Build Gate & Build Type Clarification
 - **Default State**: Do **NOT** trigger GitHub Actions CI/CD workflows, compile code, or trigger remote builds during regular conversation.
-- **Build Type Clarification**: When the user says **"build app now"** without specifying the build type, you **MUST ask the user** whether they want a **Release** or **Debug** build before triggering any workflow. Never guess or trigger prematurely.
+- **Build Type Clarification**: When the user says **"build app now"** without specifying the build type, you **MUST ask the user** whether they want a **Release** or **Prerelease** build before triggering any workflow. Never guess or trigger prematurely.
 - **Specific Build Commands**:
   - If the user specifies **"build release app"** (or chooses Release), build **Release only** (`gh workflow run build.yml -f build_type=Release`).
-  - If the user specifies **"build debug app"** (or chooses Debug), build **Debug only** (`gh workflow run build.yml -f build_type=Debug`).
-  - The `Both` option is permanently removed from the build workflow and prohibited.
+  - If the user specifies **"build prerelease app"** (or chooses Prerelease), build **Prerelease only** (`gh workflow run build.yml -f build_type=Prerelease`).
+  - Debug builds are permanently removed and prohibited.
 
 ### RULE 3: Autonomous Remote Build & Auto-Fix Loop
-When triggered for a build (after user confirms or explicitly requests Release or Debug):
+When triggered for a build (after user confirms or explicitly requests Release or Prerelease):
 1. **Push & Trigger**: Ensure all changes are committed and pushed to `origin main`, then trigger the workflow:
    - **Release**: `gh workflow run build.yml -f build_type=Release`
-   - **Debug**: `gh workflow run build.yml -f build_type=Debug`
+   - **Prerelease**: `gh workflow run build.yml -f build_type=Prerelease`
 2. **Monitor Execution**: Track the active workflow run to completion using `schedule` timers and `gh run view <run_id>`. Do NOT poll in a busy while-loop; use the `schedule` tool.
 3. **If Build Succeeds**:
    - **Release Build**:
-     - **DO NOT download artifacts to the device**.
-     - Release APKs are published directly to GitHub Releases.
+     - Released to GitHub Releases as a full release.
+     - DO NOT download artifacts to the device unless explicitly requested.
      - Report the release version tag, changelog, and GitHub release download links to the user.
-   - **Debug Build**:
-     - **Download artifact to device ONLY for Debug builds**:
-       ```bash
-       gh run download <run_id> -n Onyx-Browser-Debug-APK --dir /storage/emulated/0/Download
-       ```
-     - Save the APK in `/storage/emulated/0/Download/` and report its local path and size to the user.
+   - **Prerelease Build**:
+     - Released to GitHub Releases marked as a **Pre-release** (`applicationId` has `.prerelease` suffix).
+     - DO NOT download artifacts to the device unless explicitly requested.
+     - Report the prerelease tag, changelog, and GitHub release download links to the user.
 4. **If Build Fails (CRITICAL AUTO-REPAIR REQUIREMENT)**:
    - Retrieve the failed step logs via `gh run view --log-failed --job=<job_id>`.
    - Analyze the compiler error, Kotlin syntax error, resource collision, or ProGuard/R8 exception.
@@ -86,7 +84,7 @@ onyx-browser/
 ├── .github/
 │   ├── ISSUE_TEMPLATE/       # Structured YAML issue forms (bug reports & feature requests)
 │   └── workflows/
-│       ├── build.yml         # Rust NDK compile, Lucide sync, Gradle Release/Debug APKs
+│       ├── build.yml         # Rust NDK compile, Lucide sync, Gradle Release/Prerelease APKs
 │       └── sync_upstream.yml # 6-hour automated Brave filter lists sync workflow
 ├── app/
 │   ├── src/main/

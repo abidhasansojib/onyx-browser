@@ -10,7 +10,7 @@ on:
         type: choice
         options:
           - 'Release'
-          - 'Debug'
+          - 'Prerelease'
 
 permissions:
   contents: write
@@ -105,9 +105,15 @@ jobs:
         run: |
           RUN_NUM="${{ github.run_number }}"
           VERSION_CODE=$(( 1000 + RUN_NUM ))
-          VERSION_NAME="1.0.${RUN_NUM}"
-          TAG_NAME="v1.0.${RUN_NUM}"
           BUILD_TYPE="${{ github.event.inputs.build_type || 'Release' }}"
+
+          if [ "$BUILD_TYPE" = "Prerelease" ]; then
+            VERSION_NAME="1.0.${RUN_NUM}-prerelease"
+            TAG_NAME="v1.0.${RUN_NUM}-prerelease"
+          else
+            VERSION_NAME="1.0.${RUN_NUM}"
+            TAG_NAME="v1.0.${RUN_NUM}"
+          fi
 
           echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
           echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
@@ -122,7 +128,7 @@ jobs:
           echo "=========================================="
 
       # ------------------------------------------------------------------------
-      # RELEASE BUILD: ABI Splits + R8 Minification + Multi-Architecture APKs
+      # RELEASE BUILD: ABI Splits + R8 Minification + Signed APKs
       # ------------------------------------------------------------------------
       - name: Build Release APKs (ABI Splits & R8 Minified)
         if: env.BUILD_TYPE == 'Release'
@@ -142,30 +148,61 @@ jobs:
           echo "Generated Release APKs:"
           ls -lh app/build/outputs/apk/release/
 
-      - name: Organize and Label Release APKs
-        if: env.BUILD_TYPE == 'Release'
+      # ------------------------------------------------------------------------
+      # PRERELEASE BUILD: ABI Splits + R8 Minification + Signed APKs (*.prerelease)
+      # ------------------------------------------------------------------------
+      - name: Build Prerelease APKs (ABI Splits & R8 Minified)
+        if: env.BUILD_TYPE == 'Prerelease'
+        env:
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'onyx-browser' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || secrets.KEYSTORE_PASSWORD }}
         run: |
-          mkdir -p release_apks
-          cd app/build/outputs/apk/release/
+          ./gradlew assemblePrerelease \
+            -PenableAbiSplits=true \
+            -PversionCode=${{ env.VERSION_CODE }} \
+            -PversionName=${{ env.VERSION_NAME }} \
+            --stacktrace
+
+          echo "Generated Prerelease APKs:"
+          ls -lh app/build/outputs/apk/prerelease/
+
+      - name: Organize and Label APKs
+        run: |
+          mkdir -p package_apks
+          BUILD_DIR="release"
+          if [ "${{ env.BUILD_TYPE }}" = "Prerelease" ]; then
+            BUILD_DIR="prerelease"
+          fi
+          cd app/build/outputs/apk/${BUILD_DIR}/
           for f in *.apk; do
             if [ -f "$f" ]; then
               CLEAN_NAME=$(echo "$f" | sed "s/^app-/Onyx-Browser-${{ env.TAG_NAME }}-/")
-              cp "$f" "../../../../../release_apks/$CLEAN_NAME"
-              echo "Packaged release binary: $CLEAN_NAME ($(du -h "$f" | cut -f1))"
+              cp "$f" "../../../../../package_apks/$CLEAN_NAME"
+              echo "Packaged binary: $CLEAN_NAME ($(du -h "$f" | cut -f1))"
             fi
           done
           cd ../../../../..
-          echo "Final Release Binaries:"
-          ls -lh release_apks/
+          echo "Final Binaries:"
+          ls -lh package_apks/
 
       - name: Publish GitHub Release
-        if: env.BUILD_TYPE == 'Release'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ env.TAG_NAME }}"
-          TITLE="Onyx Browser ${{ env.TAG_NAME }}"
           REPO="${{ github.repository }}"
+          BUILD_TYPE="${{ env.BUILD_TYPE }}"
+
+          if [ "$BUILD_TYPE" = "Prerelease" ]; then
+            TITLE="Onyx Browser $TAG (Pre-release)"
+            EXTRA_FLAGS="--prerelease"
+          else
+            TITLE="Onyx Browser $TAG"
+            EXTRA_FLAGS=""
+          fi
 
           # Fetch latest tags to determine previous release
           git fetch --tags origin 2>/dev/null || true
@@ -190,36 +227,13 @@ jobs:
           echo "Generated Release Notes:"
           cat release_notes.md
 
-          gh release create "$TAG" release_apks/*.apk \
+          gh release create "$TAG" package_apks/*.apk \
+            $EXTRA_FLAGS \
             --title "$TITLE" \
-            --notes-file release_notes.md || (gh release upload "$TAG" release_apks/*.apk --clobber && gh release edit "$TAG" --notes-file release_notes.md)
+            --notes-file release_notes.md || (gh release upload "$TAG" package_apks/*.apk --clobber && gh release edit "$TAG" $EXTRA_FLAGS --notes-file release_notes.md)
 
-
-      - name: Upload Release APKs to Workflow Artifacts
-        if: env.BUILD_TYPE == 'Release'
+      - name: Upload APKs to Workflow Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Onyx-Browser-Release-APKs
-          path: release_apks/*.apk
-
-      # ------------------------------------------------------------------------
-      # DEBUG BUILD: Single Universal APK, No Minification, Actions Artifact Only
-      # ------------------------------------------------------------------------
-      - name: Build Debug APK
-        if: env.BUILD_TYPE == 'Debug'
-        run: |
-          ./gradlew assembleDebug \
-            -PenableAbiSplits=false \
-            -PversionCode=${{ env.VERSION_CODE }} \
-            -PversionName=${{ env.VERSION_NAME }} \
-            --stacktrace
-
-          echo "Generated Debug APK:"
-          ls -lh app/build/outputs/apk/debug/
-
-      - name: Upload Debug APK Artifact
-        if: env.BUILD_TYPE == 'Debug'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Onyx-Browser-Debug-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: Onyx-Browser-${{ env.BUILD_TYPE }}-APKs
+          path: package_apks/*.apk

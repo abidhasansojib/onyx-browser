@@ -28,6 +28,8 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        buildConfigField("boolean", "IS_PRERELEASE", "false")
     }
 
     val enableSplits = project.findProperty("enableAbiSplits")?.toString()?.toBoolean() ?: false
@@ -79,12 +81,14 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("release")
+            buildConfigField("boolean", "IS_PRERELEASE", "false")
         }
-        debug {
-            applicationIdSuffix = ".debug"
-            isDebuggable = true
-            isMinifyEnabled = false
-            isShrinkResources = false
+        create("prerelease") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".prerelease"
+            signingConfig = signingConfigs.getByName("release")
+            matchingFallbacks += listOf("release")
+            buildConfigField("boolean", "IS_PRERELEASE", "true")
         }
     }
 

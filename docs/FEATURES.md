@@ -96,6 +96,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Offline Eruda Developer Tools**: Bundled mobile DOM inspector, JavaScript console, network monitor, and startup log pre-buffering.
 - `[x]` **Bookmarks & Bookmarklets Engine**: Create, edit, and organize bookmarks with live search and direct `javascript:...` bookmarklet execution.
 - `[x]` **Smart "Open in App" Intent Prompt**: Material 3 dialog resolving native app icons and labels for deep links (`tg://`, `intent://`, etc.).
+- `[x]` **Channel-Aware In-App Updater**: Dual release channels (Release vs Pre-release) seamlessly checking GitHub Releases / Pre-releases with zero-rate-limit public Atom feed fallback and SHA-256 ABI matching.
 
 ---
 
