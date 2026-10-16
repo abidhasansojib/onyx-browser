@@ -34,6 +34,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URLDecoder
+import java.util.regex.Pattern
 
 object DownloadHandler {
 
@@ -57,37 +58,212 @@ object DownloadHandler {
         return if (clean.isBlank()) "download_${System.currentTimeMillis()}" else clean
     }
 
+    /**
+     * Parses RFC 5987 / RFC 6266 Content-Disposition headers cleanly.
+     * Supports:
+     * - filename*=(?:UTF-8|utf-8)''<url-encoded>
+     * - filename="<quoted-string>"
+     * - filename='<single-quoted-string>'
+     * - filename=<unquoted-token>
+     * - inline or attachment modes, handles parameters in any order
+     */
+    fun parseContentDispositionFilename(contentDisposition: String?): String? {
+        if (contentDisposition.isNullOrBlank()) return null
+        try {
+            // 1. Extended RFC 5987 / RFC 6266 filename* parameter
+            val extPattern = Pattern.compile("(?i)(?:^|[;\\s])filename\\*\\s*=\\s*(?:[a-zA-Z0-9_-]+''|UTF-8''|utf-8'')?([^;]+)")
+            val extMatcher = extPattern.matcher(contentDisposition)
+            if (extMatcher.find()) {
+                val rawEncoded = extMatcher.group(1)?.trim('"', '\'', ' ') ?: ""
+                val decoded = try {
+                    URLDecoder.decode(rawEncoded, "UTF-8")
+                } catch (_: Exception) { rawEncoded }
+                val clean = cleanParsedName(decoded)
+                if (clean.isNotBlank()) return clean
+            }
+
+            // 2. Standard double-quoted filename="foo.zip"
+            val quotedPattern = Pattern.compile("(?i)(?:^|[;\\s])filename\\s*=\\s*\"([^\"]+)\"")
+            val quotedMatcher = quotedPattern.matcher(contentDisposition)
+            if (quotedMatcher.find()) {
+                val name = quotedMatcher.group(1)?.trim() ?: ""
+                val clean = cleanParsedName(name)
+                if (clean.isNotBlank()) return clean
+            }
+
+            // 3. Single-quoted filename='foo.zip'
+            val singleQuotedPattern = Pattern.compile("(?i)(?:^|[;\\s])filename\\s*=\\s*'([^']+)'")
+            val singleMatcher = singleQuotedPattern.matcher(contentDisposition)
+            if (singleMatcher.find()) {
+                val name = singleMatcher.group(1)?.trim() ?: ""
+                val clean = cleanParsedName(name)
+                if (clean.isNotBlank()) return clean
+            }
+
+            // 4. Unquoted filename=foo.zip
+            val unquotedPattern = Pattern.compile("(?i)(?:^|[;\\s])filename\\s*=\\s*([^;\\s]+)")
+            val unquotedMatcher = unquotedPattern.matcher(contentDisposition)
+            if (unquotedMatcher.find()) {
+                val name = unquotedMatcher.group(1)?.trim('"', '\'', ' ') ?: ""
+                val clean = cleanParsedName(name)
+                if (clean.isNotBlank()) return clean
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    private fun cleanParsedName(rawName: String): String {
+        var name = rawName.trim().trim('"', '\'')
+        val lastSlash = name.lastIndexOfAny(charArrayOf('/', '\\'))
+        if (lastSlash >= 0) {
+            name = name.substring(lastSlash + 1)
+        }
+        return name.trim()
+    }
+
+    fun extractFileNameFromUrl(url: String): String? {
+        if (url.isBlank() || url.startsWith("data:", ignoreCase = true) || url.startsWith("blob:", ignoreCase = true)) {
+            return null
+        }
+        try {
+            val uri = Uri.parse(url)
+
+            // 1. Check query parameters first for explicit file name hints
+            // (e.g. ?file=app.zip, ?filename=package.apk, ?name=document.pdf, AWS S3 ?response-content-disposition=...)
+            val responseCd = uri.getQueryParameter("response-content-disposition")
+            if (!responseCd.isNullOrBlank()) {
+                val fromCd = parseContentDispositionFilename(responseCd)
+                if (!fromCd.isNullOrBlank()) return fromCd
+            }
+            for (queryKey in listOf("filename", "file", "name", "download", "attachment")) {
+                val paramVal = uri.getQueryParameter(queryKey)
+                if (!paramVal.isNullOrBlank()) {
+                    val decoded = try { URLDecoder.decode(paramVal, "UTF-8") } catch (_: Exception) { paramVal }
+                    val clean = cleanParsedName(decoded)
+                    if (hasRecognizedExtension(clean)) {
+                        return clean
+                    }
+                }
+            }
+
+            // 2. Extract from URL path segments
+            val path = uri.path
+            if (!path.isNullOrBlank()) {
+                val segments = path.split('/').filter { it.isNotBlank() }
+                if (segments.isNotEmpty()) {
+                    val lastSegment = segments.last()
+                    val decoded = try { URLDecoder.decode(lastSegment, "UTF-8") } catch (_: Exception) { lastSegment }
+                    val clean = cleanParsedName(decoded)
+                    if (!isWebPageOrScript(clean) && clean.isNotBlank()) {
+                        return clean
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    private fun isWebPageOrScript(name: String): Boolean {
+        val ext = name.substringAfterLast('.', "").lowercase()
+        return ext in setOf("php", "asp", "aspx", "jsp", "cgi", "html", "htm")
+    }
+
+    private fun hasRecognizedExtension(name: String): Boolean {
+        val ext = name.substringAfterLast('.', "").lowercase()
+        return ext.isNotEmpty() && ext.length in 1..8 && ext.all { it.isLetterOrDigit() } && !isWebPageOrScript(name)
+    }
+
+    private fun extractExtensionFromUrl(url: String): String? {
+        if (url.isBlank()) return null
+        try {
+            val cleanUrl = url.substringBefore('#').substringBefore('?')
+            val lastSegment = cleanUrl.substringAfterLast('/')
+            val ext = lastSegment.substringAfterLast('.', "")
+            if (ext.isNotBlank() && ext.length in 1..8 && ext.all { it.isLetterOrDigit() } && !isWebPageOrScript(lastSegment)) {
+                return ext.lowercase()
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
     fun guessResolvedFileName(
         url: String,
         contentDisposition: String?,
         mimeType: String?,
         pageUrl: String? = null
     ): String {
-        var guessed = URLUtil.guessFileName(url, contentDisposition, mimeType)
+        // Step 1: Attempt Content-Disposition extraction (RFC 5987 / RFC 6266)
+        var candidate: String? = parseContentDispositionFilename(contentDisposition)
+
+        // Step 2: Attempt URL path and query extraction
+        if (candidate.isNullOrBlank()) {
+            candidate = extractFileNameFromUrl(url)
+        }
+
+        // Step 3: Check page URL for GitHub/GitLab blob views or web context
+        val isBlobOrData = url.startsWith("blob:", ignoreCase = true) || url.startsWith("data:", ignoreCase = true)
+        val isGenericOrUuid = candidate.isNullOrBlank() ||
+            candidate.endsWith(".bin", ignoreCase = true) ||
+            candidate.matches(Regex("^[0-9a-fA-F-]{36}.*"))
+
+        if ((isBlobOrData || isGenericOrUuid) && !pageUrl.isNullOrBlank()) {
+            val fromPage = extractFileNameFromPageUrl(pageUrl)
+            if (!fromPage.isNullOrBlank()) {
+                candidate = fromPage
+            }
+        }
+
+        // Step 4: Fallback to Android framework URLUtil.guessFileName,
+        // CRITICAL: NEVER pass generic MIME types (application/octet-stream) to URLUtil!
+        // URLUtil.guessFileName compares extension against mimeType, and if mismatched with octet-stream,
+        // it forcibly discards .zip / .apk / .7z and appends .bin! Passing null prevents this destruction.
+        if (candidate.isNullOrBlank() || candidate == "downloadfile") {
+            val safeMime = if (FileUtils.isGenericMimeType(mimeType)) null else mimeType
+            candidate = URLUtil.guessFileName(url, contentDisposition, safeMime)
+        }
+
+        // Step 5: README special casing
         val urlLastSegment = try {
             Uri.parse(url).path?.split('/')?.filter { it.isNotBlank() }?.lastOrNull()
         } catch (_: Exception) { null }
 
-        // If URL is blob or data, or guessed is generic/UUID, try extracting from pageUrl
-        val isBlobOrData = url.startsWith("blob:", ignoreCase = true) || url.startsWith("data:", ignoreCase = true)
-        val isGenericOrUuid = guessed.endsWith(".bin") || guessed.matches(Regex("^[0-9a-fA-F-]{36}.*"))
-        if ((isBlobOrData || isGenericOrUuid) && !pageUrl.isNullOrBlank()) {
-            val fromPage = extractFileNameFromPageUrl(pageUrl)
-            if (fromPage != null) {
-                return sanitizeFileName(fromPage)
-            }
+        if (candidate.equals("readme", ignoreCase = true) || candidate.equals("readme.bin", ignoreCase = true) ||
+            (candidate.equals("readme.txt", ignoreCase = true) && (urlLastSegment?.contains("readme", ignoreCase = true) == true)) ||
+            (urlLastSegment?.equals("readme", ignoreCase = true) == true) ||
+            (contentDisposition?.contains("readme", ignoreCase = true) == true && candidate.endsWith(".bin", ignoreCase = true))
+        ) {
+            candidate = "README.md"
         }
 
-        if (guessed.equals("readme", ignoreCase = true) || guessed.equals("readme.bin", ignoreCase = true) ||
-            (guessed.equals("readme.txt", ignoreCase = true) && (urlLastSegment?.contains("readme", ignoreCase = true) == true))
-        ) {
-            guessed = "README.md"
-        } else if (urlLastSegment?.equals("readme", ignoreCase = true) == true) {
-            guessed = "README.md"
-        } else if (contentDisposition?.contains("readme", ignoreCase = true) == true && guessed.endsWith(".bin")) {
-            guessed = "README.md"
+        // Step 6: Extension Preservation & Resolution
+        // A) If candidate ends with .bin, but the URL or query or specific MIME type reveals the true extension
+        if (candidate.endsWith(".bin", ignoreCase = true)) {
+            val baseName = candidate.substringBeforeLast('.')
+            val mimeExt = FileUtils.resolveExtensionFromMimeType(mimeType)
+            if (!mimeExt.isNullOrBlank() && mimeExt != "bin") {
+                candidate = "$baseName.$mimeExt"
+            } else {
+                val urlExt = extractExtensionFromUrl(url)
+                if (!urlExt.isNullOrBlank() && urlExt != "bin") {
+                    candidate = "$baseName.$urlExt"
+                }
+            }
+        } else if (!candidate.contains('.')) {
+            // Candidate has NO extension at all -> append from MIME type or URL if known
+            val mimeExt = FileUtils.resolveExtensionFromMimeType(mimeType)
+            if (!mimeExt.isNullOrBlank()) {
+                candidate = "$candidate.$mimeExt"
+            } else {
+                val urlExt = extractExtensionFromUrl(url)
+                if (!urlExt.isNullOrBlank()) {
+                    candidate = "$candidate.$urlExt"
+                }
+            }
         }
-        return sanitizeFileName(guessed)
+        // If candidate ALREADY has a legitimate extension (e.g. .zip, .apk, .7z, .tar.gz):
+        // IT IS FULLY PRESERVED! Generic application/octet-stream will NEVER overwrite it with .bin!
+
+        return sanitizeFileName(candidate)
     }
 
     fun handleDownload(
@@ -181,13 +357,14 @@ object DownloadHandler {
                 )
             } else {
                 val fileName = guessResolvedFileName(effectiveUrl, contentDisposition, mimeType, effectivePageUrl)
+                val targetMime = FileUtils.resolveMimeTypeForDownload(fileName, mimeType)
                 startSystemDownload(
                     context = activity,
                     coroutineScope = coroutineScope,
                     url = effectiveUrl,
                     userAgent = userAgent,
                     fileName = fileName,
-                    mimeType = mimeType,
+                    mimeType = targetMime,
                     contentLength = contentLength,
                     cookies = resolvedCookies,
                     referer = effectivePageUrl
@@ -220,10 +397,11 @@ object DownloadHandler {
                 }
             } else {
                 val fileName = guessResolvedFileName(effectiveUrl, contentDisposition, mimeType, effectivePageUrl)
+                val targetMime = FileUtils.resolveMimeTypeForDownload(fileName, mimeType)
                 dispatchToExternalDownloader(
                     context = activity,
                     url = effectiveUrl,
-                    mimeType = mimeType,
+                    mimeType = targetMime,
                     userAgent = userAgent,
                     fileName = fileName,
                     cookies = resolvedCookies,
@@ -268,7 +446,9 @@ object DownloadHandler {
                     URLDecoder.decode(rawData, "UTF-8").toByteArray()
                 }
 
-                val ext = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(detectedMime) ?: "bin"
+                val ext = FileUtils.resolveExtensionFromMimeType(detectedMime)
+                    ?: android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(detectedMime)
+                    ?: "bin"
                 val resolvedName = if (!suggestedFileName.isNullOrBlank()) {
                     if (suggestedFileName.equals("readme", ignoreCase = true)) "README.md" else suggestedFileName
                 } else {
@@ -276,7 +456,7 @@ object DownloadHandler {
                     if (!fromPage.isNullOrBlank()) {
                         fromPage
                     } else {
-                        val guessed = URLUtil.guessFileName(dataUri, contentDisposition, detectedMime)
+                        val guessed = guessResolvedFileName(dataUri, contentDisposition, detectedMime, originalPageUrl)
                         if (guessed.isNotBlank() && !guessed.endsWith(".bin")) {
                             if (guessed.equals("readme", ignoreCase = true)) "README.md" else guessed
                         } else if (contentDisposition.contains("readme", ignoreCase = true)) {
@@ -528,7 +708,7 @@ object DownloadHandler {
         }
 
         val pageUrl = referer.ifBlank { webView.url ?: "" }
-        val guessedFileName = URLUtil.guessFileName(blobUrl, contentDisposition, mimeType)
+        val guessedFileName = guessResolvedFileName(blobUrl, contentDisposition, mimeType, pageUrl)
         val initialFileName = if (!suggestedFileName.isNullOrBlank()) {
             sanitizeFileName(suggestedFileName)
         } else if (guessedFileName.isNotBlank() && !guessedFileName.endsWith(".bin") && !guessedFileName.matches(Regex("^[0-9a-fA-F-]{36}.*"))) {
@@ -758,7 +938,9 @@ object DownloadHandler {
         cookies: String = "",
         referer: String = ""
     ) {
-        val downloaders = ExternalDownloaderHelper.getInstalledDownloaders(context, url, mimeType)
+        val resolvedFileName = if (fileName.isNotBlank()) sanitizeFileName(fileName) else guessResolvedFileName(url, null, mimeType)
+        val resolvedMime = FileUtils.resolveMimeTypeForDownload(resolvedFileName, mimeType)
+        val downloaders = ExternalDownloaderHelper.getInstalledDownloaders(context, url, resolvedMime)
         val resolvedCookies = if (cookies.isNotBlank()) cookies else {
             try {
                 CookieManager.getInstance().getCookie(url) ?: ""
@@ -766,7 +948,6 @@ object DownloadHandler {
                 ""
             }
         }
-        val resolvedFileName = if (fileName.isNotBlank()) sanitizeFileName(fileName) else guessResolvedFileName(url, null, mimeType)
 
         if (downloaders.size == 1) {
             val single = downloaders.first()
@@ -777,7 +958,7 @@ object DownloadHandler {
                 userAgent = userAgent,
                 cookies = resolvedCookies,
                 referer = referer,
-                mimeType = mimeType
+                mimeType = resolvedMime
             )
             try {
                 context.startActivity(intent)
@@ -789,7 +970,7 @@ object DownloadHandler {
             // Fallback generic intent
             try {
                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(Uri.parse(url), mimeType.ifEmpty { "*/*" })
+                    setDataAndType(Uri.parse(url), resolvedMime.ifEmpty { "*/*" })
                     if (resolvedCookies.isNotBlank()) {
                         putExtra("Cookie", resolvedCookies)
                         putExtra("cookies", resolvedCookies)
@@ -803,6 +984,9 @@ object DownloadHandler {
                         putExtra("referer", referer)
                     }
                     putExtra("extra_filename", resolvedFileName)
+                    putExtra("filename", resolvedFileName)
+                    putExtra("extra_mimetype", resolvedMime)
+                    putExtra("mimetype", resolvedMime)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 val chooser = Intent.createChooser(intent, "Open with Downloader")

@@ -120,6 +120,7 @@ object ExternalDownloaderHelper {
         mimeType: String
     ): Intent {
         val targetPackage = downloader.packageName
+        val resolvedMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(fileName, mimeType)
         val headersBundle = Bundle().apply {
             if (cookies.isNotBlank()) {
                 putString("Cookie", cookies)
@@ -137,7 +138,7 @@ object ExternalDownloaderHelper {
 
         return Intent(Intent.ACTION_VIEW).apply {
             setPackage(targetPackage)
-            setDataAndType(Uri.parse(url), mimeType.ifBlank { "*/*" })
+            setDataAndType(Uri.parse(url), resolvedMime.ifBlank { "*/*" })
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
             // Standard Android browser headers bundle
@@ -145,6 +146,7 @@ object ExternalDownloaderHelper {
 
             // 1DM / IDM parameters
             putExtra("extra_filename", fileName)
+            putExtra("extra_mimetype", resolvedMime)
             putExtra("extra_cookie", cookies)
             putExtra("extra_cookies", cookies)
             putExtra("extra_user_agent", userAgent)
@@ -152,6 +154,8 @@ object ExternalDownloaderHelper {
 
             // ADM (Advanced Download Manager) parameters
             putExtra("com.dv.adm.extra.EXTRA_FILENAME", fileName)
+            putExtra("com.dv.adm.extra.EXTRA_NAME", fileName)
+            putExtra("com.dv.adm.extra.EXTRA_MIME_TYPE", resolvedMime)
             putExtra("com.dv.adm.extra.EXTRA_COOKIES", cookies)
             putExtra("com.dv.adm.extra.EXTRA_USER_AGENT", userAgent)
             putExtra("com.dv.adm.extra.EXTRA_REFERER", referer)
@@ -159,8 +163,10 @@ object ExternalDownloaderHelper {
             // FDM / Generic download manager parameters
             putExtra("android.intent.extra.TEXT", url)
             putExtra("android.intent.extra.TITLE", fileName)
+            putExtra("android.intent.extra.MIME_TYPES", arrayOf(resolvedMime))
             putExtra("title", fileName)
             putExtra("filename", fileName)
+            putExtra("mimetype", resolvedMime)
             putExtra("Cookie", cookies)
             putExtra("cookies", cookies)
             putExtra("User-Agent", userAgent)

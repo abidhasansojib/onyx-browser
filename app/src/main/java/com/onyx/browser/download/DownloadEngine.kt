@@ -212,7 +212,7 @@ class DownloadEngine(
                 if (parsedName.isNotBlank()) {
                     task.fileName = sanitizeFileName(parsedName)
                 }
-            } else if (task.fileName.startsWith("download_") || !task.fileName.contains('.')) {
+            } else if (task.fileName.startsWith("download_") || !task.fileName.contains('.') || task.fileName.endsWith(".bin", ignoreCase = true)) {
                 val guessed = com.onyx.browser.web.DownloadHandler.guessResolvedFileName(finalUrl, contentDisp, detectedMime)
                 if (guessed.isNotBlank()) {
                     task.fileName = sanitizeFileName(guessed)
@@ -687,23 +687,7 @@ class DownloadEngine(
     }
 
     private fun parseContentDispositionFilename(contentDisposition: String): String {
-        try {
-            // RFC 5987 / RFC 6266 filename*=UTF-8''...
-            val patternExtended = Pattern.compile("(?i)filename\\*\\s*=\\s*(?:UTF-8''|utf-8'')([^;]+)")
-            val matcherExt = patternExtended.matcher(contentDisposition)
-            if (matcherExt.find()) {
-                val encoded = matcherExt.group(1)?.trim('"', '\'', ' ') ?: ""
-                return URLDecoder.decode(encoded, "UTF-8")
-            }
-
-            // Standard filename="..."
-            val patternStandard = Pattern.compile("(?i)filename\\s*=\\s*\"?([^\";]+)\"?")
-            val matcherStd = patternStandard.matcher(contentDisposition)
-            if (matcherStd.find()) {
-                return matcherStd.group(1)?.trim('"', ' ') ?: ""
-            }
-        } catch (_: Exception) {}
-        return ""
+        return com.onyx.browser.web.DownloadHandler.parseContentDispositionFilename(contentDisposition) ?: ""
     }
 
     private fun sanitizeFileName(name: String): String {

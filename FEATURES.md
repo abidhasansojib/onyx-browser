@@ -174,6 +174,12 @@ This document tracks all features of Onyx Browser, their current implementation 
    - **Filter Signature Verification & Auto-Update Concurrency Guard**: Added `compiledFilterSignature` in `BrowserPreferences` and `FilterListManager` to detect when enabled lists or custom rules change during process downtime, automatically triggering binary recompilation on startup. Guarded background updates with an `AtomicBoolean` mutex to prevent concurrent file conflicts and wrapped `recompileFilters` in `NonCancellable` coroutine scope.
    - **Canonical List ID Alignment & Resilience**: Normalized filter keys in `FilterListsBottomSheet` and `BrowserPreferences` (`"ublock_filters"`, `"social_media"`, `"cookie_notice"`), and safeguarded settings teardown in `ContentFiltersActivity` via `onDestroy` fallback dispatch.
 
+92. [x] Download Filename & Extension Resolution Integrity:
+   - **RFC 5987 / RFC 6266 Content-Disposition Engine**: Handled `filename*=(?:UTF-8|utf-8)''<url-encoded>`, quoted `filename="..."`, single-quoted `filename='...'`, and unquoted `filename=...` across all disposition types (`inline`, `attachment`, `form-data`) with URL decoding and directory traversal sanitation.
+   - **Neutralization of Generic MIME Type Override**: Overcame Android framework `URLUtil.guessFileName` extension stripping by classifying generic binary stream headers (`application/octet-stream`, `binary/octet-stream`, `application/x-download`, `*/*`) as neutral, strictly preventing servers from replacing valid extensions (`.zip`, `.apk`, `.7z`, `.tar.gz`, `.pdf`) with `.bin`.
+   - **URL Query & Path Parameter Extraction**: Resolved filenames from common download query parameters (`?file=`, `?filename=`, `?name=`, `?attachment=`, and S3 signed `?response-content-disposition=`) when URL path endpoints point to server scripts (`download.php`, `get`, etc.).
+   - **External Downloader Format Preservation**: Dispatched accurately resolved MIME types (`FileUtils.resolveMimeTypeForDownload`) to external download managers (1DM, ADM, FDM) across `extra_filename`, `filename`, `extra_mimetype`, `com.dv.adm.extra.EXTRA_MIME_TYPE`, and `mimetype`, permanently preventing 1DM/ADM from converting downloaded ZIPs and APKs to `.bin`.
+
 ---
 
 ## Feature Details

@@ -124,7 +124,8 @@ class DownloadPromptActivity : AppCompatActivity() {
         }
         binding.tvFileSize.text = sizeText
 
-        binding.tvMimeType.text = if (mimeType.isNotBlank()) mimeType else "application/octet-stream"
+        val resolvedMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(initialFileName, mimeType)
+        binding.tvMimeType.text = if (resolvedMime.isNotBlank()) resolvedMime else "application/octet-stream"
 
         val isBlobOrData = fileUrl.startsWith("data:", ignoreCase = true) || fileUrl.startsWith("blob:", ignoreCase = true)
 
@@ -206,13 +207,14 @@ class DownloadPromptActivity : AppCompatActivity() {
             }
 
             checkStorageAndDownload {
+                val targetMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(finalFileName, mimeType)
                 DownloadHandler.startSystemDownload(
                     context = this,
                     coroutineScope = lifecycleScope,
                     url = fileUrl,
                     userAgent = userAgent,
                     fileName = finalFileName,
-                    mimeType = mimeType,
+                    mimeType = targetMime,
                     contentLength = contentLength,
                     cookies = cookies,
                     referer = referer
@@ -226,7 +228,8 @@ class DownloadPromptActivity : AppCompatActivity() {
             val chosenName = binding.etFileName.text?.toString()?.trim() ?: initialFileName
             val finalFileName = if (chosenName.isNotBlank()) chosenName else initialFileName
 
-            val downloaders = ExternalDownloaderHelper.getInstalledDownloaders(this, fileUrl, mimeType)
+            val targetMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(finalFileName, mimeType)
+            val downloaders = ExternalDownloaderHelper.getInstalledDownloaders(this, fileUrl, targetMime)
             when {
                 downloaders.isEmpty() -> {
                     // No external downloader found -> Show option to install or use default
@@ -244,7 +247,7 @@ class DownloadPromptActivity : AppCompatActivity() {
                                     url = fileUrl,
                                     userAgent = userAgent,
                                     fileName = finalFileName,
-                                    mimeType = mimeType,
+                                    mimeType = targetMime,
                                     contentLength = contentLength,
                                     cookies = cookies,
                                     referer = referer
@@ -277,6 +280,7 @@ class DownloadPromptActivity : AppCompatActivity() {
     }
 
     private fun launchExternalDownloader(downloader: ExternalDownloaderInfo, fileName: String) {
+        val targetMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(fileName, mimeType)
         val intent = ExternalDownloaderHelper.buildDownloadIntent(
             downloader = downloader,
             url = fileUrl,
@@ -284,7 +288,7 @@ class DownloadPromptActivity : AppCompatActivity() {
             userAgent = userAgent,
             cookies = cookies,
             referer = referer,
-            mimeType = mimeType
+            mimeType = targetMime
         )
         try {
             startActivity(intent)

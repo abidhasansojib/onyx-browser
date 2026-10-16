@@ -10,8 +10,73 @@ import java.io.File
 object FileUtils {
 
     /**
+     * Checks if a MIME type is a generic binary stream, wildcard, or unknown type
+     * that should NEVER overwrite or replace a legitimate file extension (e.g. .zip, .apk).
+     */
+    fun isGenericMimeType(mimeType: String?): Boolean {
+        if (mimeType.isNullOrBlank()) return true
+        val clean = mimeType.substringBefore(';').trim().lowercase()
+        return clean in setOf(
+            "application/octet-stream",
+            "binary/octet-stream",
+            "application/x-download",
+            "application/download",
+            "application/x-octet-stream",
+            "application/unknown",
+            "application/force-download",
+            "application/x-unknown",
+            "application/octet_stream",
+            "application/binary",
+            "*/*",
+            "*"
+        )
+    }
+
+    /**
+     * Resolves a known, specific file extension from a server Content-Type header.
+     * Returns null if the MIME type is generic (e.g. octet-stream), wildcard, or unrecognized.
+     */
+    fun resolveExtensionFromMimeType(serverMime: String?): String? {
+        if (serverMime.isNullOrBlank() || isGenericMimeType(serverMime)) return null
+        val cleanMime = serverMime.substringBefore(';').trim().lowercase()
+        when (cleanMime) {
+            "application/vnd.android.package-archive" -> return "apk"
+            "application/zip", "application/x-zip-compressed", "application/x-zip" -> return "zip"
+            "application/x-7z-compressed" -> return "7z"
+            "application/x-rar-compressed", "application/rar", "application/x-rar" -> return "rar"
+            "application/x-tar", "application/tar" -> return "tar"
+            "application/gzip", "application/x-gzip" -> return "gz"
+            "application/x-bzip2", "application/bzip2" -> return "bz2"
+            "application/x-xz", "application/xz" -> return "xz"
+            "application/pdf" -> return "pdf"
+            "application/epub+zip" -> return "epub"
+            "text/markdown", "text/x-markdown" -> return "md"
+            "application/json" -> return "json"
+            "application/xml", "text/xml" -> return "xml"
+            "text/html" -> return "html"
+            "text/plain" -> return "txt"
+            "image/jpeg" -> return "jpg"
+            "image/png" -> return "png"
+            "image/webp" -> return "webp"
+            "image/gif" -> return "gif"
+            "image/svg+xml" -> return "svg"
+            "video/mp4" -> return "mp4"
+            "video/x-matroska" -> return "mkv"
+            "video/webm" -> return "webm"
+            "audio/mpeg" -> return "mp3"
+            "audio/flac" -> return "flac"
+            "audio/wav", "audio/x-wav" -> return "wav"
+            "audio/ogg" -> return "ogg"
+            "audio/mp4" -> return "m4a"
+            "application/wasm" -> return "wasm"
+        }
+        return MimeTypeMap.getSingleton().getExtensionFromMimeType(cleanMime)?.lowercase()
+    }
+
+    /**
      * Resolves the safest and most accurate MIME type for a file download.
-     * Prevents Android MediaStore from corrupting filenames (such as appending .txt to .md, .json, or code files)
+     * Prevents Android MediaStore and external downloaders from corrupting filenames
+     * (such as appending .bin or .txt to .zip, .apk, .md, or code files)
      * when web servers return generic "text/plain" or "application/octet-stream" headers.
      */
     fun resolveMimeTypeForDownload(fileName: String, serverMime: String?): String {
@@ -20,36 +85,61 @@ object FileUtils {
 
         // 1. If extension is empty, use server MIME or octet-stream
         if (extension.isEmpty()) {
-            return if (cleanMime.isNotBlank() && cleanMime != "*/*") cleanMime else "application/octet-stream"
+            return if (cleanMime.isNotBlank() && !isGenericMimeType(cleanMime)) cleanMime else "application/octet-stream"
         }
 
         // 2. Explicit extension-to-MIME overrides for types commonly misreported by servers
         when (extension) {
             "apk" -> return "application/vnd.android.package-archive"
+            "zip" -> return "application/zip"
+            "7z" -> return "application/x-7z-compressed"
+            "rar" -> return "application/x-rar-compressed"
+            "tar" -> return "application/x-tar"
+            "gz", "tgz" -> return "application/gzip"
+            "bz2" -> return "application/x-bzip2"
+            "xz" -> return "application/x-xz"
+            "iso" -> return "application/x-iso9660-image"
+            "dmg" -> return "application/x-apple-diskimage"
+            "pdf" -> return "application/pdf"
+            "epub" -> return "application/epub+zip"
             "md", "markdown", "mdown", "mkd" -> return "text/markdown"
             "mht", "mhtml" -> return "multipart/related"
             "json" -> return "application/json"
             "xml" -> return "text/xml"
             "csv" -> return "text/csv"
-            "js" -> return "application/javascript"
+            "tsv" -> return "text/tab-separated-values"
+            "js", "mjs" -> return "application/javascript"
             "css" -> return "text/css"
             "svg" -> return "image/svg+xml"
-            "pdf" -> return "application/pdf"
+            "webp" -> return "image/webp"
+            "png" -> return "image/png"
+            "jpg", "jpeg" -> return "image/jpeg"
+            "gif" -> return "image/gif"
+            "mp4" -> return "video/mp4"
+            "mkv" -> return "video/x-matroska"
+            "webm" -> return "video/webm"
+            "mp3" -> return "audio/mpeg"
+            "flac" -> return "audio/flac"
+            "wav" -> return "audio/wav"
+            "ogg" -> return "audio/ogg"
+            "m4a" -> return "audio/mp4"
+            "doc" -> return "application/msword"
+            "docx" -> return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            "xls" -> return "application/vnd.ms-excel"
+            "xlsx" -> return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "ppt" -> return "application/vnd.ms-powerpoint"
+            "pptx" -> return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
             "txt", "log" -> return "text/plain"
             "yaml", "yml" -> return "text/yaml"
             "html", "htm" -> return "text/html"
-            "epub" -> return "application/epub+zip"
-            "zip" -> return "application/zip"
-            "tar" -> return "application/x-tar"
-            "gz" -> return "application/gzip"
-            "7z" -> return "application/x-7z-compressed"
+            "wasm" -> return "application/wasm"
         }
 
         // 3. System MimeTypeMap lookup based on file extension
         val extMime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
         if (!extMime.isNullOrBlank()) {
             // If server sent generic text/plain, octet-stream, or wildcard, prefer the specific extension MIME
-            if (cleanMime.isBlank() || cleanMime == "text/plain" || cleanMime == "application/octet-stream" || cleanMime == "*/*") {
+            if (cleanMime.isBlank() || cleanMime == "text/plain" || isGenericMimeType(cleanMime)) {
                 return extMime
             }
             return cleanMime
@@ -62,7 +152,7 @@ object FileUtils {
             return "application/octet-stream"
         }
 
-        return if (cleanMime.isNotBlank() && cleanMime != "*/*") cleanMime else "application/octet-stream"
+        return if (cleanMime.isNotBlank() && !isGenericMimeType(cleanMime)) cleanMime else "application/octet-stream"
     }
 
     /**

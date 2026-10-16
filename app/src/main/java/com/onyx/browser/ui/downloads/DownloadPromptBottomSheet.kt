@@ -108,7 +108,8 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
         }
         binding.tvFileSize.text = sizeText
 
-        binding.tvMimeType.text = if (mimeType.isNotBlank()) mimeType else "application/octet-stream"
+        val resolvedMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(initialFileName, mimeType)
+        binding.tvMimeType.text = if (resolvedMime.isNotBlank()) resolvedMime else "application/octet-stream"
 
         binding.btnClearFileName.setOnClickListener {
             binding.etFileName.text?.clear()
@@ -195,13 +196,14 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
             }
 
             checkStorageAndDownload {
+                val targetMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(finalFileName, mimeType)
                 DownloadHandler.startSystemDownload(
                     context = requireContext().applicationContext,
                     coroutineScope = downloadScope,
                     url = fileUrl,
                     userAgent = userAgent,
                     fileName = finalFileName,
-                    mimeType = mimeType,
+                    mimeType = targetMime,
                     contentLength = contentLength,
                     cookies = cookies,
                     referer = referer
@@ -215,7 +217,8 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
             val chosenName = binding.etFileName.text?.toString()?.trim() ?: initialFileName
             val finalFileName = if (chosenName.isNotBlank()) chosenName else initialFileName
 
-            val downloaders = ExternalDownloaderHelper.getInstalledDownloaders(requireContext(), fileUrl, mimeType)
+            val targetMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(finalFileName, mimeType)
+            val downloaders = ExternalDownloaderHelper.getInstalledDownloaders(requireContext(), fileUrl, targetMime)
             when {
                 downloaders.isEmpty() -> {
                     // No external downloader found -> Show option to install or use default
@@ -233,7 +236,7 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
                                     url = fileUrl,
                                     userAgent = userAgent,
                                     fileName = finalFileName,
-                                    mimeType = mimeType,
+                                    mimeType = targetMime,
                                     contentLength = contentLength,
                                     cookies = cookies,
                                     referer = referer
@@ -266,6 +269,7 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun launchExternalDownloader(downloader: ExternalDownloaderInfo, fileName: String) {
+        val targetMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(fileName, mimeType)
         val intent = ExternalDownloaderHelper.buildDownloadIntent(
             downloader = downloader,
             url = fileUrl,
@@ -273,7 +277,7 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
             userAgent = userAgent,
             cookies = cookies,
             referer = referer,
-            mimeType = mimeType
+            mimeType = targetMime
         )
         try {
             startActivity(intent)
