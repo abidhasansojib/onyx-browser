@@ -57,20 +57,20 @@ When triggered for a build (after user confirms or explicitly requests Release o
    - Commit the fix, push to `origin main`, re-trigger the workflow, and repeat until 100% successful.
 
 ### RULE 4: Mandatory Documentation Maintenance
-- Whenever a feature is added, a bug is fixed, an architectural decision is made, or a workflow is completed, update this `AGENTS.md` and `FEATURES.md` before concluding the turn.
+- Whenever a feature is added, a bug is fixed, an architectural decision is made, or a workflow is completed, update this `AGENTS.md` and `docs/FEATURES.md` before concluding the turn.
 
 ### RULE 5: Keep Everything Simple, Minimal & Effective
 - All documentation, README files, UI copy, and explanations must remain simple, minimal, and effective.
 - Avoid hyperbolic AI buzzwords, repetitive explanations, and emoji clutter. Write like an experienced software engineer.
 
-### RULE 6: Feature Tracking via `FEATURES.md`
-- `FEATURES.md` is the single source of truth for tracking browser capabilities and verification status (`[x]` Working, `[-]` Known Issue, `[ ]` Planned).
+### RULE 6: Feature Tracking via `docs/FEATURES.md`
+- `docs/FEATURES.md` is the single source of truth for tracking browser capabilities and verification status (`[x]` Working, `[-]` Known Issue, `[ ]` Planned).
 
 ### RULE 7: No Internal Agent Artifacts in Git
 - Never commit internal agent scaffolding, plan files, design specs, or scratch directories (`docs/superpowers/`, `.superpowers/`, scratch scripts) into the repository.
 
 ### RULE 8: Golden Milestone Immutability
-- AI agents are **strictly forbidden** from automatically bumping or declaring a "Golden Milestone / Role Model" reference in `AGENTS.md` or `FEATURES.md` unless explicitly commanded by the user.
+- AI agents are **strictly forbidden** from automatically bumping or declaring a "Golden Milestone / Role Model" reference in `AGENTS.md` or `docs/FEATURES.md` unless explicitly commanded by the user.
 
 ---
 
@@ -100,6 +100,7 @@ onyx-browser/
 │   │   │   └── web/                # Hardened Chromium WebView subsystem, client, and bridges
 │   │   └── res/                    # Google Theme styles (Light/Dark/AMOLED), layouts, vectors
 │   └── build.gradle.kts            # App dependencies, NDK configuration, deterministic signing
+├── docs/                             # Documentation assets (logo.png) and FEATURES.md
 ├── rust_engine/                    # Native Rust NDK Bridge (libadblock_bridge.so)
 └── scripts/                        # Icon and filter list synchronization automation
 ```
@@ -270,7 +271,7 @@ onyx-browser/
 
 - **Current Release**: `v1.0.290`
 - **Build Status**: Production signed APKs published across all ABIs (`arm64-v8a`, `armeabi-v7a`, `universal`, `x86_64`) on GitHub Releases.
-- **Feature Tracking**: Complete feature statuses and technical verification notes are maintained in `FEATURES.md`.
+- **Feature Tracking**: Complete feature statuses and technical verification notes are maintained in `docs/FEATURES.md`.
 
 ### v1.0.290 Changes
 - **Open in App Dialog Redesign**:

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="art/logo.png" alt="Onyx Browser Logo" width="128" height="128" style="border-radius: 28px;" />
+<img src="docs/logo.png" alt="Onyx Browser Logo" width="128" height="128" style="border-radius: 28px;" />
 
 # Onyx Browser
 
@@ -13,7 +13,7 @@ A fast, private, and lightweight browser for Android.
 
 <br />
 
-[**Download APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**Full Features**](FEATURES.md) • [**Report an Issue**](https://github.com/abidhasansojib/onyx-browser/issues)
+[**Download APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**Full Features**](docs/FEATURES.md) • [**Report an Issue**](https://github.com/abidhasansojib/onyx-browser/issues)
 
 </div>
 
