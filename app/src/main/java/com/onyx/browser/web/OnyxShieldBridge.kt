@@ -33,6 +33,9 @@ class OnyxShieldBridge(private val context: Context) {
                 d == "cdninstagram.com" || d.endsWith(".cdninstagram.com") ||
                 d == "threads.net" || d.endsWith(".threads.net") ||
                 d == "accountkit.com" || d.endsWith(".accountkit.com") ||
+                d == "github.com" || d.endsWith(".github.com") ||
+                d == "githubassets.com" || d.endsWith(".githubassets.com") ||
+                d == "githubusercontent.com" || d.endsWith(".githubusercontent.com") ||
                 d.contains("arkose") || d.contains("funcaptcha") ||
                 d.contains("recaptcha") || d.contains("hcaptcha") ||
                 d.contains("turnstile") || d.contains("datadome") ||

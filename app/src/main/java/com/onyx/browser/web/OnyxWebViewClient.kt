@@ -226,8 +226,10 @@ class OnyxWebViewClient(
                d == "login.live.com" || d == "account.microsoft.com" ||
                d == "aadcdn.msftauth.net" || d == "aadcdn.msauth.net" ||
                d == "msauth.net" || d.endsWith(".msauth.net") ||
-               // GitHub OAuth
-               d == "github.com" || d == "api.github.com" ||
+               // GitHub OAuth and asset domains
+               d == "github.com" || d.endsWith(".github.com") || d == "api.github.com" ||
+               d == "githubassets.com" || d.endsWith(".githubassets.com") ||
+               d == "githubusercontent.com" || d.endsWith(".githubusercontent.com") ||
                // Twitter/X OAuth
                d == "api.twitter.com" || d == "api.x.com" || d == "twitter.com" || d == "x.com" ||
                // TikTok OAuth
@@ -337,8 +339,7 @@ class OnyxWebViewClient(
             lowerUrl.contains("&s2=") ||
             lowerUrl.contains("/popunder/") ||
             lowerUrl.contains("utm_medium=pop") ||
-            (lowerUrl.contains("utm_source=") && (lowerUrl.contains("ad") || lowerUrl.contains("traffic") || lowerUrl.contains("pop"))) ||
-            lowerUrl.matches(Regex(".*/[a-zA-Z0-9_-]{10,}/[0-9]{5,}.*"))
+            (lowerUrl.contains("utm_source=") && (lowerUrl.contains("ad") || lowerUrl.contains("traffic") || lowerUrl.contains("pop")))
         ) {
             return true
         }

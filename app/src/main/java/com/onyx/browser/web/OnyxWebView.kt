@@ -589,6 +589,9 @@ class OnyxWebView @JvmOverloads constructor(
                 host == "cdninstagram.com" || host.endsWith(".cdninstagram.com") ||
                 host == "threads.net" || host.endsWith(".threads.net") ||
                 host == "accountkit.com" || host.endsWith(".accountkit.com") ||
+                host == "github.com" || host.endsWith(".github.com") ||
+                host == "githubassets.com" || host.endsWith(".githubassets.com") ||
+                host == "githubusercontent.com" || host.endsWith(".githubusercontent.com") ||
                 host.contains("arkose") || host.contains("funcaptcha") || host.contains("matchkey") ||
                 urlString.contains("checkpoint") || urlString.contains("/login") || urlString.contains("/captcha/")
         if (isAuthOrMeta) {

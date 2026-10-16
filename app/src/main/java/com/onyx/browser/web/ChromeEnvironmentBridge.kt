@@ -24,7 +24,7 @@ object ChromeEnvironmentBridge {
                 var ref = (document.referrer || '').toLowerCase();
                 var path = (location.pathname || '').toLowerCase();
 
-                var isAuthOrChallenge = /facebook\.com|meta\.com|fb\.com|fb\.me|fbcdn\.net|facebook\.net|fbsbx\.com|instagram\.com|cdninstagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
+                var isAuthOrChallenge = /facebook\.com|meta\.com|fb\.com|fb\.me|fbcdn\.net|facebook\.net|fbsbx\.com|instagram\.com|cdninstagram\.com|messenger\.com|threads\.net|accountkit\.com|github\.com|githubassets\.com|githubusercontent\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
                     path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
                     path.indexOf('/captcha/') !== -1 || path.indexOf('/challenge/') !== -1 || path.indexOf('/fc/') !== -1 ||
                     href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 || href.indexOf('/captcha/') !== -1 ||
@@ -125,14 +125,14 @@ object ChromeEnvironmentBridge {
 
                 // ── 4. Clean Java bridge references on Meta / Arkose / Auth domains ───
                 if (isAuthOrChallenge) {
-                    var bridgePattern = /^(Onyx|__onyx|Passkey)/;
+                    var bridgePattern = /^(Onyx|__onyx|_Onyx|Passkey|_orig)/;
 
                     var bridgeNames = [
                         'OnyxShieldBridge', 'OnyxMediaBridge', 'OnyxErrorBridge',
                         'OnyxBlobBridge', 'OnyxTouchBridge', 'OnyxTranslateBridge',
-                        'OnyxNotificationBridge',
+                        'OnyxNotificationBridge', '_OnyxPasskeyBridge',
                         'PasskeyWebAuthnBridge', '__onyx_shields_active', '__onyxAdBlockEnabled',
-                        '__onyxTouchInitialized', '__onyxPasskeyInstalled'
+                        '__onyxTouchInitialized', '__onyxPasskeyInstalled', '_origFetch', '_origXHR'
                     ];
 
                     for (var i = 0; i < bridgeNames.length; i++) {

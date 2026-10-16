@@ -42,6 +42,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Biometric Incognito Protection**: Protect private tabs behind fingerprint or face authentication using AndroidX `BiometricPrompt`.
 - `[x]` **Universal OAuth & Auth Grace Period**: Maintains strict cookie isolation while granting smart grace periods during authentication flows (Google, Apple, Meta, GitHub, Microsoft).
 - `[x]` **Anti-Bot Window Hash (`wh`) Reflection Masking**: Hides Android Java bridges and internal properties from prototype reflection, matching authentic Chrome telemetry.
+- `[x]` **WebAuthn & GitHub Platform Compatibility**: Strict bypass of custom WebAuthn passkey hijacking, WebGL context overriding, and rogue ad-path regexes on GitHub domains (`github.com`, `githubassets.com`, `githubusercontent.com`), ensuring release assets and complex developer dashboards load seamlessly.
 
 ---
 

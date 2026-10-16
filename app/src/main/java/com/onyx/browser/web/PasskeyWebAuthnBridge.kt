@@ -374,7 +374,7 @@ class PasskeyWebAuthnBridge(
                     // Android CredentialManager which cannot satisfy Facebook's internal challenge,
                     // causing "confirmation failed" errors on login.
                     var ref = (document.referrer || '').toLowerCase();
-                    if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha/i.test(ref)) return;
+                    if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|github\.com|arkose|funcaptcha/i.test(ref)) return;
 
                     var isMetaAuthDomain =
                         host === 'facebook.com' || host.endsWith('.facebook.com') ||
@@ -389,6 +389,8 @@ class PasskeyWebAuthnBridge(
                         host === 'facebook.net' || host.endsWith('.facebook.net') ||
                         host === 'accounts.google.com' || host.endsWith('.accounts.google.com') ||
                         host === 'appleid.apple.com' || host.endsWith('.appleid.apple.com') ||
+                        host === 'github.com' || host.endsWith('.github.com') ||
+                        host === 'api.github.com' ||
                         host.indexOf('arkose') !== -1 || host.indexOf('funcaptcha') !== -1 ||
                         path.indexOf('/checkpoint/') !== -1 ||
                         path.indexOf('/login/') !== -1 ||
@@ -667,8 +669,16 @@ class PasskeyWebAuthnBridge(
 
                         preventSilentAccess: function() {
                             return origCredentials && origCredentials.preventSilentAccess ? origCredentials.preventSilentAccess() : Promise.resolve();
+                        },
+
+                        store: function(credential) {
+                            return origCredentials && origCredentials.store ? origCredentials.store(credential) : Promise.resolve();
                         }
                     };
+
+                    if (window.CredentialsContainer && window.CredentialsContainer.prototype) {
+                        try { Object.setPrototypeOf(customCredentials, window.CredentialsContainer.prototype); } catch(_) {}
+                    }
 
                     try {
                         Object.defineProperty(navigator, 'credentials', {
