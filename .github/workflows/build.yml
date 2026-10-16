@@ -107,12 +107,17 @@ jobs:
           VERSION_CODE=$(( 1000 + RUN_NUM ))
           BUILD_TYPE="${{ github.event.inputs.build_type || 'Release' }}"
 
+          MAJOR=$(( 1 + RUN_NUM / 1000 ))
+          MINOR=$(( (RUN_NUM / 100) % 10 ))
+          PATCH=$(( RUN_NUM % 100 ))
+          BASE_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+
           if [ "$BUILD_TYPE" = "Prerelease" ]; then
-            VERSION_NAME="1.0.${RUN_NUM}-prerelease"
-            TAG_NAME="v1.0.${RUN_NUM}-prerelease"
+            VERSION_NAME="${BASE_VERSION}-prerelease"
+            TAG_NAME="v${BASE_VERSION}-prerelease"
           else
-            VERSION_NAME="1.0.${RUN_NUM}"
-            TAG_NAME="v1.0.${RUN_NUM}"
+            VERSION_NAME="${BASE_VERSION}"
+            TAG_NAME="v${BASE_VERSION}"
           fi
 
           echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV

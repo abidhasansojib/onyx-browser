@@ -123,3 +123,10 @@ onyx-browser/
 5. **Git Operations & Autonomy**:
    - Full permission granted to use `git` and `gh` to stage, commit, push, and monitor CI/CD workflows.
    - Keep commit messages concise and conventional (e.g. `feat(adblock): ...`, `fix(tabs): ...`, `docs: ...`).
+6. **Rolling Odometer Versioning Scheme**:
+   - `MAJOR.MINOR.PATCH` increments automatically from GitHub Actions run counter (`RUN_NUM`):
+     - `MAJOR = 1 + (RUN_NUM / 1000)`
+     - `MINOR = (RUN_NUM / 100) % 10`
+     - `PATCH = RUN_NUM % 100`
+   - Patch increments 0..99, rolling over to Minor at 100. Minor increments 0..9, rolling over to Major after 9 (e.g., `1.0.99` -> `1.1.0`, `1.9.99` -> `2.0.0`).
+

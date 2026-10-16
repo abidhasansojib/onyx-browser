@@ -17,7 +17,12 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = propVersionCode ?: (if (envRunNumber != null) 1000 + envRunNumber else 1)
-        versionName = propVersionName ?: (if (envRunNumber != null) "1.0.$envRunNumber" else "1.0.0")
+        versionName = propVersionName ?: (if (envRunNumber != null) {
+            val major = 1 + envRunNumber / 1000
+            val minor = (envRunNumber / 100) % 10
+            val patch = envRunNumber % 100
+            "$major.$minor.$patch"
+        } else "1.0.0")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
