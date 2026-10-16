@@ -144,7 +144,12 @@ class SearchController(
         if (isSearchMode) return
         isSearchMode = true
 
-        activity.showToolbar(animated = false)
+        val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
+        if (lp != null && lp.topMargin != 0) {
+            lp.topMargin = 0
+            binding.topBar.layoutParams = lp
+        }
+        (activity as? com.onyx.browser.MainActivity)?.showToolbar(animated = false)
 
         // 1. Transform top toolbar into search mode
         binding.btnHome.visibility = View.GONE
