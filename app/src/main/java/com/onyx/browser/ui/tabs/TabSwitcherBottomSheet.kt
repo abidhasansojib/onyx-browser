@@ -367,6 +367,16 @@ class TabSwitcherBottomSheet(
             currentBinding.emptyTabsView.visibility = if (isEmpty) View.VISIBLE else View.GONE
             currentBinding.rvTabs.visibility = if (isEmpty) View.GONE else View.VISIBLE
 
+            // Update bottom bar close all tabs button state and accessibility description
+            currentBinding.btnCloseAllTabs.isEnabled = !isEmpty
+            currentBinding.btnCloseAllTabs.isClickable = !isEmpty
+            currentBinding.btnCloseAllTabs.alpha = if (isEmpty) 0.40f else 1.0f
+            currentBinding.btnCloseAllTabs.contentDescription = if (isViewingIncognito) {
+                getString(R.string.close_all_incognito_tabs)
+            } else {
+                getString(R.string.close_all_tabs)
+            }
+
             // Background watermark is ONLY shown when viewing incognito tabs AND tabs exist in the grid.
             // When there are no tabs (isEmpty == true), emptyTabsView displays the single central incognito icon,
             // completely eliminating the duplicate incognito logo.
@@ -394,7 +404,24 @@ class TabSwitcherBottomSheet(
         val menuBinding = PopupTabSwitcherMenuBinding.inflate(inflater)
 
         val density = context.resources.displayMetrics.density
-        val popupWidth = (180 * density).toInt()
+        val popupWidth = (220 * density).toInt()
+
+        val tabList = if (isViewingIncognito) {
+            tabManager.incognitoTabs.value
+        } else {
+            tabManager.normalTabs.value
+        }
+        val hasTabs = tabList.isNotEmpty()
+
+        menuBinding.tvCloseAllTabs.text = if (isViewingIncognito) {
+            getString(R.string.close_all_incognito_tabs)
+        } else {
+            getString(R.string.close_all_tabs)
+        }
+
+        menuBinding.itemCloseAllTabs.isEnabled = hasTabs
+        menuBinding.itemCloseAllTabs.isClickable = hasTabs
+        menuBinding.itemCloseAllTabs.alpha = if (hasTabs) 1.0f else 0.40f
 
         val popup = PopupWindow(
             menuBinding.root,
@@ -436,7 +463,7 @@ class TabSwitcherBottomSheet(
             if (!isDismissing) showClearBrowsingDataDialog()
         }
 
-        val anchorWidth = if (anchor.width > 0) anchor.width else (40 * density).toInt()
+        val anchorWidth = if (anchor.width > 0) anchor.width else (44 * density).toInt()
         val xOffset = anchorWidth - popupWidth
         val yOffset = (4 * density).toInt()
         popup.showAsDropDown(anchor, xOffset, yOffset)
