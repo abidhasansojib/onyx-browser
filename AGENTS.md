@@ -38,7 +38,7 @@ For complete subsystem specifications and technical architecture, see:
 
 ### RULE 3: Autonomous Remote Build & Auto-Fix Loop
 When triggered for a build (after user confirms or explicitly requests Release or Prerelease):
-1. **Push & Trigger**: Ensure all changes are committed and pushed to `origin main`, then trigger the workflow:
+1. **Push & Trigger**: Ensure all changes are committed and pushed to `origin main` (or active branch, e.g. `origin dev`), then trigger the workflow:
    - **Release**: `gh workflow run build.yml -f build_type=Release`
    - **Prerelease**: `gh workflow run build.yml -f build_type=Prerelease`
 2. **Monitor Execution**: Track the active workflow run to completion using `schedule` timers and `gh run view <run_id>`. Do NOT poll in a busy while-loop; use the `schedule` tool.
@@ -129,4 +129,8 @@ onyx-browser/
      - `MINOR = (RUN_NUM / 100) % 10`
      - `PATCH = RUN_NUM % 100`
    - Patch increments 0..99, rolling over to Minor at 100. Minor increments 0..9, rolling over to Major after 9 (e.g., `1.0.99` -> `1.1.0`, `1.9.99` -> `2.0.0`).
+7. **Authentication & WebAuthn Bridge Compatibility**:
+   - WebAuthn polyfills (`PasskeyWebAuthnBridge`) must be injected on all login domains (e.g., GitHub, Google, Microsoft) and omitted strictly on Meta's internal challenge frames (`fbsbx.com`).
+   - `_OnyxPasskeyBridge` must never be deleted from the window or overwritten with `undefined` on login pages.
+   - `navigator.userAgentData` must polyfill authentic Chrome/Chromium brands without leaking `"Android WebView"` to ensure Google Sign-In and OAuth flows succeed without `403 disallowed_useragent` blocks.
 
