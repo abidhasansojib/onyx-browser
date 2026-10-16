@@ -15,6 +15,13 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     private val mainHandler = Handler(Looper.getMainLooper())
     private val preferences = BrowserPreferences.getInstance(context)
 
+    // Throttle progress forwarding to the service: max once per 3 seconds
+    @Volatile private var lastProgressDispatchMs = 0L
+    private companion object {
+        const val PROGRESS_DISPATCH_THROTTLE_MS = 3000L
+    }
+
+
     companion object {
         @Volatile var isVideoPlaying: Boolean = false
         @Volatile var isAudioOrVideoPlaying: Boolean = false
@@ -253,8 +260,18 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaProgress(positionSec: Double, durationSec: Double) {
-        currentPositionMs = (positionSec * 1000).toLong().coerceAtLeast(0L)
-        currentDurationMs = (durationSec * 1000).toLong().coerceAtLeast(0L)
+        val newPositionMs = (positionSec * 1000).toLong().coerceAtLeast(0L)
+        val newDurationMs = (durationSec * 1000).toLong().coerceAtLeast(0L)
+        currentPositionMs = newPositionMs
+        currentDurationMs = newDurationMs
+
+        // Throttle: only forward progress to the service at most once every 3 seconds.
+        // JS timeupdate fires every ~250ms — dispatching startService() on every tick causes
+        // main-thread binder IPC jank. The MediaSession playback state already tracks live
+        // position via the elapsed-realtime clock set in updatePlaybackState().
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastProgressDispatchMs < PROGRESS_DISPATCH_THROTTLE_MS) return
+        lastProgressDispatchMs = now
 
         mainHandler.post {
             if (isBackgroundPlayActive && isAudioOrVideoPlaying) {
