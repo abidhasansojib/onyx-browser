@@ -52,7 +52,11 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initFrom
         };
 
         let mut filter_set = FilterSet::new(false);
-        filter_set.add_filter_list(rules_str, ParseOptions::default());
+        let parse_options = ParseOptions {
+            permissions: adblock::resources::PermissionMask::from_bits(u8::MAX),
+            ..Default::default()
+        };
+        filter_set.add_filter_list(rules_str, parse_options);
         let engine = Engine::new_with_filter_set(filter_set);
 
         let serialized = engine.serialize();
@@ -128,7 +132,14 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkUrl
             Err(_) => String::new(),
         };
         let type_str: String = match env.get_string(&resource_type) {
-            Ok(s) => s.into(),
+            Ok(s) => {
+                let st: String = s.into();
+                if st == "popup" {
+                    "main_frame".to_string()
+                } else {
+                    st
+                }
+            }
             Err(_) => "other".to_string(),
         };
 
@@ -201,6 +212,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_checkReq
             9 => "ping",
             10 => "websocket",
             11 => "object",
+            12 => "main_frame",
             _ => "other",
         };
 
@@ -287,6 +299,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCspDi
             9 => "ping",
             10 => "websocket",
             11 => "object",
+            12 => "main_frame",
             _ => "other",
         };
 

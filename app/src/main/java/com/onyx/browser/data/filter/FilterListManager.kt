@@ -33,7 +33,7 @@ object FilterListManager {
     private const val DEFAULT_ASSET_RULES = "easylist_rules.txt"
 
     private val isUpdating = AtomicBoolean(false)
-    private const val ASSET_RULES_VERSION = 2 // Invalidate legacy cache that contained mobile YouTube breaking rules
+    private const val ASSET_RULES_VERSION = 3 // Invalidate cache to enable full scriptlet permissions and updated engine mappings
 
     fun getCurrentFilterSignature(prefs: BrowserPreferences): String {
         val enabledBuiltIn = prefs.enabledFilterLists.sorted().joinToString(",")

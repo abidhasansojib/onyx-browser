@@ -133,4 +133,10 @@ onyx-browser/
    - WebAuthn polyfills (`PasskeyWebAuthnBridge`) must be injected on all login domains (e.g., GitHub, Google, Microsoft) and omitted strictly on Meta's internal challenge frames (`fbsbx.com`).
    - `_OnyxPasskeyBridge` must never be deleted from the window or overwritten with `undefined` on login pages.
    - `navigator.userAgentData` must polyfill authentic Chrome/Chromium brands without leaking `"Android WebView"` to ensure Google Sign-In and OAuth flows succeed without `403 disallowed_useragent` blocks.
+8. **Adblock Engine & Network Interception Standards**:
+   - `adblock-rust` rule parsing in `rust_engine/src/lib.rs` must include full `PermissionMask::from_bits(u8::MAX)` permissions so privileged scriptlets (`trusted-set-cookie`, `trusted-replace-fetch-response`, etc.) are compiled and injected.
+   - Resource type classification in `OnyxWebViewClient` and `AdBlockServiceWorkerHelper` must use case-insensitive header lookups (`Accept`, `Sec-Fetch-Dest`, `Sec-Fetch-Mode`, `Ping-To`) to support HTTP/2 and HTTP/3 multiplexed requests.
+   - Dual-pass checking must be performed for CNAME uncloaked requests: test uncloaked destination first, and if allowed, test the original alias to catch rules explicitly targeting cloaked first-party domains.
+   - `$csp` directives from `AdBlockEngine.getCspDirectives` must be injected early at document start via `<meta http-equiv="Content-Security-Policy">`.
+   - Never block authentication endpoints (Google Sign-In, Meta, Microsoft, Apple), bot challenges (Cloudflare Turnstile, Arkose, reCAPTCHA, hCaptcha), or media streaming segments.
 

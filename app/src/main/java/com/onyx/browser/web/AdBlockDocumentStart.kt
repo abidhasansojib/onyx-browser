@@ -181,10 +181,16 @@ object AdBlockDocumentStart {
                         // Handle Trusted Types CSP (required by YouTube, Google, and modern hardened origins)
                         try {
                             if (window.trustedTypes && typeof window.trustedTypes.createPolicy === 'function') {
-                                var onyxPolicy = window.trustedTypes.createPolicy('onyx-shield-policy', {
-                                    createScript: function(s) { return s; }
-                                });
-                                scriptCode = onyxPolicy.createScript(scriptlet);
+                                if (!window.__onyx_tt_policy) {
+                                    try {
+                                        window.__onyx_tt_policy = window.trustedTypes.createPolicy('onyx-shield-policy', {
+                                            createScript: function(s) { return s; }
+                                        });
+                                    } catch(_) {}
+                                }
+                                if (window.__onyx_tt_policy && typeof window.__onyx_tt_policy.createScript === 'function') {
+                                    scriptCode = window.__onyx_tt_policy.createScript(scriptlet);
+                                }
                             }
                         } catch(_) {}
 
@@ -210,6 +216,28 @@ object AdBlockDocumentStart {
                                     scriptEl.remove();
                                 }
                             } catch(_) {}
+                        }
+                    }
+
+                    // ── Content Security Policy Directives Injection ($csp rules) ───────
+                    var cspDirectives = typeof window.OnyxShieldBridge.getCspDirectives === 'function' ?
+                        window.OnyxShieldBridge.getCspDirectives(location.href) : '';
+                    if (cspDirectives && typeof cspDirectives === 'string' && cspDirectives.trim().length > 0) {
+                        var cspMeta = document.createElement('meta');
+                        cspMeta.httpEquiv = 'Content-Security-Policy';
+                        cspMeta.content = cspDirectives.trim();
+                        var cspTarget = document.head || document.documentElement;
+                        if (cspTarget) {
+                            cspTarget.insertBefore(cspMeta, cspTarget.firstChild);
+                        } else {
+                            var cspObserver = new MutationObserver(function() {
+                                var root = document.head || document.documentElement;
+                                if (root) {
+                                    root.insertBefore(cspMeta, root.firstChild);
+                                    cspObserver.disconnect();
+                                }
+                            });
+                            cspObserver.observe(document, { childList: true, subtree: true });
                         }
                     }
                 }

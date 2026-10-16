@@ -741,9 +741,12 @@ class OnyxWebViewClient(
 
             val pageUrl = run {
                 val headers = request.requestHeaders
-                headers?.get("Referer") ?: headers?.get("referer")
-                    ?: headers?.get("Origin") ?: headers?.get("origin")
-                    ?: currentPageUrl
+                getHeaderCaseInsensitive(headers, "Referer")
+                    ?: getHeaderCaseInsensitive(headers, "Origin")
+                    ?: currentPageUrl.takeIf { it.isNotBlank() }
+                    ?: (view as? OnyxWebView)?.url?.takeIf { it.isNotBlank() }
+                    ?: (view as? WebView)?.url?.takeIf { it.isNotBlank() }
+                    ?: ""
             }
 
             val pageDomain = preferences.cleanDomain(pageUrl)
@@ -940,9 +943,18 @@ class OnyxWebViewClient(
                 // Query native Rust engine through high-performance Kotlin LRU decision cache
                 val resourceTypeInt = detectResourceTypeInt(request)
                 val method = request.method ?: "GET"
-                val engineResult = if (!isAdTestResource) {
+                var engineResult = if (!isAdTestResource) {
                     AdBlockEngine.checkRequest(uncloakedUrl, pageUrl, resourceTypeInt, method)
                 } else null
+
+                // Dual-pass: if uncloaked URL was not blocked and uncloakedUrl != url, check original URL
+                // to catch rules that explicitly target the cloaked alias
+                if (engineResult?.shouldBlock != true && uncloakedUrl != url && !isAdTestResource) {
+                    val originalResult = AdBlockEngine.checkRequest(url, pageUrl, resourceTypeInt, method)
+                    if (originalResult.shouldBlock || !originalResult.redirectData.isNullOrBlank() || !originalResult.rewrittenUrl.isNullOrBlank()) {
+                        engineResult = originalResult
+                    }
+                }
 
                 val blockedByEngine = engineResult?.shouldBlock == true
                 val redirectData = engineResult?.redirectData
@@ -1931,13 +1943,26 @@ class OnyxWebViewClient(
         }
     }
 
+    private fun getHeaderCaseInsensitive(headers: Map<String, String>?, name: String): String? {
+        if (headers == null || headers.isEmpty()) return null
+        val direct = headers[name]
+        if (direct != null) return direct
+        for ((key, value) in headers) {
+            if (key.equals(name, ignoreCase = true)) {
+                return value
+            }
+        }
+        return null
+    }
+
     private fun detectResourceType(request: WebResourceRequest): String {
         if (request.isForMainFrame) return "main_frame"
 
-        val acceptHeader = request.requestHeaders?.get("Accept")?.lowercase() ?: ""
-        val fetchMode = request.requestHeaders?.get("Sec-Fetch-Mode")?.lowercase() ?: ""
-        val fetchDest = request.requestHeaders?.get("Sec-Fetch-Dest")?.lowercase() ?: ""
-        val reqWith = request.requestHeaders?.get("X-Requested-With")?.lowercase() ?: ""
+        val headers = request.requestHeaders
+        val acceptHeader = getHeaderCaseInsensitive(headers, "Accept")?.lowercase() ?: ""
+        val fetchMode = getHeaderCaseInsensitive(headers, "Sec-Fetch-Mode")?.lowercase() ?: ""
+        val fetchDest = getHeaderCaseInsensitive(headers, "Sec-Fetch-Dest")?.lowercase() ?: ""
+        val reqWith = getHeaderCaseInsensitive(headers, "X-Requested-With")?.lowercase() ?: ""
         val urlPath = request.url?.path?.lowercase() ?: ""
         val scheme = request.url?.scheme?.lowercase() ?: ""
 
@@ -1955,8 +1980,7 @@ class OnyxWebViewClient(
             urlPath.endsWith(".aac") || urlPath.endsWith(".flv")) {
             return "media"
         }
-        if (request.requestHeaders?.containsKey("Ping-To") == true ||
-            request.requestHeaders?.containsKey("ping-to") == true ||
+        if (getHeaderCaseInsensitive(headers, "Ping-To") != null ||
             urlPath.contains("/ping") || urlPath.contains("/beacon")) {
             return "ping"
         }
@@ -1983,10 +2007,11 @@ class OnyxWebViewClient(
     private fun detectResourceTypeInt(request: WebResourceRequest): Int {
         if (request.isForMainFrame) return AdBlockEngine.RESOURCE_TYPE_MAIN_FRAME
 
-        val acceptHeader = request.requestHeaders?.get("Accept")?.lowercase() ?: ""
-        val fetchMode = request.requestHeaders?.get("Sec-Fetch-Mode")?.lowercase() ?: ""
-        val fetchDest = request.requestHeaders?.get("Sec-Fetch-Dest")?.lowercase() ?: ""
-        val reqWith = request.requestHeaders?.get("X-Requested-With")?.lowercase() ?: ""
+        val headers = request.requestHeaders
+        val acceptHeader = getHeaderCaseInsensitive(headers, "Accept")?.lowercase() ?: ""
+        val fetchMode = getHeaderCaseInsensitive(headers, "Sec-Fetch-Mode")?.lowercase() ?: ""
+        val fetchDest = getHeaderCaseInsensitive(headers, "Sec-Fetch-Dest")?.lowercase() ?: ""
+        val reqWith = getHeaderCaseInsensitive(headers, "X-Requested-With")?.lowercase() ?: ""
         val urlPath = request.url?.path?.lowercase() ?: ""
         val scheme = request.url?.scheme?.lowercase() ?: ""
 
@@ -2004,8 +2029,7 @@ class OnyxWebViewClient(
             urlPath.endsWith(".aac") || urlPath.endsWith(".flv")) {
             return AdBlockEngine.RESOURCE_TYPE_MEDIA
         }
-        if (request.requestHeaders?.containsKey("Ping-To") == true ||
-            request.requestHeaders?.containsKey("ping-to") == true ||
+        if (getHeaderCaseInsensitive(headers, "Ping-To") != null ||
             urlPath.contains("/ping") || urlPath.contains("/beacon")) {
             return AdBlockEngine.RESOURCE_TYPE_PING
         }

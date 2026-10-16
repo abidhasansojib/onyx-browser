@@ -44,6 +44,7 @@ object AdBlockEngine {
     const val RESOURCE_TYPE_PING = 9
     const val RESOURCE_TYPE_WEBSOCKET = 10
     const val RESOURCE_TYPE_OBJECT = 11
+    const val RESOURCE_TYPE_POPUP = 12
 
     data class RequestResult(
         val shouldBlock: Boolean,
@@ -248,6 +249,7 @@ object AdBlockEngine {
             "ping", "beacon" -> RESOURCE_TYPE_PING
             "websocket" -> RESOURCE_TYPE_WEBSOCKET
             "object" -> RESOURCE_TYPE_OBJECT
+            "popup" -> RESOURCE_TYPE_POPUP
             else -> RESOURCE_TYPE_OTHER
         }
         return shouldBlock(url, sourceUrl, typeInt, method)

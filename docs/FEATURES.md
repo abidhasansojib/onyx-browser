@@ -15,13 +15,14 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 
 ## 1. Privacy, Security & Ad-Blocking
 
-- `[x]` **Native Rust Adblock Engine**: High-performance `adblock-rust` compiled via Android NDK across all 4 ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`).
+- `[x]` **Native Rust Adblock Engine**: High-performance Brave `adblock-rust` compiled via Android NDK across all 4 ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`) with full privileged scriptlet permissions (`PermissionMask::from_bits(u8::MAX)`), CSP directive enforcement (`$csp`), and popup rule classification.
 - `[x]` **54 Brave Content Filter Lists**: Evaluates Brave shields rules with pre-compiled FlatBuffers binary caching (`onyx_filters.bin`).
-- `[x]` **Dual-Tier Adblocking**: Standard vs Aggressive shields with instant dynamic reversion at document start.
+- `[x]` **Dual-Tier Adblocking & CNAME Uncloaking**: Standard vs Aggressive shields with instant dynamic reversion at document start, plus dual-pass CNAME uncloaking matching both original alias and uncloaked destination.
 - `[x]` **Procedural & Cosmetic Filtering**: Complete 15-operator procedural engine (`:has-text()`, `:upward()`, `:min-text-length()`, `remove()`, etc.) and pre-parse synchronous CSS injection.
 - `[x]` **Anti-Adblock Defuser & Benchmark Compatibility**: 100% pass rate on adblock test sites; type-aware response synthesis and DOM honeypot defusal.
+- `[x]` **Service Worker Ad & Tracker Interception**: Background Service Worker fetch interception with full resource typing, case-insensitive header parsing, and surrogate redirection.
 - `[x]` **YouTube & Streaming Video Ad Defuser**: Auto-skips ads, mutes, fast-forwards, and defuses video ad overlays at document-start; VAST/VMAP empty XML synthesis for HTML5 players.
-- `[x]` **Brave Scriptlet Injection with Trusted Types CSP Immunity**: Executes Brave scriptlets (`json-prune`, `set`, etc.) reliably even on strict CSP origins.
+- `[x]` **Brave Scriptlet Injection with Trusted Types CSP Immunity**: Executes Brave scriptlets (`json-prune`, `set`, `trusted-set-cookie`, etc.) reliably even on strict CSP origins with cached `__onyx_tt_policy` reuse.
 - `[x]` **In-Memory LRU Decision Cache**: Sub-microsecond (<0.01µs) repeated URL and request decisions cached in Kotlin memory without JNI crossing.
 - `[x]` **In-Page Visual Element Blocker (Zapper)**: Interactive element picker with touch selection, preview toggles, and persistent CSS hiding rules.
 - `[x]` **Per-Site Shields & Exceptions**: Easily toggle adblocking, HTTPS upgrades, and script rules per domain from the omnibox shield icon.
