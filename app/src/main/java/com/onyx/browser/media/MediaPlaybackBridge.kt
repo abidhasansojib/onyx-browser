@@ -311,14 +311,24 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaPaused() {
+        handleMediaPaused(isUserIntent = false)
+    }
+
+    @JavascriptInterface
+    fun onMediaPausedWithIntent(isUserIntent: Boolean) {
+        handleMediaPaused(isUserIntent = isUserIntent)
+    }
+
+    private fun handleMediaPaused(isUserIntent: Boolean) {
         val inPip = isCurrentlyInPip
         val shouldSuppress = !inPip &&
                 isBackgroundPlayActive &&
-                (isAppInBackground || isScreenOffOrLocked(context)) &&
+                !isUserIntent &&
                 !isExplicitUserPause
 
         if (shouldSuppress) {
-            // Brave pattern: Transient pause caused by screen lock or background transition.
+            // Brave & Firefox pattern: Transient or background pause caused by tab switch,
+            // screen lock, or OS occlusion without user pause intent.
             // Suppress the pause, preserve playing state so audio keeps decoding in background!
             mainHandler.post {
                 val wv = currentPlayingWebView?.get() ?: webView

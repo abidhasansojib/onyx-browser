@@ -53,6 +53,7 @@ class MediaPlaybackService : Service() {
     private lateinit var mediaSession: MediaSessionCompat
     private lateinit var notificationManager: NotificationManager
     private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var artworkJob: Job? = null
 
@@ -107,6 +108,16 @@ class MediaPlaybackService : Service() {
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
         wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OnyxBrowser:MediaWakeLock")
+        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
+        @Suppress("DEPRECATION")
+        wifiLock = wifiManager?.createWifiLock(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+            } else {
+                android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF
+            },
+            "OnyxBrowser:MediaWifiLock"
+        )
         createNotificationChannel()
         setupMediaSession()
         registerSystemReceivers()
@@ -410,7 +421,7 @@ class MediaPlaybackService : Service() {
             val pauseIntent = getMediaPendingIntent(2, ACTION_PAUSE)
             NotificationCompat.Action.Builder(R.drawable.ic_pause, "Pause", pauseIntent).build()
         } else {
-            val playIntent = getMediaPendingIntent(2, ACTION_PLAY)
+            val playIntent = getMediaPendingIntent(5, ACTION_PLAY)
             NotificationCompat.Action.Builder(R.drawable.ic_play_arrow, "Play", playIntent).build()
         }
 
@@ -489,7 +500,10 @@ class MediaPlaybackService : Service() {
     private fun acquireWakeLock() {
         try {
             if (wakeLock?.isHeld == false) {
-                wakeLock?.acquire(30 * 60 * 1000L) // 30 min safety timeout
+                wakeLock?.acquire(60 * 60 * 1000L) // 60 min safety timeout
+            }
+            if (wifiLock?.isHeld == false) {
+                wifiLock?.acquire()
             }
         } catch (_: Exception) {}
     }
@@ -498,6 +512,9 @@ class MediaPlaybackService : Service() {
         try {
             if (wakeLock?.isHeld == true) {
                 wakeLock?.release()
+            }
+            if (wifiLock?.isHeld == true) {
+                wifiLock?.release()
             }
         } catch (_: Exception) {}
     }

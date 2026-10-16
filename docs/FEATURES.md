@@ -48,9 +48,9 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 
 ## 3. Media, Audio & Video Playback
 
-- `[x]` **Background Audio & Video Playback**: Full background playback with Brave `userHitPause` touch architecture to prevent unwanted background auto-pauses.
+- `[x]` **Background Audio & Video Playback**: Full background playback with Brave & Firefox Page Visibility interception, player touch intent tracking, non-user pause suppression across tab switches & screen lock, Wi-Fi & WakeLock sleep prevention, and YouTube inactivity (`_lact`) keep-alive.
 - `[x]` **Picture-in-Picture (PiP) Isolation**: Non-destructive video detachment with letterbox centering and resize-loop protection.
-- `[x]` **Foreground Media Service**: `MediaPlaybackService` with lockscreen notification controls, progress tracking, and MediaSession sync.
+- `[x]` **Foreground Media Service**: `MediaPlaybackService` with lockscreen notification controls, Wi-Fi lock, progress tracking, and MediaSession sync.
 - `[x]` **Universal Transparent Video Poster**: Replaces default gray video box and play icon with a transparent poster for seamless video loading.
 - `[x]` **Audio Becoming Noisy Broadcast Receiver**: Automatically pauses playback when headphones are disconnected or Bluetooth disconnects.
 - `[x]` **Stream Detector**: Automatically sniffs downloadable audio/video streams from websites.

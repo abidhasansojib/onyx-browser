@@ -48,10 +48,19 @@ object MediaPlaybackManager {
                 // ── 1. W3C Picture-in-Picture Web API Polyfill ─────────────────────────
                 var currentPipElem = null;
 
-                // Track user interactions to guard against unsolicited programmatic PiP calls
-                window.addEventListener('pointerdown', function() { window.__onyx_last_user_touch = Date.now(); }, true);
-                window.addEventListener('touchstart', function() { window.__onyx_last_user_touch = Date.now(); }, true);
-                window.addEventListener('click', function() { window.__onyx_last_user_touch = Date.now(); }, true);
+                // Track user interactions to guard against unsolicited programmatic PiP calls & detect user pause intent
+                function recordTouch(e) {
+                    window.__onyx_last_user_touch = Date.now();
+                    try {
+                        var t = e && e.target;
+                        if (t && (t.tagName === 'VIDEO' || t.tagName === 'AUDIO' || (t.closest && t.closest('video, audio, .ytp-play-button, button, [role="button"]')))) {
+                            window.__onyx_last_player_touch = Date.now();
+                        }
+                    } catch (_) {}
+                }
+                window.addEventListener('pointerdown', recordTouch, true);
+                window.addEventListener('touchstart', recordTouch, true);
+                window.addEventListener('click', recordTouch, true);
 
                 if (!document.pictureInPictureEnabled) {
                     try {
@@ -266,9 +275,16 @@ object MediaPlaybackManager {
                             return !m.paused && !m.ended && isQualifyingMedia(m);
                         });
                         if (!anyPlaying) {
-                            window.OnyxMediaBridge.onMediaPaused();
+                            var now = Date.now();
+                            var timeSincePlayerTouch = now - (window.__onyx_last_player_touch || 0);
+                            var isUserIntent = !!window.__onyx_allow_explicit_pause || (timeSincePlayerTouch < 2500);
+                            if (typeof window.OnyxMediaBridge.onMediaPausedWithIntent === 'function') {
+                                window.OnyxMediaBridge.onMediaPausedWithIntent(isUserIntent);
+                            } else {
+                                window.OnyxMediaBridge.onMediaPaused();
+                            }
                         }
-                    }, 350);
+                    }, 400);
                 }
 
                 // ── 5. Direct Element Event Binding (Brave Playlist pattern) ────────
@@ -597,31 +613,29 @@ object MediaPlaybackManager {
             try {
                 var isYouTube = /youtube\.com|youtu\.be/i.test(_bgHost);
 
-                // ── 1. YouTube-Only kYoutubeBackgroundPlayback (Brave Parity) ───────
-                // Brave strictly restricts visibilitychange listener filtering to YouTube domains.
-                // Doing this universally breaks carousels, timers, and React component lifecycles!
-                if (isYouTube) {
-                    if (document._addEventListener === undefined) {
-                        document._addEventListener = document.addEventListener;
-                        document.addEventListener = function(type, listener, options) {
-                            if (window.__onyx_bg_play_active && (type === 'visibilitychange' || type === 'webkitvisibilitychange')) {
-                                return;
-                            }
-                            return document._addEventListener.call(this, type, listener, options);
-                        };
+                // ── 1. Page Visibility Interception (Brave & Mozilla video-bg-play parity) ──
+                // Intercept visibility events with capture=true BEFORE any website listeners can receive them
+                function suppressVisibilityEvent(e) {
+                    if (window.__onyx_bg_play_active) {
+                        e.stopImmediatePropagation();
                     }
-                    try {
-                        Object.defineProperty(document, 'visibilityState', {
-                            configurable: true,
-                            get: function() { return 'visible'; }
-                        });
-                    } catch (_) {}
+                }
+                window.addEventListener('visibilitychange', suppressVisibilityEvent, true);
+                document.addEventListener('visibilitychange', suppressVisibilityEvent, true);
+                window.addEventListener('webkitvisibilitychange', suppressVisibilityEvent, true);
+                document.addEventListener('webkitvisibilitychange', suppressVisibilityEvent, true);
+
+                if (document._addEventListener === undefined) {
+                    document._addEventListener = document.addEventListener;
+                    document.addEventListener = function(type, listener, options) {
+                        if (window.__onyx_bg_play_active && (type === 'visibilitychange' || type === 'webkitvisibilitychange')) {
+                            return;
+                        }
+                        return document._addEventListener.call(this, type, listener, options);
+                    };
                 }
 
-                // ── 2. Universal Brave MediaBackgrounding: Document.prototype.visibilityState ──
-                // Proxies Document.prototype.visibilityState so that when the app is in the background
-                // with active media, 'visible' is returned to prevent background pausing. In the foreground,
-                // the genuine document visibility is preserved for all websites!
+                // ── 2. Universal Visibility State Spoofing: Document.prototype.visibilityState ──
                 try {
                     var descriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState');
                     if (descriptor && descriptor.get) {
@@ -630,11 +644,10 @@ object MediaPlaybackManager {
                             enumerable: descriptor.enumerable,
                             configurable: true,
                             get: function() {
-                                var res = origGet.call(this);
-                                if (window.__onyx_in_background && window.__onyx_bg_play_active) {
+                                if (window.__onyx_bg_play_active) {
                                     return 'visible';
                                 }
-                                return res;
+                                return origGet.call(this);
                             }
                         });
                     }
@@ -648,7 +661,7 @@ object MediaPlaybackManager {
                             enumerable: hiddenDesc.enumerable,
                             configurable: true,
                             get: function() {
-                                if (window.__onyx_in_background && window.__onyx_bg_play_active) {
+                                if (window.__onyx_bg_play_active) {
                                     return false;
                                 }
                                 return origHiddenGet.call(this);
@@ -657,16 +670,25 @@ object MediaPlaybackManager {
                     }
                 } catch (_) {}
 
+                try {
+                    Object.defineProperty(document, 'visibilityState', {
+                        configurable: true,
+                        get: function() { return 'visible'; }
+                    });
+                    Object.defineProperty(document, 'hidden', {
+                        configurable: true,
+                        get: function() { return false; }
+                    });
+                } catch (_) {}
+
                 // ── 3. Universal Brave MediaBackgrounding: userHitPause & Auto-Resume ──
                 var origPause = HTMLMediaElement.prototype.pause;
                 HTMLMediaElement.prototype.pause = function() {
-                    var timeSinceTouch = Date.now() - (window.__onyx_last_user_touch || 0);
-                    var isUserIntent = (timeSinceTouch < 1500) || !!window.__onyx_allow_explicit_pause;
-                    if (window.__onyx_in_background && !isUserIntent) {
-                        this.userHitPause = false;
-                    } else {
-                        this.userHitPause = isUserIntent;
-                    }
+                    var now = Date.now();
+                    var timeSincePlayerTouch = now - (window.__onyx_last_player_touch || 0);
+                    var isExplicit = !!window.__onyx_allow_explicit_pause;
+                    var isUserIntent = isExplicit || (timeSincePlayerTouch < 2500);
+                    this.userHitPause = isUserIntent;
                     return origPause.apply(this, arguments);
                 };
 
@@ -681,10 +703,21 @@ object MediaPlaybackManager {
                     element.__onyx_bg_bound = true;
 
                     element.addEventListener('pause', function() {
-                        if (!window.__onyx_bg_play_active || !window.__onyx_in_background) return;
-                        if (!element.userHitPause && !element.ended) {
-                            // Video paused by OS blur or background transition without user intent: auto-resume!
-                            origPlay.call(element).catch(function(){});
+                        if (!window.__onyx_bg_play_active) return;
+                        if (window.__onyx_allow_explicit_pause) return;
+
+                        var now = Date.now();
+                        var timeSincePlayerTouch = now - (window.__onyx_last_player_touch || 0);
+                        var isUserHitPause = element.userHitPause && (timeSincePlayerTouch < 2500);
+
+                        if (!isUserHitPause && !element.ended) {
+                            // Video paused by OS occlusion, tab switch, or screen-lock transition without user intent: auto-resume!
+                            setTimeout(function() {
+                                if (!window.__onyx_allow_explicit_pause && !element.ended && element.paused) {
+                                    var p = origPlay.call(element);
+                                    if (p && typeof p.catch === 'function') p.catch(function(){});
+                                }
+                            }, 50);
                         }
                     }, false);
 
@@ -701,8 +734,29 @@ object MediaPlaybackManager {
                     }
                 }, true);
 
-                // ── 4. YouTube-Only kYoutubePictureInPictureSupport: ytcfg Flag Patching ──
+                // ── 4. YouTube-Only kYoutubePictureInPictureSupport & Inactivity Keep-Alive ──
                 if (isYouTube) {
+                    // Refresh last active time so YouTube never shows "Video paused. Continue watching?"
+                    setInterval(function() {
+                        try {
+                            window._lact = Date.now();
+                            if (window.ytcfg && typeof window.ytcfg.set === 'function') {
+                                window.ytcfg.set('DEVICE_LATENCY', 0);
+                            }
+                        } catch (_) {}
+                    }, 30000);
+
+                    // Re-bind listeners on YouTube SPA navigation
+                    ['yt-navigate-finish', 'yt-page-data-updated', 'spfdone'].forEach(function(evtName) {
+                        document.addEventListener(evtName, function() {
+                            setTimeout(function() {
+                                document.querySelectorAll('video, audio').forEach(function(el) {
+                                    addBackgroundListeners(el);
+                                });
+                            }, 300);
+                        }, true);
+                    });
+
                     function modifyYtcfgFlags() {
                         try {
                             if (!window.ytcfg || typeof window.ytcfg.get !== 'function') return;
@@ -756,7 +810,7 @@ object MediaPlaybackManager {
                         Object.defineProperty(HTMLMediaElement.prototype, 'muted', {
                             get: function() { return origMuted.get.call(this); },
                             set: function(val) {
-                                if (window.__onyx_bg_play_active && window.__onyx_in_background && val) {
+                                if (window.__onyx_bg_play_active && val && !window.__onyx_allow_explicit_pause) {
                                     return; // Don't allow websites to mute when in background
                                 }
                                 return origMuted.set.call(this, val);

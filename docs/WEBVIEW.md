@@ -209,3 +209,16 @@ Onyx implements total data separation between Normal and Incognito modes using A
   1. Purges all incognito cookies (`removeAllCookies`).
   2. Deletes all origin storage (`deleteAllData`).
   3. Deletes the incognito profile from `ProfileStore`.
+
+### 6.3 Background Media Playback Architecture
+To sustain uninterrupted audio and video playback when switching tabs, locking the screen, or minimizing the app:
+1. **Page Visibility Interception**:
+   - Capturing event listeners intercept `visibilitychange` and `webkitvisibilitychange` events with `stopImmediatePropagation()`.
+   - `Document.prototype.visibilityState` is proxied to return `'visible'` and `Document.prototype.hidden` returns `false` when background playback is active.
+2. **User-Intent Pause vs System-Occlusion Pause**:
+   - `userHitPause` is recorded on player touch interactions (`window.__onyx_last_player_touch < 2500`).
+   - Non-user pauses triggered by OS blur, tab switch, or background occlusion automatically call `origPlay()` and suppress native bridge pause notifications.
+3. **Timer & Wi-Fi Keep-Alive**:
+   - Detached WebViews running media retain timer execution (`resumeTimers()`).
+   - `MediaPlaybackService` holds both `PARTIAL_WAKE_LOCK` and high-performance `WifiLock` to prevent device sleep and network streaming timeouts with screen off.
+   - Refreshes YouTube mobile inactivity (`window._lact`) every 30 seconds to bypass "Video paused. Continue watching?" interruptions.

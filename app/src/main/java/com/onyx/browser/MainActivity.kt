@@ -1712,6 +1712,19 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     val isPlayingMedia = preferences.isBackgroundPlayEnabled && (previousTabId == MediaPlaybackBridge.currentPlayingTabId)
                     if (!isPlayingMedia) {
                         outgoingWebView.onPause()
+                    } else {
+                        outgoingWebView.resumeTimers()
+                        if (!MediaPlaybackService.isServiceRunning && (MediaPlaybackBridge.isAudioOrVideoPlaying || MediaPlaybackBridge.isVideoPlaying)) {
+                            MediaPlaybackService.start(
+                                this,
+                                MediaPlaybackBridge.currentTitle,
+                                MediaPlaybackBridge.currentArtist,
+                                MediaPlaybackBridge.currentArtworkUrl,
+                                MediaPlaybackBridge.currentPositionMs,
+                                MediaPlaybackBridge.currentDurationMs,
+                                true
+                            )
+                        }
                     }
                     tabManager.captureTabSnapshot(previousTabId, outgoingWebView)
                     tabManager.saveTabState(previousTabId, outgoingWebView)
@@ -1838,6 +1851,19 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         val isPlayingChild = preferences.isBackgroundPlayEnabled && (child?.tabId == MediaPlaybackBridge.currentPlayingTabId)
         if (!isPlayingChild) {
             child?.onPause()
+        } else {
+            child?.resumeTimers()
+            if (!MediaPlaybackService.isServiceRunning && (MediaPlaybackBridge.isAudioOrVideoPlaying || MediaPlaybackBridge.isVideoPlaying)) {
+                MediaPlaybackService.start(
+                    this,
+                    MediaPlaybackBridge.currentTitle,
+                    MediaPlaybackBridge.currentArtist,
+                    MediaPlaybackBridge.currentArtworkUrl,
+                    MediaPlaybackBridge.currentPositionMs,
+                    MediaPlaybackBridge.currentDurationMs,
+                    true
+                )
+            }
         }
         binding.webViewContainer.removeAllViews()
     }
@@ -1913,6 +1939,19 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val isPlayingCurrent = preferences.isBackgroundPlayEnabled && (currentChild?.tabId == MediaPlaybackBridge.currentPlayingTabId)
             if (!isPlayingCurrent) {
                 currentChild?.onPause()
+            } else {
+                currentChild?.resumeTimers()
+                if (!MediaPlaybackService.isServiceRunning && (MediaPlaybackBridge.isAudioOrVideoPlaying || MediaPlaybackBridge.isVideoPlaying)) {
+                    MediaPlaybackService.start(
+                        this,
+                        MediaPlaybackBridge.currentTitle,
+                        MediaPlaybackBridge.currentArtist,
+                        MediaPlaybackBridge.currentArtworkUrl,
+                        MediaPlaybackBridge.currentPositionMs,
+                        MediaPlaybackBridge.currentDurationMs,
+                        true
+                    )
+                }
             }
 
             (webView.parent as? ViewGroup)?.removeView(webView)
@@ -3308,7 +3347,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     null
                 )
             }
-            tabManager.getActiveWebView()?.resumeTimers()
+            tabManager.getAllWebViews().forEach { it.resumeTimers() }
             if (!isPip && (MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isAudioOrVideoPlaying)) {
                 MediaPlaybackService.start(
                     this,
@@ -3441,7 +3480,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (!isPip && !MediaPlaybackBridge.isBackgroundPlayActive(preferences) && !isSystemDialogOrChooserPending) {
             tabManager.getActiveWebView()?.onPause()
         } else if (preferences.isBackgroundPlayEnabled) {
-            tabManager.getActiveWebView()?.resumeTimers()
+            tabManager.getAllWebViews().forEach { it.resumeTimers() }
         }
     }
 
