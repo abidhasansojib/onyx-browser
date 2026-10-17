@@ -164,7 +164,7 @@ class PipController(
             hideCustomFullscreenVideo()
         }
 
-        updatePipParams(isVideoPlaying = true, shouldAutoEnter = false)
+        updatePipParams(isVideoPlaying = true, shouldAutoEnter = true)
     }
 
     fun hideCustomFullscreenVideo() {
@@ -267,15 +267,43 @@ class PipController(
         return actions
     }
 
+    fun safeSetPictureInPictureParams(params: PictureInPictureParams): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        return try {
+            activity.setPictureInPictureParams(params)
+            true
+        } catch (_: Exception) {
+            // Shield against Android OEM / IPC framework crashes (Brave PictureInPictureActivity pattern)
+            false
+        }
+    }
+
+    fun isPipAllowedBySystem(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        val appOps = activity.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, android.os.Process.myUid(), activity.packageName) == AppOpsManager.MODE_ALLOWED
+            } else {
+                @Suppress("DEPRECATION")
+                appOps.checkOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, android.os.Process.myUid(), activity.packageName) == AppOpsManager.MODE_ALLOWED
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun updatePipParams(
         isVideoPlaying: Boolean = MediaPlaybackBridge.isMediaPlaying,
         width: Int = MediaPlaybackBridge.lastVideoWidth,
         height: Int = MediaPlaybackBridge.lastVideoHeight,
-        shouldAutoEnter: Boolean = false
+        shouldAutoEnter: Boolean = isVideoPlaying
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
-                val rational = Rational(width.coerceAtLeast(1), height.coerceAtLeast(1))
+                val safeW = width.coerceAtLeast(1)
+                val safeH = height.coerceAtLeast(1)
+                val rational = Rational(safeW, safeH)
                     .coerceIn(Rational(1, 2), Rational(2, 1))
                 val builder = PictureInPictureParams.Builder()
                     .setAspectRatio(rational)
@@ -312,9 +340,21 @@ class PipController(
                 }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    builder.setAutoEnterEnabled(false)
+                    val isForeground = if (activity is LifecycleOwner) {
+                        activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+                    } else {
+                        true
+                    }
+                    val canAutoEnter = shouldAutoEnter &&
+                        preferences.isPipEnabled &&
+                        (isVideoPlaying || isFullscreenVideoActive) &&
+                        !justExitedPip &&
+                        !activity.isFinishing &&
+                        isForeground &&
+                        isPipAllowedBySystem()
+                    builder.setAutoEnterEnabled(canAutoEnter)
                 }
-                activity.setPictureInPictureParams(builder.build())
+                safeSetPictureInPictureParams(builder.build())
             } catch (_: Exception) {}
         }
     }
@@ -381,14 +421,7 @@ class PipController(
                 if (activity is LifecycleOwner && !activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
                     return
                 }
-                val appOps = activity.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
-                val isPipAllowed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    appOps?.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, android.os.Process.myUid(), activity.packageName) == AppOpsManager.MODE_ALLOWED
-                } else {
-                    @Suppress("DEPRECATION")
-                    appOps?.checkOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, android.os.Process.myUid(), activity.packageName) == AppOpsManager.MODE_ALLOWED
-                }
-                if (isPipAllowed == false) {
+                if (!isPipAllowedBySystem()) {
                     Toast.makeText(activity, "Please enable Picture-in-Picture permission in Android Settings", Toast.LENGTH_LONG).show()
                     val intent = Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS", Uri.parse("package:${activity.packageName}"))
                     try {
@@ -491,13 +524,11 @@ class PipController(
             binding.root.postDelayed({ justExitedPip = false }, 3000)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                try {
-                    activity.setPictureInPictureParams(
-                        PictureInPictureParams.Builder()
-                            .setAutoEnterEnabled(false)
-                            .build()
-                    )
-                } catch (_: Exception) {}
+                safeSetPictureInPictureParams(
+                    PictureInPictureParams.Builder()
+                        .setAutoEnterEnabled(false)
+                        .build()
+                )
             }
 
             if (!MediaPlaybackBridge.isVideoPlaying) {

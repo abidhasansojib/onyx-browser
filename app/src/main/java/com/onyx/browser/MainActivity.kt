@@ -2791,7 +2791,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         isVideoPlaying: Boolean = MediaPlaybackBridge.isMediaPlaying,
         width: Int = MediaPlaybackBridge.lastVideoWidth,
         height: Int = MediaPlaybackBridge.lastVideoHeight,
-        shouldAutoEnter: Boolean = false
+        shouldAutoEnter: Boolean = isVideoPlaying
     ) {
         if (::pipController.isInitialized) {
             pipController.updatePipParams(isVideoPlaying, width, height, shouldAutoEnter)
@@ -3370,16 +3370,25 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             updatePipParams(isVideoPlaying = false)
         }
         val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
-        if (preferences.isBackgroundPlayEnabled) {
+        val isPlayingAnyMedia = MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isAudioOrVideoPlaying
+        val isBgPlayActive = preferences.isBackgroundPlayEnabled && isPlayingAnyMedia
+
+        if (isBgPlayActive || isPip) {
+            val mediaTabWv = getMediaTargetWebView() ?: tabManager.getActiveWebView()
             tabManager.getAllWebViews().forEach { wv ->
-                val isWvInPip = isPip && (wv == tabManager.getActiveWebView() || (wv as? com.onyx.browser.web.OnyxWebView)?.tabId == MediaPlaybackBridge.currentPlayingTabId)
+                val isTargetWv = (wv == mediaTabWv)
+                val isWvInPip = isPip && isTargetWv
                 wv.evaluateJavascript(
                     MediaPlaybackManager.getSetBackgroundStateScript(!isWvInPip),
                     null
                 )
+                // Battery governor: keep media tab active, pause non-playing tabs to save CPU/battery
+                if (!isTargetWv && !isPip) {
+                    wv.onPause()
+                }
             }
-            tabManager.getAllWebViews().forEach { it.resumeTimers() }
-            if (!isPip && (MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isAudioOrVideoPlaying)) {
+            mediaTabWv?.resumeTimers()
+            if (!isPip && isPlayingAnyMedia) {
                 MediaPlaybackService.start(
                     this,
                     MediaPlaybackBridge.currentTitle,
@@ -3390,8 +3399,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     true
                 )
             }
-        }
-        if (!isPip && !preferences.isBackgroundPlayEnabled && !isSystemDialogOrChooserPending) {
+        } else if (!isSystemDialogOrChooserPending) {
             tabManager.getActiveWebView()?.onPause()
         }
     }
@@ -3508,16 +3516,31 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             MediaPlaybackService.stopNotificationOnly(this)
         }
 
+        val isPlayingAnyMedia = MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isAudioOrVideoPlaying
         if (!isPip && !MediaPlaybackBridge.isBackgroundPlayActive(preferences) && !isSystemDialogOrChooserPending) {
             tabManager.getActiveWebView()?.onPause()
-        } else if (preferences.isBackgroundPlayEnabled) {
-            tabManager.getAllWebViews().forEach { it.resumeTimers() }
+        } else if (preferences.isBackgroundPlayEnabled && isPlayingAnyMedia) {
+            val mediaTabWv = getMediaTargetWebView() ?: tabManager.getActiveWebView()
+            tabManager.getAllWebViews().forEach { wv ->
+                if (wv != mediaTabWv && !isPip) {
+                    wv.onPause()
+                }
+            }
+            mediaTabWv?.resumeTimers()
         }
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // Do not auto-enter PiP on user leave to prevent unwanted PiP re-entry loops
+        if (preferences.isPipEnabled && !justExitedPip && !isCurrentlyInPip) {
+            val isPipMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
+            if (!isPipMode && (customVideoView != null || MediaPlaybackBridge.isVideoPlaying)) {
+                // Auto-enter PiP on user navigation away (handles Android 8-11 and provides safety net for API 31+)
+                if (::pipController.isInitialized) {
+                    pipController.enterPipMode()
+                }
+            }
+        }
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -3534,10 +3557,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         // 1. Sync theme if changed in Settings or system dark mode toggled
         preferences.applyTheme()
+        val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
         val currentNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        if ((lastThemeMode != -1 && lastThemeMode != preferences.themeMode) ||
+        if (!isPip && ((lastThemeMode != -1 && lastThemeMode != preferences.themeMode) ||
             (lastNightMode != -1 && lastNightMode != currentNightMode) ||
-            (lastAccentColor.isNotBlank() && lastAccentColor != preferences.accentColorHex)) {
+            (lastAccentColor.isNotBlank() && lastAccentColor != preferences.accentColorHex))) {
             lastThemeMode = preferences.themeMode
             lastNightMode = currentNightMode
             lastAccentColor = preferences.accentColorHex
@@ -3595,7 +3619,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         
         // Guarantee cleanup of custom view container and restoration of toolbar
-        val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
         if (!isPip) {
             if (customVideoView == null) {
                 binding.fullscreenCustomViewContainer.visibility = View.GONE
@@ -3627,10 +3650,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
         val newNightMode = newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK
         if (lastNightMode != -1 && lastNightMode != newNightMode) {
             lastNightMode = newNightMode
-            recreate()
+            if (!isPip) {
+                recreate()
+            }
         }
     }
 

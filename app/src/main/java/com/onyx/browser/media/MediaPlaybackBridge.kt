@@ -17,6 +17,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     // Throttle progress forwarding to the service: max once per 3 seconds
     @Volatile private var lastProgressDispatchMs = 0L
+    private var pendingEndedRunnable: Runnable? = null
 
     companion object {
         private const val PROGRESS_DISPATCH_THROTTLE_MS = 3000L
@@ -280,6 +281,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaPlaying(title: String?, artist: String?, isVideo: Boolean) {
+        pendingEndedRunnable?.let { mainHandler.removeCallbacks(it) }
         isExplicitUserPause = false
         val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
         if (isVideo) {
@@ -372,18 +374,23 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     @JavascriptInterface
     fun onMediaEnded() {
         val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
-        if (myTabId != null && currentPlayingTabId == myTabId) {
-            isAudioOrVideoPlaying = false
-            isVideoPlaying = false
-            currentPlayingTabId = null
-            currentPlayingWebView = null
-        }
-
         mainHandler.post {
-            onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
-            if (isBackgroundPlayActive) {
-                MediaPlaybackService.stop(context)
+            pendingEndedRunnable?.let { mainHandler.removeCallbacks(it) }
+            val runnable = Runnable {
+                if (!isAudioOrVideoPlaying && !isVideoPlaying) {
+                    if (myTabId != null && currentPlayingTabId == myTabId) {
+                        currentPlayingTabId = null
+                        currentPlayingWebView = null
+                    }
+                    onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
+                    if (isBackgroundPlayActive) {
+                        MediaPlaybackService.stop(context)
+                    }
+                }
             }
+            pendingEndedRunnable = runnable
+            // Brave-parity: 2-second grace gap for playlist autoplay on locked screen
+            mainHandler.postDelayed(runnable, 2000L)
         }
     }
 

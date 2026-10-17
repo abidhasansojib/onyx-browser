@@ -139,4 +139,11 @@ onyx-browser/
    - Dual-pass checking must be performed for CNAME uncloaked requests: test uncloaked destination first, and if allowed, test the original alias to catch rules explicitly targeting cloaked first-party domains.
    - `$csp` directives from `AdBlockEngine.getCspDirectives` must be injected early at document start via `<meta http-equiv="Content-Security-Policy">`.
    - Never block authentication endpoints (Google Sign-In, Meta, Microsoft, Apple), bot challenges (Cloudflare Turnstile, Arkose, reCAPTCHA, hCaptcha), or media streaming segments.
+9. **Media Playback & Picture-in-Picture Standards**:
+   - `MediaPlaybackService` must manage audio focus lifecycle with `AudioFocusRequestCompat` (`AUDIOFOCUS_GAIN`) and `AudioManagerCompat`, pausing on noisy disconnects or audio loss and auto-resuming on focus gain.
+   - Picture-in-Picture on Android 12+ (API 31+) must dynamically arm `setAutoEnterEnabled(true)` when video is actively playing in the foreground and immediately disarm upon pause or finish. On Android 8-11, `onUserLeaveHint()` must handle Auto-PiP transitions.
+   - All `setPictureInPictureParams()` calls must be shielded against OEM framework IPC exceptions (`safeSetPictureInPictureParams`), and aspect ratios must be clamped within `[0.5, 2.0]`.
+   - Never recreate `MainActivity` on system theme changes while in PiP (`maybeDeferNightModeRecreate`).
+   - Lockscreen playlist transitions must enforce a 2000ms debounce grace gap on `onMediaEnded` before tearing down foreground services.
+   - Battery governor must suspend non-playing WebViews with `onPause()` while keeping JavaScript timers active exclusively on the media-playing tab.
 

@@ -117,11 +117,23 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
   - `Document.prototype.visibilityState` returns `'visible'` and `Document.prototype.hidden` returns `false` when background playback is active.
   - YouTube mobile tracks user inactivity via `window._lact`; Onyx refreshes `_lact` every 30 seconds to prevent "Video paused. Continue watching?" interruptions, and automatically re-binds media listeners on SPA page transitions (`yt-navigate-finish`, `yt-page-data-updated`).
 
-- **Audio Becoming Noisy Broadcast Protection (Brave Parity)**:
+- **Audio Becoming Noisy & Audio Focus Management (Brave Parity)**:
   - Registers a system `BroadcastReceiver` for `AudioManager.ACTION_AUDIO_BECOMING_NOISY`. When wired headphones are unplugged or Bluetooth audio disconnects during media playback, the service immediately pauses playback and updates lockscreen notification controls.
+  - Manages audio focus lifecycle via `AudioFocusRequestCompat` and `AudioManagerCompat`. Requests `AUDIOFOCUS_GAIN` on play and gracefully releases focus on explicit user pause, stop, or task removal. Handles transient loss and ducking with automatic resumption on regain.
 
-- **Picture-in-Picture (PiP) Isolation**:
+- **Picture-in-Picture (PiP) Architecture & Auto-Enter (Brave Parity)**:
   - Traverses Shadow DOM and composed ancestor trees to remove CSS transforms and clipping constraints, isolating active `<video>` elements non-destructively without hiding sibling DOM nodes.
+  - Dynamically arms `setAutoEnterEnabled(true)` on Android 12+ (API 31+) whenever video is playing in the foreground, enabling smooth gesture-navigation transitions into PiP without pause or flicker. Disables auto-enter immediately upon pause or video end.
+  - Leverages `onUserLeaveHint()` for Android 8-11 Auto-PiP transitions, guarded by user preferences and anti-loop debounce (`justExitedPip`).
+  - Coerces aspect ratio strictly within `[Rational(1, 2), Rational(2, 1)]` and shields all `setPictureInPictureParams()` calls against OEM IPC exceptions (`safeSetPictureInPictureParams`).
+  - Dynamically synchronizes RemoteAction play/pause icons on the floating PiP window in real-time as playback state changes.
+
+- **Lockscreen Playlist Autoplay Grace Gap**:
+  - Implements a 2000ms debounce gap on track completion (`onMediaEnded`), preventing sudden teardown of foreground service notification and wake locks while media players buffer the subsequent track during locked-screen playlist sessions.
+
+- **Night Mode Recreation Shielding & Battery Governor**:
+  - Defers activity recreation on system night mode or configuration changes while in PiP (`maybeDeferNightModeRecreate`), preventing abrupt window destruction mid-stream.
+  - Conserves battery by pausing inactive background WebViews via `onPause()` during background playback, while preserving timer execution exclusively on the active media tab (`mediaTabWv.resumeTimers()`).
 
 ---
 

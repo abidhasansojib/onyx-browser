@@ -52,7 +52,11 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 ## 3. Media, Audio & Video Playback
 
 - `[x]` **Background Audio & Video Playback**: Full background playback with Brave & Firefox Page Visibility interception, player touch intent tracking, non-user pause suppression across tab switches & screen lock, Wi-Fi & WakeLock sleep prevention, and YouTube inactivity (`_lact`) keep-alive.
-- `[x]` **Picture-in-Picture (PiP) Isolation**: Non-destructive video detachment with letterbox centering and resize-loop protection.
+- `[x]` **Picture-in-Picture (PiP) Architecture**: Non-destructive video detachment with letterbox centering, safe aspect ratio coercion within `[0.5, 2.0]`, dynamic Android 12+ (API 31+) `setAutoEnterEnabled` transitions on gesture home, Android 8-11 `onUserLeaveHint` auto-PiP, and live RemoteAction icon synchronization on floating PiP window.
+- `[x]` **Android Audio Focus Management**: Integrated `AudioFocusRequestCompat` and `AudioManagerCompat` with transient loss handling, audio ducking, and auto-resume on `AUDIOFOCUS_GAIN`.
+- `[x]` **Lockscreen Playlist Autoplay Grace Gap**: 2000ms debounce across track-advance transitions to prevent dropping foreground services or lockscreen media controls during sequential playlist autoplay.
+- `[x]` **Theme Recreation Shielding**: Defers `recreate()` in `onResume` and `onConfigurationChanged` during active PiP mode (`maybeDeferNightModeRecreate`), preventing PiP window destruction on system night mode changes.
+- `[x]` **Battery & CPU Tab Governor**: Inactive background tabs are suspended via `onPause()` while keeping JavaScript timers alive strictly on the active media tab (`mediaTabWv.resumeTimers()`).
 - `[x]` **Foreground Media Service**: `MediaPlaybackService` with lockscreen notification controls, Wi-Fi lock, progress tracking, and MediaSession sync. Progress-triggered notification rebuilds are throttled (5 s service-side, 3 s bridge-side) to prevent main-thread binder IPC jank during active playback. Notification uses `CATEGORY_TRANSPORT`, `setSilent(true)`, and `PRIORITY_DEFAULT` for correct MediaStyle display across all OEMs.
 - `[x]` **Universal Transparent Video Poster**: Replaces default gray video box and play icon with a transparent poster for seamless video loading.
 - `[x]` **Audio Becoming Noisy Broadcast Receiver**: Automatically pauses playback when headphones are disconnected or Bluetooth disconnects.
