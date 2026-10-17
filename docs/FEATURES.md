@@ -44,6 +44,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Universal OAuth & Auth Grace Period**: Maintains strict cookie isolation while granting smart grace periods during authentication flows (Google, Apple, Meta, GitHub, Microsoft).
 - `[x]` **Anti-Bot Window Hash (`wh`) Reflection Masking**: Hides Android Java bridges and internal properties from prototype reflection, matching authentic Chrome telemetry.
 - `[x]` **WebAuthn Passkeys & Identity Provider Compatibility**: Full FIDO2 / WebAuthn Level 3 passkey support via Android CredentialManager with `CREDENTIAL_MANAGER_SET_ORIGIN` on GitHub, Google (`accounts.google.com`), and WebAuthn platforms. Authentic Chrome `userAgentData` masking removes embedded WebView signatures, enabling seamless Google Login and passkey authentication.
+- `[x]` **Context-Aware Incognito Navigation**: Long-pressing a link while browsing in incognito mode opens "Open in new tab" inside a new incognito tab while omitting the redundant "Open in incognito tab" option, matching standard privacy browser ergonomics.
 
 ---
 

@@ -89,6 +89,7 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
         val imageUrl = arguments?.getString(ARG_IMAGE_URL)
         val videoUrl = arguments?.getString(ARG_VIDEO_URL)
         val linkText = arguments?.getString(ARG_LINK_TEXT)
+        val isIncognito = arguments?.getBoolean(ARG_IS_INCOGNITO, false) ?: false
         val isImage = !imageUrl.isNullOrBlank()
         val isVideo = !videoUrl.isNullOrBlank()
         val isLink = !url.isNullOrBlank() && !isVideo
@@ -137,10 +138,14 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
                 dismiss()
             }
 
-            binding.itemOpenIncognitoTab.visibility = View.VISIBLE
-            binding.itemOpenIncognitoTab.setOnClickListener {
-                onOpenInIncognitoTab?.invoke(link)
-                dismiss()
+            if (isIncognito) {
+                binding.itemOpenIncognitoTab.visibility = View.GONE
+            } else {
+                binding.itemOpenIncognitoTab.visibility = View.VISIBLE
+                binding.itemOpenIncognitoTab.setOnClickListener {
+                    onOpenInIncognitoTab?.invoke(link)
+                    dismiss()
+                }
             }
 
             binding.itemCopyLinkAddress.visibility = View.VISIBLE
@@ -441,31 +446,41 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
         private const val ARG_IMAGE_URL = "image_url"
         private const val ARG_VIDEO_URL = "video_url"
         private const val ARG_LINK_TEXT = "link_text"
+        private const val ARG_IS_INCOGNITO = "is_incognito"
 
-        fun forLink(url: String, linkText: String? = null) =
+        fun forLink(url: String, linkText: String? = null, isIncognito: Boolean = false) =
             ContextMenuBottomSheet().apply {
-                arguments = bundleOf(ARG_URL to url, ARG_LINK_TEXT to linkText)
+                arguments = bundleOf(
+                    ARG_URL to url,
+                    ARG_LINK_TEXT to linkText,
+                    ARG_IS_INCOGNITO to isIncognito
+                )
             }
 
-        fun forImage(imageUrl: String) =
+        fun forImage(imageUrl: String, isIncognito: Boolean = false) =
             ContextMenuBottomSheet().apply {
-                arguments = bundleOf(ARG_IMAGE_URL to imageUrl)
+                arguments = bundleOf(
+                    ARG_IMAGE_URL to imageUrl,
+                    ARG_IS_INCOGNITO to isIncognito
+                )
             }
 
-        fun forImageLink(url: String, imageUrl: String, linkText: String? = null) =
+        fun forImageLink(url: String, imageUrl: String, linkText: String? = null, isIncognito: Boolean = false) =
             ContextMenuBottomSheet().apply {
                 arguments = bundleOf(
                     ARG_URL to url,
                     ARG_IMAGE_URL to imageUrl,
-                    ARG_LINK_TEXT to linkText
+                    ARG_LINK_TEXT to linkText,
+                    ARG_IS_INCOGNITO to isIncognito
                 )
             }
 
-        fun forVideo(videoUrl: String) =
+        fun forVideo(videoUrl: String, isIncognito: Boolean = false) =
             ContextMenuBottomSheet().apply {
                 arguments = bundleOf(
                     ARG_URL to videoUrl,
-                    ARG_VIDEO_URL to videoUrl
+                    ARG_VIDEO_URL to videoUrl,
+                    ARG_IS_INCOGNITO to isIncognito
                 )
             }
     }

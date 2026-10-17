@@ -2261,19 +2261,21 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val cleanVid = videoUrl?.takeIf { it.isNotBlank() }
             val cleanText = linkText?.takeIf { it.isNotBlank() }
 
+            val isIncognito = tab.isIncognito
+
             val sheet = when {
                 cleanLink != null && cleanImg != null ->
-                    ContextMenuBottomSheet.forImageLink(cleanLink, cleanImg, cleanText)
+                    ContextMenuBottomSheet.forImageLink(cleanLink, cleanImg, cleanText, isIncognito = isIncognito)
                 cleanVid != null ->
-                    ContextMenuBottomSheet.forVideo(cleanVid)
+                    ContextMenuBottomSheet.forVideo(cleanVid, isIncognito = isIncognito)
                 cleanImg != null ->
-                    ContextMenuBottomSheet.forImage(cleanImg)
+                    ContextMenuBottomSheet.forImage(cleanImg, isIncognito = isIncognito)
                 cleanLink != null ->
-                    ContextMenuBottomSheet.forLink(cleanLink, cleanText)
+                    ContextMenuBottomSheet.forLink(cleanLink, cleanText, isIncognito = isIncognito)
                 else -> return
             }
 
-            sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u) }
+            sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u, isIncognito = isIncognito) }
             sheet.setOnOpenInIncognitoTab { u -> openUrlInIncognitoTab(u) }
             sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
             sheet.setOnDownloadUrl { u ->
@@ -2455,9 +2457,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         imm?.showSoftInput(binding.etUrl, InputMethodManager.SHOW_IMPLICIT)
     }
 
-    private fun openUrlInNewTab(url: String) {
+    private fun openUrlInNewTab(url: String, isIncognito: Boolean? = null) {
         val parentTab = tabManager.activeTab.value
-        val newTab = tabManager.createNewTab(url = url, isIncognito = false, parentId = parentTab?.id)
+        val incognito = isIncognito ?: (parentTab?.isIncognito ?: false)
+        val newTab = tabManager.createNewTab(url = url, isIncognito = incognito, parentId = parentTab?.id)
         // Explicitly set as active tab and navigate to it, ensuring currentDisplayedTabId
         // is updated before the StateFlow observer fires to avoid a no-op reload.
         tabManager.selectTab(newTab)
