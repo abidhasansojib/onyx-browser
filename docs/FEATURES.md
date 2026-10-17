@@ -24,7 +24,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **YouTube & Streaming Video Ad Defuser**: Auto-skips ads, mutes, fast-forwards, and defuses video ad overlays at document-start; VAST/VMAP empty XML synthesis for HTML5 players.
 - `[x]` **Brave Scriptlet Injection with Trusted Types CSP Immunity**: Executes Brave scriptlets (`json-prune`, `set`, `trusted-set-cookie`, etc.) reliably even on strict CSP origins with cached `__onyx_tt_policy` reuse.
 - `[x]` **In-Memory LRU Decision Cache**: Sub-microsecond (<0.01µs) repeated URL and request decisions cached in Kotlin memory without JNI crossing.
-- `[x]` **In-Page Visual Element Blocker (Zapper)**: Interactive element picker with touch selection, preview toggles, and persistent CSS hiding rules.
+- `[x]` **In-Page Visual Element Blocker (Zapper)**: Interactive element picker with touch selection, preview toggles, and persistent CSS hiding rules (disabled in the page menu by default, configurable in Shields settings).
 - `[x]` **Per-Site Shields & Exceptions**: Easily toggle adblocking, HTTPS upgrades, and script rules per domain from the omnibox shield icon.
 - `[x]` **Unified Script Blocking & JavaScript Control**: Shields "Block Scripts" and Site Settings "JavaScript" are fully synchronized bidirectionally at both global and per-domain levels.
 - `[x]` **Cookie & Site Storage Autoclear on Tab Close**: Standardized "Clear data on tab close" lifecycle and exit-time cookie/WebStorage purging.

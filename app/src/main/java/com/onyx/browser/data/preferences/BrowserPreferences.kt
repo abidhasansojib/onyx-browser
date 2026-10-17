@@ -2075,7 +2075,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_ADD_TO_HOME_SCREEN, value).apply()
 
     var isBlockElementEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BLOCK_ELEMENT_ENABLED, true)
+        get() = prefs.getBoolean(KEY_BLOCK_ELEMENT_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_BLOCK_ELEMENT_ENABLED, value).apply()
 
     companion object {
