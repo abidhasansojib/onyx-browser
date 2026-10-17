@@ -16,7 +16,7 @@ static ENGINE: ArcSwapOption<Engine> = ArcSwapOption::const_empty();
 /// Initializes the adblock engine from a pre-compiled binary filter buffer.
 #[no_mangle]
 pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initEngine(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _class: JClass,
     buffer: JByteArray,
 ) -> jboolean {
@@ -67,7 +67,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initFrom
             permissions: adblock::resources::PermissionMask::from_bits(u8::MAX),
             ..Default::default()
         };
-        filter_set.add_filter_list(&normalized_rules, parse_options);
+        filter_set.add_filter_list(normalized_rules, parse_options);
         let engine = Engine::new_with_filter_set(filter_set);
 
         let serialized = engine.serialize();
@@ -468,7 +468,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getHidde
 /// Serializes the current active engine to a byte array.
 #[no_mangle]
 pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_serializeEngine(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _class: JClass,
 ) -> jbyteArray {
     let result = catch_unwind(move || {
