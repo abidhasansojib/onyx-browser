@@ -51,12 +51,23 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initFrom
             Err(_) => return ptr::null_mut(),
         };
 
+        // Normalize legacy or unsupported rule options for engine compatibility
+        let normalized_rules = rules_str
+            .replace("$popup", "$doc")
+            .replace(",popup", ",doc")
+            .replace("$popunder", "$doc")
+            .replace(",popunder", ",doc")
+            .replace("$elemhide", "$generichide")
+            .replace(",elemhide", ",generichide")
+            .replace("$genericblock", "$generichide")
+            .replace(",genericblock", ",generichide");
+
         let mut filter_set = FilterSet::new(false);
         let parse_options = ParseOptions {
             permissions: adblock::resources::PermissionMask::from_bits(u8::MAX),
             ..Default::default()
         };
-        filter_set.add_filter_list(rules_str, parse_options);
+        filter_set.add_filter_list(&normalized_rules, parse_options);
         let engine = Engine::new_with_filter_set(filter_set);
 
         let serialized = engine.serialize();

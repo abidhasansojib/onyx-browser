@@ -61,6 +61,10 @@ jobs:
 
       - name: Build Native Rust Engine (libadblock_bridge.so)
         run: |
+          if [ -f patches/adblock-rust.patch ]; then
+            echo "Applying adblock-rust patch..."
+            git -C external/adblock-rust apply ../../patches/adblock-rust.patch || true
+          fi
           mkdir -p app/src/main/jniLibs
           cd rust_engine
           cargo ndk \
