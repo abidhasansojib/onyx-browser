@@ -219,7 +219,7 @@ object AdBlockDocumentStart {
                         }
                     }
 
-                    // ── Content Security Policy Directives Injection ($csp rules) ───────
+                    // ── Content Security Policy Directives Injection (${'$'}csp rules) ───────
                     var cspDirectives = typeof window.OnyxShieldBridge.getCspDirectives === 'function' ?
                         window.OnyxShieldBridge.getCspDirectives(location.href) : '';
                     if (cspDirectives && typeof cspDirectives === 'string' && cspDirectives.trim().length > 0) {

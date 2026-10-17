@@ -17,12 +17,10 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     // Throttle progress forwarding to the service: max once per 3 seconds
     @Volatile private var lastProgressDispatchMs = 0L
-    private companion object {
-        const val PROGRESS_DISPATCH_THROTTLE_MS = 3000L
-    }
-
 
     companion object {
+        private const val PROGRESS_DISPATCH_THROTTLE_MS = 3000L
+
         @Volatile var isVideoPlaying: Boolean = false
         @Volatile var isAudioOrVideoPlaying: Boolean = false
         var isMediaPlaying: Boolean
