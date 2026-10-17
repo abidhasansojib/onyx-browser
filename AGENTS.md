@@ -38,9 +38,9 @@ For complete subsystem specifications and technical architecture, see:
 
 ### RULE 3: Autonomous Remote Build & Auto-Fix Loop
 When triggered for a build (after user confirms or explicitly requests Release or Prerelease):
-1. **Push & Trigger**: Ensure all changes are committed and pushed to the active working branch (`origin dev` or `origin dev2`), then trigger the workflow on that branch:
-   - **Release**: `gh workflow run build.yml -f build_type=Release --ref <active_branch>`
-   - **Prerelease**: `gh workflow run build.yml -f build_type=Prerelease --ref <active_branch>`
+1. **Push & Trigger**: Ensure all changes are committed and pushed to `origin main`, then trigger the workflow:
+   - **Release**: `gh workflow run build.yml -f build_type=Release --ref main`
+   - **Prerelease**: `gh workflow run build.yml -f build_type=Prerelease --ref main`
 2. **Monitor Execution**: Track the active workflow run to completion using `schedule` timers and `gh run view <run_id>`. Do NOT poll in a busy while-loop; use the `schedule` tool.
 3. **If Build Succeeds**:
    - **Release Build**:
@@ -55,7 +55,7 @@ When triggered for a build (after user confirms or explicitly requests Release o
    - Retrieve the failed step logs via `gh run view --log-failed --job=<job_id>`.
    - Analyze the compiler error, Kotlin syntax error, resource collision, or ProGuard/R8 exception.
    - Apply the necessary code fixes directly in the repository.
-   - Commit the fix, push to the active working branch (`origin dev` or `origin dev2`), re-trigger the workflow, and repeat until 100% successful.
+   - Commit the fix, push to `origin main`, re-trigger the workflow, and repeat until 100% successful.
 
 ### RULE 4: Mandatory Documentation Maintenance
 - Whenever a feature is added, a bug is fixed, an architectural decision is made, or a workflow is completed, update this `AGENTS.md` and `docs/FEATURES.md` before concluding the turn.
@@ -75,11 +75,6 @@ When triggered for a build (after user confirms or explicitly requests Release o
 ### RULE 8: Golden Milestone Immutability
 - AI agents are **strictly forbidden** from automatically bumping or declaring a "Golden Milestone / Role Model" reference in `AGENTS.md` or `docs/FEATURES.md` unless explicitly commanded by the user.
 
-### RULE 9: AI Branch Isolation & Main Branch Immutability (CRITICAL)
-- **Main Branch Untouched by AI**: The `main` branch is strictly reserved for the human user. AI agents are **STRICTLY FORBIDDEN** from committing to, pushing to, or merging into `main`. Only the user manually merges code into `main`.
-- **AI Agent 1 Scope**: Works exclusively in `/root/onyx-browser` on branch `dev`. Commits and pushes only to `origin dev`.
-- **AI Agent 2 Scope**: Works exclusively in `/root/onyx-browser2` on branch `dev2`. Commits and pushes only to `origin dev2`.
-- **User Merge Gate**: When AI tasks are completed on `dev` or `dev2`, the AI reports the changes, branch status, and PR/commit links. The user will review and merge into `main` independently.
 
 ---
 
@@ -126,11 +121,9 @@ onyx-browser/
 4. **Lifecycle & Coroutine Safety**:
    - Always bind UI-related coroutines to `viewLifecycleOwner.lifecycleScope` with `repeatOnLifecycle`.
    - Database writes and critical cleanup actions must use `NonCancellable` context to prevent corruption on sudden dismissals.
-5. **Git Operations, Worktrees & Branch Isolation**:
-   - AI Agent 1 works exclusively in `/root/onyx-browser` on branch `dev` and pushes strictly to `origin dev`.
-   - AI Agent 2 works exclusively in `/root/onyx-browser2` on branch `dev2` and pushes strictly to `origin dev2`.
-   - AI agents are **STRICTLY PROHIBITED** from pushing or committing directly to `main`. The `main` branch is untouched by AI and merged only by the user.
+5. **Git Operations & Clean Commits**:
    - Keep commit messages concise and conventional (e.g. `feat(adblock): ...`, `fix(tabs): ...`, `docs: ...`).
+   - Work cleanly on `main` and keep the tree synchronized with `origin/main`.
 6. **Rolling Odometer Versioning Scheme**:
    - `MAJOR.MINOR.PATCH` increments automatically from GitHub Actions run counter (`RUN_NUM`):
      - `MAJOR = 1 + (RUN_NUM / 1000)`
