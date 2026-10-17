@@ -7,6 +7,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.PersistableBundle
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
@@ -100,6 +101,12 @@ class SearchController(
             if (url.isNotBlank()) {
                 val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                 val clip = ClipData.newPlainText("URL", url)
+                if (getActiveTab()?.isIncognito == true) {
+                    val extras = PersistableBundle().apply {
+                        putBoolean("android.content.extra.IS_SENSITIVE", true)
+                    }
+                    clip.description.extras = extras
+                }
                 clipboard?.setPrimaryClip(clip)
                 Toast.makeText(activity, activity.getString(R.string.link_copied), Toast.LENGTH_SHORT).show()
             }
@@ -332,6 +339,12 @@ class SearchController(
     private var lastClipboardQueryTime: Long = 0L
 
     fun getClipboardSuggestion(forceRefresh: Boolean = false): SearchSuggestion? {
+        // Suppress clipboard suggestions in incognito mode (Chrome privacy standard)
+        if (getActiveTab()?.isIncognito == true) {
+            cachedClipboardSuggestion = null
+            return null
+        }
+
         val now = System.currentTimeMillis()
         if (!forceRefresh && cachedClipboardSuggestion != null && (now - lastClipboardQueryTime < 10_000L)) {
             return cachedClipboardSuggestion
@@ -346,6 +359,11 @@ class SearchController(
             // Check primaryClipDescription first — does NOT trigger Android 12+ privacy toast
             val desc = clipboard.primaryClipDescription
             if (desc == null || (!desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) && !desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML))) {
+                cachedClipboardSuggestion = null
+                return null
+            }
+            // Suppress if flagged as sensitive (passwords, private data, incognito clips)
+            if (desc.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true) {
                 cachedClipboardSuggestion = null
                 return null
             }

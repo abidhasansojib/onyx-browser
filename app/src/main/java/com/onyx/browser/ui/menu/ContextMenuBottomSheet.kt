@@ -47,6 +47,9 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
     private var _binding: BottomSheetContextMenuBinding? = null
     private val binding get() = _binding!!
 
+    private val isIncognito: Boolean
+        get() = arguments?.getBoolean(ARG_IS_INCOGNITO, false) ?: false
+
     private var onOpenInNewTab: ((String) -> Unit)? = null
     private var onOpenInIncognitoTab: ((String) -> Unit)? = null
     private var onEditUrl: ((String) -> Unit)? = null
@@ -337,7 +340,14 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
 
     private fun copyToClipboard(label: String, text: String) {
         val cm = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText(label, text))
+        val clip = ClipData.newPlainText(label, text)
+        if (isIncognito) {
+            val extras = android.os.PersistableBundle().apply {
+                putBoolean("android.content.extra.IS_SENSITIVE", true)
+            }
+            clip.description.extras = extras
+        }
+        cm.setPrimaryClip(clip)
         Toast.makeText(requireContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 

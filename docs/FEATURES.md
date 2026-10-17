@@ -45,6 +45,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Anti-Bot Window Hash (`wh`) Reflection Masking**: Hides Android Java bridges and internal properties from prototype reflection, matching authentic Chrome telemetry.
 - `[x]` **WebAuthn Passkeys & Identity Provider Compatibility**: Full FIDO2 / WebAuthn Level 3 passkey support via Android CredentialManager with `CREDENTIAL_MANAGER_SET_ORIGIN` on GitHub, Google (`accounts.google.com`), and WebAuthn platforms. Authentic Chrome `userAgentData` masking removes embedded WebView signatures, enabling seamless Google Login and passkey authentication.
 - `[x]` **Context-Aware Incognito Navigation**: Long-pressing a link while browsing in incognito mode opens "Open in new tab" inside a new incognito tab while omitting the redundant "Open in incognito tab" option, matching standard privacy browser ergonomics.
+- `[x]` **Incognito Sensitive Clipboard Protection**: Copying links, URLs, or text during incognito browsing flags the payload with Android's `ClipDescription.EXTRA_IS_SENSITIVE` (`android.content.extra.IS_SENSITIVE`), preventing keyboards (e.g. Gboard) and system UI from displaying cleartext previews or caching incognito snippets in clipboard history while preserving standard paste functionality. Suppresses in-app omnibox clipboard suggestions during private sessions.
 
 ---
 

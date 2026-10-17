@@ -49,7 +49,9 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import androidx.core.view.ViewCompat
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
+import android.os.PersistableBundle
 import java.io.File
 import com.onyx.browser.ui.home.AdjustQuickActionsBottomSheet
 import androidx.core.view.WindowCompat
@@ -146,6 +148,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private var toolbarAnimator: android.animation.ValueAnimator? = null
     private var lastKnownTopBarHeight: Int = 0
     private var lastStatusBarTopInset: Int = 0
+    private var clipboardListener: ClipboardManager.OnPrimaryClipChangedListener? = null
 
     companion object {
         var currentInstance: java.lang.ref.WeakReference<MainActivity>? = null
@@ -1375,6 +1378,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         pipController.registerReceiver()
 
         checkNotificationPermissionForDownloads()
+        setupClipboardListener()
 
         lifecycleScope.launch {
             tabManager.restoreTabs()
@@ -1388,6 +1392,30 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 handleIncomingIntent(intentToHandle)
             }
         }
+    }
+
+    private fun setupClipboardListener() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+        val listener = ClipboardManager.OnPrimaryClipChangedListener {
+            try {
+                if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@OnPrimaryClipChangedListener
+                val currentTab = tabManager.activeTab.value
+                if (currentTab?.isIncognito == true) {
+                    val clip = clipboard.primaryClip ?: return@OnPrimaryClipChangedListener
+                    val desc = clip.description
+                    val isAlreadySensitive = desc?.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true
+                    if (!isAlreadySensitive) {
+                        val extras = (desc?.extras ?: PersistableBundle()).apply {
+                            putBoolean("android.content.extra.IS_SENSITIVE", true)
+                        }
+                        clip.description.extras = extras
+                        clipboard.setPrimaryClip(clip)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        clipboardListener = listener
+        clipboard.addPrimaryClipChangedListener(listener)
     }
 
     private fun setupTopToolbar() {
@@ -3833,6 +3861,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         tabManager.saveAllTabStates()
         if (::pipController.isInitialized) {
             pipController.unregisterReceiver()
+        }
+        clipboardListener?.let { listener ->
+            (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.removePrimaryClipChangedListener(listener)
+            clipboardListener = null
         }
         MediaPlaybackService.mediaActionListener = null
         try {
