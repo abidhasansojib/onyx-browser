@@ -2289,7 +2289,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val cleanVid = videoUrl?.takeIf { it.isNotBlank() }
             val cleanText = linkText?.takeIf { it.isNotBlank() }
 
-            val isIncognito = tab.isIncognito
+            val isIncognito = tabManager.getTabById(tabId)?.isIncognito ?: (tabManager.activeTab.value?.isIncognito ?: false)
 
             val sheet = when {
                 cleanLink != null && cleanImg != null ->
