@@ -33,7 +33,7 @@ object FilterListManager {
     private const val DEFAULT_ASSET_RULES = "easylist_rules.txt"
 
     private val isUpdating = AtomicBoolean(false)
-    private const val ASSET_RULES_VERSION = 3 // Invalidate cache to enable full scriptlet permissions and updated engine mappings
+    private const val ASSET_RULES_VERSION = 4 // Invalidate cache to compile popup/popunder rules and new engine options
 
     fun getCurrentFilterSignature(prefs: BrowserPreferences): String {
         val enabledBuiltIn = prefs.enabledFilterLists.sorted().joinToString(",")

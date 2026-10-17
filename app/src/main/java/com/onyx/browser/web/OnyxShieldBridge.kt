@@ -88,6 +88,20 @@ class OnyxShieldBridge(private val context: Context) {
     }
 
     @JavascriptInterface
+    fun isStreamingSite(domainOrUrl: String?): Boolean {
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return false
+        val clean = preferences.cleanDomain(target)
+        return OnyxWebViewClient.isStreamingOrMediaPage(target) || OnyxWebViewClient.isMediaOrStreamingHost(clean)
+    }
+
+    @JavascriptInterface
+    fun isBettingOrAdUrl(url: String?): Boolean {
+        val target = url?.takeIf { it.isNotBlank() } ?: return false
+        val clean = preferences.cleanDomain(target)
+        return OnyxWebViewClient.isBettingOrAdUrl(target, clean)
+    }
+
+    @JavascriptInterface
     fun isSocialMediaBlockingEnabled(): Boolean {
         return preferences.isSocialMediaBlockingEnabled
     }

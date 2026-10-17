@@ -2183,10 +2183,24 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 val popupPerm = if (parentDomain.isNotBlank()) preferences.isWebPopupsAllowed(parentDomain) else null
                 val recentTouch = (sourceWebView as? OnyxWebView)?.isWithinRecentTouchWindow() ?: false
 
+                val isStreamingOrMedia = OnyxWebViewClient.isStreamingOrMediaPage(parentUrl) ||
+                        OnyxWebViewClient.isMediaOrStreamingHost(parentDomain) ||
+                        MediaPlaybackBridge.isVideoAvailableForTab((sourceWebView as? OnyxWebView)?.tabId) ||
+                        MediaPlaybackBridge.isVideoAvailable
+
+                val isAdBlockActive = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(parentDomain)
+
                 val allowPopups = when (popupPerm) {
                     true -> true
                     false -> false
-                    null -> !preferences.isPopupsBlockedGlobal || isUserGesture || recentTouch
+                    null -> {
+                        if (isStreamingOrMedia && isAdBlockActive) {
+                            // Strictly suppress clickjack popups/popunders spawned when tapping video player
+                            false
+                        } else {
+                            !preferences.isPopupsBlockedGlobal || isUserGesture || recentTouch
+                        }
+                    }
                 }
 
                 if (!allowPopups || resultMsg == null) {

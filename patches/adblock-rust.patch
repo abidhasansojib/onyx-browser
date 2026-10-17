@@ -1,0 +1,19 @@
+diff --git a/src/filters/abstract_network.rs b/src/filters/abstract_network.rs
+index 840615d..5e69431 100644
+--- a/src/filters/abstract_network.rs
++++ b/src/filters/abstract_network.rs
+@@ -257,9 +257,13 @@ fn parse_filter_options<'a>(
+             ("generichide", true) | ("ghide", true) => {
+                 return Err(NetworkFilterError::NegatedGenericHide);
+             }
+-            ("generichide", false) | ("ghide", false) => NetworkFilterOption::Generichide,
++            ("generichide", false) | ("ghide", false) | ("elemhide", false) => NetworkFilterOption::Generichide,
+             ("document", true) | ("doc", true) => return Err(NetworkFilterError::NegatedDocument),
+             ("document", false) | ("doc", false) => NetworkFilterOption::Document,
++            ("popup", true) | ("popunder", true) => return Err(NetworkFilterError::UnrecognisedOption),
++            ("popup", false) | ("popunder", false) => NetworkFilterOption::Document,
++            ("genericblock", _) => NetworkFilterOption::Generichide,
++            ("webrtc", negated) => NetworkFilterOption::Websocket(!negated),
+             ("image", negated) => NetworkFilterOption::Image(!negated),
+             ("media", negated) => NetworkFilterOption::Media(!negated),
+             ("object", negated) | ("object-subrequest", negated) => {

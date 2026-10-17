@@ -150,32 +150,38 @@ object AdBlockDocumentStart {
             window.__onyx_shields_active = true;
 
             // ── Pre-Parse Domain Cosmetic CSS & Scriptlet Injection (Brave Parity) ───
-            try {
-                if (window.OnyxShieldBridge) {
+            function injectDomainShieldResources(targetUrl) {
+                try {
+                    if (!window.OnyxShieldBridge || !targetUrl || targetUrl === 'about:blank') return;
                     var domainCss = typeof window.OnyxShieldBridge.getCosmeticCss === 'function' ?
-                        window.OnyxShieldBridge.getCosmeticCss(location.href) : '';
+                        window.OnyxShieldBridge.getCosmeticCss(targetUrl) : '';
                     if (domainCss && typeof domainCss === 'string' && domainCss.length > 0) {
-                        var domainStyle = document.createElement('style');
-                        domainStyle.id = 'onyx-domain-cosmetic';
-                        domainStyle.type = 'text/css';
-                        domainStyle.textContent = domainCss;
-                        var targetNode = document.head || document.documentElement;
-                        if (targetNode) {
-                            targetNode.appendChild(domainStyle);
+                        var existing = document.getElementById('onyx-domain-cosmetic');
+                        if (existing) {
+                            existing.textContent = domainCss;
                         } else {
-                            var earlyObserver = new MutationObserver(function() {
-                                var root = document.head || document.documentElement;
-                                if (root) {
-                                    root.appendChild(domainStyle);
-                                    earlyObserver.disconnect();
-                                }
-                            });
-                            earlyObserver.observe(document, { childList: true, subtree: true });
+                            var domainStyle = document.createElement('style');
+                            domainStyle.id = 'onyx-domain-cosmetic';
+                            domainStyle.type = 'text/css';
+                            domainStyle.textContent = domainCss;
+                            var targetNode = document.head || document.documentElement;
+                            if (targetNode) {
+                                targetNode.appendChild(domainStyle);
+                            } else {
+                                var earlyObserver = new MutationObserver(function() {
+                                    var root = document.head || document.documentElement;
+                                    if (root) {
+                                        root.appendChild(domainStyle);
+                                        earlyObserver.disconnect();
+                                    }
+                                });
+                                earlyObserver.observe(document, { childList: true, subtree: true });
+                            }
                         }
                     }
 
                     var scriptlet = typeof window.OnyxShieldBridge.getScriptletJs === 'function' ?
-                        window.OnyxShieldBridge.getScriptletJs(location.href) : '';
+                        window.OnyxShieldBridge.getScriptletJs(targetUrl) : '';
                     if (scriptlet && typeof scriptlet === 'string' && scriptlet.length > 0) {
                         var scriptCode = scriptlet;
                         // Handle Trusted Types CSP (required by YouTube, Google, and modern hardened origins)
@@ -221,27 +227,45 @@ object AdBlockDocumentStart {
 
                     // ── Content Security Policy Directives Injection (${'$'}csp rules) ───────
                     var cspDirectives = typeof window.OnyxShieldBridge.getCspDirectives === 'function' ?
-                        window.OnyxShieldBridge.getCspDirectives(location.href) : '';
+                        window.OnyxShieldBridge.getCspDirectives(targetUrl) : '';
                     if (cspDirectives && typeof cspDirectives === 'string' && cspDirectives.trim().length > 0) {
-                        var cspMeta = document.createElement('meta');
-                        cspMeta.httpEquiv = 'Content-Security-Policy';
-                        cspMeta.content = cspDirectives.trim();
-                        var cspTarget = document.head || document.documentElement;
-                        if (cspTarget) {
-                            cspTarget.insertBefore(cspMeta, cspTarget.firstChild);
-                        } else {
-                            var cspObserver = new MutationObserver(function() {
-                                var root = document.head || document.documentElement;
-                                if (root) {
-                                    root.insertBefore(cspMeta, root.firstChild);
-                                    cspObserver.disconnect();
-                                }
-                            });
-                            cspObserver.observe(document, { childList: true, subtree: true });
+                        var existingCsp = document.getElementById('onyx-csp-meta');
+                        if (!existingCsp) {
+                            var cspMeta = document.createElement('meta');
+                            cspMeta.id = 'onyx-csp-meta';
+                            cspMeta.httpEquiv = 'Content-Security-Policy';
+                            cspMeta.content = cspDirectives.trim();
+                            var cspTarget = document.head || document.documentElement;
+                            if (cspTarget) {
+                                cspTarget.insertBefore(cspMeta, cspTarget.firstChild);
+                            } else {
+                                var cspObserver = new MutationObserver(function() {
+                                    var root = document.head || document.documentElement;
+                                    if (root) {
+                                        root.insertBefore(cspMeta, root.firstChild);
+                                        cspObserver.disconnect();
+                                    }
+                                });
+                                cspObserver.observe(document, { childList: true, subtree: true });
+                            }
                         }
                     }
+                } catch(e) {}
+            }
+
+            injectDomainShieldResources(location.href);
+
+            if (window !== window.top || location.href === 'about:blank') {
+                var recheckFrameUrl = function() {
+                    if (location.href && location.href !== 'about:blank') {
+                        injectDomainShieldResources(location.href);
+                    }
+                };
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', recheckFrameUrl);
                 }
-            } catch(e) {}
+                window.addEventListener('load', recheckFrameUrl);
+            }
 
             // ── Function signature masking helper ──────────────────────────────────
             function makeNative(fn, name) {
@@ -369,38 +393,151 @@ object AdBlockDocumentStart {
                 }
             } catch(e) {}
 
-            // ── 3b. Defuse Subframe Popunders & Video Player Click-Jacks ────────────
+            // ── 3b. Defuse Subframe Popunders, Click-Jacks & Google IMA Video Ads ────
             try {
+                // 1. Preemptive Google IMA SDK Stub to complete in-stream video ads in 0ms
+                try {
+                    window.google = window.google || {};
+                    if (!window.google.ima) {
+                        var imaStub = {
+                            AdDisplayContainer: function(container) {
+                                this.initialize = function() {};
+                                this.destroy = function() {};
+                            },
+                            AdsLoader: function(container) {
+                                var listeners = {};
+                                this.addEventListener = function(type, fn) {
+                                    listeners[type] = listeners[type] || [];
+                                    listeners[type].push(fn);
+                                };
+                                this.removeEventListener = function(type, fn) {
+                                    if (listeners[type]) {
+                                        listeners[type] = listeners[type].filter(function(cb) { return cb !== fn; });
+                                    }
+                                };
+                                this.requestAds = function(request) {
+                                    setTimeout(function() {
+                                        var manager = {
+                                            init: function() {},
+                                            start: function() {
+                                                setTimeout(function() {
+                                                    var trigger = function(type) {
+                                                        var list = listeners[type] || [];
+                                                        for (var i = 0; i < list.length; i++) {
+                                                            try { list[i]({ type: type, getAd: function() { return null; } }); } catch(_) {}
+                                                        }
+                                                    };
+                                                    trigger('allAdsCompleted');
+                                                    trigger('contentResumeRequested');
+                                                    trigger('complete');
+                                                }, 0);
+                                            },
+                                            stop: function() {},
+                                            destroy: function() {},
+                                            resize: function() {},
+                                            pause: function() {},
+                                            resume: function() {},
+                                            getRemainingTime: function() { return 0; }
+                                        };
+                                        var loadedList = listeners['adsManagerLoaded'] || [];
+                                        for (var i = 0; i < loadedList.length; i++) {
+                                            try {
+                                                loadedList[i]({
+                                                    getAdsManager: function() { return manager; },
+                                                    getUserRequestContext: function() { return {}; }
+                                                });
+                                            } catch(_) {}
+                                        }
+                                    }, 0);
+                                };
+                                this.contentComplete = function() {};
+                                this.destroy = function() {};
+                            },
+                            AdsManagerLoadedEvent: { Type: { ADS_MANAGER_LOADED: 'adsManagerLoaded' } },
+                            AdErrorEvent: { Type: { AD_ERROR: 'adError' } },
+                            AdEvent: {
+                                Type: {
+                                    ALL_ADS_COMPLETED: 'allAdsCompleted',
+                                    CONTENT_PAUSE_REQUESTED: 'contentPauseRequested',
+                                    CONTENT_RESUME_REQUESTED: 'contentResumeRequested',
+                                    STARTED: 'started',
+                                    COMPLETE: 'complete',
+                                    LOADED: 'loaded',
+                                    FIRST_QUARTILE: 'firstQuartile',
+                                    MIDPOINT: 'midpoint',
+                                    THIRD_QUARTILE: 'thirdQuartile',
+                                    PAUSED: 'paused',
+                                    RESUMED: 'resumed'
+                                }
+                            },
+                            ViewMode: { NORMAL: 'normal', FULLSCREEN: 'fullscreen' },
+                            ImaSdkSettings: { getCompanionBackfill: function() {}, setVpaidMode: function() {} }
+                        };
+                        window.google.ima = imaStub;
+                    }
+                } catch(_) {}
+
                 var isSubframe = window !== window.top;
-                var isMediaHost = /(abyss|ravok|stream|embed|player|video|anime)/i.test(location.hostname);
+                var isMediaHost = /(abyss|ravok|stream|embed|player|video|anime|movie|film|watch|cinema|tube|flix|dood|vidplay|vidsrc|rabbitstream|megacloud|filemoon|streamwish|uqload|voe|vidoza)/i.test(location.hostname) ||
+                    (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isStreamingSite === 'function' && window.OnyxShieldBridge.isStreamingSite(location.href));
 
-                // 1. Defuse clickjack overlay layers covering embedded video players
-                if (isSubframe || isMediaHost) {
-                    var defuserStyle = document.createElement('style');
-                    defuserStyle.id = 'onyx-clickjack-defuser';
-                    defuserStyle.textContent = '#overlay, div[id^="overlay"], .click-layer, div[class*="overlay"][style*="fixed"] { display: none !important; pointer-events: none !important; width: 0 !important; height: 0 !important; opacity: 0 !important; }';
-                    (document.head || document.documentElement).appendChild(defuserStyle);
+                // 2. Defuse clickjack overlay layers covering embedded video players
+                var defuserStyle = document.createElement('style');
+                defuserStyle.id = 'onyx-clickjack-defuser';
+                defuserStyle.textContent = [
+                    '#overlay, div[id^="overlay"], .click-layer, div[class*="overlay"][style*="fixed"],',
+                    'div[class*="player-overlay"], div[id*="player-overlay"],',
+                    'div[class*="clickjack"], div[id*="clickjack"],',
+                    'div[style*="opacity: 0"][style*="z-index"], div[style*="opacity:0"][style*="z-index"],',
+                    'a[target="_blank"][style*="absolute"][style*="width: 100%"],',
+                    'a[target="_blank"][style*="absolute"][style*="width:100%"],',
+                    'a[target="_blank"][style*="fixed"][style*="width: 100%"],',
+                    'div[style*="position: absolute"][style*="z-index: 2147483647"],',
+                    'div[style*="position: absolute"][style*="z-index: 999999"],',
+                    'div[style*="position: fixed"][style*="z-index: 2147483647"],',
+                    'div[style*="position: fixed"][style*="z-index: 999999"] {',
+                    '  display: none !important;',
+                    '  pointer-events: none !important;',
+                    '  width: 0 !important;',
+                    '  height: 0 !important;',
+                    '  opacity: 0 !important;',
+                    '  visibility: hidden !important;',
+                    '}'
+                ].join('\n');
+                var defTarget = document.head || document.documentElement;
+                if (defTarget) defTarget.appendChild(defuserStyle);
 
-                    // If abyssConfig is defined on abyssplayer or clones, freeze popups to empty
-                    try {
-                        var _emptyArr = [];
-                        Object.defineProperty(window, 'abyssConfig', {
-                            get: function() { return { popups: _emptyArr }; },
-                            set: function(_) {},
-                            configurable: true
-                        });
-                    } catch(_) {}
+                // If abyssConfig is defined on abyssplayer or clones, freeze popups to empty
+                try {
+                    var _emptyArr = [];
+                    Object.defineProperty(window, 'abyssConfig', {
+                        get: function() { return { popups: _emptyArr }; },
+                        set: function(_) {},
+                        configurable: true
+                    });
+                } catch(_) {}
+
+                function isAdOrBettingUrlStr(targetUrl) {
+                    if (!targetUrl || typeof targetUrl !== 'string') return false;
+                    var low = targetUrl.toLowerCase();
+                    if (/recaptcha|hcaptcha|arkose|turnstile|login|auth|oauth|signin|facebook\.com|google\.com|apple\.com|paypal\.com|stripe\.com/i.test(low)) {
+                        return false;
+                    }
+                    if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isBettingOrAdUrl === 'function') {
+                        try { if (window.OnyxShieldBridge.isBettingOrAdUrl(targetUrl)) return true; } catch(_) {}
+                    }
+                    return /(1xbet|betway|stake\.|dafabet|bet365|mostbet|parimatch|melbet|cloudbet|spinbetter|888casino|bcgame|1win|vulkan|pin-up|betwinner|bet9ja|betfair|linebet|megapari|sportybet|bwin|betano|betsson|caliente|betclic|roobet|rollbit|duelbits|gamdom|csgoroll|lootbet|ggbet|casino|poker|jackpot|slot|betting|bookmaker|roulette|onclickalgo|admaven|monetag|hilltopads|propellerads|clickadu|exoclick|trafficjunky|juicyads|adcash|popcash|popads|adsterra|trafficfactory|mgid|realsrv|zeroredirect|adf\.ly|ouo\.io|linkvertise|adnxs|adkeeper|bidvertiser|clickaine|adxprts|tsyndicate|yllix|clksite|clkmg|popmyads|adkernel|revenuehits|infolinks|ad-maven|deloton|highperformancegate|effectivecpmgate|whomeverwhomever|terraclicks|tubecorp|adclick|clickguard|richads|galaksion|syndication|trafficstars|trafficforce|adtng|ero-advertising)/i.test(low) ||
+                        /\/click\/|\/redirect\/|\?af=|\&s2=|\/popunder\/|utm_medium=pop|ref=bet|affiliate=bet|tag=casino/i.test(low);
                 }
 
-                // 2. Proxy window.open in subframes and media players (Brave prevent-window-open parity)
+                // 3. Proxy window.open in subframes and media players (Brave prevent-window-open parity)
                 if (window.open) {
                     var _origWindowOpen = window.open;
                     window.open = makeNative(function(url, target, features) {
                         var targetUrl = (typeof url === 'string') ? url : '';
                         var isAuth = targetUrl && (/recaptcha|hcaptcha|arkose|turnstile|login|auth|oauth|signin|facebook\.com|google\.com|apple\.com|paypal\.com|stripe\.com/i.test(targetUrl));
 
-                        if (targetUrl && (isSubframe || isMediaHost || isBlockedUrl(targetUrl, 0)) && !isAuth) {
-                            // Return a safe dummy Window object that satisfies clickjack scripts
+                        if (targetUrl && (isSubframe || isMediaHost || isBlockedUrl(targetUrl, 0) || isAdOrBettingUrlStr(targetUrl)) && !isAuth) {
                             var fakeWin = {
                                 closed: false,
                                 focus: makeNative(function(){}, 'focus'),
@@ -415,21 +552,88 @@ object AdBlockDocumentStart {
                     }, 'open');
                 }
 
-                // 3. Prevent synthetic anchor clicks inside subframes targeting ad URLs
-                if (isSubframe && window.HTMLAnchorElement) {
+                // 4. Prevent synthetic anchor clicks inside subframes targeting ad URLs
+                if (window.HTMLAnchorElement) {
                     var _origAnchorClick = HTMLAnchorElement.prototype.click;
                     HTMLAnchorElement.prototype.click = makeNative(function() {
                         var href = this.href || '';
                         var isAuth = href && (/recaptcha|hcaptcha|arkose|turnstile|login|auth|oauth|signin|facebook\.com|google\.com|apple\.com|paypal\.com|stripe\.com/i.test(href));
-                        if (href && !isAuth && (isBlockedUrl(href, 0) || this.target === '_blank' || adPathPattern.test(href))) {
+                        if (href && !isAuth && (isSubframe || isMediaHost || isBlockedUrl(href, 0) || isAdOrBettingUrlStr(href) || this.target === '_blank' || adPathPattern.test(href))) {
                             return; // Suppress synthetic clickjack ad dispatch!
                         }
                         return _origAnchorClick.apply(this, arguments);
                     }, 'click');
                 }
+
+                // 5. Capture-phase Click & Pointer Interceptor to defuse video player clickjacks
+                var defuseCaptureHandler = function(e) {
+                    try {
+                        var el = e.target;
+                        if (!el) return;
+
+                        // Check if the element or ancestor is an anchor or link to an ad/betting URL
+                        var curr = el;
+                        var depth = 0;
+                        while (curr && curr !== document && depth < 5) {
+                            var href = (curr.tagName === 'A' ? (curr.href || curr.getAttribute('href') || '') : '') ||
+                                       (curr.getAttribute ? (curr.getAttribute('data-href') || curr.getAttribute('data-url') || '') : '');
+                            if (href && isAdOrBettingUrlStr(href)) {
+                                e.preventDefault();
+                                e.stopImmediatePropagation();
+                                try { curr.remove(); } catch(_) {}
+                                return;
+                            }
+                            curr = curr.parentElement;
+                            depth++;
+                        }
+
+                        // Check if user clicked a transparent clickjack overlay covering a video player
+                        var isOverlay = false;
+                        var overlayEl = null;
+                        curr = el;
+                        depth = 0;
+                        while (curr && curr !== document && depth < 4) {
+                            if (curr.tagName === 'VIDEO') break;
+                            var cl = (curr.className || '').toString().toLowerCase();
+                            var id = (curr.id || '').toLowerCase();
+                            var st = curr.getAttribute ? (curr.getAttribute('style') || '').toLowerCase() : '';
+
+                            if (cl.indexOf('overlay') !== -1 || cl.indexOf('clickjack') !== -1 || cl.indexOf('click-layer') !== -1 ||
+                                id.indexOf('overlay') !== -1 || id.indexOf('clickjack') !== -1 ||
+                                (st.indexOf('opacity: 0') !== -1 && st.indexOf('z-index') !== -1) ||
+                                (st.indexOf('opacity:0') !== -1 && st.indexOf('z-index') !== -1) ||
+                                (curr.tagName === 'A' && curr.target === '_blank' && (st.indexOf('width: 100%') !== -1 || st.indexOf('width:100%') !== -1))) {
+                                isOverlay = true;
+                                overlayEl = curr;
+                                break;
+                            }
+                            curr = curr.parentElement;
+                            depth++;
+                        }
+
+                        if (isOverlay && overlayEl) {
+                            e.preventDefault();
+                            e.stopImmediatePropagation();
+                            try { overlayEl.remove(); } catch(_) {}
+
+                            var nearbyVideo = document.querySelector('video');
+                            if (nearbyVideo) {
+                                if (nearbyVideo.paused) {
+                                    nearbyVideo.play().catch(function(){});
+                                } else {
+                                    nearbyVideo.pause();
+                                }
+                            }
+                            return;
+                        }
+                    } catch(_) {}
+                };
+
+                window.addEventListener('click', defuseCaptureHandler, true);
+                window.addEventListener('pointerdown', defuseCaptureHandler, true);
             } catch(e) {}
 
-            // ── 3c. YouTube & Streaming Video Ad Defuser (Zero-Flicker Auto-Skip) ───
+            // ── 3c. Universal Video Ad Defuser (YouTube & HTML5 In-Stream Video Ads) ───
             try {
                 var isYouTubeHost = /youtube\.com|youtu\.be/i.test(host);
                 if (isYouTubeHost) {
@@ -477,7 +681,6 @@ object AdBlockDocumentStart {
                         } catch(_) {}
                     }
 
-                    // Observe player state changes
                     var ytObserver = new MutationObserver(defuseYouTubeAds);
                     function attachYtObserver() {
                         var target = document.body || document.documentElement;
@@ -489,9 +692,46 @@ object AdBlockDocumentStart {
                         }
                     }
                     attachYtObserver();
-
-                    // Periodic check during active video playback
                     setInterval(defuseYouTubeAds, 250);
+                } else {
+                    // Universal HTML5 Video In-Stream Ad Defuser (JWPlayer, VideoJS, FluidPlayer, Plyr, Dood, etc.)
+                    function defuseGeneralVideoAds() {
+                        try {
+                            var adContainers = document.querySelectorAll('.jw-flag-ads, .vjs-ad-playing, .ad-showing, .videoAdUi, .ima-ad-container, [class*="-ad-container"], [class*="ad-display-container"]');
+                            for (var c = 0; c < adContainers.length; c++) {
+                                var container = adContainers[c];
+                                var adVideos = container.querySelectorAll('video');
+                                for (var v = 0; v < adVideos.length; v++) {
+                                    var vid = adVideos[v];
+                                    if (vid && !vid.paused) {
+                                        vid.muted = true;
+                                        vid.playbackRate = 16.0;
+                                        if (vid.duration && !isNaN(vid.duration) && isFinite(vid.duration) && vid.duration > 0.1) {
+                                            vid.currentTime = vid.duration - 0.05;
+                                        }
+                                    }
+                                }
+                            }
+
+                            var skipBtns = document.querySelectorAll('.videoAdUiSkipButton, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, .jw-skip, .jw-skip-button, .vjs-skip-button, .vjs-skip-control, button[class*="skip"], button[id*="skip"], .skip-ad, .skipButton');
+                            for (var s = 0; s < skipBtns.length; s++) {
+                                try { skipBtns[s].click(); } catch(_) {}
+                            }
+                        } catch(_) {}
+                    }
+
+                    var generalAdObserver = new MutationObserver(defuseGeneralVideoAds);
+                    function attachGeneralAdObserver() {
+                        var target = document.body || document.documentElement;
+                        if (target) {
+                            generalAdObserver.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+                            defuseGeneralVideoAds();
+                        } else {
+                            setTimeout(attachGeneralAdObserver, 50);
+                        }
+                    }
+                    attachGeneralAdObserver();
+                    setInterval(defuseGeneralVideoAds, 300);
                 }
             } catch(e) {}
 
@@ -1175,12 +1415,21 @@ object AdBlockDocumentStart {
                             if (!el || el.nodeType !== 1) continue;
 
                             if (!action || action.type === 'remove') {
-                                el.style.setProperty('display', 'none', 'important');
-                                el.setAttribute('data-onyx-procedural-hidden', 'true');
+                                try {
+                                    el.style.setProperty('display', 'none', 'important');
+                                    el.style.setProperty('pointer-events', 'none', 'important');
+                                    el.style.setProperty('visibility', 'hidden', 'important');
+                                    el.setAttribute('data-onyx-procedural-hidden', 'true');
+                                    el.remove();
+                                } catch(_) {}
                             } else if (action.type === 'style' && action.arg) {
                                 el.style.cssText += ';' + action.arg;
                             } else if (action.type === 'remove-attr' && action.arg) {
-                                el.removeAttribute(action.arg);
+                                try {
+                                    el.removeAttribute(action.arg);
+                                    delete el[action.arg];
+                                    el[action.arg] = null;
+                                } catch(_) {}
                             } else if (action.type === 'remove-class' && action.arg) {
                                 if (el.classList.contains(action.arg)) {
                                     el.classList.remove(action.arg);

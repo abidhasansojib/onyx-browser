@@ -331,16 +331,8 @@ class OnyxWebViewClient(
         )
         if (isSameSite) return false
 
-        // 3. Popunder / redirect path and parameter heuristics
-        val lowerUrl = url.lowercase()
-        if (lowerUrl.contains("/click/") ||
-            lowerUrl.contains("/redirect/") ||
-            lowerUrl.contains("?af=") ||
-            lowerUrl.contains("&s2=") ||
-            lowerUrl.contains("/popunder/") ||
-            lowerUrl.contains("utm_medium=pop") ||
-            (lowerUrl.contains("utm_source=") && (lowerUrl.contains("ad") || lowerUrl.contains("traffic") || lowerUrl.contains("pop")))
-        ) {
+        // 3. Popunder / betting / redirect heuristics
+        if (isBettingOrAdUrl(url, reqDomain)) {
             return true
         }
 
@@ -407,7 +399,11 @@ class OnyxWebViewClient(
                 "anime", "stream", "movie", "video", "watch", "film", "cinema", "player", "embed",
                 "tube", "crunchyroll", "funimation", "hidive", "dailymotion", "vimeo", "twitch",
                 "bilibili", "animesalt", "aniwatch", "zoro", "9anime", "gogoanime", "kissonline",
-                "kickassanime", "hianime", "kaido", "allanime", "flv", "hls"
+                "kickassanime", "hianime", "kaido", "allanime", "flv", "hls", "sflix", "flixtor",
+                "soap2day", "hurawatch", "solarmovie", "fmovies", "lookmovie", "bflix", "cineb",
+                "cuevana", "pelisplus", "braflix", "pressplay", "doodstream", "rabbitstream",
+                "streamff", "vidcloud", "vidplay", "vidsrc", "streamplay", "vload", "uqload",
+                "streamhub", "voe.sx", "vidoza", "filelions", "dropload", "streamrapid"
             )
             if (streamingHostKeywords.any { host.contains(it) }) return true
             val streamingPathKeywords = listOf(
@@ -423,10 +419,45 @@ class OnyxWebViewClient(
                 "ravok", "abyssplayer", "fireplayer", "jwpcdn", "jwplayer", "streamtape", "megacloud",
                 "vidstream", "dood", "mixdrop", "mp4upload", "filemoon", "streamwish", "streamhide",
                 "vidmoly", "upstream", "cloudstream", "vidsrc", "2embed", "autoembed", "superembed",
-                "multiembed", "storage.fireplayer", "fireplayer.stream"
+                "multiembed", "storage.fireplayer", "fireplayer.stream", "rabbitstream", "vidcloud",
+                "vidplay", "doodstream", "dropload", "filelions", "voe.sx", "uqload", "vidoza"
             )
             if (mediaHostKeywords.any { lower.contains(it) }) return true
             if (lower.endsWith(".stream") || lower.endsWith(".video") || lower.endsWith(".watch")) return true
+            return false
+        }
+
+        fun isBettingOrAdUrl(url: String, domain: String = ""): Boolean {
+            if (url.isBlank()) return false
+            val cleanDomain = if (domain.isNotBlank()) domain.lowercase() else try { Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+            val lowerUrl = url.lowercase()
+
+            val bettingKeywords = listOf(
+                "1xbet", "betway", "stake.", "dafabet", "bet365", "mostbet", "parimatch", "melbet",
+                "cloudbet", "spinbetter", "888casino", "bcgame", "1win", "vulkan", "pin-up", "betwinner",
+                "bet9ja", "betfair", "linebet", "megapari", "sportybet", "bwin", "betano", "betsson",
+                "caliente", "betclic", "roobet", "rollbit", "duelbits", "gamdom", "csgoroll", "lootbet",
+                "ggbet", "casino", "poker", "jackpot", "slot", "betting", "bookmaker", "roulette"
+            )
+            if (bettingKeywords.any { cleanDomain.contains(it) }) return true
+
+            val adRedirectKeywords = listOf(
+                "onclickalgo", "admaven", "monetag", "hilltopads", "propellerads", "clickadu", "exoclick",
+                "trafficjunky", "juicyads", "adcash", "popcash", "popads", "adsterra", "trafficfactory",
+                "mgid", "realsrv", "zeroredirect", "adf.ly", "ouo.io", "linkvertise", "adnxs", "adkeeper",
+                "bidvertiser", "clickaine", "adxprts", "tsyndicate", "yllix", "clksite", "clkmg", "popmyads",
+                "adkernel", "revenuehits", "infolinks", "ad-maven", "deloton", "highperformancegate",
+                "effectivecpmgate", "whomeverwhomever", "terraclicks", "tubecorp", "adclick", "clickguard",
+                "richads", "galaksion", "syndication", "trafficstars", "trafficforce", "adtng", "ero-advertising"
+            )
+            if (adRedirectKeywords.any { cleanDomain.contains(it) }) return true
+
+            val adParamKeywords = listOf(
+                "/click/", "/redirect/", "?af=", "&s2=", "/popunder/", "utm_medium=pop",
+                "ref=bet", "affiliate=bet", "tag=casino", "aff_id=", "offer_id=", "sub_id="
+            )
+            if (adParamKeywords.any { lowerUrl.contains(it) }) return true
+
             return false
         }
     }
@@ -443,17 +474,18 @@ class OnyxWebViewClient(
         // so video players (JWPlayer, VideoJS, IMA SDK, FluidPlayer) immediately skip ads without crashing or pausing
         val lowerUrl = requestUrl.lowercase()
         val isVastOrVpaid = lowerUrl.contains("vast") || lowerUrl.contains("vpaid") ||
-                lowerUrl.contains("ima3") || lowerUrl.contains("/pagead/ads?") ||
-                lowerUrl.contains("doubleclick.net/gampad")
+                lowerUrl.contains("vmap") || lowerUrl.contains("ima3") ||
+                lowerUrl.contains("/pagead/ads?") || lowerUrl.contains("doubleclick.net/gampad") ||
+                lowerUrl.contains("ad-vast") || lowerUrl.contains("spotxchange")
 
         if (isVastOrVpaid) {
             val emptyVast = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><VAST version=\"3.0\"/>"
             return WebResourceResponse(
-                "application/xml",
+                "text/xml",
                 "UTF-8",
                 200,
                 "OK",
-                corsHeaders + ("Content-Type" to "application/xml; charset=utf-8"),
+                corsHeaders + ("Content-Type" to "text/xml; charset=utf-8"),
                 ByteArrayInputStream(emptyVast.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
             )
         }
@@ -566,7 +598,11 @@ class OnyxWebViewClient(
                     val body = redirectData.substring(commaIndex + 1)
                     val isBase64 = meta.contains(";base64", ignoreCase = true)
                     val mimeType = meta.substringBefore(';').ifBlank {
-                        if (resourceType == "image") "image/png" else "application/javascript"
+                        when {
+                            resourceType == "image" -> "image/png"
+                            resourceType == "xml" || redirectData.contains("<VAST") || redirectData.contains("<vmap") -> "text/xml"
+                            else -> "application/javascript"
+                        }
                     }
                     val bytes = if (isBase64) {
                         Base64.decode(body, Base64.DEFAULT)
@@ -578,13 +614,17 @@ class OnyxWebViewClient(
                         "UTF-8",
                         200,
                         "OK",
-                        corsHeaders + ("Content-Type" to mimeType),
+                        corsHeaders + ("Content-Type" to "$mimeType; charset=utf-8"),
                         ByteArrayInputStream(bytes)
                     )
                 }
             }
 
-            val mime = if (resourceType == "image") "image/png" else "application/javascript"
+            val mime = when {
+                resourceType == "image" -> "image/png"
+                resourceType == "xml" || redirectData.startsWith("<?xml") || redirectData.contains("<VAST") || redirectData.contains("<vmap") -> "text/xml"
+                else -> "application/javascript"
+            }
             WebResourceResponse(
                 mime,
                 "UTF-8",
@@ -1127,12 +1167,38 @@ class OnyxWebViewClient(
                             isOAuthOrLoginUrl(url) ||
                             (onyxWv?.isWithinOAuthGracePeriod() == true)
 
-                    if (!isAuthOrSecurityFlow && isAggressive) {
-                        val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame")
+                    if (!isAuthOrSecurityFlow) {
+                        val isParentStreaming = isStreamingOrMediaPage(currentPageUrl) ||
+                                isMediaOrStreamingHost(pageDomain) ||
+                                MediaPlaybackBridge.isVideoAvailableForTab(onyxWv?.tabId) ||
+                                MediaPlaybackBridge.isVideoAvailable
 
-                        if (blockedByEngine) {
+                        val isCrossDomain = pageDomain.isNotBlank() && reqDomain.isNotBlank() &&
+                                reqDomain != pageDomain &&
+                                !reqDomain.endsWith(".$pageDomain") &&
+                                !pageDomain.endsWith(".$reqDomain")
+
+                        // 1. Check if adblock engine blocks this main_frame navigation ($doc / $popup rules)
+                        val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame") ||
+                                AdBlockEngine.checkUrlCached(url, currentPageUrl, "popup")
+
+                        // 2. Check if navigating to a known betting or ad redirect URL
+                        val isBettingOrAd = isBettingOrAdUrl(url, reqDomain)
+
+                        // 3. In streaming/media mode, block clickjack redirects to third-party ad/betting domains
+                        val isStreamingClickjack = isParentStreaming && isCrossDomain && (isBettingOrAd || blockedByEngine)
+
+                        if (blockedByEngine || isBettingOrAd || isStreamingClickjack || (isAggressive && isCrossDomain)) {
                             preferences.incrementBlockedRequests()
-                            return true // Cancel the ad navigation!
+                            if (isPopupTab) {
+                                onyxWv?.post {
+                                    val tabId = onyxWv.tabId
+                                    if (tabId.isNotBlank()) {
+                                        tabActionCallback?.closeTab(tabId)
+                                    }
+                                }
+                            }
+                            return true // Cancel the ad navigation / clickjack redirect!
                         }
                     }
                 }
