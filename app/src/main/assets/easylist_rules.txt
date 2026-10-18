@@ -33555,7 +33555,6 @@ fileditchfiles.me##+js(no-fetch-if, method:POST body:/pageview|engagement/)
 ||fubuki-umami.space^
 ||cza.crazygames.com^
 ||web-platform.bytebrew.io/api/game/logs/
-||pornhub.*/redirect/$doc,urlskip=/(https%253A%252F%252F[^?#]+)/ -uricomponent -uricomponent
 pooembed.eu##+js(no-xhr-if, body:pageview method:POST)
 ||poocloud.in/api/event
 ||amazonaws.com/telemetry.bydata/obv2/bydataAnalytics.js
@@ -43818,6 +43817,7 @@ omni.soundestlink.com$image
 ||granlite.com^
 ||gravitygive.com^
 ||gravitykick.com^
+||graychalk.com^
 ||grayoranges.com^
 ||grayreceipt.com^
 ||grayscaleart.com^
