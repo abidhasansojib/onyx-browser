@@ -36191,6 +36191,11 @@ expatexplorer.hsbc.com##+js(trusted-set, HSBC, 'json:{"SITE":{},"DCS":{},"PAGE":
 @@||homedepot.com.ssl.d2.sc.omtrdc.net^$xhr,domain=homedepot.com
 ||imasdk.googleapis.com/js/sdkloader/ima3.js$redirect=google-ima.js,domain=aryplus.tv
 www.bankofamerica.com##+js(no-fetch-if, smetrics.bankofamerica.com)
+||transcend-cdn.com/cm/*/airgap.js$domain=northeast.aaa.com
+@@||assets.adobedtm.com/*/satelliteLib-$script,domain=northeast.aaa.com
+@@||assets.adobedtm.com/*-source.min.js$script,domain=northeast.aaa.com
+northeast.aaa.com##+js(set, _uxa, {})
+northeast.aaa.com##+js(set, _uxa.push, noopFunc)
 &&sub19=undefined&sub20=undefined
 &action=js_stats
 &ev=PageView&
@@ -53511,6 +53516,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||contents2.00110.citi.com^
 ||delt.io/a/nalytic/s.js
 ||kaspersky.com/assets/logSender.
+||perplexity.ai/unifyintent.js
 ||tips.delt.io
 ||unami.delt.io/script.js
 ||check2.lloydsbank.co.uk^
