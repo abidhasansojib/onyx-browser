@@ -36203,6 +36203,8 @@ www.bankofamerica.com##+js(no-fetch-if, smetrics.bankofamerica.com)
 @@||assets.adobedtm.com/*-source.min.js$script,domain=northeast.aaa.com
 northeast.aaa.com##+js(set, _uxa, {})
 northeast.aaa.com##+js(set, _uxa.push, noopFunc)
+roaringapps.com##+js(set, Sentry, {})
+roaringapps.com##+js(set, Sentry.onLoad, noopFunc)
 &&sub19=undefined&sub20=undefined
 &action=js_stats
 &ev=PageView&
@@ -43709,6 +43711,7 @@ omni.soundestlink.com$image
 ||flyflightstar.com^
 ||flystranger.com^
 ||flysupercars.com^
+||flyyoung.net^
 ||focusfitwear.com^
 ||folderplan.com^
 ||followborder.com^
@@ -43876,6 +43879,7 @@ omni.soundestlink.com$image
 ||harborcaption.com^
 ||harborcontrol.com^
 ||harborcub.com^
+||hardsixhockey.net^
 ||harmonywing.com^
 ||hayweb.net^
 ||hazmatworkshop.com^
@@ -43916,6 +43920,7 @@ omni.soundestlink.com$image
 ||honestharbor.com^
 ||honeybulb.com^
 ||honeybutterbliss.com^
+||honeyscene.com^
 ||honorablehydrant.com^
 ||honorableland.com^
 ||hookconference.com^
@@ -44036,6 +44041,7 @@ omni.soundestlink.com$image
 ||kittycatking.com^
 ||knewpenny.com^
 ||knifetreasury.com^
+||knightface.com^
 ||knitstamp.com^
 ||knottyswing.com^
 ||labelsensor.com^
@@ -44198,6 +44204,7 @@ omni.soundestlink.com$image
 ||metalsfactory.com^
 ||metawelcome.com^
 ||metricfresh.com^
+||mgrace.net^
 ||midnightmead.com^
 ||mightyspiders.com^
 ||millhouses.com^
@@ -53539,6 +53546,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||perplexity.ai/unifyintent.js
 ||tips.delt.io
 ||unami.delt.io/script.js
+||yimg.com/*/ymanalytics-core.js
 ||check2.lloydsbank.co.uk^
 ||eventbus.intuit.com^
 /misites/*
