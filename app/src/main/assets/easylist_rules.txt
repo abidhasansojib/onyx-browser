@@ -43628,6 +43628,7 @@ omni.soundestlink.com$image
 ||farmergoldfish.com^
 ||farshake.com^
 ||farsnails.com^
+||fashionposter.com^
 ||fastenfather.com^
 ||fasterfineart.com^
 ||fasterjson.com^
@@ -78023,6 +78024,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||beachfront.com^
 ||beacon.gu-web.net^
 ||beacon.netflix.com^
+||beacon.viafoura.io^
 ||beacons.gcp.gvt2.com^
 ||beacons.gvt2.com^
 ||bebi.com^
