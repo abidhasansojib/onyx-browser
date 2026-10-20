@@ -43783,6 +43783,7 @@ omni.soundestlink.com$image
 ||gemlithium.com^
 ||gemorganic.com^
 ||generalprose.com^
+||genomicswire.com^
 ||getbanquet.com^
 ||getbendyyoga.com^
 ||getwagtail.com^
@@ -43928,6 +43929,7 @@ omni.soundestlink.com$image
 ||hoorayplay.com^
 ||hospitablehall.com^
 ||hospitablehat.com^
+||hostchutney.com^
 ||howdoesthislook.com^
 ||hubcapcafe.net^
 ||humbleroots.net^
@@ -44295,6 +44297,7 @@ omni.soundestlink.com$image
 ||newscompiler.com^
 ||newsuccesssecret.com^
 ||newsvehicles.com^
+||nextsmarty.com^
 ||nexttopchef.com^
 ||nicefollows.com^
 ||nicehuh.com^
@@ -44866,6 +44869,7 @@ omni.soundestlink.com$image
 ||skillfuldrop.com^
 ||skillfullyfrugal.com^
 ||skillpuppy.com^
+||skinnytea.net^
 ||skisofa.com^
 ||skullmagnets.com^
 ||skullteeth.com^
@@ -77182,6 +77186,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||ad.technoratimedia.com^
 ||ad.turn.com^
 ||ad.tv2.no^
+||ad.twinrdengine.com^
 ||ad.universcine.com^
 ||ad.usatoday.com^
 ||ad.virtual-nights.com^
@@ -78753,6 +78758,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||ktu.sv2.biz^
 ||kueezrtb.com^
 ||kvsadman.com^
+||l.ca.ovhcloud.com^
 ||l1.britannica.com^
 ||larati.net^
 ||launchbit.com^
