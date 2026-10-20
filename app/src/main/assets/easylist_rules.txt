@@ -36135,7 +36135,6 @@ missav78.top##img[onerror="this.src='/sample/placeholder.jpg'"]:remove-attr(oner
 temperatur.nu#@#.holidAds:upward(1)
 ||target-video.com^$3p,badfilter
 ||imasdk.googleapis.com/js/sdkloader/ima3.js$script,domain=fastcompany.com,redirect=google-ima.js,important
-@@||securepubads.g.doubleclick.net/tag/js/gpt.js$script,3p,redirect-rule,from=webmd.com
 ||ruamupr.com^$script,redirect=noopjs,domain=thegatewaypundit.com
 thegatewaypundit.com##+js(rmnt, script, Object.getOwnPropertyDescriptor(Document.prototype)
 thegatewaypundit.com##+js(set, String.prototype.allReplace, 1)
@@ -39809,6 +39808,7 @@ omni.soundestlink.com$image
 ||g990421675.co^
 ||g9904216750.co^
 ||g990421676.co^
+||gaij.app^
 ||gbqofs.com^
 ||gcprivacy.com^
 ||geoedge.be^
@@ -48281,6 +48281,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||museter.com/track.php?
 ||musvc2.net/e/c?
 ||mv.treehousei.com^
+||mxanalytics.youruncensoredai.workers.dev^
 ||mxmfb.com/rsps/img/
 ||myblueday.com^*/count.asp?
 ||myfinance.com/widget/
@@ -48627,10 +48628,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||qq.com/stats?
 ||quadpay.com/analytics/
 ||qualifioapp.com/egw/events
-||qualtrics.com/jfe/$script,third-party
-||qualtrics.com/sie/$script,third-party
-||qualtrics.com/WRSiteInterceptEngine/$third-party
-||qualtrics.com^*/metrics
+||qualtrics.com/WRSiteInterceptEngine/?Q_Impress=
 ||quantcast.com/?log
 ||quantcast.mgr.consensu.org/?log
 ||qubitanalytics.appspot.com^
@@ -49030,6 +49028,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||sulia.com/papi/sulia_partner.js/$third-party
 ||sunlightmetrics.b-cdn.net^
 ||sunset.com/tia/
+||supabase.co/*/track-visitor
 ||surfshark.events^
 ||surfside.io/event/
 ||survey.interquest.com^
@@ -51363,6 +51362,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||api.samsungfind.com/log-collector
 ||api.streamelements.com/science/
 ||api.takealot.com^$ping
+||api.tempmailvip.io.vn/api/track
 ||api.thefantazy.com/web-vitals
 ||api.tsc.ca/Tracking/v1/events/
 ||api.vk.com/method/statEvents.
@@ -51949,6 +51949,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||foxsports.com.au/akam/
 ||fp.bizjournals.com^
 ||fp.measure.office.com^
+||fp.uncensored.com^
 ||fpa-cdn.adweek.com^
 ||fpa-cdn.arstechnica.com^
 ||fpc.fingerprint.com^
@@ -52728,6 +52729,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||relay-prod.typeracer.com/flags/
 ||relay.fiverr.com^
 ||remarkable.com/api/proxy/marker
+||report.senzia.cc^
 ||reports.tunein.com^
 ||researchgate.net/beacon/
 ||researchgate.net/track/
@@ -53050,6 +53052,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||t.prageru.com^
 ||t.producthunt.com^
 ||t.regionsjob.com^
+||t.venice.ai^
 ||t.wayfair.ca^
 ||t.wayfair.co.uk^
 ||t.wayfair.com^
@@ -53296,6 +53299,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||umami.spencerdevs.xyz^
 ||umami.vidfast.pro^
 ||umami.wakarimasen.moe^
+||uncensored.ai/*/trackevents
 ||unity3d.com/v1/events
 ||unleash.zenchef.com/api/frontend/client/metrics
 ||unsplash.com/nmetrics
@@ -76761,7 +76765,6 @@ search.rakuten.co.jp##+js(aeld, mouseup, sendClickEvent)
 @@||script-at.iocnt.net/iam.js$domain=oe24.at
 @@||showheroes.com/publishertag.js$domain=rollingstone.de
 @@||showheroes.com/pubtag.js$domain=rollingstone.de
-@@||siteintercept.qualtrics.com/$domain=idealo.de
 @@||sophi.io/assets/demeter/$script,domain=faz.net
 @@||spezialklinik-neukirchen.de/matomo/$~third-party
 @@||spiegel.de/layout/js/http/netmind-$script
