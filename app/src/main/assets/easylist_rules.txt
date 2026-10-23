@@ -44161,7 +44161,6 @@ omni.soundestlink.com$image
 ||maliciousmusic.com^
 ||manamoment.com^
 ||manateemotors.com^
-||manawell.net^
 ||manydiamonds.com^
 ||manyfishes.com^
 ||mapbasin.com^
@@ -44410,6 +44409,7 @@ omni.soundestlink.com$image
 ||painstakingpickle.com^
 ||paintmogul.com^
 ||paintpear.com^
+||pajamabrand.com^
 ||paleleaf.com^
 ||pamelarandom.com^
 ||panickypancake.com^
@@ -45301,7 +45301,6 @@ omni.soundestlink.com$image
 ||unequalbrake.com^
 ||unequaltrail.com^
 ||unicornprices.com^
-||unifybots.com^
 ||uninterestedquarter.com^
 ||unitedscans.com^
 ||unknowncrate.com^
@@ -77183,6 +77182,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||ad.digitallook.com^
 ||ad.dnoticias.pt^
 ||ad.domainfactory.de^
+||ad.exyws.org^
 ||ad.grafika.cz^
 ||ad.gt^
 ||ad.hbv.de^
@@ -77402,7 +77402,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||ads-impressions.com^
 ||ads-monitor.xyz^
 ||ads-twitter.com^
-||ads.365.mk^
 ||ads.5ci.lt^
 ||ads.73dpi.com^
 ||ads.aavv.com^
@@ -77699,7 +77698,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||adsensecustomsearchads.com^
 ||adserv.snigelweb.com^
 ||adserve.ams.rhythmxchange.com^
-||adserve.gkeurope.de^
 ||adserve.io^
 ||adserve.jbs.org^
 ||adserver.71i.de^
@@ -78215,7 +78213,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||click.email.bbc.com^
 ||click.email.lhh.com^
 ||click.email.microsoftemail.com^
-||click.email.sonos.com^
 ||click.emails.argos.co.uk^
 ||click.emails.tuclothing.sainsburys.co.uk^
 ||click.fool.com^
@@ -78656,7 +78653,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||hostedads.realitykings.com^
 ||hotjar.com^
 ||hotlog.ru^
-||hotrank.com.tw^
 ||hoverowl.com^
 ||hs-banner.com^
 ||hsn.uqhv.net^
@@ -79566,7 +79562,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||supertop100.com^
 ||supply.colossusssp.com^
 ||surveygizmobeacon.s3.amazonaws.com^
-||swan-swan-goose.com^
 ||t.bawafx.com^
 ||t.carta.com^
 ||t.co^
@@ -79828,7 +79823,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||visual-pagerank.fr^
 ||visualrevenue.com^
 ||vivads.net^
-||vmmpxl.com^
 ||voicefive.com^
 ||volasim.com^
 ||voluum.com^
