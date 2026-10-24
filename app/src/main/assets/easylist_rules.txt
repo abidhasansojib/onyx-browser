@@ -33640,6 +33640,8 @@ oklivetv.com##+js(no-fetch-if, method:POST body:tracker)
 ||sentry.efabrica.sk^
 ||crunchyscan.st/api/insights
 ||emudesk.com/api/analytics/
+||go.portail-assurance.ca^
+||proxyhog.com^
 @@||awstrack.me/*auth.coindesk.com$doc,popup
 @@||awstrack.me/*cmd=ac-inactive-restore$doc,popup
 @@||che168.com^$xhr,removeparam=s_cid
@@ -52267,6 +52269,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||lc-event.pixiv.net^
 ||leadconnectorhq.com/stats/event
 ||lego.com/api/dl-event-ingest
+||lego.com/api/uec/v1/events
 ||lendingtree.com/analytics/
 ||lendingtree.com/pixel/
 ||lenovo.com/gemets/
