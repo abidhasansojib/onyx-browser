@@ -81,6 +81,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Custom Search Engines & Keyword Shortcuts**: Add arbitrary search engines with keyword triggers (e.g., `w <query>` for Wikipedia) and cached circular logos.
 - `[x]` **Smart Clipboard Suggestions**: Proactively surfaces copied URLs and search queries with one-tap insertion.
 - `[x]` **Integrated CameraX + ML Kit Scanner**: Rapid QR code and barcode scanning directly from the address bar.
+- `[x]` **Voice Search Integration**: Voice input button hosted cleanly inside the active search overlay, hidden from the primary toolbar when browsing.
 - `[x]` **Multi-Engine Reverse Image Search**: Long-press any image to search via Google Lens, TinEye, Yandex, or Bing.
 
 ---

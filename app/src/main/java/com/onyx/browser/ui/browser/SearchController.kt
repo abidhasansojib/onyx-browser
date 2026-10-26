@@ -202,7 +202,8 @@ class SearchController(
         binding.btnMenu.visibility = View.VISIBLE
         binding.btnClearUrl.visibility = View.GONE
         binding.btnQrScanner.visibility = View.GONE
-        binding.btnVoiceSearch.visibility = View.VISIBLE
+        // Mic is only shown inside the search bar while in search mode
+        binding.btnVoiceSearch.visibility = View.GONE
 
         // 2. Hide search overlay
         binding.searchOverlay.visibility = View.GONE
@@ -222,7 +223,7 @@ class SearchController(
         val hasText = query.isNotEmpty()
         binding.btnClearUrl.visibility = if (hasText) View.VISIBLE else View.GONE
         binding.btnQrScanner.visibility = View.VISIBLE
-        binding.btnVoiceSearch.visibility = if (hasText) View.GONE else View.VISIBLE
+        binding.btnVoiceSearch.visibility = if (hasText || !isSearchMode) View.GONE else View.VISIBLE
 
         if (hasText) {
             // Hide current-page card while typing so search results have more room

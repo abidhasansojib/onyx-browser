@@ -196,6 +196,7 @@
                     android:layout_marginStart="4dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/voice_search"
+                    android:visibility="gone"
                     app:srcCompat="@drawable/ic_mic"
                     app:tint="?attr/colorControlNormal" />
             </LinearLayout>
