@@ -2890,6 +2890,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         MediaPlaybackBridge.onMediaStateListener = { isPlaying, isVideo, width, height ->
             runOnUiThread {
+                if (isPlaying && isVideo && ::pipController.isInitialized) {
+                    pipController.justExitedPip = false
+                }
                 updatePipParams(isVideo && isPlaying, width, height)
                 // Keep screen on while video is actively playing in-page
                 if (isVideo && isPlaying) {
@@ -3567,7 +3570,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     override fun onResume() {
         super.onResume()
         MediaPlaybackBridge.isAppInBackground = false
-        MediaPlaybackBridge.isExplicitUserPause = false
+        if (MediaPlaybackBridge.isMediaPlaying) {
+            MediaPlaybackBridge.isExplicitUserPause = false
+        }
 
         // 1. Sync theme if changed in Settings or system dark mode toggled
         preferences.applyTheme()
@@ -3621,10 +3626,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 MediaPlaybackManager.getSetBackgroundStateScript(false),
                 null
             )
-        }
-        // Stop background notification on returning to foreground so WebView player takes full control
-        if (MediaPlaybackService.isServiceRunning) {
-            MediaPlaybackService.stopNotificationOnly(this)
         }
 
         // Restore screen-on flag if video was still playing when we came back to the app

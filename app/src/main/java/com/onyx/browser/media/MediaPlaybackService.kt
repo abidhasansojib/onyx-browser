@@ -109,12 +109,9 @@ class MediaPlaybackService : Service() {
                 scheduleNotificationUpdate(force = true)
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                wasPlayingBeforeFocusLoss = isMediaPlaying
-                isMediaPlaying = false
-                releaseWakeLock()
-                updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
-                mediaActionListener?.onPauseMedia()
-                scheduleNotificationUpdate(force = true)
+                // Brave & Chrome parity: Do not pause when transient loss can duck.
+                // On Android 8.0+ (API 26+), the system audio framework ducks media audio
+                // automatically for transient sounds (notifications, navigation alerts).
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 hasAudioFocus = true
@@ -141,6 +138,7 @@ class MediaPlaybackService : Service() {
         val request = AudioFocusRequestCompat.Builder(AudioManagerCompat.AUDIOFOCUS_GAIN)
             .setAudioAttributes(attributes)
             .setOnAudioFocusChangeListener(audioFocusChangeListener)
+            .setWillPauseWhenDucked(false)
             .build()
         audioFocusRequest = request
         val result = AudioManagerCompat.requestAudioFocus(audioManager, request)

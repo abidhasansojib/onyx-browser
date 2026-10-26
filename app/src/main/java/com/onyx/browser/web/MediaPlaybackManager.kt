@@ -271,13 +271,15 @@ object MediaPlaybackManager {
                 function reportMediaPaused() {
                     if (!window.OnyxMediaBridge) return;
                     setTimeout(function() {
-                        var anyPlaying = getAllMedia(document).some(function(m) {
+                        var allMedia = getAllMedia(document);
+                        var anyPlaying = allMedia.some(function(m) {
                             return !m.paused && !m.ended && isQualifyingMedia(m);
                         });
                         if (!anyPlaying) {
                             var now = Date.now();
-                            var timeSincePlayerTouch = now - (window.__onyx_last_player_touch || 0);
-                            var isUserIntent = !!window.__onyx_allow_explicit_pause || (timeSincePlayerTouch < 2500);
+                            var timeSinceTouch = now - Math.max(window.__onyx_last_player_touch || 0, window.__onyx_last_user_touch || 0);
+                            var anyUserHitPause = allMedia.some(function(m) { return !!m.userHitPause; });
+                            var isUserIntent = !!window.__onyx_allow_explicit_pause || anyUserHitPause || (timeSinceTouch < 3500);
                             if (typeof window.OnyxMediaBridge.onMediaPausedWithIntent === 'function') {
                                 window.OnyxMediaBridge.onMediaPausedWithIntent(isUserIntent);
                             } else {
@@ -285,6 +287,24 @@ object MediaPlaybackManager {
                             }
                         }
                     }, 400);
+                }
+
+                function reportMediaEnded(elem) {
+                    if (!window.OnyxMediaBridge) return;
+                    setTimeout(function() {
+                        var anyPlaying = getAllMedia(document).some(function(m) {
+                            return !m.paused && !m.ended && isQualifyingMedia(m);
+                        });
+                        if (!anyPlaying) {
+                            if (typeof window.OnyxMediaBridge.onMediaEnded === 'function') {
+                                window.OnyxMediaBridge.onMediaEnded();
+                            } else if (typeof window.OnyxMediaBridge.onMediaPausedWithIntent === 'function') {
+                                window.OnyxMediaBridge.onMediaPausedWithIntent(true);
+                            } else {
+                                window.OnyxMediaBridge.onMediaPaused();
+                            }
+                        }
+                    }, 300);
                 }
 
                 // ── 5. Direct Element Event Binding (Brave Playlist pattern) ────────
@@ -306,7 +326,7 @@ object MediaPlaybackManager {
                     }, true);
 
                     elem.addEventListener('ended', function() {
-                        reportMediaPaused();
+                        reportMediaEnded(elem);
                     }, true);
 
                     elem.addEventListener('timeupdate', function() {
@@ -429,7 +449,7 @@ object MediaPlaybackManager {
                 }, true);
 
                 document.addEventListener('ended', function(e) {
-                    if (e.target instanceof HTMLMediaElement) reportMediaPaused();
+                    if (e.target instanceof HTMLMediaElement) reportMediaEnded(e.target);
                 }, true);
 
                 document.addEventListener('timeupdate', function(e) {
@@ -452,17 +472,23 @@ object MediaPlaybackManager {
                                 return origSetActionHandler(action, handler);
                             };
                         }
-                        var origMetadataSetter = Object.getOwnPropertyDescriptor(MediaSession.prototype, 'metadata')?.set;
-                        if (origMetadataSetter) {
+                        var metaDesc = Object.getOwnPropertyDescriptor(MediaSession.prototype, 'metadata');
+                        if (metaDesc && metaDesc.set) {
+                            var origMetadataSetter = metaDesc.set;
+                            var origMetadataGetter = metaDesc.get;
                             Object.defineProperty(navigator.mediaSession, 'metadata', {
+                                get: function() {
+                                    return origMetadataGetter ? origMetadataGetter.call(this) : undefined;
+                                },
                                 set: function(val) {
                                     origMetadataSetter.call(this, val);
                                     if (val && window.OnyxMediaBridge) {
-                                        var art = (val.artwork && val.artwork.length > 0) ? val.artwork[val.artwork.length - 1].src : '';
+                                        var art = (val.artwork && val.artwork.length > 0) ? (val.artwork[val.artwork.length - 1].src || val.artwork[0].src || '') : '';
                                         window.OnyxMediaBridge.onMediaMetadata(val.title || '', val.artist || '', art);
                                     }
                                 },
-                                configurable: true
+                                configurable: true,
+                                enumerable: true
                             });
                         }
                     } catch (_) {}
@@ -685,9 +711,9 @@ object MediaPlaybackManager {
                 var origPause = HTMLMediaElement.prototype.pause;
                 HTMLMediaElement.prototype.pause = function() {
                     var now = Date.now();
-                    var timeSincePlayerTouch = now - (window.__onyx_last_player_touch || 0);
+                    var timeSinceTouch = now - Math.max(window.__onyx_last_player_touch || 0, window.__onyx_last_user_touch || 0);
                     var isExplicit = !!window.__onyx_allow_explicit_pause;
-                    var isUserIntent = isExplicit || (timeSincePlayerTouch < 2500);
+                    var isUserIntent = isExplicit || (timeSinceTouch < 3500);
                     this.userHitPause = isUserIntent;
                     return origPause.apply(this, arguments);
                 };
@@ -706,14 +732,10 @@ object MediaPlaybackManager {
                         if (!window.__onyx_bg_play_active) return;
                         if (window.__onyx_allow_explicit_pause) return;
 
-                        var now = Date.now();
-                        var timeSincePlayerTouch = now - (window.__onyx_last_player_touch || 0);
-                        var isUserHitPause = element.userHitPause && (timeSincePlayerTouch < 2500);
-
-                        if (!isUserHitPause && !element.ended) {
+                        if (!element.userHitPause && !element.ended) {
                             // Video paused by OS occlusion, tab switch, or screen-lock transition without user intent: auto-resume!
                             setTimeout(function() {
-                                if (!window.__onyx_allow_explicit_pause && !element.ended && element.paused) {
+                                if (!window.__onyx_allow_explicit_pause && !element.userHitPause && !element.ended && element.paused) {
                                     var p = origPlay.call(element);
                                     if (p && typeof p.catch === 'function') p.catch(function(){});
                                 }

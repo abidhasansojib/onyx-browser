@@ -91,6 +91,9 @@ class PipController(
                         targetWv?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
                     }
                     updatePipParams(isVideoPlaying = newPlayingState)
+                    if (com.onyx.browser.media.MediaPlaybackService.isServiceRunning) {
+                        com.onyx.browser.media.MediaPlaybackService.updateState(activity, newPlayingState)
+                    }
                 }
                 ACTION_PIP_REWIND -> {
                     getMediaTargetWebView()?.evaluateJavascript(MediaPlaybackManager.getSeekMediaScript(-10), null)
@@ -301,8 +304,8 @@ class PipController(
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
-                val safeW = width.coerceAtLeast(1)
-                val safeH = height.coerceAtLeast(1)
+                val safeW = if (width > 0) width else 16
+                val safeH = if (height > 0) height else 9
                 val rational = Rational(safeW, safeH)
                     .coerceIn(Rational(1, 2), Rational(2, 1))
                 val builder = PictureInPictureParams.Builder()
@@ -519,9 +522,16 @@ class PipController(
             activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             isCurrentlyInPip = false
-            MediaPlaybackBridge.isExplicitUserPause = false
+            if (MediaPlaybackBridge.isMediaPlaying) {
+                MediaPlaybackBridge.isExplicitUserPause = false
+            }
             justExitedPip = true
-            binding.root.postDelayed({ justExitedPip = false }, 3000)
+            binding.root.postDelayed({
+                justExitedPip = false
+                if (MediaPlaybackBridge.isVideoPlaying || isFullscreenVideoActive) {
+                    updatePipParams(isVideoPlaying = true, shouldAutoEnter = true)
+                }
+            }, 3000)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 safeSetPictureInPictureParams(

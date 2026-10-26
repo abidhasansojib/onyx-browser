@@ -239,8 +239,8 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             if (isPlaying && webView != null) {
                 onMediaPlaybackStartedListener?.invoke(webView)
             }
-            if (isBackgroundPlayActive && isPlaying) {
-                if (isAppInBackground || isScreenOffOrLocked(context)) {
+            if (isBackgroundPlayActive) {
+                if (isPlaying) {
                     MediaPlaybackService.start(
                         context,
                         cleanTitle,
@@ -250,6 +250,8 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
                         currentDurationMs,
                         true
                     )
+                } else if (MediaPlaybackService.isServiceRunning) {
+                    MediaPlaybackService.updateState(context, false, currentPositionMs, currentDurationMs)
                 }
             } else if (!isPlaying && MediaPlaybackService.isServiceRunning) {
                 MediaPlaybackService.updateState(context, false, currentPositionMs, currentDurationMs)
@@ -311,17 +313,15 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
                 onMediaPlaybackStartedListener?.invoke(webView)
             }
             if (isBackgroundPlayActive) {
-                if (isAppInBackground || isScreenOffOrLocked(context)) {
-                    MediaPlaybackService.start(
-                        context,
-                        cleanTitle,
-                        cleanArtist,
-                        currentArtworkUrl,
-                        currentPositionMs,
-                        currentDurationMs,
-                        true
-                    )
-                }
+                MediaPlaybackService.start(
+                    context,
+                    cleanTitle,
+                    cleanArtist,
+                    currentArtworkUrl,
+                    currentPositionMs,
+                    currentDurationMs,
+                    true
+                )
             }
         }
     }
@@ -333,6 +333,9 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaPausedWithIntent(isUserIntent: Boolean) {
+        if (isUserIntent) {
+            isExplicitUserPause = true
+        }
         handleMediaPaused(isUserIntent = isUserIntent)
     }
 
@@ -375,6 +378,8 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     fun onMediaEnded() {
         val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
         mainHandler.post {
+            isAudioOrVideoPlaying = false
+            isVideoPlaying = false
             pendingEndedRunnable?.let { mainHandler.removeCallbacks(it) }
             val runnable = Runnable {
                 if (!isAudioOrVideoPlaying && !isVideoPlaying) {
