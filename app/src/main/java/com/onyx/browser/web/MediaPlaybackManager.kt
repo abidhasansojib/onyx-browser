@@ -279,7 +279,9 @@ object MediaPlaybackManager {
                             var now = Date.now();
                             var timeSinceTouch = now - Math.max(window.__onyx_last_player_touch || 0, window.__onyx_last_user_touch || 0);
                             var anyUserHitPause = allMedia.some(function(m) { return !!m.userHitPause; });
-                            var isUserIntent = !!window.__onyx_allow_explicit_pause || anyUserHitPause || (timeSinceTouch < 3500);
+                            // Touches cannot happen while backgrounded; only explicit native commands count then.
+                            var recentTouch = !window.__onyx_in_background && (timeSinceTouch < 3500);
+                            var isUserIntent = !!window.__onyx_allow_explicit_pause || anyUserHitPause || recentTouch;
                             if (typeof window.OnyxMediaBridge.onMediaPausedWithIntent === 'function') {
                                 window.OnyxMediaBridge.onMediaPausedWithIntent(isUserIntent);
                             } else {
@@ -713,7 +715,7 @@ object MediaPlaybackManager {
                     var now = Date.now();
                     var timeSinceTouch = now - Math.max(window.__onyx_last_player_touch || 0, window.__onyx_last_user_touch || 0);
                     var isExplicit = !!window.__onyx_allow_explicit_pause;
-                    var isUserIntent = isExplicit || (timeSinceTouch < 3500);
+                    var isUserIntent = isExplicit || (!window.__onyx_in_background && timeSinceTouch < 3500);
                     this.userHitPause = isUserIntent;
                     return origPause.apply(this, arguments);
                 };
@@ -728,20 +730,8 @@ object MediaPlaybackManager {
                     if (!element || element.__onyx_bg_bound) return;
                     element.__onyx_bg_bound = true;
 
-                    element.addEventListener('pause', function() {
-                        if (!window.__onyx_bg_play_active) return;
-                        if (window.__onyx_allow_explicit_pause) return;
-
-                        if (!element.userHitPause && !element.ended) {
-                            // Video paused by OS occlusion, tab switch, or screen-lock transition without user intent: auto-resume!
-                            setTimeout(function() {
-                                if (!window.__onyx_allow_explicit_pause && !element.userHitPause && !element.ended && element.paused) {
-                                    var p = origPlay.call(element);
-                                    if (p && typeof p.catch === 'function') p.catch(function(){});
-                                }
-                            }, 50);
-                        }
-                    }, false);
+                    // Auto-resume of background pauses is decided natively (MediaPlaybackBridge),
+                    // which knows the real app/PiP/call state and rate-limits resumes.
 
                     element.addEventListener('webkitpresentationmodechanged', function(e) {
                         if (!window.__onyx_bg_play_active) return;
@@ -832,8 +822,8 @@ object MediaPlaybackManager {
                         Object.defineProperty(HTMLMediaElement.prototype, 'muted', {
                             get: function() { return origMuted.get.call(this); },
                             set: function(val) {
-                                if (window.__onyx_bg_play_active && val && !window.__onyx_allow_explicit_pause) {
-                                    return; // Don't allow websites to mute when in background
+                                if (window.__onyx_bg_play_active && window.__onyx_in_background && val && !window.__onyx_allow_explicit_pause) {
+                                    return; // Don't allow websites to mute while backgrounded (foreground mute buttons still work)
                                 }
                                 return origMuted.set.call(this, val);
                             },

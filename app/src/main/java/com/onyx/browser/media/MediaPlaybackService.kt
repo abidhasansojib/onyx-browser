@@ -24,9 +24,6 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.media.AudioAttributesCompat
-import androidx.media.AudioFocusRequestCompat
-import androidx.media.AudioManagerCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import com.onyx.browser.MainActivity
 import com.onyx.browser.R
@@ -84,77 +81,10 @@ class MediaPlaybackService : Service() {
     }
 
     // --- Audio Focus Management (Brave & Android Media Standard) ---
-    private var audioFocusRequest: AudioFocusRequestCompat? = null
-    private var hasAudioFocus = false
-    private var wasPlayingBeforeFocusLoss = false
-
-    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
-        when (focusChange) {
-            AudioManager.AUDIOFOCUS_LOSS -> {
-                hasAudioFocus = false
-                wasPlayingBeforeFocusLoss = false
-                MediaPlaybackBridge.isExplicitUserPause = true
-                isMediaPlaying = false
-                releaseWakeLock()
-                updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
-                mediaActionListener?.onPauseMedia()
-                scheduleNotificationUpdate(force = true)
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                wasPlayingBeforeFocusLoss = isMediaPlaying
-                isMediaPlaying = false
-                releaseWakeLock()
-                updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
-                mediaActionListener?.onPauseMedia()
-                scheduleNotificationUpdate(force = true)
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                // Brave & Chrome parity: Do not pause when transient loss can duck.
-                // On Android 8.0+ (API 26+), the system audio framework ducks media audio
-                // automatically for transient sounds (notifications, navigation alerts).
-            }
-            AudioManager.AUDIOFOCUS_GAIN -> {
-                hasAudioFocus = true
-                if (wasPlayingBeforeFocusLoss) {
-                    wasPlayingBeforeFocusLoss = false
-                    MediaPlaybackBridge.isExplicitUserPause = false
-                    isMediaPlaying = true
-                    acquireWakeLock()
-                    updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
-                    mediaActionListener?.onPlayMedia()
-                    scheduleNotificationUpdate(force = true)
-                }
-            }
-        }
-    }
-
-    private fun requestAudioFocus(): Boolean {
-        if (hasAudioFocus) return true
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
-        val attributes = AudioAttributesCompat.Builder()
-            .setUsage(AudioAttributesCompat.USAGE_MEDIA)
-            .setContentType(AudioAttributesCompat.CONTENT_TYPE_MUSIC)
-            .build()
-        val request = AudioFocusRequestCompat.Builder(AudioManagerCompat.AUDIOFOCUS_GAIN)
-            .setAudioAttributes(attributes)
-            .setOnAudioFocusChangeListener(audioFocusChangeListener)
-            .setWillPauseWhenDucked(false)
-            .build()
-        audioFocusRequest = request
-        val result = AudioManagerCompat.requestAudioFocus(audioManager, request)
-        hasAudioFocus = (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
-        return hasAudioFocus
-    }
-
-    private fun abandonAudioFocus() {
-        if (!hasAudioFocus) return
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
-        audioFocusRequest?.let {
-            AudioManagerCompat.abandonAudioFocusRequest(audioManager, it)
-        }
-        hasAudioFocus = false
-        wasPlayingBeforeFocusLoss = false
-    }
+    // Audio focus is owned by the Chromium WebView media session (AudioFocusDelegate).
+    // Requesting a second AUDIOFOCUS_GAIN here steals focus from the WebView in the same
+    // process, which makes Chromium pause playback and causes a pause/resume fight.
+    // This service only provides the foreground lifecycle, MediaSession and notification.
 
     private val screenStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -173,7 +103,6 @@ class MediaPlaybackService : Service() {
                 AudioManager.ACTION_AUDIO_BECOMING_NOISY -> {
                     // Match Brave: Pause playback when headphones or Bluetooth audio are disconnected
                     if (isMediaPlaying) {
-                        abandonAudioFocus()
                         MediaPlaybackBridge.isExplicitUserPause = true
                         isMediaPlaying = false
                         releaseWakeLock()
@@ -248,7 +177,6 @@ class MediaPlaybackService : Service() {
             )
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
-                    requestAudioFocus()
                     MediaPlaybackBridge.isExplicitUserPause = false
                     isMediaPlaying = true
                     acquireWakeLock()
@@ -258,7 +186,6 @@ class MediaPlaybackService : Service() {
                 }
 
                 override fun onPause() {
-                    abandonAudioFocus()
                     MediaPlaybackBridge.isExplicitUserPause = true
                     isMediaPlaying = false
                     releaseWakeLock()
@@ -293,7 +220,6 @@ class MediaPlaybackService : Service() {
                 }
 
                 override fun onStop() {
-                    abandonAudioFocus()
                     isMediaPlaying = false
                     releaseWakeLock()
                     mediaActionListener?.onStopMedia()
@@ -326,7 +252,6 @@ class MediaPlaybackService : Service() {
 
         when (action) {
             ACTION_PLAY -> {
-                requestAudioFocus()
                 MediaPlaybackBridge.isExplicitUserPause = false
                 isMediaPlaying = true
                 acquireWakeLock()
@@ -335,7 +260,6 @@ class MediaPlaybackService : Service() {
                 startForegroundCompat(buildNotification())
             }
             ACTION_PAUSE -> {
-                abandonAudioFocus()
                 MediaPlaybackBridge.isExplicitUserPause = true
                 isMediaPlaying = false
                 releaseWakeLock()
@@ -350,7 +274,6 @@ class MediaPlaybackService : Service() {
                 mediaActionListener?.onSeekMedia(10)
             }
             ACTION_STOP -> {
-                abandonAudioFocus()
                 MediaPlaybackBridge.isExplicitUserPause = true
                 isMediaPlaying = false
                 releaseWakeLock()
@@ -363,7 +286,6 @@ class MediaPlaybackService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_DISMISS -> {
-                abandonAudioFocus()
                 isMediaPlaying = false
                 releaseWakeLock()
                 stopForegroundCompat()
@@ -377,10 +299,8 @@ class MediaPlaybackService : Service() {
                 val playing = intent.getBooleanExtra(EXTRA_IS_PLAYING, true)
                 isMediaPlaying = playing
                 if (playing) {
-                    requestAudioFocus()
                     acquireWakeLock()
                 } else {
-                    abandonAudioFocus()
                     releaseWakeLock()
                 }
                 updatePlaybackState(
@@ -401,10 +321,8 @@ class MediaPlaybackService : Service() {
             else -> {
                 // Initial start
                 if (isMediaPlaying) {
-                    requestAudioFocus()
                     acquireWakeLock()
                 } else {
-                    abandonAudioFocus()
                     releaseWakeLock()
                 }
                 updatePlaybackState(
@@ -414,7 +332,8 @@ class MediaPlaybackService : Service() {
             }
         }
 
-        return START_STICKY
+        // Never let the system resurrect an empty media notification after a process kill.
+        return START_NOT_STICKY
     }
 
     /**
@@ -674,7 +593,6 @@ class MediaPlaybackService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         try {
-            abandonAudioFocus()
             isMediaPlaying = false
             isServiceRunning = false
             releaseWakeLock()
@@ -693,7 +611,6 @@ class MediaPlaybackService : Service() {
         artworkJob?.cancel()
         currentArtworkBitmap = null
         fallbackIcon = null
-        abandonAudioFocus()
         releaseWakeLock()
         isMediaPlaying = false
         stopForegroundCompat()
@@ -743,6 +660,21 @@ class MediaPlaybackService : Service() {
 
         var mediaActionListener: MediaActionListener? = null
 
+        /**
+         * Sends a command to the service. A running service is already foreground, so a plain
+         * startService() is used; startForegroundService() is only needed for the first start.
+         * This avoids ForegroundServiceStartNotAllowedException on Android 12+ when playlist
+         * updates arrive while the app is in the background.
+         */
+        private fun dispatch(context: Context, intent: Intent) {
+            if (isServiceRunning || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                context.startService(intent)
+            } else {
+                context.startForegroundService(intent)
+                isServiceRunning = true
+            }
+        }
+
         fun start(
             context: Context,
             title: String,
@@ -758,7 +690,6 @@ class MediaPlaybackService : Service() {
             currentPositionMs = positionMs
             currentDurationMs = durationMs
             isMediaPlaying = isPlaying
-            isServiceRunning = true
 
             val intent = Intent(context, MediaPlaybackService::class.java).apply {
                 putExtra(EXTRA_TITLE, currentTitle)
@@ -769,11 +700,7 @@ class MediaPlaybackService : Service() {
                 putExtra(EXTRA_IS_PLAYING, isPlaying)
             }
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
+                dispatch(context, intent)
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting MediaPlaybackService", e)
             }
@@ -809,11 +736,7 @@ class MediaPlaybackService : Service() {
                 putExtra(EXTRA_DURATION, currentDurationMs)
             }
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
+                dispatch(context, intent)
             } catch (e: Exception) {
                 Log.e(TAG, "Error updating MediaPlaybackService state", e)
             }
@@ -861,11 +784,7 @@ class MediaPlaybackService : Service() {
                 putExtra(EXTRA_DURATION, currentDurationMs)
             }
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
+                dispatch(context, intent)
             } catch (_: Exception) {}
         }
 

@@ -124,12 +124,13 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
 
 - **Audio Becoming Noisy & Audio Focus Management (Brave Parity)**:
   - Registers a system `BroadcastReceiver` for `AudioManager.ACTION_AUDIO_BECOMING_NOISY`. When wired headphones are unplugged or Bluetooth audio disconnects during media playback, the service immediately pauses playback and updates lockscreen notification controls.
-  - Manages audio focus lifecycle via `AudioFocusRequestCompat` and `AudioManagerCompat`. Requests `AUDIOFOCUS_GAIN` on play and gracefully releases focus on explicit user pause, stop, or task removal. Handles transient loss and ducking with automatic resumption on regain.
+  - Audio focus is handled by the Chromium WebView media session (pauses on loss, resumes on transient regain). `MediaPlaybackService` does not request focus to avoid stealing it from the WebView in the same process.
+  - Lifecycle: `onPause()` never pauses media; `onStop()` keeps the media tab running (background play) or pauses media explicitly. Native auto-resume of non-user pauses runs only while stopped, skips calls, and is capped at 3 per 15s.
 
 - **Picture-in-Picture (PiP) Architecture & Auto-Enter (Brave Parity)**:
   - Traverses Shadow DOM and composed ancestor trees to remove CSS transforms and clipping constraints, isolating active `<video>` elements non-destructively without hiding sibling DOM nodes.
   - Dynamically arms `setAutoEnterEnabled(true)` on Android 12+ (API 31+) whenever video is playing in the foreground, enabling smooth gesture-navigation transitions into PiP without pause or flicker. Disables auto-enter immediately upon pause or video end.
-  - Leverages `onUserLeaveHint()` for Android 8-11 Auto-PiP transitions, guarded by user preferences and anti-loop debounce (`justExitedPip`).
+  - Leverages `onUserLeaveHint()` for Android 8-11 Auto-PiP transitions (and 12+ when auto-enter is not armed), guarded by user preferences and anti-loop debounce (`justExitedPip`).
   - Coerces aspect ratio strictly within `[Rational(1, 2), Rational(2, 1)]` and shields all `setPictureInPictureParams()` calls against OEM IPC exceptions (`safeSetPictureInPictureParams`).
   - Dynamically synchronizes RemoteAction play/pause icons on the floating PiP window in real-time as playback state changes.
 

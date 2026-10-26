@@ -18,6 +18,8 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     // Throttle progress forwarding to the service: max once per 3 seconds
     @Volatile private var lastProgressDispatchMs = 0L
     private var pendingEndedRunnable: Runnable? = null
+    private var resumeWindowStartMs = 0L
+    private var resumeCount = 0
 
     companion object {
         private const val PROGRESS_DISPATCH_THROTTLE_MS = 3000L
@@ -118,6 +120,29 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     private val isBackgroundPlayActive: Boolean
         get() = isBackgroundPlayActive(preferences)
+
+    /** Never auto-resume during a phone/VoIP call; the system paused us on purpose. */
+    private fun isInCall(ctx: Context): Boolean {
+        val am = ctx.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return false
+        return am.mode == android.media.AudioManager.MODE_IN_CALL ||
+                am.mode == android.media.AudioManager.MODE_IN_COMMUNICATION ||
+                am.mode == android.media.AudioManager.MODE_RINGTONE
+    }
+
+    /**
+     * Caps background auto-resumes to 3 per 15s window so a page that keeps pausing itself
+     * (e.g. an explicit "paused" state the heuristic missed) cannot loop forever.
+     */
+    private fun consumeResumeBudget(): Boolean {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - resumeWindowStartMs > 15_000L) {
+            resumeWindowStartMs = now
+            resumeCount = 0
+        }
+        if (resumeCount >= 3) return false
+        resumeCount++
+        return true
+    }
 
     @JavascriptInterface
     fun onVideoPresenceChanged(hasVideo: Boolean, src: String?, width: Int, height: Int) {
@@ -341,19 +366,24 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     private fun handleMediaPaused(isUserIntent: Boolean) {
         val inPip = isCurrentlyInPip
+        // Only fight site/engine-initiated pauses while the app is actually backgrounded.
+        // In the foreground every pause is respected so site controls (ads, carousels,
+        // mute/pause buttons) behave normally.
         val shouldSuppress = !inPip &&
+                isAppInBackground &&
                 isBackgroundPlayActive &&
                 !isUserIntent &&
-                !isExplicitUserPause
+                !isExplicitUserPause &&
+                !isInCall(context) &&
+                consumeResumeBudget()
 
         if (shouldSuppress) {
-            // Brave & Firefox pattern: Transient or background pause caused by tab switch,
-            // screen lock, or OS occlusion without user pause intent.
-            // Suppress the pause, preserve playing state so audio keeps decoding in background!
-            mainHandler.post {
+            // Background pause caused by visibility/occlusion without user intent: resume.
+            mainHandler.postDelayed({
+                if (isExplicitUserPause || !isAppInBackground) return@postDelayed
                 val wv = currentPlayingWebView?.get() ?: webView
                 wv?.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.playAllMediaScript, null)
-            }
+            }, 150L)
             return
         }
 
@@ -389,7 +419,13 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
                     }
                     onMediaStateListener?.invoke(false, false, lastVideoWidth, lastVideoHeight)
                     if (isBackgroundPlayActive) {
-                        MediaPlaybackService.stop(context)
+                        if (isAppInBackground && MediaPlaybackService.isServiceRunning) {
+                            // Keep the foreground service alive (paused) so the next playlist item
+                            // can resume; Android 12+ forbids restarting it from the background.
+                            MediaPlaybackService.updateState(context, false, currentPositionMs, currentDurationMs)
+                        } else {
+                            MediaPlaybackService.stop(context)
+                        }
                     }
                 }
             }

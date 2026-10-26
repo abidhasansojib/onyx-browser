@@ -296,6 +296,10 @@ class PipController(
         }
     }
 
+    /** True while Android 12+ setAutoEnterEnabled(true) is armed on the activity. */
+    var isAutoEnterArmed: Boolean = false
+        private set
+
     fun updatePipParams(
         isVideoPlaying: Boolean = MediaPlaybackBridge.isMediaPlaying,
         width: Int = MediaPlaybackBridge.lastVideoWidth,
@@ -342,13 +346,14 @@ class PipController(
                     }
                 }
 
+                var canAutoEnter = false
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     val isForeground = if (activity is LifecycleOwner) {
                         activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
                     } else {
                         true
                     }
-                    val canAutoEnter = shouldAutoEnter &&
+                    canAutoEnter = shouldAutoEnter &&
                         preferences.isPipEnabled &&
                         (isVideoPlaying || isFullscreenVideoActive) &&
                         !justExitedPip &&
@@ -357,7 +362,10 @@ class PipController(
                         isPipAllowedBySystem()
                     builder.setAutoEnterEnabled(canAutoEnter)
                 }
-                safeSetPictureInPictureParams(builder.build())
+                val applied = safeSetPictureInPictureParams(builder.build())
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    isAutoEnterArmed = applied && canAutoEnter
+                }
             } catch (_: Exception) {}
         }
     }
@@ -478,6 +486,7 @@ class PipController(
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     paramsBuilder.setAutoEnterEnabled(false)
+                    isAutoEnterArmed = false
                 }
 
                 isCurrentlyInPip = true
@@ -539,6 +548,7 @@ class PipController(
                         .setAutoEnterEnabled(false)
                         .build()
                 )
+                isAutoEnterArmed = false
             }
 
             if (!MediaPlaybackBridge.isVideoPlaying) {

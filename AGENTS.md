@@ -141,8 +141,11 @@ onyx-browser/
    - `$csp` directives from `AdBlockEngine.getCspDirectives` must be injected early at document start via `<meta http-equiv="Content-Security-Policy">`.
    - Never block authentication endpoints (Google Sign-In, Meta, Microsoft, Apple), bot challenges (Cloudflare Turnstile, Arkose, reCAPTCHA, hCaptcha), or media streaming segments.
 9. **Media Playback & Picture-in-Picture Standards**:
-   - `MediaPlaybackService` must manage audio focus lifecycle with `AudioFocusRequestCompat` (`AUDIOFOCUS_GAIN`) and `AudioManagerCompat`, pausing on noisy disconnects or audio loss and auto-resuming on focus gain.
-   - Picture-in-Picture on Android 12+ (API 31+) must dynamically arm `setAutoEnterEnabled(true)` when video is actively playing in the foreground and immediately disarm upon pause or finish. On Android 8-11, `onUserLeaveHint()` must handle Auto-PiP transitions.
+   - Audio focus is owned by the Chromium WebView media session. `MediaPlaybackService` must NOT request its own audio focus (a second `AUDIOFOCUS_GAIN` in the same process makes WebView pause and causes a pause/resume fight). The service provides the `mediaPlayback` foreground lifecycle, MediaSession, notification, wake/Wi-Fi locks and the noisy-disconnect pause.
+   - Media is never paused in `onPause()` (PiP entry, dialogs, multi-window). `onStop()` decides: keep the media tab alive when background play is on, otherwise pause media explicitly (`WebView.onPause()` alone does not stop HTML5 audio).
+   - Background auto-resume of non-user pauses is decided natively in `MediaPlaybackBridge.handleMediaPaused` only while the app is stopped, never during calls, and is rate-limited (3 per 15s). Touch-intent heuristics are ignored while backgrounded.
+   - Service commands use `startService()` once the service is running; `startForegroundService()` only for the first start. After a track ends in background the service stays foreground (paused) for playlist continuation.
+   - Picture-in-Picture on Android 12+ (API 31+) must dynamically arm `setAutoEnterEnabled(true)` when video is actively playing in the foreground and immediately disarm upon pause or finish. On Android 8-11 (or 12+ when auto-enter is not armed, tracked by `PipController.isAutoEnterArmed`), `onUserLeaveHint()` must handle Auto-PiP transitions.
    - All `setPictureInPictureParams()` calls must be shielded against OEM framework IPC exceptions (`safeSetPictureInPictureParams`), and aspect ratios must be clamped within `[0.5, 2.0]`.
    - Never recreate `MainActivity` on system theme changes while in PiP (`maybeDeferNightModeRecreate`).
    - Lockscreen playlist transitions must enforce a 2000ms debounce grace gap on `onMediaEnded` before tearing down foreground services.

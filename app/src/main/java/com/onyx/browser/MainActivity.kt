@@ -3376,7 +3376,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onPause() {
         super.onPause()
-        MediaPlaybackBridge.isAppInBackground = true
         val activeTabId = tabManager.activeTab.value?.id
         val activeWebView = tabManager.getActiveWebView()
         if (activeTabId != null && activeWebView != null) {
@@ -3386,38 +3385,22 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (!preferences.isPipEnabled) {
             updatePipParams(isVideoPlaying = false)
         }
+        // Playback is never paused here: onPause also fires for PiP entry, multi-window focus
+        // loss and system dialogs. Pause/keep-alive decisions are made in onStop, which is not
+        // called while the activity is visible in PiP.
         val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
         val isPlayingAnyMedia = MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isAudioOrVideoPlaying
-        val isBgPlayActive = preferences.isBackgroundPlayEnabled && isPlayingAnyMedia
-
-        if (isBgPlayActive || isPip) {
-            val mediaTabWv = getMediaTargetWebView() ?: tabManager.getActiveWebView()
-            tabManager.getAllWebViews().forEach { wv ->
-                val isTargetWv = (wv == mediaTabWv)
-                val isWvInPip = isPip && isTargetWv
-                wv.evaluateJavascript(
-                    MediaPlaybackManager.getSetBackgroundStateScript(!isWvInPip),
-                    null
-                )
-                // Battery governor: keep media tab active, pause non-playing tabs to save CPU/battery
-                if (!isTargetWv && !isPip) {
-                    wv.onPause()
-                }
-            }
-            mediaTabWv?.resumeTimers()
-            if (!isPip && isPlayingAnyMedia) {
-                MediaPlaybackService.start(
-                    this,
-                    MediaPlaybackBridge.currentTitle,
-                    MediaPlaybackBridge.currentArtist,
-                    MediaPlaybackBridge.currentArtworkUrl,
-                    MediaPlaybackBridge.currentPositionMs,
-                    MediaPlaybackBridge.currentDurationMs,
-                    true
-                )
-            }
-        } else if (!isSystemDialogOrChooserPending) {
-            tabManager.getActiveWebView()?.onPause()
+        if (!isPip && preferences.isBackgroundPlayEnabled && isPlayingAnyMedia) {
+            // Promote to a foreground service while still visible (Android 12+ FGS start rules).
+            MediaPlaybackService.start(
+                this,
+                MediaPlaybackBridge.currentTitle,
+                MediaPlaybackBridge.currentArtist,
+                MediaPlaybackBridge.currentArtworkUrl,
+                MediaPlaybackBridge.currentPositionMs,
+                MediaPlaybackBridge.currentDurationMs,
+                true
+            )
         }
     }
 
@@ -3470,6 +3453,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onStart() {
         super.onStart()
+        MediaPlaybackBridge.isAppInBackground = false
         registerNetworkRecoveryCallback()
         
         val activeTab = tabManager.activeTab.value
@@ -3533,26 +3517,42 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             MediaPlaybackService.stopNotificationOnly(this)
         }
 
+        // Still visible in PiP (e.g. screen turned off while in PiP): leave playback untouched.
+        if (isPip) return
+
+        MediaPlaybackBridge.isAppInBackground = true
         val isPlayingAnyMedia = MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isAudioOrVideoPlaying
-        if (!isPip && !MediaPlaybackBridge.isBackgroundPlayActive(preferences) && !isSystemDialogOrChooserPending) {
-            tabManager.getActiveWebView()?.onPause()
-        } else if (preferences.isBackgroundPlayEnabled && isPlayingAnyMedia) {
-            val mediaTabWv = getMediaTargetWebView() ?: tabManager.getActiveWebView()
+        val mediaTabWv = getMediaTargetWebView() ?: tabManager.getActiveWebView()
+
+        if (!justExitedPip && preferences.isBackgroundPlayEnabled && isPlayingAnyMedia) {
+            // Background play: keep the media tab fully running, suspend every other tab.
             tabManager.getAllWebViews().forEach { wv ->
-                if (wv != mediaTabWv && !isPip) {
+                if (wv == mediaTabWv) {
+                    wv.evaluateJavascript(MediaPlaybackManager.getSetBackgroundStateScript(true), null)
+                } else {
                     wv.onPause()
                 }
             }
             mediaTabWv?.resumeTimers()
+        } else if (!isSystemDialogOrChooserPending) {
+            // No background play: WebView.onPause() alone does not stop HTML5 audio, so pause explicitly.
+            if (isPlayingAnyMedia && !justExitedPip) {
+                mediaTabWv?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+            }
+            tabManager.getActiveWebView()?.onPause()
         }
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+        // On Android 12+ the system auto-enters PiP when setAutoEnterEnabled(true) is armed;
+        // calling enterPictureInPictureMode() again would double-trigger the transition.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            ::pipController.isInitialized && pipController.isAutoEnterArmed) return
         if (preferences.isPipEnabled && !justExitedPip && !isCurrentlyInPip) {
             val isPipMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
             if (!isPipMode && (customVideoView != null || MediaPlaybackBridge.isVideoPlaying)) {
-                // Auto-enter PiP on user navigation away (handles Android 8-11 and provides safety net for API 31+)
+                // Manual PiP entry for Android 8-11, and fallback on 12+ when auto-enter was not armed
                 if (::pipController.isInitialized) {
                     pipController.enterPipMode()
                 }
