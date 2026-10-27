@@ -128,11 +128,12 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
   - Lifecycle: `onPause()` never pauses media; `onStop()` keeps the media tab running (background play) or pauses media explicitly. Native auto-resume of non-user pauses runs only while stopped, skips calls, and is capped at 3 per 15s.
 
 - **Picture-in-Picture (PiP) Architecture & Auto-Enter (Brave Parity)**:
-  - Traverses Shadow DOM and composed ancestor trees to remove CSS transforms and clipping constraints, isolating active `<video>` elements non-destructively without hiding sibling DOM nodes.
-  - Dynamically arms `setAutoEnterEnabled(true)` on Android 12+ (API 31+) whenever video is playing in the foreground, enabling smooth gesture-navigation transitions into PiP without pause or flicker. Disables auto-enter immediately upon pause or video end.
-  - Leverages `onUserLeaveHint()` for Android 8-11 Auto-PiP transitions (and 12+ when auto-enter is not armed), guarded by user preferences and anti-loop debounce (`justExitedPip`).
-  - Coerces aspect ratio strictly within `[Rational(1, 2), Rational(2, 1)]` and shields all `setPictureInPictureParams()` calls against OEM IPC exceptions (`safeSetPictureInPictureParams`).
-  - Dynamically synchronizes RemoteAction play/pause icons on the floating PiP window in real-time as playback state changes.
+  - Isolates strictly the single active `[data-onyx-pip-video="true"]` `<video>` or player `<iframe>` across Light DOM, Shadow DOM, and cross-origin subframes (`__onyx_cmd: 'pip'`) via stylesheet-only rules (`#__onyx_pip_style`), dissolving ancestor stacking contexts and hiding non-ancestor sibling chrome via `visibility: hidden` without clobbering original inline styles or promoting secondary `<video>` / helper `<iframe>` nodes.
+  - Maps CSS `getBoundingClientRect()` coordinates (including subframe offsets) against `window.innerWidth` / `window.innerHeight` and physical `WebView` bounds for accurate `sourceRectHint` transitions across mobile and desktop viewports, ignoring PiP-sized bounds while inside PiP.
+  - Dynamically arms `setAutoEnterEnabled(true)` on Android 12+ (API 31+) strictly when video is playing on the active foreground tab (`isActiveTabVideoPlaying()`), and disarms immediately upon pause, tab switch, or internal child activity launch.
+  - Leverages `onUserLeaveHint()` for Android 8-11 Auto-PiP transitions (and 12+ fallback when `isAutoEnterArmed` is false), and resolves PiP exit deterministically via `pendingPipCloseCheck` (`onResume()` keeps playback running on Expand; `onStop()` while screen is interactive marks `isExplicitUserPause = true` and stops media on 'X' Close).
+  - Preserves `fullscreenControlsOverlay` inside `fullscreenCustomViewContainer` across repeated fullscreen sessions with 3.5s auto-hide and seamlessly hands off to isolated in-page PiP if Chromium invokes `onHideCustomView()` mid-PiP.
+  - Coerces aspect ratio strictly within `[Rational(1, 2), Rational(2, 1)]`, tracks live `<video>` `resize` dimension changes, shields all `setPictureInPictureParams()` calls via `safeSetPictureInPictureParams`, and synchronizes RemoteAction play/pause icons in real time.
 
 - **Lockscreen Playlist Autoplay Grace Gap**:
   - Implements a 2000ms debounce gap on track completion (`onMediaEnded`), preventing sudden teardown of foreground service notification and wake locks while media players buffer the subsequent track during locked-screen playlist sessions.

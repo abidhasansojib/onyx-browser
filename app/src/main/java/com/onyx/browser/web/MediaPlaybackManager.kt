@@ -113,6 +113,11 @@ object MediaPlaybackManager {
                             }
                             currentPipElem = self;
                             window.__onyx_current_pip_element = self;
+                            var pipW = self.videoWidth || self.clientWidth || 320;
+                            var pipH = self.videoHeight || self.clientHeight || 180;
+                            if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.onVideoPresenceChanged === 'function') {
+                                window.OnyxMediaBridge.onVideoPresenceChanged(true, self.currentSrc || self.src || '', pipW, pipH);
+                            }
                             reportVideoBounds(self);
 
                             var bridgeCalled = false;
@@ -125,8 +130,8 @@ object MediaPlaybackManager {
                                 try {
                                     window.top.postMessage({
                                         __onyx_cmd: 'pip_request',
-                                        width: self.videoWidth || self.clientWidth || 320,
-                                        height: self.videoHeight || self.clientHeight || 180,
+                                        width: pipW,
+                                        height: pipH,
                                         bridgeHandled: bridgeCalled,
                                         isUserGesture: isUserGesture
                                     }, '*');
@@ -186,19 +191,42 @@ object MediaPlaybackManager {
 
                 // ── 3. Video Bounds Tracking ────────────────────────────────────────
                 var lastReportedTime = 0;
-                var lastReportedVideoBounds = { left: 0, top: 0, right: 0, bottom: 0 };
+                var lastReportedVideoBounds = { left: 0, top: 0, right: 0, bottom: 0, vw: 0, vh: 0 };
 
                 function reportVideoBounds(elem) {
                     try {
-                        if (elem instanceof HTMLVideoElement && window.OnyxMediaBridge && typeof window.OnyxMediaBridge.onVideoBoundsChanged === 'function') {
-                            var r = elem.getBoundingClientRect();
-                            if (Math.abs(r.left - lastReportedVideoBounds.left) > 4 ||
-                                Math.abs(r.top - lastReportedVideoBounds.top) > 4 ||
-                                Math.abs(r.right - lastReportedVideoBounds.right) > 4 ||
-                                Math.abs(r.bottom - lastReportedVideoBounds.bottom) > 4) {
-                                lastReportedVideoBounds = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-                                window.OnyxMediaBridge.onVideoBoundsChanged(r.left, r.top, r.right, r.bottom);
+                        if (!(elem instanceof HTMLVideoElement)) return;
+                        var r = elem.getBoundingClientRect();
+                        if (r.width < 16 || r.height < 16) return;
+                        var vw = window.innerWidth || (document.documentElement ? document.documentElement.clientWidth : 0) || 0;
+                        var vh = window.innerHeight || (document.documentElement ? document.documentElement.clientHeight : 0) || 0;
+                        if (Math.abs(r.left - lastReportedVideoBounds.left) <= 3 &&
+                            Math.abs(r.top - lastReportedVideoBounds.top) <= 3 &&
+                            Math.abs(r.right - lastReportedVideoBounds.right) <= 3 &&
+                            Math.abs(r.bottom - lastReportedVideoBounds.bottom) <= 3 &&
+                            Math.abs(vw - lastReportedVideoBounds.vw) <= 3 &&
+                            Math.abs(vh - lastReportedVideoBounds.vh) <= 3) {
+                            return;
+                        }
+                        lastReportedVideoBounds = { left: r.left, top: r.top, right: r.right, bottom: r.bottom, vw: vw, vh: vh };
+                        if (window === window.top) {
+                            if (window.OnyxMediaBridge) {
+                                if (typeof window.OnyxMediaBridge.onVideoBoundsChangedWithViewport === 'function') {
+                                    window.OnyxMediaBridge.onVideoBoundsChangedWithViewport(r.left, r.top, r.right, r.bottom, vw, vh);
+                                } else if (typeof window.OnyxMediaBridge.onVideoBoundsChanged === 'function') {
+                                    window.OnyxMediaBridge.onVideoBoundsChanged(r.left, r.top, r.right, r.bottom);
+                                }
                             }
+                        } else if (window.parent && window.parent !== window) {
+                            window.parent.postMessage({
+                                __onyx_cmd: 'subframe_video_bounds',
+                                left: r.left,
+                                top: r.top,
+                                right: r.right,
+                                bottom: r.bottom,
+                                videoWidth: elem.videoWidth || 0,
+                                videoHeight: elem.videoHeight || 0
+                            }, '*');
                         }
                     } catch (_) {}
                 }
@@ -343,8 +371,24 @@ object MediaPlaybackManager {
 
                     elem.addEventListener('loadedmetadata', function() {
                         if (!elem.paused) reportMediaPlaying(elem);
-                        if (elem instanceof HTMLVideoElement) reportVideoBounds(elem);
+                        if (elem instanceof HTMLVideoElement) {
+                            if (elem.videoWidth > 0 && elem.videoHeight > 0 && window.OnyxMediaBridge && typeof window.OnyxMediaBridge.onVideoDimensionsChanged === 'function') {
+                                window.OnyxMediaBridge.onVideoDimensionsChanged(elem.videoWidth, elem.videoHeight);
+                            }
+                            reportVideoBounds(elem);
+                        }
                     }, true);
+
+                    if (elem instanceof HTMLVideoElement) {
+                        elem.addEventListener('resize', function() {
+                            if (elem.videoWidth > 0 && elem.videoHeight > 0 && isQualifyingMedia(elem)) {
+                                if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.onVideoDimensionsChanged === 'function') {
+                                    window.OnyxMediaBridge.onVideoDimensionsChanged(elem.videoWidth, elem.videoHeight);
+                                }
+                                reportVideoBounds(elem);
+                            }
+                        }, true);
+                    }
 
                     // Check if already playing when bound
                     if (!elem.paused && !elem.ended && isQualifyingMedia(elem)) {
@@ -556,10 +600,69 @@ object MediaPlaybackManager {
                                 else if (typeof v.requestFullscreen === 'function') v.requestFullscreen();
                             }
                         } else if (cmd === 'pip') {
-                            var vids = Array.from(document.querySelectorAll('video'));
-                            var v = vids.find(function(i) { return !i.paused && !i.ended; }) || vids[0];
+                            var vids = getAllMedia(document).filter(function(m) { return m instanceof HTMLVideoElement; });
+                            var v = vids.find(function(i) { return !i.paused && !i.ended; })
+                                 || vids.find(function(i) { return i.currentTime > 0; })
+                                 || vids[0];
                             if (v) {
-                                reportVideoBounds(v);
+                                // Clean previous subframe PiP markers if any
+                                var prevSt = document.getElementById('__onyx_pip_style');
+                                if (prevSt) prevSt.remove();
+                                document.querySelectorAll('[data-onyx-pip-video], [data-onyx-pip-ancestor]').forEach(function(el) {
+                                    el.removeAttribute('data-onyx-pip-video');
+                                    el.removeAttribute('data-onyx-pip-ancestor');
+                                });
+                                v.setAttribute('data-onyx-pip-video', 'true');
+                                var anc = v.parentElement || (v.getRootNode && v.getRootNode().host ? v.getRootNode().host : null);
+                                while (anc && anc !== document.documentElement) {
+                                    if (anc.setAttribute) anc.setAttribute('data-onyx-pip-ancestor', 'true');
+                                    anc = anc.parentElement || (anc.getRootNode && anc.getRootNode().host ? anc.getRootNode().host : null);
+                                }
+                                var subStyle = document.createElement('style');
+                                subStyle.id = '__onyx_pip_style';
+                                subStyle.textContent = [
+                                    'html, body { overflow: hidden !important; background: #000 !important; margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; }',
+                                    '[data-onyx-pip-ancestor="true"] { visibility: visible !important; opacity: 1 !important; transform: none !important; will-change: auto !important; contain: none !important; filter: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; clip-path: none !important; perspective: none !important; isolation: auto !important; overflow: visible !important; position: static !important; z-index: auto !important; }',
+                                    'body > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-video]):not(script):not(style):not(audio),',
+                                    '[data-onyx-pip-ancestor] > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-video]):not(script):not(style):not(audio):not(source):not(track) { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }',
+                                    '[data-onyx-pip-video="true"] { display: block !important; visibility: visible !important; opacity: 1 !important; position: fixed !important; inset: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; height: 100% !important; min-width: 100% !important; min-height: 100% !important; max-width: 100% !important; max-height: 100% !important; transform: none !important; object-fit: contain !important; object-position: center center !important; background: #000 !important; z-index: 2147483647 !important; border: none !important; margin: 0 !important; padding: 0 !important; pointer-events: none !important; }'
+                                ].join('\n');
+                                (document.head || document.documentElement).appendChild(subStyle);
+                            }
+                        } else if (cmd === 'subframe_video_bounds') {
+                            var srcFrame = Array.from(document.querySelectorAll('iframe')).find(function(f) {
+                                return f.contentWindow === e.source;
+                            });
+                            if (srcFrame) {
+                                var fr = srcFrame.getBoundingClientRect();
+                                var absLeft = fr.left + (e.data.left || 0);
+                                var absTop = fr.top + (e.data.top || 0);
+                                var absRight = Math.min(fr.right, fr.left + (e.data.right || fr.width));
+                                var absBottom = Math.min(fr.bottom, fr.top + (e.data.bottom || fr.height));
+                                if (window === window.top) {
+                                    var topVw = window.innerWidth || (document.documentElement ? document.documentElement.clientWidth : 0) || 0;
+                                    var topVh = window.innerHeight || (document.documentElement ? document.documentElement.clientHeight : 0) || 0;
+                                    if (window.OnyxMediaBridge) {
+                                        if (e.data.videoWidth > 0 && e.data.videoHeight > 0 && typeof window.OnyxMediaBridge.onVideoDimensionsChanged === 'function') {
+                                            window.OnyxMediaBridge.onVideoDimensionsChanged(e.data.videoWidth, e.data.videoHeight);
+                                        }
+                                        if (typeof window.OnyxMediaBridge.onVideoBoundsChangedWithViewport === 'function') {
+                                            window.OnyxMediaBridge.onVideoBoundsChangedWithViewport(absLeft, absTop, absRight, absBottom, topVw, topVh);
+                                        } else if (typeof window.OnyxMediaBridge.onVideoBoundsChanged === 'function') {
+                                            window.OnyxMediaBridge.onVideoBoundsChanged(absLeft, absTop, absRight, absBottom);
+                                        }
+                                    }
+                                } else if (window.parent && window.parent !== window) {
+                                    window.parent.postMessage({
+                                        __onyx_cmd: 'subframe_video_bounds',
+                                        left: absLeft,
+                                        top: absTop,
+                                        right: absRight,
+                                        bottom: absBottom,
+                                        videoWidth: e.data.videoWidth || 0,
+                                        videoHeight: e.data.videoHeight || 0
+                                    }, '*');
+                                }
                             }
                         } else if (cmd === 'pip_request') {
                             var matchingIframe = Array.from(document.querySelectorAll('iframe')).find(function(f) {
@@ -572,8 +675,17 @@ object MediaPlaybackManager {
                                 window.__onyx_current_pip_element = matchingIframe;
                                 try {
                                     var r = matchingIframe.getBoundingClientRect();
-                                    if (window.OnyxMediaBridge && typeof window.OnyxMediaBridge.onVideoBoundsChanged === 'function') {
-                                        window.OnyxMediaBridge.onVideoBoundsChanged(r.left, r.top, r.right, r.bottom);
+                                    var pVw = window.innerWidth || (document.documentElement ? document.documentElement.clientWidth : 0) || 0;
+                                    var pVh = window.innerHeight || (document.documentElement ? document.documentElement.clientHeight : 0) || 0;
+                                    if (window.OnyxMediaBridge) {
+                                        if (e.data.width > 0 && e.data.height > 0 && typeof window.OnyxMediaBridge.onVideoDimensionsChanged === 'function') {
+                                            window.OnyxMediaBridge.onVideoDimensionsChanged(e.data.width, e.data.height);
+                                        }
+                                        if (typeof window.OnyxMediaBridge.onVideoBoundsChangedWithViewport === 'function') {
+                                            window.OnyxMediaBridge.onVideoBoundsChangedWithViewport(r.left, r.top, r.right, r.bottom, pVw, pVh);
+                                        } else if (typeof window.OnyxMediaBridge.onVideoBoundsChanged === 'function') {
+                                            window.OnyxMediaBridge.onVideoBoundsChanged(r.left, r.top, r.right, r.bottom);
+                                        }
                                     }
                                 } catch (_) {}
                             }
@@ -581,16 +693,24 @@ object MediaPlaybackManager {
                                 window.OnyxMediaBridge.requestVideoPip();
                             }
                         } else if (cmd === 'pip_exit') {
+                            var exitStyle = document.getElementById('__onyx_pip_style');
+                            if (exitStyle) exitStyle.remove();
+                            document.querySelectorAll('[data-onyx-pip-video], [data-onyx-pip-ancestor], [data-onyx-pip-target]').forEach(function(el) {
+                                el.removeAttribute('data-onyx-pip-video');
+                                el.removeAttribute('data-onyx-pip-ancestor');
+                                el.removeAttribute('data-onyx-pip-target');
+                            });
                             if (currentPipElem) {
                                 var oldPip = currentPipElem;
                                 currentPipElem = null;
                                 try { oldPip.dispatchEvent(new Event('leavepictureinpicture', { bubbles: true })); } catch (_) {}
                             }
                             window.__onyx_current_pip_element = null;
+                            try { window.dispatchEvent(new Event('resize')); } catch (_) {}
                         }
 
-                        // Recursively forward to child iframes (except pip_request to avoid cascading triggers)
-                        if (cmd !== 'pip_request') {
+                        // Recursively forward downward commands to child iframes (never upward bounds/request events)
+                        if (cmd !== 'pip_request' && cmd !== 'subframe_video_bounds') {
                             document.querySelectorAll('iframe').forEach(function(f) {
                                 try { f.contentWindow.postMessage(e.data, '*'); } catch (_) {}
                             });
@@ -1257,16 +1377,14 @@ object MediaPlaybackManager {
      * 5. Forces the video to occupy 100vw x 100vh with black letterboxing (object-fit: contain) at z-index 2147483647.
      * 6. Hides YouTube overlay controls, watermark, header bars, and descriptions.
      */
-    val isolateVideoForPipScript: String = """
+    /**
+     * Non-mutating probe script that locates the active <video> or embedded player <iframe>
+     * and returns its aspect dimensions + viewport bounds prior to entering Picture-in-Picture,
+     * avoiding full-screen DOM flashes before Android begins the PiP window transition.
+     */
+    val probeVideoForPipScript: String = """
         (function() {
             try {
-                // 1. Check if a specific video or iframe was designated by requestPictureInPicture or postMessage
-                var activeVid = window.__onyx_current_pip_element;
-                if (activeVid && !document.contains(activeVid)) {
-                    activeVid = null;
-                }
-
-                // 2. Recursive search across light DOM and shadow roots
                 function findVideos(root) {
                     var list = [];
                     if (!root) return list;
@@ -1285,26 +1403,165 @@ object MediaPlaybackManager {
                     return list;
                 }
 
-                if (!activeVid) {
-                    var vids = findVideos(document);
-                    document.querySelectorAll('iframe').forEach(function(f) {
-                        try {
-                            if (f.contentDocument) {
-                                var subVids = findVideos(f.contentDocument);
-                                vids = vids.concat(subVids);
-                            }
-                        } catch (_) {}
-                    });
+                var activeEl = window.__onyx_current_pip_element;
+                if (activeEl && (!activeEl.isConnected || activeEl.ownerDocument !== document)) {
+                    activeEl = null;
+                }
 
-                    // Prioritize video elements: actively playing > recently played > has source > any video
-                    activeVid = vids.find(function(v) { return !v.paused && !v.ended; })
+                var intrinsicW = 0;
+                var intrinsicH = 0;
+
+                if (!activeEl) {
+                    var vids = findVideos(document);
+                    activeEl = vids.find(function(v) { return !v.paused && !v.ended && (v.videoWidth > 32 || v.clientWidth > 32); })
                         || vids.find(function(v) { return v.currentTime > 0; })
-                        || vids.find(function(v) { return (v.currentSrc || v.src); })
+                        || vids.find(function(v) { return !!(v.currentSrc || v.src || v.srcObject); })
                         || vids[0];
                 }
 
-                // 3. If no direct HTML5 video found (e.g. cross-origin iframe streaming player),
-                // score all candidate iframes to isolate the streaming player iframe!
+                if (!activeEl) {
+                    var iframes = Array.from(document.querySelectorAll('iframe'));
+                    for (var idx = 0; idx < iframes.length; idx++) {
+                        try {
+                            var subDoc = iframes[idx].contentDocument;
+                            if (subDoc) {
+                                var subVids = findVideos(subDoc);
+                                var sv = subVids.find(function(v) { return !v.paused && !v.ended; }) || subVids[0];
+                                if (sv) {
+                                    activeEl = iframes[idx];
+                                    intrinsicW = sv.videoWidth || sv.clientWidth || 0;
+                                    intrinsicH = sv.videoHeight || sv.clientHeight || 0;
+                                    break;
+                                }
+                            }
+                        } catch (_) {}
+                    }
+                }
+
+                if (!activeEl) {
+                    var candidateFrames = Array.from(document.querySelectorAll('iframe'));
+                    var scored = candidateFrames.map(function(f) {
+                        var score = 0;
+                        var src = (f.src || f.getAttribute('data-src') || f.getAttribute('data-url') || '').toLowerCase();
+                        var id = (f.id || '').toLowerCase();
+                        var cls = (f.className || '').toLowerCase();
+                        var allow = (f.getAttribute('allow') || '').toLowerCase();
+                        var hasFs = f.hasAttribute('allowfullscreen') || f.hasAttribute('webkitallowfullscreen') || f.hasAttribute('mozallowfullscreen');
+                        if (hasFs) score += 35;
+                        if (allow.includes('fullscreen')) score += 30;
+                        if (allow.includes('autoplay')) score += 15;
+                        ['embed', 'player', 'video', 'stream', 'watch', 'youtube', 'youtu.be', 'vimeo', 'twitch', 'dailymotion', 'bilibili', 'mp4', 'm3u8', 'hls', '/e/', '/v/'].forEach(function(p) {
+                            if (src.includes(p)) score += 20;
+                        });
+                        if (id.includes('player') || id.includes('video') || cls.includes('player') || cls.includes('video')) score += 25;
+                        try {
+                            var r = f.getBoundingClientRect();
+                            if (r.width * r.height > 25000) score += 30;
+                            if (r.width < 50 || r.height < 50) score -= 100;
+                        } catch (_) {}
+                        return { iframe: f, score: score };
+                    }).filter(function(item) { return item.score > 0; });
+                    scored.sort(function(a, b) { return b.score - a.score; });
+                    if (scored.length > 0) activeEl = scored[0].iframe;
+                }
+
+                if (!activeEl) {
+                    return JSON.stringify({ found: false });
+                }
+
+                var rect = activeEl.getBoundingClientRect();
+                var vw = window.innerWidth || (document.documentElement ? document.documentElement.clientWidth : 0) || 0;
+                var vh = window.innerHeight || (document.documentElement ? document.documentElement.clientHeight : 0) || 0;
+                var w = intrinsicW || activeEl.videoWidth || Math.round(rect.width) || activeEl.clientWidth || 16;
+                var h = intrinsicH || activeEl.videoHeight || Math.round(rect.height) || activeEl.clientHeight || 9;
+                return JSON.stringify({
+                    found: true,
+                    width: w,
+                    height: h,
+                    left: rect.left,
+                    top: rect.top,
+                    right: rect.right,
+                    bottom: rect.bottom,
+                    vw: vw,
+                    vh: vh
+                });
+            } catch (e) {
+                return JSON.stringify({ found: false, error: e.message });
+            }
+        })();
+    """.trimIndent()
+
+    /**
+     * Isolates ONLY the active <video> (or embedded player <iframe>) inside the PiP window:
+     * - Stylesheet-only ancestor & sibling isolation so pre-existing inline styles are never clobbered.
+     * - Tags strictly the single active media element with [data-onyx-pip-video="true"], preventing
+     *   hidden helper iframes or secondary preload <video> tags from painting solid black boxes over video.
+     * - Hides all sibling controls, headers, watermarks, and overlays via visibility/opacity so layout
+     *   geometry stays intact and player ResizeObservers never pause playback.
+     */
+    val isolateVideoForPipScript: String = """
+        (function() {
+            try {
+                function findVideos(root) {
+                    var list = [];
+                    if (!root) return list;
+                    try {
+                        var v = root.querySelectorAll('video');
+                        if (v) list = list.concat(Array.from(v));
+                    } catch (_) {}
+                    try {
+                        var all = root.querySelectorAll('*');
+                        for (var i = 0; i < all.length; i++) {
+                            if (all[i].shadowRoot) {
+                                list = list.concat(findVideos(all[i].shadowRoot));
+                            }
+                        }
+                    } catch (_) {}
+                    return list;
+                }
+
+                // 1. Check designated PiP element first (must belong to top document / shadow tree)
+                var activeVid = window.__onyx_current_pip_element;
+                if (activeVid && (!activeVid.isConnected || activeVid.ownerDocument !== document)) {
+                    activeVid = null;
+                }
+
+                var subVideoIntrinsicW = 0;
+                var subVideoIntrinsicH = 0;
+
+                // 2. Search top-document light DOM + Shadow DOM for HTML5 <video>
+                if (!activeVid) {
+                    var vids = findVideos(document);
+                    activeVid = vids.find(function(v) { return !v.paused && !v.ended && (v.videoWidth > 32 || v.clientWidth > 32); })
+                        || vids.find(function(v) { return !v.paused && !v.ended; })
+                        || vids.find(function(v) { return v.currentTime > 0 && (v.videoWidth > 32 || v.clientWidth > 32); })
+                        || vids.find(function(v) { return !!(v.currentSrc || v.src || v.srcObject); })
+                        || vids[0];
+                }
+
+                // 3. Check same-origin iframes: isolate the <iframe> in parent DOM and <video> inside iframe
+                if (!activeVid) {
+                    var sameOriginFrames = Array.from(document.querySelectorAll('iframe'));
+                    for (var sf = 0; sf < sameOriginFrames.length; sf++) {
+                        try {
+                            var subDoc = sameOriginFrames[sf].contentDocument;
+                            if (subDoc) {
+                                var subVids = findVideos(subDoc);
+                                var bestSub = subVids.find(function(v) { return !v.paused && !v.ended; })
+                                    || subVids.find(function(v) { return v.currentTime > 0; })
+                                    || subVids[0];
+                                if (bestSub) {
+                                    activeVid = sameOriginFrames[sf];
+                                    subVideoIntrinsicW = bestSub.videoWidth || bestSub.clientWidth || 0;
+                                    subVideoIntrinsicH = bestSub.videoHeight || bestSub.clientHeight || 0;
+                                    break;
+                                }
+                            }
+                        } catch (_) {}
+                    }
+                }
+
+                // 4. Score cross-origin streaming player iframes if no direct <video> exists
                 if (!activeVid) {
                     var iframes = Array.from(document.querySelectorAll('iframe'));
                     var scored = iframes.map(function(f) {
@@ -1357,45 +1614,72 @@ object MediaPlaybackManager {
                     }
                 }
 
-                // 4. Fallback to common player containers if activeVid still not set
-                if (!activeVid) {
-                    activeVid = document.querySelector('#movie_player, .html5-video-player, ytm-player, #player-container-id, #player, .video-js, .jwplayer, .plyr, .video-container');
-                }
-
                 if (!activeVid) {
                     return JSON.stringify({ found: false, width: 16, height: 9 });
                 }
 
+                // Clean any previous PiP markers/styles before re-applying (idempotent for playlist transitions)
                 var oldStyle = document.getElementById('__onyx_pip_style');
                 if (oldStyle) oldStyle.remove();
+                document.querySelectorAll('[data-onyx-pip-video], [data-onyx-pip-ancestor], [data-onyx-pip-target]').forEach(function(el) {
+                    el.removeAttribute('data-onyx-pip-video');
+                    el.removeAttribute('data-onyx-pip-ancestor');
+                    el.removeAttribute('data-onyx-pip-target');
+                });
+                if (Array.isArray(window.__onyx_pip_shadow_roots)) {
+                    window.__onyx_pip_shadow_roots.forEach(function(sr) {
+                        try {
+                            sr.querySelectorAll('.__onyx_pip_shadow_style').forEach(function(s) { s.remove(); });
+                            sr.querySelectorAll('[data-onyx-pip-video], [data-onyx-pip-ancestor]').forEach(function(el) {
+                                el.removeAttribute('data-onyx-pip-video');
+                                el.removeAttribute('data-onyx-pip-ancestor');
+                            });
+                        } catch (_) {}
+                    });
+                }
+                window.__onyx_pip_shadow_roots = [];
 
+                if (!window.__onyx_pre_pip_scroll) {
+                    window.__onyx_pre_pip_scroll = { x: window.scrollX || 0, y: window.scrollY || 0 };
+                }
                 window.scrollTo(0, 0);
 
-                var target = activeVid;
-                var closestPlayer = activeVid.closest ? (activeVid.closest('.html5-video-player') || activeVid.closest('ytm-player') || activeVid.closest('.video-js') || activeVid.closest('.jwplayer') || activeVid.closest('#player-container-id') || activeVid.closest('#player') || activeVid.closest('.video-container')) : null;
-                if (closestPlayer) target = closestPlayer;
+                // Tag ONLY the single active video/iframe element
+                activeVid.setAttribute('data-onyx-pip-video', 'true');
 
-                target.setAttribute('data-onyx-pip-target', 'true');
-                activeVid.setAttribute('data-onyx-pip-target', 'true');
+                var shadowCss = [
+                    ':host { visibility: visible !important; opacity: 1 !important; transform: none !important; contain: none !important; overflow: visible !important; }',
+                    '[data-onyx-pip-ancestor="true"] { visibility: visible !important; opacity: 1 !important; transform: none !important; will-change: auto !important; contain: none !important; content-visibility: visible !important; filter: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; clip-path: none !important; mask: none !important; -webkit-mask: none !important; perspective: none !important; isolation: auto !important; mix-blend-mode: normal !important; overflow: visible !important; position: static !important; z-index: auto !important; }',
+                    ':host > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-video]):not(script):not(style):not(audio):not(source):not(track),',
+                    '[data-onyx-pip-ancestor] > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-video]):not(script):not(style):not(audio):not(source):not(track) { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }',
+                    '[data-onyx-pip-video="true"] { display: block !important; visibility: visible !important; opacity: 1 !important; position: fixed !important; inset: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; height: 100% !important; min-width: 100% !important; min-height: 100% !important; max-width: 100% !important; max-height: 100% !important; transform: none !important; object-fit: contain !important; object-position: center center !important; background: #000000 !important; z-index: 2147483647 !important; margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; box-shadow: none !important; pointer-events: none !important; }'
+                ].join('\n');
 
-                // Tag every ancestor up to documentElement and remove constraints non-destructively
-                var cur = target;
+                function registerShadowRootIfNeeded(node) {
+                    try {
+                        var rn = node && node.getRootNode ? node.getRootNode() : null;
+                        if (rn && rn.host && window.__onyx_pip_shadow_roots.indexOf(rn) === -1) {
+                            window.__onyx_pip_shadow_roots.push(rn);
+                            var shStyle = document.createElement('style');
+                            shStyle.className = '__onyx_pip_shadow_style';
+                            shStyle.textContent = shadowCss;
+                            rn.appendChild(shStyle);
+                        }
+                    } catch (_) {}
+                }
+
+                registerShadowRootIfNeeded(activeVid);
+
+                var cur = activeVid.parentElement || (activeVid.getRootNode && activeVid.getRootNode().host ? activeVid.getRootNode().host : null);
                 while (cur && cur !== document.documentElement) {
                     if (cur.setAttribute) {
                         cur.setAttribute('data-onyx-pip-ancestor', 'true');
-                        cur.style.setProperty('transform', 'none', 'important');
-                        cur.style.setProperty('contain', 'none', 'important');
-                        cur.style.setProperty('filter', 'none', 'important');
-                        cur.style.setProperty('clip-path', 'none', 'important');
-                        cur.style.setProperty('perspective', 'none', 'important');
-                        cur.style.setProperty('overflow', 'visible', 'important');
-                        cur.style.setProperty('margin', '0', 'important');
-                        cur.style.setProperty('padding', '0', 'important');
                     }
-                    cur = cur.parentElement || (cur.parentNode && cur.parentNode.host ? cur.parentNode.host : cur.parentNode);
+                    registerShadowRootIfNeeded(cur);
+                    cur = cur.parentElement || (cur.getRootNode && cur.getRootNode().host ? cur.getRootNode().host : null);
                 }
 
-                // Also notify child iframes via postMessage
+                // Notify child iframes so embedded players also isolate their internal <video>
                 try {
                     var msg = { __onyx_cmd: 'pip' };
                     document.querySelectorAll('iframe').forEach(function(f) {
@@ -1405,64 +1689,74 @@ object MediaPlaybackManager {
 
                 var style = document.createElement('style');
                 style.id = '__onyx_pip_style';
-                style.textContent = `
-                    html, body {
-                        overflow: hidden !important;
-                        background: #000000 !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        width: 100vw !important;
-                        height: 100vh !important;
-                    }
-                    [data-onyx-pip-target] {
-                        display: block !important;
-                        position: fixed !important;
-                        top: 0 !important;
-                        left: 0 !important;
-                        width: 100vw !important;
-                        height: 100vh !important;
-                        max-width: 100vw !important;
-                        max-height: 100vh !important;
-                        z-index: 2147483647 !important;
-                        background: #000000 !important;
-                        object-fit: contain !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        border: none !important;
-                        box-shadow: none !important;
-                    }
-                    [data-onyx-pip-target] video,
-                    [data-onyx-pip-target] iframe {
-                        display: block !important;
-                        position: fixed !important;
-                        top: 0 !important;
-                        left: 0 !important;
-                        width: 100vw !important;
-                        height: 100vh !important;
-                        max-width: 100vw !important;
-                        max-height: 100vh !important;
-                        object-fit: contain !important;
-                        background: #000000 !important;
-                        z-index: 2147483647 !important;
-                        border: none !important;
-                    }
-                    ytm-mobile-topbar-renderer, ytm-pivot-bar-renderer, #header-bar,
-                    .ytp-chrome-top, .ytp-chrome-bottom, .ytp-gradient-top, .ytp-gradient-bottom,
-                    .ytp-watermark, .ytp-pause-overlay, ytm-player-control-overlay,
-                    .ytm-player-control-overlay, ytm-player-overlay-renderer,
-                    .video-annotations, .ytp-ce-element, .ytp-title,
-                    .vjs-control-bar, .jw-controls, .plyr__controls,
-                    header, nav, footer, aside, .header, .navbar, .related-items, #comments,
-                    ytm-comments-entry-point-header-renderer, ytm-item-section-renderer {
-                        display: none !important;
-                        opacity: 0 !important;
-                        pointer-events: none !important;
-                    }
-                `;
+                style.textContent = [
+                    'html, body {',
+                    '  overflow: hidden !important;',
+                    '  background: #000000 !important;',
+                    '  margin: 0 !important;',
+                    '  padding: 0 !important;',
+                    '  width: 100% !important;',
+                    '  height: 100% !important;',
+                    '}',
+                    '[data-onyx-pip-ancestor="true"] {',
+                    '  visibility: visible !important;',
+                    '  opacity: 1 !important;',
+                    '  transform: none !important;',
+                    '  will-change: auto !important;',
+                    '  contain: none !important;',
+                    '  content-visibility: visible !important;',
+                    '  filter: none !important;',
+                    '  backdrop-filter: none !important;',
+                    '  -webkit-backdrop-filter: none !important;',
+                    '  clip-path: none !important;',
+                    '  mask: none !important;',
+                    '  -webkit-mask: none !important;',
+                    '  perspective: none !important;',
+                    '  isolation: auto !important;',
+                    '  mix-blend-mode: normal !important;',
+                    '  overflow: visible !important;',
+                    '  position: static !important;',
+                    '  z-index: auto !important;',
+                    '}',
+                    'body > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-video]):not(script):not(style):not(audio),',
+                    '[data-onyx-pip-ancestor] > *:not([data-onyx-pip-ancestor]):not([data-onyx-pip-video]):not(script):not(style):not(audio):not(source):not(track) {',
+                    '  visibility: hidden !important;',
+                    '  opacity: 0 !important;',
+                    '  pointer-events: none !important;',
+                    '}',
+                    '[data-onyx-pip-video="true"] {',
+                    '  display: block !important;',
+                    '  visibility: visible !important;',
+                    '  opacity: 1 !important;',
+                    '  position: fixed !important;',
+                    '  inset: 0 !important;',
+                    '  top: 0 !important;',
+                    '  left: 0 !important;',
+                    '  right: 0 !important;',
+                    '  bottom: 0 !important;',
+                    '  width: 100% !important;',
+                    '  height: 100% !important;',
+                    '  min-width: 100% !important;',
+                    '  min-height: 100% !important;',
+                    '  max-width: 100% !important;',
+                    '  max-height: 100% !important;',
+                    '  transform: none !important;',
+                    '  object-fit: contain !important;',
+                    '  object-position: center center !important;',
+                    '  background: #000000 !important;',
+                    '  z-index: 2147483647 !important;',
+                    '  margin: 0 !important;',
+                    '  padding: 0 !important;',
+                    '  border: none !important;',
+                    '  outline: none !important;',
+                    '  box-shadow: none !important;',
+                    '  pointer-events: none !important;',
+                    '}'
+                ].join('\n');
                 (document.head || document.documentElement).appendChild(style);
 
-                var vidWidth = activeVid.videoWidth || activeVid.clientWidth || activeVid.offsetWidth || 16;
-                var vidHeight = activeVid.videoHeight || activeVid.clientHeight || activeVid.offsetHeight || 9;
+                var vidWidth = subVideoIntrinsicW || activeVid.videoWidth || activeVid.clientWidth || activeVid.offsetWidth || 16;
+                var vidHeight = subVideoIntrinsicH || activeVid.videoHeight || activeVid.clientHeight || activeVid.offsetHeight || 9;
                 return JSON.stringify({ found: true, width: vidWidth, height: vidHeight });
             } catch (e) {
                 return JSON.stringify({ found: false, error: e.message, width: 16, height: 9 });
@@ -1471,16 +1765,18 @@ object MediaPlaybackManager {
     """.trimIndent()
 
     /**
-     * Restores normal in-page layout when exiting PiP mode.
+     * Restores normal in-page layout when exiting PiP mode without clobbering original inline styles.
      */
     val restoreVideoFromPipScript: String = """
         (function() {
             try {
                 var style = document.getElementById('__onyx_pip_style');
+                var hasVideo = document.querySelector('[data-onyx-pip-video]');
                 var hasTarget = document.querySelector('[data-onyx-pip-target]');
                 var hasAncestor = document.querySelector('[data-onyx-pip-ancestor]');
+                var hasShadows = Array.isArray(window.__onyx_pip_shadow_roots) && window.__onyx_pip_shadow_roots.length > 0;
                 var hasPipElem = (typeof currentPipElem !== 'undefined' && currentPipElem) || window.__onyx_current_pip_element;
-                if (!style && !hasTarget && !hasAncestor && !hasPipElem) {
+                if (!style && !hasVideo && !hasTarget && !hasAncestor && !hasShadows && !hasPipElem) {
                     return; // PiP was not active; avoid dispatching unsolicited resize events to web apps
                 }
                 if (window.__onyx_current_pip_element) {
@@ -1502,50 +1798,30 @@ object MediaPlaybackManager {
                         try { f.contentWindow.postMessage(msg, '*'); } catch (_) {}
                     });
                 } catch (_) {}
-                var style = document.getElementById('__onyx_pip_style');
                 if (style) style.remove();
-                document.querySelectorAll('[data-onyx-pip-target]').forEach(function(el) {
-                    el.removeAttribute('data-onyx-pip-target');
-                    el.style.removeProperty('display');
-                    el.style.removeProperty('position');
-                    el.style.removeProperty('top');
-                    el.style.removeProperty('left');
-                    el.style.removeProperty('width');
-                    el.style.removeProperty('height');
-                    el.style.removeProperty('max-width');
-                    el.style.removeProperty('max-height');
-                    el.style.removeProperty('z-index');
-                    el.style.removeProperty('background');
-                    el.style.removeProperty('object-fit');
-                    el.style.removeProperty('margin');
-                    el.style.removeProperty('padding');
-                    el.style.removeProperty('border');
-                    el.style.removeProperty('box-shadow');
-                });
-                document.querySelectorAll('[data-onyx-pip-ancestor]').forEach(function(el) {
+                document.querySelectorAll('[data-onyx-pip-video], [data-onyx-pip-ancestor], [data-onyx-pip-target]').forEach(function(el) {
+                    el.removeAttribute('data-onyx-pip-video');
                     el.removeAttribute('data-onyx-pip-ancestor');
-                    el.style.removeProperty('transform');
-                    el.style.removeProperty('contain');
-                    el.style.removeProperty('filter');
-                    el.style.removeProperty('clip-path');
-                    el.style.removeProperty('perspective');
-                    el.style.removeProperty('overflow');
-                    el.style.removeProperty('margin');
-                    el.style.removeProperty('padding');
+                    el.removeAttribute('data-onyx-pip-target');
                 });
-                if (document.documentElement) {
-                    document.documentElement.style.removeProperty('overflow');
-                    document.documentElement.style.removeProperty('background');
-                    document.documentElement.style.removeProperty('width');
-                    document.documentElement.style.removeProperty('height');
+                if (Array.isArray(window.__onyx_pip_shadow_roots)) {
+                    window.__onyx_pip_shadow_roots.forEach(function(sr) {
+                        try {
+                            sr.querySelectorAll('.__onyx_pip_shadow_style').forEach(function(s) { s.remove(); });
+                            sr.querySelectorAll('[data-onyx-pip-video], [data-onyx-pip-ancestor]').forEach(function(el) {
+                                el.removeAttribute('data-onyx-pip-video');
+                                el.removeAttribute('data-onyx-pip-ancestor');
+                            });
+                        } catch (_) {}
+                    });
+                    window.__onyx_pip_shadow_roots = [];
                 }
-                if (document.body) {
-                    document.body.style.removeProperty('overflow');
-                    document.body.style.removeProperty('background');
-                    document.body.style.removeProperty('width');
-                    document.body.style.removeProperty('height');
+                if (window.__onyx_pre_pip_scroll) {
+                    var savedScroll = window.__onyx_pre_pip_scroll;
+                    window.__onyx_pre_pip_scroll = null;
+                    try { window.scrollTo(savedScroll.x || 0, savedScroll.y || 0); } catch (_) {}
                 }
-                // Trigger resize so streaming players adapt immediately to portrait dimensions
+                // Trigger resize so streaming players adapt immediately to full browser dimensions
                 try {
                     window.dispatchEvent(new Event('resize'));
                     document.querySelectorAll('iframe').forEach(function(f) {

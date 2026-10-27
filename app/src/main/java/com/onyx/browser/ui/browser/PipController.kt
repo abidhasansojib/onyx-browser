@@ -11,12 +11,17 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.graphics.Color
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Rational
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.WebChromeClient
 import android.widget.FrameLayout
@@ -52,7 +57,13 @@ class PipController(
         const val ACTION_PIP_PLAY_PAUSE = "com.onyx.browser.action.PIP_PLAY_PAUSE"
         const val ACTION_PIP_REWIND = "com.onyx.browser.action.PIP_REWIND"
         const val ACTION_PIP_FORWARD = "com.onyx.browser.action.PIP_FORWARD"
+        private const val PIP_EXIT_DEBOUNCE_MS = 600L
+        private const val FULLSCREEN_OVERLAY_AUTO_HIDE_MS = 3500L
     }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var exitGraceRunnable: Runnable? = null
+    private var fullscreenOverlayHideRunnable: Runnable? = null
 
     var customVideoView: View? = null
         private set
@@ -62,7 +73,16 @@ class PipController(
     val isFullscreenVideoActive: Boolean
         get() = customVideoView != null
 
+    /** Short debounce after exiting PiP to ignore bounce re-entry / unsolicited JS PiP calls. */
     var justExitedPip: Boolean = false
+
+    /**
+     * Set true when onPictureInPictureModeChanged(false) fires.
+     * - Cleared in onActivityResumed() when the user expands PiP back into the browser.
+     * - Consumed in MainActivity.onStop() when the user dismisses PiP via the 'X' close button.
+     */
+    var pendingPipCloseCheck: Boolean = false
+        private set
 
     var isCurrentlyInPip: Boolean
         get() = MediaPlaybackBridge.isCurrentlyInPip
@@ -71,6 +91,46 @@ class PipController(
         }
 
     private var isReceiverRegistered = false
+
+    fun isInPip(): Boolean {
+        return isCurrentlyInPip ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode)
+    }
+
+    /**
+     * Returns true strictly when video (not audio-only) is actively playing on the currently
+     * displayed foreground tab, or when a fullscreen custom video view is active.
+     */
+    fun isActiveTabVideoPlaying(): Boolean {
+        if (isFullscreenVideoActive) return true
+        if (!MediaPlaybackBridge.isVideoPlaying) return false
+        val activeWv = getActiveWebView() ?: return false
+        val playingWv = MediaPlaybackBridge.currentPlayingWebView?.get()
+        val playingTabId = MediaPlaybackBridge.currentPlayingTabId
+        return (playingWv != null && playingWv === activeWv) ||
+            (!playingTabId.isNullOrBlank() && playingTabId == activeWv.tabId)
+    }
+
+    fun onActivityResumed() {
+        pendingPipCloseCheck = false
+    }
+
+    fun consumePendingPipClose(): Boolean {
+        val wasPending = pendingPipCloseCheck
+        pendingPipCloseCheck = false
+        return wasPending
+    }
+
+    fun disarmAutoEnter() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isAutoEnterArmed && !isInPip()) {
+            isAutoEnterArmed = false
+            safeSetPictureInPictureParams(
+                PictureInPictureParams.Builder()
+                    .setAutoEnterEnabled(false)
+                    .build()
+            )
+        }
+    }
 
     private val pipReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -90,7 +150,7 @@ class PipController(
                     } else {
                         targetWv?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
                     }
-                    updatePipParams(isVideoPlaying = newPlayingState)
+                    updatePipParams(isVideoPlaying = newPlayingState, shouldAutoEnter = false)
                     if (com.onyx.browser.media.MediaPlaybackService.isServiceRunning) {
                         com.onyx.browser.media.MediaPlaybackService.updateState(activity, newPlayingState)
                     }
@@ -121,11 +181,64 @@ class PipController(
     }
 
     fun unregisterReceiver() {
+        exitGraceRunnable?.let { mainHandler.removeCallbacks(it) }
+        exitGraceRunnable = null
+        cancelFullscreenOverlayAutoHide()
         if (!isReceiverRegistered) return
         try {
             activity.unregisterReceiver(pipReceiver)
         } catch (_: Exception) {}
         isReceiverRegistered = false
+    }
+
+    private fun cancelFullscreenOverlayAutoHide() {
+        fullscreenOverlayHideRunnable?.let { mainHandler.removeCallbacks(it) }
+        fullscreenOverlayHideRunnable = null
+        binding.fullscreenControlsOverlay.animate().cancel()
+        binding.fullscreenControlsOverlay.alpha = 1f
+    }
+
+    private fun scheduleFullscreenOverlayAutoHide() {
+        fullscreenOverlayHideRunnable?.let { mainHandler.removeCallbacks(it) }
+        val runnable = Runnable {
+            if (customVideoView != null && !isInPip()) {
+                binding.fullscreenControlsOverlay.animate()
+                    .alpha(0f)
+                    .setDuration(200L)
+                    .withEndAction {
+                        binding.fullscreenControlsOverlay.visibility = View.GONE
+                        binding.fullscreenControlsOverlay.alpha = 1f
+                    }
+                    .start()
+            }
+        }
+        fullscreenOverlayHideRunnable = runnable
+        mainHandler.postDelayed(runnable, FULLSCREEN_OVERLAY_AUTO_HIDE_MS)
+    }
+
+    fun onFullscreenUserInteraction() {
+        if (customVideoView == null || isInPip()) return
+        cancelFullscreenOverlayAutoHide()
+        binding.fullscreenControlsOverlay.visibility = View.VISIBLE
+        binding.fullscreenControlsOverlay.bringToFront()
+        binding.fullscreenCustomViewContainer.bringChildToFront(binding.fullscreenControlsOverlay)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            binding.fullscreenControlsOverlay.translationZ = 100f
+        }
+        scheduleFullscreenOverlayAutoHide()
+    }
+
+    private fun removeCustomVideoViewsOnly() {
+        customVideoView?.let { view ->
+            (view.parent as? ViewGroup)?.removeView(view)
+        }
+        // Remove any stray dynamic child views while strictly preserving fullscreenControlsOverlay
+        for (i in binding.fullscreenCustomViewContainer.childCount - 1 downTo 0) {
+            val child = binding.fullscreenCustomViewContainer.getChildAt(i)
+            if (child !== binding.fullscreenControlsOverlay) {
+                binding.fullscreenCustomViewContainer.removeViewAt(i)
+            }
+        }
     }
 
     fun showCustomFullscreenVideo(view: View, callback: WebChromeClient.CustomViewCallback) {
@@ -134,6 +247,7 @@ class PipController(
             return
         }
 
+        removeCustomVideoViewsOnly()
         customVideoView = view
         customViewCallback = callback
 
@@ -144,6 +258,7 @@ class PipController(
         }
 
         // Insert at index 0 so fullscreenControlsOverlay stays on top
+        (view.parent as? ViewGroup)?.removeView(view)
         binding.fullscreenCustomViewContainer.addView(
             view,
             0,
@@ -153,12 +268,6 @@ class PipController(
             )
         )
         binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
-        binding.fullscreenControlsOverlay.visibility = View.VISIBLE
-        binding.fullscreenControlsOverlay.bringToFront()
-        binding.fullscreenCustomViewContainer.bringChildToFront(binding.fullscreenControlsOverlay)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            binding.fullscreenControlsOverlay.translationZ = 100f
-        }
 
         binding.btnFullscreenPip.setOnClickListener {
             enterPipMode()
@@ -167,15 +276,24 @@ class PipController(
             hideCustomFullscreenVideo()
         }
 
+        if (!isInPip()) {
+            onFullscreenUserInteraction()
+        } else {
+            binding.fullscreenControlsOverlay.visibility = View.GONE
+        }
+
         updatePipParams(isVideoPlaying = true, shouldAutoEnter = true)
+        view.post {
+            if (customVideoView === view && !isInPip()) {
+                updatePipParams(isVideoPlaying = true, shouldAutoEnter = true)
+            }
+        }
     }
 
     fun hideCustomFullscreenVideo() {
+        cancelFullscreenOverlayAutoHide()
         binding.fullscreenControlsOverlay.visibility = View.GONE
-        if (customVideoView != null) {
-            binding.fullscreenCustomViewContainer.removeView(customVideoView)
-        }
-        binding.fullscreenCustomViewContainer.removeAllViews()
+        removeCustomVideoViewsOnly()
         binding.fullscreenCustomViewContainer.visibility = View.GONE
         customVideoView = null
         try {
@@ -183,20 +301,32 @@ class PipController(
         } catch (_: Exception) {}
         customViewCallback = null
 
-        // Guarantee browser chrome and web content container are restored to visible portrait state
+        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+
+        // If Chromium exited element fullscreen while the Activity is still inside PiP,
+        // seamlessly hand off the PiP window to the isolated in-page <video> without restoring browser UI.
+        if (isInPip()) {
+            onHideUiForPip()
+            binding.webViewContainer.visibility = View.VISIBLE
+            binding.webViewContainer.setBackgroundColor(Color.BLACK)
+            getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript, null)
+            return
+        }
+
+        // Guarantee browser chrome and web content container are restored to visible normal state
         binding.topBar.visibility = View.VISIBLE
         binding.topBarDivider.visibility = View.VISIBLE
         binding.webViewContainer.visibility = View.VISIBLE
-        binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        binding.webViewContainer.setBackgroundColor(Color.TRANSPARENT)
         onRestoreUiFromPip(false)
 
         val activeWv = getActiveWebView()
         activeWv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
         activeWv?.requestLayout()
 
-        updatePipParams(isVideoPlaying = false, shouldAutoEnter = false)
+        val inlineStillPlaying = isActiveTabVideoPlaying()
+        updatePipParams(isVideoPlaying = inlineStillPlaying, shouldAutoEnter = inlineStillPlaying)
 
-        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         WindowInsetsControllerCompat(activity.window, activity.window.decorView).show(WindowInsetsCompat.Type.systemBars())
         binding.topBar.requestLayout()
         binding.webViewContainer.requestLayout()
@@ -296,53 +426,68 @@ class PipController(
         }
     }
 
+    private fun computeVideoSourceRect(): Rect? {
+        if (customVideoView != null) {
+            val rect = Rect()
+            val visible = customVideoView?.getGlobalVisibleRect(rect) == true
+            return if (visible && rect.width() > 24 && rect.height() > 24) rect else null
+        }
+
+        val bounds: RectF = MediaPlaybackBridge.lastVideoBounds ?: return null
+        val activeWv = getActiveWebView() ?: return null
+        if (activeWv.width <= 0 || activeWv.height <= 0) return null
+
+        val location = IntArray(2)
+        activeWv.getLocationInWindow(location)
+        val density = activity.resources.displayMetrics.density
+        val vpW = MediaPlaybackBridge.lastViewportWidth
+        val vpH = MediaPlaybackBridge.lastViewportHeight
+        val scaleX = if (vpW > 0f) activeWv.width.toFloat() / vpW else density
+        val scaleY = if (vpH > 0f) activeWv.height.toFloat() / vpH else density
+
+        val screenW = activity.resources.displayMetrics.widthPixels
+        val screenH = activity.resources.displayMetrics.heightPixels
+        val wvLeft = location[0].coerceIn(0, screenW)
+        val wvTop = location[1].coerceIn(0, screenH)
+        val wvRight = (location[0] + activeWv.width).coerceIn(wvLeft, screenW)
+        val wvBottom = (location[1] + activeWv.height).coerceIn(wvTop, screenH)
+
+        val left = (location[0] + bounds.left * scaleX).toInt().coerceIn(wvLeft, wvRight)
+        val top = (location[1] + bounds.top * scaleY).toInt().coerceIn(wvTop, wvBottom)
+        val right = (location[0] + bounds.right * scaleX).toInt().coerceIn(wvLeft, wvRight)
+        val bottom = (location[1] + bounds.bottom * scaleY).toInt().coerceIn(wvTop, wvBottom)
+
+        val rect = Rect(left, top, right, bottom)
+        return if (rect.width() > 24 && rect.height() > 24) rect else null
+    }
+
     /** True while Android 12+ setAutoEnterEnabled(true) is armed on the activity. */
     var isAutoEnterArmed: Boolean = false
         private set
 
     fun updatePipParams(
-        isVideoPlaying: Boolean = MediaPlaybackBridge.isMediaPlaying,
+        isVideoPlaying: Boolean = isActiveTabVideoPlaying(),
         width: Int = MediaPlaybackBridge.lastVideoWidth,
         height: Int = MediaPlaybackBridge.lastVideoHeight,
         shouldAutoEnter: Boolean = isVideoPlaying
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
+                val inPip = isInPip()
+                val activeTabPlaying = isActiveTabVideoPlaying()
+                val isPlayingForActions = if (inPip) MediaPlaybackBridge.isMediaPlaying else (isVideoPlaying && activeTabPlaying)
+
                 val safeW = if (width > 0) width else 16
                 val safeH = if (height > 0) height else 9
                 val rational = Rational(safeW, safeH)
                     .coerceIn(Rational(1, 2), Rational(2, 1))
                 val builder = PictureInPictureParams.Builder()
                     .setAspectRatio(rational)
-                    .setActions(buildPipActions(isVideoPlaying))
+                    .setActions(buildPipActions(isPlayingForActions))
 
-                // Video-only PiP: crop strictly to the video viewport using sourceRectHint
-                if (customVideoView != null) {
-                    val rect = Rect()
-                    customVideoView?.getGlobalVisibleRect(rect)
-                    if (!rect.isEmpty) {
+                if (!inPip && activeTabPlaying) {
+                    computeVideoSourceRect()?.let { rect ->
                         builder.setSourceRectHint(rect)
-                    }
-                } else {
-                    val bounds = MediaPlaybackBridge.lastVideoBounds
-                    val activeWv = getActiveWebView()
-                    if (bounds != null && activeWv != null && isVideoPlaying) {
-                        val location = IntArray(2)
-                        activeWv.getLocationInWindow(location)
-                        val density = activity.resources.displayMetrics.density
-                        val left = (location[0] + bounds.left * density).toInt()
-                        val top = (location[1] + bounds.top * density).toInt()
-                        val right = (location[0] + bounds.right * density).toInt()
-                        val bottom = (location[1] + bounds.bottom * density).toInt()
-                        val rect = Rect(
-                            left.coerceAtLeast(0),
-                            top.coerceAtLeast(0),
-                            right.coerceAtMost(activity.resources.displayMetrics.widthPixels),
-                            bottom.coerceAtMost(activity.resources.displayMetrics.heightPixels)
-                        )
-                        if (rect.width() > 20 && rect.height() > 20) {
-                            builder.setSourceRectHint(rect)
-                        }
                     }
                 }
 
@@ -353,9 +498,10 @@ class PipController(
                     } else {
                         true
                     }
-                    canAutoEnter = shouldAutoEnter &&
+                    canAutoEnter = !inPip &&
+                        shouldAutoEnter &&
                         preferences.isPipEnabled &&
-                        (isVideoPlaying || isFullscreenVideoActive) &&
+                        activeTabPlaying &&
                         !justExitedPip &&
                         !activity.isFinishing &&
                         isForeground &&
@@ -372,8 +518,7 @@ class PipController(
 
     fun requestInPageVideoPip() {
         if (!preferences.isPipEnabled) return
-        val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode)
-        if (inPip || justExitedPip) return
+        if (isInPip() || justExitedPip) return
         if (customVideoView != null) {
             enterPipMode()
             return
@@ -383,53 +528,76 @@ class PipController(
             Toast.makeText(activity, "No active webpage to extract video", Toast.LENGTH_SHORT).show()
             return
         }
-        isolateAndEnterPip(activeWv)
-    }
 
-    private fun isolateAndEnterPip(activeWv: OnyxWebView) {
-        val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode)
-        if (inPip || justExitedPip) return
-        activeWv.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript) { res ->
-            val inPipNow = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode)
-            if (inPipNow || justExitedPip) return@evaluateJavascript
-            val hasVideo = res?.contains("\"found\":true") == true || res?.contains("\"found\": true") == true
-            if (hasVideo) {
-                try {
-                    val unescaped = res?.trim('"', '\'')?.replace("\\\"", "\"") ?: "{}"
-                    val jsonObj = JSONObject(unescaped)
+        // Probe active video dimensions & viewport bounds without mutating DOM before PiP transition
+        activeWv.evaluateJavascript(MediaPlaybackManager.probeVideoForPipScript) { res ->
+            if (isInPip() || justExitedPip) return@evaluateJavascript
+            var found = false
+            try {
+                val raw = res?.trim() ?: ""
+                val unescaped = if (raw.startsWith("\"") && raw.endsWith("\"") && raw.length >= 2) {
+                    org.json.JSONTokener(raw).nextValue().toString()
+                } else {
+                    raw
+                }
+                val jsonObj = JSONObject(unescaped)
+                found = jsonObj.optBoolean("found", false)
+                if (found) {
                     val vw = jsonObj.optInt("width", 0)
                     val vh = jsonObj.optInt("height", 0)
                     if (vw > 0 && vh > 0) {
                         MediaPlaybackBridge.lastVideoWidth = vw
                         MediaPlaybackBridge.lastVideoHeight = vh
                     }
-                } catch (_: Exception) {}
-                activeWv.postDelayed({
-                    val inPipLater = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode)
-                    if (!justExitedPip && !inPipLater) {
-                        enterPipMode()
+                    val left = jsonObj.optDouble("left", 0.0).toFloat()
+                    val top = jsonObj.optDouble("top", 0.0).toFloat()
+                    val right = jsonObj.optDouble("right", 0.0).toFloat()
+                    val bottom = jsonObj.optDouble("bottom", 0.0).toFloat()
+                    val viewportW = jsonObj.optDouble("vw", 0.0).toFloat()
+                    val viewportH = jsonObj.optDouble("vh", 0.0).toFloat()
+                    if (right - left >= 16f && bottom - top >= 16f) {
+                        MediaPlaybackBridge.lastVideoBounds = RectF(left, top, right, bottom)
+                        if (viewportW > 0f && viewportH > 0f) {
+                            MediaPlaybackBridge.lastViewportWidth = viewportW
+                            MediaPlaybackBridge.lastViewportHeight = viewportH
+                        }
                     }
-                }, 100)
-            } else if (MediaPlaybackBridge.isVideoAvailable || MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isVideoPresent) {
-                activeWv.postDelayed({
-                    val inPipLater = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode)
-                    if (!justExitedPip && !inPipLater) {
-                        enterPipMode()
-                    }
-                }, 50)
+                }
+            } catch (_: Exception) {
+                found = res?.contains("\"found\":true") == true || res?.contains("\"found\": true") == true
+            }
+
+            if (found || MediaPlaybackBridge.isVideoAvailableForTab(activeWv.tabId)) {
+                enterPipMode()
             } else {
                 Toast.makeText(activity, "No active video found to enter Picture-in-Picture", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
+    private fun applyPipUiState() {
+        cancelFullscreenOverlayAutoHide()
+        binding.fullscreenControlsOverlay.visibility = View.GONE
+        onHideUiForPip()
+
+        if (customVideoView != null) {
+            binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
+            binding.webViewContainer.visibility = View.GONE
+        } else {
+            binding.fullscreenCustomViewContainer.visibility = View.GONE
+            binding.webViewContainer.visibility = View.VISIBLE
+            binding.webViewContainer.setBackgroundColor(Color.BLACK)
+            getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript, null)
+        }
+        activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
     fun enterPipMode() {
         if (!preferences.isPipEnabled) return
-        val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode)
-        if (inPip || justExitedPip) return
+        if (isInPip() || justExitedPip) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
-                if (activity is LifecycleOwner && !activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                if (activity is LifecycleOwner && !activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
                     return
                 }
                 if (!isPipAllowedBySystem()) {
@@ -440,13 +608,16 @@ class PipController(
                     } catch (_: Exception) {
                         activity.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${activity.packageName}")))
                     }
-                    binding.topBar.visibility = View.VISIBLE
-                    binding.topBarDivider.visibility = View.VISIBLE
-                    if (customVideoView == null) {
-                        getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
-                    }
                     return
                 }
+
+                exitGraceRunnable?.let { mainHandler.removeCallbacks(it) }
+                exitGraceRunnable = null
+                pendingPipCloseCheck = false
+
+                // Hide fullscreen overlay pill prior to PiP window snapshot
+                cancelFullscreenOverlayAutoHide()
+                binding.fullscreenControlsOverlay.visibility = View.GONE
 
                 val w = MediaPlaybackBridge.lastVideoWidth.coerceAtLeast(1)
                 val h = MediaPlaybackBridge.lastVideoHeight.coerceAtLeast(1)
@@ -456,32 +627,8 @@ class PipController(
                     .setAspectRatio(rational)
                     .setActions(buildPipActions())
 
-                if (customVideoView != null) {
-                    val rect = Rect()
-                    customVideoView?.getGlobalVisibleRect(rect)
-                    if (!rect.isEmpty) {
-                        paramsBuilder.setSourceRectHint(rect)
-                    }
-                } else {
-                    onHideUiForPip()
-
-                    val screenW = activity.resources.displayMetrics.widthPixels
-                    val screenH = activity.resources.displayMetrics.heightPixels
-                    val videoRect: Rect
-                    if (screenW.toFloat() / screenH.toFloat() > w.toFloat() / h.toFloat()) {
-                        val videoH = screenH
-                        val videoW = ((screenH.toFloat() * w.toFloat()) / h.toFloat()).toInt().coerceAtMost(screenW)
-                        val left = (screenW - videoW) / 2
-                        videoRect = Rect(left, 0, left + videoW, screenH)
-                    } else {
-                        val videoW = screenW
-                        val videoH = ((screenW.toFloat() * h.toFloat()) / w.toFloat()).toInt().coerceAtMost(screenH)
-                        val top = (screenH - videoH) / 2
-                        videoRect = Rect(0, top, screenW, top + videoH)
-                    }
-                    if (videoRect.width() > 20 && videoRect.height() > 20) {
-                        paramsBuilder.setSourceRectHint(videoRect)
-                    }
+                computeVideoSourceRect()?.let { rect ->
+                    paramsBuilder.setSourceRectHint(rect)
                 }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -491,24 +638,21 @@ class PipController(
 
                 isCurrentlyInPip = true
                 val entered = activity.enterPictureInPictureMode(paramsBuilder.build())
-                if (!entered) {
+                if (entered) {
+                    applyPipUiState()
+                } else {
                     isCurrentlyInPip = false
-                    binding.topBar.visibility = View.VISIBLE
-                    binding.topBarDivider.visibility = View.VISIBLE
-                    if (customVideoView == null) {
-                        getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+                    if (customVideoView != null) {
+                        onFullscreenUserInteraction()
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isCurrentlyInPip = false
-                if (customVideoView == null) {
-                    getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
+                if (customVideoView != null) {
+                    onFullscreenUserInteraction()
                 }
             }
         } else {
-            if (customVideoView == null) {
-                getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
-            }
             Toast.makeText(activity, "Picture-in-Picture requires Android 8.0+", Toast.LENGTH_SHORT).show()
         }
     }
@@ -517,30 +661,31 @@ class PipController(
         val activeWv = getActiveWebView()
         isCurrentlyInPip = isInPictureInPictureMode
         if (isInPictureInPictureMode) {
-            onHideUiForPip()
+            exitGraceRunnable?.let { mainHandler.removeCallbacks(it) }
+            exitGraceRunnable = null
+            justExitedPip = false
+            pendingPipCloseCheck = false
+            isAutoEnterArmed = false
 
-            if (customVideoView != null) {
-                binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
-                binding.webViewContainer.visibility = View.GONE
-            } else {
-                binding.fullscreenCustomViewContainer.visibility = View.GONE
-                binding.webViewContainer.visibility = View.VISIBLE
-                binding.webViewContainer.setBackgroundColor(android.graphics.Color.BLACK)
-                activeWv?.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript, null)
-            }
-            activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            applyPipUiState()
+            updatePipParams(isVideoPlaying = MediaPlaybackBridge.isMediaPlaying, shouldAutoEnter = false)
         } else {
             isCurrentlyInPip = false
+            pendingPipCloseCheck = true
             if (MediaPlaybackBridge.isMediaPlaying) {
                 MediaPlaybackBridge.isExplicitUserPause = false
             }
+
             justExitedPip = true
-            binding.root.postDelayed({
+            exitGraceRunnable?.let { mainHandler.removeCallbacks(it) }
+            val runnable = Runnable {
                 justExitedPip = false
-                if (MediaPlaybackBridge.isVideoPlaying || isFullscreenVideoActive) {
+                if (!isInPip() && isActiveTabVideoPlaying()) {
                     updatePipParams(isVideoPlaying = true, shouldAutoEnter = true)
                 }
-            }, 3000)
+            }
+            exitGraceRunnable = runnable
+            mainHandler.postDelayed(runnable, PIP_EXIT_DEBOUNCE_MS)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 safeSetPictureInPictureParams(
@@ -551,28 +696,29 @@ class PipController(
                 isAutoEnterArmed = false
             }
 
-            if (!MediaPlaybackBridge.isVideoPlaying) {
+            if (!MediaPlaybackBridge.isVideoPlaying && customVideoView == null) {
                 activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
-            binding.topBar.visibility = View.VISIBLE
-            binding.topBarDivider.visibility = View.VISIBLE
-            binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-
-            onRestoreUiFromPip(customVideoView != null)
 
             if (customVideoView != null) {
-                binding.fullscreenControlsOverlay.visibility = View.VISIBLE
-                binding.fullscreenControlsOverlay.bringToFront()
-                binding.fullscreenCustomViewContainer.bringChildToFront(binding.fullscreenControlsOverlay)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    binding.fullscreenControlsOverlay.translationZ = 100f
-                }
+                binding.topBar.visibility = View.GONE
+                binding.topBarDivider.visibility = View.GONE
                 binding.fullscreenCustomViewContainer.visibility = View.VISIBLE
                 binding.webViewContainer.visibility = View.GONE
+                WindowCompat.getInsetsController(activity.window, activity.window.decorView).apply {
+                    hide(WindowInsetsCompat.Type.systemBars())
+                    systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                }
+                onRestoreUiFromPip(true)
+                onFullscreenUserInteraction()
             } else {
                 binding.fullscreenCustomViewContainer.visibility = View.GONE
                 binding.fullscreenControlsOverlay.visibility = View.GONE
+                binding.topBar.visibility = View.VISIBLE
+                binding.topBarDivider.visibility = View.VISIBLE
+                binding.webViewContainer.setBackgroundColor(Color.TRANSPARENT)
                 binding.webViewContainer.visibility = View.VISIBLE
+                onRestoreUiFromPip(false)
                 activeWv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
                 activeWv?.requestLayout()
             }

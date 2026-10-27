@@ -478,34 +478,33 @@ object AdBlockDocumentStart {
                 } catch(_) {}
 
                 var isSubframe = window !== window.top;
-                var isMediaHost = /(abyss|ravok|stream|embed|player|video|anime|movie|film|watch|cinema|tube|flix|dood|vidplay|vidsrc|rabbitstream|megacloud|filemoon|streamwish|uqload|voe|vidoza)/i.test(location.hostname) ||
-                    (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isStreamingSite === 'function' && window.OnyxShieldBridge.isStreamingSite(location.href));
+                var isTrustedMediaPlatform = /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com|googlevideo\.com|vimeo\.com|twitch\.tv|dailymotion\.com|bilibili\.com|netflix\.com|disneyplus\.com|hulu\.com|primevideo\.com|max\.com|peacocktv\.com|crunchyroll\.com|soundcloud\.com|spotify\.com|apple\.com|ted\.com|tiktok\.com|reddit\.com|x\.com|twitter\.com)$/i.test(host);
+                var isMediaHost = !isTrustedMediaPlatform && (/(abyss|ravok|dood|vidplay|vidsrc|rabbitstream|megacloud|filemoon|streamwish|uqload|voe|vidoza|mixdrop|streamtape|mp4upload|upstream|fembed|gogostream|vidcloud)/i.test(location.hostname) ||
+                    (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isStreamingSite === 'function' && window.OnyxShieldBridge.isStreamingSite(location.href)));
 
-                // 2. Defuse clickjack overlay layers covering embedded video players
-                var defuserStyle = document.createElement('style');
-                defuserStyle.id = 'onyx-clickjack-defuser';
-                defuserStyle.textContent = [
-                    '#overlay, div[id^="overlay"], .click-layer, div[class*="overlay"][style*="fixed"],',
-                    'div[class*="player-overlay"], div[id*="player-overlay"],',
-                    'div[class*="clickjack"], div[id*="clickjack"],',
-                    'div[style*="opacity: 0"][style*="z-index"], div[style*="opacity:0"][style*="z-index"],',
-                    'a[target="_blank"][style*="absolute"][style*="width: 100%"],',
-                    'a[target="_blank"][style*="absolute"][style*="width:100%"],',
-                    'a[target="_blank"][style*="fixed"][style*="width: 100%"],',
-                    'div[style*="position: absolute"][style*="z-index: 2147483647"],',
-                    'div[style*="position: absolute"][style*="z-index: 999999"],',
-                    'div[style*="position: fixed"][style*="z-index: 2147483647"],',
-                    'div[style*="position: fixed"][style*="z-index: 999999"] {',
-                    '  display: none !important;',
-                    '  pointer-events: none !important;',
-                    '  width: 0 !important;',
-                    '  height: 0 !important;',
-                    '  opacity: 0 !important;',
-                    '  visibility: hidden !important;',
-                    '}'
-                ].join('\n');
-                var defTarget = document.head || document.documentElement;
-                if (defTarget) defTarget.appendChild(defuserStyle);
+                // 2. Defuse transparent clickjack traps covering embedded video players
+                // Skip trusted first-party video platforms and never target player control overlays!
+                if (!isTrustedMediaPlatform) {
+                    var defuserStyle = document.createElement('style');
+                    defuserStyle.id = 'onyx-clickjack-defuser';
+                    defuserStyle.textContent = [
+                        'div[class*="clickjack"], div[id*="clickjack"],',
+                        'a[target="_blank"][style*="position: absolute"][style*="width: 100%"][style*="height: 100%"]:empty,',
+                        'a[target="_blank"][style*="position:absolute"][style*="width:100%"][style*="height:100%"]:empty,',
+                        'a[target="_blank"][style*="position: fixed"][style*="width: 100%"][style*="height: 100%"]:empty,',
+                        'div[style*="position: absolute"][style*="z-index: 2147483647"]:empty,',
+                        'div[style*="position: fixed"][style*="z-index: 2147483647"]:empty {',
+                        '  display: none !important;',
+                        '  pointer-events: none !important;',
+                        '  width: 0 !important;',
+                        '  height: 0 !important;',
+                        '  opacity: 0 !important;',
+                        '  visibility: hidden !important;',
+                        '}'
+                    ].join('\n');
+                    var defTarget = document.head || document.documentElement;
+                    if (defTarget) defTarget.appendChild(defuserStyle);
+                }
 
                 // If abyssConfig is defined on abyssplayer or clones, freeze popups to empty
                 try {
@@ -530,7 +529,7 @@ object AdBlockDocumentStart {
                         /\/click\/|\/redirect\/|\?af=|\&s2=|\/popunder\/|utm_medium=pop|ref=bet|affiliate=bet|tag=casino/i.test(low);
                 }
 
-                // 3. Proxy window.open in subframes and media players (Brave prevent-window-open parity)
+                // 3. Proxy window.open in subframes and untrusted embed players (Brave prevent-window-open parity)
                 if (window.open) {
                     var _origWindowOpen = window.open;
                     window.open = makeNative(function(url, target, features) {
@@ -552,85 +551,85 @@ object AdBlockDocumentStart {
                     }, 'open');
                 }
 
-                // 4. Prevent synthetic anchor clicks inside subframes targeting ad URLs
+                // 4. Prevent synthetic anchor clicks targeting ad/popunder URLs
                 if (window.HTMLAnchorElement) {
                     var _origAnchorClick = HTMLAnchorElement.prototype.click;
                     HTMLAnchorElement.prototype.click = makeNative(function() {
                         var href = this.href || '';
                         var isAuth = href && (/recaptcha|hcaptcha|arkose|turnstile|login|auth|oauth|signin|facebook\.com|google\.com|apple\.com|paypal\.com|stripe\.com/i.test(href));
-                        if (href && !isAuth && (isSubframe || isMediaHost || isBlockedUrl(href, 0) || isAdOrBettingUrlStr(href) || this.target === '_blank' || adPathPattern.test(href))) {
+                        if (href && !isAuth && (isBlockedUrl(href, 0) || isAdOrBettingUrlStr(href) || adPathPattern.test(href) || ((isSubframe || isMediaHost) && this.target === '_blank'))) {
                             return; // Suppress synthetic clickjack ad dispatch!
                         }
                         return _origAnchorClick.apply(this, arguments);
                     }, 'click');
                 }
 
-                // 5. Capture-phase Click & Pointer Interceptor to defuse video player clickjacks
-                var defuseCaptureHandler = function(e) {
-                    try {
-                        var el = e.target;
-                        if (!el) return;
+                // 5. Capture-phase Click Interceptor to defuse invisible ad clickjack traps
+                // Never intercept pointerdown and never toggle video.play()/pause() synthetically,
+                // so native video player tap-to-show-controls works naturally across all sites.
+                if (!isTrustedMediaPlatform) {
+                    var defuseCaptureHandler = function(e) {
+                        try {
+                            var el = e.target;
+                            if (!el || !el.tagName) return;
 
-                        // Check if the element or ancestor is an anchor or link to an ad/betting URL
-                        var curr = el;
-                        var depth = 0;
-                        while (curr && curr !== document && depth < 5) {
-                            var href = (curr.tagName === 'A' ? (curr.href || curr.getAttribute('href') || '') : '') ||
-                                       (curr.getAttribute ? (curr.getAttribute('data-href') || curr.getAttribute('data-url') || '') : '');
-                            if (href && isAdOrBettingUrlStr(href)) {
-                                e.preventDefault();
-                                e.stopImmediatePropagation();
-                                try { curr.remove(); } catch(_) {}
+                            // Never interfere with direct interactions on media elements or player UI controls
+                            if (el.tagName === 'VIDEO' || el.tagName === 'AUDIO' || el.tagName === 'BUTTON' || el.tagName === 'INPUT' ||
+                                (el.closest && el.closest('button, input, [role="button"], [role="slider"], [role="menuitem"], .ytp-chrome-bottom, .ytp-chrome-top, ytm-player-control-overlay, .vjs-control-bar, .jw-controls, .plyr__controls'))) {
                                 return;
                             }
-                            curr = curr.parentElement;
-                            depth++;
-                        }
 
-                        // Check if user clicked a transparent clickjack overlay covering a video player
-                        var isOverlay = false;
-                        var overlayEl = null;
-                        curr = el;
-                        depth = 0;
-                        while (curr && curr !== document && depth < 4) {
-                            if (curr.tagName === 'VIDEO') break;
-                            var cl = (curr.className || '').toString().toLowerCase();
-                            var id = (curr.id || '').toLowerCase();
-                            var st = curr.getAttribute ? (curr.getAttribute('style') || '').toLowerCase() : '';
-
-                            if (cl.indexOf('overlay') !== -1 || cl.indexOf('clickjack') !== -1 || cl.indexOf('click-layer') !== -1 ||
-                                id.indexOf('overlay') !== -1 || id.indexOf('clickjack') !== -1 ||
-                                (st.indexOf('opacity: 0') !== -1 && st.indexOf('z-index') !== -1) ||
-                                (st.indexOf('opacity:0') !== -1 && st.indexOf('z-index') !== -1) ||
-                                (curr.tagName === 'A' && curr.target === '_blank' && (st.indexOf('width: 100%') !== -1 || st.indexOf('width:100%') !== -1))) {
-                                isOverlay = true;
-                                overlayEl = curr;
-                                break;
-                            }
-                            curr = curr.parentElement;
-                            depth++;
-                        }
-
-                        if (isOverlay && overlayEl) {
-                            e.preventDefault();
-                            e.stopImmediatePropagation();
-                            try { overlayEl.remove(); } catch(_) {}
-
-                            var nearbyVideo = document.querySelector('video');
-                            if (nearbyVideo) {
-                                if (nearbyVideo.paused) {
-                                    nearbyVideo.play().catch(function(){});
-                                } else {
-                                    nearbyVideo.pause();
+                            // Check if the element or ancestor is an anchor or link to an ad/betting URL
+                            var curr = el;
+                            var depth = 0;
+                            while (curr && curr !== document && depth < 5) {
+                                var href = (curr.tagName === 'A' ? (curr.href || curr.getAttribute('href') || '') : '') ||
+                                           (curr.getAttribute ? (curr.getAttribute('data-href') || curr.getAttribute('data-url') || '') : '');
+                                if (href && (isAdOrBettingUrlStr(href) || isBlockedUrl(href, 0))) {
+                                    e.preventDefault();
+                                    e.stopImmediatePropagation();
+                                    try { curr.remove(); } catch(_) {}
+                                    return;
                                 }
+                                curr = curr.parentElement;
+                                depth++;
                             }
-                            return;
-                        }
-                    } catch(_) {}
-                };
 
-                window.addEventListener('click', defuseCaptureHandler, true);
-                window.addEventListener('pointerdown', defuseCaptureHandler, true);
+                            // Only strip explicit clickjack traps or empty full-player invisible ad shields
+                            var trapEl = null;
+                            curr = el;
+                            depth = 0;
+                            while (curr && curr !== document && depth < 3) {
+                                if (curr.tagName === 'VIDEO' || curr.tagName === 'BUTTON') break;
+                                var cl = (curr.className || '').toString().toLowerCase();
+                                var id = (curr.id || '').toLowerCase();
+                                var st = curr.getAttribute ? (curr.getAttribute('style') || '').toLowerCase() : '';
+                                var isEmptyNode = (!curr.children || curr.children.length === 0) && !(curr.textContent || '').trim();
+
+                                if (cl.indexOf('clickjack') !== -1 || id.indexOf('clickjack') !== -1 ||
+                                    (isEmptyNode && ((st.indexOf('opacity: 0') !== -1 || st.indexOf('opacity:0') !== -1) &&
+                                        (st.indexOf('2147483647') !== -1 || st.indexOf('999999') !== -1))) ||
+                                    (isEmptyNode && curr.tagName === 'A' && curr.target === '_blank' &&
+                                        (st.indexOf('width: 100%') !== -1 || st.indexOf('width:100%') !== -1) &&
+                                        (st.indexOf('height: 100%') !== -1 || st.indexOf('height:100%') !== -1))) {
+                                    trapEl = curr;
+                                    break;
+                                }
+                                curr = curr.parentElement;
+                                depth++;
+                            }
+
+                            if (trapEl) {
+                                e.preventDefault();
+                                e.stopImmediatePropagation();
+                                try { trapEl.remove(); } catch(_) {}
+                                return;
+                            }
+                        } catch(_) {}
+                    };
+
+                    window.addEventListener('click', defuseCaptureHandler, true);
+                }
             } catch(e) {}
 
             // ── 3c. Universal Video Ad Defuser (YouTube & HTML5 In-Stream Video Ads) ───

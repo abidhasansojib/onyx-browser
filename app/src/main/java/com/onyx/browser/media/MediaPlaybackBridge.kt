@@ -65,6 +65,8 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         }
 
         @Volatile var lastVideoBounds: android.graphics.RectF? = null
+        @Volatile var lastViewportWidth: Float = 0f
+        @Volatile var lastViewportHeight: Float = 0f
 
         @Volatile var currentPlayingTabId: String? = null
         @Volatile var currentPlayingWebView: java.lang.ref.WeakReference<android.webkit.WebView>? = null
@@ -85,6 +87,8 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
                 currentVideoPresentTabId = null
                 isVideoPresent = false
                 lastVideoBounds = null
+                lastViewportWidth = 0f
+                lastViewportHeight = 0f
             }
             val playingId = currentPlayingTabId
             val playingWv = currentPlayingWebView?.get()
@@ -100,11 +104,14 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             isVideoPresent = false
             isVideoPlaying = false
             isAudioOrVideoPlaying = false
-            isCurrentlyInPip = false
+            // Never reset isCurrentlyInPip here: PiP mode is an Activity window state owned by
+            // PipController, and playlist/page navigations can occur while remaining inside PiP.
             isExplicitUserPause = false
             currentPlayingTabId = null
             currentPlayingWebView = null
             lastVideoBounds = null
+            lastViewportWidth = 0f
+            lastViewportHeight = 0f
             currentPositionMs = 0L
             currentDurationMs = 0L
             currentTitle = "Web Media"
@@ -189,9 +196,49 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onVideoBoundsChanged(left: Float, top: Float, right: Float, bottom: Float) {
+        onVideoBoundsChangedWithViewport(left, top, right, bottom, 0f, 0f)
+    }
+
+    @JavascriptInterface
+    fun onVideoBoundsChangedWithViewport(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        viewportWidth: Float,
+        viewportHeight: Float
+    ) {
+        // Ignore PiP-sized viewport bounds so pre-PiP inline video rect stays intact
+        if (isCurrentlyInPip) return
+        if (right - left < 16f || bottom - top < 16f) return
+        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        if (myTabId != null && currentPlayingTabId != null && currentPlayingTabId != myTabId) {
+            return
+        }
         lastVideoBounds = android.graphics.RectF(left, top, right, bottom)
+        if (viewportWidth > 0f && viewportHeight > 0f) {
+            lastViewportWidth = viewportWidth
+            lastViewportHeight = viewportHeight
+        }
         mainHandler.post {
             onVideoBoundsListener?.invoke(left, top, right, bottom)
+        }
+    }
+
+    @JavascriptInterface
+    fun onVideoDimensionsChanged(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
+        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        if (myTabId != null && currentPlayingTabId != null && currentPlayingTabId != myTabId) {
+            return
+        }
+        if (lastVideoWidth == width && lastVideoHeight == height) return
+        lastVideoWidth = width
+        lastVideoHeight = height
+        mainHandler.post {
+            if (isVideoPlaying || isCurrentlyInPip) {
+                onMediaStateListener?.invoke(isMediaPlaying, true, width, height)
+            }
         }
     }
 

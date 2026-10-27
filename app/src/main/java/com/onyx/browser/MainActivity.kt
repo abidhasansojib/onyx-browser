@@ -27,6 +27,7 @@ import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.util.Rational
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -144,11 +145,34 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private var lastThemeMode: Int = -1
     private var lastNightMode: Int = -1
     private var lastAccentColor: String = ""
+    private var pendingNightModeRecreate: Boolean = false
+    private var isLaunchingChildActivity: Boolean = false
     private var isToolbarHidden = false
     private var toolbarAnimator: android.animation.ValueAnimator? = null
     private var lastKnownTopBarHeight: Int = 0
     private var lastStatusBarTopInset: Int = 0
     private var clipboardListener: ClipboardManager.OnPrimaryClipChangedListener? = null
+
+    private fun isInPipMode(): Boolean {
+        return isCurrentlyInPip ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN && ::pipController.isInitialized) {
+            pipController.onFullscreenUserInteraction()
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    @Suppress("DEPRECATION")
+    override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+        isLaunchingChildActivity = true
+        if (::pipController.isInitialized) {
+            pipController.disarmAutoEnter()
+        }
+        super.startActivityForResult(intent, requestCode, options)
+    }
 
     companion object {
         var currentInstance: java.lang.ref.WeakReference<MainActivity>? = null
@@ -1237,12 +1261,26 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         
         // Handle edge-to-edge system bars (Status Bar & Gesture Nav Bar)
         ViewCompat.setOnApplyWindowInsetsListener(binding.mainRoot) { _, windowInsets ->
+            if (isInPipMode()) {
+                binding.statusBarSpace.visibility = View.GONE
+                binding.contentContainer.setPadding(0, 0, 0, 0)
+                return@setOnApplyWindowInsetsListener windowInsets
+            }
+
             val statusBarInsets = windowInsets.getInsets(
                 WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
             )
             val navBarInsets = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            lastNavBarBottomInset = navBarInsets.bottom
-            lastStatusBarTopInset = statusBarInsets.top
+            if (customVideoView == null) {
+                lastNavBarBottomInset = navBarInsets.bottom
+                lastStatusBarTopInset = statusBarInsets.top
+            } else {
+                if (navBarInsets.bottom > 0) lastNavBarBottomInset = navBarInsets.bottom
+                if (statusBarInsets.top > 0) lastStatusBarTopInset = statusBarInsets.top
+                binding.statusBarSpace.visibility = View.GONE
+                binding.contentContainer.setPadding(0, 0, 0, 0)
+                return@setOnApplyWindowInsetsListener windowInsets
+            }
 
             val statusBarHeight = statusBarInsets.top
             val spaceLp = binding.statusBarSpace.layoutParams
@@ -1358,11 +1396,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 binding.searchOverlay.visibility = View.GONE
             },
             onRestoreUiFromPip = { isCustomVideo ->
-                binding.contentContainer.setPadding(0, 0, 0, lastNavBarBottomInset)
-                if (lastStatusBarTopInset > 0) {
-                    binding.statusBarSpace.visibility = View.VISIBLE
-                }
                 if (!isCustomVideo) {
+                    binding.contentContainer.setPadding(0, 0, 0, lastNavBarBottomInset)
+                    if (lastStatusBarTopInset > 0) {
+                        binding.statusBarSpace.visibility = View.VISIBLE
+                    }
                     val activeTab = tabManager.activeTab.value
                     if (activeTab != null && activeTab.url.isNotBlank() &&
                         !activeTab.url.startsWith("onyx://") && !activeTab.url.startsWith("about:")) {
@@ -1372,6 +1410,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         binding.homeLayout.root.visibility = View.VISIBLE
                         binding.webViewContainer.visibility = View.GONE
                     }
+                    ViewCompat.requestApplyInsets(binding.mainRoot)
                 }
             }
         )
@@ -1828,6 +1867,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     fun showToolbar(animated: Boolean = true) {
+        if (isInPipMode() || customVideoView != null) return
         val currentMargin = (binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin ?: 0
         if (!isToolbarHidden && currentMargin == 0) return
 
@@ -1857,12 +1897,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     fun showHomeScreen() {
-        showToolbar(animated = false)
-        if (customVideoView == null) {
+        val inPip = isInPipMode()
+        if (!inPip && customVideoView == null) {
+            showToolbar(animated = false)
             binding.topBar.visibility = View.VISIBLE
             binding.topBarDivider.visibility = View.GONE
         }
-        binding.homeLayout.root.visibility = View.VISIBLE
+        binding.homeLayout.root.visibility = if (inPip) View.GONE else View.VISIBLE
         binding.webViewContainer.visibility = View.GONE
         binding.etUrl.setText("")
         binding.ivSslLock.visibility = View.GONE
@@ -1894,6 +1935,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
         }
         binding.webViewContainer.removeAllViews()
+        if (!inPip) {
+            updatePipParams(isVideoPlaying = false, shouldAutoEnter = false)
+        }
     }
 
     private fun updateIncognitoUI(isIncognito: Boolean) {
@@ -1914,8 +1958,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private fun showWebView(tab: TabItem, forceUrl: String? = null, reloadIfChanged: Boolean = false) {
-        showToolbar(animated = false)
-        if (customVideoView == null) {
+        val inPip = isInPipMode()
+        if (!inPip && customVideoView == null) {
+            showToolbar(animated = false)
             binding.topBar.visibility = View.VISIBLE
             binding.topBarDivider.visibility = View.GONE
         }
@@ -1927,6 +1972,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         val webView = tabManager.getOrCreateWebView(tab)
         attachWebViewToContainer(webView)
+        if (!inPip) {
+            updatePipParams()
+        }
 
         val targetUrl = forceUrl ?: tab.url
         if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
@@ -2122,7 +2170,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         webView.webChromeClient = OnyxWebChromeClient(
             onProgressChangedCallback = { progress ->
-                if (currentDisplayedTabId != tabId) return@OnyxWebChromeClient
+                if (currentDisplayedTabId != tabId || isInPipMode()) return@OnyxWebChromeClient
                 if (binding.progressBar.visibility != android.view.View.VISIBLE && progress < 100) {
                     binding.progressBar.visibility = android.view.View.VISIBLE
                     binding.progressBar.alpha = 1f
@@ -2802,7 +2850,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     fun updatePipParams(
-        isVideoPlaying: Boolean = MediaPlaybackBridge.isMediaPlaying,
+        isVideoPlaying: Boolean = if (::pipController.isInitialized) pipController.isActiveTabVideoPlaying() else MediaPlaybackBridge.isVideoPlaying,
         width: Int = MediaPlaybackBridge.lastVideoWidth,
         height: Int = MediaPlaybackBridge.lastVideoHeight,
         shouldAutoEnter: Boolean = isVideoPlaying
@@ -2890,26 +2938,24 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         MediaPlaybackBridge.onMediaStateListener = { isPlaying, isVideo, width, height ->
             runOnUiThread {
-                if (isPlaying && isVideo && ::pipController.isInitialized) {
-                    pipController.justExitedPip = false
+                val inPip = isInPipMode()
+                val activeVideo = isVideo && isPlaying && (inPip || (::pipController.isInitialized && pipController.isActiveTabVideoPlaying()))
+                updatePipParams(activeVideo, width, height)
+                if (inPip && isVideo && isPlaying && customVideoView == null) {
+                    tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.isolateVideoForPipScript, null)
                 }
-                updatePipParams(isVideo && isPlaying, width, height)
                 // Keep screen on while video is actively playing in-page
                 if (isVideo && isPlaying) {
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                } else if (!isPlaying) {
-                    // Only clear the flag if we are not currently in PiP mode
-                    val inPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode
-                    if (!inPip) {
-                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    }
+                } else if (!isPlaying && !inPip && customVideoView == null) {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 }
             }
         }
 
         MediaPlaybackBridge.onVideoBoundsListener = { _, _, _, _ ->
             runOnUiThread {
-                if (MediaPlaybackBridge.isVideoPlaying && customVideoView != null) {
+                if (!isInPipMode() && MediaPlaybackBridge.isVideoPlaying && customVideoView == null) {
                     updatePipParams()
                 }
             }
@@ -2917,8 +2963,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         MediaPlaybackBridge.onPipRequestedListener = {
             runOnUiThread {
-                val inPip = isCurrentlyInPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)
-                if (!inPip && !justExitedPip) {
+                if (!isInPipMode() && !justExitedPip) {
                     requestInPageVideoPip()
                 }
             }
@@ -3505,16 +3550,30 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         tabManager.saveAllTabStates()
         unregisterNetworkRecoveryCallback()
         tabManager.isIncognitoUnlocked = false
-        val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
+        val isPip = isInPipMode()
+        val wasDismissedFromPip = ::pipController.isInitialized && pipController.consumePendingPipClose()
 
-        // If the user closed PiP via the 'X' button, onPictureInPictureModeChanged(false) was followed immediately by onStop()
-        if (justExitedPip) {
+        // Deterministic PiP close detection:
+        // If onPictureInPictureModeChanged(false) transitioned directly to onStop() without onResume(),
+        // and the device screen is interactive (user tapped 'X' on PiP window rather than locking screen),
+        // treat it as an explicit user pause and tear down playback cleanly.
+        if (wasDismissedFromPip) {
+            val screenOff = MediaPlaybackBridge.isScreenOffOrLocked(this)
             if (customVideoView != null) {
                 hideCustomFullscreenVideo()
             }
-            tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
             tabManager.getActiveWebView()?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
-            MediaPlaybackService.stopNotificationOnly(this)
+            if (!screenOff || !preferences.isBackgroundPlayEnabled) {
+                MediaPlaybackBridge.isExplicitUserPause = true
+                MediaPlaybackBridge.isVideoPlaying = false
+                MediaPlaybackBridge.isAudioOrVideoPlaying = false
+                val targetWv = getMediaTargetWebView() ?: tabManager.getActiveWebView()
+                targetWv?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
+                MediaPlaybackService.stopNotificationOnly(this)
+                tabManager.getAllWebViews().forEach { it.onPause() }
+                MediaPlaybackBridge.isAppInBackground = true
+                return
+            }
         }
 
         // Still visible in PiP (e.g. screen turned off while in PiP): leave playback untouched.
@@ -3524,7 +3583,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         val isPlayingAnyMedia = MediaPlaybackBridge.isVideoPlaying || MediaPlaybackBridge.isAudioOrVideoPlaying
         val mediaTabWv = getMediaTargetWebView() ?: tabManager.getActiveWebView()
 
-        if (!justExitedPip && preferences.isBackgroundPlayEnabled && isPlayingAnyMedia) {
+        if (preferences.isBackgroundPlayEnabled && isPlayingAnyMedia) {
             // Background play: keep the media tab fully running, suspend every other tab.
             tabManager.getAllWebViews().forEach { wv ->
                 if (wv == mediaTabWv) {
@@ -3536,7 +3595,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             mediaTabWv?.resumeTimers()
         } else if (!isSystemDialogOrChooserPending) {
             // No background play: WebView.onPause() alone does not stop HTML5 audio, so pause explicitly.
-            if (isPlayingAnyMedia && !justExitedPip) {
+            if (isPlayingAnyMedia) {
                 mediaTabWv?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
             }
             tabManager.getActiveWebView()?.onPause()
@@ -3545,17 +3604,16 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+        // Never auto-enter PiP when opening internal Onyx screens, Share sheets, or system dialogs
+        if (isLaunchingChildActivity || isSystemDialogOrChooserPending) return
         // On Android 12+ the system auto-enters PiP when setAutoEnterEnabled(true) is armed;
         // calling enterPictureInPictureMode() again would double-trigger the transition.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             ::pipController.isInitialized && pipController.isAutoEnterArmed) return
-        if (preferences.isPipEnabled && !justExitedPip && !isCurrentlyInPip) {
-            val isPipMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
-            if (!isPipMode && (customVideoView != null || MediaPlaybackBridge.isVideoPlaying)) {
+        if (preferences.isPipEnabled && !justExitedPip && !isInPipMode()) {
+            if (::pipController.isInitialized && pipController.isActiveTabVideoPlaying()) {
                 // Manual PiP entry for Android 8-11, and fallback on 12+ when auto-enter was not armed
-                if (::pipController.isInitialized) {
-                    pipController.enterPipMode()
-                }
+                pipController.enterPipMode()
             }
         }
     }
@@ -3567,20 +3625,36 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
+    private fun maybeDeferNightModeRecreate(isPip: Boolean) {
+        if (isPip) {
+            pendingNightModeRecreate = true
+        } else {
+            pendingNightModeRecreate = false
+            recreate()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        isLaunchingChildActivity = false
         MediaPlaybackBridge.isAppInBackground = false
         if (MediaPlaybackBridge.isMediaPlaying) {
             MediaPlaybackBridge.isExplicitUserPause = false
         }
 
+        val isPip = isInPipMode()
+        if (!isPip && ::pipController.isInitialized) {
+            pipController.onActivityResumed()
+        }
+
         // 1. Sync theme if changed in Settings or system dark mode toggled
         preferences.applyTheme()
-        val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
         val currentNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        if (!isPip && ((lastThemeMode != -1 && lastThemeMode != preferences.themeMode) ||
+        if (!isPip && (pendingNightModeRecreate ||
+            (lastThemeMode != -1 && lastThemeMode != preferences.themeMode) ||
             (lastNightMode != -1 && lastNightMode != currentNightMode) ||
             (lastAccentColor.isNotBlank() && lastAccentColor != preferences.accentColorHex))) {
+            pendingNightModeRecreate = false
             lastThemeMode = preferences.themeMode
             lastNightMode = currentNightMode
             lastAccentColor = preferences.accentColorHex
@@ -3596,7 +3670,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (!preferences.isScrollToTopEnabled) {
             binding.fabScrollToTop.visibility = View.GONE
         }
-        if (!preferences.isAutoHideToolbarEnabled) {
+        if (!preferences.isAutoHideToolbarEnabled && !isPip && customVideoView == null) {
             showToolbar(animated = false)
         }
 
@@ -3629,7 +3703,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         // Restore screen-on flag if video was still playing when we came back to the app
-        if (MediaPlaybackBridge.isVideoPlaying) {
+        if (MediaPlaybackBridge.isVideoPlaying || customVideoView != null) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         
@@ -3651,27 +3725,24 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     binding.webViewContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
                 androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-                if (justExitedPip || isCurrentlyInPip) {
+                if (justExitedPip) {
                     wv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
                 }
                 binding.topBar.requestLayout()
                 binding.webViewContainer.requestLayout()
-            } else {
-                binding.fullscreenControlsOverlay.visibility = View.VISIBLE
-                binding.fullscreenControlsOverlay.bringToFront()
+            } else if (::pipController.isInitialized) {
+                pipController.onFullscreenUserInteraction()
             }
         }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
+        val isPip = isInPipMode()
         val newNightMode = newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK
         if (lastNightMode != -1 && lastNightMode != newNightMode) {
             lastNightMode = newNightMode
-            if (!isPip) {
-                recreate()
-            }
+            maybeDeferNightModeRecreate(isPip)
         }
     }
 
@@ -3681,7 +3752,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val wv = tabManager.getActiveWebView()
             wv?.resumeTimers()
             wv?.requestFocus()
-            val isPip = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
+            val isPip = isInPipMode()
             if (!isPip && customVideoView == null) {
                 if (!isToolbarHidden && binding.topBar.visibility != View.VISIBLE) {
                     binding.topBar.visibility = View.VISIBLE
@@ -3696,7 +3767,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         binding.webViewContainer.requestLayout()
                     }
                 }
-                if (justExitedPip || isCurrentlyInPip) {
+                if (justExitedPip) {
                     wv?.evaluateJavascript(MediaPlaybackManager.restoreVideoFromPipScript, null)
                 }
             }
