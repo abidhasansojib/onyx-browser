@@ -36217,6 +36217,7 @@ funradio.fr##+js(trusted-replace-outbound-text, String.prototype.trim, /^STOP_GT
 funradio.fr##+js(trusted-set, getUserConsentStatus, json:{"dailymotion":true}, as, function)
 @@||speedcubeshop.com/cdn/shopifycloud/consent-tracking-api/v*/consent-tracking-api.js$1p
 ||log.nordot.jp^$badfilter
+||log.nordot.jp/pageview
 &&sub19=undefined&sub20=undefined
 &action=js_stats
 &ev=PageView&
@@ -44547,6 +44548,7 @@ omni.soundestlink.com$image
 ||probablepartner.com^
 ||processplantation.com^
 ||procollecting.com^
+||prodsmax.com^
 ||producecopy.com^
 ||producepickle.com^
 ||productsurfer.com^
