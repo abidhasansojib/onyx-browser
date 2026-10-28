@@ -80,40 +80,41 @@ class DownloadsAdapter(
             }
 
             val snapshot = activeSnapshots[item.id]
+            val liveSnapshot = snapshot?.takeIf { it.status == DownloadItem.STATUS_RUNNING || it.status == DownloadItem.STATUS_PAUSED || it.status == DownloadItem.STATUS_PENDING }
             val isDbPausedOrInterrupted = snapshot == null && (item.status == DownloadItem.STATUS_PAUSED || item.status == DownloadItem.STATUS_RUNNING)
 
-            if (snapshot != null && (snapshot.status == DownloadItem.STATUS_RUNNING || snapshot.status == DownloadItem.STATUS_PAUSED || snapshot.status == DownloadItem.STATUS_PENDING)) {
+            if (liveSnapshot != null) {
                 binding.tvDownloadFileName.alpha = 1.0f
                 binding.ivDownloadIcon.alpha = 1.0f
                 binding.tvDownloadDetails.alpha = 1.0f
                 binding.progressDownload.visibility = View.VISIBLE
                 binding.btnActionDownload.visibility = View.VISIBLE
 
-                if (snapshot.totalBytes > 0L) {
+                if (liveSnapshot.totalBytes > 0L) {
                     binding.progressDownload.isIndeterminate = false
-                    binding.progressDownload.progress = snapshot.progressPercent
+                    binding.progressDownload.progress = liveSnapshot.progressPercent
 
-                    val downloadedStr = Formatter.formatFileSize(context, snapshot.downloadedBytes)
-                    val totalStr = Formatter.formatFileSize(context, snapshot.totalBytes)
-                    val speedStr = if (snapshot.speedBytesPerSec > 0) "${Formatter.formatFileSize(context, snapshot.speedBytesPerSec)}/s" else "0 B/s"
+                    val downloadedStr = Formatter.formatFileSize(context, liveSnapshot.downloadedBytes)
+                    val totalStr = Formatter.formatFileSize(context, liveSnapshot.totalBytes)
+                    val speedStr = if (liveSnapshot.speedBytesPerSec > 0) "${Formatter.formatFileSize(context, liveSnapshot.speedBytesPerSec)}/s" else "0 B/s"
 
-                    if (snapshot.status == DownloadItem.STATUS_PAUSED) {
-                        binding.tvDownloadDetails.text = if (snapshot.isWifiWaiting) {
+                    if (liveSnapshot.status == DownloadItem.STATUS_PAUSED) {
+                        binding.tvDownloadDetails.text = if (liveSnapshot.isWifiWaiting) {
                             "Paused • Waiting for Wi-Fi ($downloadedStr / $totalStr)"
                         } else {
-                            "Paused • $downloadedStr / $totalStr (${snapshot.progressPercent}%)"
+                            "Paused • $downloadedStr / $totalStr (${liveSnapshot.progressPercent}%)"
                         }
                         binding.btnActionDownload.setImageResource(R.drawable.ic_play_arrow)
                     } else {
-                        binding.tvDownloadDetails.text = "$downloadedStr / $totalStr (${snapshot.progressPercent}%) • $speedStr"
+                        binding.tvDownloadDetails.text = "$downloadedStr / $totalStr (${liveSnapshot.progressPercent}%) • $speedStr"
                         binding.btnActionDownload.setImageResource(R.drawable.ic_pause)
                     }
                 } else {
                     binding.progressDownload.isIndeterminate = true
-                    val downloadedStr = Formatter.formatFileSize(context, snapshot.downloadedBytes)
-                    val speedStr = if (snapshot.speedBytesPerSec > 0) "${Formatter.formatFileSize(context, snapshot.speedBytesPerSec)}/s" else "0 B/s"
+                    val downloadedStr = Formatter.formatFileSize(context, liveSnapshot.downloadedBytes)
+                    val speedStr = if (liveSnapshot.speedBytesPerSec > 0) "${Formatter.formatFileSize(context, liveSnapshot.speedBytesPerSec)}/s" else "0 B/s"
 
-                    if (snapshot.status == DownloadItem.STATUS_PAUSED) {
+                    if (liveSnapshot.status == DownloadItem.STATUS_PAUSED) {
                         binding.tvDownloadDetails.text = "Paused • $downloadedStr"
                         binding.btnActionDownload.setImageResource(R.drawable.ic_play_arrow)
                     } else {
@@ -194,7 +195,7 @@ class DownloadsAdapter(
                 onItemLongClicked?.invoke(item)
                 true
             }
-            val isOngoing = isLiveActive || isDbPausedOrInterrupted
+            val isOngoing = liveSnapshot != null || isDbPausedOrInterrupted
             if (isOngoing) {
                 binding.btnDeleteDownloadItem.setImageResource(R.drawable.ic_close)
                 binding.btnDeleteDownloadItem.contentDescription = "Cancel download"
