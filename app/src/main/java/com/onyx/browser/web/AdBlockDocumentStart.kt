@@ -452,6 +452,20 @@ object AdBlockDocumentStart {
                 var isMediaHost = !isTrustedMediaPlatform && (/(abyss|ravok|dood|vidplay|vidsrc|rabbitstream|megacloud|filemoon|streamwish|uqload|voe|vidoza|mixdrop|streamtape|mp4upload|upstream|fembed|gogostream|vidcloud)/i.test(location.hostname) ||
                     (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isStreamingSite === 'function' && window.OnyxShieldBridge.isStreamingSite(location.href)));
 
+                // Subframes may only open windows normally (payment, login, download widgets) unless they
+                // are embedded in a streaming/media page, where iframe popunders are the common ad vector.
+                var isSubframeOnMediaPage = false;
+                if (isSubframe) {
+                    try {
+                        var ao = location.ancestorOrigins;
+                        var topOrigin = (ao && ao.length) ? ao[ao.length - 1] : '';
+                        if (!topOrigin) { try { topOrigin = window.top.location.href; } catch (_) {} }
+                        isSubframeOnMediaPage = !topOrigin || isMediaHost ||
+                            (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isStreamingSite === 'function' &&
+                             window.OnyxShieldBridge.isStreamingSite(topOrigin));
+                    } catch (_) { isSubframeOnMediaPage = true; }
+                }
+
                 // 2. Defuse transparent clickjack traps covering embedded video players
                 // Skip trusted first-party video platforms and never target player control overlays!
                 if (!isTrustedMediaPlatform) {
@@ -488,6 +502,7 @@ object AdBlockDocumentStart {
 
                 function isAdOrBettingUrlStr(targetUrl) {
                     if (!targetUrl || typeof targetUrl !== 'string') return false;
+                    if (targetUrl.startsWith('blob:') || targetUrl.startsWith('data:') || targetUrl.startsWith('javascript:')) return false;
                     var low = targetUrl.toLowerCase();
                     if (/recaptcha|hcaptcha|arkose|turnstile|login|auth|oauth|signin|facebook\.com|google\.com|apple\.com|paypal\.com|stripe\.com/i.test(low)) {
                         return false;
@@ -499,14 +514,24 @@ object AdBlockDocumentStart {
                         /\/click\/|\/redirect\/|\?af=|\&s2=|\/popunder\/|utm_medium=pop|ref=bet|affiliate=bet|tag=casino/i.test(low);
                 }
 
+                // Same-origin windows/links (download pages, "open in new tab" actions) are never ads.
+                function isSameOriginUrl(rawUrl) {
+                    if (!rawUrl || typeof rawUrl !== 'string') return false;
+                    if (rawUrl.startsWith('javascript:') || rawUrl.startsWith('about:') || rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) {
+                        return true;
+                    }
+                    try { return new URL(rawUrl, location.href).origin === location.origin; } catch (_) { return false; }
+                }
+
                 // 3. Proxy window.open in subframes and untrusted embed players (Brave prevent-window-open parity)
                 if (window.open) {
                     var _origWindowOpen = window.open;
                     window.open = makeNative(function(url, target, features) {
-                        var targetUrl = (typeof url === 'string') ? url : '';
+                        var targetUrl = (typeof url === 'string') ? url : (url && typeof url.href === 'string' ? url.href : '');
                         var isAuth = targetUrl && (/recaptcha|hcaptcha|arkose|turnstile|login|auth|oauth|signin|facebook\.com|google\.com|apple\.com|paypal\.com|stripe\.com/i.test(targetUrl));
 
-                        if (targetUrl && (isSubframe || isMediaHost || isBlockedUrl(targetUrl, 0) || isAdOrBettingUrlStr(targetUrl)) && !isAuth) {
+                        if (targetUrl && !isAuth && !isSameOriginUrl(targetUrl) &&
+                            (isSubframeOnMediaPage || isMediaHost || isBlockedUrl(targetUrl, 0) || isAdOrBettingUrlStr(targetUrl))) {
                             var fakeWin = {
                                 closed: false,
                                 focus: makeNative(function(){}, 'focus'),
@@ -530,7 +555,7 @@ object AdBlockDocumentStart {
                             return _origAnchorClick.apply(this, arguments);
                         }
                         var isAuth = href && (/recaptcha|hcaptcha|arkose|turnstile|login|auth|oauth|signin|facebook\.com|google\.com|apple\.com|paypal\.com|stripe\.com/i.test(href));
-                        if (href && !isAuth && (isBlockedUrl(href, 0) || isAdOrBettingUrlStr(href) || ((isSubframe || isMediaHost) && this.target === '_blank'))) {
+                        if (href && !isAuth && !isSameOriginUrl(href) && (isBlockedUrl(href, 0) || isAdOrBettingUrlStr(href) || ((isSubframeOnMediaPage || isMediaHost) && this.target === '_blank'))) {
                             return; // Suppress synthetic clickjack ad dispatch!
                         }
                         return _origAnchorClick.apply(this, arguments);
@@ -552,10 +577,11 @@ object AdBlockDocumentStart {
                                 return;
                             }
 
-                            // Check if the element or ancestor is an anchor or link to an ad/betting URL
+                            // Check if the element or ancestor is an anchor or link to an ad/betting URL.
+                            // Only on streaming/media pages: elsewhere a tapped link always navigates (Brave parity).
                             var curr = el;
                             var depth = 0;
-                            while (curr && curr !== document && depth < 5) {
+                            while ((isMediaHost || isSubframeOnMediaPage) && curr && curr !== document && depth < 5) {
                                 var href = (curr.tagName === 'A' ? (curr.href || curr.getAttribute('href') || '') : '') ||
                                            (curr.getAttribute ? (curr.getAttribute('data-href') || curr.getAttribute('data-url') || '') : '');
                                 if (href && (isAdOrBettingUrlStr(href) || isBlockedUrl(href, 0))) {

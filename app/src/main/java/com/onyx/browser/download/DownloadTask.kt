@@ -29,8 +29,14 @@ data class DownloadTask(
     val chunks: MutableList<DownloadChunk> = mutableListOf(),
     @Volatile var sha256: String = "",
     @Volatile var md5: String = "",
+    /** Non-null when the download was produced by an HTML form POST and must be replayed as POST. */
+    val postBody: String? = null,
+    val postContentType: String = "",
     var job: Job? = null
 ) {
+    val isPost: Boolean
+        get() = postBody != null
+
     val progressPercent: Int
         get() = if (totalBytes > 0L) {
             ((downloadedBytes.get() * 100L) / totalBytes).toInt().coerceIn(0, 100)

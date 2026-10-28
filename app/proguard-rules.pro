@@ -56,9 +56,16 @@
 
 # Preserve PasskeyWebAuthnBridge and its public methods called from JavaScript
 -keep class com.onyx.browser.web.PasskeyWebAuthnBridge { *; }
+-keep class com.onyx.browser.web.PasskeyWebAuthnBridge$* { *; }
 -keepclassmembers class com.onyx.browser.web.PasskeyWebAuthnBridge {
     public <methods>;
 }
+-keep class com.onyx.browser.web.OnyxFormBridge { *; }
+
+# Preserve OnyxFormBridge and FormPostRegistry for POST download replay
+-keep class com.onyx.browser.web.OnyxFormBridge { *; }
+-keep class com.onyx.browser.web.FormPostRegistry { *; }
+-keep class com.onyx.browser.web.FormPost { *; }
 
 # Preserve custom WebView and WebChrome clients
 -keep class com.onyx.browser.web.OnyxWebView { *; }

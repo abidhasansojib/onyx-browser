@@ -144,7 +144,7 @@ object ChromeEnvironmentBridge {
                     var bridgeNames = [
                         'OnyxShieldBridge', 'OnyxMediaBridge', 'OnyxErrorBridge',
                         'OnyxBlobBridge', 'OnyxTouchBridge', 'OnyxTranslateBridge',
-                        'OnyxNotificationBridge',
+                        'OnyxNotificationBridge', 'OnyxFormBridge',
                         '__onyx_shields_active', '__onyxAdBlockEnabled',
                         '__onyxTouchInitialized', '_origFetch', '_origXHR'
                     ];

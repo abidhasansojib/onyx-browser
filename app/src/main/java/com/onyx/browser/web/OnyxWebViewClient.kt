@@ -351,8 +351,7 @@ class OnyxWebViewClient(
         // 6. If parent tab is a streaming/video/anime media player, ALL non-auth cross-domain popups are clickjacks/ads!
         val isParentStreamingOrMedia = isStreamingOrMediaPage(parentUrl) ||
                 isMediaOrStreamingHost(parentDomain) ||
-                MediaPlaybackBridge.isVideoAvailableForTab(parentTab?.id) ||
-                MediaPlaybackBridge.isVideoAvailable
+                MediaPlaybackBridge.isVideoAvailableForTab(parentTab?.id)
         if (isParentStreamingOrMedia) {
             return true
         }
@@ -747,8 +746,8 @@ class OnyxWebViewClient(
                     if (preferences.isAdBlockEnabled && !isWhitelisted) {
                         val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
                         val onyxWv = view as? OnyxWebView
-                        val isPopupTab = onyxWv != null && (onyxWv.isPopupTab || onyxWv.isPopupPendingDisplay ||
-                                (tabActionCallback?.getTabById(onyxWv.tabId)?.parentId != null))
+                        // Only the first navigation of a not-yet-displayed popup is checked as a popup ad.
+                        val isPopupTab = onyxWv?.isPopupPendingDisplay == true
 
                         // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
                         // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave), UNLESS it is a child popup tab.
@@ -1105,7 +1104,7 @@ class OnyxWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         if (request == null) return false
         val uri = request.url ?: return false
-        return handleUrlLoading(view, uri, request.isForMainFrame)
+        return handleUrlLoading(view, uri, request.isForMainFrame, request.hasGesture(), request.isRedirect)
     }
 
     @Deprecated("Deprecated in Java", ReplaceWith("handleUrlLoading(view, Uri.parse(url), true)"))
@@ -1114,7 +1113,13 @@ class OnyxWebViewClient(
         return handleUrlLoading(view, Uri.parse(url), isForMainFrame = true)
     }
 
-    private fun handleUrlLoading(view: WebView?, uri: Uri, isForMainFrame: Boolean): Boolean {
+    private fun handleUrlLoading(
+        view: WebView?,
+        uri: Uri,
+        isForMainFrame: Boolean,
+        hasGesture: Boolean = true,
+        isRedirect: Boolean = false
+    ): Boolean {
         return try {
             val url = uri.toString()
             val normalizedUrl = url.trimEnd('/')
@@ -1189,10 +1194,11 @@ class OnyxWebViewClient(
                 if (preferences.isAdBlockEnabled && !isWhitelisted) {
                     val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
                     val onyxWv = view as? OnyxWebView
-                    val isPopupTab = onyxWv != null && (onyxWv.isPopupTab || onyxWv.isPopupPendingDisplay ||
-                            (tabActionCallback?.getTabById(onyxWv.tabId)?.parentId != null))
+                    // Popup-ad heuristics apply only to the first navigation of a popup window that has
+                    // not been shown yet. Once a tab is displayed it behaves like any normal tab.
+                    val isPendingPopup = onyxWv?.isPopupPendingDisplay == true
 
-                    if (isPopupTab && isPopupAd(url, onyxWv)) {
+                    if (isPendingPopup && isPopupAd(url, onyxWv)) {
                         preferences.incrementBlockedRequests()
                         onyxWv?.post {
                             val tabId = onyxWv.tabId
@@ -1210,30 +1216,38 @@ class OnyxWebViewClient(
                             isOAuthOrLoginUrl(url) ||
                             (onyxWv?.isWithinOAuthGracePeriod() == true)
 
-                    if (!isAuthOrSecurityFlow) {
+                    val isCrossDomain = pageDomain.isNotBlank() && reqDomain.isNotBlank() &&
+                            reqDomain != pageDomain &&
+                            !reqDomain.endsWith(".$pageDomain") &&
+                            !pageDomain.endsWith(".$reqDomain")
+
+                    // Same-site navigations are never treated as ads (Brave parity).
+                    if (!isAuthOrSecurityFlow && isCrossDomain) {
                         val isParentStreaming = isStreamingOrMediaPage(currentPageUrl) ||
                                 isMediaOrStreamingHost(pageDomain) ||
-                                MediaPlaybackBridge.isVideoAvailableForTab(onyxWv?.tabId) ||
-                                MediaPlaybackBridge.isVideoAvailable
+                                MediaPlaybackBridge.isVideoAvailableForTab(onyxWv?.tabId)
 
-                        val isCrossDomain = pageDomain.isNotBlank() && reqDomain.isNotBlank() &&
-                                reqDomain != pageDomain &&
-                                !reqDomain.endsWith(".$pageDomain") &&
-                                !pageDomain.endsWith(".$reqDomain")
-
-                        // 1. Check if adblock engine blocks this main_frame navigation ($doc / $popup rules)
+                        // 1. Check if adblock engine blocks this main_frame navigation ($document / $popup rules)
                         val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame") ||
                                 AdBlockEngine.checkUrlCached(url, currentPageUrl, "popup")
 
                         // 2. Check if navigating to a known betting or ad redirect URL
                         val isBettingOrAd = isBettingOrAdUrl(url, reqDomain)
+                        val isAdTarget = blockedByEngine || isBettingOrAd
 
-                        // 3. In streaming/media mode, block clickjack redirects to third-party ad/betting domains
-                        val isStreamingClickjack = isParentStreaming && isCrossDomain && (isBettingOrAd || blockedByEngine)
+                        // 3. On streaming/media pages, block clickjack redirects to ad/betting domains even on tap
+                        val isStreamingClickjack = isParentStreaming && isAdTarget
 
-                        if (blockedByEngine || isBettingOrAd || isStreamingClickjack || (isAggressive && isCrossDomain)) {
+                        // 4. Script-driven redirects (no user gesture) to ad/betting domains
+                        val isScriptAdRedirect = !hasGesture && isAdTarget
+
+                        // 5. Aggressive mode: also cancel script-driven cross-site navigations.
+                        //    Links the user actually taps and server redirects always proceed.
+                        val isAggressiveScriptNav = isAggressive && !hasGesture && !isRedirect
+
+                        if (isStreamingClickjack || isScriptAdRedirect || isAggressiveScriptNav) {
                             preferences.incrementBlockedRequests()
-                            if (isPopupTab) {
+                            if (isPendingPopup) {
                                 onyxWv?.post {
                                     val tabId = onyxWv.tabId
                                     if (tabId.isNotBlank()) {
@@ -1267,6 +1281,33 @@ class OnyxWebViewClient(
                         return true // Abort navigation!
                     }
                 }
+            }
+
+            // Handle javascript: pseudo-URLs (e.g. javascript:document.getElementById('102111').submit();)
+            // Modern Chromium restricts top-level navigation to javascript: URLs; evaluating directly ensures
+            // all script actions, form submissions, and bookmarklets execute reliably without being swallowed.
+            if (scheme == "javascript") {
+                val rawScript = url.substringAfter("javascript:", "").trim()
+                val isVoid = rawScript.isBlank() || rawScript == ";" ||
+                        rawScript.equals("void(0)", ignoreCase = true) ||
+                        rawScript.equals("void(0);", ignoreCase = true) ||
+                        rawScript.equals("void 0", ignoreCase = true) ||
+                        rawScript.equals("void 0;", ignoreCase = true)
+                if (!isVoid && view != null) {
+                    val script = if (rawScript.contains('%')) {
+                        try {
+                            java.net.URLDecoder.decode(rawScript.replace("+", "%2B"), "UTF-8")
+                        } catch (_: Exception) {
+                            rawScript
+                        }
+                    } else {
+                        rawScript
+                    }
+                    view.post {
+                        view.evaluateJavascript(script, null)
+                    }
+                }
+                return true
             }
 
             // Standard web schemes — let WebView handle them normally
@@ -1753,9 +1794,9 @@ class OnyxWebViewClient(
             injectFingerprintProtection(view)
         }
 
-        // Passkey / WebAuthn support — allow on all auth & login sites (GitHub, Google, Microsoft, etc.), only skip Meta/Facebook internal flows
+        // Passkey / WebAuthn & PasswordCredential support — allow on all auth & login sites (GitHub, Google, Microsoft, etc.), only skip Meta/Facebook internal flows
         val isMetaAuthOnly = isMetaDomain(pageDomain) || isMetaDomain(preferences.cleanDomain(url ?: ""))
-        if (preferences.isPasskeysEnabled && !isMetaAuthOnly) {
+        if ((preferences.isPasskeysEnabled || preferences.isAutofillEnabled) && !isMetaAuthOnly) {
             view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
         }
 
@@ -1945,7 +1986,7 @@ class OnyxWebViewClient(
                 }
             }
             val isMetaAuthOnly = isMetaDomain(pageDomain) || isMetaDomain(preferences.cleanDomain(url))
-            if (preferences.isPasskeysEnabled && !isMetaAuthOnly) {
+            if ((preferences.isPasskeysEnabled || preferences.isAutofillEnabled) && !isMetaAuthOnly) {
                 view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
             }
             if (!isAuthOrMeta) {

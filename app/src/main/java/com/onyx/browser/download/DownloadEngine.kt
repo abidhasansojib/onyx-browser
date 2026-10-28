@@ -20,8 +20,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionPool
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.File
 import java.io.FileInputStream
@@ -58,9 +60,13 @@ class DownloadEngine(
             task.errorMessage = null
             onProgress(task)
 
-            // Step 1: Probe server capabilities (HEAD / Range GET)
-            if (task.chunks.isEmpty()) {
+            // Step 1: Probe server capabilities (HEAD / Range GET).
+            // POST form downloads are never probed: a second request could consume one-time tokens.
+            if (task.chunks.isEmpty() && !task.isPost) {
                 probeServer(task)
+            }
+            if (task.isPost) {
+                task.isRangeSupported = false
             }
 
             // Step 2: Ensure destination directory and file
@@ -439,7 +445,17 @@ class DownloadEngine(
         var lastReportBytes = task.downloadedBytes.get()
 
         val reqBuilder = buildBaseRequest(task.url, task)
-        if (chunk.currentByte > 0L) {
+        if (task.isPost) {
+            val mediaType = task.postContentType.ifBlank { "application/x-www-form-urlencoded" }.toMediaTypeOrNull()
+            reqBuilder.post((task.postBody ?: "").toRequestBody(mediaType))
+            try {
+                val origin = java.net.URI(task.referer.ifBlank { task.url })
+                if (!origin.scheme.isNullOrBlank() && !origin.host.isNullOrBlank()) {
+                    val port = if (origin.port != -1) ":${origin.port}" else ""
+                    reqBuilder.header("Origin", "${origin.scheme}://${origin.host}$port")
+                }
+            } catch (_: Exception) {}
+        } else if (chunk.currentByte > 0L) {
             reqBuilder.header("Range", "bytes=${chunk.currentByte}-")
         }
 
@@ -455,6 +471,18 @@ class DownloadEngine(
                 }
                 if (!response.isSuccessful) {
                     throw IllegalStateException("HTTP ${response.code} error")
+                }
+
+                if (task.isPost) {
+                    // No probe was made; take file name and type from the actual response.
+                    response.header("Content-Disposition")?.let { cd ->
+                        val parsedName = parseContentDispositionFilename(cd)
+                        if (parsedName.isNotBlank()) task.fileName = sanitizeFileName(parsedName)
+                    }
+                    if (task.mimeType.isBlank()) {
+                        response.header("Content-Type")?.substringBefore(';')?.trim()
+                            ?.takeIf { it.isNotBlank() }?.let { task.mimeType = it }
+                    }
                 }
 
                 val body = response.body ?: throw IllegalStateException("Empty response body")

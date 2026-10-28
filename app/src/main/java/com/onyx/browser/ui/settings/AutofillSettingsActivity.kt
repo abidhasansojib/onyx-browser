@@ -40,6 +40,7 @@ class AutofillSettingsActivity : AppCompatActivity() {
             binding.tvActiveAutofillTitle.text = "Autofill Not Supported"
             binding.tvActiveAutofillSubtitle.text = "Android Autofill requires Android 8.0 or higher."
             binding.btnChangeAutofillService.isEnabled = false
+            binding.btnConfigurePasskeyProviders.isEnabled = false
             binding.rowGooglePasswordManager.isEnabled = false
             return
         }
@@ -69,7 +70,7 @@ class AutofillSettingsActivity : AppCompatActivity() {
             }
         } else {
             binding.tvActiveAutofillTitle.text = "No Autofill Service Selected"
-            binding.tvActiveAutofillSubtitle.text = "Choose Google Password Manager, Bitwarden, or your preferred password manager."
+            binding.tvActiveAutofillSubtitle.text = "Choose Bitwarden, Proton Pass, 1Password, KeePassDX, or your preferred password manager."
             binding.ivAutofillStatusIcon.setColorFilter(getColor(R.color.red_danger))
             binding.btnChangeAutofillService.text = "Select Autofill Service"
 
@@ -81,7 +82,11 @@ class AutofillSettingsActivity : AppCompatActivity() {
         }
 
         binding.btnChangeAutofillService.setOnClickListener {
-            AutofillHelper.openAutofillServiceSettings(this)
+            AutofillHelper.openAutofillServiceSettings(this, activeManager?.packageName)
+        }
+
+        binding.btnConfigurePasskeyProviders.setOnClickListener {
+            AutofillHelper.openPasskeyProviderSettings(this, activeManager)
         }
 
         binding.rowGooglePasswordManager.setOnClickListener {

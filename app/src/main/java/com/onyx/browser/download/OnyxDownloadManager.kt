@@ -66,7 +66,9 @@ object OnyxDownloadManager {
         userAgent: String,
         cookies: String = "",
         referer: String = "",
-        contentLength: Long = 0L
+        contentLength: Long = 0L,
+        postBody: String? = null,
+        postContentType: String = ""
     ): Long {
         init(context)
         val app = context.applicationContext
@@ -109,7 +111,9 @@ object OnyxDownloadManager {
             tempFilePath = tempFile.absolutePath,
             finalFilePath = finalPath,
             totalBytes = contentLength,
-            status = DownloadTask.STATUS_PENDING
+            status = DownloadTask.STATUS_PENDING,
+            postBody = postBody,
+            postContentType = postContentType
         )
 
         activeTasks[assignedId] = task

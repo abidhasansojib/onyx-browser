@@ -892,6 +892,7 @@ object DownloadHandler {
                 ""
             }
         }
+        val formPost = FormPostRegistry.takeClaimed(url)
 
         com.onyx.browser.download.OnyxDownloadManager.enqueueDownload(
             context = context,
@@ -900,8 +901,10 @@ object DownloadHandler {
             mimeType = mimeType,
             userAgent = userAgent,
             cookies = resolvedCookies,
-            referer = referer,
-            contentLength = contentLength
+            referer = referer.ifBlank { formPost?.pageUrl ?: "" },
+            contentLength = contentLength,
+            postBody = formPost?.body,
+            postContentType = formPost?.contentType ?: ""
         )
     }
 
@@ -940,6 +943,23 @@ object DownloadHandler {
     ) {
         val resolvedFileName = if (fileName.isNotBlank()) sanitizeFileName(fileName) else guessResolvedFileName(url, null, mimeType)
         val resolvedMime = FileUtils.resolveMimeTypeForDownload(resolvedFileName, mimeType)
+
+        // External downloaders can only issue GET requests; POST form downloads stay internal.
+        if (FormPostRegistry.hasClaimed(url)) {
+            startInternalDownload(
+                context = context,
+                coroutineScope = kotlinx.coroutines.MainScope(),
+                url = url,
+                userAgent = userAgent,
+                fileName = resolvedFileName,
+                mimeType = resolvedMime,
+                contentLength = -1L,
+                cookies = cookies,
+                referer = referer
+            )
+            return
+        }
+
         val downloaders = ExternalDownloaderHelper.getInstalledDownloaders(context, url, resolvedMime)
         val resolvedCookies = if (cookies.isNotBlank()) cookies else {
             try {

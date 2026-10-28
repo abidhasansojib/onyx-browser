@@ -152,7 +152,7 @@ override fun onCreateWindow(
 ### 5.1 `@JavascriptInterface` Security Rules
 Exposing native Java/Kotlin methods to JavaScript via `addJavascriptInterface` introduces security considerations:
 1. **Explicit Annotation**: Only methods annotated with `@JavascriptInterface` are accessible to JavaScript.
-2. **Thread Safety**: JavaScript interface methods execute on a background thread (`JavaBridge`), not the Android Main thread. UI interactions must post to `Looper.getMainLooper()` or dispatch through coroutines (`Dispatchers.Main`).
+2. **Thread Safety**: JavaScript interface methods execute on a background thread (`JavaBridge`), not the Android Main thread. Never call `WebView` methods (such as `webView.url` or `webView.evaluateJavascript`) directly inside `@JavascriptInterface` bodies; marshal onto `Looper.getMainLooper()` first to avoid `WebViewChromium.checkThread()` runtime exceptions on `targetSdk = 35`.
 3. **Parameter Validation**: All arguments passed from JavaScript must be strictly sanitized and type-checked before processing.
 
 ### 5.2 Bridge Property Masking on Sensitive Domains

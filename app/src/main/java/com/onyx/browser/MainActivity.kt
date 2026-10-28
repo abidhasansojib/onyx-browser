@@ -90,6 +90,7 @@ import com.onyx.browser.ui.menu.ContextMenuBottomSheet
 import com.onyx.browser.ui.menu.LanguageSelectionDialog
 import com.onyx.browser.ui.tabs.TabSwitcherBottomSheet
 import com.onyx.browser.web.DownloadHandler
+import com.onyx.browser.web.FormPostRegistry
 import com.onyx.browser.web.LocalFileLoader
 import com.onyx.browser.web.OnyxWebChromeClient
 import com.onyx.browser.web.OnyxWebView
@@ -384,6 +385,18 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private var isSystemDialogOrChooserPending: Boolean = false
+
+    internal fun onCredentialManagerDialogStart() {
+        isSystemDialogOrChooserPending = true
+        if (::pipController.isInitialized) {
+            pipController.disarmAutoEnter()
+        }
+    }
+
+    internal fun onCredentialManagerDialogEnd() {
+        isSystemDialogOrChooserPending = false
+        updatePipParams()
+    }
     private val handledWebRequests = java.util.Collections.synchronizedSet(
         java.util.Collections.newSetFromMap(java.util.WeakHashMap<PermissionRequest, Boolean>())
     )
@@ -2233,8 +2246,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
                 val isStreamingOrMedia = OnyxWebViewClient.isStreamingOrMediaPage(parentUrl) ||
                         OnyxWebViewClient.isMediaOrStreamingHost(parentDomain) ||
-                        MediaPlaybackBridge.isVideoAvailableForTab((sourceWebView as? OnyxWebView)?.tabId) ||
-                        MediaPlaybackBridge.isVideoAvailable
+                        MediaPlaybackBridge.isVideoAvailableForTab((sourceWebView as? OnyxWebView)?.tabId)
 
                 val isAdBlockActive = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(parentDomain)
 
@@ -2243,8 +2255,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     false -> false
                     null -> {
                         if (isStreamingOrMedia && isAdBlockActive) {
-                            // Strictly suppress clickjack popups/popunders spawned when tapping video player
-                            false
+                            // Only real user-gesture popups on media pages. They open hidden and are
+                            // vetted by OnyxWebViewClient.isPopupAd, which drops cross-site clickjack
+                            // popunders while same-site windows (e.g. download forms) still open.
+                            isUserGesture
                         } else {
                             !preferences.isPopupsBlockedGlobal || isUserGesture || recentTouch
                         }
@@ -2287,7 +2301,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         // Instead, keep the parent tab active. When newWebView navigates:
                         // - If it's an ad URL, handleUrlLoading cancels it and closes newTab silently!
                         // - If it's a legitimate URL, displayPopupTab(newTab) switches to it smoothly!
-                        newWebView.postDelayed({
+                        val popupOpenedAt = System.currentTimeMillis()
+                        lateinit var popupCleanup: Runnable
+                        popupCleanup = Runnable {
                             if (newWebView.isPopupPendingDisplay) {
                                 val current = tabManager.getTabById(newTab.id)
                                 val currentUrl = (newWebView.url ?: "").lowercase()
@@ -2296,11 +2312,18 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                                         currentUrl.contains("google") || currentUrl.contains("checkpoint") ||
                                         currentUrl.contains("apple") || currentUrl.contains("signin") ||
                                         currentUrl.contains("paypal") || currentUrl.contains("stripe")
-                                if (!isAuth && current != null && currentDisplayedTabId != newTab.id) {
+                                // A slow server (e.g. a form POST still waiting for its response) keeps the
+                                // popup alive for up to 60s instead of silently discarding the request.
+                                val stillLoading = newWebView.progress in 1..99 &&
+                                        System.currentTimeMillis() - popupOpenedAt < 60_000L
+                                if (stillLoading) {
+                                    newWebView.postDelayed(popupCleanup, 5000)
+                                } else if (!isAuth && current != null && currentDisplayedTabId != newTab.id) {
                                     closeTabById(newTab.id)
                                 }
                             }
-                        }, 12000)
+                        }
+                        newWebView.postDelayed(popupCleanup, 12000)
 
                         true
                     } else {
@@ -2327,6 +2350,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 ""
             }
             val referer = webView.url ?: ""
+            // Downloads produced by POST forms must be replayed with the original POST body.
+            FormPostRegistry.claimForDownload(url)
             DownloadHandler.handleDownload(
                 activity = this,
                 coroutineScope = lifecycleScope,
@@ -2338,6 +2363,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 cookies = cookies,
                 referer = referer
             )
+            // If this download was triggered in an unpromoted popup tab (e.g. target="_blank" download button),
+            // clean up the hidden blank popup window so it doesn't linger as an orphan tab.
+            if (webView.isPopupPendingDisplay && currentDisplayedTabId != tabId) {
+                closeTabById(tabId)
+            }
         }
 
         fun showContextMenuForElement(
@@ -2371,6 +2401,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             sheet.setOnDownloadUrl { u ->
                 val cookies = webView.cookieManager.getCookie(u) ?: ""
                 val userAgent = webView.settings.userAgentString ?: ""
+                FormPostRegistry.claimForDownload(u)
                 DownloadHandler.handleDownload(
                     activity = this,
                     coroutineScope = lifecycleScope,
@@ -3686,9 +3717,12 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             // per-site exceptions. Do NOT blindly overwrite it here.
         }
 
-        // 5. Sync pull to refresh & force dark settings
+        // 5. Sync pull to refresh, autofill & force dark settings
         binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
-        tabManager.getAllWebViews().forEach { it.applyForceDark() }
+        tabManager.getAllWebViews().forEach {
+            it.syncAutofillSettings()
+            it.applyForceDark()
+        }
 
         updatePipParams()
         binding.root.post {

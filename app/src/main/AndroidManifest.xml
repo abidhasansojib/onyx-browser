@@ -72,16 +72,30 @@
         <intent>
             <action android:name="android.service.autofill.AutofillService" />
         </intent>
+        <intent>
+            <action android:name="android.service.credentials.CredentialProviderService" />
+        </intent>
+        <intent>
+            <action android:name="android.service.credentials.system.CredentialProviderService" />
+        </intent>
         <package android:name="com.google.android.gms" />
         <package android:name="com.x8bit.bitwarden" />
+        <package android:name="com.x8bit.bitwarden.beta" />
         <package android:name="com.onepassword.android" />
+        <package android:name="com.agilebits.onepassword" />
         <package android:name="com.dashlane" />
+        <package android:name="com.kunzisoft.keepass.free" />
+        <package android:name="com.kunzisoft.keepass.libre" />
         <package android:name="keepass2android.keepass2android" />
+        <package android:name="keepass2android.keepass2android_nonet" />
         <package android:name="com.samsung.android.samsungpass" />
+        <package android:name="com.samsung.android.samsungpassautofill" />
         <package android:name="org.nordpass.android" />
         <package android:name="com.lastpass.lpandroid" />
         <package android:name="me.proton.android.pass" />
+        <package android:name="io.enpass.app" />
         <package android:name="com.enpass.app" />
+        <package android:name="com.azure.authenticator" />
 
         <!-- Camera & Video Capture Intent Queries (Android 11+ / API 30+) -->
         <intent>

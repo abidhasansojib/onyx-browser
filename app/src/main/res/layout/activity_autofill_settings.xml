@@ -100,7 +100,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Google Password Manager and Android Autofill enabled"
+                                android:text="Android Autofill and Credential Manager ready"
                                 android:textColor="?android:attr/textColorSecondary"
                                 android:textSize="12sp" />
                         </LinearLayout>
@@ -357,7 +357,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="Create and sign in with passkeys using device biometrics and Google Password Manager"
+                        android:text="Create and sign in with passkeys via Bitwarden, Proton Pass, 1Password, KeePassDX, or other providers"
                         android:textColor="?android:attr/textColorSecondary"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -369,7 +369,7 @@
                     android:clickable="false" />
             </LinearLayout>
 
-            <!-- Passkey Explanation Card -->
+            <!-- Passkey Explanation & Provider Configuration Card -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -390,19 +390,30 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="What are Passkeys?"
+                        android:text="Passkey Providers &amp; Compatibility"
                         android:textColor="?android:attr/textColorPrimary"
                         android:textSize="14sp"
                         android:textStyle="bold" />
 
                     <TextView
+                        android:id="@+id/tvPasskeyInfoDescription"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:lineSpacingExtra="2dp"
-                        android:text="Passkeys replace passwords with biometric security (fingerprint, screen lock). They are end-to-end encrypted and synced across your devices via Google Password Manager or your chosen password manager. Passkeys cannot be guessed, phished, or leaked in server breaches."
+                        android:text="Passkeys work with third-party password managers on Android 14+ (Bitwarden, Proton Pass, 1Password, KeePassDX, Enpass, Dashlane). Make sure passkey management is enabled in your password manager and in Android settings. If prompted by Bitwarden, tap Trust to allow Onyx Browser. Note: Google Password Manager restricts passkeys to Google-allowlisted browsers."
                         android:textColor="?android:attr/textColorSecondary"
                         android:textSize="12sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnConfigurePasskeyProviders"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="14dp"
+                        android:text="Configure Passkey Providers"
+                        android:textSize="13sp"
+                        app:cornerRadius="12dp" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

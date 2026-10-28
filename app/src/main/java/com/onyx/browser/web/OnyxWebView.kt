@@ -140,10 +140,12 @@ class OnyxWebView @JvmOverloads constructor(
 
         fun isSyntheticOrDataUrl(url: String?): Boolean {
             if (url.isNullOrBlank()) return true
-            return url.startsWith("data:") ||
-                    url.startsWith("file:///android_asset/") ||
-                    url.startsWith("file:///android_res/") ||
-                    url.startsWith("about:blank", ignoreCase = true)
+            return url.startsWith("data:", ignoreCase = true) ||
+                    url.startsWith("blob:", ignoreCase = true) ||
+                    url.startsWith("javascript:", ignoreCase = true) ||
+                    url.startsWith("about:", ignoreCase = true) ||
+                    url.startsWith("file:///android_asset/", ignoreCase = true) ||
+                    url.startsWith("file:///android_res/", ignoreCase = true)
         }
     }
 
@@ -249,18 +251,7 @@ class OnyxWebView @JvmOverloads constructor(
         settings.userAgentString = getBaseUserAgent(prefs)
 
         applyForceDark()
-
-        try {
-            // Android Autofill & Password Manager support
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                importantForAutofill = if (prefs.isAutofillEnabled) {
-                    View.IMPORTANT_FOR_AUTOFILL_YES
-                } else {
-                    View.IMPORTANT_FOR_AUTOFILL_NO
-                }
-            }
-            settings.saveFormData = prefs.isAutofillEnabled
-        } catch (_: Exception) {}
+        syncAutofillSettings()
 
         // WebAuthn Passkeys bridge
         val activity = findActivity(context)
@@ -297,6 +288,11 @@ class OnyxWebView @JvmOverloads constructor(
                 OnyxBlobBridge(context.applicationContext, bridgeScope),
                 "OnyxBlobBridge"
             )
+        } catch (_: Exception) {}
+
+        // Form POST capture bridge (lets downloads triggered by POST forms replay the original request)
+        try {
+            addJavascriptInterface(OnyxFormBridge(), OnyxFormBridge.INTERFACE_NAME)
         } catch (_: Exception) {}
 
         // Interactive Elements Touch Bridge (instant context menu detection for links, media, and images)
@@ -366,6 +362,11 @@ class OnyxWebView @JvmOverloads constructor(
                     OnyxTouchBridge.TOUCH_LISTENER_JS,
                     setOf("*")
                 )
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                    this,
+                    OnyxFormBridge.SUBMIT_HOOK_SCRIPT,
+                    setOf("*")
+                )
                 // Always inject the media monitor: powers floating video menu pill, media session,
                 // PiP video bounds, and OnyxMediaBridge events regardless of background-play setting.
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
@@ -431,8 +432,23 @@ class OnyxWebView @JvmOverloads constructor(
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.domStorageEnabled = true
         }
-        // Apply cookie settings AFTER profile is set so cookieManager returns the correct profile manager
+        // Apply cookie & autofill settings AFTER profile is set so profile managers bind properly
         applyCookieSettings()
+        syncAutofillSettings()
+    }
+
+    fun syncAutofillSettings() {
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                importantForAutofill = if (prefs.isAutofillEnabled) {
+                    View.IMPORTANT_FOR_AUTOFILL_YES
+                } else {
+                    View.IMPORTANT_FOR_AUTOFILL_NO_HIDE_DESCENDANTS
+                }
+            }
+            settings.saveFormData = !isIncognito && prefs.isAutofillEnabled && prefs.isSavePasswordsPromptEnabled
+        } catch (_: Exception) {}
     }
 
     internal fun applyCookieSettings() {
@@ -564,8 +580,9 @@ class OnyxWebView @JvmOverloads constructor(
             }
         } catch (_: Exception) {}
 
-        // 8. Cookies
+        // 8. Cookies & Autofill
         applyCookieSettings()
+        syncAutofillSettings()
     }
 
     /**

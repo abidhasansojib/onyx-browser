@@ -131,8 +131,11 @@ onyx-browser/
      - `MINOR = (RUN_NUM / 100) % 10`
      - `PATCH = RUN_NUM % 100`
    - Patch increments 0..99, rolling over to Minor at 100. Minor increments 0..9, rolling over to Major after 9 (e.g., `1.0.99` -> `1.1.0`, `1.9.99` -> `2.0.0`).
-7. **Authentication & WebAuthn Bridge Compatibility**:
-   - WebAuthn polyfills (`PasskeyWebAuthnBridge`) must be injected on all login domains (e.g., GitHub, Google, Microsoft) and omitted strictly on Meta's internal challenge frames (`fbsbx.com`).
+7. **Authentication, Autofill & WebAuthn Bridge Compatibility**:
+   - WebAuthn polyfills (`PasskeyWebAuthnBridge`) must be injected on all login domains (e.g., GitHub, Google, Microsoft) and omitted strictly on Meta's internal challenge frames (`fbsbx.com`) and Meta auth domains.
+   - `@JavascriptInterface` methods in `PasskeyWebAuthnBridge` execute on Chromium's background `JavaBridge` thread and must NEVER read `WebView` properties (`webView.url`) off the Main UI thread (`mainHandler.post`).
+   - `PublicKeyCredential.isConditionalMediationAvailable()` must return `Promise.resolve(false)` (and hold `mediation: 'conditional'` requests passively until aborted) so login pages do not auto-launch modal `CredentialManager` sheets on page load.
+   - `PasskeyWebAuthnBridge` must pass verified web `origin` + `clientDataHash` (never falling back to `origin = null` native app credentials), preserve non-placeholder `clientDataJSON` returned by providers so cryptographic signatures remain valid, extract CBOR `attestationObject` metadata (`authenticatorData`, DER SPKI `publicKey`, `publicKeyAlgorithm`), and support W3C `PasswordCredential` (`GetPasswordOption` / `CreatePasswordRequest`) alongside Android `AutofillManager` (`AutofillHelper.getActivePasswordManager` via `autofillServiceComponentName`).
    - `_OnyxPasskeyBridge` must never be deleted from the window or overwritten with `undefined` on login pages.
    - `navigator.userAgentData` must polyfill authentic Chrome/Chromium brands without leaking `"Android WebView"` to ensure Google Sign-In and OAuth flows succeed without `403 disallowed_useragent` blocks.
 8. **Adblock Engine & Network Interception Standards**:
@@ -156,4 +159,9 @@ onyx-browser/
    - Never recreate `MainActivity` on system theme changes while in PiP (`maybeDeferNightModeRecreate` with `uiMode` in `android:configChanges`).
    - Lockscreen playlist transitions must enforce a 2000ms debounce grace gap on `onMediaEnded` before tearing down foreground services.
    - Battery governor must suspend non-playing WebViews with `onPause()` while keeping JavaScript timers active exclusively on the media-playing tab.
+10. **Navigation, Downloads & JavaScript Execution Standards**:
+   - JavaScript pseudo-URLs (`javascript:...`) clicked in web pages or bookmarked must execute directly via `evaluateJavascript()` in `shouldOverrideUrlLoading`, bypassing Chromium top-level navigation restrictions on script URLs.
+   - Synthetic URL schemes (`javascript:`, `about:`, `data:`, `blob:`, `file:///android_asset/`, `file:///android_res/`) must be classified as synthetic in `OnyxWebView.isSyntheticOrDataUrl` so they never clobber active page state, user agents, or history.
+   - POST form download triggers (e.g. `javascript:document.getElementById('id').submit();` or download buttons submitting forms via POST) must be captured at document-start via `OnyxFormBridge` / `FormPostRegistry`, matched on `DownloadListener`, and executed via HTTP POST in `DownloadEngine` with accurate `Origin`, `Referer`, and `Content-Type` headers.
+   - Download triggers spawning blank popup tabs (`target="_blank"`) must retire the unpromoted popup tab once the download is enqueued, preventing zombie tabs.
 

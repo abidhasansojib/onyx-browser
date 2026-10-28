@@ -176,11 +176,12 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
 - **Touch Dynamics & Micro-Timing Preservation**:
   - Touch event listeners on `document` with capture phase are suppressed in challenge iframes, eliminating DOM traversal and Java bridge IPC latency so Arkose's sensor telemetry records authentic human touch gesture dynamics.
 
-- **WebAuthn Level 3 Passkeys & Google OAuth Compatibility**:
-  - WebAuthn passkey polyfill (`PasskeyWebAuthnBridge.kt`) routes through Android `CredentialManager` with `CREDENTIAL_MANAGER_SET_ORIGIN` privilege.
-  - Implements W3C WebAuthn Level 3 static methods (`PublicKeyCredential.parseCreationOptionsFromJSON`, `parseRequestOptionsFromJSON`, `getClientCapabilities`) and spec-compliant `toJSON()` serialization for `@github/webauthn-json` and modern WebAuthn libraries.
+- **WebAuthn Level 3 Passkeys, PasswordCredential & Universal Password Managers**:
+  - `PasskeyWebAuthnBridge.kt` marshals all `@JavascriptInterface` invocations from Chromium's `JavaBridge` thread onto the Main UI thread before reading `webView.url`, validates `rpId` domain suffixes and subframe `crossOrigin` flags, and invokes Android `CredentialManager` with `CREDENTIAL_MANAGER_SET_ORIGIN` (`origin` + `clientDataHash`) while holding `MainActivity` dialog lifecycle guards (`onCredentialManagerDialogStart`/`End`).
+  - Preserves provider-signed `clientDataJSON` payloads when valid JSON is returned, parses CBOR `attestationObject` structures to populate `authenticatorData`, DER SPKI `publicKey` (P-256, P-384, Ed25519, RS256), and `publicKeyAlgorithm`, sanitizes binary WebAuthn extensions (`ArrayBuffer` to Base64Url) for strict provider parsers (e.g. Bitwarden Rust SDK), and suppresses unsolicited page-load conditional mediation popups (`isConditionalMediationAvailable() -> false`).
+  - Supports W3C `PasswordCredential` (`GetPasswordOption` and `CreatePasswordRequest`) alongside live `OnyxWebView.syncAutofillSettings()` and `AutofillManager.autofillServiceComponentName` provider detection across Bitwarden, Proton Pass, 1Password, KeePassDX, Dashlane, Enpass, and NordPass.
   - `ChromeEnvironmentBridge.kt` masks native Android WebView fingerprints while polyfilling `navigator.userAgentData.brands` with standard Chrome/Chromium brands, preventing Google Sign-In from throwing `403: disallowed_useragent`.
-  - Passkey injection is enabled across all login domains (e.g. GitHub, Google, Microsoft), omitting only Meta's internal challenge frames (`fbsbx.com`).
+  - Passkey injection is enabled across all login domains (e.g. GitHub, Google, Microsoft), omitting only Meta's internal challenge frames (`fbsbx.com`) and Meta auth domains.
 
 ---
 

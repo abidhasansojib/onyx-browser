@@ -39,16 +39,39 @@ object AutofillHelper {
         return manager.hasEnabledAutofillServices()
     }
 
-    fun openAutofillServiceSettings(context: Context) {
+    fun openAutofillServiceSettings(context: Context, providerPackageName: String? = null) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val intents = listOf(
+            val intents = mutableListOf<Intent>()
+
+            // On Android 14+ (API 34+), prefer the unified "Passwords, passkeys & autofill" settings screen
+            if (Build.VERSION.SDK_INT >= 34) {
+                intents.add(
+                    Intent("android.settings.CREDENTIAL_PROVIDER").apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
+                if (!providerPackageName.isNullOrBlank() && providerPackageName != "com.google.android.gms") {
+                    intents.add(
+                        Intent("android.settings.CREDENTIAL_PROVIDER").apply {
+                            data = Uri.parse("package:$providerPackageName")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                    )
+                }
+            }
+
+            intents.add(
+                Intent("android.settings.AUTOFILL_SETTINGS").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+            intents.add(
                 Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
                     data = Uri.parse("package:${context.packageName}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                },
-                Intent("android.settings.AUTOFILL_SETTINGS").apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                },
+                }
+            )
+            intents.add(
                 Intent(Settings.ACTION_SETTINGS).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
@@ -60,6 +83,45 @@ object AutofillHelper {
                     return
                 } catch (_: Exception) {}
             }
+        }
+    }
+
+    fun openPasskeyProviderSettings(context: Context, activeManager: ActivePasswordManagerInfo? = null) {
+        val preferredThirdPartyPkg = activeManager?.packageName?.takeIf { !activeManager.isGoogle }
+            ?: getInstalledAutofillServices(context).firstOrNull { !it.isGoogle }?.packageName
+
+        val intents = mutableListOf<Intent>()
+        if (Build.VERSION.SDK_INT >= 34) {
+            if (!preferredThirdPartyPkg.isNullOrBlank()) {
+                intents.add(
+                    Intent("android.settings.CREDENTIAL_PROVIDER").apply {
+                        data = Uri.parse("package:$preferredThirdPartyPkg")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
+            }
+            intents.add(
+                Intent("android.settings.CREDENTIAL_PROVIDER").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+        }
+        intents.add(
+            Intent("android.settings.AUTOFILL_SETTINGS").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+        intents.add(
+            Intent(Settings.ACTION_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+
+        for (intent in intents) {
+            try {
+                context.startActivity(intent)
+                return
+            } catch (_: Exception) {}
         }
     }
 
@@ -89,38 +151,49 @@ object AutofillHelper {
     }
 
     /**
-     * Inspect Android system settings to detect the currently active / selected
-     * Password Manager and Autofill Service (e.g. Google Password Manager, Bitwarden, 1Password, etc.).
+     * Inspect Android AutofillManager (API 28+) and system settings to detect the currently
+     * active Password Manager and Credential Provider (Bitwarden, Proton Pass, 1Password, KeePassDX, etc.).
      */
     fun getActivePasswordManager(context: Context): ActivePasswordManagerInfo? {
         val pm = context.packageManager
         val contentResolver = context.contentResolver
 
-        var rawService: String? = null
+        var resolvedPkg: String? = null
 
-        // 1. Android 14+ (API 34+) primary credential service
-        try {
-            rawService = Settings.Secure.getString(contentResolver, "credential_service_primary")
-        } catch (_: Exception) {}
-
-        // 2. Standard Android Autofill service (API 26+)
-        if (rawService.isNullOrBlank()) {
+        // 1. Official Android 9+ (API 28+) public SDK API — works on targetSdk 35 without SecurityException
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             try {
-                rawService = Settings.Secure.getString(contentResolver, "autofill_service")
+                val manager = context.getSystemService(AutofillManager::class.java)
+                val component = manager?.autofillServiceComponentName
+                if (component != null && component.packageName.isNotBlank()) {
+                    resolvedPkg = component.packageName
+                }
             } catch (_: Exception) {}
         }
 
-        // 3. Fallback to credential_service list
-        if (rawService.isNullOrBlank()) {
+        // 2. Fallback to Settings.Secure (primarily for Android 8.0-8.1 / API 26-27)
+        if (resolvedPkg.isNullOrBlank()) {
+            var rawService: String? = null
             try {
-                rawService = Settings.Secure.getString(contentResolver, "credential_service")
+                rawService = Settings.Secure.getString(contentResolver, "credential_service_primary")
             } catch (_: Exception) {}
+
+            if (rawService.isNullOrBlank()) {
+                try {
+                    rawService = Settings.Secure.getString(contentResolver, "autofill_service")
+                } catch (_: Exception) {}
+            }
+
+            if (rawService.isNullOrBlank()) {
+                try {
+                    rawService = Settings.Secure.getString(contentResolver, "credential_service")
+                } catch (_: Exception) {}
+            }
+            resolvedPkg = extractPackageName(rawService)
         }
 
-        val pkgName = extractPackageName(rawService)
-
-        if (!pkgName.isNullOrBlank() && pkgName != "null" && pkgName != "none") {
-            if (pkgName == "com.google.android.gms") {
+        if (!resolvedPkg.isNullOrBlank() && resolvedPkg != "null" && resolvedPkg != "none") {
+            if (resolvedPkg == "com.google.android.gms") {
                 val icon = try { pm.getApplicationIcon("com.google.android.gms") } catch (_: Exception) { null }
                 return ActivePasswordManagerInfo(
                     packageName = "com.google.android.gms",
@@ -131,28 +204,37 @@ object AutofillHelper {
             }
 
             try {
-                val appInfo = pm.getApplicationInfo(pkgName, 0)
+                val appInfo = pm.getApplicationInfo(resolvedPkg, 0)
                 val label = pm.getApplicationLabel(appInfo).toString().trim()
                 val icon = pm.getApplicationIcon(appInfo)
-                val resolvedName = if (label.isNotBlank()) label else getKnownProviderName(pkgName)
+                val resolvedName = if (label.isNotBlank()) label else getKnownProviderName(resolvedPkg)
                 return ActivePasswordManagerInfo(
-                    packageName = pkgName,
+                    packageName = resolvedPkg,
                     appName = resolvedName,
                     icon = icon,
                     isGoogle = false
                 )
             } catch (_: Exception) {
                 return ActivePasswordManagerInfo(
-                    packageName = pkgName,
-                    appName = getKnownProviderName(pkgName),
+                    packageName = resolvedPkg,
+                    appName = getKnownProviderName(resolvedPkg),
                     icon = null,
                     isGoogle = false
                 )
             }
         }
 
-        // 4. If hasEnabledAutofillServices is true with GMS available
-        if (hasEnabledAutofillServices(context)) {
+        // 3. Legacy Android 8.0-8.1 fallback when AutofillManager reports an active service without exposing ComponentName
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P && hasEnabledAutofillServices(context)) {
+            val nonGoogleInstalled = getInstalledAutofillServices(context).firstOrNull { !it.isGoogle }
+            if (nonGoogleInstalled != null) {
+                return ActivePasswordManagerInfo(
+                    packageName = nonGoogleInstalled.packageName,
+                    appName = nonGoogleInstalled.appName,
+                    icon = nonGoogleInstalled.icon,
+                    isGoogle = false
+                )
+            }
             try {
                 pm.getPackageInfo("com.google.android.gms", 0)
                 val icon = try { pm.getApplicationIcon("com.google.android.gms") } catch (_: Exception) { null }
@@ -173,7 +255,7 @@ object AutofillHelper {
         val trimmed = raw.trim()
         if (trimmed.equals("null", ignoreCase = true) || trimmed.equals("none", ignoreCase = true)) return null
 
-        val firstEntry = trimmed.split(':', ',').firstOrNull { it.isNotBlank() } ?: trimmed
+        val firstEntry = trimmed.split(':', ',', ';').firstOrNull { it.isNotBlank() } ?: trimmed
 
         val cn = ComponentName.unflattenFromString(firstEntry)
         if (cn != null && cn.packageName.isNotBlank()) {
@@ -191,9 +273,10 @@ object AutofillHelper {
     private fun getKnownProviderName(pkg: String): String {
         return when {
             pkg.contains("bitwarden") -> "Bitwarden"
-            pkg.contains("onepassword") -> "1Password"
+            pkg.contains("onepassword") || pkg.contains("agilebits") -> "1Password"
             pkg.contains("dashlane") -> "Dashlane"
             pkg.contains("lastpass") -> "LastPass"
+            pkg.contains("kunzisoft") -> "KeePassDX"
             pkg.contains("keepass") -> "KeePass"
             pkg.contains("samsungpass") -> "Samsung Pass"
             pkg.contains("nordpass") -> "NordPass"
@@ -254,77 +337,79 @@ object AutofillHelper {
         }
 
         // 3. Fallback to system autofill settings
-        openAutofillServiceSettings(context)
+        openAutofillServiceSettings(context, pkg)
     }
 
     fun getInstalledAutofillServices(context: Context): List<AutofillServiceInfo> {
         val pm = context.packageManager
         val list = mutableListOf<AutofillServiceInfo>()
 
-        try {
-            pm.getPackageInfo("com.google.android.gms", 0)
-            val icon = try { pm.getApplicationIcon("com.google.android.gms") } catch (_: Exception) { null }
-            list.add(
-                AutofillServiceInfo(
-                    packageName = "com.google.android.gms",
-                    appName = "Google Password Manager",
-                    icon = icon,
-                    isGoogle = true,
-                    isCurrent = false
-                )
-            )
-        } catch (_: Exception) {}
+        val serviceActions = mutableListOf("android.service.autofill.AutofillService")
+        if (Build.VERSION.SDK_INT >= 34) {
+            serviceActions.add("android.service.credentials.CredentialProviderService")
+            serviceActions.add("android.service.credentials.system.CredentialProviderService")
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val serviceIntent = Intent("android.service.autofill.AutofillService")
-                val resolved = pm.queryIntentServices(serviceIntent, PackageManager.MATCH_ALL)
-                for (info in resolved) {
-                    val pkg = info.serviceInfo.packageName
-                    if (list.any { it.packageName == pkg }) continue
-                    try {
-                        val appInfo = pm.getApplicationInfo(pkg, 0)
-                        val name = pm.getApplicationLabel(appInfo).toString()
-                        val icon = pm.getApplicationIcon(appInfo)
-                        list.add(
-                            AutofillServiceInfo(
-                                packageName = pkg,
-                                appName = name,
-                                icon = icon,
-                                isGoogle = false,
-                                isCurrent = false
+            for (action in serviceActions) {
+                try {
+                    val resolved = pm.queryIntentServices(Intent(action), PackageManager.MATCH_ALL)
+                    for (info in resolved) {
+                        val pkg = info.serviceInfo.packageName
+                        if (pkg == "android" || list.any { it.packageName == pkg }) continue
+                        val isGms = pkg == "com.google.android.gms"
+                        try {
+                            val appInfo = pm.getApplicationInfo(pkg, 0)
+                            val name = if (isGms) "Google Password Manager" else pm.getApplicationLabel(appInfo).toString()
+                            val icon = pm.getApplicationIcon(appInfo)
+                            list.add(
+                                AutofillServiceInfo(
+                                    packageName = pkg,
+                                    appName = name,
+                                    icon = icon,
+                                    isGoogle = isGms,
+                                    isCurrent = false
+                                )
                             )
-                        )
-                    } catch (_: Exception) {}
-                }
-            } catch (_: Exception) {}
+                        } catch (_: Exception) {}
+                    }
+                } catch (_: Exception) {}
+            }
         }
 
         val knownPackages = listOf(
             "com.x8bit.bitwarden" to "Bitwarden",
-            "com.onepassword.android" to "1Password",
-            "com.dashlane" to "Dashlane",
-            "com.lastpass.lpandroid" to "LastPass",
-            "keepass2android.keepass2android" to "KeePass2Android",
-            "com.samsung.android.samsungpass" to "Samsung Pass",
-            "org.nordpass.android" to "NordPass",
+            "com.x8bit.bitwarden.beta" to "Bitwarden Beta",
             "me.proton.android.pass" to "Proton Pass",
+            "com.onepassword.android" to "1Password",
+            "com.agilebits.onepassword" to "1Password",
+            "com.kunzisoft.keepass.free" to "KeePassDX",
+            "com.kunzisoft.keepass.libre" to "KeePassDX Libre",
+            "keepass2android.keepass2android" to "KeePass2Android",
+            "keepass2android.keepass2android_nonet" to "KeePass2Android Offline",
+            "com.dashlane" to "Dashlane",
+            "org.nordpass.android" to "NordPass",
+            "com.lastpass.lpandroid" to "LastPass",
             "io.enpass.app" to "Enpass",
-            "com.enpass.app" to "Enpass"
+            "com.enpass.app" to "Enpass",
+            "com.samsung.android.samsungpass" to "Samsung Pass",
+            "com.azure.authenticator" to "Microsoft Authenticator",
+            "com.google.android.gms" to "Google Password Manager"
         )
 
         for ((pkg, name) in knownPackages) {
             if (list.any { it.packageName == pkg }) continue
+            val isGms = pkg == "com.google.android.gms"
             try {
                 val appInfo = pm.getApplicationInfo(pkg, 0)
                 val icon = pm.getApplicationIcon(appInfo)
-                val label = pm.getApplicationLabel(appInfo).toString().ifBlank { name }
+                val label = if (isGms) name else pm.getApplicationLabel(appInfo).toString().ifBlank { name }
                 list.add(
                     AutofillServiceInfo(
                         packageName = pkg,
                         appName = label,
                         icon = icon,
-                        isGoogle = false,
+                        isGoogle = isGms,
                         isCurrent = false
                     )
                 )
