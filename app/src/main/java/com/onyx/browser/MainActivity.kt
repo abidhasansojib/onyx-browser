@@ -1502,12 +1502,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (isLocalFileView(currentTab)) {
                 onBackPressedDispatcher.onBackPressed()
             } else if (preferences.isHomeReplacedWithRefresh) {
-                val activeWv = tabManager.getActiveWebView()
-                if (activeWv != null && binding.homeLayout.root.visibility != View.VISIBLE) {
-                    activeWv.reload()
-                } else {
-                    refreshHomeShortcuts()
-                }
+                tabManager.getActiveWebView()?.reload()
             } else if (currentTab != null && currentTab.url.isNotBlank() && !currentTab.url.startsWith("about:blank", ignoreCase = true)) {
                 val newTab = tabManager.createNewTab(url = "", isIncognito = currentTab.isIncognito)
                 displayTab(newTab)
