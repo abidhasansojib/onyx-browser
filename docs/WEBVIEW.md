@@ -54,6 +54,9 @@ with(settings) {
 
     // Media streaming (audio/video playback)
     mediaPlaybackRequiresUserGesture = false
+
+    // Chrome/Brave Android parity: block active mixed scripts/XHR while permitting passive HTTP media streams
+    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
 }
 ```
 

@@ -58,6 +58,7 @@ class OnyxWebView @JvmOverloads constructor(
 
     @Volatile var pendingMainFrameUrl: String? = null
     @Volatile var isMainFrameDocumentLoaded: Boolean = false
+    @Volatile var hasActiveMediaSubresource: Boolean = false
     
     val touchBridge = OnyxTouchBridge()
     var lastTouchX: Float = 0f
@@ -222,11 +223,11 @@ class OnyxWebView @JvmOverloads constructor(
             // Media & Streaming Support (YouTube, Twitch, Video players)
             mediaPlaybackRequiresUserGesture = prefs.isAutoplayBlockedGlobal
 
-            // Insecure / Mixed Content
+            // Insecure / Mixed Content (Compatibility mode matches Chrome/Brave: blocks active mixed scripts/XHR while permitting passive media)
             mixedContentMode = if (!prefs.isMixedContentBlockedGlobal) {
                 WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             } else {
-                WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             }
 
             // Suppress X-Requested-With header to avoid identifying as an embedded WebView to anti-bot systems
@@ -436,8 +437,8 @@ class OnyxWebView @JvmOverloads constructor(
 
     internal fun applyCookieSettings() {
         try {
-            val currentUrl = url ?: ""
-            val isStreaming = OnyxWebViewClient.isStreamingOrMediaPage(currentUrl)
+            val currentUrl = pendingMainFrameUrl?.takeIf { it.isNotBlank() } ?: url ?: ""
+            val isStreaming = OnyxWebViewClient.isStreamingOrMediaPage(currentUrl) || hasActiveMediaSubresource
             if (isIncognito) {
                 // Incognito: always accept first-party cookies so login works.
                 // Enable third-party cookies during active OAuth/auth flows (Facebook, Arkose,
@@ -539,11 +540,14 @@ class OnyxWebView @JvmOverloads constructor(
         // 6. Insecure / Mixed Content
         val mixedPerm = prefs.isWebMixedContentAllowed(domain)
         val mixedGloballyBlocked = prefs.isMixedContentBlockedGlobal
-        val mixedAllowed = mixedPerm ?: !mixedGloballyBlocked
-        settings.mixedContentMode = if (mixedAllowed) {
-            WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        } else {
-            WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        settings.mixedContentMode = when (mixedPerm) {
+            true -> WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            false -> WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            null -> if (!mixedGloballyBlocked) {
+                WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            } else {
+                WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            }
         }
 
         // 7. Sound muting — per-site BLOCKED = muted, ALLOWED = unmuted, ASK = follow global
@@ -689,6 +693,7 @@ class OnyxWebView @JvmOverloads constructor(
 
     override fun loadUrl(url: String) {
         if (!isSyntheticOrDataUrl(url)) {
+            if (url != this.url) hasActiveMediaSubresource = false
             pendingMainFrameUrl = url
             isMainFrameDocumentLoaded = false
             applyUserAgentForUrl(url)
@@ -705,6 +710,7 @@ class OnyxWebView @JvmOverloads constructor(
 
     override fun loadUrl(url: String, additionalHttpHeaders: MutableMap<String, String>) {
         if (!isSyntheticOrDataUrl(url)) {
+            if (url != this.url) hasActiveMediaSubresource = false
             pendingMainFrameUrl = url
             isMainFrameDocumentLoaded = false
             applyUserAgentForUrl(url)

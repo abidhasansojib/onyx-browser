@@ -1,6 +1,7 @@
 package com.onyx.browser.web
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -10,6 +11,7 @@ import androidx.webkit.WebViewFeature
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.nativebridge.AdBlockEngine
 import java.io.ByteArrayInputStream
+import java.nio.charset.StandardCharsets
 
 /**
  * Intercepts Service Worker background fetch and network requests.
@@ -31,8 +33,19 @@ object AdBlockServiceWorkerHelper {
                             val prefs = BrowserPreferences.getInstance(context)
                             if (!prefs.isAdBlockEnabled) return null
 
+                            val headers = request.requestHeaders
+                            val requestOrigin = getHeaderCaseInsensitive(headers, "Origin")
+                            val sourceUrl = getHeaderCaseInsensitive(headers, "Referer")
+                                ?: requestOrigin
+                                ?: ""
+
                             val reqDomain = prefs.cleanDomain(url)
-                            if (prefs.isDomainWhitelisted(reqDomain)) return null
+                            val sourceDomain = prefs.cleanDomain(sourceUrl)
+                            if (prefs.isDomainWhitelisted(reqDomain) ||
+                                (sourceDomain.isNotBlank() && prefs.isDomainWhitelisted(sourceDomain))
+                            ) {
+                                return null
+                            }
 
                             // Universal CAPTCHA, Auth, OAuth, and First-Party Meta exemption
                             val lowerUrl = url.lowercase()
@@ -53,15 +66,11 @@ object AdBlockServiceWorkerHelper {
                                 return null
                             }
 
-                            val headers = request.requestHeaders
-                            val sourceUrl = getHeaderCaseInsensitive(headers, "Referer")
-                                ?: getHeaderCaseInsensitive(headers, "Origin")
-                                ?: ""
-
                             val fetchDest = getHeaderCaseInsensitive(headers, "Sec-Fetch-Dest")?.lowercase() ?: ""
                             val fetchMode = getHeaderCaseInsensitive(headers, "Sec-Fetch-Mode")?.lowercase() ?: ""
                             val acceptHeader = getHeaderCaseInsensitive(headers, "Accept")?.lowercase() ?: ""
                             val reqWith = getHeaderCaseInsensitive(headers, "X-Requested-With")?.lowercase() ?: ""
+                            val rangeHeader = getHeaderCaseInsensitive(headers, "Range")
                             val urlPath = request.url?.path?.lowercase() ?: ""
                             val scheme = request.url?.scheme?.lowercase() ?: ""
 
@@ -74,10 +83,15 @@ object AdBlockServiceWorkerHelper {
                                 fetchDest == "font" -> AdBlockEngine.RESOURCE_TYPE_FONT
                                 fetchDest == "object" || fetchDest == "embed" -> AdBlockEngine.RESOURCE_TYPE_OBJECT
                                 fetchDest == "video" || fetchDest == "audio" -> AdBlockEngine.RESOURCE_TYPE_MEDIA
-                                urlPath.endsWith(".m3u8") || urlPath.endsWith(".ts") || urlPath.endsWith(".mpd") ||
-                                    urlPath.endsWith(".m4s") || urlPath.endsWith(".mp4") || urlPath.endsWith(".webm") ||
-                                    urlPath.endsWith(".ogg") || urlPath.endsWith(".mp3") || urlPath.endsWith(".m4a") ||
-                                    urlPath.endsWith(".aac") || urlPath.endsWith(".flv") -> AdBlockEngine.RESOURCE_TYPE_MEDIA
+                                urlPath.endsWith(".m3u8") || urlPath.endsWith(".ts") || urlPath.endsWith(".m2ts") ||
+                                    urlPath.endsWith(".mpd") || urlPath.endsWith(".m4s") || urlPath.endsWith(".cmfv") ||
+                                    urlPath.endsWith(".cmfa") || urlPath.endsWith(".fmp4") || urlPath.endsWith(".mp4") ||
+                                    urlPath.endsWith(".m4v") || urlPath.endsWith(".webm") || urlPath.endsWith(".mkv") ||
+                                    urlPath.endsWith(".ogv") || urlPath.endsWith(".ogg") || urlPath.endsWith(".mp3") ||
+                                    urlPath.endsWith(".m4a") || urlPath.endsWith(".aac") || urlPath.endsWith(".opus") ||
+                                    urlPath.endsWith(".flac") || urlPath.endsWith(".wav") || urlPath.endsWith(".flv") ||
+                                    acceptHeader.contains("mpegurl") || acceptHeader.contains("dash+xml") ||
+                                    rangeHeader?.startsWith("bytes=", ignoreCase = true) == true -> AdBlockEngine.RESOURCE_TYPE_MEDIA
                                 getHeaderCaseInsensitive(headers, "Ping-To") != null ||
                                     urlPath.contains("/ping") || urlPath.contains("/beacon") -> AdBlockEngine.RESOURCE_TYPE_PING
                                 fetchDest == "empty" || fetchMode == "cors" || reqWith == "xmlhttprequest" -> AdBlockEngine.RESOURCE_TYPE_XHR
@@ -96,12 +110,29 @@ object AdBlockServiceWorkerHelper {
                                 else -> AdBlockEngine.RESOURCE_TYPE_OTHER
                             }
 
+                            val validOrigin = requestOrigin?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
+                            val corsHeaders = if (validOrigin != null) {
+                                mapOf(
+                                    "Access-Control-Allow-Origin" to validOrigin,
+                                    "Access-Control-Allow-Credentials" to "true",
+                                    "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+                                    "Access-Control-Allow-Headers" to "*",
+                                    "Vary" to "Origin"
+                                )
+                            } else {
+                                mapOf(
+                                    "Access-Control-Allow-Origin" to "*",
+                                    "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+                                    "Access-Control-Allow-Headers" to "*"
+                                )
+                            }
+
                             val uncloakedUrl = AdBlockDomainManager.uncloakUrl(url)
                             val method = request.method ?: "GET"
                             var engineResult = AdBlockEngine.checkRequest(uncloakedUrl, sourceUrl, resourceType, method)
 
                             // Dual-pass: if uncloaked check did not block and original URL differs, check original
-                            if (!engineResult.shouldBlock && uncloakedUrl != url) {
+                            if (!engineResult.shouldBlock && uncloakedUrl != url && resourceType != AdBlockEngine.RESOURCE_TYPE_MEDIA) {
                                 val originalResult = AdBlockEngine.checkRequest(url, sourceUrl, resourceType, method)
                                 if (originalResult.shouldBlock || !originalResult.redirectData.isNullOrBlank()) {
                                     engineResult = originalResult
@@ -113,25 +144,25 @@ object AdBlockServiceWorkerHelper {
 
                                 if (!engineResult.redirectData.isNullOrBlank()) {
                                     val redirect = engineResult.redirectData
-                                    if (redirect.startsWith("data:")) {
+                                    if (redirect.startsWith("data:", ignoreCase = true)) {
                                         try {
                                             val commaIndex = redirect.indexOf(',')
                                             if (commaIndex != -1) {
                                                 val meta = redirect.substring(5, commaIndex)
                                                 val data = redirect.substring(commaIndex + 1)
-                                                val isBase64 = meta.contains(";base64")
+                                                val isBase64 = meta.contains(";base64", ignoreCase = true)
                                                 val mime = meta.substringBefore(';').ifBlank { "text/plain" }
-                                                val bytes = if (isBase64) android.util.Base64.decode(data, android.util.Base64.DEFAULT) else data.toByteArray()
+                                                val bytes = if (isBase64) {
+                                                    android.util.Base64.decode(data, android.util.Base64.DEFAULT)
+                                                } else {
+                                                    Uri.decode(data).toByteArray(StandardCharsets.UTF_8)
+                                                }
                                                 return WebResourceResponse(
                                                     mime,
                                                     "UTF-8",
                                                     200,
                                                     "OK",
-                                                    mapOf(
-                                                        "Access-Control-Allow-Origin" to "*",
-                                                        "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
-                                                        "Access-Control-Allow-Headers" to "*"
-                                                    ),
+                                                    corsHeaders + ("Content-Type" to "$mime; charset=utf-8"),
                                                     ByteArrayInputStream(bytes)
                                                 )
                                             }
@@ -139,16 +170,31 @@ object AdBlockServiceWorkerHelper {
                                     }
                                 }
 
+                                val cleanPath = lowerUrl.substringBefore('?').substringBefore('#')
+                                val isNonXmlAsset = cleanPath.endsWith(".js") || cleanPath.endsWith(".mjs") ||
+                                        cleanPath.endsWith(".css") || cleanPath.endsWith(".html") || cleanPath.endsWith(".htm")
+                                val isVastTag = (resourceType == AdBlockEngine.RESOURCE_TYPE_XHR || resourceType == AdBlockEngine.RESOURCE_TYPE_OTHER) &&
+                                        !isNonXmlAsset && (lowerUrl.contains("vast") || lowerUrl.contains("vmap") ||
+                                        lowerUrl.contains("/pagead/ads?") || lowerUrl.contains("doubleclick.net/gampad/") ||
+                                        lowerUrl.contains("ad-vast") || lowerUrl.contains("spotxchange") || lowerUrl.contains("fwmrm.net/ad/"))
+                                if (isVastTag) {
+                                    val emptyVast = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><VAST version=\"3.0\"/>"
+                                    return WebResourceResponse(
+                                        "text/xml",
+                                        "UTF-8",
+                                        200,
+                                        "OK",
+                                        corsHeaders + ("Content-Type" to "text/xml; charset=utf-8"),
+                                        ByteArrayInputStream(emptyVast.toByteArray(StandardCharsets.UTF_8))
+                                    )
+                                }
+
                                 return WebResourceResponse(
                                     "text/plain",
                                     "UTF-8",
                                     403,
                                     "Blocked by Onyx Shields",
-                                    mapOf(
-                                        "Access-Control-Allow-Origin" to "*",
-                                        "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
-                                        "Access-Control-Allow-Headers" to "*"
-                                    ),
+                                    corsHeaders,
                                     ByteArrayInputStream(ByteArray(0))
                                 )
                             }

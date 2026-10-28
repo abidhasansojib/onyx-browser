@@ -243,11 +243,31 @@ class OnyxShieldBridge(private val context: Context) {
                 d.contains("hcaptcha") || d.contains("turnstile") || d.contains("funcaptcha")
         if (isMetaOrCaptcha) return ""
 
-        return com.onyx.browser.nativebridge.AdBlockEngine.getCspDirectives(
+        val rawCsp = com.onyx.browser.nativebridge.AdBlockEngine.getCspDirectives(
             url = url,
             sourceUrl = url,
             resourceType = com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_MAIN_FRAME
-        ) ?: ""
+        ) ?: return ""
+
+        // Sanitize directives for <meta http-equiv="Content-Security-Policy">:
+        // 1. Strip directives ignored/invalid inside <meta> tags (sandbox, frame-ancestors, report-uri).
+        // 2. Rewrite "worker-src 'none'" to "worker-src blob:" so https: ServiceWorkers remain blocked
+        //    while in-memory MSE blob: Web Workers (hls.js, dash.js, mpegts.js) can demux video streams.
+        return rawCsp.split(';')
+            .map { it.trim() }
+            .filter { directive ->
+                directive.isNotEmpty() &&
+                !directive.startsWith("sandbox", ignoreCase = true) &&
+                !directive.startsWith("frame-ancestors", ignoreCase = true) &&
+                !directive.startsWith("report-uri", ignoreCase = true)
+            }
+            .joinToString("; ") { directive ->
+                if (directive.matches(WORKER_SRC_NONE_REGEX)) {
+                    "worker-src blob:"
+                } else {
+                    directive
+                }
+            }
     }
 
     @JavascriptInterface
@@ -264,6 +284,34 @@ class OnyxShieldBridge(private val context: Context) {
 
     companion object {
         private val DANGEROUS_CSS_PATTERN = Regex("[{}<>;@\\\\]|url\\s*\\(|expression\\s*\\(|javascript\\s*:|-moz-binding", RegexOption.IGNORE_CASE)
+        private val WORKER_SRC_NONE_REGEX = Regex("^worker-src\\s+'none'\\s*$", RegexOption.IGNORE_CASE)
+
+        private fun isMediaStreamPath(lowerUrl: String): Boolean {
+            val clean = lowerUrl.substringBefore('?').substringBefore('#')
+            return clean.endsWith(".m3u8") || clean.endsWith(".mpd") || clean.endsWith(".ts") ||
+                    clean.endsWith(".m2ts") || clean.endsWith(".m4s") || clean.endsWith(".cmfv") ||
+                    clean.endsWith(".cmfa") || clean.endsWith(".fmp4") || clean.endsWith(".mp4") ||
+                    clean.endsWith(".m4v") || clean.endsWith(".webm") || clean.endsWith(".mkv") ||
+                    clean.endsWith(".ogv") || clean.endsWith(".ogg") || clean.endsWith(".mp3") ||
+                    clean.endsWith(".m4a") || clean.endsWith(".aac") || clean.endsWith(".opus") ||
+                    clean.endsWith(".flac") || clean.endsWith(".wav") || clean.endsWith(".flv") ||
+                    clean.endsWith(".vtt") || clean.endsWith(".srt") || clean.endsWith(".ass")
+        }
+
+        private fun isVastAdTagUrl(lowerUrl: String): Boolean {
+            val clean = lowerUrl.substringBefore('?').substringBefore('#')
+            if (clean.endsWith(".js") || clean.endsWith(".mjs") || clean.endsWith(".css") ||
+                clean.endsWith(".html") || clean.endsWith(".htm") || clean.endsWith(".png") ||
+                clean.endsWith(".jpg") || clean.endsWith(".jpeg") || clean.endsWith(".gif") ||
+                clean.endsWith(".svg") || clean.endsWith(".webp")
+            ) {
+                return false
+            }
+            return lowerUrl.contains("vast") || lowerUrl.contains("vmap") ||
+                    lowerUrl.contains("/pagead/ads?") || lowerUrl.contains("doubleclick.net/gampad/") ||
+                    lowerUrl.contains("ad-vast") || lowerUrl.contains("spotxchange") ||
+                    lowerUrl.contains("fwmrm.net/ad/")
+        }
     }
 
     @JavascriptInterface
@@ -335,8 +383,16 @@ class OnyxShieldBridge(private val context: Context) {
     fun isUrlBlocked(url: String?, pageUrl: String?, resourceType: String?): Boolean {
         if (!preferences.isAdBlockEnabled) return false
         val reqUrl = url?.takeIf { it.isNotBlank() } ?: return false
+        if (reqUrl.startsWith("blob:", ignoreCase = true) ||
+            reqUrl.startsWith("data:", ignoreCase = true) ||
+            reqUrl.startsWith("javascript:", ignoreCase = true)
+        ) {
+            return false
+        }
         val page = pageUrl?.takeIf { it.isNotBlank() } ?: ""
+        if (page.isNotBlank() && preferences.isDomainWhitelisted(page)) return false
         if (preferences.isDomainWhitelisted(reqUrl)) return false
+
         val reqDomain = preferences.cleanDomain(reqUrl)
         val d = reqDomain.lowercase()
         val u = reqUrl.lowercase()
@@ -347,8 +403,48 @@ class OnyxShieldBridge(private val context: Context) {
         ) {
             return false
         }
-        val effectiveType = resourceType?.takeIf { it.isNotBlank() } ?: "other"
-        return com.onyx.browser.nativebridge.AdBlockEngine.shouldBlock(reqUrl, page, effectiveType)
+
+        val effectiveType = resourceType?.takeIf { it.isNotBlank() }?.lowercase() ?: "other"
+        val isXhrCheck = effectiveType == "xhr" || effectiveType == "xmlhttprequest"
+        if (isXhrCheck) {
+            // Let media streams and VAST/VMAP ad tags flow through to OnyxWebViewClient.shouldInterceptRequest
+            // so media uses RESOURCE_TYPE_MEDIA and VAST tags receive HTTP 200 empty <VAST/> XML instead of JS TypeError.
+            if (isMediaStreamPath(u) || isVastAdTagUrl(u)) return false
+        }
+
+        val typeInt = when (effectiveType) {
+            "script" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_SCRIPT
+            "image" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_IMAGE
+            "stylesheet" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_STYLESHEET
+            "sub_frame", "subdocument" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_SUB_FRAME
+            "xhr", "xmlhttprequest" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_XHR
+            "media" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_MEDIA
+            "main_frame", "document" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_MAIN_FRAME
+            "font" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_FONT
+            "ping", "beacon" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_PING
+            "websocket" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_WEBSOCKET
+            "object" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_OBJECT
+            "popup" -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_POPUP
+            else -> com.onyx.browser.nativebridge.AdBlockEngine.RESOURCE_TYPE_OTHER
+        }
+
+        val uncloakedUrl = AdBlockDomainManager.uncloakUrl(reqUrl)
+        var engineResult = com.onyx.browser.nativebridge.AdBlockEngine.checkRequest(uncloakedUrl, page, typeInt, "GET")
+        if (!engineResult.shouldBlock && uncloakedUrl != reqUrl) {
+            val originalResult = com.onyx.browser.nativebridge.AdBlockEngine.checkRequest(reqUrl, page, typeInt, "GET")
+            if (originalResult.shouldBlock || !originalResult.redirectData.isNullOrBlank()) {
+                engineResult = originalResult
+            }
+        }
+
+        // If a $redirect surrogate exists (e.g., noopjson, noopvast-2.0, noopjs, google-ima.js),
+        // do not reject in the JS fetch/XHR proxy — allow OnyxWebViewClient.shouldInterceptRequest
+        // to intercept and serve the surrogate with HTTP 200 OK.
+        if (isXhrCheck && !engineResult.redirectData.isNullOrBlank()) {
+            return false
+        }
+
+        return engineResult.shouldBlock
     }
 }
 

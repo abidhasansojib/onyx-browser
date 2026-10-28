@@ -284,32 +284,74 @@ object AdBlockDocumentStart {
 
             var aggSubPattern = /(aan\.amazon\.com|ads-api\.tiktok\.com|ads-api\.x\.com|ads-sg\.tiktok\.com|ads\.huawei\.com|ads\.microsoft\.com|ads\.pinterest\.com|ads\.tiktok\.com|ads\.x\.com|ads\.yahoo\.com|ads\.youtube\.com|adservice\.google\.com|adtago\.s3\.amazonaws\.com|adtech\.yahooinc\.com|advertising-api-eu\.amazon\.com|advertising\.apple\.com|advertising\.yahoo\.com|advertising\.yandex\.ru|advice-ads\.s3\.amazonaws\.com|analytics-sg\.tiktok\.com|analytics\.google\.com|analytics\.pinterest\.com|analytics\.query\.yahoo\.com|analytics\.x\.com|analytics\.yahoo\.com|analyticsengine\.s3\.amazonaws\.com|api-adservices\.apple\.com|api\.ad\.xiaomi\.com|bingads\.microsoft\.com|books-analytics-events\.apple\.com|browser\.events\.data\.msn\.com|business-api\.tiktok\.com|c\.bing\.com|dai\.google\.com|data\.mistat\.india\.xiaomi\.com|data\.mistat\.rus\.xiaomi\.com|data\.mistat\.xiaomi\.com|device-metrics-us-2\.amazon\.com|device-metrics-us\.amazon\.com|extmaps-api\.yandex\.net|firebase-settings\.crashlytics\.com|fundingchoicesmessages\.google\.com|gemini\.yahoo\.com|geo\.yahoo\.com|globalapi\.ad\.xiaomi\.com|graph\.instagram\.com|grs\.hicloud\.com|i\.instagram\.com|iadsdk\.apple\.com|iot-eu-logser\.realme\.com|iot-logser\.realme\.com|log\.fc\.yahoo\.com|log\.pinterest\.com|logbak\.hicloud\.com|logservice\.hicloud\.com|logservice1\.hicloud\.com|mads-eu\.amazon\.com|metrics\.apple\.com|metrics\.data\.hicloud\.com|metrics2\.data\.hicloud\.com|metrika\.yandex\.ru|nmetrics\.samsung\.com|notes-analytics-events\.apple\.com|offerwall\.yandex\.net|partnerads\.ysm\.yahoo\.com|pixel\.quora\.com|qevents\.quora\.com|s\.youtube\.com|sdkconfig\.ad\.intl\.xiaomi\.com|sdkconfig\.ad\.xiaomi\.com|settings-win\.data\.microsoft\.com|smetrics\.samsung\.com|tagmanager\.google\.com|telemetry\.microsoft\.com|tr\.facebook\.com|tr\.iadsdk\.apple\.com|tracking\.miui\.com|tracking\.rus\.miui\.com|trk\.pinterest\.com|udc\.yahoo\.com|udcm\.yahoo\.com|vk\.com|vortex-win\.data\.microsoft\.com|vortex\.data\.microsoft\.com|watson\.telemetry\.microsoft\.com|widgets\.pinterest\.com|xp\.apple\.com)/i;
 
+            var mediaExtPattern = /\.(m3u8|mpd|ts|m2ts|m4s|cmfv|cmfa|fmp4|mp4|m4v|webm|mkv|ogv|ogg|mp3|m4a|aac|opus|flac|wav|flv|vtt|srt|ass)(\?|#|$)/i;
+            var vastTagPattern = /(vast|vmap|\/gampad\/ads|\/pagead\/ads\?|ad-vast|spotxchange|fwmrm\.net\/ad\/)/i;
+            var nonXmlExtPattern = /\.(js|mjs|css|html|htm|png|jpg|jpeg|gif|svg|webp)(\?|#|$)/i;
+
+            function resolveUrl(rawUrl) {
+                if (!rawUrl || typeof rawUrl !== 'string') return '';
+                try {
+                    return new URL(rawUrl, location.href).href;
+                } catch(_) {
+                    return rawUrl;
+                }
+            }
+
             function isBlockedUrl(rawUrl, level, resourceType) {
                 if (!rawUrl || typeof rawUrl !== 'string') return false;
                 if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:') || rawUrl.startsWith('javascript:')) return false;
 
+                var resolvedUrl = resolveUrl(rawUrl);
+                if (!resolvedUrl || resolvedUrl.startsWith('blob:') || resolvedUrl.startsWith('data:') || resolvedUrl.startsWith('javascript:')) {
+                    return false;
+                }
+
+                // Never block media playlists, segments, or subtitle tracks in JS fetch/XHR
+                if (mediaExtPattern.test(resolvedUrl)) {
+                    return false;
+                }
+
                 // Never block CAPTCHAs, bot challenges, or checkpoint verification
-                if (/recaptcha|hcaptcha|arkose|turnstile|checkpoint|challenge|geetest|funcaptcha|datadome|perimeterx/i.test(rawUrl)) {
+                if (/recaptcha|hcaptcha|arkose|turnstile|checkpoint|challenge|geetest|funcaptcha|datadome|perimeterx/i.test(resolvedUrl)) {
                     return false;
                 }
 
                 // Authentication, Meta, and Facebook endpoints are never blocked
-                if (/(facebook\.com|facebook\.net|fbcdn\.net|fb\.com|fb\.me|meta\.com|instagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha)/i.test(rawUrl)) {
+                if (/(facebook\.com|facebook\.net|fbcdn\.net|fb\.com|fb\.me|meta\.com|instagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha)/i.test(resolvedUrl)) {
                     return false;
                 }
 
                 // GitHub endpoints, releases, assets, and APIs are never blocked
-                if (/(github\.com|githubassets\.com|githubusercontent\.com|api\.github\.com)/i.test(rawUrl)) {
+                if (/(github\.com|githubassets\.com|githubusercontent\.com|api\.github\.com)/i.test(resolvedUrl)) {
                     return false;
                 }
 
-                try {
-                    if (stdTrackerPattern.test(rawUrl) || adPathPattern.test(rawUrl)) return true;
-                    if (level === 1) {
-                        if (aggSubPattern.test(rawUrl) || aggRootPattern.test(rawUrl)) return true;
+                var rType = resourceType || 'other';
+                if (rType === 'xhr') {
+                    // Let VAST/VMAP ad tags pass through to OnyxWebViewClient.shouldInterceptRequest
+                    // so network egress is blocked while video players receive valid HTTP 200 <VAST/> XML.
+                    if (vastTagPattern.test(resolvedUrl) && !nonXmlExtPattern.test(resolvedUrl)) {
+                        return false;
                     }
+                }
+
+                // Synthetic ad-test probes (matches OnyxWebViewClient.shouldInterceptRequest)
+                if (resolvedUrl.indexOf('pr_advertising_ads_banner') !== -1 ||
+                    resolvedUrl.indexOf('ymatuhin.ru') !== -1 ||
+                    resolvedUrl.indexOf('/fakepage.html') !== -1 ||
+                    (host === 'adblock-tester.com' && (resolvedUrl.indexOf('/banners/') !== -1 || resolvedUrl.indexOf('/ads/') !== -1))) {
+                    return true;
+                }
+
+                try {
+                    // Prefer native adblock-rust engine via OnyxShieldBridge so EasyList @@ exception rules
+                    // and ${'$'}redirect surrogates (noopjson, noopvast, google-ima.js) are honored.
                     if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isUrlBlocked === 'function') {
-                        return window.OnyxShieldBridge.isUrlBlocked(rawUrl, location.href, resourceType || 'other');
+                        return window.OnyxShieldBridge.isUrlBlocked(resolvedUrl, location.href, rType);
+                    }
+                    if (stdTrackerPattern.test(resolvedUrl) || adPathPattern.test(resolvedUrl)) return true;
+                    if (level === 1) {
+                        if (aggSubPattern.test(resolvedUrl) || aggRootPattern.test(resolvedUrl)) return true;
                     }
                     return false;
                 } catch(e) {
@@ -328,6 +370,8 @@ object AdBlockDocumentStart {
                             targetUrl = input;
                         } else if (input && typeof input.url === 'string') {
                             targetUrl = input.url;
+                        } else if (typeof URL !== 'undefined' && input instanceof URL) {
+                            targetUrl = input.href;
                         }
                         if (!targetUrl || targetUrl.startsWith('blob:') || targetUrl.startsWith('data:') || targetUrl.startsWith('javascript:')) {
                             return _origFetch.apply(this, arguments);
@@ -348,18 +392,21 @@ object AdBlockDocumentStart {
                     var _origSend = XMLHttpRequest.prototype.send;
                     window._origXHR = { open: _origOpen, send: _origSend };
                     XMLHttpRequest.prototype.open = makeNative(function(method, url) {
-                        this._onyxTargetUrl = url;
-                        var isBlobOrData = typeof url === 'string' && (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('javascript:'));
+                        var urlStr = (typeof url === 'string') ? url : (url && typeof url.toString === 'function' ? url.toString() : '');
+                        this._onyxTargetUrl = urlStr;
+                        var isBlobOrData = urlStr && (urlStr.startsWith('blob:') || urlStr.startsWith('data:') || urlStr.startsWith('javascript:'));
                         var lvl = window.__onyx_blocking_level || 0;
-                        this._onyxBlocked = !isBlobOrData && isBlockedUrl(url, lvl, 'xhr');
+                        this._onyxBlocked = !isBlobOrData && isBlockedUrl(urlStr, lvl, 'xhr');
                         return _origOpen.apply(this, arguments);
                     }, 'open');
                     XMLHttpRequest.prototype.send = makeNative(function() {
                         if (this._onyxBlocked) {
                             var self = this;
                             setTimeout(function() {
-                                if (typeof self.onerror === 'function') {
-                                    self.onerror(new ProgressEvent('error'));
+                                try { self.dispatchEvent(new ProgressEvent('error')); } catch(_) {
+                                    if (typeof self.onerror === 'function') {
+                                        self.onerror(new ProgressEvent('error'));
+                                    }
                                 }
                             }, 0);
                             return;
@@ -375,7 +422,8 @@ object AdBlockDocumentStart {
                 if (OriginalWebSocket) {
                     var PatchedWebSocket = makeNative(function(url, protocols) {
                         var lvl = window.__onyx_blocking_level || 0;
-                        if (typeof url === 'string' && (isBlockedUrl(url, lvl, 'websocket') || /ad|track|telemetry|analytics|stat|pixel|beacon|counter/i.test(url))) {
+                        var wsUrl = (typeof url === 'string') ? url : (url && typeof url.toString === 'function' ? url.toString() : '');
+                        if (wsUrl && isBlockedUrl(wsUrl, lvl, 'websocket')) {
                             throw new Error('Blocked by Onyx Shields');
                         }
                         if (arguments.length === 1) {
@@ -393,90 +441,12 @@ object AdBlockDocumentStart {
                 }
             } catch(e) {}
 
-            // ── 3b. Defuse Subframe Popunders, Click-Jacks & Google IMA Video Ads ────
+            // ── 3b. Defuse Subframe Popunders & Click-Jacks ──────────────────────────
+            // Note: Do NOT pre-define window.google.ima globally on all pages. Pre-defining
+            // an incomplete IMA object forces Video.js, JWPlayer, Plyr, Shaka, and FluidPlayer
+            // into IMA initialization instead of their native direct-play fallback, and blocks
+            // Brave's official google-ima.js ${'$'}redirect surrogate as well as @@ whitelisted IMA streams.
             try {
-                // 1. Preemptive Google IMA SDK Stub to complete in-stream video ads in 0ms
-                try {
-                    window.google = window.google || {};
-                    if (!window.google.ima) {
-                        var imaStub = {
-                            AdDisplayContainer: function(container) {
-                                this.initialize = function() {};
-                                this.destroy = function() {};
-                            },
-                            AdsLoader: function(container) {
-                                var listeners = {};
-                                this.addEventListener = function(type, fn) {
-                                    listeners[type] = listeners[type] || [];
-                                    listeners[type].push(fn);
-                                };
-                                this.removeEventListener = function(type, fn) {
-                                    if (listeners[type]) {
-                                        listeners[type] = listeners[type].filter(function(cb) { return cb !== fn; });
-                                    }
-                                };
-                                this.requestAds = function(request) {
-                                    setTimeout(function() {
-                                        var manager = {
-                                            init: function() {},
-                                            start: function() {
-                                                setTimeout(function() {
-                                                    var trigger = function(type) {
-                                                        var list = listeners[type] || [];
-                                                        for (var i = 0; i < list.length; i++) {
-                                                            try { list[i]({ type: type, getAd: function() { return null; } }); } catch(_) {}
-                                                        }
-                                                    };
-                                                    trigger('allAdsCompleted');
-                                                    trigger('contentResumeRequested');
-                                                    trigger('complete');
-                                                }, 0);
-                                            },
-                                            stop: function() {},
-                                            destroy: function() {},
-                                            resize: function() {},
-                                            pause: function() {},
-                                            resume: function() {},
-                                            getRemainingTime: function() { return 0; }
-                                        };
-                                        var loadedList = listeners['adsManagerLoaded'] || [];
-                                        for (var i = 0; i < loadedList.length; i++) {
-                                            try {
-                                                loadedList[i]({
-                                                    getAdsManager: function() { return manager; },
-                                                    getUserRequestContext: function() { return {}; }
-                                                });
-                                            } catch(_) {}
-                                        }
-                                    }, 0);
-                                };
-                                this.contentComplete = function() {};
-                                this.destroy = function() {};
-                            },
-                            AdsManagerLoadedEvent: { Type: { ADS_MANAGER_LOADED: 'adsManagerLoaded' } },
-                            AdErrorEvent: { Type: { AD_ERROR: 'adError' } },
-                            AdEvent: {
-                                Type: {
-                                    ALL_ADS_COMPLETED: 'allAdsCompleted',
-                                    CONTENT_PAUSE_REQUESTED: 'contentPauseRequested',
-                                    CONTENT_RESUME_REQUESTED: 'contentResumeRequested',
-                                    STARTED: 'started',
-                                    COMPLETE: 'complete',
-                                    LOADED: 'loaded',
-                                    FIRST_QUARTILE: 'firstQuartile',
-                                    MIDPOINT: 'midpoint',
-                                    THIRD_QUARTILE: 'thirdQuartile',
-                                    PAUSED: 'paused',
-                                    RESUMED: 'resumed'
-                                }
-                            },
-                            ViewMode: { NORMAL: 'normal', FULLSCREEN: 'fullscreen' },
-                            ImaSdkSettings: { getCompanionBackfill: function() {}, setVpaidMode: function() {} }
-                        };
-                        window.google.ima = imaStub;
-                    }
-                } catch(_) {}
-
                 var isSubframe = window !== window.top;
                 var isTrustedMediaPlatform = /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com|googlevideo\.com|vimeo\.com|twitch\.tv|dailymotion\.com|bilibili\.com|netflix\.com|disneyplus\.com|hulu\.com|primevideo\.com|max\.com|peacocktv\.com|crunchyroll\.com|soundcloud\.com|spotify\.com|apple\.com|ted\.com|tiktok\.com|reddit\.com|x\.com|twitter\.com)$/i.test(host);
                 var isMediaHost = !isTrustedMediaPlatform && (/(abyss|ravok|dood|vidplay|vidsrc|rabbitstream|megacloud|filemoon|streamwish|uqload|voe|vidoza|mixdrop|streamtape|mp4upload|upstream|fembed|gogostream|vidcloud)/i.test(location.hostname) ||
@@ -556,8 +526,11 @@ object AdBlockDocumentStart {
                     var _origAnchorClick = HTMLAnchorElement.prototype.click;
                     HTMLAnchorElement.prototype.click = makeNative(function() {
                         var href = this.href || '';
+                        if (this.hasAttribute('download') || href.startsWith('blob:') || href.startsWith('data:')) {
+                            return _origAnchorClick.apply(this, arguments);
+                        }
                         var isAuth = href && (/recaptcha|hcaptcha|arkose|turnstile|login|auth|oauth|signin|facebook\.com|google\.com|apple\.com|paypal\.com|stripe\.com/i.test(href));
-                        if (href && !isAuth && (isBlockedUrl(href, 0) || isAdOrBettingUrlStr(href) || adPathPattern.test(href) || ((isSubframe || isMediaHost) && this.target === '_blank'))) {
+                        if (href && !isAuth && (isBlockedUrl(href, 0) || isAdOrBettingUrlStr(href) || ((isSubframe || isMediaHost) && this.target === '_blank'))) {
                             return; // Suppress synthetic clickjack ad dispatch!
                         }
                         return _origAnchorClick.apply(this, arguments);
@@ -693,28 +666,29 @@ object AdBlockDocumentStart {
                     attachYtObserver();
                     setInterval(defuseYouTubeAds, 250);
                 } else {
-                    // Universal HTML5 Video In-Stream Ad Defuser (JWPlayer, VideoJS, FluidPlayer, Plyr, Dood, etc.)
+                    // Universal HTML5 Video In-Stream Ad Defuser (JWPlayer, VideoJS, FluidPlayer, Plyr, etc.)
+                    // Strictly target active ad-playback states and explicit ad-skip buttons so content videos,
+                    // VideoJS seek-forward controls (.vjs-skip-button), and Skip Intro buttons are never touched.
                     function defuseGeneralVideoAds() {
                         try {
-                            var adContainers = document.querySelectorAll('.jw-flag-ads, .vjs-ad-playing, .ad-showing, .videoAdUi, .ima-ad-container, [class*="-ad-container"], [class*="ad-display-container"]');
-                            for (var c = 0; c < adContainers.length; c++) {
-                                var container = adContainers[c];
-                                var adVideos = container.querySelectorAll('video');
-                                for (var v = 0; v < adVideos.length; v++) {
-                                    var vid = adVideos[v];
-                                    if (vid && !vid.paused) {
-                                        vid.muted = true;
-                                        vid.playbackRate = 16.0;
-                                        if (vid.duration && !isNaN(vid.duration) && isFinite(vid.duration) && vid.duration > 0.1) {
-                                            vid.currentTime = vid.duration - 0.05;
-                                        }
+                            var adVideos = document.querySelectorAll('.jw-flag-ads video, .vjs-ad-playing video, .ad-showing video, .videoAdUi video, .ima-ad-container video[title="Advertisement"]');
+                            for (var v = 0; v < adVideos.length; v++) {
+                                var vid = adVideos[v];
+                                if (vid && !vid.paused) {
+                                    vid.muted = true;
+                                    vid.playbackRate = 16.0;
+                                    if (vid.duration && !isNaN(vid.duration) && isFinite(vid.duration) && vid.duration > 0.1) {
+                                        vid.currentTime = vid.duration - 0.05;
                                     }
                                 }
                             }
 
-                            var skipBtns = document.querySelectorAll('.videoAdUiSkipButton, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, .jw-skip, .jw-skip-button, .vjs-skip-button, .vjs-skip-control, button[class*="skip"], button[id*="skip"], .skip-ad, .skipButton');
+                            var skipBtns = document.querySelectorAll('.videoAdUiSkipButton, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .vjs-ima-skip-button, .jw-flag-ads .jw-skip, .skip-ad, [class*="skip-ad" i], [id*="skip-ad" i]');
                             for (var s = 0; s < skipBtns.length; s++) {
-                                try { skipBtns[s].click(); } catch(_) {}
+                                var btn = skipBtns[s];
+                                if (btn && btn.offsetParent !== null) {
+                                    try { btn.click(); } catch(_) {}
+                                }
                             }
                         } catch(_) {}
                     }

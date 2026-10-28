@@ -295,11 +295,14 @@ class OnyxWebViewClient(
 
     fun isMediaUrl(url: String): Boolean {
         if (url.isBlank()) return false
-        val clean = url.substringBefore('?').lowercase()
+        val clean = url.substringBefore('?').substringBefore('#').lowercase()
         return clean.endsWith(".m3u8") || clean.endsWith(".mpd") || clean.endsWith(".ts") ||
-                clean.endsWith(".mp4") || clean.endsWith(".webm") || clean.endsWith(".m4s") ||
-                clean.endsWith(".mkv") || clean.endsWith(".flv") || clean.endsWith(".mp3") ||
-                clean.endsWith(".aac") || clean.endsWith(".m4a")
+                clean.endsWith(".m2ts") || clean.endsWith(".m4s") || clean.endsWith(".cmfv") ||
+                clean.endsWith(".cmfa") || clean.endsWith(".fmp4") || clean.endsWith(".mp4") ||
+                clean.endsWith(".m4v") || clean.endsWith(".webm") || clean.endsWith(".mkv") ||
+                clean.endsWith(".ogv") || clean.endsWith(".ogg") || clean.endsWith(".flv") ||
+                clean.endsWith(".mp3") || clean.endsWith(".aac") || clean.endsWith(".m4a") ||
+                clean.endsWith(".opus") || clean.endsWith(".flac") || clean.endsWith(".wav")
     }
 
     private fun isPopupAd(url: String, onyxWv: OnyxWebView?): Boolean {
@@ -416,11 +419,15 @@ class OnyxWebViewClient(
             if (host.isBlank()) return false
             val lower = host.lowercase()
             val mediaHostKeywords = listOf(
-                "ravok", "abyssplayer", "fireplayer", "jwpcdn", "jwplayer", "streamtape", "megacloud",
-                "vidstream", "dood", "mixdrop", "mp4upload", "filemoon", "streamwish", "streamhide",
-                "vidmoly", "upstream", "cloudstream", "vidsrc", "2embed", "autoembed", "superembed",
+                "ravok", "abyss", "fireplayer", "jwpcdn", "jwplayer", "jwplatform", "brightcove",
+                "wistia", "kaltura", "mux.com", "cloudflarestream", "mediadelivery.net", "b-cdn.net",
+                "vdocipher", "sproutvideo", "streamtape", "megacloud", "vidstream", "dood",
+                "mixdrop", "mp4upload", "filemoon", "streamwish", "streamhide", "vidmoly",
+                "upstream", "cloudstream", "vidsrc", "2embed", "autoembed", "superembed",
                 "multiembed", "storage.fireplayer", "fireplayer.stream", "rabbitstream", "vidcloud",
-                "vidplay", "doodstream", "dropload", "filelions", "voe.sx", "uqload", "vidoza"
+                "vidplay", "doodstream", "dropload", "filelions", "voe.sx", "uqload", "vidoza",
+                "hydrax", "lulustream", "vtube", "streamvid", "rumble.com", "odysee.com",
+                "bitchute.com", "ok.ru", "vkvideo", "sibnet.ru"
             )
             if (mediaHostKeywords.any { lower.contains(it) }) return true
             if (lower.endsWith(".stream") || lower.endsWith(".video") || lower.endsWith(".watch")) return true
@@ -462,23 +469,52 @@ class OnyxWebViewClient(
         }
     }
 
-    private fun createBlockedResponse(resourceType: String, requestUrl: String = ""): WebResourceResponse {
-        val corsHeaders = mapOf(
-            "Access-Control-Allow-Origin" to "*",
-            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
-            "Access-Control-Allow-Headers" to "*",
-            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0"
+    private fun buildCorsHeaders(requestOrigin: String?): Map<String, String> {
+        val validOrigin = requestOrigin?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
+        return if (validOrigin != null) {
+            mapOf(
+                "Access-Control-Allow-Origin" to validOrigin,
+                "Access-Control-Allow-Credentials" to "true",
+                "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+                "Access-Control-Allow-Headers" to "*",
+                "Vary" to "Origin",
+                "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0"
+            )
+        } else {
+            mapOf(
+                "Access-Control-Allow-Origin" to "*",
+                "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+                "Access-Control-Allow-Headers" to "*",
+                "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0"
+            )
+        }
+    }
+
+    private fun createBlockedResponse(
+        resourceType: String,
+        requestUrl: String = "",
+        requestOrigin: String? = null
+    ): WebResourceResponse {
+        val corsHeaders = buildCorsHeaders(requestOrigin)
+
+        // Check if request is an XHR/fetch VAST / VMAP XML ad tag (never <script>, <img>, or <iframe>):
+        // return valid empty VAST XML so video players (JWPlayer, VideoJS, IMA SDK, FluidPlayer)
+        // immediately skip ads without XML parse errors or credentialed CORS failures.
+        val lowerUrl = requestUrl.lowercase()
+        val cleanPath = lowerUrl.substringBefore('?').substringBefore('#')
+        val isNonXmlAsset = cleanPath.endsWith(".js") || cleanPath.endsWith(".mjs") ||
+                cleanPath.endsWith(".css") || cleanPath.endsWith(".html") || cleanPath.endsWith(".htm") ||
+                cleanPath.endsWith(".png") || cleanPath.endsWith(".jpg") || cleanPath.endsWith(".jpeg") ||
+                cleanPath.endsWith(".gif") || cleanPath.endsWith(".svg") || cleanPath.endsWith(".webp")
+        val isXhrOrOther = resourceType == "xmlhttprequest" || resourceType == "xhr" || resourceType == "other"
+        val isVastOrVmapTag = isXhrOrOther && !isNonXmlAsset && (
+                lowerUrl.contains("vast") || lowerUrl.contains("vmap") ||
+                lowerUrl.contains("/pagead/ads?") || lowerUrl.contains("doubleclick.net/gampad/") ||
+                lowerUrl.contains("ad-vast") || lowerUrl.contains("spotxchange") ||
+                lowerUrl.contains("fwmrm.net/ad/")
         )
 
-        // Check if request is VAST / VMAP ad tag: return valid empty VAST XML
-        // so video players (JWPlayer, VideoJS, IMA SDK, FluidPlayer) immediately skip ads without crashing or pausing
-        val lowerUrl = requestUrl.lowercase()
-        val isVastOrVpaid = lowerUrl.contains("vast") || lowerUrl.contains("vpaid") ||
-                lowerUrl.contains("vmap") || lowerUrl.contains("ima3") ||
-                lowerUrl.contains("/pagead/ads?") || lowerUrl.contains("doubleclick.net/gampad") ||
-                lowerUrl.contains("ad-vast") || lowerUrl.contains("spotxchange")
-
-        if (isVastOrVpaid) {
+        if (isVastOrVmapTag) {
             val emptyVast = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><VAST version=\"3.0\"/>"
             return WebResourceResponse(
                 "text/xml",
@@ -490,11 +526,20 @@ class OnyxWebViewClient(
             )
         }
 
+        // Never spoof blocked Google IMA SDK (ima3.js) with an empty 0-byte 200 OK script:
+        // firing script.onload while window.google.ima is undefined crashes player onload handlers,
+        // whereas HTTP 403 triggers script.onerror so players invoke their native no-IMA fallback
+        // (sites requiring a full IMA shim use Brave's google-ima.js $redirect surrogate).
+        val isImaSdkScript = resourceType == "script" && (
+                lowerUrl.contains("imasdk.googleapis.com/js/sdkloader/ima3") ||
+                lowerUrl.contains("/instream/html5/ima3")
+        )
+
         // Return HTTP 403 Forbidden with permissive CORS headers.
         // In-page fetch() and XMLHttpRequest calls are intercepted by the stealth client proxies
         // in AdBlockDocumentStart (throwing TypeError: net::ERR_BLOCKED_BY_CLIENT / onerror),
         // while DOM subresources (<script>, <img>, <iframe>) receive HTTP 403 and trigger onerror.
-        if (!preferences.isAntiAdblockDetectionEnabled) {
+        if (!preferences.isAntiAdblockDetectionEnabled || isImaSdkScript) {
             return WebResourceResponse(
                 "text/plain",
                 "UTF-8",
@@ -582,14 +627,13 @@ class OnyxWebViewClient(
         }
     }
 
-    private fun createSurrogateResponse(redirectData: String, resourceType: String): WebResourceResponse? {
+    private fun createSurrogateResponse(
+        redirectData: String,
+        resourceType: String,
+        requestOrigin: String? = null
+    ): WebResourceResponse? {
         return try {
-            val corsHeaders = mapOf(
-                "Access-Control-Allow-Origin" to "*",
-                "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
-                "Access-Control-Allow-Headers" to "*",
-                "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0"
-            )
+            val corsHeaders = buildCorsHeaders(requestOrigin)
 
             if (redirectData.startsWith("data:", ignoreCase = true)) {
                 val commaIndex = redirectData.indexOf(',')
@@ -655,6 +699,7 @@ class OnyxWebViewClient(
             // Track current page URL and check main frame document against ad/domain blocklists
             if (request.isForMainFrame) {
                 if (!isSyntheticOrDataUrl(url)) {
+                    (view as? OnyxWebView)?.hasActiveMediaSubresource = false
                     currentPageUrl = url
                     pendingMainFrameUrl = url
                     (view as? OnyxWebView)?.let {
@@ -779,10 +824,11 @@ class OnyxWebViewClient(
                 return null
             }
 
+            val requestOrigin = getHeaderCaseInsensitive(request.requestHeaders, "Origin")
             val pageUrl = run {
                 val headers = request.requestHeaders
                 getHeaderCaseInsensitive(headers, "Referer")
-                    ?: getHeaderCaseInsensitive(headers, "Origin")
+                    ?: requestOrigin
                     ?: currentPageUrl.takeIf { it.isNotBlank() }
                     ?: (view as? OnyxWebView)?.url?.takeIf { it.isNotBlank() }
                     ?: (view as? WebView)?.url?.takeIf { it.isNotBlank() }
@@ -822,6 +868,11 @@ class OnyxWebViewClient(
                     } catch (_: Exception) {}
                 }
             } else if (resourceType == "media" || resourceType == "sub_frame" || isMediaUrl(url) || isMediaOrStreamingHost(reqDomain)) {
+                if (resourceType == "media" || isMediaUrl(url) || isMediaOrStreamingHost(reqDomain) ||
+                    (resourceType == "sub_frame" && (isStreamingOrMediaPage(url) || isStreamingOrMediaPage(pageUrl)))
+                ) {
+                    (view as? OnyxWebView)?.hasActiveMediaSubresource = true
+                }
                 view?.post {
                     try {
                         val activeCm = (view as? OnyxWebView)?.cookieManager ?: CookieManager.getInstance()
@@ -929,7 +980,7 @@ class OnyxWebViewClient(
 
                 if (isSocialTrackerDomain) {
                     recordBlockedRequest(view)
-                    return createBlockedResponse(resourceType)
+                    return createBlockedResponse(resourceType, url, requestOrigin)
                 }
             }
 
@@ -938,7 +989,7 @@ class OnyxWebViewClient(
                     preferences.isScriptBlockingEnabledForDomain(pageDomain))) {
                 if (resourceType == "script") {
                     recordBlockedRequest(view)
-                    return createBlockedResponse("script")
+                    return createBlockedResponse("script", url, requestOrigin)
                 }
             }
 
@@ -962,10 +1013,10 @@ class OnyxWebViewClient(
                     if (mediaResult.shouldBlock) {
                         recordBlockedRequest(view)
                         if (!mediaResult.redirectData.isNullOrBlank()) {
-                            val surrogate = createSurrogateResponse(mediaResult.redirectData, "media")
+                            val surrogate = createSurrogateResponse(mediaResult.redirectData, "media", requestOrigin)
                             if (surrogate != null) return surrogate
                         }
-                        return createBlockedResponse("media", url)
+                        return createBlockedResponse("media", url, requestOrigin)
                     }
                     return null // Allow media playback!
                 }
@@ -1005,30 +1056,22 @@ class OnyxWebViewClient(
 
                     // If a surrogate redirect ($redirect rule) is matched, serve the surrogate script directly!
                     if (!redirectData.isNullOrBlank()) {
-                        val surrogateResponse = createSurrogateResponse(redirectData, resourceType)
+                        val surrogateResponse = createSurrogateResponse(redirectData, resourceType, requestOrigin)
                         if (surrogateResponse != null) {
                             return surrogateResponse
                         }
                     }
 
-                    return createBlockedResponse(resourceType, url)
+                    return createBlockedResponse(resourceType, url, requestOrigin)
                 }
 
-                // If a rewrite rule ($rewrite / removeparam) modified the URL, serve the clean resource
-                if (!rewrittenUrl.isNullOrBlank() && rewrittenUrl != url) {
-                    if (rewrittenUrl.startsWith("data:", ignoreCase = true)) {
-                        val dataResponse = createSurrogateResponse(rewrittenUrl, resourceType)
-                        if (dataResponse != null) return dataResponse
-                    } else if (rewrittenUrl.startsWith("http://", ignoreCase = true) || rewrittenUrl.startsWith("https://", ignoreCase = true)) {
-                        return WebResourceResponse(
-                            "text/plain",
-                            "UTF-8",
-                            307,
-                            "Temporary Redirect",
-                            mapOf("Location" to rewrittenUrl),
-                            ByteArrayInputStream(ByteArray(0))
-                        )
-                    }
+                // If a data: rewrite rule ($rewrite=abp-resource:...) modified the URL, serve the synthesized data.
+                // Note: Never return a synthetic 307 Location WebResourceResponse for http(s) $removeparam rewrites,
+                // because Android WebView shouldInterceptRequest does not follow 3xx redirects and delivers an empty
+                // 0-byte body to Blink, breaking embedded player iframes, scripts, and HLS/DASH manifests.
+                if (!rewrittenUrl.isNullOrBlank() && rewrittenUrl != url && rewrittenUrl.startsWith("data:", ignoreCase = true)) {
+                    val dataResponse = createSurrogateResponse(rewrittenUrl, resourceType, requestOrigin)
+                    if (dataResponse != null) return dataResponse
                 }
             }
 
@@ -1788,7 +1831,7 @@ class OnyxWebViewClient(
                     activeCm.flush()
                 } catch (_: Exception) {}
             } else {
-                val isStreamingPage = isStreamingOrMediaPage(url)
+                val isStreamingPage = isStreamingOrMediaPage(url) || onyxWv?.hasActiveMediaSubresource == true
                 val allowThirdPartyCookies = isPopup || isWithinGrace || isStreamingPage ||
                         preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_NONE
 
@@ -2029,6 +2072,7 @@ class OnyxWebViewClient(
         val fetchMode = getHeaderCaseInsensitive(headers, "Sec-Fetch-Mode")?.lowercase() ?: ""
         val fetchDest = getHeaderCaseInsensitive(headers, "Sec-Fetch-Dest")?.lowercase() ?: ""
         val reqWith = getHeaderCaseInsensitive(headers, "X-Requested-With")?.lowercase() ?: ""
+        val rangeHeader = getHeaderCaseInsensitive(headers, "Range")
         val urlPath = request.url?.path?.lowercase() ?: ""
         val scheme = request.url?.scheme?.lowercase() ?: ""
 
@@ -2040,10 +2084,16 @@ class OnyxWebViewClient(
         if (fetchDest == "font") return "font"
         if (fetchDest == "object" || fetchDest == "embed") return "object"
         if (fetchDest == "video" || fetchDest == "audio") return "media"
-        if (urlPath.endsWith(".m3u8") || urlPath.endsWith(".ts") || urlPath.endsWith(".mpd") ||
-            urlPath.endsWith(".m4s") || urlPath.endsWith(".mp4") || urlPath.endsWith(".webm") ||
-            urlPath.endsWith(".ogg") || urlPath.endsWith(".mp3") || urlPath.endsWith(".m4a") ||
-            urlPath.endsWith(".aac") || urlPath.endsWith(".flv")) {
+        if (urlPath.endsWith(".m3u8") || urlPath.endsWith(".ts") || urlPath.endsWith(".m2ts") ||
+            urlPath.endsWith(".mpd") || urlPath.endsWith(".m4s") || urlPath.endsWith(".cmfv") ||
+            urlPath.endsWith(".cmfa") || urlPath.endsWith(".fmp4") || urlPath.endsWith(".mp4") ||
+            urlPath.endsWith(".m4v") || urlPath.endsWith(".webm") || urlPath.endsWith(".mkv") ||
+            urlPath.endsWith(".ogv") || urlPath.endsWith(".ogg") || urlPath.endsWith(".mp3") ||
+            urlPath.endsWith(".m4a") || urlPath.endsWith(".aac") || urlPath.endsWith(".opus") ||
+            urlPath.endsWith(".flac") || urlPath.endsWith(".wav") || urlPath.endsWith(".flv") ||
+            acceptHeader.contains("mpegurl") || acceptHeader.contains("dash+xml") ||
+            rangeHeader?.startsWith("bytes=", ignoreCase = true) == true
+        ) {
             return "media"
         }
         if (getHeaderCaseInsensitive(headers, "Ping-To") != null ||
@@ -2078,6 +2128,7 @@ class OnyxWebViewClient(
         val fetchMode = getHeaderCaseInsensitive(headers, "Sec-Fetch-Mode")?.lowercase() ?: ""
         val fetchDest = getHeaderCaseInsensitive(headers, "Sec-Fetch-Dest")?.lowercase() ?: ""
         val reqWith = getHeaderCaseInsensitive(headers, "X-Requested-With")?.lowercase() ?: ""
+        val rangeHeader = getHeaderCaseInsensitive(headers, "Range")
         val urlPath = request.url?.path?.lowercase() ?: ""
         val scheme = request.url?.scheme?.lowercase() ?: ""
 
@@ -2089,10 +2140,16 @@ class OnyxWebViewClient(
         if (fetchDest == "font") return AdBlockEngine.RESOURCE_TYPE_FONT
         if (fetchDest == "object" || fetchDest == "embed") return AdBlockEngine.RESOURCE_TYPE_OBJECT
         if (fetchDest == "video" || fetchDest == "audio") return AdBlockEngine.RESOURCE_TYPE_MEDIA
-        if (urlPath.endsWith(".m3u8") || urlPath.endsWith(".ts") || urlPath.endsWith(".mpd") ||
-            urlPath.endsWith(".m4s") || urlPath.endsWith(".mp4") || urlPath.endsWith(".webm") ||
-            urlPath.endsWith(".ogg") || urlPath.endsWith(".mp3") || urlPath.endsWith(".m4a") ||
-            urlPath.endsWith(".aac") || urlPath.endsWith(".flv")) {
+        if (urlPath.endsWith(".m3u8") || urlPath.endsWith(".ts") || urlPath.endsWith(".m2ts") ||
+            urlPath.endsWith(".mpd") || urlPath.endsWith(".m4s") || urlPath.endsWith(".cmfv") ||
+            urlPath.endsWith(".cmfa") || urlPath.endsWith(".fmp4") || urlPath.endsWith(".mp4") ||
+            urlPath.endsWith(".m4v") || urlPath.endsWith(".webm") || urlPath.endsWith(".mkv") ||
+            urlPath.endsWith(".ogv") || urlPath.endsWith(".ogg") || urlPath.endsWith(".mp3") ||
+            urlPath.endsWith(".m4a") || urlPath.endsWith(".aac") || urlPath.endsWith(".opus") ||
+            urlPath.endsWith(".flac") || urlPath.endsWith(".wav") || urlPath.endsWith(".flv") ||
+            acceptHeader.contains("mpegurl") || acceptHeader.contains("dash+xml") ||
+            rangeHeader?.startsWith("bytes=", ignoreCase = true) == true
+        ) {
             return AdBlockEngine.RESOURCE_TYPE_MEDIA
         }
         if (getHeaderCaseInsensitive(headers, "Ping-To") != null ||
