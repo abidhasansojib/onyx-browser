@@ -43870,6 +43870,7 @@ omni.soundestlink.com$image
 ||gripcorn.com^
 ||grocerycrew.com^
 ||grocerydog.com^
+||groglog.com^
 ||groovespacing.com^
 ||groovyornament.com^
 ||grouchybrothers.com^
@@ -77153,6 +77154,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||7bpeople.com^
 ||7cnq.net^
 ||a-ads.com^
+||a.bestcontentfood.top^
 ||a.mktw.net^
 ||a.pemsrv.com^
 ||a.sakh.com^
@@ -78885,6 +78887,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||liveadexchanger.com^
 ||liveintent.com^
 ||liverail.com^
+||livetrafficfeed.com^
 ||lkqd.com^
 ||lnks.gd^
 ||loading321.com^
