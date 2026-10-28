@@ -519,10 +519,10 @@ object AppUpdateManager {
         while (entryMatcher.find()) {
             val entryContent = entryMatcher.group(1) ?: continue
             val tagMatcher = Pattern.compile("""/releases/tag/([^"'\s>]+)""").matcher(entryContent)
-            val tag = if (tagMatcher.find()) tagMatcher.group(1).trim() else continue
+            val tag = if (tagMatcher.find()) tagMatcher.group(1)?.trim() ?: continue else continue
 
             val titleMatcher = Pattern.compile("<title[^>]*>([^<]+)</title>").matcher(entryContent)
-            val title = if (titleMatcher.find()) titleMatcher.group(1).trim() else "Onyx Browser $tag"
+            val title = if (titleMatcher.find()) titleMatcher.group(1)?.trim() ?: "Onyx Browser $tag" else "Onyx Browser $tag"
 
             val contentMatcher = Pattern.compile("<content[^>]*>([\\s\\S]*?)</content>").matcher(entryContent)
             val rawHtml = if (contentMatcher.find()) contentMatcher.group(1) ?: "" else ""

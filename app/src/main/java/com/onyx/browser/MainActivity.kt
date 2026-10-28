@@ -166,7 +166,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         return super.dispatchTouchEvent(ev)
     }
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
         isLaunchingChildActivity = true
         if (::pipController.isInitialized) {
@@ -3259,14 +3259,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 }
 
                 val activeWebView = tabManager.getActiveWebView()
-                val isErrorPage = activeWebView != null && (
-                    activeWebView.currentSyntheticState != null ||
-                    activeWebView.url?.startsWith("https://onyx.browser/", ignoreCase = true) == true ||
-                    activeWebView.url?.startsWith("file:///android_asset/error_page.html", ignoreCase = true) == true
-                )
-
-                if (isErrorPage && activeWebView != null) {
-                    if (handleErrorPageBack(activeWebView)) {
+                if (activeWebView != null) {
+                    val isErrorPage = (
+                        activeWebView.currentSyntheticState != null ||
+                        activeWebView.url?.startsWith("https://onyx.browser/", ignoreCase = true) == true ||
+                        activeWebView.url?.startsWith("file:///android_asset/error_page.html", ignoreCase = true) == true
+                    )
+                    if (isErrorPage && handleErrorPageBack(activeWebView)) {
                         return
                     }
                 }
@@ -3276,8 +3275,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
                 if (isLocalPreview && activeTab != null) {
                     val anchorStep = activeWebView?.let { findPreviousValidLocalPreviewStep(it, activeTab.url) }
-                    if (anchorStep != null && activeWebView != null) {
-                        activeWebView.goBackOrForward(anchorStep)
+                    if (anchorStep != null) {
+                        activeWebView?.goBackOrForward(anchorStep)
                         return
                     }
 

@@ -747,18 +747,14 @@ class OnyxWebViewClient(
                         val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
                         val onyxWv = view as? OnyxWebView
                         // Only the first navigation of a not-yet-displayed popup is checked as a popup ad.
-                        val isPopupTab = onyxWv?.isPopupPendingDisplay == true
-
                         // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
                         // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave), UNLESS it is a child popup tab.
-                        if (isPopupTab && isPopupAd(url, onyxWv)) {
+                        if (onyxWv != null && onyxWv.isPopupPendingDisplay && isPopupAd(url, onyxWv)) {
                             recordBlockedRequest(view)
-                            if (onyxWv != null) {
-                                onyxWv.post {
-                                    val tabId = onyxWv.tabId
-                                    if (tabId.isNotBlank()) {
-                                        tabActionCallback?.closeTab(tabId)
-                                    }
+                            onyxWv.post {
+                                val tabId = onyxWv.tabId
+                                if (tabId.isNotBlank()) {
+                                    tabActionCallback?.closeTab(tabId)
                                 }
                             }
                             return WebResourceResponse(

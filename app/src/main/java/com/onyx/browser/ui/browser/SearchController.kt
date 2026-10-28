@@ -302,8 +302,8 @@ class SearchController(
                 isUrl = true
             )
             val clipboardOpt = getClipboardSuggestion()
-            val includeClipboard = clipboardOpt != null && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)
-            val initialList = if (includeClipboard && clipboardOpt != null) listOf(clipboardOpt, instantDomain) else listOf(instantDomain)
+            val clipboardMatch = clipboardOpt?.takeIf { it.queryOrUrl.contains(trimmed, ignoreCase = true) }
+            val initialList = if (clipboardMatch != null) listOf(clipboardMatch, instantDomain) else listOf(instantDomain)
             suggestionsAdapter.submitList(initialList)
         }
 
@@ -315,10 +315,10 @@ class SearchController(
             val suggestions = suggestionRepository.getSuggestions(trimmed, preferences.searchEngine, isIncognito = isIncog)
             if (isSearchMode) {
                 val clipboardOpt = getClipboardSuggestion()
-                val includeClipboard = clipboardOpt != null && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)
-                val finalList = if (includeClipboard && clipboardOpt != null) {
+                val clipboardMatch = clipboardOpt?.takeIf { it.queryOrUrl.contains(trimmed, ignoreCase = true) }
+                val finalList = if (clipboardMatch != null) {
                     val list = suggestions.toMutableList()
-                    list.add(0, clipboardOpt)
+                    list.add(0, clipboardMatch)
                     list
                 } else {
                     suggestions

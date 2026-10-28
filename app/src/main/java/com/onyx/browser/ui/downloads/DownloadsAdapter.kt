@@ -80,10 +80,9 @@ class DownloadsAdapter(
             }
 
             val snapshot = activeSnapshots[item.id]
-            val isLiveActive = snapshot != null && (snapshot.status == DownloadItem.STATUS_RUNNING || snapshot.status == DownloadItem.STATUS_PAUSED || snapshot.status == DownloadItem.STATUS_PENDING)
             val isDbPausedOrInterrupted = snapshot == null && (item.status == DownloadItem.STATUS_PAUSED || item.status == DownloadItem.STATUS_RUNNING)
 
-            if (isLiveActive && snapshot != null) {
+            if (snapshot != null && (snapshot.status == DownloadItem.STATUS_RUNNING || snapshot.status == DownloadItem.STATUS_PAUSED || snapshot.status == DownloadItem.STATUS_PENDING)) {
                 binding.tvDownloadFileName.alpha = 1.0f
                 binding.ivDownloadIcon.alpha = 1.0f
                 binding.tvDownloadDetails.alpha = 1.0f

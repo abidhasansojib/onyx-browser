@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use adblock::engine::Engine;
 use adblock::lists::{FilterSet, ParseOptions};
 use adblock::request::Request;
