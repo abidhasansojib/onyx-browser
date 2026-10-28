@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.PersistableBundle
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
@@ -165,6 +166,10 @@ class SearchController(
         binding.btnMenu.visibility = View.GONE
         binding.ivSslLock.visibility = View.GONE
 
+        // In search mode, keep text and typing start-aligned (left-aligned)
+        binding.etUrl.gravity = Gravity.START or Gravity.CENTER_VERTICAL
+        binding.etUrl.textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+
         // 2. Open Search Overlay Page
         binding.searchOverlay.visibility = View.VISIBLE
 
@@ -213,6 +218,10 @@ class SearchController(
         // 3. Hide keyboard & clear focus
         hideSoftKeyboard()
         binding.etUrl.clearFocus()
+
+        // Restore centered omnibox alignment in browsing mode
+        binding.etUrl.gravity = Gravity.CENTER
+        binding.etUrl.textAlignment = View.TEXT_ALIGNMENT_CENTER
 
         // 4. Restore address bar host display
         updateAddressBarDisplay(getActivePageUrl())
