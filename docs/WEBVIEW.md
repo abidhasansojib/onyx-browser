@@ -18,7 +18,7 @@ Onyx integrates the modern Jetpack WebKit library (`androidx.webkit:webkit:1.12.
 - Enables modern Chromium features across varied Android OS versions:
   - **Multi-Profile Partitioning**: `ProfileStore` and `WebViewCompat.setProfile` for true incognito isolation.
   - **Document-Start Script Injection**: `WebViewCompat.addDocumentStartJavaScript` to inject polyfills and security guards before any document scripts run.
-  - **Client Hint & Header Manipulation**: `WebSettingsCompat.setRequestedWithHeaderOriginAllowList`.
+  - **Client Hint & Header Manipulation**: `WebSettingsCompat.setRequestedWithHeaderOriginAllowList` and `WebSettingsCompat.setUserAgentMetadata`.
   - **Safe Browsing & Error Handling**: `WebViewCompat.startSafeBrowsing`.
 
 ---
@@ -72,7 +72,14 @@ if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW
 }
 ```
 
-### 2.3 Hardware Rasterization & 120Hz Displays
+### 2.3 Network-Level User-Agent Client Hints (`WebSettingsCompat.setUserAgentMetadata`)
+Standard User-Agent string overriding (`settings.userAgentString`) does not stop Chromium from transmitting default mobile client hints in HTTP request headers (`Sec-CH-UA-Mobile: ?1`, `Sec-CH-UA-Platform: "Android"`). Servers checking client hints before serving HTML/JS (Google, Wikipedia, cloud services) would still deliver mobile layouts.
+
+Onyx Browser synchronizes network-level client hints dynamically via `DesktopModeManager.applyClientHintsMetadata()`:
+- **Desktop Mode**: Configures `setMobile(false)` (`Sec-CH-UA-Mobile: ?0`), `setPlatform("Windows")` (or chosen desktop OS spoofing target), `setArchitecture("x86")`, `setBitness(64)`, and sanitizes the `brandVersionList` to replace `"Android WebView"` with `"Google Chrome"`.
+- **Mobile Mode**: Asserts `setMobile(true)` (`Sec-CH-UA-Mobile: ?1`), `setPlatform("Android")`, and removes the `"Android WebView"` brand signature across HTTP headers to prevent Google Sign-In `disallowed_useragent` blocks.
+
+### 2.4 Hardware Rasterization & 120Hz Displays
 To ensure zero stutter and native 120Hz frame rates:
 - Layer type set to `View.LAYER_TYPE_NONE` (relies directly on window hardware acceleration).
 - `offscreenPreRaster = true` on Android M+ (API 23+) to rasterize offscreen DOM components ahead of scroll movements.

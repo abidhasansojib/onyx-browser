@@ -1,7 +1,11 @@
 package com.onyx.browser.web
 
 import android.content.Context
+import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.webkit.UserAgentMetadata
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 
 /**
  * Manages Desktop Mode viewport scaling, zoom-out auto-fitting, and Client Hints spoofing.
@@ -10,6 +14,11 @@ import android.webkit.WebView
  * the industry-standard 980 CSS pixels and the initial page scale is computed to fit the device
  * display width (~40% on standard mobile displays), allowing full desktop layout visibility
  * and smooth pinch-to-zoom.
+ *
+ * In addition to DOM-level viewport and navigator.userAgentData polyfills, it applies
+ * network-level User-Agent Client Hints via [WebSettingsCompat.setUserAgentMetadata] to guarantee
+ * that Sec-CH-UA-Mobile (?0 for desktop, ?1 for mobile) and Sec-CH-UA-Platform headers are
+ * correctly communicated to servers on initial HTTP/HTTPS requests.
  */
 object DesktopModeManager {
 
@@ -27,6 +36,119 @@ object DesktopModeManager {
         val displayMetrics = context.resources.displayMetrics
         val screenWidthDp = displayMetrics.widthPixels / displayMetrics.density
         return ((screenWidthDp / targetWidth.toFloat()) * 100).toInt().coerceIn(20, 100)
+    }
+
+    @Volatile
+    private var defaultUserAgentMetadata: UserAgentMetadata? = null
+
+    /**
+     * Applies network-level User-Agent Client Hints (Sec-CH-UA, Sec-CH-UA-Mobile, Sec-CH-UA-Platform)
+     * via [WebSettingsCompat.setUserAgentMetadata] to guarantee that initial HTTP requests accurately
+     * communicate desktop vs mobile mode before any HTML/JS is delivered.
+     *
+     * In addition to toggling Sec-CH-UA-Mobile to ?0 (desktop) or ?1 (mobile), it sanitizes
+     * any "Android WebView" leak from the Sec-CH-UA brand list, ensuring compatibility with
+     * strict anti-bot systems and Google Sign-In.
+     */
+    fun applyClientHintsMetadata(
+        settings: WebSettings,
+        isDesktopMode: Boolean,
+        spoofTemplateKey: String = UserAgentManager.KEY_DEFAULT,
+        context: Context? = null
+    ) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA)) return
+
+        try {
+            val defaultMetadata = defaultUserAgentMetadata
+                ?: try {
+                    WebSettingsCompat.getUserAgentMetadata(settings).also { defaultUserAgentMetadata = it }
+                } catch (_: Throwable) {
+                    null
+                }
+
+            val sourceMetadata = defaultMetadata ?: try {
+                WebSettingsCompat.getUserAgentMetadata(settings)
+            } catch (_: Throwable) {
+                null
+            }
+
+            val metadata = if (isDesktopMode) {
+                val desktopBrands = sanitizeBrands(sourceMetadata?.brandVersionList, context)
+
+                val (platform, arch, bitness) = when (spoofTemplateKey) {
+                    UserAgentManager.KEY_MACOS_SAFARI, UserAgentManager.KEY_MACOS_CHROME ->
+                        Triple("macOS", "arm", 64)
+                    UserAgentManager.KEY_LINUX_FIREFOX ->
+                        Triple("Linux", "x86", 64)
+                    UserAgentManager.KEY_CHROME_OS ->
+                        Triple("Chrome OS", "x86", 64)
+                    else -> // Windows Chrome / Edge / default desktop
+                        Triple("Windows", "x86", 64)
+                }
+
+                val builder = if (sourceMetadata != null) {
+                    UserAgentMetadata.Builder(sourceMetadata)
+                } else {
+                    UserAgentMetadata.Builder()
+                }
+
+                builder.setBrandVersionList(desktopBrands)
+                    .setMobile(false)
+                    .setPlatform(platform)
+                    .setPlatformVersion(if (platform == "Windows") "15.0.0" else "")
+                    .setArchitecture(arch)
+                    .setBitness(bitness)
+                    .setModel("")
+                    .build()
+            } else {
+                val mobileBrands = sanitizeBrands(sourceMetadata?.brandVersionList, context)
+                val builder = if (sourceMetadata != null) {
+                    UserAgentMetadata.Builder(sourceMetadata)
+                } else {
+                    UserAgentMetadata.Builder()
+                }
+
+                builder.setBrandVersionList(mobileBrands)
+                    .setMobile(true)
+                    .setPlatform("Android")
+                    .build()
+            }
+
+            WebSettingsCompat.setUserAgentMetadata(settings, metadata)
+        } catch (e: Throwable) {
+            android.util.Log.e("DesktopModeManager", "Failed to apply UserAgentMetadata client hints", e)
+        }
+    }
+
+    private fun sanitizeBrands(
+        brandList: List<UserAgentMetadata.BrandVersion>?,
+        context: Context?
+    ): List<UserAgentMetadata.BrandVersion> {
+        val list = brandList ?: emptyList()
+        val mapped = list.map { bv ->
+            val brand = if (bv.brand.contains("Android", ignoreCase = true) ||
+                bv.brand.contains("WebView", ignoreCase = true)
+            ) {
+                "Google Chrome"
+            } else {
+                bv.brand
+            }
+            UserAgentMetadata.BrandVersion.Builder()
+                .setBrand(brand)
+                .setMajorVersion(bv.majorVersion)
+                .setFullVersion(bv.fullVersion)
+                .build()
+        }
+
+        if (mapped.isNotEmpty()) return mapped
+
+        val ver = UserAgentManager.getSystemChromiumVersion(context)
+        val major = ver.substringBefore(".")
+        return listOf(
+            UserAgentMetadata.BrandVersion.Builder().setBrand("Chromium").setMajorVersion(major).setFullVersion(ver).build(),
+            UserAgentMetadata.BrandVersion.Builder().setBrand("Google Chrome").setMajorVersion(major).setFullVersion(ver).build(),
+            UserAgentMetadata.BrandVersion.Builder().setBrand("Not=A?Brand").setMajorVersion("24").setFullVersion("24.0.0.0").build()
+        )
     }
 
     /**

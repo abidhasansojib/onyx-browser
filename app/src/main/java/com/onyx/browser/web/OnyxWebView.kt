@@ -247,8 +247,15 @@ class OnyxWebView @JvmOverloads constructor(
         isScrollbarFadingEnabled = true
 
 
-        // Apply UA Spoofer and all persisted settings
+        // Apply UA Spoofer, Network-Level Client Hints, and all persisted settings
         settings.userAgentString = getBaseUserAgent(prefs)
+        val isGlobalDesktop = prefs.isDesktopMode || prefs.userAgentSpoofTemplate in UserAgentManager.DESKTOP_KEYS
+        DesktopModeManager.applyClientHintsMetadata(
+            settings = settings,
+            isDesktopMode = isGlobalDesktop,
+            spoofTemplateKey = prefs.userAgentSpoofTemplate,
+            context = context
+        )
 
         applyForceDark()
         syncAutofillSettings()
@@ -649,6 +656,13 @@ class OnyxWebView @JvmOverloads constructor(
         
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
+
+        DesktopModeManager.applyClientHintsMetadata(
+            settings = settings,
+            isDesktopMode = wantsDesktop,
+            spoofTemplateKey = prefs.userAgentSpoofTemplate,
+            context = context
+        )
         
         val currentUaMatchesTarget = settings.userAgentString == targetUa
         
