@@ -114,6 +114,13 @@ To ensure zero stutter and native 120Hz frame rates:
   ```
 - **Synthetic Navigation Guards**: When an error page is displayed, `OnyxWebView.reload()` re-requests the actual failing URL (`lastFailingUrl`) instead of reloading the synthetic error document.
 
+### 3.4 Progressive Hydration & DSD Safety Net (`DsdHydrationFix`)
+Websites using Declarative Shadow DOM (DSD) progressive hydration patterns commonly render with `<body dsd-pending>` and stylesheet rules hiding unhydrated content (`[dsd-pending] { display: none !important; }`). When adblocking or tracking protection blocks any script in the bootstrap/telemetry pipeline, the removal callback fails to execute, leaving the page completely blank.
+
+Onyx Browser guards against this in `OnyxWebViewClient.onPageFinished` via `DsdHydrationFix.applyFix()`:
+- Recursively removes `dsd-pending` from `document.documentElement`, `document.body`, light DOM nodes, and open shadow roots.
+- Executes an immediate pass and a deferred 800ms backstop pass to ensure all server-rendered content is visible to the user.
+
 ---
 
 ## 4. Window Management & Popup Protection

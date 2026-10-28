@@ -2052,6 +2052,7 @@ class OnyxWebViewClient(
             }
             if (!isSyntheticError && !isFinishedAuthOrMeta) {
                 view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
+                DsdHydrationFix.applyFix(view)
             }
 
             // DevTools auto-persistence across page navigations
