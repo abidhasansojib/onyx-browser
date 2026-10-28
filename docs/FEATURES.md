@@ -6,8 +6,6 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - [Architecture & Core Subsystems](ARCHITECTURE.md)
 - [Android WebView Engineering Guide](WEBVIEW.md)
 
-> **Verified Golden Milestone**: Release **`v1.3.13`** (commit `91f5f49`, tags `v1.3.13` and `golden-reference-v1.3.13`) — all core WebAuthn passkeys, privacy/adblock, background media playback, native video player touch controls, and Picture-in-Picture subsystems verified working.
-
 ### Status Legend
 - `[x]` **Working** – Fully implemented, verified, and active in release builds.
 - `[-]` **Partial / In Progress** – Implemented with ongoing refinements.
