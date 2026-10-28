@@ -153,13 +153,11 @@
                     android:layout_weight="1"
                     android:background="@null"
                     android:ellipsize="end"
-                    android:gravity="center"
                     android:hint="@string/search_or_type_url"
                     android:imeOptions="actionGo"
                     android:importantForAutofill="no"
                     android:inputType="textUri|textNoSuggestions"
                     android:maxLines="1"
-                    android:textAlignment="center"
                     android:textColor="?android:attr/textColorPrimary"
                     android:textColorHint="?android:attr/textColorSecondary"
                     android:textSize="15.5sp" />

@@ -169,5 +169,4 @@ onyx-browser/
 11. **UI Presentation & Toolbar Customization Standards**:
    - Full-page settings activities must use native `CoordinatorLayout` + `MaterialToolbar` with edge-to-edge system insets and avoid floating dialogs for primary preference screens.
    - Address bar button customization (`isHomeReplacedWithRefresh`) must update dynamically in `onResume()` and `updateAddressBarDisplay()` without requiring activity recreation.
-   - Omnibox Address Alignment: The address bar hint and host URL are centered horizontally in browsing mode (`Gravity.CENTER`) and dynamically switch to start/left alignment (`Gravity.START or Gravity.CENTER_VERTICAL`) when entering search mode for natural text input.
 

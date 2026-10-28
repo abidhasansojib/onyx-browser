@@ -26,7 +26,6 @@ import android.os.Build
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.util.Rational
-import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -1937,10 +1936,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         binding.homeLayout.root.visibility = if (inPip) View.GONE else View.VISIBLE
         binding.webViewContainer.visibility = View.GONE
-        if (!searchController.isSearchMode) {
-            binding.etUrl.gravity = Gravity.CENTER
-            binding.etUrl.textAlignment = View.TEXT_ALIGNMENT_CENTER
-        }
         binding.etUrl.setText("")
         binding.ivSslLock.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
@@ -2788,10 +2783,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         if (displayUrl.isBlank() || displayUrl.startsWith("about:blank", ignoreCase = true) || displayUrl.startsWith("data:") || displayUrl.startsWith("file:///android_asset/") || displayUrl.startsWith("file:///android_res/")) {
-            if (!searchController.isSearchMode) {
-                binding.etUrl.gravity = Gravity.CENTER
-                binding.etUrl.textAlignment = View.TEXT_ALIGNMENT_CENTER
-            }
             binding.etUrl.setText("")
             binding.ivSslLock.visibility = View.GONE
             updateHomeButtonAppearance(displayUrl)
@@ -2830,8 +2821,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         if (!searchController.isSearchMode) {
-            binding.etUrl.gravity = Gravity.CENTER
-            binding.etUrl.textAlignment = View.TEXT_ALIGNMENT_CENTER
             binding.etUrl.setText(host)
         }
     }

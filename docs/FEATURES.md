@@ -122,7 +122,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Auto-Hide Address Bar on Scroll (Scroll-to-Hide)**: Address bar smoothly slides out of view when scrolling down to maximize screen space and slides back into view when scrolling up (with reserved status bar space preventing web content overlap), with dedicated toggle in Accessibility settings.
 - `[x]` **Material 3 Site Settings & Permission Dialogs**: Clean bottom-sheet dialogs for Camera, Microphone, Location, and Notification permissions.
 - `[x]` **Configurable Pull-to-Refresh**: Density-scaled pull sensitivity with user disable toggle.
-- `[x]` **Centered Omnibox Alignment & Toolbar Sizing**: Address bar text and placeholder hint ("Search or type URL") dynamically center during browsing mode and smoothly transition to start-alignment in search mode, with refined search engine selector icon sizing and balanced toolbar margins.
+- `[x]` **Refined Toolbar Sizing & Proportions**: Balanced search engine selector icon sizing (26dp) and toolbar margins for clean visual hierarchy.
 - `[x]` **Homepage Shortcuts**: Customizable tile grid with drag-and-drop reordering and cached high-resolution favicons.
 
 ---
