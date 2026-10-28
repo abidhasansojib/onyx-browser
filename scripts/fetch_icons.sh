@@ -33,7 +33,7 @@ ICONS=(
     "share-2:ic_share"
     "lock:ic_lock"
     "external-link:ic_external"
-    "refresh-cw:ic_refresh"
+    "rotate-cw:ic_refresh"
     "monitor:ic_desktop"
     "folder:ic_folder"
     "globe:ic_web"
