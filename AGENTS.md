@@ -73,7 +73,7 @@ When triggered for a build (after user confirms or explicitly requests Release o
 - Never commit internal agent scaffolding, plan files, design specs, or scratch directories (`docs/superpowers/`, `.superpowers/`, scratch scripts) into the repository.
 
 ### RULE 8: Golden Milestone Immutability
-- **Current Golden Milestone / Role Model Reference**: None currently assigned (tags cleared per user directive).
+- **Current Golden Milestone / Role Model Reference**: Tag **`golden-reference`** (commit `c30976a`) — verified working across WebAuthn passkeys (assertion signature verification with matching clientDataJSON, registration, autofill & password managers), adblocking & clickjack defusal, native video tap-to-show-controls, background audio/video playback, Picture-in-Picture (inline, fullscreen, cross-origin iframe, expand & 'X' close lifecycle), full-page appearance settings, and refined toolbar layout. Use this commit as the baseline reference if any future change regresses these subsystems.
 - AI agents are **strictly forbidden** from automatically bumping or declaring a "Golden Milestone / Role Model" reference in `AGENTS.md` or `docs/FEATURES.md` unless explicitly commanded by the user.
 
 
