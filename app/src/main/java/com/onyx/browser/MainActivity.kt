@@ -1495,16 +1495,39 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             popup.show(binding.btnSearchEngine)
         }
 
-        // Home / Back Button
+        // Home / Refresh / Back Button
+        updateHomeButtonAppearance()
         binding.btnHome.setOnClickListener {
             val currentTab = tabManager.activeTab.value
             if (isLocalFileView(currentTab)) {
                 onBackPressedDispatcher.onBackPressed()
+            } else if (preferences.isHomeReplacedWithRefresh) {
+                val activeWv = tabManager.getActiveWebView()
+                if (activeWv != null && binding.homeLayout.root.visibility != View.VISIBLE) {
+                    activeWv.reload()
+                } else {
+                    refreshHomeShortcuts()
+                }
             } else if (currentTab != null && currentTab.url.isNotBlank() && !currentTab.url.startsWith("about:blank", ignoreCase = true)) {
                 val newTab = tabManager.createNewTab(url = "", isIncognito = currentTab.isIncognito)
                 displayTab(newTab)
             } else {
                 showHomeScreen()
+            }
+        }
+
+        binding.btnHome.setOnLongClickListener {
+            if (preferences.isHomeReplacedWithRefresh) {
+                val currentTab = tabManager.activeTab.value
+                if (currentTab != null && currentTab.url.isNotBlank() && !currentTab.url.startsWith("about:blank", ignoreCase = true)) {
+                    val newTab = tabManager.createNewTab(url = "", isIncognito = currentTab.isIncognito)
+                    displayTab(newTab)
+                } else {
+                    showHomeScreen()
+                }
+                true
+            } else {
+                false
             }
         }
 
@@ -1922,8 +1945,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         binding.ivSslLock.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
         binding.swipeRefreshLayout.isEnabled = false
-        binding.btnHome.setImageResource(R.drawable.ic_home)
-        binding.btnHome.contentDescription = getString(R.string.home)
+        updateHomeButtonAppearance()
         hideTranslateBar(restoreOriginal = false)
 
         val isIncognito = tabManager.activeTab.value?.isIncognito == true
@@ -2768,24 +2790,18 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (displayUrl.isBlank() || displayUrl.startsWith("about:blank", ignoreCase = true) || displayUrl.startsWith("data:") || displayUrl.startsWith("file:///android_asset/") || displayUrl.startsWith("file:///android_res/")) {
             binding.etUrl.setText("")
             binding.ivSslLock.visibility = View.GONE
-            binding.btnHome.setImageResource(R.drawable.ic_home)
-            binding.btnHome.contentDescription = getString(R.string.home)
+            updateHomeButtonAppearance(displayUrl)
             return
         }
 
         val isHttps = displayUrl.startsWith("https://")
         binding.ivSslLock.visibility = if (isHttps) View.VISIBLE else View.GONE
 
+        updateHomeButtonAppearance(displayUrl)
+
         val isLocalDoc = isLocalFileView(tabManager.activeTab.value) ||
                 LocalFileLoader.isLocalFile(this, displayUrl) ||
                 LocalFileLoader.isPreviewUrl(displayUrl)
-        if (isLocalDoc) {
-            binding.btnHome.setImageResource(R.drawable.ic_arrow_back)
-            binding.btnHome.contentDescription = getString(R.string.back)
-        } else {
-            binding.btnHome.setImageResource(R.drawable.ic_home)
-            binding.btnHome.contentDescription = getString(R.string.home)
-        }
 
         val host = when {
             isLocalDoc -> {
@@ -2816,6 +2832,25 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     private fun updateSearchEngineIcon() {
         SearchEngineIconHelper.loadSearchEngineIcon(this, binding.btnSearchEngine, preferences.searchEngine)
+    }
+
+    fun updateHomeButtonAppearance(displayUrl: String = "") {
+        val currentTab = tabManager.activeTab.value
+        val effectiveUrl = displayUrl.ifBlank { currentTab?.url ?: "" }
+        val isLocalDoc = isLocalFileView(currentTab) ||
+                LocalFileLoader.isLocalFile(this, effectiveUrl) ||
+                LocalFileLoader.isPreviewUrl(effectiveUrl)
+
+        if (isLocalDoc) {
+            binding.btnHome.setImageResource(R.drawable.ic_arrow_back)
+            binding.btnHome.contentDescription = getString(R.string.back)
+        } else if (preferences.isHomeReplacedWithRefresh) {
+            binding.btnHome.setImageResource(R.drawable.ic_refresh)
+            binding.btnHome.contentDescription = getString(R.string.refresh)
+        } else {
+            binding.btnHome.setImageResource(R.drawable.ic_home)
+            binding.btnHome.contentDescription = getString(R.string.home)
+        }
     }
 
     private fun updateTabBadgeCount() {
@@ -3694,6 +3729,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         // 2. Sync search engine & update home widgets
         updateSearchEngineIcon()
+        updateHomeButtonAppearance()
         com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
 
         // 3. Sync scroll to top FAB visibility & auto-hide toolbar state

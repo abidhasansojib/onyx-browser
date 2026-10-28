@@ -78,6 +78,12 @@
     <string name="theme_dark_desc">Google Dark mode for low light</string>
     <string name="theme_light">Light</string>
     <string name="theme_light_desc">Clean, bright display for daytime</string>
+    <string name="address_bar_customization">Address Bar Customization</string>
+    <string name="address_bar_customization_desc">Buttons, actions, and toolbar controls</string>
+    <string name="toolbar_buttons_category">TOOLBAR BUTTONS</string>
+    <string name="replace_home_with_refresh">Replace Home with Refresh button</string>
+    <string name="replace_home_with_refresh_desc">Show a reload button instead of the home button in the address bar</string>
+    <string name="refresh">Refresh</string>
 
     <!-- Accent Color Options -->
     <string name="accent_color_title">Accent color</string>

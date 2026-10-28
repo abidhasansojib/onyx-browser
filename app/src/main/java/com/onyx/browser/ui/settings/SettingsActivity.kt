@@ -22,6 +22,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var preferences: BrowserPreferences
+    private var lastThemeMode: Int = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AccentColorManager.applyThemeOverlay(this)
@@ -30,7 +31,9 @@ class SettingsActivity : AppCompatActivity() {
         // Edge-to-edge system bars matching settings_canvas_bg
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
+        @Suppress("DEPRECATION")
         window.statusBarColor = canvasBg
+        @Suppress("DEPRECATION")
         window.navigationBarColor = canvasBg
 
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -42,6 +45,7 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         preferences = BrowserPreferences.getInstance(this)
+        lastThemeMode = preferences.themeMode
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.settingsRoot) { _, insets ->
             val statusBarInsets = insets.getInsets(
@@ -86,6 +90,10 @@ class SettingsActivity : AppCompatActivity() {
         updateSearchEngineDisplay()
         updateThemeDisplay()
         updateUaSpooferText()
+        if (lastThemeMode != -1 && lastThemeMode != preferences.themeMode) {
+            lastThemeMode = preferences.themeMode
+            recreate()
+        }
     }
 
     private fun setupCategoryGeneral() {
@@ -95,15 +103,10 @@ class SettingsActivity : AppCompatActivity() {
             startActivity(Intent(this, SearchEngineSettingsActivity::class.java))
         }
 
-        // 2. Appearance
+        // 2. Appearance (Full page activity)
         updateThemeDisplay()
         binding.settingAppearanceRow.setOnClickListener {
-            val sheet = ThemePickerSheet {
-                preferences.applyTheme()
-                updateThemeDisplay()
-                recreate()
-            }
-            sheet.show(supportFragmentManager, ThemePickerSheet.TAG)
+            startActivity(Intent(this, AppearanceActivity::class.java))
         }
 
         // 3. Auto fill & passwords

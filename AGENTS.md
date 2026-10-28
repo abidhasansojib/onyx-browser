@@ -164,4 +164,7 @@ onyx-browser/
    - Synthetic URL schemes (`javascript:`, `about:`, `data:`, `blob:`, `file:///android_asset/`, `file:///android_res/`) must be classified as synthetic in `OnyxWebView.isSyntheticOrDataUrl` so they never clobber active page state, user agents, or history.
    - POST form download triggers (e.g. `javascript:document.getElementById('id').submit();` or download buttons submitting forms via POST) must be captured at document-start via `OnyxFormBridge` / `FormPostRegistry`, matched on `DownloadListener`, and executed via HTTP POST in `DownloadEngine` with accurate `Origin`, `Referer`, and `Content-Type` headers.
    - Download triggers spawning blank popup tabs (`target="_blank"`) must retire the unpromoted popup tab once the download is enqueued, preventing zombie tabs.
+11. **UI Presentation & Toolbar Customization Standards**:
+   - Full-page settings activities must use native `CoordinatorLayout` + `MaterialToolbar` with edge-to-edge system insets and avoid floating dialogs for primary preference screens.
+   - Address bar button customization (`isHomeReplacedWithRefresh`) must update dynamically in `onResume()` and `updateAddressBarDisplay()` without requiring activity recreation.
 

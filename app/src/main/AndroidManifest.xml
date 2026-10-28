@@ -363,6 +363,16 @@
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
+            android:name=".ui.settings.AppearanceActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
+            android:name=".ui.settings.AddressBarSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
             android:name=".ui.settings.SettingsPrivacyActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />

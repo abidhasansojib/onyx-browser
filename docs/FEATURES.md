@@ -85,6 +85,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Integrated CameraX + ML Kit Scanner**: Rapid QR code and barcode scanning directly from the address bar.
 - `[x]` **Voice Search Integration**: Voice input button hosted cleanly inside the active search overlay, hidden from the primary toolbar when browsing.
 - `[x]` **Multi-Engine Reverse Image Search**: Long-press any image to search via Google Lens, TinEye, Yandex, or Bing.
+- `[x]` **Address Bar Customization & Full-Page Appearance Settings**: Dedicated Settings > Appearance full-page activity (non-floating) with integrated theme selector and Address Bar Customization page, allowing users to replace the address bar Home button with a one-tap Refresh button (with long-press home shortcut fallback) and toggle scroll auto-hide behavior.
 
 ---
 
