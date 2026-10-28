@@ -444,7 +444,7 @@ class OnyxWebView @JvmOverloads constructor(
                 importantForAutofill = if (prefs.isAutofillEnabled) {
                     View.IMPORTANT_FOR_AUTOFILL_YES
                 } else {
-                    View.IMPORTANT_FOR_AUTOFILL_NO_HIDE_DESCENDANTS
+                    View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
                 }
             }
             settings.saveFormData = !isIncognito && prefs.isAutofillEnabled && prefs.isSavePasswordsPromptEnabled
