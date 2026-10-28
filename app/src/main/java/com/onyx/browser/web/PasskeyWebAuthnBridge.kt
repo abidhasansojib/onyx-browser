@@ -123,11 +123,12 @@ class PasskeyWebAuthnBridge(
             val rpId = rpObj?.optString("id", "")?.takeIf { it.isNotBlank() }
 
             val originCtx = resolveVerifiedOrigin(callerOrigin, rpId, isTopFrame, callbackId) ?: return
-            val challenge = reqObj.optString("challenge", "")
+            val challenge = reqObj.optString("challenge", "").trim().replace("=", "")
             if (challenge.isBlank()) {
                 sendError(callbackId, "TypeError", "Missing WebAuthn challenge")
                 return
             }
+            reqObj.put("challenge", challenge)
 
             // Ensure rp.id is always populated with a verified host
             if (rpObj != null && rpObj.optString("id").isNullOrBlank()) {
@@ -234,11 +235,12 @@ class PasskeyWebAuthnBridge(
             val rpId = reqObj.optString("rpId", "").takeIf { it.isNotBlank() }
 
             val originCtx = resolveVerifiedOrigin(callerOrigin, rpId, isTopFrame, callbackId) ?: return
-            val challenge = reqObj.optString("challenge", "")
+            val challenge = reqObj.optString("challenge", "").trim().replace("=", "")
             if (challenge.isBlank()) {
                 sendError(callbackId, "TypeError", "Missing WebAuthn challenge")
                 return
             }
+            reqObj.put("challenge", challenge)
 
             if (reqObj.optString("rpId").isNullOrBlank()) {
                 val host = Uri.parse(originCtx.effectiveOrigin).host ?: ""
@@ -539,35 +541,18 @@ class PasskeyWebAuthnBridge(
         origin: String,
         crossOrigin: Boolean
     ): Pair<ByteArray, ByteArray> {
-        val cleanOrigin = origin.trimEnd('/')
+        val cleanOrigin = origin.trim().trimEnd('/')
+        val cleanChallenge = challenge.trim().replace("=", "")
         val json = JSONObject().apply {
             put("type", type)
-            put("challenge", challenge)
+            put("challenge", cleanChallenge)
             put("origin", cleanOrigin)
             put("crossOrigin", crossOrigin)
-        }.toString()
+        }.toString().replace("\\/", "/")
 
         val bytes = json.toByteArray(Charsets.UTF_8)
         val hash = MessageDigest.getInstance("SHA-256").digest(bytes)
         return Pair(bytes, hash)
-    }
-
-    private fun hasValidClientDataJson(encoded: String?): Boolean {
-        if (encoded.isNullOrBlank()) return false
-        if (encoded.contains("placeholder", ignoreCase = true)) return false
-        return try {
-            val decoded = fromBase64Url(encoded)
-            if (decoded.isEmpty()) return false
-            val text = String(decoded, Charsets.UTF_8).trim()
-            if (!text.startsWith("{") || text.contains("placeholder", ignoreCase = true)) return false
-            val json = JSONObject(text)
-            val type = json.optString("type", "")
-            val challenge = json.optString("challenge", "")
-            val origin = json.optString("origin", "")
-            type.startsWith("webauthn.") && challenge.isNotBlank() && origin.isNotBlank()
-        } catch (_: Throwable) {
-            false
-        }
     }
 
     private fun enrichRegistrationResponse(rawJson: String, clientDataBytes: ByteArray): String {
@@ -575,17 +560,18 @@ class PasskeyWebAuthnBridge(
             val obj = JSONObject(rawJson)
             val resp = obj.optJSONObject("response") ?: JSONObject().also { obj.put("response", it) }
 
-            // Preserve provider's clientDataJSON if it already constructed and signed a valid JSON payload;
-            // otherwise inject the browser's CollectedClientData matching clientDataHash.
-            if (!hasValidClientDataJson(resp.optString("clientDataJSON", null))) {
-                resp.put("clientDataJSON", toBase64Url(clientDataBytes))
-            }
+            // Always inject the exact clientDataJSON bytes that generated clientDataHash.
+            // Credential providers sign over clientDataHash and return dummy/placeholder
+            // clientDataJSON (or clientData with package-name origins). Returning the matching
+            // browser clientDataJSON is required so the relying party's SHA-256 hash matches the signature.
+            resp.put("clientDataJSON", toBase64Url(clientDataBytes))
 
-            // Ensure id and rawId are both populated
+            // Ensure id and rawId are both populated and normalized to clean unpadded Base64URL
             val credId = obj.optString("id").ifBlank { obj.optString("rawId") }
             if (credId.isNotBlank()) {
-                if (obj.optString("id").isBlank()) obj.put("id", credId)
-                if (obj.optString("rawId").isBlank()) obj.put("rawId", credId)
+                val cleanId = normalizeBase64Url(credId)
+                obj.put("id", cleanId)
+                obj.put("rawId", cleanId)
             }
             if (obj.optString("type").isBlank()) {
                 obj.put("type", "public-key")
@@ -595,7 +581,9 @@ class PasskeyWebAuthnBridge(
             // when omitted by third-party providers (e.g., Bitwarden, KeePassDX, Proton Pass).
             val attestationB64 = resp.optString("attestationObject", "")
             if (attestationB64.isNotBlank()) {
-                populateAttestationMetadata(resp, attestationB64)
+                val cleanAtt = normalizeBase64Url(attestationB64)
+                resp.put("attestationObject", cleanAtt)
+                populateAttestationMetadata(resp, cleanAtt)
             }
 
             obj.toString()
@@ -609,14 +597,32 @@ class PasskeyWebAuthnBridge(
             val obj = JSONObject(rawJson)
             val resp = obj.optJSONObject("response") ?: JSONObject().also { obj.put("response", it) }
 
-            if (!hasValidClientDataJson(resp.optString("clientDataJSON", null))) {
-                resp.put("clientDataJSON", toBase64Url(clientDataBytes))
+            // Always inject the exact clientDataJSON bytes that generated clientDataHash.
+            // Credential providers sign over clientDataHash and return dummy/placeholder
+            // clientDataJSON (or clientData with package-name origins). Returning the matching
+            // browser clientDataJSON is required so the relying party's SHA-256 hash matches the signature.
+            resp.put("clientDataJSON", toBase64Url(clientDataBytes))
+
+            val sig = resp.optString("signature", "")
+            if (sig.isNotBlank()) {
+                resp.put("signature", normalizeBase64Url(sig))
+            }
+            val authData = resp.optString("authenticatorData", "")
+            if (authData.isNotBlank()) {
+                resp.put("authenticatorData", normalizeBase64Url(authData))
+            }
+            val userHandle = resp.optString("userHandle", "")
+            if (userHandle.isNotBlank() && userHandle != "null") {
+                resp.put("userHandle", normalizeBase64Url(userHandle))
+            } else {
+                resp.remove("userHandle")
             }
 
             val credId = obj.optString("id").ifBlank { obj.optString("rawId") }
             if (credId.isNotBlank()) {
-                if (obj.optString("id").isBlank()) obj.put("id", credId)
-                if (obj.optString("rawId").isBlank()) obj.put("rawId", credId)
+                val cleanId = normalizeBase64Url(credId)
+                obj.put("id", cleanId)
+                obj.put("rawId", cleanId)
             }
             if (obj.optString("type").isBlank()) {
                 obj.put("type", "public-key")
@@ -920,6 +926,15 @@ class PasskeyWebAuthnBridge(
         val padLen = (4 - (normalized.length % 4)) % 4
         val padded = normalized + "=".repeat(padLen)
         return Base64.decode(padded, Base64.DEFAULT)
+    }
+
+    private fun normalizeBase64Url(encoded: String?): String {
+        if (encoded.isNullOrBlank()) return ""
+        return try {
+            toBase64Url(fromBase64Url(encoded))
+        } catch (_: Throwable) {
+            encoded.trim().replace('+', '-').replace('/', '_').replace("=", "")
+        }
     }
 
     private fun sendSuccess(callbackId: String, responseJson: String) {
@@ -1611,7 +1626,7 @@ class PasskeyWebAuthnBridge(
                                         var clientDataB64 = respInner.clientDataJSON || '';
                                         var authDataB64 = respInner.authenticatorData || '';
                                         var sigB64 = respInner.signature || '';
-                                        var userHandleB64 = respInner.userHandle || null;
+                                        var userHandleB64 = (respInner.userHandle && respInner.userHandle !== 'null') ? respInner.userHandle : null;
 
                                         var clientData = base64UrlToBuffer(clientDataB64);
                                         var authData = base64UrlToBuffer(authDataB64);
