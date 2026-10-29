@@ -1159,6 +1159,14 @@ class BrowserPreferences private constructor(private val context: Context) {
         return null
     }
 
+    fun isJavaScriptEnabledForDomain(domainOrUrl: String): Boolean {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return isJavaScriptEnabledGlobal && !isGlobalScriptBlockingEnabled
+        val jsPerm = isWebJavaScriptAllowed(domain)
+        val jsGloballyEnabled = isJavaScriptEnabledGlobal && !isGlobalScriptBlockingEnabled && !isScriptBlockingEnabledForDomain(domain)
+        return jsPerm ?: jsGloballyEnabled
+    }
+
     fun getSiteJavaScriptPermission(domainOrUrl: String): SitePermissionState = when (isWebJavaScriptAllowed(domainOrUrl)) { true -> SitePermissionState.ALLOWED; false -> SitePermissionState.BLOCKED; null -> SitePermissionState.ASK }
 
     fun setSiteJavaScriptPermission(domainOrUrl: String, state: SitePermissionState) {

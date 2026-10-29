@@ -4019,10 +4019,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (::pipController.isInitialized) {
             pipController.unregisterReceiver()
         }
-        clipboardListener?.let { listener ->
-            (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.removePrimaryClipChangedListener(listener)
-            clipboardListener = null
-        }
         MediaPlaybackService.mediaActionListener = null
         try {
             MediaPlaybackService.stop(applicationContext)
