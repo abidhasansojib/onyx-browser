@@ -573,6 +573,37 @@ class OnyxWebView @JvmOverloads constructor(
     }
 
     /**
+     * Resolves desktop URLs to their mobile counterparts when turning off desktop mode.
+     */
+    private fun resolveMobileUrl(url: String): String {
+        return try {
+            val uri = android.net.Uri.parse(url)
+            val host = uri.host?.lowercase() ?: return url
+            val newHost = when {
+                host == "www.youtube.com" || host == "youtube.com" -> "m.youtube.com"
+                host == "www.facebook.com" || host == "facebook.com" -> "m.facebook.com"
+                host.endsWith(".wikipedia.org") && !host.contains(".m.wikipedia.org") ->
+                    host.replace(".wikipedia.org", ".m.wikipedia.org")
+                host == "twitter.com" || host == "x.com" -> "mobile.twitter.com"
+                host == "www.reddit.com" || host == "reddit.com" -> "m.reddit.com"
+                host == "www.aliexpress.com" || host == "aliexpress.com" -> "m.aliexpress.com"
+                host == "www.twitch.tv" || host == "twitch.tv" -> "m.twitch.tv"
+                host == "www.imdb.com" || host == "imdb.com" -> "m.imdb.com"
+                host == "www.gsmarena.com" || host == "gsmarena.com" -> "m.gsmarena.com"
+                host.startsWith("www.") -> "m." + host.removePrefix("www.")
+                else -> host
+            }
+            if (newHost != host) {
+                uri.buildUpon().authority(newHost).build().toString()
+            } else {
+                url
+            }
+        } catch (_: Exception) {
+            url
+        }
+    }
+
+    /**
      * Toggle desktop mode for [pageUrl]'s domain and reload.
      * Called by the 3-dot menu toggle.
      */
@@ -586,7 +617,7 @@ class OnyxWebView @JvmOverloads constructor(
             if (nextDesktop) com.onyx.browser.data.preferences.SitePermissionState.ALLOWED
             else com.onyx.browser.data.preferences.SitePermissionState.BLOCKED
         )
-        val targetUrl = if (nextDesktop) resolveDesktopUrl(pageUrl) else pageUrl
+        val targetUrl = if (nextDesktop) resolveDesktopUrl(pageUrl) else resolveMobileUrl(pageUrl)
         applyUserAgentForUrl(targetUrl, forceRefreshLayout = true)
     }
 

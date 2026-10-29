@@ -959,7 +959,11 @@ class BrowserPreferences private constructor(private val context: Context) {
         if (domain.isBlank()) return emptySet()
         val stripped = stripMobilePrefix(domain)
         val base = getBaseDomain(domain)
-        return setOf(domain, stripped, base).filter { it.isNotBlank() }.toSet()
+        val res = mutableSetOf(domain, stripped, base)
+        if (base.isNotBlank() && base.contains('.')) {
+            res.add("m.$base")
+        }
+        return res.filter { it.isNotBlank() }.toSet()
     }
 
     private fun matchesDesktopDomain(candidate: String, stored: String): Boolean {
@@ -973,6 +977,9 @@ class BrowserPreferences private constructor(private val context: Context) {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return false
         val candidates = getSiteDesktopModeCandidates(domain)
+        if (mobileDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }) {
+            return false
+        }
         return desktopDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }
     }
 
@@ -987,11 +994,12 @@ class BrowserPreferences private constructor(private val context: Context) {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return SitePermissionState.ASK
         val candidates = getSiteDesktopModeCandidates(domain)
-        if (desktopDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }) {
-            return SitePermissionState.ALLOWED
-        }
+        // Explicit mobile state takes precedence over legacy or broad desktop rules
         if (mobileDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }) {
             return SitePermissionState.BLOCKED
+        }
+        if (desktopDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }) {
+            return SitePermissionState.ALLOWED
         }
         return SitePermissionState.ASK
     }
@@ -1002,19 +1010,15 @@ class BrowserPreferences private constructor(private val context: Context) {
         val candidates = getSiteDesktopModeCandidates(domainOrUrl)
         val desk = desktopDomains.toMutableSet()
         val mob = mobileDomains.toMutableSet()
+
+        // Purge any stored domains matching any candidate to prevent cross-contamination between m.* and desktop apex
+        desk.removeAll { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }
+        mob.removeAll { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }
+
         when (state) {
-            SitePermissionState.ALLOWED -> {
-                desk.addAll(candidates)
-                mob.removeAll(candidates)
-            }
-            SitePermissionState.BLOCKED -> {
-                mob.addAll(candidates)
-                desk.removeAll(candidates)
-            }
-            SitePermissionState.ASK -> {
-                desk.removeAll(candidates)
-                mob.removeAll(candidates)
-            }
+            SitePermissionState.ALLOWED -> desk.addAll(candidates)
+            SitePermissionState.BLOCKED -> mob.addAll(candidates)
+            SitePermissionState.ASK -> { /* purged from both */ }
         }
         desktopDomains = desk
         mobileDomains = mob
@@ -1028,12 +1032,14 @@ class BrowserPreferences private constructor(private val context: Context) {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isNotBlank()) {
             val candidates = getSiteDesktopModeCandidates(domain)
-            if (desktopDomains.any { stored ->
-                candidates.any { c -> matchesDesktopDomain(c, stored) }
-            }) return true
+            // Explicit mobile override takes precedence
             if (mobileDomains.any { stored ->
                 candidates.any { c -> matchesDesktopDomain(c, stored) }
             }) return false
+
+            if (desktopDomains.any { stored ->
+                candidates.any { c -> matchesDesktopDomain(c, stored) }
+            }) return true
         }
         return isDesktopMode
     }
