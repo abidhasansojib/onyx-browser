@@ -2337,6 +2337,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 LocalFileLoader.loadLocalFile(this, webView, url)
                 return@setDownloadListener
             }
+            val guessedFileName = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype).lowercase()
+            if (com.onyx.browser.userscript.UserScriptManager.isUserScriptUrl(url) || guessedFileName.endsWith(".user.js")) {
+                com.onyx.browser.ui.settings.InstallUserScriptBottomSheet.show(supportFragmentManager, url)
+                return@setDownloadListener
+            }
             val cookies = try {
                 webView.cookieManager.getCookie(url) ?: ""
             } catch (_: Exception) {

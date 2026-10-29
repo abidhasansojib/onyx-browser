@@ -764,6 +764,17 @@
     <string name="userscripts_saved">Script saved successfully</string>
     <string name="userscripts_invalid_meta">Script must contain // ==UserScript== and // ==/UserScript==</string>
     <string name="userscripts_menu_commands_title">Script Commands</string>
+    <string name="userscripts_install_dialog_title">Install UserScript</string>
+    <string name="userscripts_fetching">Fetching script details…</string>
+    <string name="userscripts_target_sites">TARGET SITES</string>
+    <string name="userscripts_permissions_title">PERMISSIONS &amp; CAPABILITIES</string>
+    <string name="userscripts_perm_network_warning">Requests cross-origin network access</string>
+    <string name="userscripts_perm_none">No special permissions requested</string>
+    <string name="userscripts_btn_view_source">View Code</string>
+    <string name="userscripts_btn_cancel">Cancel</string>
+    <string name="userscripts_btn_install">Install</string>
+    <string name="userscripts_all_sites">All websites</string>
+    <string name="userscripts_install_failed">Failed to download userscript</string>
 </resources>
 
 

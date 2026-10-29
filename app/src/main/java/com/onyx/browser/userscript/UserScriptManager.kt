@@ -1,6 +1,7 @@
 package com.onyx.browser.userscript
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.UserScriptItem
@@ -371,6 +372,18 @@ class UserScriptManager private constructor(private val context: Context) {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: UserScriptManager(context.applicationContext).also { INSTANCE = it }
             }
+        }
+
+        fun isUserScriptUrl(url: String?): Boolean {
+            if (url.isNullOrBlank()) return false
+            val uri = try { Uri.parse(url) } catch (_: Exception) { return false }
+            val scheme = uri.scheme?.lowercase() ?: return false
+            if (scheme != "http" && scheme != "https") return false
+            val path = uri.path?.lowercase().orEmpty()
+            if (path.endsWith(".user.js")) return true
+            val query = uri.query?.lowercase().orEmpty()
+            if (query.contains(".user.js")) return true
+            return false
         }
     }
 }

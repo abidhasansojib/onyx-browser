@@ -1121,6 +1121,16 @@ class OnyxWebViewClient(
             val normalizedUrl = url.trimEnd('/')
             val scheme = uri.scheme?.lowercase() ?: ""
 
+            // ── One-Tap UserScript Web Install Interception ───────────────────────
+            if (com.onyx.browser.userscript.UserScriptManager.isUserScriptUrl(url)) {
+                findFragmentActivity(view?.context)?.let { act ->
+                    view?.post {
+                        com.onyx.browser.ui.settings.InstallUserScriptBottomSheet.show(act.supportFragmentManager, url)
+                    }
+                    return true
+                }
+            }
+
             if (isForMainFrame && url.isNotBlank() && !isSyntheticOrDataUrl(url)) {
                 pendingMainFrameUrl = url
                 isMainFrameDocumentLoaded = false
@@ -2547,5 +2557,14 @@ class OnyxWebViewClient(
             """.trimIndent()
             onyxWv.evaluateJavascript(injector, null)
         }
+    }
+
+    private fun findFragmentActivity(context: android.content.Context?): androidx.fragment.app.FragmentActivity? {
+        var ctx: android.content.Context? = context
+        while (ctx is android.content.ContextWrapper) {
+            if (ctx is androidx.fragment.app.FragmentActivity) return ctx
+            ctx = ctx.baseContext
+        }
+        return null
     }
 }

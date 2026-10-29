@@ -27,6 +27,7 @@ class UserScriptEditorActivity : AppCompatActivity() {
     private lateinit var binding: ActivityUserscriptEditorBinding
     private lateinit var manager: UserScriptManager
     private var scriptId: Long = -1L
+    private var pendingSourceUrl: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AccentColorManager.applyThemeOverlay(this)
@@ -102,6 +103,13 @@ class UserScriptEditorActivity : AppCompatActivity() {
                     binding.etScriptCode.setText(code)
                 }
             }
+        } else if (intent.hasExtra(EXTRA_SCRIPT_CODE)) {
+            val code = intent.getStringExtra(EXTRA_SCRIPT_CODE).orEmpty()
+            pendingSourceUrl = intent.getStringExtra(EXTRA_SOURCE_URL)
+            val metadata = try { UserScriptMetadata.parse(code) } catch (_: Exception) { null }
+            binding.tvEditorTitle.text = metadata?.name ?: getString(R.string.userscripts_editor_title_new)
+            binding.btnDelete.visibility = View.GONE
+            binding.etScriptCode.setText(code)
         } else {
             binding.tvEditorTitle.text = getString(R.string.userscripts_editor_title_new)
             binding.btnDelete.visibility = View.GONE
@@ -127,9 +135,9 @@ class UserScriptEditorActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             if (scriptId != -1L) {
-                manager.updateScript(scriptId, code)
+                manager.updateScript(scriptId, code, pendingSourceUrl)
             } else {
-                manager.addScript(code)
+                manager.addScript(code, pendingSourceUrl)
             }
 
             withContext(Dispatchers.Main) {
@@ -157,6 +165,8 @@ class UserScriptEditorActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_SCRIPT_ID = "extra_script_id"
+        const val EXTRA_SCRIPT_CODE = "extra_script_code"
+        const val EXTRA_SOURCE_URL = "extra_source_url"
 
         private val DEFAULT_STARTER_TEMPLATE = """
             // ==UserScript==
