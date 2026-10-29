@@ -578,6 +578,56 @@ class BrowserPreferences private constructor(private val context: Context) {
         return if (clean.startsWith("www.")) clean.substring(4) else clean
     }
 
+    /**
+     * Strips common mobile subdomains ('m.', 'mobile.', 'touch.', 'wap.', '*.m.*')
+     * to obtain the canonical site domain.
+     */
+    fun stripMobilePrefix(domain: String): String {
+        var d = domain.trim().lowercase()
+        if (d.startsWith("www.")) {
+            d = d.substring(4)
+        }
+        if (d.startsWith("m.")) {
+            d = d.substring(2)
+        } else if (d.startsWith("mobile.")) {
+            d = d.substring(7)
+        } else if (d.startsWith("touch.")) {
+            d = d.substring(6)
+        } else if (d.startsWith("wap.")) {
+            d = d.substring(4)
+        }
+        if (d.contains(".m.")) {
+            d = d.replace(".m.", ".")
+        }
+        if (d.contains(".mobile.")) {
+            d = d.replace(".mobile.", ".")
+        }
+        if (d.startsWith("www.")) {
+            d = d.substring(4)
+        }
+        return d
+    }
+
+    /**
+     * Resolves the registrable / apex base domain of a host (e.g. 'm.facebook.com' -> 'facebook.com',
+     * 'en.m.wikipedia.org' -> 'wikipedia.org', 'm.bbc.co.uk' -> 'bbc.co.uk').
+     */
+    fun getBaseDomain(domainOrUrl: String): String {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return ""
+        val parts = domain.split('.')
+        if (parts.size <= 2) return domain
+
+        val tld = parts[parts.size - 1]
+        val sld = parts[parts.size - 2]
+        val commonCcSlds = setOf("co", "com", "org", "net", "edu", "gov", "ac", "ne", "gen", "firm", "ind")
+        return if (parts.size >= 3 && tld.length == 2 && commonCcSlds.contains(sld)) {
+            parts.takeLast(3).joinToString(".")
+        } else {
+            parts.takeLast(2).joinToString(".")
+        }
+    }
+
     fun isDomainWhitelisted(domainOrUrl: String): Boolean {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return false
@@ -904,35 +954,67 @@ class BrowserPreferences private constructor(private val context: Context) {
         com.onyx.browser.nativebridge.AdBlockEngine.clearDecisionCache()
     }
 
+    fun getSiteDesktopModeCandidates(domainOrUrl: String): Set<String> {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return emptySet()
+        val stripped = stripMobilePrefix(domain)
+        val base = getBaseDomain(domain)
+        return setOf(domain, stripped, base).filter { it.isNotBlank() }.toSet()
+    }
+
+    private fun matchesDesktopDomain(candidate: String, stored: String): Boolean {
+        if (candidate.equals(stored, ignoreCase = true)) return true
+        if (candidate.endsWith(".$stored", ignoreCase = true)) return true
+        if (candidate.contains('.') && stored.endsWith(".$candidate", ignoreCase = true)) return true
+        return false
+    }
+
     fun isDesktopModeForDomain(domainOrUrl: String): Boolean {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return false
-        return desktopDomains.contains(domain)
+        val candidates = getSiteDesktopModeCandidates(domain)
+        return desktopDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }
     }
 
     fun isMobileModeForDomain(domainOrUrl: String): Boolean {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return false
-        return mobileDomains.contains(domain)
+        val candidates = getSiteDesktopModeCandidates(domain)
+        return mobileDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }
     }
 
     fun getSiteDesktopModeState(domainOrUrl: String): SitePermissionState {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return SitePermissionState.ASK
-        if (desktopDomains.contains(domain)) return SitePermissionState.ALLOWED
-        if (mobileDomains.contains(domain)) return SitePermissionState.BLOCKED
+        val candidates = getSiteDesktopModeCandidates(domain)
+        if (desktopDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }) {
+            return SitePermissionState.ALLOWED
+        }
+        if (mobileDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }) {
+            return SitePermissionState.BLOCKED
+        }
         return SitePermissionState.ASK
     }
 
     fun setSiteDesktopModeState(domainOrUrl: String, state: SitePermissionState) {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return
+        val candidates = getSiteDesktopModeCandidates(domainOrUrl)
         val desk = desktopDomains.toMutableSet()
         val mob = mobileDomains.toMutableSet()
         when (state) {
-            SitePermissionState.ALLOWED -> { desk.add(domain); mob.remove(domain) }
-            SitePermissionState.BLOCKED -> { mob.add(domain); desk.remove(domain) }
-            SitePermissionState.ASK -> { desk.remove(domain); mob.remove(domain) }
+            SitePermissionState.ALLOWED -> {
+                desk.addAll(candidates)
+                mob.removeAll(candidates)
+            }
+            SitePermissionState.BLOCKED -> {
+                mob.addAll(candidates)
+                desk.removeAll(candidates)
+            }
+            SitePermissionState.ASK -> {
+                desk.removeAll(candidates)
+                mob.removeAll(candidates)
+            }
         }
         desktopDomains = desk
         mobileDomains = mob
@@ -945,8 +1027,13 @@ class BrowserPreferences private constructor(private val context: Context) {
     fun getEffectiveDesktopMode(domainOrUrl: String): Boolean {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isNotBlank()) {
-            if (desktopDomains.any { domain == it || domain.endsWith(".$it") }) return true
-            if (mobileDomains.any { domain == it || domain.endsWith(".$it") }) return false
+            val candidates = getSiteDesktopModeCandidates(domain)
+            if (desktopDomains.any { stored ->
+                candidates.any { c -> matchesDesktopDomain(c, stored) }
+            }) return true
+            if (mobileDomains.any { stored ->
+                candidates.any { c -> matchesDesktopDomain(c, stored) }
+            }) return false
         }
         return isDesktopMode
     }

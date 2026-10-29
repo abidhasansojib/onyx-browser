@@ -102,6 +102,47 @@ class OnyxWebViewClient(
     @Volatile
     private var isMainFrameDocumentLoaded: Boolean = false
 
+    // ── Redirect Loop Breaker ─────────────────────────────────────────────────────
+    private val recentNavigations = ArrayDeque<Pair<String, Long>>()
+    private val MAX_REDIRECT_BURST = 5
+    private val BURST_WINDOW_MS = 4000L
+
+    private fun checkAndBreakRedirectLoop(view: WebView?, url: String): Boolean {
+        val now = System.currentTimeMillis()
+        while (recentNavigations.isNotEmpty() && (now - recentNavigations.first().second) > BURST_WINDOW_MS) {
+            recentNavigations.removeFirst()
+        }
+
+        val domain = preferences.cleanDomain(url)
+        val baseDomain = preferences.getBaseDomain(domain)
+        val normalized = url.substringBefore('?')
+
+        recentNavigations.addLast(normalized to now)
+
+        val exactCount = recentNavigations.count { it.first == normalized }
+        if (exactCount >= 4) {
+            android.util.Log.w("OnyxWebViewClient", "Redirect loop detected for $url (count: $exactCount) - breaking loop")
+            view?.stopLoading()
+            recentNavigations.clear()
+            return true
+        }
+
+        if (baseDomain.isNotBlank() && recentNavigations.size >= MAX_REDIRECT_BURST) {
+            val baseDomainMatches = recentNavigations.count {
+                val navDomain = preferences.cleanDomain(it.first)
+                preferences.getBaseDomain(navDomain) == baseDomain
+            }
+            if (baseDomainMatches >= MAX_REDIRECT_BURST) {
+                android.util.Log.w("OnyxWebViewClient", "Subdomain redirect loop detected for $baseDomain - breaking loop")
+                view?.stopLoading()
+                recentNavigations.clear()
+                return true
+            }
+        }
+
+        return false
+    }
+
     // Bounded LRU cache of URLs where user explicitly chose "Stay in Onyx", avoiding unbounded memory growth
     private val bypassAppInterceptUrls = object {
         private val set = java.util.Collections.synchronizedSet(LinkedHashSet<String>())
@@ -1132,6 +1173,9 @@ class OnyxWebViewClient(
             }
 
             if (isForMainFrame && url.isNotBlank() && !isSyntheticOrDataUrl(url)) {
+                if (checkAndBreakRedirectLoop(view, url)) {
+                    return true
+                }
                 pendingMainFrameUrl = url
                 isMainFrameDocumentLoaded = false
                 (view as? OnyxWebView)?.let {
@@ -1838,6 +1882,9 @@ class OnyxWebViewClient(
         if (!url.isNullOrBlank()) {
             if (isSyntheticOrDataUrl(url)) {
                 // Do not let data: or asset error pages overwrite the active URL or clear synthetic error state!
+                return
+            }
+            if (checkAndBreakRedirectLoop(view, url)) {
                 return
             }
             onyxWv?.pageBlockedCount = 0

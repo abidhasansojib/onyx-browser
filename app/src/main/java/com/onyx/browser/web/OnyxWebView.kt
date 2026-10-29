@@ -61,6 +61,9 @@ class OnyxWebView @JvmOverloads constructor(
     @Volatile var pendingMainFrameUrl: String? = null
     @Volatile var isMainFrameDocumentLoaded: Boolean = false
     @Volatile var hasActiveMediaSubresource: Boolean = false
+    @Volatile private var lastAppliedDesktopMode: Boolean? = null
+    @Volatile private var lastAppliedScalePercent: Int = -1
+    @Volatile private var lastAppliedSpoofTemplate: String? = null
     
     val touchBridge = OnyxTouchBridge()
     var lastTouchX: Float = 0f
@@ -539,6 +542,37 @@ class OnyxWebView @JvmOverloads constructor(
     }
 
     /**
+     * Resolves known mobile subdomains to their desktop counterparts when toggling desktop mode.
+     */
+    private fun resolveDesktopUrl(url: String): String {
+        return try {
+            val uri = android.net.Uri.parse(url)
+            val host = uri.host?.lowercase() ?: return url
+            val newHost = when {
+                host == "m.facebook.com" || host == "mobile.facebook.com" || host == "touch.facebook.com" -> "www.facebook.com"
+                host == "m.youtube.com" -> "www.youtube.com"
+                host == "mobile.twitter.com" || host == "m.twitter.com" -> "twitter.com"
+                host.endsWith(".m.wikipedia.org") -> host.replace(".m.wikipedia.org", ".wikipedia.org")
+                host == "m.wikipedia.org" -> "wikipedia.org"
+                host == "m.reddit.com" -> "www.reddit.com"
+                host == "m.twitch.tv" -> "www.twitch.tv"
+                host == "m.aliexpress.com" -> "www.aliexpress.com"
+                host == "m.imdb.com" -> "www.imdb.com"
+                host == "m.gsmarena.com" -> "www.gsmarena.com"
+                host.startsWith("m.") && host.count { it == '.' } >= 2 -> "www." + host.removePrefix("m.")
+                else -> host
+            }
+            if (newHost != host) {
+                uri.buildUpon().authority(newHost).build().toString()
+            } else {
+                url
+            }
+        } catch (_: Exception) {
+            url
+        }
+    }
+
+    /**
      * Toggle desktop mode for [pageUrl]'s domain and reload.
      * Called by the 3-dot menu toggle.
      */
@@ -546,12 +580,14 @@ class OnyxWebView @JvmOverloads constructor(
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         val key = prefs.cleanDomain(pageUrl).takeIf { it.isNotBlank() } ?: return
         val currentlyDesktop = prefs.getEffectiveDesktopMode(key)
+        val nextDesktop = !currentlyDesktop
         prefs.setSiteDesktopModeState(
             key,
-            if (currentlyDesktop) com.onyx.browser.data.preferences.SitePermissionState.BLOCKED
-            else com.onyx.browser.data.preferences.SitePermissionState.ALLOWED
+            if (nextDesktop) com.onyx.browser.data.preferences.SitePermissionState.ALLOWED
+            else com.onyx.browser.data.preferences.SitePermissionState.BLOCKED
         )
-        applyUserAgentForUrl(pageUrl, forceRefreshLayout = true)
+        val targetUrl = if (nextDesktop) resolveDesktopUrl(pageUrl) else pageUrl
+        applyUserAgentForUrl(targetUrl, forceRefreshLayout = true)
     }
 
     /**
@@ -688,17 +724,27 @@ class OnyxWebView @JvmOverloads constructor(
         } else {
             0
         }
-        setInitialScale(scalePercent)
+
+        val spoofTemplate = prefs.userAgentSpoofTemplate
+
+        if (scalePercent != lastAppliedScalePercent) {
+            setInitialScale(scalePercent)
+            lastAppliedScalePercent = scalePercent
+        }
         
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
 
-        DesktopModeManager.applyClientHintsMetadata(
-            settings = settings,
-            isDesktopMode = wantsDesktop,
-            spoofTemplateKey = prefs.userAgentSpoofTemplate,
-            context = context
-        )
+        if (wantsDesktop != lastAppliedDesktopMode || spoofTemplate != lastAppliedSpoofTemplate) {
+            DesktopModeManager.applyClientHintsMetadata(
+                settings = settings,
+                isDesktopMode = wantsDesktop,
+                spoofTemplateKey = spoofTemplate,
+                context = context
+            )
+            lastAppliedDesktopMode = wantsDesktop
+            lastAppliedSpoofTemplate = spoofTemplate
+        }
         
         val currentUaMatchesTarget = settings.userAgentString == targetUa
         

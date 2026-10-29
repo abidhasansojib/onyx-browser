@@ -173,132 +173,151 @@ object DesktopModeManager {
                 return;
             }
 
-            if (window.__onyxDesktopModeInjected) return;
-            window.__onyxDesktopModeInjected = true;
+            function isDesktopModeActive() {
+                try {
+                    if (window.OnyxShieldBridge && window.OnyxShieldBridge.isDesktopModeActive) {
+                        return window.OnyxShieldBridge.isDesktopModeActive(window.location.href);
+                    }
+                } catch (e) {}
+                return false;
+            }
 
-            var isDesktop = false;
-            try {
-                if (window.OnyxShieldBridge && window.OnyxShieldBridge.isDesktopModeActive) {
-                    isDesktop = window.OnyxShieldBridge.isDesktopModeActive(window.location.href);
-                }
-            } catch (e) {}
+            function initDesktopMode() {
+                if (window.__onyxDesktopModeInjected) return;
+                window.__onyxDesktopModeInjected = true;
 
-            if (!isDesktop) return;
+                // ── 1. Spoof Client Hints (navigator.userAgentData) ─────────────────────────
+                try {
+                    if (navigator.userAgentData) {
+                        var desktopBrands = [
+                            { brand: 'Chromium', version: '131' },
+                            { brand: 'Google Chrome', version: '131' },
+                            { brand: 'Not_A Brand', version: '24' }
+                        ];
+                        var desktopUaData = {
+                            mobile: false,
+                            platform: 'Windows',
+                            brands: desktopBrands,
+                            getHighEntropyValues: function(hints) {
+                                return Promise.resolve({
+                                    mobile: false,
+                                    platform: 'Windows',
+                                    platformVersion: '15.0.0',
+                                    architecture: 'x86',
+                                    bitness: '64',
+                                    model: '',
+                                    uaFullVersion: '131.0.0.0',
+                                    fullVersionList: desktopBrands
+                                });
+                            },
+                            toJSON: function() {
+                                return { mobile: false, platform: 'Windows', brands: desktopBrands };
+                            }
+                        };
+                        Object.defineProperty(navigator, 'userAgentData', {
+                            get: function() { return desktopUaData; },
+                            configurable: true,
+                            enumerable: true
+                        });
+                    }
+                } catch (e) {}
 
-            // ── 1. Spoof Client Hints (navigator.userAgentData) ─────────────────────────
-            try {
-                if (navigator.userAgentData) {
-                    var desktopBrands = [
-                        { brand: 'Chromium', version: '131' },
-                        { brand: 'Google Chrome', version: '131' },
-                        { brand: 'Not_A Brand', version: '24' }
-                    ];
-                    var desktopUaData = {
-                        mobile: false,
-                        platform: 'Windows',
-                        brands: desktopBrands,
-                        getHighEntropyValues: function(hints) {
-                            return Promise.resolve({
-                                mobile: false,
-                                platform: 'Windows',
-                                platformVersion: '15.0.0',
-                                architecture: 'x86',
-                                bitness: '64',
-                                model: '',
-                                uaFullVersion: '131.0.0.0',
-                                fullVersionList: desktopBrands
-                            });
-                        },
-                        toJSON: function() {
-                            return { mobile: false, platform: 'Windows', brands: desktopBrands };
-                        }
-                    };
-                    Object.defineProperty(navigator, 'userAgentData', {
-                        get: function() { return desktopUaData; },
+                // ── 2. Spoof navigator.platform ─────────────────────────────────────────────
+                try {
+                    Object.defineProperty(navigator, 'platform', {
+                        get: function() { return 'Win32'; },
                         configurable: true,
                         enumerable: true
                     });
-                }
-            } catch (e) {}
-
-            // ── 2. Spoof navigator.platform ─────────────────────────────────────────────
-            try {
-                Object.defineProperty(navigator, 'platform', {
-                    get: function() { return 'Win32'; },
-                    configurable: true,
-                    enumerable: true
-                });
-            } catch (e) {}
-
-            // ── 3. Desktop Viewport Scaling & Zoom-out Enforcement ─────────────────────
-            var TARGET_DESKTOP_WIDTH = $DEFAULT_DESKTOP_WIDTH;
-
-            function computeDesktopViewportContent() {
-                var screenW = (window.screen && window.screen.width) ? window.screen.width : 390;
-                if (window.innerWidth && window.innerHeight && window.innerWidth > window.innerHeight && screenW < window.screen.height) {
-                    screenW = window.screen.height;
-                }
-                var scale = Math.min(1.0, screenW / TARGET_DESKTOP_WIDTH);
-                scale = Math.round(scale * 1000) / 1000;
-                return 'width=' + TARGET_DESKTOP_WIDTH + ', initial-scale=' + scale + ', minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes';
-            }
-
-            function enforceMetaViewport(metaNode) {
-                if (!metaNode) return;
-                try {
-                    var desiredContent = computeDesktopViewportContent();
-                    if (metaNode.getAttribute('content') !== desiredContent) {
-                        metaNode.setAttribute('content', desiredContent);
-                    }
                 } catch (e) {}
-            }
 
-            try {
-                var observer = new MutationObserver(function(mutations) {
-                    for (var i = 0; i < mutations.length; i++) {
-                        var added = mutations[i].addedNodes;
-                        for (var j = 0; j < added.length; j++) {
-                            var node = added[j];
-                            if (node.nodeType === 1 && node.nodeName === 'META') {
-                                var name = (node.getAttribute('name') || '').toLowerCase();
-                                if (name === 'viewport') {
-                                    enforceMetaViewport(node);
+                // ── 3. Desktop Viewport Scaling & Zoom-out Enforcement ─────────────────────
+                var TARGET_DESKTOP_WIDTH = $DEFAULT_DESKTOP_WIDTH;
+
+                function computeDesktopViewportContent() {
+                    var screenW = (window.screen && window.screen.width) ? window.screen.width : 390;
+                    if (window.innerWidth && window.innerHeight && window.innerWidth > window.innerHeight && screenW < window.screen.height) {
+                        screenW = window.screen.height;
+                    }
+                    var scale = Math.min(1.0, screenW / TARGET_DESKTOP_WIDTH);
+                    scale = Math.round(scale * 1000) / 1000;
+                    return 'width=' + TARGET_DESKTOP_WIDTH + ', initial-scale=' + scale + ', minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes';
+                }
+
+                function enforceMetaViewport(metaNode) {
+                    if (!metaNode) return;
+                    try {
+                        var desiredContent = computeDesktopViewportContent();
+                        if (metaNode.getAttribute('content') !== desiredContent) {
+                            metaNode.setAttribute('content', desiredContent);
+                        }
+                    } catch (e) {}
+                }
+
+                try {
+                    var observer = new MutationObserver(function(mutations) {
+                        for (var i = 0; i < mutations.length; i++) {
+                            var mut = mutations[i];
+                            if (mut.type === 'childList') {
+                                for (var j = 0; j < mut.addedNodes.length; j++) {
+                                    var node = mut.addedNodes[j];
+                                    if (node.nodeType === 1 && node.nodeName === 'META') {
+                                        var name = (node.getAttribute('name') || '').toLowerCase();
+                                        if (name === 'viewport') {
+                                            enforceMetaViewport(node);
+                                        }
+                                    }
+                                }
+                            } else if (mut.type === 'attributes' && mut.target && mut.target.nodeName === 'META') {
+                                var attrName = (mut.target.getAttribute('name') || '').toLowerCase();
+                                if (attrName === 'viewport') {
+                                    enforceMetaViewport(mut.target);
                                 }
                             }
                         }
-                    }
-                });
+                    });
 
-                var target = document.documentElement || document;
-                observer.observe(target, { childList: true, subtree: true });
-            } catch (e) {}
-
-            function ensureMetaViewport() {
-                try {
-                    var meta = document.querySelector('meta[name="viewport"]');
-                    if (!meta) {
-                        meta = document.createElement('meta');
-                        meta.name = 'viewport';
-                        enforceMetaViewport(meta);
-                        var head = document.head || document.getElementsByTagName('head')[0] || document.documentElement;
-                        if (head) {
-                            head.appendChild(meta);
-                        }
-                    } else {
-                        enforceMetaViewport(meta);
-                    }
+                    var target = document.documentElement || document;
+                    observer.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ['content'] });
                 } catch (e) {}
+
+                function ensureMetaViewport() {
+                    try {
+                        var meta = document.querySelector('meta[name="viewport"]');
+                        if (!meta) {
+                            meta = document.createElement('meta');
+                            meta.name = 'viewport';
+                            enforceMetaViewport(meta);
+                            var head = document.head || document.getElementsByTagName('head')[0] || document.documentElement;
+                            if (head) {
+                                head.appendChild(meta);
+                            }
+                        } else {
+                            enforceMetaViewport(meta);
+                        }
+                    } catch (e) {}
+                }
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', ensureMetaViewport);
+                } else {
+                    ensureMetaViewport();
+                }
+
+                window.addEventListener('orientationchange', function() {
+                    setTimeout(ensureMetaViewport, 150);
+                }, { passive: true });
             }
 
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', ensureMetaViewport);
-            } else {
-                ensureMetaViewport();
+            if (isDesktopModeActive()) {
+                initDesktopMode();
+            } else if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    if (isDesktopModeActive()) {
+                        initDesktopMode();
+                    }
+                }, { once: true });
             }
-
-            window.addEventListener('orientationchange', function() {
-                setTimeout(ensureMetaViewport, 150);
-            }, { passive: true });
         })();
     """.trimIndent()
 
