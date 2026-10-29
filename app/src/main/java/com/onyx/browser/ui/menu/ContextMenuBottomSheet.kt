@@ -341,12 +341,6 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
     private fun copyToClipboard(label: String, text: String) {
         val cm = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText(label, text)
-        if (isIncognito) {
-            val extras = android.os.PersistableBundle().apply {
-                putBoolean("android.content.extra.IS_SENSITIVE", true)
-            }
-            clip.description.extras = extras
-        }
         cm.setPrimaryClip(clip)
         Toast.makeText(requireContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show()
     }

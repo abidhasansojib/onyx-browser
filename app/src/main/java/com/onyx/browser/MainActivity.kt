@@ -152,7 +152,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private var toolbarAnimator: android.animation.ValueAnimator? = null
     private var lastKnownTopBarHeight: Int = 0
     private var lastStatusBarTopInset: Int = 0
-    private var clipboardListener: ClipboardManager.OnPrimaryClipChangedListener? = null
 
     private fun isInPipMode(): Boolean {
         return isCurrentlyInPip ||
@@ -1430,7 +1429,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         pipController.registerReceiver()
 
         checkNotificationPermissionForDownloads()
-        setupClipboardListener()
 
         lifecycleScope.launch {
             tabManager.restoreTabs()
@@ -1444,30 +1442,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 handleIncomingIntent(intentToHandle)
             }
         }
-    }
-
-    private fun setupClipboardListener() {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
-        val listener = ClipboardManager.OnPrimaryClipChangedListener {
-            try {
-                if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@OnPrimaryClipChangedListener
-                val currentTab = tabManager.activeTab.value
-                if (currentTab?.isIncognito == true) {
-                    val clip = clipboard.primaryClip ?: return@OnPrimaryClipChangedListener
-                    val desc = clip.description
-                    val isAlreadySensitive = desc?.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true
-                    if (!isAlreadySensitive) {
-                        val extras = (desc?.extras ?: PersistableBundle()).apply {
-                            putBoolean("android.content.extra.IS_SENSITIVE", true)
-                        }
-                        clip.description.extras = extras
-                        clipboard.setPrimaryClip(clip)
-                    }
-                }
-            } catch (_: Exception) {}
-        }
-        clipboardListener = listener
-        clipboard.addPrimaryClipChangedListener(listener)
     }
 
     private fun setupTopToolbar() {
@@ -1978,12 +1952,14 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             home.incognitoHeader.visibility = View.VISIBLE
             binding.ivIncognitoIndicator.visibility = View.VISIBLE
             binding.etUrl.hint = getString(R.string.search_privately)
+            binding.etUrl.imeOptions = binding.etUrl.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
         } else {
             home.ivBrandLogo.visibility = View.VISIBLE
             home.tvTagline.visibility = View.VISIBLE
             home.incognitoHeader.visibility = View.GONE
             binding.ivIncognitoIndicator.visibility = View.GONE
             binding.etUrl.hint = getString(R.string.search_or_type_url)
+            binding.etUrl.imeOptions = binding.etUrl.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING.inv()
         }
     }
 

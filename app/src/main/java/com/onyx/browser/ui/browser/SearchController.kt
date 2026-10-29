@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.PersistableBundle
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.onyx.browser.R
@@ -101,12 +102,6 @@ class SearchController(
             if (url.isNotBlank()) {
                 val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                 val clip = ClipData.newPlainText("URL", url)
-                if (getActiveTab()?.isIncognito == true) {
-                    val extras = PersistableBundle().apply {
-                        putBoolean("android.content.extra.IS_SENSITIVE", true)
-                    }
-                    clip.description.extras = extras
-                }
                 clipboard?.setPrimaryClip(clip)
                 Toast.makeText(activity, activity.getString(R.string.link_copied), Toast.LENGTH_SHORT).show()
             }
@@ -180,6 +175,14 @@ class SearchController(
         binding.btnVoiceSearch.visibility = View.VISIBLE
 
         // 4. Focus search bar & show keyboard
+        val isIncognito = getActiveTab()?.isIncognito == true
+        if (isIncognito) {
+            binding.etUrl.imeOptions = binding.etUrl.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+            binding.etUrl.hint = activity.getString(R.string.search_privately)
+        } else {
+            binding.etUrl.imeOptions = binding.etUrl.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING.inv()
+            binding.etUrl.hint = activity.getString(R.string.search_or_type_url)
+        }
         binding.etUrl.requestFocus()
         showSoftKeyboard()
 
