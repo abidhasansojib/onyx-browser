@@ -85,10 +85,15 @@ class UserScriptEditorActivity : AppCompatActivity() {
             backgroundTintList = ColorStateList.valueOf(canvasBg)
         }
 
+        binding.etScriptCode.movementMethod = android.text.method.ScrollingMovementMethod.getInstance()
+
         setupEditor()
     }
 
     private fun setupEditor() {
+        val codeFromMemory = pendingCodeToOpen
+        pendingCodeToOpen = null
+
         if (scriptId != -1L) {
             val script = manager.getById(scriptId)
             binding.tvEditorTitle.text = script?.metadata?.name ?: getString(R.string.userscripts_editor_title_edit)
@@ -103,8 +108,8 @@ class UserScriptEditorActivity : AppCompatActivity() {
                     binding.etScriptCode.setText(code)
                 }
             }
-        } else if (intent.hasExtra(EXTRA_SCRIPT_CODE)) {
-            val code = intent.getStringExtra(EXTRA_SCRIPT_CODE).orEmpty()
+        } else if (!codeFromMemory.isNullOrBlank() || intent.hasExtra(EXTRA_SCRIPT_CODE)) {
+            val code = codeFromMemory ?: intent.getStringExtra(EXTRA_SCRIPT_CODE).orEmpty()
             pendingSourceUrl = intent.getStringExtra(EXTRA_SOURCE_URL)
             val metadata = try { UserScriptMetadata.parse(code) } catch (_: Exception) { null }
             binding.tvEditorTitle.text = metadata?.name ?: getString(R.string.userscripts_editor_title_new)
@@ -167,6 +172,9 @@ class UserScriptEditorActivity : AppCompatActivity() {
         const val EXTRA_SCRIPT_ID = "extra_script_id"
         const val EXTRA_SCRIPT_CODE = "extra_script_code"
         const val EXTRA_SOURCE_URL = "extra_source_url"
+
+        @Volatile
+        var pendingCodeToOpen: String? = null
 
         private val DEFAULT_STARTER_TEMPLATE = """
             // ==UserScript==

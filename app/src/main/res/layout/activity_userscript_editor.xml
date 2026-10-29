@@ -64,27 +64,23 @@
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <androidx.core.widget.NestedScrollView
+        <EditText
+            android:id="@+id/etScriptCode"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:fillViewport="true">
-
-            <EditText
-                android:id="@+id/etScriptCode"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@null"
-                android:gravity="top|start"
-                android:hint="// Write or paste your userscript here..."
-                android:importantForAutofill="no"
-                android:inputType="textMultiLine|textNoSuggestions"
-                android:padding="16dp"
-                android:scrollHorizontally="false"
-                android:textColor="@color/settings_title_text"
-                android:textColorHint="@color/settings_subtitle_text"
-                android:textSize="13.5sp"
-                android:typeface="monospace" />
-        </androidx.core.widget.NestedScrollView>
+            android:background="@null"
+            android:gravity="top|start"
+            android:hint="// Write or paste your userscript here..."
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine|textNoSuggestions"
+            android:padding="16dp"
+            android:scrollbars="vertical"
+            android:overScrollMode="always"
+            android:scrollHorizontally="false"
+            android:textColor="@color/settings_title_text"
+            android:textColorHint="@color/settings_subtitle_text"
+            android:textSize="13.5sp"
+            android:typeface="monospace" />
     </FrameLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
