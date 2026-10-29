@@ -239,7 +239,7 @@ class OnyxUserScriptBridge(
         if (!isWebUrl(url)) return
         scope.launch(Dispatchers.Main) {
             val activity = webView.context as? com.onyx.browser.MainActivity
-            activity?.openNewTab(url = url, isIncognito = webView.isIncognito)
+            activity?.openUrlInNewTab(url = url, isIncognito = webView.isIncognito)
         }
     }
 

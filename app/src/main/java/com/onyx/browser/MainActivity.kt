@@ -2595,7 +2595,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         imm?.showSoftInput(binding.etUrl, InputMethodManager.SHOW_IMPLICIT)
     }
 
-    private fun openUrlInNewTab(url: String, isIncognito: Boolean? = null) {
+    fun openUrlInNewTab(url: String, isIncognito: Boolean? = null) {
         val parentTab = tabManager.activeTab.value
         val incognito = isIncognito ?: (parentTab?.isIncognito ?: false)
         val newTab = tabManager.createNewTab(url = url, isIncognito = incognito, parentId = parentTab?.id)
