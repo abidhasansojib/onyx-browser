@@ -14,7 +14,10 @@ import kotlinx.coroutines.launch
  * Allows web pages to query whether ad blocking or cosmetic filters should be applied
  * for the current domain.
  */
-class OnyxShieldBridge(private val context: Context) {
+class OnyxShieldBridge(
+    private val context: Context,
+    private val webViewRef: java.lang.ref.WeakReference<OnyxWebView>? = null
+) {
 
     private val preferences = BrowserPreferences.getInstance(context)
 
@@ -107,7 +110,16 @@ class OnyxShieldBridge(private val context: Context) {
     }
 
     @JavascriptInterface
+    fun isDesktopModeActive(): Boolean {
+        return webViewRef?.get()?.isDesktopMode ?: preferences.isDesktopMode
+    }
+
+    @JavascriptInterface
     fun isDesktopModeActive(domainOrUrl: String?): Boolean {
+        val wv = webViewRef?.get()
+        if (wv != null) {
+            return wv.isDesktopMode
+        }
         val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return preferences.isDesktopMode
         return preferences.getEffectiveDesktopMode(target)
     }

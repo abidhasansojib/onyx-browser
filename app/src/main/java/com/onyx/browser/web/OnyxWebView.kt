@@ -63,6 +63,21 @@ class OnyxWebView @JvmOverloads constructor(
     @Volatile var hasActiveMediaSubresource: Boolean = false
     @Volatile private var lastAppliedDesktopMode: Boolean? = null
     @Volatile private var lastAppliedScalePercent: Int = -1
+
+    /**
+     * Tab-scoped desktop mode state.
+     * When true, this tab renders in full desktop mode (desktop UA, desktop client hints,
+     * 980px layout viewport, auto overview scale).
+     */
+    var isDesktopMode: Boolean = false
+        private set
+
+    /**
+     * Tracks whether desktop mode was explicitly toggled on this tab via the menu.
+     * If true, this tab respects the user's manual toggle over default site rules.
+     */
+    var isDesktopModeExplicitlyToggled: Boolean = false
+        private set
     @Volatile private var lastAppliedSpoofTemplate: String? = null
     
     val touchBridge = OnyxTouchBridge()
@@ -284,6 +299,8 @@ class OnyxWebView @JvmOverloads constructor(
         // Apply UA Spoofer, Network-Level Client Hints, and all persisted settings
         settings.userAgentString = getBaseUserAgent(prefs)
         val isGlobalDesktop = prefs.isDesktopMode || prefs.userAgentSpoofTemplate in UserAgentManager.DESKTOP_KEYS
+        isDesktopMode = isGlobalDesktop
+        isDesktopModeExplicitlyToggled = false
         DesktopModeManager.applyClientHintsMetadata(
             settings = settings,
             isDesktopMode = isGlobalDesktop,
@@ -343,7 +360,10 @@ class OnyxWebView @JvmOverloads constructor(
 
         // Onyx Shield & AdBlock Whitelist Bridge (synchronous checks at document-start)
         try {
-            addJavascriptInterface(OnyxShieldBridge(context.applicationContext), "OnyxShieldBridge")
+            addJavascriptInterface(
+                OnyxShieldBridge(context.applicationContext, java.lang.ref.WeakReference(this)),
+                "OnyxShieldBridge"
+            )
         } catch (_: Exception) {}
 
         // Native DOM Translation Bridge (CSP-immune page translation)
@@ -528,34 +548,118 @@ class OnyxWebView @JvmOverloads constructor(
         } catch (_: Exception) {}
     }
 
-    // ── Desktop Mode (per-domain) ────────────────────────────────────────────
+    // ── Professional Tab-Scoped Desktop Mode & Subdomain Resolution ─────────────
 
     /**
-     * Returns true if desktop mode is active for the *current page's* domain.
-     * Takes into account per-site overrides (desktop or mobile) and global desktop mode.
-     * This is what the menu toggle should read to show the correct checked state.
+     * Resolves known mobile subdomains to their desktop counterparts when enabling desktop mode.
      */
-    fun isDesktopModeEnabledForCurrentPage(): Boolean {
-        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        val key = prefs.getCanonicalDesktopKey(url ?: "").takeIf { it.isNotBlank() } ?: return prefs.isDesktopMode
-        return prefs.getEffectiveDesktopMode(key)
+    fun resolveDesktopUrl(urlString: String): String {
+        if (urlString.isBlank() || isSyntheticOrDataUrl(urlString)) return urlString
+        return try {
+            val uri = android.net.Uri.parse(urlString)
+            val host = uri.host?.lowercase() ?: return urlString
+            val newHost = when {
+                host == "m.facebook.com" || host == "mobile.facebook.com" || host == "touch.facebook.com" -> "www.facebook.com"
+                host == "m.youtube.com" -> "www.youtube.com"
+                host == "mobile.twitter.com" || host == "m.twitter.com" -> "twitter.com"
+                host == "mobile.x.com" || host == "m.x.com" -> "x.com"
+                host.endsWith(".m.wikipedia.org") -> host.replace(".m.wikipedia.org", ".wikipedia.org")
+                host == "m.wikipedia.org" -> "wikipedia.org"
+                host == "m.reddit.com" -> "www.reddit.com"
+                host == "m.twitch.tv" -> "www.twitch.tv"
+                host == "m.aliexpress.com" -> "www.aliexpress.com"
+                host == "m.imdb.com" -> "www.imdb.com"
+                host == "m.gsmarena.com" -> "www.gsmarena.com"
+                host.startsWith("m.") && host.count { it == '.' } >= 2 -> "www." + host.removePrefix("m.")
+                else -> host
+            }
+            if (newHost != host) {
+                uri.buildUpon().authority(newHost).build().toString()
+            } else {
+                urlString
+            }
+        } catch (_: Exception) {
+            urlString
+        }
     }
 
     /**
-     * Toggle desktop mode for [pageUrl]'s domain and reload directly, matching Brave / Chromium.
-     * Called by the 3-dot menu toggle.
+     * Resolves desktop URLs to their mobile counterparts when disabling desktop mode.
+     */
+    fun resolveMobileUrl(urlString: String): String {
+        if (urlString.isBlank() || isSyntheticOrDataUrl(urlString)) return urlString
+        return try {
+            val uri = android.net.Uri.parse(urlString)
+            val host = uri.host?.lowercase() ?: return urlString
+            val newHost = when {
+                host == "www.youtube.com" || host == "youtube.com" -> "m.youtube.com"
+                host == "www.facebook.com" || host == "facebook.com" -> "m.facebook.com"
+                host.endsWith(".wikipedia.org") && !host.contains(".m.wikipedia.org") ->
+                    host.replace(".wikipedia.org", ".m.wikipedia.org")
+                host == "twitter.com" || host == "www.twitter.com" -> "mobile.twitter.com"
+                host == "x.com" || host == "www.x.com" -> "mobile.twitter.com"
+                host == "www.reddit.com" || host == "reddit.com" -> "m.reddit.com"
+                host == "www.aliexpress.com" || host == "aliexpress.com" -> "m.aliexpress.com"
+                host == "www.twitch.tv" || host == "twitch.tv" -> "m.twitch.tv"
+                host == "www.imdb.com" || host == "imdb.com" -> "m.imdb.com"
+                host == "www.gsmarena.com" || host == "gsmarena.com" -> "m.gsmarena.com"
+                host.startsWith("www.") -> "m." + host.removePrefix("www.")
+                else -> host
+            }
+            if (newHost != host) {
+                uri.buildUpon().authority(newHost).build().toString()
+            } else {
+                urlString
+            }
+        } catch (_: Exception) {
+            urlString
+        }
+    }
+
+    /**
+     * Returns true if desktop mode is active for this tab.
+     */
+    fun isDesktopModeEnabledForCurrentPage(): Boolean = isDesktopMode
+
+    fun isDesktopModeEnabled(): Boolean = isDesktopMode
+
+    /**
+     * Toggles desktop mode for this active tab without polluting global domain settings.
+     * Automatically resolves mobile subdomains (e.g. m.youtube.com -> www.youtube.com).
+     */
+    fun toggleDesktopMode(pageUrl: String? = null) {
+        setDesktopMode(!isDesktopMode, pageUrl)
+    }
+
+    /**
+     * Sets desktop mode for this active tab.
+     */
+    fun setDesktopMode(enabled: Boolean, pageUrl: String? = null) {
+        isDesktopMode = enabled
+        isDesktopModeExplicitlyToggled = true
+        val currentUrl = pageUrl?.takeIf { it.isNotBlank() } ?: (url ?: "")
+        val targetUrl = if (enabled) resolveDesktopUrl(currentUrl) else resolveMobileUrl(currentUrl)
+        applyUserAgentForUrl(targetUrl, forceRefreshLayout = true)
+    }
+
+    /**
+     * Backward-compatible toggle method invoked by UI callers.
      */
     fun toggleDesktopModeForPage(pageUrl: String) {
-        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        val key = prefs.getCanonicalDesktopKey(pageUrl).takeIf { it.isNotBlank() } ?: return
-        val currentlyDesktop = prefs.getEffectiveDesktopMode(key)
-        val nextDesktop = !currentlyDesktop
-        prefs.setSiteDesktopModeState(
-            key,
-            if (nextDesktop) com.onyx.browser.data.preferences.SitePermissionState.ALLOWED
-            else com.onyx.browser.data.preferences.SitePermissionState.BLOCKED
-        )
-        applyUserAgentForUrl(pageUrl, forceRefreshLayout = true)
+        toggleDesktopMode(pageUrl)
+    }
+
+    /**
+     * Resets explicit tab toggle override so the tab defers to explicit per-site rules
+     * or global default settings (e.g., when the user configures site rules in Site Shield).
+     */
+    fun resetDesktopModeExplicitOverride() {
+        isDesktopModeExplicitlyToggled = false
+    }
+
+    fun onSiteSettingsChanged() {
+        resetDesktopModeExplicitOverride()
+        applyUserAgentForUrl(this.url ?: "", forceRefreshLayout = true)
     }
 
     /**
@@ -671,11 +775,14 @@ class OnyxWebView @JvmOverloads constructor(
             } catch (_: Exception) {}
         }
 
-        val wantsDesktop = if (key != null) {
-            prefs.getEffectiveDesktopMode(key)
-        } else {
-            prefs.isDesktopMode
+        val siteState = if (key != null) prefs.getSiteDesktopModeState(key) else com.onyx.browser.data.preferences.SitePermissionState.ASK
+        val wantsDesktop = when {
+            isDesktopModeExplicitlyToggled -> isDesktopMode
+            siteState == com.onyx.browser.data.preferences.SitePermissionState.ALLOWED -> true
+            siteState == com.onyx.browser.data.preferences.SitePermissionState.BLOCKED -> false
+            else -> prefs.isDesktopMode || prefs.userAgentSpoofTemplate in UserAgentManager.DESKTOP_KEYS
         }
+        isDesktopMode = wantsDesktop
         
         val targetUa = if (wantsDesktop) {
             if (prefs.userAgentSpoofTemplate in UserAgentManager.DESKTOP_KEYS) {
@@ -717,14 +824,14 @@ class OnyxWebView @JvmOverloads constructor(
         settings.userAgentString = targetUa
         
         if (forceRefreshLayout) {
-            this.reload()
+            val current = this.url
+            if (urlString.isNotBlank() && !isSyntheticOrDataUrl(urlString) && current != urlString) {
+                this.loadUrl(urlString)
+            } else {
+                this.reload()
+            }
         }
     }
-
-    // ── Legacy compat (used by setDesktopMode call-sites that haven't been updated yet) ──
-
-    /** @deprecated Use toggleDesktopModeForPage / isDesktopModeEnabledForCurrentPage */
-    fun isDesktopModeEnabled(): Boolean = isDesktopModeEnabledForCurrentPage()
 
     fun applyForceDark() {
         try {

@@ -414,6 +414,10 @@ class TabManager(
             webView = OnyxWebView(context).apply {
                 tabId = tab.id
                 setIncognitoMode(tab.isIncognito)
+                val parentWv = tab.parentId?.let { webViewPool[it] }
+                if (parentWv != null && parentWv.isDesktopModeExplicitlyToggled) {
+                    setDesktopMode(parentWv.isDesktopMode, tab.url)
+                }
             }
             webViewPool[tab.id] = webView
         }

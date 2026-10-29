@@ -1514,7 +1514,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     isIncognito = activeTab.isIncognito,
                     sslCertificate = cert
                 ) {
-                    tabManager.getActiveWebView()?.reload()
+                    tabManager.getActiveWebView()?.onSiteSettingsChanged()
                 }
                 dialog.show(supportFragmentManager, com.onyx.browser.ui.menu.SiteShieldBottomSheetDialog.TAG)
             }
@@ -1616,11 +1616,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 isHomePage = isHome
                 currentUrl = activeTab?.url ?: ""
                 currentTitle = activeTab?.title ?: ""
-                isDesktopSiteEnabled = activeWebView?.isDesktopModeEnabledForCurrentPage() ?: false
+                isDesktopSiteEnabled = activeWebView?.isDesktopMode ?: false
                 onDesktopSiteToggled = { _ ->
-                    // Toggle desktop mode scoped to the current page's domain only.
-                    // Other domains and other tabs remain unaffected.
-                    activeWebView?.toggleDesktopModeForPage(activeTab?.url ?: "")
+                    // Toggle desktop mode scoped to the active tab, with automatic mobile subdomain translation
+                    activeWebView?.toggleDesktopMode()
                 }
                 onFindInPageClicked = {
                     findInPageController.show()
@@ -1641,7 +1640,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     startElementBlocker()
                 }
                 onSiteShieldWhitelistChanged = { _ ->
-                    activeWebView?.reload()
+                    activeWebView?.onSiteSettingsChanged()
                 }
 
             }
