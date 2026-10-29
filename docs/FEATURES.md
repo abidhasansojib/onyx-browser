@@ -108,7 +108,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 
 - `[x]` **In-Page Text Search**: Fast "Find in Page" with match count, highlighting, and next/previous controls.
 - `[x]` **Universal In-Page Webpage Translation Engine**: CSP-immune native DOM translation supporting 45+ languages with live `MutationObserver` updates.
-- `[x]` **Desktop Mode with Adaptive Viewport Scaling, Base Domain Resolution & Infinite Reload Loop Defusal**: 980px layout viewport, network-level Client Hints via `WebSettingsCompat.setUserAgentMetadata` (`Sec-CH-UA-Mobile: ?0`, brand sanitization), full pinch-to-zoom, unified apex/base and mobile subdomain matching (`m.*`, `touch.*`, `mobile.*` vs desktop canonical), and burst redirect loop protection.
+- `[x]` **Desktop Mode with Adaptive Viewport Scaling & Brave/Chromium Parity**: 980px layout viewport, network-level Client Hints via `WebSettingsCompat.setUserAgentMetadata` (`Sec-CH-UA-Mobile: ?0`, `Sec-CH-UA-Platform: "Windows"`, brand sanitization), full pinch-to-zoom, canonical eTLD+1 registrable base domain keying (`getCanonicalDesktopKey`, matching Chromium `REQUEST_DESKTOP_SITE`), elimination of brittle `m.`/`www.` string rewriting, and cyclic ping-pong redirect loop defense in `OnyxWebViewClient`.
 - `[x]` **Offline Eruda Developer Tools**: Bundled mobile DOM inspector, JavaScript console, network monitor, and startup log pre-buffering.
 - `[x]` **Bookmarks & Bookmarklets Engine**: Create, edit, and organize bookmarks with live search and direct `javascript:...` bookmarklet execution.
 - `[x]` **Smart "Open in App" Intent Prompt**: Material 3 dialog resolving native app icons and labels for deep links (`tg://`, `intent://`, etc.).

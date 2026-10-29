@@ -537,79 +537,17 @@ class OnyxWebView @JvmOverloads constructor(
      */
     fun isDesktopModeEnabledForCurrentPage(): Boolean {
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        val key = prefs.cleanDomain(url ?: "").takeIf { it.isNotBlank() } ?: return prefs.isDesktopMode
+        val key = prefs.getCanonicalDesktopKey(url ?: "").takeIf { it.isNotBlank() } ?: return prefs.isDesktopMode
         return prefs.getEffectiveDesktopMode(key)
     }
 
     /**
-     * Resolves known mobile subdomains to their desktop counterparts when toggling desktop mode.
-     */
-    private fun resolveDesktopUrl(url: String): String {
-        return try {
-            val uri = android.net.Uri.parse(url)
-            val host = uri.host?.lowercase() ?: return url
-            val newHost = when {
-                host == "m.facebook.com" || host == "mobile.facebook.com" || host == "touch.facebook.com" -> "www.facebook.com"
-                host == "m.youtube.com" -> "www.youtube.com"
-                host == "mobile.twitter.com" || host == "m.twitter.com" -> "twitter.com"
-                host.endsWith(".m.wikipedia.org") -> host.replace(".m.wikipedia.org", ".wikipedia.org")
-                host == "m.wikipedia.org" -> "wikipedia.org"
-                host == "m.reddit.com" -> "www.reddit.com"
-                host == "m.twitch.tv" -> "www.twitch.tv"
-                host == "m.aliexpress.com" -> "www.aliexpress.com"
-                host == "m.imdb.com" -> "www.imdb.com"
-                host == "m.gsmarena.com" -> "www.gsmarena.com"
-                host.startsWith("m.") && host.count { it == '.' } >= 2 -> "www." + host.removePrefix("m.")
-                else -> host
-            }
-            if (newHost != host) {
-                uri.buildUpon().authority(newHost).build().toString()
-            } else {
-                url
-            }
-        } catch (_: Exception) {
-            url
-        }
-    }
-
-    /**
-     * Resolves desktop URLs to their mobile counterparts when turning off desktop mode.
-     */
-    private fun resolveMobileUrl(url: String): String {
-        return try {
-            val uri = android.net.Uri.parse(url)
-            val host = uri.host?.lowercase() ?: return url
-            val newHost = when {
-                host == "www.youtube.com" || host == "youtube.com" -> "m.youtube.com"
-                host == "www.facebook.com" || host == "facebook.com" -> "m.facebook.com"
-                host.endsWith(".wikipedia.org") && !host.contains(".m.wikipedia.org") ->
-                    host.replace(".wikipedia.org", ".m.wikipedia.org")
-                host == "twitter.com" || host == "x.com" -> "mobile.twitter.com"
-                host == "www.reddit.com" || host == "reddit.com" -> "m.reddit.com"
-                host == "www.aliexpress.com" || host == "aliexpress.com" -> "m.aliexpress.com"
-                host == "www.twitch.tv" || host == "twitch.tv" -> "m.twitch.tv"
-                host == "www.imdb.com" || host == "imdb.com" -> "m.imdb.com"
-                host == "www.gsmarena.com" || host == "gsmarena.com" -> "m.gsmarena.com"
-                host.startsWith("www.") -> "m." + host.removePrefix("www.")
-                else -> host
-            }
-            if (newHost != host) {
-                uri.buildUpon().authority(newHost).build().toString()
-            } else {
-                url
-            }
-        } catch (_: Exception) {
-            url
-        }
-    }
-
-    /**
-     * Toggle desktop mode for [pageUrl]'s domain and reload.
+     * Toggle desktop mode for [pageUrl]'s domain and reload directly, matching Brave / Chromium.
      * Called by the 3-dot menu toggle.
      */
     fun toggleDesktopModeForPage(pageUrl: String) {
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        val key = prefs.cleanDomain(pageUrl).takeIf { it.isNotBlank() } ?: return
+        val key = prefs.getCanonicalDesktopKey(pageUrl).takeIf { it.isNotBlank() } ?: return
         val currentlyDesktop = prefs.getEffectiveDesktopMode(key)
         val nextDesktop = !currentlyDesktop
         prefs.setSiteDesktopModeState(
@@ -617,8 +555,7 @@ class OnyxWebView @JvmOverloads constructor(
             if (nextDesktop) com.onyx.browser.data.preferences.SitePermissionState.ALLOWED
             else com.onyx.browser.data.preferences.SitePermissionState.BLOCKED
         )
-        val targetUrl = if (nextDesktop) resolveDesktopUrl(pageUrl) else resolveMobileUrl(pageUrl)
-        applyUserAgentForUrl(targetUrl, forceRefreshLayout = true)
+        applyUserAgentForUrl(pageUrl, forceRefreshLayout = true)
     }
 
     /**
@@ -706,7 +643,7 @@ class OnyxWebView @JvmOverloads constructor(
     fun applyUserAgentForUrl(urlString: String, forceRefreshLayout: Boolean = false) {
         applySiteSettingsForUrl(urlString)
         val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        val key = prefs.cleanDomain(urlString).takeIf { it.isNotBlank() }
+        val key = prefs.getCanonicalDesktopKey(urlString).takeIf { it.isNotBlank() }
         val host = try { android.net.Uri.parse(urlString).host?.lowercase() ?: "" } catch (_: Exception) { "" }
         val isAuthOrMeta = host == "facebook.com" || host.endsWith(".facebook.com") ||
                 host == "meta.com" || host.endsWith(".meta.com") ||
@@ -777,19 +714,10 @@ class OnyxWebView @JvmOverloads constructor(
             lastAppliedSpoofTemplate = spoofTemplate
         }
         
-        val currentUaMatchesTarget = settings.userAgentString == targetUa
-        
-        if (currentUaMatchesTarget) {
-            if (forceRefreshLayout) {
-                this.loadUrl(this.url ?: urlString)
-            }
-            return
-        }
-        
         settings.userAgentString = targetUa
         
         if (forceRefreshLayout) {
-            this.loadUrl(this.url ?: urlString)
+            this.reload()
         }
     }
 

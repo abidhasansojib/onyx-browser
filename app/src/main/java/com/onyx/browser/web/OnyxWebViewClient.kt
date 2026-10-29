@@ -104,7 +104,6 @@ class OnyxWebViewClient(
 
     // ── Redirect Loop Breaker ─────────────────────────────────────────────────────
     private val recentNavigations = ArrayDeque<Pair<String, Long>>()
-    private val MAX_REDIRECT_BURST = 5
     private val BURST_WINDOW_MS = 4000L
 
     private fun checkAndBreakRedirectLoop(view: WebView?, url: String): Boolean {
@@ -127,16 +126,19 @@ class OnyxWebViewClient(
             return true
         }
 
-        if (baseDomain.isNotBlank() && recentNavigations.size >= MAX_REDIRECT_BURST) {
-            val baseDomainMatches = recentNavigations.count {
-                val navDomain = preferences.cleanDomain(it.first)
-                preferences.getBaseDomain(navDomain) == baseDomain
-            }
-            if (baseDomainMatches >= MAX_REDIRECT_BURST) {
-                android.util.Log.w("OnyxWebViewClient", "Subdomain redirect loop detected for $baseDomain - breaking loop")
-                view?.stopLoading()
-                recentNavigations.clear()
-                return true
+        // Detect cyclic alternating ping-pong loop (A -> B -> A -> B -> A -> B)
+        if (recentNavigations.size >= 6) {
+            val distinctUrls = recentNavigations.map { it.first }.distinct()
+            if (distinctUrls.size == 2) {
+                val (u1, u2) = distinctUrls
+                val c1 = recentNavigations.count { it.first == u1 }
+                val c2 = recentNavigations.count { it.first == u2 }
+                if (c1 >= 3 && c2 >= 3) {
+                    android.util.Log.w("OnyxWebViewClient", "Alternating redirect loop detected between $u1 and $u2 - breaking loop")
+                    view?.stopLoading()
+                    recentNavigations.clear()
+                    return true
+                }
             }
         }
 

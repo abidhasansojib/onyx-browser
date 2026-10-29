@@ -519,24 +519,28 @@ class BrowserPreferences private constructor(private val context: Context) {
 
     var desktopDomains: Set<String>
         get() = cachedDesktopDomains ?: run {
-            val s = prefs.getStringSet(KEY_DESKTOP_DOMAINS, emptySet()) ?: emptySet()
-            cachedDesktopDomains = s
-            s
+            val raw = prefs.getStringSet(KEY_DESKTOP_DOMAINS, emptySet()) ?: emptySet()
+            val canonical = raw.mapNotNull { getCanonicalDesktopKey(it).takeIf { k -> k.isNotBlank() } }.toSet()
+            cachedDesktopDomains = canonical
+            canonical
         }
         set(value) {
-            cachedDesktopDomains = value
-            prefs.edit().putStringSet(KEY_DESKTOP_DOMAINS, value).apply()
+            val canonical = value.mapNotNull { getCanonicalDesktopKey(it).takeIf { k -> k.isNotBlank() } }.toSet()
+            cachedDesktopDomains = canonical
+            prefs.edit().putStringSet(KEY_DESKTOP_DOMAINS, canonical).apply()
         }
 
     var mobileDomains: Set<String>
         get() = cachedMobileDomains ?: run {
-            val s = prefs.getStringSet(KEY_MOBILE_DOMAINS, emptySet()) ?: emptySet()
-            cachedMobileDomains = s
-            s
+            val raw = prefs.getStringSet(KEY_MOBILE_DOMAINS, emptySet()) ?: emptySet()
+            val canonical = raw.mapNotNull { getCanonicalDesktopKey(it).takeIf { k -> k.isNotBlank() } }.toSet()
+            cachedMobileDomains = canonical
+            canonical
         }
         set(value) {
-            cachedMobileDomains = value
-            prefs.edit().putStringSet(KEY_MOBILE_DOMAINS, value).apply()
+            val canonical = value.mapNotNull { getCanonicalDesktopKey(it).takeIf { k -> k.isNotBlank() } }.toSet()
+            cachedMobileDomains = canonical
+            prefs.edit().putStringSet(KEY_MOBILE_DOMAINS, canonical).apply()
         }
 
     var targetTranslateLanguage: String
@@ -954,92 +958,70 @@ class BrowserPreferences private constructor(private val context: Context) {
         com.onyx.browser.nativebridge.AdBlockEngine.clearDecisionCache()
     }
 
-    fun getSiteDesktopModeCandidates(domainOrUrl: String): Set<String> {
+    /**
+     * Resolves the canonical eTLD+1 base domain key for per-site desktop mode settings,
+     * matching Chromium / Brave's ContentSettingsPattern::FromURLToRegistrableDomain (e.g. 'm.youtube.com' -> 'youtube.com').
+     */
+    fun getCanonicalDesktopKey(domainOrUrl: String): String {
         val domain = cleanDomain(domainOrUrl)
-        if (domain.isBlank()) return emptySet()
-        val stripped = stripMobilePrefix(domain)
+        if (domain.isBlank()) return ""
         val base = getBaseDomain(domain)
-        val res = mutableSetOf(domain, stripped, base)
-        if (base.isNotBlank() && base.contains('.')) {
-            res.add("m.$base")
-        }
-        return res.filter { it.isNotBlank() }.toSet()
-    }
-
-    private fun matchesDesktopDomain(candidate: String, stored: String): Boolean {
-        if (candidate.equals(stored, ignoreCase = true)) return true
-        if (candidate.endsWith(".$stored", ignoreCase = true)) return true
-        if (candidate.contains('.') && stored.endsWith(".$candidate", ignoreCase = true)) return true
-        return false
+        return if (base.isNotBlank()) base else domain
     }
 
     fun isDesktopModeForDomain(domainOrUrl: String): Boolean {
-        val domain = cleanDomain(domainOrUrl)
-        if (domain.isBlank()) return false
-        val candidates = getSiteDesktopModeCandidates(domain)
-        if (mobileDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }) {
-            return false
-        }
-        return desktopDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }
+        val key = getCanonicalDesktopKey(domainOrUrl)
+        if (key.isBlank()) return false
+        if (mobileDomains.contains(key)) return false
+        return desktopDomains.contains(key)
     }
 
     fun isMobileModeForDomain(domainOrUrl: String): Boolean {
-        val domain = cleanDomain(domainOrUrl)
-        if (domain.isBlank()) return false
-        val candidates = getSiteDesktopModeCandidates(domain)
-        return mobileDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }
+        val key = getCanonicalDesktopKey(domainOrUrl)
+        if (key.isBlank()) return false
+        return mobileDomains.contains(key)
     }
 
     fun getSiteDesktopModeState(domainOrUrl: String): SitePermissionState {
-        val domain = cleanDomain(domainOrUrl)
-        if (domain.isBlank()) return SitePermissionState.ASK
-        val candidates = getSiteDesktopModeCandidates(domain)
-        // Explicit mobile state takes precedence over legacy or broad desktop rules
-        if (mobileDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }) {
+        val key = getCanonicalDesktopKey(domainOrUrl)
+        if (key.isBlank()) return SitePermissionState.ASK
+        if (mobileDomains.contains(key)) {
             return SitePermissionState.BLOCKED
         }
-        if (desktopDomains.any { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }) {
+        if (desktopDomains.contains(key)) {
             return SitePermissionState.ALLOWED
         }
         return SitePermissionState.ASK
     }
 
     fun setSiteDesktopModeState(domainOrUrl: String, state: SitePermissionState) {
-        val domain = cleanDomain(domainOrUrl)
-        if (domain.isBlank()) return
-        val candidates = getSiteDesktopModeCandidates(domainOrUrl)
+        val key = getCanonicalDesktopKey(domainOrUrl)
+        if (key.isBlank()) return
         val desk = desktopDomains.toMutableSet()
         val mob = mobileDomains.toMutableSet()
 
-        // Purge any stored domains matching any candidate to prevent cross-contamination between m.* and desktop apex
-        desk.removeAll { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }
-        mob.removeAll { stored -> candidates.any { c -> matchesDesktopDomain(c, stored) } }
+        // Clean any existing entries matching this key or legacy subdomains
+        desk.removeAll { it == key || getCanonicalDesktopKey(it) == key }
+        mob.removeAll { it == key || getCanonicalDesktopKey(it) == key }
 
         when (state) {
-            SitePermissionState.ALLOWED -> desk.addAll(candidates)
-            SitePermissionState.BLOCKED -> mob.addAll(candidates)
-            SitePermissionState.ASK -> { /* purged from both */ }
+            SitePermissionState.ALLOWED -> desk.add(key)
+            SitePermissionState.BLOCKED -> mob.add(key)
+            SitePermissionState.ASK -> { /* removed from both */ }
         }
         desktopDomains = desk
         mobileDomains = mob
     }
 
     fun setDesktopModeForDomain(domainOrUrl: String, enabled: Boolean) {
-        setSiteDesktopModeState(domainOrUrl, if (enabled) SitePermissionState.ALLOWED else SitePermissionState.ASK)
+        setSiteDesktopModeState(domainOrUrl, if (enabled) SitePermissionState.ALLOWED else SitePermissionState.BLOCKED)
     }
 
     fun getEffectiveDesktopMode(domainOrUrl: String): Boolean {
-        val domain = cleanDomain(domainOrUrl)
-        if (domain.isNotBlank()) {
-            val candidates = getSiteDesktopModeCandidates(domain)
-            // Explicit mobile override takes precedence
-            if (mobileDomains.any { stored ->
-                candidates.any { c -> matchesDesktopDomain(c, stored) }
-            }) return false
-
-            if (desktopDomains.any { stored ->
-                candidates.any { c -> matchesDesktopDomain(c, stored) }
-            }) return true
+        val key = getCanonicalDesktopKey(domainOrUrl)
+        if (key.isNotBlank()) {
+            if (mobileDomains.contains(key)) return false
+            if (desktopDomains.contains(key)) return true
         }
         return isDesktopMode
     }
