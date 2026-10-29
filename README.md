@@ -28,11 +28,12 @@ Onyx is a clean and fast web browser for Android with built-in adblocking, backg
 ## Features
 
 - **Adblocking** – Blocks ads, popups, and trackers with Brave's native engine
+- **UserScripts** – Built-in Tampermonkey & Violentmonkey engine to run, import, and edit custom scripts
 - **Background Play & PiP** – Audio and video keep playing in the background, with Picture-in-Picture
-- **Fast & Light** – Instant startup, low memory usage, and no background bloat
-- **Private** – On-device encrypted bookmarks and history with zero tracking
+- **Private & Secure** – On-device encrypted storage, per-site shields, and zero tracking
+- **Fast & Lightweight** – Instant startup, low memory usage, and no background bloat
 - **Themes** – Google Light, Google Dark, and pure AMOLED black modes
-- **Tools** – Passkeys, external download manager handoff, and QR scanner
+- **Smart Tools** – Passkeys, external download manager handoff, and built-in QR scanner
 
 ---
 
