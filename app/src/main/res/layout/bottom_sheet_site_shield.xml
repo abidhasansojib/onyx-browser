@@ -754,7 +754,7 @@
             <androidx.appcompat.widget.AppCompatImageView
                 android:layout_width="22dp"
                 android:layout_height="22dp"
-                app:srcCompat="@drawable/ic_terminal_outline"
+                app:srcCompat="@drawable/ic_code"
                 app:tint="?attr/colorControlNormal" />
 
             <LinearLayout
