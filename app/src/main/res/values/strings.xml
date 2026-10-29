@@ -771,8 +771,6 @@
     <string name="userscripts_perm_network_warning">Requests cross-origin network access</string>
     <string name="userscripts_perm_none">No special permissions requested</string>
     <string name="userscripts_btn_view_source">View Code</string>
-    <string name="userscripts_btn_details">Details</string>
-    <string name="userscripts_btn_open_editor">Edit</string>
     <string name="userscripts_btn_cancel">Cancel</string>
     <string name="userscripts_btn_install">Install</string>
     <string name="userscripts_all_sites">All websites</string>

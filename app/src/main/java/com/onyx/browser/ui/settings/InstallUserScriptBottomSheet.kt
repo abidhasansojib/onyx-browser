@@ -182,30 +182,8 @@ class InstallUserScriptBottomSheet : BottomSheetDialogFragment() {
         val hasNetworkAccess = grants.any { it.contains("xmlhttpRequest", ignoreCase = true) }
         binding.layoutWarningNetwork.visibility = if (hasNetworkAccess) View.VISIBLE else View.GONE
 
-        binding.tvSourceCode.movementMethod = android.text.method.ScrollingMovementMethod.getInstance()
-
-        // View Source Button: Switch to built-in code viewer
+        // View Source Button: Open script in full-screen editor
         binding.btnViewSource.setOnClickListener {
-            binding.layoutContent.visibility = View.GONE
-            binding.layoutSourceCode.visibility = View.VISIBLE
-            binding.tvDialogSubtitle.text = meta.name.ifBlank { "UserScript" }
-
-            val lineCount = downloadedCode.lines().size
-            val bytes = downloadedCode.toByteArray(Charsets.UTF_8).size
-            val sizeStr = if (bytes < 1024) "$bytes B" else "${bytes / 1024} KB"
-            binding.tvSourceStats.text = "$lineCount lines • $sizeStr"
-            binding.tvSourceCode.text = downloadedCode
-        }
-
-        // Back to Details from Source View
-        binding.btnBackToDetails.setOnClickListener {
-            binding.layoutSourceCode.visibility = View.GONE
-            binding.layoutContent.visibility = View.VISIBLE
-            binding.tvDialogSubtitle.text = "Review permissions before installing"
-        }
-
-        // Open in Editor from Source View
-        binding.btnOpenInEditor.setOnClickListener {
             UserScriptEditorActivity.pendingCodeToOpen = downloadedCode
             val intent = Intent(requireContext(), UserScriptEditorActivity::class.java).apply {
                 putExtra(UserScriptEditorActivity.EXTRA_SOURCE_URL, scriptUrl)
@@ -213,9 +191,6 @@ class InstallUserScriptBottomSheet : BottomSheetDialogFragment() {
             startActivity(intent)
             dismiss()
         }
-
-        binding.btnCancelSource.setOnClickListener { dismiss() }
-        binding.btnInstallFromSource.setOnClickListener { installScript(meta) }
 
         // Install Button
         binding.btnInstall.setOnClickListener {
