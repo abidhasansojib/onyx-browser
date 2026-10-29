@@ -728,11 +728,14 @@
     <string name="single_site_blocking_level_title">Ad &amp; tracker blocking level</string>
 
     <!-- Userscripts Manager -->
-    <string name="userscripts_title">Scripts</string>
+    <string name="userscripts_title">UserScripts</string>
     <string name="userscripts_desc">Custom userscripts &amp; extensions</string>
     <string name="userscripts_count_format">%1$d of %2$d active</string>
-    <string name="userscripts_toolbar_title">Scripts</string>
+    <string name="userscripts_toolbar_title">UserScripts</string>
     <string name="userscripts_toolbar_subtitle">Tampermonkey / Violentmonkey</string>
+    <string name="userscripts_disabled_scripts_blocked">Disabled (Block Scripts is ON)</string>
+    <string name="userscripts_blocked_banner_title">Block Scripts is active</string>
+    <string name="userscripts_blocked_banner_desc">All UserScripts are currently paused. Tap to manage Block Scripts in Shields.</string>
     <string name="userscripts_empty_title">No scripts installed</string>
     <string name="userscripts_empty_desc">Add custom userscripts to modify web pages, add features, or automate tasks.</string>
     <string name="userscripts_add_script">Add script</string>

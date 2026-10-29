@@ -14,8 +14,11 @@ class UserScriptAdapter(
     private val onDelete: (UserScriptItem) -> Unit
 ) : RecyclerView.Adapter<UserScriptAdapter.ViewHolder>() {
 
-    fun updateList(newScripts: List<UserScriptItem>) {
+    private var isGloballyBlocked: Boolean = false
+
+    fun updateList(newScripts: List<UserScriptItem>, isGloballyBlocked: Boolean = false) {
         scripts = newScripts
+        this.isGloballyBlocked = isGloballyBlocked
         notifyDataSetChanged()
     }
 
@@ -54,6 +57,8 @@ class UserScriptAdapter(
 
             binding.switchEnabled.setOnCheckedChangeListener(null)
             binding.switchEnabled.isChecked = item.enabled
+            binding.switchEnabled.isEnabled = !isGloballyBlocked
+            binding.root.alpha = if (isGloballyBlocked) 0.65f else 1.0f
             binding.switchEnabled.setOnCheckedChangeListener { _, isChecked ->
                 onToggle(item, isChecked)
             }

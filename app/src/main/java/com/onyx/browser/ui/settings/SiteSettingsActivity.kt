@@ -404,6 +404,11 @@ class SiteSettingsActivity : AppCompatActivity() {
         updateCountBadge(binding.tvJavaScriptCount, prefs.getAllowedJsDomains().size, prefs.getBlockedJsDomains().size)
 
         // User Scripts
+        if (prefs.isGlobalScriptBlockingEnabled) {
+            binding.tvScriptsStatus.text = getString(R.string.userscripts_disabled_scripts_blocked)
+        } else {
+            binding.tvScriptsStatus.text = getString(R.string.userscripts_desc)
+        }
         lifecycleScope.launch(Dispatchers.IO) {
             val total = AppDatabase.getInstance(this@SiteSettingsActivity).userScriptDao().getAll().size
             val enabled = AppDatabase.getInstance(this@SiteSettingsActivity).userScriptDao().countEnabled()

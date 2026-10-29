@@ -2503,6 +2503,19 @@ class OnyxWebViewClient(
     private fun injectUserScripts(view: WebView?, url: String, runAt: com.onyx.browser.userscript.RunAt) {
         val onyxWv = view as? OnyxWebView ?: return
         if (isSyntheticOrDataUrl(url) || onyxWv.isLoadingSyntheticPage) return
+
+        val pageDomain = try {
+            java.net.URI(url).host?.lowercase()?.removePrefix("www.") ?: ""
+        } catch (_: Exception) { "" }
+
+        if (preferences.isGlobalScriptBlockingEnabled ||
+            (pageDomain.isNotEmpty() && preferences.isScriptBlockingEnabledForDomain(pageDomain)) ||
+            !preferences.isJavaScriptEnabledGlobal ||
+            (pageDomain.isNotEmpty() && !preferences.isJavaScriptEnabledForDomain(pageDomain))
+        ) {
+            return
+        }
+
         val manager = onyxWv.userScriptManager
         val matching = manager.getMatchingScripts(url, runAt)
         if (matching.isEmpty()) return

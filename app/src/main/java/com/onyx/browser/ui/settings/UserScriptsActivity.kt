@@ -20,6 +20,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.UserScriptItem
+import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityUserscriptsBinding
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.userscript.UpdateResult
@@ -143,6 +144,10 @@ class UserScriptsActivity : AppCompatActivity() {
 
         binding.btnEmptyAddScript.setOnClickListener {
             showAddOptions()
+        }
+
+        binding.cardScriptsBlockedWarning.setOnClickListener {
+            startActivity(Intent(this, ShieldsActivity::class.java))
         }
     }
 
@@ -275,10 +280,18 @@ class UserScriptsActivity : AppCompatActivity() {
     }
 
     private fun loadScripts() {
+        val isBlocked = BrowserPreferences.getInstance(this).isGlobalScriptBlockingEnabled
+        binding.cardScriptsBlockedWarning.visibility = if (isBlocked) View.VISIBLE else View.GONE
+        if (isBlocked) {
+            binding.tvToolbarSubtitle.text = getString(R.string.userscripts_disabled_scripts_blocked)
+        } else {
+            binding.tvToolbarSubtitle.text = getString(R.string.userscripts_toolbar_subtitle)
+        }
+
         lifecycleScope.launch(Dispatchers.IO) {
             val items = AppDatabase.getInstance(this@UserScriptsActivity).userScriptDao().getAll()
             withContext(Dispatchers.Main) {
-                adapter.updateList(items)
+                adapter.updateList(items, isBlocked)
                 if (items.isEmpty()) {
                     binding.rvUserScripts.visibility = View.GONE
                     binding.layoutEmptyState.visibility = View.VISIBLE

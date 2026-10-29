@@ -5,6 +5,7 @@ import android.util.Log
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.UserScriptItem
 import com.onyx.browser.data.model.UserScriptValueItem
+import com.onyx.browser.data.preferences.BrowserPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -129,6 +130,17 @@ class UserScriptManager private constructor(private val context: Context) {
     }
 
     fun getMatchingScripts(url: String, runAt: RunAt): List<ParsedUserScript> {
+        val prefs = BrowserPreferences.getInstance(context)
+        if (prefs.isGlobalScriptBlockingEnabled) return emptyList()
+
+        val domain = try {
+            java.net.URI(url).host?.lowercase()?.removePrefix("www.") ?: ""
+        } catch (_: Exception) { "" }
+
+        if (domain.isNotEmpty() && (prefs.isScriptBlockingEnabledForDomain(domain) || !prefs.isJavaScriptEnabledForDomain(domain))) {
+            return emptyList()
+        }
+
         if (!url.startsWith("http://") && !url.startsWith("https://")) return emptyList()
         return scripts.filter { parsed ->
             parsed.script.enabled &&

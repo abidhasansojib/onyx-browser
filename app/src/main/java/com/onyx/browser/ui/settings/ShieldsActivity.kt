@@ -136,11 +136,23 @@ class ShieldsActivity : AppCompatActivity() {
             binding.rowGlobalScriptBlock,
             binding.switchGlobalScriptBlock,
             { prefs.isGlobalScriptBlockingEnabled },
-            { prefs.isGlobalScriptBlockingEnabled = it }
+            {
+                prefs.isGlobalScriptBlockingEnabled = it
+                updateUserScriptsSubtitle()
+            }
         )
 
         binding.rowManageUserScripts.setOnClickListener {
             startActivity(Intent(this, UserScriptsActivity::class.java))
+        }
+        updateUserScriptsSubtitle()
+    }
+
+    private fun updateUserScriptsSubtitle() {
+        if (prefs.isGlobalScriptBlockingEnabled) {
+            binding.tvUserScriptsSubtitle.text = getString(R.string.userscripts_disabled_scripts_blocked)
+        } else {
+            binding.tvUserScriptsSubtitle.text = getString(R.string.userscripts_desc)
         }
     }
 

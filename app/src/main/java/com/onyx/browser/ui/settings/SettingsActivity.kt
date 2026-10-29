@@ -90,6 +90,7 @@ class SettingsActivity : AppCompatActivity() {
         updateSearchEngineDisplay()
         updateThemeDisplay()
         updateUaSpooferText()
+        updateUserScriptsStatus()
         if (lastThemeMode != -1 && lastThemeMode != preferences.themeMode) {
             lastThemeMode = preferences.themeMode
             recreate()
@@ -145,6 +146,22 @@ class SettingsActivity : AppCompatActivity() {
         // 3. Site permissions
         binding.settingSitePermissionsRow.setOnClickListener {
             startActivity(Intent(this, SiteSettingsActivity::class.java))
+        }
+
+        // 4. UserScripts
+        updateUserScriptsStatus()
+        binding.settingUserScriptsRow.setOnClickListener {
+            startActivity(Intent(this, UserScriptsActivity::class.java))
+        }
+    }
+
+    private fun updateUserScriptsStatus() {
+        if (preferences.isGlobalScriptBlockingEnabled) {
+            binding.tvUserScriptsStatus.text = getString(R.string.userscripts_disabled_scripts_blocked)
+            binding.tvUserScriptsStatus.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.red_danger))
+        } else {
+            binding.tvUserScriptsStatus.text = getString(R.string.userscripts_desc)
+            binding.tvUserScriptsStatus.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.settings_subtitle_text))
         }
     }
 
