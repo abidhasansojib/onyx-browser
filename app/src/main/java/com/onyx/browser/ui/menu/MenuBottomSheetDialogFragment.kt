@@ -377,6 +377,31 @@ class MenuBottomSheetDialogFragment : BottomSheetDialogFragment() {
             binding.menuItemBlockElement.visibility = View.GONE
         }
 
+        // Userscript Menu Commands (GM_registerMenuCommand)
+        val activeWv = main?.getActiveWebView()
+        val scriptCommands = activeWv?.userScriptMenuCommands ?: emptyMap()
+        if (scriptCommands.isNotEmpty()) {
+            binding.menuItemScriptCommands.visibility = View.VISIBLE
+            binding.tvScriptCommandsCount.text = "${scriptCommands.size}"
+            binding.menuItemScriptCommands.setOnClickListener {
+                dismiss()
+                val captions = scriptCommands.keys.toTypedArray()
+                val fnIds = scriptCommands.values.toTypedArray()
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.userscripts_menu_commands_title)
+                    .setItems(captions) { _, which ->
+                        val fnId = fnIds.getOrNull(which)
+                        if (fnId != null) {
+                            activeWv?.invokeUserScriptMenuCommand(fnId)
+                        }
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
+        } else {
+            binding.menuItemScriptCommands.visibility = View.GONE
+        }
+
         // 7th: Settings
         binding.menuItemWebSettings.setOnClickListener {
             startActivity(Intent(requireContext(), SettingsActivity::class.java))

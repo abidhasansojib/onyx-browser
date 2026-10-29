@@ -423,6 +423,17 @@
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
+            android:name=".ui.settings.UserScriptsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser" />
+
+        <activity
+            android:name=".ui.settings.UserScriptEditorActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OnyxBrowser"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.downloads.DownloadsActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />

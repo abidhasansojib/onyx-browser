@@ -36,6 +36,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **DNS-over-HTTPS (DoH)**: Built-in support for Cloudflare, Google, NextDNS, and custom DoH resolver endpoints.
 - `[x]` **SQLCipher AES-256 Storage Encryption**: All bookmarks, history, tabs, and downloads are encrypted on-disk with master keys in Android KeyStore.
 - `[x]` **Safe Browsing & SSL Defense**: Hardened SSL error interstitials and Google Safe Browsing integration.
+- `[x]` **Custom Userscript Manager (Tampermonkey & Violentmonkey Engine)**: Comprehensive in-browser userscript engine with metadata header parsing (`// ==UserScript==`), Chrome-style URL pattern matching (`@match`, `@include`, `@exclude`), lifecycle execution (`@run-at document-start` / `document-end`), external `@require` resolution, `@connect` security bounds, auto/manual update checks (`@updateURL`, `@downloadURL`), built-in monospace script editor, multi-source imports (scratch creation, URL import, file picker import), GM_* API polyfill shim and native `@JavascriptInterface` bridge (`GM_getValue`, `GM_setValue`, `GM_deleteValue`, `GM_listValues`, `GM_xmlhttpRequest`, `GM_openInTab`, `GM_setClipboard`, `GM_notification`, `GM_addStyle`, `GM_addElement`, `GM_info`), and live 3-dot page menu integration for `GM_registerMenuCommand` / `GM_unregisterMenuCommand`. Located in Settings > Privacy & Security > Site settings > Scripts.
 
 ---
 
@@ -130,5 +131,4 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 ## 9. Roadmap & Planned Enhancements
 
 - `[-]` **WebGL 1/2 Complex Shader Polyfills**: Ongoing compatibility improvements for complex WebGL shaders on older mobile GPUs.
-- `[ ]` **Custom Userscript Manager**: Support for user-installed Tampermonkey / Violentmonkey scriptlets.
 - `[ ]` **Built-in Reader Mode**: Distraction-free article reader with typography and theme customization.

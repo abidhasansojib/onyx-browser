@@ -1844,8 +1844,10 @@ class OnyxWebViewClient(
                 com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
             }
             onyxWv?.clearSyntheticState()
+            onyxWv?.clearUserScriptState()
             onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)
+            injectUserScripts(view, url, com.onyx.browser.userscript.RunAt.DOCUMENT_START)
 
             val pageDomain = preferences.cleanDomain(url)
             val isAuthOrMeta = isMetaDomain(pageDomain) || isCaptchaOrAuthUrl(url, pageDomain) ||
@@ -2053,6 +2055,7 @@ class OnyxWebViewClient(
             if (!isSyntheticError && !isFinishedAuthOrMeta) {
                 view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
                 DsdHydrationFix.applyFix(view)
+                injectUserScripts(view, effectiveUrl, com.onyx.browser.userscript.RunAt.DOCUMENT_END)
             }
 
             // DevTools auto-persistence across page navigations
@@ -2494,6 +2497,42 @@ class OnyxWebViewClient(
             renderAction.run()
         } else {
             view?.post(renderAction)
+        }
+    }
+
+    private fun injectUserScripts(view: WebView?, url: String, runAt: com.onyx.browser.userscript.RunAt) {
+        val onyxWv = view as? OnyxWebView ?: return
+        if (isSyntheticOrDataUrl(url) || onyxWv.isLoadingSyntheticPage) return
+        val manager = onyxWv.userScriptManager
+        val matching = manager.getMatchingScripts(url, runAt)
+        if (matching.isEmpty()) return
+
+        val bridge = onyxWv.userScriptBridge
+        matching.forEach { parsed ->
+            val token = java.util.UUID.randomUUID().toString()
+            if (parsed.metadata.requiresNativeBridge) {
+                bridge.registerToken(token, parsed.script.id)
+            }
+            val js = manager.buildInjectionJs(parsed, token)
+            val b64 = android.util.Base64.encodeToString(
+                js.toByteArray(Charsets.UTF_8),
+                android.util.Base64.NO_WRAP
+            )
+            val scriptId = parsed.script.id
+            val injector = """
+                (function(){
+                    try {
+                        var reg = window.__onyxInjectedScripts || (window.__onyxInjectedScripts = {});
+                        if (reg[$scriptId]) return;
+                        reg[$scriptId] = true;
+                        var s = document.createElement('script');
+                        s.textContent = decodeURIComponent(escape(atob('$b64')));
+                        (document.head || document.documentElement).appendChild(s);
+                        s.parentNode && s.parentNode.removeChild(s);
+                    } catch(e) { console.error('Onyx userscript inject error', e); }
+                })();
+            """.trimIndent()
+            onyxWv.evaluateJavascript(injector, null)
         }
     }
 }

@@ -110,6 +110,27 @@ class OnyxWebView @JvmOverloads constructor(
     var isDevToolsActive: Boolean = false
     val sessionSslBypasses: MutableSet<String> = mutableSetOf()
 
+    val userScriptManager by lazy { com.onyx.browser.userscript.UserScriptManager.getInstance(context) }
+    val userScriptBridge by lazy { com.onyx.browser.userscript.OnyxUserScriptBridge(this, userScriptManager) }
+    val userScriptMenuCommands = LinkedHashMap<String, String>()
+
+    fun registerUserScriptMenuCommand(caption: String, fnId: String) {
+        userScriptMenuCommands[caption] = fnId
+    }
+
+    fun unregisterUserScriptMenuCommand(fnId: String) {
+        userScriptMenuCommands.values.remove(fnId)
+    }
+
+    fun invokeUserScriptMenuCommand(fnId: String) {
+        evaluateJavascript("window.__onyxGM && window.__onyxGM.invokeMenu('$fnId');", null)
+    }
+
+    fun clearUserScriptState() {
+        userScriptBridge.clearTokens()
+        userScriptMenuCommands.clear()
+    }
+
     fun clearSyntheticState() {
         currentSyntheticState = null
         pendingSslHandler = null
@@ -333,6 +354,11 @@ class OnyxWebView @JvmOverloads constructor(
                 )
             } catch (_: Exception) {}
         }
+
+        // Custom Userscript Bridge (Tampermonkey/Violentmonkey GM_* APIs)
+        try {
+            addJavascriptInterface(userScriptBridge, com.onyx.browser.userscript.OnyxUserScriptBridge.JS_INTERFACE_NAME)
+        } catch (_: Exception) {}
 
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
         try {
@@ -713,6 +739,7 @@ class OnyxWebView @JvmOverloads constructor(
             }
             evaluateJavascript("try { var v = document.querySelectorAll('video, audio'); for(var i=0; i<v.length; i++) { v[i].pause(); v[i].src = ''; } } catch(e){}", null)
             evaluateJavascript("try { " + com.onyx.browser.web.translate.PageTranslateManager.cleanupScript + " } catch(e){}", null)
+            clearUserScriptState()
             stopLoading()
             clearHistory()
             (parent as? ViewGroup)?.removeView(this)

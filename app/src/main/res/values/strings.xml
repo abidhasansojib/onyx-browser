@@ -726,6 +726,41 @@
     <!-- Shields / Ad blocking per-site item in SingleSiteSettingsSheet -->
     <string name="single_site_shields_title">Brave Shields</string>
     <string name="single_site_blocking_level_title">Ad &amp; tracker blocking level</string>
+
+    <!-- Userscripts Manager -->
+    <string name="userscripts_title">Scripts</string>
+    <string name="userscripts_desc">Custom userscripts &amp; extensions</string>
+    <string name="userscripts_count_format">%1$d of %2$d active</string>
+    <string name="userscripts_toolbar_title">Scripts</string>
+    <string name="userscripts_toolbar_subtitle">Tampermonkey / Violentmonkey</string>
+    <string name="userscripts_empty_title">No scripts installed</string>
+    <string name="userscripts_empty_desc">Add custom userscripts to modify web pages, add features, or automate tasks.</string>
+    <string name="userscripts_add_script">Add script</string>
+    <string name="userscripts_update_scripts">Check for updates</string>
+    <string name="userscripts_option_new">New script</string>
+    <string name="userscripts_option_new_desc">Create a new script by yourself</string>
+    <string name="userscripts_option_import_url">Import from URL</string>
+    <string name="userscripts_option_import_url_desc">Install from GreasyFork, GitHub, or web link</string>
+    <string name="userscripts_option_import_file">Import from file</string>
+    <string name="userscripts_option_import_file_desc">Load script from phone storage (.user.js)</string>
+    <string name="userscripts_import_url_title">Import from URL</string>
+    <string name="userscripts_import_url_hint">https://example.com/script.user.js</string>
+    <string name="userscripts_import_url_btn">Install</string>
+    <string name="userscripts_installing">Downloading script…</string>
+    <string name="userscripts_installed_success">Installed \"%s\"</string>
+    <string name="userscripts_updated_count">Updated %1$d of %2$d script(s)</string>
+    <string name="userscripts_up_to_date">All scripts are up to date</string>
+    <string name="userscripts_no_sources">No update URLs found for installed scripts</string>
+    <string name="userscripts_editor_title_new">New Script</string>
+    <string name="userscripts_editor_title_edit">Edit Script</string>
+    <string name="userscripts_save">Save</string>
+    <string name="userscripts_delete">Delete</string>
+    <string name="userscripts_delete_confirm_title">Delete script?</string>
+    <string name="userscripts_delete_confirm_msg">Are you sure you want to delete \"%s\"?</string>
+    <string name="userscripts_deleted">Script deleted</string>
+    <string name="userscripts_saved">Script saved successfully</string>
+    <string name="userscripts_invalid_meta">Script must contain // ==UserScript== and // ==/UserScript==</string>
+    <string name="userscripts_menu_commands_title">Script Commands</string>
 </resources>
 
 

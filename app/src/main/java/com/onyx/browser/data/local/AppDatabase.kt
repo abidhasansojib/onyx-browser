@@ -9,6 +9,8 @@ import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.data.model.DownloadItem
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.data.model.TabItem
+import com.onyx.browser.data.model.UserScriptItem
+import com.onyx.browser.data.model.UserScriptValueItem
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
 
@@ -16,8 +18,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TabItem::class, HistoryItem::class, BookmarkItem::class, DownloadItem::class],
-    version = 6,
+    entities = [
+        TabItem::class,
+        HistoryItem::class,
+        BookmarkItem::class,
+        DownloadItem::class,
+        UserScriptItem::class,
+        UserScriptValueItem::class
+    ],
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,6 +34,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
     abstract fun bookmarkDao(): BookmarkDao
     abstract fun downloadDao(): DownloadDao
+    abstract fun userScriptDao(): UserScriptDao
+    abstract fun userScriptValueDao(): UserScriptValueDao
 
     companion object {
         private const val TAG = "AppDatabase"
@@ -58,6 +69,37 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `user_scripts` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `enabled` INTEGER NOT NULL,
+                        `sourceUrl` TEXT,
+                        `order` INTEGER NOT NULL,
+                        `version` TEXT NOT NULL DEFAULT '',
+                        `description` TEXT NOT NULL DEFAULT '',
+                        `author` TEXT NOT NULL DEFAULT '',
+                        `matchSummary` TEXT NOT NULL DEFAULT '',
+                        `runAt` TEXT NOT NULL DEFAULT 'document-end'
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `user_script_values` (
+                        `scriptId` INTEGER NOT NULL,
+                        `key` TEXT NOT NULL,
+                        `value` TEXT NOT NULL,
+                        PRIMARY KEY(`scriptId`, `key`)
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -83,7 +125,7 @@ abstract class AppDatabase : RoomDatabase() {
                         AppDatabase::class.java,
                         "onyx_browser_fallback.db"
                     )
-                        .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                        .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                         .fallbackToDestructiveMigration()
                         .build()
                         .also {
@@ -109,7 +151,7 @@ abstract class AppDatabase : RoomDatabase() {
                 "onyx_browser_secure.db"
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .fallbackToDestructiveMigration()
                 .build()
 

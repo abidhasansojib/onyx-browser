@@ -138,6 +138,10 @@ class ShieldsActivity : AppCompatActivity() {
             { prefs.isGlobalScriptBlockingEnabled },
             { prefs.isGlobalScriptBlockingEnabled = it }
         )
+
+        binding.rowManageUserScripts.setOnClickListener {
+            startActivity(Intent(this, UserScriptsActivity::class.java))
+        }
     }
 
     // ── COOKIES ───────────────────────────────────────────────────────────────

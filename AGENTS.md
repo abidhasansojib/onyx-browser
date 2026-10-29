@@ -98,6 +98,7 @@ onyx-browser/
 │   │   │   ├── media/              # MediaPlaybackService and MediaPlaybackBridge
 │   │   │   ├── nativebridge/       # AdBlockEngine JNI bindings to libadblock_bridge.so
 │   │   │   ├── ui/                 # ViewBinding presentation layer (tabs, settings, search, menu)
+│   │   │   ├── userscript/         # Tampermonkey/Violentmonkey engine, metadata parser, matcher, bridge
 │   │   │   └── web/                # Hardened Chromium WebView subsystem, client, and bridges
 │   │   └── res/                    # Google Theme styles (Light/Dark/AMOLED), layouts, vectors
 │   └── build.gradle.kts            # App dependencies, NDK configuration, deterministic signing
@@ -169,4 +170,11 @@ onyx-browser/
 11. **UI Presentation & Toolbar Customization Standards**:
    - Full-page settings activities must use native `CoordinatorLayout` + `MaterialToolbar` with edge-to-edge system insets and avoid floating dialogs for primary preference screens.
    - Address bar button customization (`isHomeReplacedWithRefresh`) must update dynamically in `onResume()` and `updateAddressBarDisplay()` without requiring activity recreation.
+12. **Userscript Engine & GM_* Bridge Standards**:
+   - Parse Tampermonkey / Violentmonkey metadata headers (`// ==UserScript==` ... `// ==/UserScript==`: `@name`, `@version`, `@match`, `@include`, `@exclude`, `@run-at`, `@grant`, `@connect`, `@require`, `@updateURL`, `@downloadURL`).
+   - Store script code bodies on the file system (`context.filesDir/userscripts/<id>.user.js`) rather than Room database SQLite columns to prevent `SQLiteBlobTooBigException` and Android CursorWindow 2MB limitations.
+   - Inject `@run-at document-start` scripts at `onPageStarted` and `@run-at document-end` scripts at `onPageFinished`. Scripts are wrapped in an isolated IIFE with capability tokens, deduplicated against repeated single-page application navigation via `window.__onyxInjectedScripts`.
+   - Native `@JavascriptInterface` bridge (`OnyxUserScriptBridge` registered at `window.onyxGM`) exposes scoped key-value storage (`GM_getValue`, `GM_setValue`, `GM_deleteValue`, `GM_listValues`), `@connect`-validated background networking (`GM_xmlhttpRequest`), clipboard (`GM_setClipboard`), notifications (`GM_notification`), dynamic DOM element injection (`GM_addStyle`, `GM_addElement`), tab spawning (`GM_openInTab` restricted to `http`/`https`), and dynamic page menu commands (`GM_registerMenuCommand`, `GM_unregisterMenuCommand`).
+   - Script management UI is centralized in `Settings > Privacy & Security > Site settings > Scripts` with a top-right `+` button (New script editor, Import from URL, Import from file) and `Update` button.
+
 

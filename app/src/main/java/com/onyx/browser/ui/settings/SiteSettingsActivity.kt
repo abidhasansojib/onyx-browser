@@ -11,8 +11,10 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
+import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivitySiteSettingsBinding
 import com.onyx.browser.ui.theme.AccentColorManager
@@ -20,6 +22,7 @@ import com.onyx.browser.web.SiteDataManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SiteSettingsActivity : AppCompatActivity() {
 
@@ -79,6 +82,11 @@ class SiteSettingsActivity : AppCompatActivity() {
         }
 
         setupRows()
+        updateStatuses()
+    }
+
+    override fun onResume() {
+        super.onResume()
         updateStatuses()
     }
 
@@ -158,6 +166,10 @@ class SiteSettingsActivity : AppCompatActivity() {
                 updateStatuses()
             }
             sheet.show(supportFragmentManager, SitePermissionCategorySheet.TAG)
+        }
+
+        binding.rowScriptsPermission.setOnClickListener {
+            startActivity(android.content.Intent(this, UserScriptsActivity::class.java))
         }
 
         binding.rowPopupsPermission.setOnClickListener {
@@ -390,6 +402,22 @@ class SiteSettingsActivity : AppCompatActivity() {
             getString(R.string.policy_blocked_label)
         }
         updateCountBadge(binding.tvJavaScriptCount, prefs.getAllowedJsDomains().size, prefs.getBlockedJsDomains().size)
+
+        // User Scripts
+        lifecycleScope.launch(Dispatchers.IO) {
+            val total = AppDatabase.getInstance(this@SiteSettingsActivity).userScriptDao().getAll().size
+            val enabled = AppDatabase.getInstance(this@SiteSettingsActivity).userScriptDao().countEnabled()
+            withContext(Dispatchers.Main) {
+                if (!isFinishing && !isDestroyed) {
+                    if (total > 0) {
+                        binding.tvScriptsCount.text = getString(R.string.userscripts_count_format, enabled, total)
+                        binding.tvScriptsCount.visibility = View.VISIBLE
+                    } else {
+                        binding.tvScriptsCount.visibility = View.GONE
+                    }
+                }
+            }
+        }
 
         // Popups
         val popupsBlocked = prefs.isPopupsBlockedGlobal

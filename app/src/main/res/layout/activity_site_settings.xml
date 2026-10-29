@@ -870,6 +870,73 @@
                     <View android:layout_width="match_parent" android:layout_height="1dp"
                         android:layout_marginStart="70dp" android:background="@color/settings_card_stroke" />
 
+                    <!-- Scripts / Userscripts -->
+                    <LinearLayout
+                        android:id="@+id/rowScriptsPermission"
+                        android:layout_width="match_parent"
+                        android:layout_height="72dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
+
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_box_tile">
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                app:srcCompat="@drawable/ic_terminal_outline"
+                                app:tint="@color/settings_title_text" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/userscripts_title"
+                                android:textColor="@color/settings_title_text"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:id="@+id/tvScriptsStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="@string/userscripts_desc"
+                                android:textColor="@color/settings_subtitle_text"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvScriptsCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:textColor="@color/settings_subtitle_text"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:srcCompat="@drawable/ic_chevron_right"
+                            app:tint="#9AA0A6" />
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:layout_marginStart="70dp" android:background="@color/settings_card_stroke" />
+
                     <!-- Pop-ups & redirects -->
                     <LinearLayout
                         android:id="@+id/rowPopupsPermission"
