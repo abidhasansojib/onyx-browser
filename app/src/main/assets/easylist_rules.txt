@@ -10490,6 +10490,7 @@ bloomberg.com##.unsupported-browser-notification-container
 ##.freestar-incontent-ad
 ##.freestar-ad-sidebar-container
 ##.freestar-ad-wide-container
+##.full-bleed-ad
 ##.themonic-ad1
 ##.themonic-ad2
 ##.themonic-ad3
@@ -12812,6 +12813,7 @@ axios.com##[data-cy="injected-promo"]
 medpagetoday.com##.leaderboard-region
 thepointsguy.com##[aria-label="Advertisement"]
 variety.com###leaderboard-no-padding
+vanityfair.com##[data-testid="sticky-hero-ad"]
 howtogeek.com##div[id^="purch_"]
 rottentomatoes.com##.leaderboard_wrapper
 fandom.com###featured-video__player-container
@@ -31850,9 +31852,9 @@ consent.yahoo.com##+js(trusted-click-element, button.reject-all, , 2500)
 digi24.ro,digisport.ro,digitalfoundry.net,egx.net,eurogamer.it,gmx.*,mail.com,mcmcomiccon.com,nachrichten.at,nintendolife.com,oe24.at,paxsite.com,peacocktv.com,player.pl,pricerunner.com,pricerunner.se,pricerunner.dk,proximus.be,proximus.com,purexbox.com,pushsquare.com,southparkstudios.com,starwarscelebration.com,thehaul.com,timeextension.com,travelandleisure.com,tunein.com,videoland.com,wizzair.com,wetter.at##+js(trusted-click-element, #onetrust-accept-btn-handler, , 2800)
 dicebreaker.com,eurogamer.cz,eurogamer.es,eurogamer.net,eurogamer.nl,eurogamer.pl,eurogamer.pt,gamesindustry.biz,jelly.deals,reedpop.com,rockpapershotgun.com,thepopverse.com,vg247.com,videogameschronicle.com##+js(trusted-click-element, button[title="Accept and continue"], , 2800)
 dicebreaker.com,eurogamer.cz,eurogamer.es,eurogamer.net,eurogamer.nl,eurogamer.pl,eurogamer.pt,gamesindustry.biz,jelly.deals,reedpop.com,rockpapershotgun.com,thepopverse.com,vg247.com,videogameschronicle.com##+js(trusted-click-element, button[title="Accept All Cookies"], , 2800)
-oscaro.com,boulanger.com#@##didomi-host
+oscaro.com#@##didomi-host
 oscaro.com#@#+js(trusted-click-element, .didomi-continue-without-agreeing, , 1000)
-@@||sdk.privacy-center.org^$script,domain=oscaro.com|boulanger.com
+@@||sdk.privacy-center.org^$script,domain=oscaro.com
 @@onetrust.com/consent/$domain=qatarairways.com
 @@onetrust.com/scripttemplates/$domain=qatarairways.com
 qatarairways.com#@##onetrust-consent-sdk
@@ -32697,6 +32699,7 @@ $removeparam=ref_url,to=twitter.com|x.com
 $removeparam=cxt,to=twitter.com|x.com
 $removeparam=s,to=twitter.com|x.com
 ||com/*/status/$removeparam=t,to=twitter.com|x.com
+||x.com/*/status/$doc,removeparam=a
 ||www.ebay.$removeparam=ssspo
 ||www.ebay.$removeparam=sssrc
 ||www.ebay.$removeparam=ssuid
@@ -43043,6 +43046,7 @@ omni.soundestlink.com$image
 ||bestboundary.com^
 ||bestclimbers.net^
 ||bestcoffeemachine.net^
+||bestpriceonly.com^
 ||bestshoesboot.com^
 ||bestsportsbra.com^
 ||betazebra.com^
@@ -43738,6 +43742,7 @@ omni.soundestlink.com$image
 ||floweryfact.com^
 ||floweryflavor.com^
 ||floweryoperation.com^
+||fluffybirds.com^
 ||flushingbeast.com^
 ||flutteringfireman.com^
 ||flyflightstar.com^
@@ -44000,6 +44005,7 @@ omni.soundestlink.com$image
 ||incomehippo.com^
 ||incompetentjoke.com^
 ||inconclusiveaction.com^
+||indscout.com^
 ||infamousstream.com^
 ||infinityhedge.com^
 ||informalbook.com^
@@ -77007,6 +77013,7 @@ search.rakuten.co.jp##+js(aeld, mouseup, sendClickEvent)
 @@||moneypartners.co.jp/web/*/fingerprint.js$~third-party
 @@||nakanohito.jp^*/bi.js$domain=kenko-tokina.co.jp|myna.go.jp|nexon.com
 @@||navacom.info/count.php?$~third-party
+@@||neruco-search.ec-optimizer.com^$script,domain=i-office1.net
 @@||nittsu.com/Tracking/Scripts/Tracking/track.js
 @@||onesignal.com/api/v1/sync/$domain=oshibuta.com
 @@||play.dlsite.com/csr/viewer/lib/newrelic.js
@@ -77317,7 +77324,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||adcenter.net^
 ||adclick.com^
 ||adclient1.tucows.com^
-||adclixx.net^
 ||adcolony.com^
 ||adcomplete.com^
 ||adconion.com^
@@ -77542,7 +77548,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||ads.footymad.net^
 ||ads.forbes.net^
 ||ads.formit.cz^
-||ads.fortunecity.com^
 ||ads.fotosidan.se^
 ||ads.friendfinder.com^
 ||ads.gamecity.net^
@@ -77816,7 +77821,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||adservrs.com.edgekey.net^
 ||adsfac.eu^
 ||adsfac.net^
-||adsflowprime.top^
 ||adshrink.it^
 ||adside.com^
 ||adsiduous.com^
@@ -78100,7 +78104,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||bannersng.yell.com^
 ||bannerspace.com^
 ||bannerswap.com^
-||bannertrack.net^
 ||bannery.cz^
 ||bannieres.wdmedia.net^
 ||bans.bride.ru^
@@ -78298,7 +78301,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||clickbrokers.com^
 ||clickcease.com^
 ||clickdensity.com^
-||clickedyclick.com^
 ||clickfuse.com^
 ||clickhereforcellphones.com^
 ||clickngo.top^
@@ -78940,7 +78942,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||madinad.com^
 ||madisonavenue.com^
 ||madvertise.de^
-||magicadz.co^
 ||magnetise.io^
 ||magsrv.com^
 ||maliva-mcs.byteoversea.com^
@@ -79128,7 +79129,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||oas.toronto.com^
 ||oas.uniontrib.com^
 ||oascentral.chicagobusiness.com^
-||oascentral.fortunecity.com^
 ||oascentral.register.com^
 ||oceancloudhosts.com^
 ||odbierz-bony.ovp.pl^
@@ -79843,7 +79843,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||urlcash.net^
 ||us.a1.yimg.com^
 ||userreplay.com^
-||users.maxcluster.net^
 ||utils.mediageneral.net^
 ||utl-1.com^
 ||uu.domainforlite.com^
