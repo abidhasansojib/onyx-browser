@@ -32973,7 +32973,7 @@ r.mail.wowvegas.com%2Ftr%2Fop%2F*$image
 *%2Fhello.heroku.com%2Fr%2F*%2Fopen%2F*$image
 /github.com/notifications/beacon/*$image
 *%2Fgithub.com%2Fnotifications%2Fbeacon%2F*$image
-||api.github.com/_private/browser/rum?*beacon$ping
+||api.github.com/_private/browser/rum?
 *%2Flinks.mail.vistaprint.com%2Fs%2F*$image
 /api.controld.com/pixel/*$image
 *%2Fapi.controld.com%2Fpixel%2F*$image
@@ -33649,6 +33649,7 @@ oklivetv.com##+js(no-fetch-if, method:POST body:tracker)
 ||bol.com/rs/v*/batch|
 bol.com##+js(json-edit-fetch-request, $[?.operationName=="sendExperimentMeasurementReferences"].*, propsToMatch, /graphql)
 ||tarnkappe.info/matABC.js
+||analytics.fullstak.pl^
 @@||awstrack.me/*auth.coindesk.com$doc,popup
 @@||awstrack.me/*cmd=ac-inactive-restore$doc,popup
 @@||che168.com^$xhr,removeparam=s_cid
@@ -43124,6 +43125,7 @@ omni.soundestlink.com$image
 ||boxandcover.com^
 ||brainybasin.com^
 ||branchborder.com^
+||brandcasters.com^
 ||brandsfive.com^
 ||brandybison.com^
 ||bravebone.com^
@@ -77588,6 +77590,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||ads.liberte.pl^
 ||ads.linkedin.com^
 ||ads.livenation.com^
+||ads.locksecures.com^
 ||ads.lzjl.com^
 ||ads.ma7.tv^
 ||ads.mail.bg^
@@ -79317,6 +79320,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||pushengage.com^
 ||pushno.com^
 ||pushtrack.co^
+||pushub.net^
 ||px.dynamicyield.com^
 ||px.gfycat.com^
 ||pxf.io^
