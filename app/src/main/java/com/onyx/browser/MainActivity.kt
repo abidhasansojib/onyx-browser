@@ -44,6 +44,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
@@ -151,6 +152,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private var isToolbarHidden = false
     private var toolbarAnimator: android.animation.ValueAnimator? = null
     private var lastKnownTopBarHeight: Int = 0
+    private var lastAddressBarAtBottom: Boolean? = null
     private var lastStatusBarTopInset: Int = 0
 
     private fun isInPipMode(): Boolean {
@@ -1258,6 +1260,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        applyToolbarPosition(preferences.isAddressBarAtBottom, initial = true)
+
         val accentTint = AccentColorManager.getAccentColorStateList(this)
         binding.progressBar.progressTintList = accentTint
         binding.ivTranslateIcon.imageTintList = accentTint
@@ -1283,6 +1287,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
             )
             val navBarInsets = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
             if (customVideoView == null) {
                 lastNavBarBottomInset = navBarInsets.bottom
                 lastStatusBarTopInset = statusBarInsets.top
@@ -1302,26 +1307,82 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
             binding.statusBarSpace.visibility = if (statusBarHeight > 0) View.VISIBLE else View.GONE
 
-            val bottomPaddingPx = (8 * resources.displayMetrics.density).toInt()
+            val baseBottomPaddingPx = (8 * resources.displayMetrics.density).toInt()
             val topPaddingPx = (6 * resources.displayMetrics.density).toInt()
-            binding.topBar.setPadding(
-                binding.topBar.paddingLeft,
-                topPaddingPx,
-                binding.topBar.paddingRight,
-                bottomPaddingPx
-            )
+            val isBottom = preferences.isAddressBarAtBottom
+
+            if (isBottom) {
+                if (imeInsets.bottom > 0) {
+                    binding.topBar.setPadding(
+                        binding.topBar.paddingLeft,
+                        topPaddingPx,
+                        binding.topBar.paddingRight,
+                        baseBottomPaddingPx
+                    )
+                    val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
+                    if (lp != null && !isToolbarHidden && lp.bottomMargin != imeInsets.bottom) {
+                        lp.bottomMargin = imeInsets.bottom
+                        binding.topBar.layoutParams = lp
+                    }
+                } else {
+                    binding.topBar.setPadding(
+                        binding.topBar.paddingLeft,
+                        topPaddingPx,
+                        binding.topBar.paddingRight,
+                        baseBottomPaddingPx + navBarInsets.bottom
+                    )
+                    val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
+                    if (lp != null && !isToolbarHidden && lp.bottomMargin != 0) {
+                        lp.bottomMargin = 0
+                        binding.topBar.layoutParams = lp
+                    }
+                }
+                binding.contentContainer.setPadding(
+                    binding.contentContainer.paddingLeft,
+                    binding.contentContainer.paddingTop,
+                    binding.contentContainer.paddingRight,
+                    0
+                )
+                binding.searchOverlay.setPadding(0, 0, 0, 0)
+            } else {
+                binding.topBar.setPadding(
+                    binding.topBar.paddingLeft,
+                    topPaddingPx,
+                    binding.topBar.paddingRight,
+                    baseBottomPaddingPx
+                )
+                val effectiveBottom = if (imeInsets.bottom > 0) imeInsets.bottom else navBarInsets.bottom
+                binding.contentContainer.setPadding(
+                    binding.contentContainer.paddingLeft,
+                    binding.contentContainer.paddingTop,
+                    binding.contentContainer.paddingRight,
+                    effectiveBottom
+                )
+                binding.searchOverlay.setPadding(
+                    0,
+                    0,
+                    0,
+                    effectiveBottom
+                )
+            }
+
             binding.topBar.post {
                 if (binding.topBar.height > 0) {
                     lastKnownTopBarHeight = binding.topBar.height
                 }
+                if (isBottom) {
+                    val fabLp = binding.fabScrollToTop.layoutParams as? ViewGroup.MarginLayoutParams
+                    if (fabLp != null) {
+                        val barH = if (lastKnownTopBarHeight > 0) lastKnownTopBarHeight else (56 * resources.displayMetrics.density).toInt()
+                        val targetFabMargin = barH + (16 * resources.displayMetrics.density).toInt()
+                        if (fabLp.bottomMargin != targetFabMargin) {
+                            fabLp.bottomMargin = targetFabMargin
+                            binding.fabScrollToTop.layoutParams = fabLp
+                        }
+                    }
+                }
             }
 
-            binding.contentContainer.setPadding(
-                binding.contentContainer.paddingLeft,
-                binding.contentContainer.paddingTop,
-                binding.contentContainer.paddingRight,
-                navBarInsets.bottom
-            )
             windowInsets
         }
         
@@ -1409,7 +1470,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             },
             onRestoreUiFromPip = { isCustomVideo ->
                 if (!isCustomVideo) {
-                    binding.contentContainer.setPadding(0, 0, 0, lastNavBarBottomInset)
+                    binding.contentContainer.setPadding(0, 0, 0, if (preferences.isAddressBarAtBottom) 0 else lastNavBarBottomInset)
                     if (lastStatusBarTopInset > 0) {
                         binding.statusBarSpace.visibility = View.VISIBLE
                     }
@@ -1440,6 +1501,146 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val isActionIntent = intentToHandle?.action?.startsWith("com.onyx.browser.action.") == true
             if (savedInstanceState == null || intentToHandle != intent || isActionIntent) {
                 handleIncomingIntent(intentToHandle)
+            }
+        }
+    }
+
+    fun applyToolbarPosition(isBottom: Boolean, initial: Boolean = false) {
+        lastAddressBarAtBottom = isBottom
+
+        val constraintSet = ConstraintSet()
+        constraintSet.clone(binding.mainRoot)
+
+        if (isBottom) {
+            // Anchor topBar to bottom of parent
+            constraintSet.clear(R.id.topBar, ConstraintSet.TOP)
+            constraintSet.connect(R.id.topBar, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, 0)
+            constraintSet.connect(R.id.topBar, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
+            constraintSet.connect(R.id.topBar, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
+
+            // Anchor topBarDivider above topBar
+            constraintSet.clear(R.id.topBarDivider, ConstraintSet.TOP)
+            constraintSet.connect(R.id.topBarDivider, ConstraintSet.BOTTOM, R.id.topBar, ConstraintSet.TOP, 0)
+            constraintSet.connect(R.id.topBarDivider, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
+            constraintSet.connect(R.id.topBarDivider, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
+
+            // Anchor progressBar above topBar
+            constraintSet.clear(R.id.progressBar, ConstraintSet.TOP)
+            constraintSet.connect(R.id.progressBar, ConstraintSet.BOTTOM, R.id.topBar, ConstraintSet.TOP, 0)
+            constraintSet.connect(R.id.progressBar, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
+            constraintSet.connect(R.id.progressBar, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
+
+            // Anchor contentContainer between tvNetworkStatus.bottom and topBar.top
+            constraintSet.connect(R.id.contentContainer, ConstraintSet.TOP, R.id.tvNetworkStatus, ConstraintSet.BOTTOM, 0)
+            constraintSet.connect(R.id.contentContainer, ConstraintSet.BOTTOM, R.id.topBar, ConstraintSet.TOP, 0)
+
+            // Anchor searchOverlay between tvNetworkStatus.bottom and topBar.top
+            constraintSet.connect(R.id.searchOverlay, ConstraintSet.TOP, R.id.tvNetworkStatus, ConstraintSet.BOTTOM, 0)
+            constraintSet.connect(R.id.searchOverlay, ConstraintSet.BOTTOM, R.id.topBar, ConstraintSet.TOP, 0)
+
+            // Anchor findInPageBar to tvNetworkStatus.bottom
+            constraintSet.clear(R.id.findInPageBar, ConstraintSet.BOTTOM)
+            constraintSet.connect(R.id.findInPageBar, ConstraintSet.TOP, R.id.tvNetworkStatus, ConstraintSet.BOTTOM, 0)
+        } else {
+            // Anchor topBar to bottom of tvNetworkStatus
+            constraintSet.clear(R.id.topBar, ConstraintSet.BOTTOM)
+            constraintSet.connect(R.id.topBar, ConstraintSet.TOP, R.id.tvNetworkStatus, ConstraintSet.BOTTOM, 0)
+            constraintSet.connect(R.id.topBar, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
+            constraintSet.connect(R.id.topBar, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
+
+            // Anchor topBarDivider below topBar
+            constraintSet.clear(R.id.topBarDivider, ConstraintSet.BOTTOM)
+            constraintSet.connect(R.id.topBarDivider, ConstraintSet.TOP, R.id.topBar, ConstraintSet.BOTTOM, 0)
+            constraintSet.connect(R.id.topBarDivider, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
+            constraintSet.connect(R.id.topBarDivider, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
+
+            // Anchor progressBar below topBarDivider
+            constraintSet.clear(R.id.progressBar, ConstraintSet.BOTTOM)
+            constraintSet.connect(R.id.progressBar, ConstraintSet.TOP, R.id.topBarDivider, ConstraintSet.BOTTOM, 0)
+            constraintSet.connect(R.id.progressBar, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
+            constraintSet.connect(R.id.progressBar, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
+
+            // Anchor contentContainer between topBarDivider.bottom and parent.bottom
+            constraintSet.connect(R.id.contentContainer, ConstraintSet.TOP, R.id.topBarDivider, ConstraintSet.BOTTOM, 0)
+            constraintSet.connect(R.id.contentContainer, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, 0)
+
+            // Anchor searchOverlay between topBarDivider.bottom and parent.bottom
+            constraintSet.connect(R.id.searchOverlay, ConstraintSet.TOP, R.id.topBarDivider, ConstraintSet.BOTTOM, 0)
+            constraintSet.connect(R.id.searchOverlay, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, 0)
+
+            // Anchor findInPageBar to topBarDivider.bottom
+            constraintSet.clear(R.id.findInPageBar, ConstraintSet.BOTTOM)
+            constraintSet.connect(R.id.findInPageBar, ConstraintSet.TOP, R.id.topBarDivider, ConstraintSet.BOTTOM, 0)
+        }
+
+        constraintSet.applyTo(binding.mainRoot)
+
+        // Reset any margin translation on toolbar
+        val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
+        if (lp != null) {
+            lp.topMargin = 0
+            lp.bottomMargin = 0
+            binding.topBar.layoutParams = lp
+        }
+
+        val baseBottomPaddingPx = (8 * resources.displayMetrics.density).toInt()
+        val topPaddingPx = (6 * resources.displayMetrics.density).toInt()
+
+        if (isBottom) {
+            binding.topBar.setPadding(
+                binding.topBar.paddingLeft,
+                topPaddingPx,
+                binding.topBar.paddingRight,
+                baseBottomPaddingPx + lastNavBarBottomInset
+            )
+            binding.contentContainer.setPadding(
+                binding.contentContainer.paddingLeft,
+                binding.contentContainer.paddingTop,
+                binding.contentContainer.paddingRight,
+                0
+            )
+            binding.searchOverlay.setPadding(0, 0, 0, 0)
+            val fabLp = binding.fabScrollToTop.layoutParams as? ViewGroup.MarginLayoutParams
+            if (fabLp != null) {
+                val barH = if (lastKnownTopBarHeight > 0) lastKnownTopBarHeight else (56 * resources.displayMetrics.density).toInt()
+                fabLp.bottomMargin = barH + (16 * resources.displayMetrics.density).toInt()
+                binding.fabScrollToTop.layoutParams = fabLp
+            }
+        } else {
+            binding.topBar.setPadding(
+                binding.topBar.paddingLeft,
+                topPaddingPx,
+                binding.topBar.paddingRight,
+                baseBottomPaddingPx
+            )
+            binding.contentContainer.setPadding(
+                binding.contentContainer.paddingLeft,
+                binding.contentContainer.paddingTop,
+                binding.contentContainer.paddingRight,
+                lastNavBarBottomInset
+            )
+            binding.searchOverlay.setPadding(0, 0, 0, lastNavBarBottomInset)
+            val fabLp = binding.fabScrollToTop.layoutParams as? ViewGroup.MarginLayoutParams
+            if (fabLp != null) {
+                fabLp.bottomMargin = (72 * resources.displayMetrics.density).toInt()
+                binding.fabScrollToTop.layoutParams = fabLp
+            }
+        }
+
+        binding.topBar.post {
+            if (binding.topBar.height > 0) {
+                lastKnownTopBarHeight = binding.topBar.height
+            }
+            if (isBottom) {
+                val fabLp = binding.fabScrollToTop.layoutParams as? ViewGroup.MarginLayoutParams
+                if (fabLp != null) {
+                    val barH = if (lastKnownTopBarHeight > 0) lastKnownTopBarHeight else (56 * resources.displayMetrics.density).toInt()
+                    val targetFabMargin = barH + (16 * resources.displayMetrics.density).toInt()
+                    if (fabLp.bottomMargin != targetFabMargin) {
+                        fabLp.bottomMargin = targetFabMargin
+                        binding.fabScrollToTop.layoutParams = fabLp
+                    }
+                }
             }
         }
     }
@@ -1855,34 +2056,54 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         val targetMargin = -barHeight
 
+        val isBottom = preferences.isAddressBarAtBottom
         toolbarAnimator?.cancel()
         if (animated) {
-            val currentMargin = (binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin ?: 0
+            val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
+            val currentMargin = if (isBottom) (lp?.bottomMargin ?: 0) else (lp?.topMargin ?: 0)
             toolbarAnimator = android.animation.ValueAnimator.ofInt(currentMargin, targetMargin).apply {
                 duration = 180L
                 interpolator = android.view.animation.DecelerateInterpolator()
                 addUpdateListener { animator ->
                     val margin = animator.animatedValue as Int
-                    val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return@addUpdateListener
-                    if (lp.topMargin != margin) {
-                        lp.topMargin = margin
-                        binding.topBar.layoutParams = lp
+                    val currentLp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return@addUpdateListener
+                    if (isBottom) {
+                        if (currentLp.bottomMargin != margin) {
+                            currentLp.bottomMargin = margin
+                            binding.topBar.layoutParams = currentLp
+                        }
+                    } else {
+                        if (currentLp.topMargin != margin) {
+                            currentLp.topMargin = margin
+                            binding.topBar.layoutParams = currentLp
+                        }
                     }
                 }
                 start()
             }
         } else {
             val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
-            if (lp != null && lp.topMargin != targetMargin) {
-                lp.topMargin = targetMargin
-                binding.topBar.layoutParams = lp
+            if (lp != null) {
+                if (isBottom) {
+                    if (lp.bottomMargin != targetMargin) {
+                        lp.bottomMargin = targetMargin
+                        binding.topBar.layoutParams = lp
+                    }
+                } else {
+                    if (lp.topMargin != targetMargin) {
+                        lp.topMargin = targetMargin
+                        binding.topBar.layoutParams = lp
+                    }
+                }
             }
         }
     }
 
     fun showToolbar(animated: Boolean = true) {
         if (isInPipMode() || customVideoView != null) return
-        val currentMargin = (binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin ?: 0
+        val isBottom = preferences.isAddressBarAtBottom
+        val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
+        val currentMargin = if (isBottom) (lp?.bottomMargin ?: 0) else (lp?.topMargin ?: 0)
         if (!isToolbarHidden && currentMargin == 0) return
 
         isToolbarHidden = false
@@ -1893,19 +2114,34 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 interpolator = android.view.animation.DecelerateInterpolator()
                 addUpdateListener { animator ->
                     val margin = animator.animatedValue as Int
-                    val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return@addUpdateListener
-                    if (lp.topMargin != margin) {
-                        lp.topMargin = margin
-                        binding.topBar.layoutParams = lp
+                    val currentLp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return@addUpdateListener
+                    if (isBottom) {
+                        if (currentLp.bottomMargin != margin) {
+                            currentLp.bottomMargin = margin
+                            binding.topBar.layoutParams = currentLp
+                        }
+                    } else {
+                        if (currentLp.topMargin != margin) {
+                            currentLp.topMargin = margin
+                            binding.topBar.layoutParams = currentLp
+                        }
                     }
                 }
                 start()
             }
         } else {
-            val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
-            if (lp != null && lp.topMargin != 0) {
-                lp.topMargin = 0
-                binding.topBar.layoutParams = lp
+            if (lp != null) {
+                if (isBottom) {
+                    if (lp.bottomMargin != 0) {
+                        lp.bottomMargin = 0
+                        binding.topBar.layoutParams = lp
+                    }
+                } else {
+                    if (lp.topMargin != 0) {
+                        lp.topMargin = 0
+                        binding.topBar.layoutParams = lp
+                    }
+                }
             }
         }
     }
@@ -3744,9 +3980,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             return
         }
 
-        // 2. Sync search engine & update home widgets
+        // 2. Sync search engine, address bar position & update home widgets
         updateSearchEngineIcon()
         updateHomeButtonAppearance()
+        val currentAddressBarAtBottom = preferences.isAddressBarAtBottom
+        if (lastAddressBarAtBottom != null && lastAddressBarAtBottom != currentAddressBarAtBottom) {
+            applyToolbarPosition(currentAddressBarAtBottom)
+        }
         com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
 
         // 3. Sync scroll to top FAB visibility & auto-hide toolbar state

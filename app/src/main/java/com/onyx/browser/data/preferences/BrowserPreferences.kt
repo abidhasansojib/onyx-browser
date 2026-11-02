@@ -401,6 +401,10 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_REPLACE_HOME_WITH_REFRESH, false)
         set(value) = prefs.edit().putBoolean(KEY_REPLACE_HOME_WITH_REFRESH, value).apply()
 
+    var isAddressBarAtBottom: Boolean
+        get() = prefs.getBoolean(KEY_ADDRESS_BAR_AT_BOTTOM, false)
+        set(value) = prefs.edit().putBoolean(KEY_ADDRESS_BAR_AT_BOTTOM, value).apply()
+
     // ── Anti-Adblock Detection Spoofing ──────────────────────────────────────
     /**
      * When enabled (Adblocker Spoofing), injects JS stubs (adsbygoogle.loaded, window.ga, window.gtag, fbq, etc.)
@@ -2281,6 +2285,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_PULL_TO_REFRESH = "pref_pull_to_refresh"
         const val KEY_FORCE_DARK_MODE = "pref_force_dark_mode"
         const val KEY_REPLACE_HOME_WITH_REFRESH = "pref_replace_home_with_refresh"
+        const val KEY_ADDRESS_BAR_AT_BOTTOM = "pref_address_bar_at_bottom"
 
         // ── Extended Permission Keys ──────────────────────────────────────────
         const val KEY_ALLOWED_NOTIF_DOMAINS = "pref_allowed_notif_domains"

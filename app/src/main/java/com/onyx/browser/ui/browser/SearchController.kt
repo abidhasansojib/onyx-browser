@@ -147,8 +147,9 @@ class SearchController(
         isSearchMode = true
 
         val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
-        if (lp != null && lp.topMargin != 0) {
+        if (lp != null && (lp.topMargin != 0 || lp.bottomMargin != 0)) {
             lp.topMargin = 0
+            lp.bottomMargin = 0
             binding.topBar.layoutParams = lp
         }
         (activity as? com.onyx.browser.MainActivity)?.showToolbar(animated = false)

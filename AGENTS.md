@@ -171,6 +171,7 @@ onyx-browser/
 11. **UI Presentation & Toolbar Customization Standards**:
    - Full-page settings activities must use native `CoordinatorLayout` + `MaterialToolbar` with edge-to-edge system insets and avoid floating dialogs for primary preference screens.
    - Address bar button customization (`isHomeReplacedWithRefresh`) must update dynamically in `onResume()` and `updateAddressBarDisplay()` without requiring activity recreation.
+   - Address bar position customization (`isAddressBarAtBottom`: Top vs. Bottom): Configured in `Settings > Appearance > Address bar customization` via a floating dual-choice card with phone silhouette graphics and spring physics micro-interactions (`PathInterpolator(0.22f, 1f, 0.36f, 1f)`). In `MainActivity`, dynamically adjusts `ConstraintSet` for `topBar`, `topBarDivider`, `progressBar`, `contentContainer`, `searchOverlay`, and `findInPageBar`, alongside system window insets, keyboard (IME) bottom offsets, and auto-hide scroll animations without requiring activity recreation or disrupting active tabs.
 12. **Userscript Engine & GM_* Bridge Standards**:
    - Parse Tampermonkey / Violentmonkey metadata headers (`// ==UserScript==` ... `// ==/UserScript==`: `@name`, `@version`, `@match`, `@include`, `@exclude`, `@run-at`, `@grant`, `@connect`, `@require`, `@updateURL`, `@downloadURL`).
    - Store script code bodies on the file system (`context.filesDir/userscripts/<id>.user.js`) rather than Room database SQLite columns to prevent `SQLiteBlobTooBigException` and Android CursorWindow 2MB limitations.
