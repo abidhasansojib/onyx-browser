@@ -735,8 +735,16 @@ class OnyxWebViewClient(
     ): WebResourceResponse? {
         if (request == null) return null
 
+        val reqUri = request.url ?: return null
+
+        // 0. Secure Local Asset Isolation via WebViewAssetLoader (HTTPS virtual origins)
+        val virtualAssetResponse = LocalFileLoader.interceptVirtualAsset(context, reqUri)
+        if (virtualAssetResponse != null) {
+            return virtualAssetResponse
+        }
+
         return try {
-            val url = request.url?.toString() ?: return null
+            val url = reqUri.toString()
 
             // Track current page URL and check main frame document against ad/domain blocklists
             if (request.isForMainFrame) {
@@ -2548,7 +2556,7 @@ class OnyxWebViewClient(
                 val encodedUrl = Uri.encode(error.failingUrl)
                 val encodedErr = Uri.encode(error.errorCodeString)
                 val encodedDesc = Uri.encode(error.description)
-                view?.post { view.loadUrl("file:///android_asset/error_page.html?url=$encodedUrl&error=$encodedErr&desc=$encodedDesc") }
+                view?.post { view.loadUrl("${LocalFileLoader.ASSET_BASE_URL}error_page.html?url=$encodedUrl&error=$encodedErr&desc=$encodedDesc") }
             }
         }
 

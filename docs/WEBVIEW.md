@@ -99,7 +99,7 @@ To ensure zero stutter and native 120Hz frame rates:
 ### 3.2 Loading Pages: `loadUrl` with Custom Headers
 - **`loadUrl(url, headers)`**: Primary navigation method used for all direct navigations with custom `DNT: 1` (Do Not Track) header attachment and `javascript:` execution.
 - **`loadDataWithBaseURL`**: Used for synthetic content (error pages, HTML data) loaded into the WebView without polluting session history.
-- **Error Page Isolation**: When loading synthetic error pages (network down, SSL failure), Onyx uses `loadDataWithBaseURL` with `https://onyx.browser/` base URI — a non-routable origin that prevents CSP leaks, avoids polluting session history, and prevents local asset path exposure. The original failing URL is passed as the history URL parameter so back navigation works correctly.
+- **Error Page & Asset Isolation via `WebViewAssetLoader`**: When loading synthetic error pages, document previews, or internal assets, Onyx routes through `androidx.webkit.WebViewAssetLoader` targeting `https://onyx.browser/` and `https://appassets.androidplatform.net/`. `AssetsPathHandler`, `ResourcesPathHandler`, and `InternalStoragePathHandler` serve `/assets/`, `/res/`, and `/preview/` under a valid HTTPS origin, enabling standard Web APIs, enforcing strict path traversal security, and completely avoiding `file://` scheme vulnerabilities. The original failing URL is passed as the history URL parameter so back navigation works correctly.
 
 ### 3.3 History Stack Navigation & State Preservation
 - **Back/Forward Stack**: Controlled via `webView.canGoBack()` and `webView.goBack()`.

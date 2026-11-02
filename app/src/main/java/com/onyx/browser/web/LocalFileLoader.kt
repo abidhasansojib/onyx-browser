@@ -10,6 +10,7 @@ import android.util.Base64
 import android.webkit.MimeTypeMap
 import android.webkit.WebResourceResponse
 import android.widget.Toast
+import androidx.webkit.WebViewAssetLoader
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.download.FileUtils
 import kotlinx.coroutines.CoroutineScope
@@ -42,6 +43,64 @@ object LocalFileLoader {
         MARKDOWN,
         TEXT,
         UNKNOWN
+    }
+
+    const val VIRTUAL_DOMAIN = "onyx.browser"
+    const val ASSET_BASE_URL = "https://$VIRTUAL_DOMAIN/assets/"
+    const val PREVIEW_BASE_URL = "https://$VIRTUAL_DOMAIN/preview/"
+
+    @Volatile
+    private var assetLoaderInstance: WebViewAssetLoader? = null
+
+    @Volatile
+    private var standardAssetLoaderInstance: WebViewAssetLoader? = null
+
+    fun getAssetLoader(context: Context): WebViewAssetLoader {
+        return assetLoaderInstance ?: synchronized(this) {
+            assetLoaderInstance ?: run {
+                val archivesDir = File(context.cacheDir, "web_archives").apply {
+                    if (!exists()) mkdirs()
+                }
+                WebViewAssetLoader.Builder()
+                    .setDomain(VIRTUAL_DOMAIN)
+                    .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+                    .addPathHandler("/res/", WebViewAssetLoader.ResourcesPathHandler(context))
+                    .addPathHandler("/preview/", WebViewAssetLoader.InternalStoragePathHandler(context, archivesDir))
+                    .build()
+                    .also { assetLoaderInstance = it }
+            }
+        }
+    }
+
+    fun getStandardAssetLoader(context: Context): WebViewAssetLoader {
+        return standardAssetLoaderInstance ?: synchronized(this) {
+            standardAssetLoaderInstance ?: run {
+                val archivesDir = File(context.cacheDir, "web_archives").apply {
+                    if (!exists()) mkdirs()
+                }
+                WebViewAssetLoader.Builder()
+                    .setDomain(WebViewAssetLoader.DEFAULT_DOMAIN)
+                    .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+                    .addPathHandler("/res/", WebViewAssetLoader.ResourcesPathHandler(context))
+                    .addPathHandler("/preview/", WebViewAssetLoader.InternalStoragePathHandler(context, archivesDir))
+                    .build()
+                    .also { standardAssetLoaderInstance = it }
+            }
+        }
+    }
+
+    /**
+     * Intercepts virtual HTTPS requests targeting [VIRTUAL_DOMAIN] or [WebViewAssetLoader.DEFAULT_DOMAIN].
+     * Maps `/assets/`, `/res/`, and `/preview/` paths securely to app assets, resources, and
+     * cached preview files without exposing filesystem file:// paths or allowing directory traversal.
+     */
+    fun interceptVirtualAsset(context: Context, url: Uri): WebResourceResponse? {
+        val host = url.host?.lowercase() ?: return null
+        return when (host) {
+            VIRTUAL_DOMAIN -> getAssetLoader(context).shouldInterceptRequest(url)
+            WebViewAssetLoader.DEFAULT_DOMAIN -> getStandardAssetLoader(context).shouldInterceptRequest(url)
+            else -> null
+        }
     }
 
     private var cachedMarkdownTemplate: String? = null
@@ -168,7 +227,9 @@ object LocalFileLoader {
 
     fun isPreviewUrl(url: String): Boolean {
         if (url.isBlank()) return false
-        return url.contains("/cache/web_archives/preview_")
+        return url.contains("/cache/web_archives/preview_") ||
+                url.startsWith(PREVIEW_BASE_URL, ignoreCase = true) ||
+                url.startsWith("https://${WebViewAssetLoader.DEFAULT_DOMAIN}/preview/", ignoreCase = true)
     }
 
     fun cleanupTabPreviews(context: Context, tabId: String) {
@@ -294,11 +355,7 @@ object LocalFileLoader {
                     withContext(Dispatchers.Main) {
                         if (rawMarkdown != null) {
                             val previewHtml = renderMarkdownToHtml(context, fileName, rawMarkdown)
-                            val documentBaseUrl = if (uri.scheme == "file" || uri.scheme == "content") {
-                                uri.toString()
-                            } else {
-                                "file://$resolvedPath"
-                            }
+                            val documentBaseUrl = PREVIEW_BASE_URL
                             webView.stopLoading()
                             webView.loadDataWithBaseURL(documentBaseUrl, previewHtml, "text/html", "UTF-8", rawUriOrPath)
                         } else {
@@ -317,11 +374,7 @@ object LocalFileLoader {
 
                     withContext(Dispatchers.Main) {
                         if (textContent != null) {
-                            val documentBaseUrl = if (uri.scheme == "file" || uri.scheme == "content") {
-                                uri.toString()
-                            } else {
-                                "file://$resolvedPath"
-                            }
+                            val documentBaseUrl = PREVIEW_BASE_URL
 
                             if (isMarkdownContent(fileName, textContent)) {
                                 val previewHtml = renderMarkdownToHtml(context, fileName, textContent)
@@ -902,11 +955,7 @@ object LocalFileLoader {
             </body>
             </html>
         """.trimIndent()
-        val baseUrl = if (pathOrUrl.startsWith("file://") || pathOrUrl.startsWith("content://")) {
-            pathOrUrl
-        } else {
-            "file://$pathOrUrl"
-        }
+        val baseUrl = ASSET_BASE_URL
         webView.loadDataWithBaseURL(baseUrl, errorHtml, "text/html", "UTF-8", pathOrUrl)
     }
 

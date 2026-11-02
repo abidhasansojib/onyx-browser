@@ -194,7 +194,9 @@ class OnyxWebView @JvmOverloads constructor(
                     url.startsWith("javascript:", ignoreCase = true) ||
                     url.startsWith("about:", ignoreCase = true) ||
                     url.startsWith("file:///android_asset/", ignoreCase = true) ||
-                    url.startsWith("file:///android_res/", ignoreCase = true)
+                    url.startsWith("file:///android_res/", ignoreCase = true) ||
+                    url.startsWith("https://onyx.browser/", ignoreCase = true) ||
+                    url.startsWith("https://appassets.androidplatform.net/", ignoreCase = true)
         }
     }
 
