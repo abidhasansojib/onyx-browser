@@ -339,23 +339,49 @@ class OnyxWebView @JvmOverloads constructor(
             )
         } catch (_: Exception) {}
 
-        // Blob Downloads Bridge
+        // Blob Downloads Bridge (Modern WebMessageListener with @JavascriptInterface fallback)
         try {
             val bridgeScope = (activity as? LifecycleOwner)?.lifecycleScope ?: webViewScope
-            addJavascriptInterface(
-                OnyxBlobBridge(context.applicationContext, bridgeScope),
-                "OnyxBlobBridge"
-            )
+            val blobBridge = OnyxBlobBridge(context.applicationContext, bridgeScope)
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER)) {
+                androidx.webkit.WebViewCompat.addWebMessageListener(
+                    this,
+                    "onyxBlobBridge",
+                    setOf("*"),
+                    blobBridge.createWebMessageListener()
+                )
+            } else {
+                addJavascriptInterface(blobBridge, "OnyxBlobBridge")
+            }
         } catch (_: Exception) {}
 
-        // Form POST capture bridge (lets downloads triggered by POST forms replay the original request)
+        // Form POST capture bridge (Modern WebMessageListener with @JavascriptInterface fallback)
         try {
-            addJavascriptInterface(OnyxFormBridge(), OnyxFormBridge.INTERFACE_NAME)
+            val formBridge = OnyxFormBridge()
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER)) {
+                androidx.webkit.WebViewCompat.addWebMessageListener(
+                    this,
+                    "onyxFormBridge",
+                    setOf("*"),
+                    formBridge.createWebMessageListener()
+                )
+            } else {
+                addJavascriptInterface(formBridge, OnyxFormBridge.INTERFACE_NAME)
+            }
         } catch (_: Exception) {}
 
-        // Interactive Elements Touch Bridge (instant context menu detection for links, media, and images)
+        // Interactive Elements Touch Bridge (Modern WebMessageListener with @JavascriptInterface fallback)
         try {
-            addJavascriptInterface(touchBridge, OnyxTouchBridge.INTERFACE_NAME)
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER)) {
+                androidx.webkit.WebViewCompat.addWebMessageListener(
+                    this,
+                    "onyxTouchBridge",
+                    setOf("*"),
+                    touchBridge.createWebMessageListener()
+                )
+            } else {
+                addJavascriptInterface(touchBridge, OnyxTouchBridge.INTERFACE_NAME)
+            }
         } catch (_: Exception) {}
 
         // Onyx Shield & AdBlock Whitelist Bridge (synchronous checks at document-start)

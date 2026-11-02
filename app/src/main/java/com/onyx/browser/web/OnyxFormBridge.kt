@@ -1,6 +1,12 @@
 package com.onyx.browser.web
 
+import android.net.Uri
 import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.WebMessageCompat
+import androidx.webkit.WebViewCompat
+import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -91,6 +97,24 @@ class OnyxFormBridge {
         )
     }
 
+    /**
+     * Creates a modern [WebViewCompat.WebMessageListener] for zero-reflection,
+     * UI-thread event delivery without exposing Java reflection objects on window.
+     */
+    fun createWebMessageListener(): WebViewCompat.WebMessageListener {
+        return WebViewCompat.WebMessageListener { _: WebView, message: WebMessageCompat, _: Uri, _: Boolean, _: JavaScriptReplyProxy ->
+            val data = message.data ?: return@WebMessageListener
+            try {
+                val json = JSONObject(data)
+                val action = json.optString("action")
+                val contentType = json.optString("contentType")
+                val body = json.optString("body")
+                val pageUrl = json.optString("pageUrl")
+                recordPost(action, contentType, body, pageUrl)
+            } catch (_: Throwable) {}
+        }
+    }
+
     companion object {
         const val INTERFACE_NAME = "OnyxFormBridge"
 
@@ -104,7 +128,8 @@ class OnyxFormBridge {
                 if (window.__onyxFormHooked) return;
                 window.__onyxFormHooked = true;
                 var bridge = window.OnyxFormBridge;
-                if (!bridge || typeof bridge.recordPost !== 'function') return;
+                var hasWebMessage = window.onyxFormBridge && typeof window.onyxFormBridge.postMessage === 'function';
+                if (!hasWebMessage && (!bridge || typeof bridge.recordPost !== 'function')) return;
 
                 function attr(el, name) {
                     try { return el && el.hasAttribute && el.hasAttribute(name) ? (el.getAttribute(name) || '') : null; } catch (_) { return null; }
@@ -164,7 +189,26 @@ class OnyxFormBridge {
                             entries.forEach(function(e) { params.append(e[0], typeof e[1] === 'string' ? e[1] : ''); });
                             body = params.toString();
                         }
-                        bridge.recordPost(action, contentType, body, location.href);
+                        function sendFormPost(action, contentType, body, pageUrl) {
+                            try {
+                                if (window.onyxFormBridge && typeof window.onyxFormBridge.postMessage === 'function') {
+                                    window.onyxFormBridge.postMessage(JSON.stringify({
+                                        action: action,
+                                        contentType: contentType,
+                                        body: body,
+                                        pageUrl: pageUrl
+                                    }));
+                                    return true;
+                                }
+                            } catch (_) {}
+                            return false;
+                        }
+
+                        if (!sendFormPost(action, contentType, body, location.href)) {
+                            if (bridge && typeof bridge.recordPost === 'function') {
+                                bridge.recordPost(action, contentType, body, location.href);
+                            }
+                        }
                     } catch (_) {}
                 }
 

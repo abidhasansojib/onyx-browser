@@ -732,24 +732,51 @@ object DownloadHandler {
                 var pageUrl = atob('$b64PageUrl');
 
                 function sendSuccess(dataUrl, resolvedName, resolvedMime) {
+                    var rName = resolvedName || defaultFileName;
+                    var rMime = resolvedMime || defaultMime || 'application/octet-stream';
+                    try {
+                        if (window.onyxBlobBridge && typeof window.onyxBlobBridge.postMessage === 'function') {
+                            window.onyxBlobBridge.postMessage(JSON.stringify({
+                                type: 'success',
+                                dataUrl: dataUrl,
+                                fileName: rName,
+                                mimeType: rMime,
+                                pageUrl: pageUrl
+                            }));
+                            return;
+                        }
+                    } catch (_) {}
                     if (window.OnyxBlobBridge && window.OnyxBlobBridge.onBlobDownloadedWithContext) {
                         window.OnyxBlobBridge.onBlobDownloadedWithContext(
                             dataUrl,
-                            resolvedName || defaultFileName,
-                            resolvedMime || defaultMime || 'application/octet-stream',
+                            rName,
+                            rMime,
                             pageUrl
                         );
                     } else if (window.OnyxBlobBridge && window.OnyxBlobBridge.onBlobDownloaded) {
                         window.OnyxBlobBridge.onBlobDownloaded(
                             dataUrl,
-                            resolvedName || defaultFileName,
-                            resolvedMime || defaultMime || 'application/octet-stream'
+                            rName,
+                            rMime
                         );
                     }
                 }
 
                 function sendFailed(err) {
                     var msg = (err && err.message) ? err.message : String(err);
+                    try {
+                        if (window.onyxBlobBridge && typeof window.onyxBlobBridge.postMessage === 'function') {
+                            window.onyxBlobBridge.postMessage(JSON.stringify({
+                                type: 'failed',
+                                error: msg,
+                                blobUrl: blobUrl,
+                                fileName: defaultFileName,
+                                mimeType: defaultMime,
+                                pageUrl: pageUrl
+                            }));
+                            return;
+                        }
+                    } catch (_) {}
                     if (window.OnyxBlobBridge && window.OnyxBlobBridge.onBlobFailedWithContext) {
                         window.OnyxBlobBridge.onBlobFailedWithContext(
                             msg,

@@ -186,6 +186,12 @@ webView.evaluateJavascript(script) { result ->
 ```
 This avoids UI thread blocking and prevents deadlocks associated with legacy synchronous `loadUrl("javascript:...")` patterns.
 
+### 5.4 Modern WebMessageListener IPC Architecture
+To eliminate anti-bot detection signatures and `JavaBridge` background-thread reflection overhead, asynchronous bridges (`OnyxTouchBridge`, `OnyxFormBridge`, `OnyxBlobBridge`) leverage `WebViewCompat.addWebMessageListener`:
+- **Zero Java Reflection on `window`**: Chromium exposes standard W3C `postMessage()` channel ports (`window.onyxTouchBridge`, `window.onyxFormBridge`, `window.onyxBlobBridge`) without Java reflection wrappers or `.getClass()` properties.
+- **Main Thread Delivery**: Incoming messages via `WebMessageListener.onPostMessage` execute directly on the Android UI thread, eliminating manual `Looper.getMainLooper()` marshaling and thread-race conditions.
+- **Backward Compatibility**: Seamlessly falls back to `@JavascriptInterface` on platforms where `WebViewFeature.WEB_MESSAGE_LISTENER` is unavailable. Synchronous APIs (such as `OnyxShieldBridge.isUrlBlocked`) retain direct `@JavascriptInterface` methods.
+
 ---
 
 ## 6. Memory Management, Resource Cleanup & Multi-Profile

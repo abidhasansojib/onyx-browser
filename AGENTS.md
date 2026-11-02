@@ -177,5 +177,9 @@ onyx-browser/
    - Inject `@run-at document-start` scripts at `onPageStarted` and `@run-at document-end` scripts at `onPageFinished`. Scripts are wrapped in an isolated IIFE with capability tokens, deduplicated against repeated single-page application navigation via `window.__onyxInjectedScripts`.
    - Native `@JavascriptInterface` bridge (`OnyxUserScriptBridge` registered at `window.onyxGM`) exposes scoped key-value storage (`GM_getValue`, `GM_setValue`, `GM_deleteValue`, `GM_listValues`), `@connect`-validated background networking (`GM_xmlhttpRequest`), clipboard (`GM_setClipboard`), notifications (`GM_notification`), dynamic DOM element injection (`GM_addStyle`, `GM_addElement`), tab spawning (`GM_openInTab` restricted to `http`/`https`), and dynamic page menu commands (`GM_registerMenuCommand`, `GM_unregisterMenuCommand`).
    - Script management UI is centralized in `Settings > Privacy & Security > Site settings > Scripts` with a top-right `+` button (New script editor, Import from URL, Import from file) and `Update` button.
+13. **WebMessageListener & Bridge IPC Standards**:
+   - Modern asynchronous bridges (`OnyxTouchBridge`, `OnyxFormBridge`, `OnyxBlobBridge`) must use `WebViewCompat.addWebMessageListener` when `WebViewFeature.WEB_MESSAGE_LISTENER` is supported, falling back to `@JavascriptInterface`.
+   - WebMessage channel ports (`window.onyxTouchBridge`, `window.onyxFormBridge`, `window.onyxBlobBridge`) do not leak Java reflection objects on `window`, eliminating anti-bot detection signatures.
+   - Synchronous APIs (such as `OnyxShieldBridge.isUrlBlocked`) and W3C WebAuthn passkeys (`_OnyxPasskeyBridge`) must maintain direct `@JavascriptInterface` contracts as required by their blocking or specification requirements.
 
 

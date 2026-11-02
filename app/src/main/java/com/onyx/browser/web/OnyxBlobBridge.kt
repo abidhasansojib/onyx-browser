@@ -1,11 +1,17 @@
 package com.onyx.browser.web
 
 import android.content.Context
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.webkit.JavascriptInterface
+import android.webkit.WebView
 import android.widget.Toast
+import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.WebMessageCompat
+import androidx.webkit.WebViewCompat
 import kotlinx.coroutines.CoroutineScope
+import org.json.JSONObject
 
 /**
  * JavaScript interface bridge for receiving converted blob data URLs from
@@ -82,5 +88,35 @@ class OnyxBlobBridge(
             mimeType = "",
             pageUrl = ""
         )
+    }
+
+    /**
+     * Creates a modern [WebViewCompat.WebMessageListener] for zero-reflection,
+     * UI-thread event delivery without exposing Java reflection objects on window.
+     */
+    fun createWebMessageListener(): WebViewCompat.WebMessageListener {
+        return WebViewCompat.WebMessageListener { _: WebView, message: WebMessageCompat, _: Uri, _: Boolean, _: JavaScriptReplyProxy ->
+            val data = message.data ?: return@WebMessageListener
+            try {
+                val json = JSONObject(data)
+                when (json.optString("type")) {
+                    "success" -> {
+                        val dataUrl = json.optString("dataUrl")
+                        val fileName = json.optString("fileName")
+                        val mimeType = json.optString("mimeType")
+                        val pageUrl = json.optString("pageUrl")
+                        onBlobDownloadedWithContext(dataUrl, fileName, mimeType, pageUrl)
+                    }
+                    "failed" -> {
+                        val error = json.optString("error")
+                        val blobUrl = json.optString("blobUrl")
+                        val fileName = json.optString("fileName")
+                        val mimeType = json.optString("mimeType")
+                        val pageUrl = json.optString("pageUrl")
+                        onBlobFailedWithContext(error, blobUrl, fileName, mimeType, pageUrl)
+                    }
+                }
+            } catch (_: Throwable) {}
+        }
     }
 }

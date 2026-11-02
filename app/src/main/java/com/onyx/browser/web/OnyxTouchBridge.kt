@@ -1,12 +1,21 @@
 package com.onyx.browser.web
 
+import android.net.Uri
 import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.WebMessageCompat
+import androidx.webkit.WebViewCompat
+import org.json.JSONObject
 
 /**
  * High-performance, zero-latency bridge between web DOM touch events and native Android.
  * Pre-computes and caches element hierarchy (links, nested anchor spans, images, videos)
  * on touchstart so that when onLongClickListener triggers, all link/media metadata
  * is already synchronously accessible on the main thread.
+ *
+ * Supports both modern [WebViewCompat.WebMessageListener] (via "onyxTouchBridge" message port)
+ * and legacy [@JavascriptInterface] (via "OnyxTouchBridge") for 100% backward compatibility.
  */
 class OnyxTouchBridge {
 
@@ -59,6 +68,36 @@ class OnyxTouchBridge {
     fun clear() {
         lastTouchedElement = TouchedElement()
         isPullToRefreshAllowed = true
+    }
+
+    /**
+     * Creates a modern [WebViewCompat.WebMessageListener] for zero-reflection,
+     * UI-thread event delivery without exposing Java reflection objects on window.
+     */
+    fun createWebMessageListener(): WebViewCompat.WebMessageListener {
+        return WebViewCompat.WebMessageListener { _: WebView, message: WebMessageCompat, _: Uri, _: Boolean, _: JavaScriptReplyProxy ->
+            val data = message.data ?: return@WebMessageListener
+            try {
+                val json = JSONObject(data)
+                when (json.optString("type")) {
+                    "ptr" -> {
+                        isPullToRefreshAllowed = json.optBoolean("allowed", true)
+                    }
+                    "touched" -> {
+                        lastTouchedElement = TouchedElement(
+                            linkUrl = json.optString("linkUrl").trim(),
+                            linkText = json.optString("linkText").trim(),
+                            imageUrl = json.optString("imageUrl").trim(),
+                            videoUrl = json.optString("videoUrl").trim()
+                        )
+                    }
+                    "cleared" -> {
+                        lastTouchedElement = TouchedElement()
+                        isPullToRefreshAllowed = true
+                    }
+                }
+            } catch (_: Throwable) {}
+        }
     }
 
     companion object {
@@ -150,6 +189,16 @@ class OnyxTouchBridge {
                     return false;
                 }
 
+                function postTouchMsg(msg) {
+                    try {
+                        if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                            window.onyxTouchBridge.postMessage(JSON.stringify(msg));
+                            return true;
+                        }
+                    } catch (_) {}
+                    return false;
+                }
+
                 document.addEventListener('touchstart', function(e) {
                     try {
                         __directionLocked = false;
@@ -167,8 +216,10 @@ class OnyxTouchBridge {
 
                         // ── 1. Evaluate Pull-To-Refresh Eligibility (static checks) ─────
                         var blocked = evaluatePullBlock(el);
-                        if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                            window.OnyxTouchBridge.setPullToRefreshAllowed(!blocked);
+                        if (!postTouchMsg({ type: 'ptr', allowed: !blocked })) {
+                            if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                                window.OnyxTouchBridge.setPullToRefreshAllowed(!blocked);
+                            }
                         }
 
                         // ── 2. Interactive Element Metadata Extraction ────────────────────
@@ -210,8 +261,10 @@ class OnyxTouchBridge {
                             }
                         }
 
-                        if (window.OnyxTouchBridge) {
-                            window.OnyxTouchBridge.onInteractiveElementTouched(linkUrl, linkText, imageUrl, videoUrl);
+                        if (!postTouchMsg({ type: 'touched', linkUrl: linkUrl, linkText: linkText, imageUrl: imageUrl, videoUrl: videoUrl })) {
+                            if (window.OnyxTouchBridge) {
+                                window.OnyxTouchBridge.onInteractiveElementTouched(linkUrl, linkText, imageUrl, videoUrl);
+                            }
                         }
                     } catch (err) {}
                 }, { passive: true, capture: true });
@@ -232,15 +285,20 @@ class OnyxTouchBridge {
                         if (Math.abs(deltaX) > Math.abs(deltaY)) return;
 
                         var bridge = window.OnyxTouchBridge;
-                        if (!bridge || typeof bridge.setPullToRefreshAllowed !== 'function') return;
+                        var hasWebMessage = window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function';
+                        if (!hasWebMessage && (!bridge || typeof bridge.setPullToRefreshAllowed !== 'function')) return;
 
                         if (deltaY < 0) {
                             // Swiping UP — pull-to-refresh requires a downward gesture, block it
-                            bridge.setPullToRefreshAllowed(false);
+                            if (!postTouchMsg({ type: 'ptr', allowed: false })) {
+                                bridge.setPullToRefreshAllowed(false);
+                            }
                         } else {
                             // Swiping DOWN — block if an inner scrollable container is mid-scroll
                             if (__scrollableTarget && __scrollableTarget.scrollTop > 0) {
-                                bridge.setPullToRefreshAllowed(false);
+                                if (!postTouchMsg({ type: 'ptr', allowed: false })) {
+                                    bridge.setPullToRefreshAllowed(false);
+                                }
                             }
                         }
                     } catch (_) {}
@@ -250,9 +308,11 @@ class OnyxTouchBridge {
                     __directionLocked = false;
                     __scrollableTarget = null;
                     setTimeout(function() {
-                        if (window.OnyxTouchBridge) {
-                            window.OnyxTouchBridge.onTouchCleared();
-                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                        if (!postTouchMsg({ type: 'cleared' })) {
+                            if (window.OnyxTouchBridge) {
+                                window.OnyxTouchBridge.onTouchCleared();
+                                window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                            }
                         }
                     }, 800);
                 }, { passive: true });
@@ -260,9 +320,11 @@ class OnyxTouchBridge {
                 document.addEventListener('touchcancel', function() {
                     __directionLocked = false;
                     __scrollableTarget = null;
-                    if (window.OnyxTouchBridge) {
-                        window.OnyxTouchBridge.onTouchCleared();
-                        window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                    if (!postTouchMsg({ type: 'cleared' })) {
+                        if (window.OnyxTouchBridge) {
+                            window.OnyxTouchBridge.onTouchCleared();
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                        }
                     }
                 }, { passive: true });
             })();
