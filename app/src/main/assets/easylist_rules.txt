@@ -34106,7 +34106,6 @@ ebay.com#@#li.s-item:has(span:has-text(SPONSORED))
 @@||rcijeux.fr/game/20minutes/$frame,domain=20minutes.fr
 @@||opgg-static.akamaized.net/*/tracker.js$script,domain=op.gg
 ||adswizz.com^$badfilter
-||adswizz.com^$3p
 @@||disqus.com/next/login/$popup
 ||rtl.de/pf/resources/js/videotracking.min.js$script,redirect=noopjs,1p
 @@||gstatic.com/*/adwords/partnerspublic/partners_public_*/partners/main.dart.js$script
@@ -35406,7 +35405,6 @@ delta.com#@#.adv-container
 ||shop.motorolasolutions.com/msi-files/libs/dynatrace.js$script,redirect=noopjs,from=shop.motorolasolutions.com
 ||shop.motorolasolutions.com/msi-files/page-tags/head/dynatrace-loader.js$script,redirect=noopjs,from=shop.motorolasolutions.com
 ||statcounter.com^$badfilter
-||statcounter.com^$3p
 vindobona.org#@#.ads_footer
 vindobona.org##.adZoneM
 vindobona.org##.adZonePC
@@ -49681,7 +49679,6 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||wondershare.es/jslibs/track.js
 ||wordpress.com/geo/
 ||work.selecdoo.com^
-||workers.dev/api/event
 ||workers.dev/js/script.js
 ||worldssl.net/reporting.js
 ||worldztool.com^*/dotraceuser.php
@@ -75794,6 +75791,7 @@ search.rakuten.co.jp##+js(aeld, mouseup, sendClickEvent)
 ||shopch.jp/com/js/analytics.js
 ||shueisha.online/op/analytics.js
 ||sidecar.unext.jp/track/
+||slorepo.com/v2/assets/srmeasure.js
 ||so-zou.jp/js/ga.js
 ||socialxup.com/api/sale-accounts
 ||socialxup.com/api/track
@@ -78073,6 +78071,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||ba.afl.rakuten.co.jp^
 ||backbeatmedia.com^
 ||backtension.com^
+||bagave.com^
 ||banik.redigy.cz^
 ||banner.ambercoastcasino.com^
 ||banner.cotedazurpalace.com^
