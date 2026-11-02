@@ -245,3 +245,9 @@ To sustain uninterrupted audio and video playback when switching tabs, locking t
    - Detached WebViews running media retain timer execution (`resumeTimers()`).
    - `MediaPlaybackService` holds both `PARTIAL_WAKE_LOCK` and high-performance `WifiLock` to prevent device sleep and network streaming timeouts with screen off.
    - Refreshes YouTube mobile inactivity (`window._lact`) every 30 seconds to bypass "Video paused. Continue watching?" interruptions.
+
+### 6.4 Multi-Process Renderer Priority Policy
+On Android 8.0+ (API 26+), Onyx dynamically manages Chromium renderer process priorities via `WebView.setRendererPriorityPolicy`:
+- **Active Foreground Tab**: Assigned `RENDERER_PRIORITY_IMPORTANT, waiveWhenNotVisible = false`. The kernel Low Memory Killer (LMK) protects the active browsing tab.
+- **Background Inactive Tabs**: Assigned `RENDERER_PRIORITY_WAIVED, waiveWhenNotVisible = true` upon tab switch or app backgrounding. Under memory pressure, background renderers are reclaimed first without terminating the browser process or the active tab. Dead renderers are gracefully recovered upon re-selection via `onRenderProcessGone` and `restoreTabState`.
+- **Background Media Tab Protection**: Tabs actively playing background audio or video retain `RENDERER_PRIORITY_IMPORTANT, waiveWhenNotVisible = false` to guarantee continuous, uninterrupted playback.

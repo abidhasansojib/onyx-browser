@@ -1783,8 +1783,18 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     val isPlayingMedia = preferences.isBackgroundPlayEnabled && (previousTabId == MediaPlaybackBridge.currentPlayingTabId)
                     if (!isPlayingMedia) {
                         outgoingWebView.onPause()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            try {
+                                outgoingWebView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_WAIVED, true)
+                            } catch (_: Throwable) {}
+                        }
                     } else {
                         outgoingWebView.resumeTimers()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            try {
+                                outgoingWebView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+                            } catch (_: Throwable) {}
+                        }
                         if (!MediaPlaybackService.isServiceRunning && (MediaPlaybackBridge.isAudioOrVideoPlaying || MediaPlaybackBridge.isVideoPlaying)) {
                             MediaPlaybackService.start(
                                 this,
@@ -2020,8 +2030,18 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val isPlayingCurrent = preferences.isBackgroundPlayEnabled && (currentChild?.tabId == MediaPlaybackBridge.currentPlayingTabId)
             if (!isPlayingCurrent) {
                 currentChild?.onPause()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        currentChild?.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_WAIVED, true)
+                    } catch (_: Throwable) {}
+                }
             } else {
                 currentChild?.resumeTimers()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        currentChild?.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+                    } catch (_: Throwable) {}
+                }
                 if (!MediaPlaybackService.isServiceRunning && (MediaPlaybackBridge.isAudioOrVideoPlaying || MediaPlaybackBridge.isVideoPlaying)) {
                     MediaPlaybackService.start(
                         this,
@@ -2046,6 +2066,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             )
 
             setupWebViewClients(webView)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+                } catch (_: Throwable) {}
+            }
             webView.onResume()
         }
     }
@@ -3628,8 +3653,18 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             tabManager.getAllWebViews().forEach { wv ->
                 if (wv == mediaTabWv) {
                     wv.evaluateJavascript(MediaPlaybackManager.getSetBackgroundStateScript(true), null)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        try {
+                            wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+                        } catch (_: Throwable) {}
+                    }
                 } else {
                     wv.onPause()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        try {
+                            wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_WAIVED, true)
+                        } catch (_: Throwable) {}
+                    }
                 }
             }
             mediaTabWv?.resumeTimers()
@@ -3639,6 +3674,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 mediaTabWv?.evaluateJavascript(MediaPlaybackManager.pauseAllMediaScript, null)
             }
             tabManager.getActiveWebView()?.onPause()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                tabManager.getAllWebViews().forEach { wv ->
+                    try {
+                        wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_WAIVED, true)
+                    } catch (_: Throwable) {}
+                }
+            }
         }
     }
 

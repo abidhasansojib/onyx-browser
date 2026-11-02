@@ -263,6 +263,13 @@ class OnyxWebView @JvmOverloads constructor(
                 offscreenPreRaster = true
             }
 
+            // Multi-process Renderer Priority Policy (waived when hidden/backgrounded)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                try {
+                    setRendererPriorityPolicy(RENDERER_PRIORITY_BOUND, true)
+                } catch (_: Throwable) {}
+            }
+
             // Local File & Content Access for HTML / Markdown Previews
             allowFileAccess = true
             allowContentAccess = true
