@@ -7,6 +7,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -67,6 +70,12 @@ class InstallUserScriptBottomSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+            val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            v.updatePadding(bottom = (24 * resources.displayMetrics.density).toInt() + navBars.bottom)
+            insets
+        }
 
         binding.btnErrorDismiss.setOnClickListener { dismiss() }
         binding.btnCancel.setOnClickListener { dismiss() }
@@ -180,7 +189,20 @@ class InstallUserScriptBottomSheet : BottomSheetDialogFragment() {
 
         // Cross-domain request warning
         val hasNetworkAccess = grants.any { it.contains("xmlhttpRequest", ignoreCase = true) }
-        binding.layoutWarningNetwork.visibility = if (hasNetworkAccess) View.VISIBLE else View.GONE
+        if (hasNetworkAccess) {
+            binding.layoutWarningNetwork.visibility = View.VISIBLE
+            val connectDomains = meta.connects
+            if (connectDomains.isNotEmpty()) {
+                binding.tvWarningDesc.text = getString(
+                    R.string.userscripts_perm_network_warning_connect,
+                    connectDomains.joinToString(", ")
+                )
+            } else {
+                binding.tvWarningDesc.text = getString(R.string.userscripts_perm_network_warning)
+            }
+        } else {
+            binding.layoutWarningNetwork.visibility = View.GONE
+        }
 
         // View Source Button: Open script in full-screen editor
         binding.btnViewSource.setOnClickListener {

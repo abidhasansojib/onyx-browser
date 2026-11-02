@@ -768,7 +768,9 @@
     <string name="userscripts_fetching">Fetching script details…</string>
     <string name="userscripts_target_sites">TARGET SITES</string>
     <string name="userscripts_permissions_title">PERMISSIONS &amp; CAPABILITIES</string>
-    <string name="userscripts_perm_network_warning">Requests cross-origin network access</string>
+    <string name="userscripts_perm_network_warning_title">Cross-Origin Network Access</string>
+    <string name="userscripts_perm_network_warning">This script can make requests to external servers and transmit data.</string>
+    <string name="userscripts_perm_network_warning_connect">Requests external network access to: %1$s</string>
     <string name="userscripts_perm_none">No special permissions requested</string>
     <string name="userscripts_btn_view_source">View Code</string>
     <string name="userscripts_btn_cancel">Cancel</string>

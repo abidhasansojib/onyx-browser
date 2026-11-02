@@ -55,9 +55,17 @@ class UserScriptEditorActivity : AppCompatActivity() {
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
 
-            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
+            binding.appBarLayout.updatePadding(
+                top = statusBarInsets.top,
+                left = statusBarInsets.left,
+                right = statusBarInsets.right
+            )
             val bottomInset = if (imeInsets.bottom > 0) imeInsets.bottom else navBarInsets.bottom
-            binding.etScriptCode.updatePadding(bottom = bottomInset + (16 * resources.displayMetrics.density).toInt())
+            binding.etScriptCode.updatePadding(
+                left = (16 * resources.displayMetrics.density).toInt() + navBarInsets.left,
+                right = (16 * resources.displayMetrics.density).toInt() + navBarInsets.right,
+                bottom = bottomInset + (16 * resources.displayMetrics.density).toInt()
+            )
             insets
         }
 
@@ -106,6 +114,8 @@ class UserScriptEditorActivity : AppCompatActivity() {
                 val code = manager.readCodeFile(scriptId)
                 withContext(Dispatchers.Main) {
                     binding.etScriptCode.setText(code)
+                    binding.etScriptCode.setSelection(0)
+                    binding.etScriptCode.scrollTo(0, 0)
                 }
             }
         } else if (!codeFromMemory.isNullOrBlank() || intent.hasExtra(EXTRA_SCRIPT_CODE)) {
@@ -115,10 +125,14 @@ class UserScriptEditorActivity : AppCompatActivity() {
             binding.tvEditorTitle.text = metadata?.name ?: getString(R.string.userscripts_editor_title_new)
             binding.btnDelete.visibility = View.GONE
             binding.etScriptCode.setText(code)
+            binding.etScriptCode.setSelection(0)
+            binding.etScriptCode.scrollTo(0, 0)
         } else {
             binding.tvEditorTitle.text = getString(R.string.userscripts_editor_title_new)
             binding.btnDelete.visibility = View.GONE
             binding.etScriptCode.setText(DEFAULT_STARTER_TEMPLATE)
+            binding.etScriptCode.setSelection(0)
+            binding.etScriptCode.scrollTo(0, 0)
         }
 
         binding.btnSave.setOnClickListener {

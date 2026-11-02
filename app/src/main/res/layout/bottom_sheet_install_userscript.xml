@@ -288,32 +288,50 @@
                             android:id="@+id/layoutWarningNetwork"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:background="@drawable/bg_pill_danger"
+                            android:layout_marginTop="10dp"
+                            android:background="@drawable/bg_warning_banner"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
-                            android:paddingStart="10dp"
-                            android:paddingTop="6dp"
-                            android:paddingEnd="10dp"
-                            android:paddingBottom="6dp"
+                            android:paddingStart="12dp"
+                            android:paddingTop="10dp"
+                            android:paddingEnd="12dp"
+                            android:paddingBottom="10dp"
                             android:visibility="gone"
                             tools:visibility="visible">
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="⚠️"
-                                android:textSize="11sp" />
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="top"
+                                android:layout_marginTop="1dp"
+                                app:srcCompat="@drawable/ic_alert_triangle"
+                                app:tint="@color/warning_banner_title" />
 
-                            <TextView
+                            <LinearLayout
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="6dp"
+                                android:layout_marginStart="10dp"
                                 android:layout_weight="1"
-                                android:text="@string/userscripts_perm_network_warning"
-                                android:textColor="@color/red_danger"
-                                android:textSize="11.5sp"
-                                android:textStyle="bold" />
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvWarningTitle"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/userscripts_perm_network_warning_title"
+                                    android:textColor="@color/warning_banner_title"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvWarningDesc"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="@string/userscripts_perm_network_warning"
+                                    android:textColor="@color/settings_subtitle_text"
+                                    android:textSize="11.5sp" />
+                            </LinearLayout>
                         </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -333,9 +351,17 @@
                 android:id="@+id/btnViewSource"
                 style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="40dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
                 android:text="@string/userscripts_btn_view_source"
-                app:icon="@drawable/ic_code" />
+                android:textColor="@color/settings_title_text"
+                android:textSize="13sp"
+                app:icon="@drawable/ic_code"
+                app:iconSize="18dp"
+                app:iconTint="?attr/colorControlNormal" />
 
             <Space
                 android:layout_width="0dp"
@@ -346,16 +372,32 @@
                 android:id="@+id/btnCancel"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/userscripts_btn_cancel" />
+                android:layout_height="40dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="@string/userscripts_btn_cancel"
+                android:textColor="@color/settings_subtitle_text"
+                android:textSize="13sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnInstall"
+                style="@style/Widget.Material3.Button"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="40dp"
                 android:layout_marginStart="8dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:text="@string/userscripts_btn_install"
-                app:icon="@drawable/ic_add" />
+                android:textColor="@color/on_primary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                app:icon="@drawable/ic_add"
+                app:iconSize="18dp"
+                app:iconTint="@color/on_primary" />
         </LinearLayout>
     </LinearLayout>
 

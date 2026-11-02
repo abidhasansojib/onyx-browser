@@ -43,6 +43,10 @@
     <color name="btn_clear_bg">#DC4B64</color>
     <color name="btn_apply_text">#1C1C1E</color>
     <color name="google_blue">#8AB4F8</color>
+    <color name="red_danger">#F28B82</color>
+    <color name="warning_banner_bg">#20F28B82</color>
+    <color name="warning_banner_stroke">#40F28B82</color>
+    <color name="warning_banner_title">#F28B82</color>
 
     <!-- Settings Screen (#161616 matte charcoal canvas & #202020 card containers) -->
     <color name="settings_canvas_bg">#161616</color>

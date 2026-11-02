@@ -4,7 +4,9 @@
     android:id="@+id/editorRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/settings_canvas_bg">
+    android:background="@color/settings_canvas_bg"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
 
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
@@ -18,45 +20,64 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:contentInsetStartWithNavigation="0dp"
+            app:contentInsetEnd="0dp"
             app:navigationIcon="@drawable/ic_close"
             app:navigationIconTint="?attr/colorControlNormal">
 
-            <TextView
-                android:id="@+id/tvEditorTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="start|center_vertical"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="@string/userscripts_editor_title_new"
-                android:textColor="@color/settings_title_text"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingEnd="12dp">
 
-            <androidx.appcompat.widget.AppCompatImageButton
-                android:id="@+id/btnDelete"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_gravity="end|center_vertical"
-                android:layout_marginEnd="4dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/userscripts_delete"
-                android:visibility="gone"
-                app:srcCompat="@drawable/ic_delete"
-                app:tint="?attr/colorError" />
+                <TextView
+                    android:id="@+id/tvEditorTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="12dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:singleLine="true"
+                    android:text="@string/userscripts_editor_title_new"
+                    android:textColor="@color/settings_title_text"
+                    android:textSize="17.5sp"
+                    android:textStyle="bold" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSave"
-                style="@style/Widget.Material3.Button.TonalButton"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_gravity="end|center_vertical"
-                android:layout_marginEnd="12dp"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
-                android:text="@string/userscripts_save"
-                android:textSize="13sp" />
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnDelete"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="6dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/userscripts_delete"
+                    android:visibility="gone"
+                    app:srcCompat="@drawable/ic_delete"
+                    app:tint="?attr/colorError" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSave"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:minWidth="68dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:text="@string/userscripts_save"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </com.google.android.material.appbar.MaterialToolbar>
+
+        <View
+            android:id="@+id/toolbarDivider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/settings_card_stroke" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <FrameLayout
@@ -73,6 +94,7 @@
             android:hint="// Write or paste your userscript here..."
             android:importantForAutofill="no"
             android:inputType="textMultiLine|textNoSuggestions"
+            android:lineSpacingExtra="3dp"
             android:padding="16dp"
             android:scrollbars="vertical"
             android:overScrollMode="always"
@@ -80,7 +102,8 @@
             android:textColor="@color/settings_title_text"
             android:textColorHint="@color/settings_subtitle_text"
             android:textSize="13.5sp"
-            android:typeface="monospace" />
+            android:typeface="monospace"
+            android:fontFamily="monospace" />
     </FrameLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
