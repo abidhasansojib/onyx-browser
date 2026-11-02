@@ -20,6 +20,28 @@ import java.nio.charset.StandardCharsets
 object AdBlockServiceWorkerHelper {
     private const val TAG = "AdBlockServiceWorker"
 
+    private val EMPTY_VAST_BYTES: ByteArray =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?><VAST version=\"3.0\"/>".toByteArray(StandardCharsets.UTF_8)
+
+    private val WILDCARD_CORS_HEADERS: Map<String, String> = mapOf(
+        "Access-Control-Allow-Origin" to "*",
+        "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+        "Access-Control-Allow-Headers" to "*"
+    )
+    private val EMPTY_403_WILDCARD_HEADERS: Map<String, String> = mapOf(
+        "Access-Control-Allow-Origin" to "*",
+        "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+        "Access-Control-Allow-Headers" to "*",
+        "Content-Length" to "0"
+    )
+    private val EMPTY_VAST_WILDCARD_HEADERS: Map<String, String> = mapOf(
+        "Access-Control-Allow-Origin" to "*",
+        "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+        "Access-Control-Allow-Headers" to "*",
+        "Content-Type" to "text/xml; charset=utf-8",
+        "Content-Length" to EMPTY_VAST_BYTES.size.toString()
+    )
+
     fun initialize(context: Context) {
         try {
             if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
@@ -120,12 +142,10 @@ object AdBlockServiceWorkerHelper {
                                     "Vary" to "Origin"
                                 )
                             } else {
-                                mapOf(
-                                    "Access-Control-Allow-Origin" to "*",
-                                    "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
-                                    "Access-Control-Allow-Headers" to "*"
-                                )
+                                WILDCARD_CORS_HEADERS
                             }
+
+                            val isWildcard = (corsHeaders === WILDCARD_CORS_HEADERS)
 
                             val uncloakedUrl = AdBlockDomainManager.uncloakUrl(url)
                             val method = request.method ?: "GET"
@@ -157,12 +177,16 @@ object AdBlockServiceWorkerHelper {
                                                 } else {
                                                     Uri.decode(data).toByteArray(StandardCharsets.UTF_8)
                                                 }
+                                                val headers = corsHeaders + mapOf(
+                                                    "Content-Type" to "$mime; charset=utf-8",
+                                                    "Content-Length" to bytes.size.toString()
+                                                )
                                                 return WebResourceResponse(
                                                     mime,
                                                     "UTF-8",
                                                     200,
                                                     "OK",
-                                                    corsHeaders + ("Content-Type" to "$mime; charset=utf-8"),
+                                                    headers,
                                                     ByteArrayInputStream(bytes)
                                                 )
                                             }
@@ -178,24 +202,36 @@ object AdBlockServiceWorkerHelper {
                                         lowerUrl.contains("/pagead/ads?") || lowerUrl.contains("doubleclick.net/gampad/") ||
                                         lowerUrl.contains("ad-vast") || lowerUrl.contains("spotxchange") || lowerUrl.contains("fwmrm.net/ad/"))
                                 if (isVastTag) {
-                                    val emptyVast = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><VAST version=\"3.0\"/>"
+                                    val headers = if (isWildcard) {
+                                        EMPTY_VAST_WILDCARD_HEADERS
+                                    } else {
+                                        corsHeaders + mapOf(
+                                            "Content-Type" to "text/xml; charset=utf-8",
+                                            "Content-Length" to EMPTY_VAST_BYTES.size.toString()
+                                        )
+                                    }
                                     return WebResourceResponse(
                                         "text/xml",
                                         "UTF-8",
                                         200,
                                         "OK",
-                                        corsHeaders + ("Content-Type" to "text/xml; charset=utf-8"),
-                                        ByteArrayInputStream(emptyVast.toByteArray(StandardCharsets.UTF_8))
+                                        headers,
+                                        ByteArrayInputStream(EMPTY_VAST_BYTES)
                                     )
                                 }
 
+                                val headers = if (isWildcard) {
+                                    EMPTY_403_WILDCARD_HEADERS
+                                } else {
+                                    corsHeaders + ("Content-Length" to "0")
+                                }
                                 return WebResourceResponse(
                                     "text/plain",
                                     "UTF-8",
                                     403,
                                     "Blocked by Onyx Shields",
-                                    corsHeaders,
-                                    ByteArrayInputStream(ByteArray(0))
+                                    headers,
+                                    EmptyInputStream
                                 )
                             }
                             null

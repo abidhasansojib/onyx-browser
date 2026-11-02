@@ -37,6 +37,8 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object LocalFileLoader {
 
+    private val EMPTY_403_HEADERS = mapOf("Content-Length" to "0")
+
     enum class LocalFileType {
         HTML,
         MHTML,
@@ -779,7 +781,7 @@ object LocalFileLoader {
 
         if (url.startsWith("file://", ignoreCase = true) || url.startsWith("content://", ignoreCase = true)) {
             if (isSensitiveOrRestrictedPath(context, url)) {
-                return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+                return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", EMPTY_403_HEADERS, EmptyInputStream)
             }
         }
 

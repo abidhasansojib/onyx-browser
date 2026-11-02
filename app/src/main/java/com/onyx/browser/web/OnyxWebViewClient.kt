@@ -435,6 +435,122 @@ class OnyxWebViewClient(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
             Base64.DEFAULT
         )
+        private val EMPTY_VAST_BYTES: ByteArray =
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><VAST version=\"3.0\"/>".toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+        private val BLOCKED_SUBFRAME_BYTES: ByteArray =
+            "<!-- blocked subframe -->".toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+        private val BLOCKED_MAIN_FRAME_HTML_BYTES: ByteArray =
+            "<!DOCTYPE html><html><head><title>Blocked by Onyx Shields</title></head><body></body></html>".toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+        private val BLOCKED_STORAGE_ACCESS_BYTES: ByteArray =
+            "Access to private app storage is blocked.".toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+        private val GSI_STUB_BYTES: ByteArray = """
+            window.google = window.google || {};
+            window.google.accounts = window.google.accounts || {};
+            window.google.accounts.id = {
+                initialize: function() {},
+                prompt: function() {},
+                renderButton: function() {},
+                disableAutoSelect: function() {},
+                storeCredential: function() {},
+                cancel: function() {},
+                revoke: function() {}
+            };
+        """.trimIndent().toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+
+        // Pre-allocated static header maps for zero-allocation fast-paths
+        private val WILDCARD_CORS_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0"
+        )
+        private val EMPTY_403_WILDCARD_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
+            "Content-Length" to "0"
+        )
+        private val EMPTY_403_NO_HEADERS: Map<String, String> = mapOf(
+            "Content-Length" to "0"
+        )
+        private val EMPTY_JS_WILDCARD_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
+            "Content-Type" to "application/javascript; charset=utf-8",
+            "Content-Length" to "0"
+        )
+        private val EMPTY_CSS_WILDCARD_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
+            "Content-Type" to "text/css; charset=utf-8",
+            "Content-Length" to "0"
+        )
+        private val EMPTY_FONT_WILDCARD_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
+            "Content-Type" to "font/woff2",
+            "Content-Length" to "0"
+        )
+        private val EMPTY_MEDIA_WILDCARD_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
+            "Content-Type" to "video/mp4",
+            "Content-Length" to "0"
+        )
+        private val EMPTY_TEXT_WILDCARD_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
+            "Content-Type" to "text/plain; charset=utf-8",
+            "Content-Length" to "0"
+        )
+        private val EMPTY_PNG_WILDCARD_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
+            "Content-Type" to "image/png",
+            "Content-Length" to TRANSPARENT_1X1_PNG.size.toString()
+        )
+        private val EMPTY_VAST_WILDCARD_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
+            "Content-Type" to "text/xml; charset=utf-8",
+            "Content-Length" to EMPTY_VAST_BYTES.size.toString()
+        )
+        private val BLOCKED_SUBFRAME_WILDCARD_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers" to "*",
+            "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
+            "Content-Type" to "text/html; charset=utf-8",
+            "Content-Length" to BLOCKED_SUBFRAME_BYTES.size.toString()
+        )
+        private val BLOCKED_MAIN_FRAME_WILDCARD_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Content-Type" to "text/html; charset=utf-8",
+            "Content-Length" to BLOCKED_MAIN_FRAME_HTML_BYTES.size.toString()
+        )
+        private val BLOCKED_STORAGE_ACCESS_HEADERS: Map<String, String> = mapOf(
+            "Content-Length" to BLOCKED_STORAGE_ACCESS_BYTES.size.toString()
+        )
+        private val GSI_STUB_HEADERS: Map<String, String> = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Content-Type" to "application/javascript; charset=utf-8",
+            "Content-Length" to GSI_STUB_BYTES.size.toString()
+        )
 
         fun isStreamingOrMediaPage(url: String): Boolean {
             if (url.isBlank()) return false
@@ -523,12 +639,7 @@ class OnyxWebViewClient(
                 "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0"
             )
         } else {
-            mapOf(
-                "Access-Control-Allow-Origin" to "*",
-                "Access-Control-Allow-Methods" to "GET, POST, OPTIONS, HEAD",
-                "Access-Control-Allow-Headers" to "*",
-                "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0"
-            )
+            WILDCARD_CORS_HEADERS
         }
     }
 
@@ -538,6 +649,7 @@ class OnyxWebViewClient(
         requestOrigin: String? = null
     ): WebResourceResponse {
         val corsHeaders = buildCorsHeaders(requestOrigin)
+        val isWildcard = (corsHeaders === WILDCARD_CORS_HEADERS)
 
         // Check if request is an XHR/fetch VAST / VMAP XML ad tag (never <script>, <img>, or <iframe>):
         // return valid empty VAST XML so video players (JWPlayer, VideoJS, IMA SDK, FluidPlayer)
@@ -557,14 +669,21 @@ class OnyxWebViewClient(
         )
 
         if (isVastOrVmapTag) {
-            val emptyVast = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><VAST version=\"3.0\"/>"
+            val headers = if (isWildcard) {
+                EMPTY_VAST_WILDCARD_HEADERS
+            } else {
+                corsHeaders + mapOf(
+                    "Content-Type" to "text/xml; charset=utf-8",
+                    "Content-Length" to EMPTY_VAST_BYTES.size.toString()
+                )
+            }
             return WebResourceResponse(
                 "text/xml",
                 "UTF-8",
                 200,
                 "OK",
-                corsHeaders + ("Content-Type" to "text/xml; charset=utf-8"),
-                ByteArrayInputStream(emptyVast.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+                headers,
+                ByteArrayInputStream(EMPTY_VAST_BYTES)
             )
         }
 
@@ -582,13 +701,18 @@ class OnyxWebViewClient(
         // in AdBlockDocumentStart (throwing TypeError: net::ERR_BLOCKED_BY_CLIENT / onerror),
         // while DOM subresources (<script>, <img>, <iframe>) receive HTTP 403 and trigger onerror.
         if (!preferences.isAntiAdblockDetectionEnabled || isImaSdkScript) {
+            val headers = if (isWildcard) {
+                EMPTY_403_WILDCARD_HEADERS
+            } else {
+                corsHeaders + ("Content-Length" to "0")
+            }
             return WebResourceResponse(
                 "text/plain",
                 "UTF-8",
                 403,
                 "Blocked by Onyx Shields",
-                corsHeaders,
-                ByteArrayInputStream(ByteArray(0))
+                headers,
+                EmptyInputStream
             )
         }
 
@@ -597,73 +721,129 @@ class OnyxWebViewClient(
         // and bypass anti-adblock detection walls without breaking page layout.
         return when (resourceType) {
             "image" -> {
+                val headers = if (isWildcard) {
+                    EMPTY_PNG_WILDCARD_HEADERS
+                } else {
+                    corsHeaders + mapOf(
+                        "Content-Type" to "image/png",
+                        "Content-Length" to TRANSPARENT_1X1_PNG.size.toString()
+                    )
+                }
                 WebResourceResponse(
                     "image/png",
                     "UTF-8",
                     200,
                     "OK",
-                    corsHeaders + ("Content-Type" to "image/png"),
+                    headers,
                     ByteArrayInputStream(TRANSPARENT_1X1_PNG)
                 )
             }
             "script" -> {
+                val headers = if (isWildcard) {
+                    EMPTY_JS_WILDCARD_HEADERS
+                } else {
+                    corsHeaders + mapOf(
+                        "Content-Type" to "application/javascript; charset=utf-8",
+                        "Content-Length" to "0"
+                    )
+                }
                 WebResourceResponse(
                     "application/javascript",
                     "UTF-8",
                     200,
                     "OK",
-                    corsHeaders + ("Content-Type" to "application/javascript; charset=utf-8"),
-                    ByteArrayInputStream(ByteArray(0))
+                    headers,
+                    EmptyInputStream
                 )
             }
             "stylesheet" -> {
+                val headers = if (isWildcard) {
+                    EMPTY_CSS_WILDCARD_HEADERS
+                } else {
+                    corsHeaders + mapOf(
+                        "Content-Type" to "text/css; charset=utf-8",
+                        "Content-Length" to "0"
+                    )
+                }
                 WebResourceResponse(
                     "text/css",
                     "UTF-8",
                     200,
                     "OK",
-                    corsHeaders + ("Content-Type" to "text/css; charset=utf-8"),
-                    ByteArrayInputStream(ByteArray(0))
+                    headers,
+                    EmptyInputStream
                 )
             }
             "sub_frame" -> {
+                val headers = if (isWildcard) {
+                    BLOCKED_SUBFRAME_WILDCARD_HEADERS
+                } else {
+                    corsHeaders + mapOf(
+                        "Content-Type" to "text/html; charset=utf-8",
+                        "Content-Length" to BLOCKED_SUBFRAME_BYTES.size.toString()
+                    )
+                }
                 WebResourceResponse(
                     "text/html",
                     "UTF-8",
                     200,
                     "OK",
-                    corsHeaders + ("Content-Type" to "text/html; charset=utf-8"),
-                    ByteArrayInputStream("<!-- blocked subframe -->".toByteArray())
+                    headers,
+                    ByteArrayInputStream(BLOCKED_SUBFRAME_BYTES)
                 )
             }
             "font" -> {
+                val headers = if (isWildcard) {
+                    EMPTY_FONT_WILDCARD_HEADERS
+                } else {
+                    corsHeaders + mapOf(
+                        "Content-Type" to "font/woff2",
+                        "Content-Length" to "0"
+                    )
+                }
                 WebResourceResponse(
                     "font/woff2",
                     "UTF-8",
                     200,
                     "OK",
-                    corsHeaders + ("Content-Type" to "font/woff2"),
-                    ByteArrayInputStream(ByteArray(0))
+                    headers,
+                    EmptyInputStream
                 )
             }
             "media" -> {
+                val headers = if (isWildcard) {
+                    EMPTY_MEDIA_WILDCARD_HEADERS
+                } else {
+                    corsHeaders + mapOf(
+                        "Content-Type" to "video/mp4",
+                        "Content-Length" to "0"
+                    )
+                }
                 WebResourceResponse(
                     "video/mp4",
                     "UTF-8",
                     200,
                     "OK",
-                    corsHeaders + ("Content-Type" to "video/mp4"),
-                    ByteArrayInputStream(ByteArray(0))
+                    headers,
+                    EmptyInputStream
                 )
             }
             else -> {
+                val headers = if (isWildcard) {
+                    EMPTY_TEXT_WILDCARD_HEADERS
+                } else {
+                    corsHeaders + mapOf(
+                        "Content-Type" to "text/plain; charset=utf-8",
+                        "Content-Length" to "0"
+                    )
+                }
                 WebResourceResponse(
                     "text/plain",
                     "UTF-8",
                     200,
                     "OK",
-                    corsHeaders + ("Content-Type" to "text/plain; charset=utf-8"),
-                    ByteArrayInputStream(ByteArray(0))
+                    headers,
+                    EmptyInputStream
                 )
             }
         }
@@ -700,7 +880,10 @@ class OnyxWebViewClient(
                         "UTF-8",
                         200,
                         "OK",
-                        corsHeaders + ("Content-Type" to "$mimeType; charset=utf-8"),
+                        corsHeaders + mapOf(
+                            "Content-Type" to "$mimeType; charset=utf-8",
+                            "Content-Length" to bytes.size.toString()
+                        ),
                         ByteArrayInputStream(bytes)
                     )
                 }
@@ -711,13 +894,17 @@ class OnyxWebViewClient(
                 resourceType == "xml" || redirectData.startsWith("<?xml") || redirectData.contains("<VAST") || redirectData.contains("<vmap") -> "text/xml"
                 else -> "application/javascript"
             }
+            val bytes = redirectData.toByteArray(Charsets.UTF_8)
             WebResourceResponse(
                 mime,
                 "UTF-8",
                 200,
                 "OK",
-                corsHeaders + ("Content-Type" to "$mime; charset=utf-8"),
-                ByteArrayInputStream(redirectData.toByteArray(Charsets.UTF_8))
+                corsHeaders + mapOf(
+                    "Content-Type" to "$mime; charset=utf-8",
+                    "Content-Length" to bytes.size.toString()
+                ),
+                ByteArrayInputStream(bytes)
             )
         } catch (t: Throwable) {
             null
@@ -771,8 +958,8 @@ class OnyxWebViewClient(
                                 "UTF-8",
                                 403,
                                 "Forbidden",
-                                emptyMap(),
-                                ByteArrayInputStream("Access to private app storage is blocked.".toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+                                BLOCKED_STORAGE_ACCESS_HEADERS,
+                                ByteArrayInputStream(BLOCKED_STORAGE_ACCESS_BYTES)
                             )
                         }
                     }
@@ -813,11 +1000,8 @@ class OnyxWebViewClient(
                                 "UTF-8",
                                 403,
                                 "Blocked by Onyx Shields",
-                                mapOf(
-                                    "Access-Control-Allow-Origin" to "*",
-                                    "Content-Type" to "text/html; charset=utf-8"
-                                ),
-                                ByteArrayInputStream("<!DOCTYPE html><html><head><title>Blocked by Onyx Shields</title></head><body></body></html>".toByteArray())
+                                BLOCKED_MAIN_FRAME_WILDCARD_HEADERS,
+                                ByteArrayInputStream(BLOCKED_MAIN_FRAME_HTML_BYTES)
                             )
                         }
 
@@ -834,11 +1018,8 @@ class OnyxWebViewClient(
                                     "UTF-8",
                                     403,
                                     "Blocked by Onyx Shields",
-                                    mapOf(
-                                        "Access-Control-Allow-Origin" to "*",
-                                        "Content-Type" to "text/html; charset=utf-8"
-                                    ),
-                                    ByteArrayInputStream("<!DOCTYPE html><html><head><title>Blocked by Onyx Shields</title></head><body></body></html>".toByteArray())
+                                    BLOCKED_MAIN_FRAME_WILDCARD_HEADERS,
+                                    ByteArrayInputStream(BLOCKED_MAIN_FRAME_HTML_BYTES)
                                 )
                             }
                         }
@@ -857,7 +1038,7 @@ class OnyxWebViewClient(
                     val onyxWv = view as? OnyxWebView
                     if (url.startsWith("file://", ignoreCase = true) && LocalFileLoader.isSensitiveOrRestrictedPath(context, url)) {
                         if (!LocalFileLoader.isAuthorizedPreviewForTab(onyxWv?.tabId, url)) {
-                            return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+                            return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", EMPTY_403_NO_HEADERS, EmptyInputStream)
                         }
                     }
                     return LocalFileLoader.interceptLocalSubResource(context, url)
@@ -941,29 +1122,13 @@ class OnyxWebViewClient(
                     ?: !preferences.isGoogleSignInBlockedGlobal
                 if (!isGoogleSignInAllowed && !pageDomain.endsWith("google.com") && !currentDomain.endsWith("google.com")) {
                     recordBlockedRequest(view)
-                    val gsiStub = """
-                        window.google = window.google || {};
-                        window.google.accounts = window.google.accounts || {};
-                        window.google.accounts.id = {
-                            initialize: function() {},
-                            prompt: function() {},
-                            renderButton: function() {},
-                            disableAutoSelect: function() {},
-                            storeCredential: function() {},
-                            cancel: function() {},
-                            revoke: function() {}
-                        };
-                    """.trimIndent()
                     return WebResourceResponse(
                         "application/javascript",
                         "UTF-8",
                         200,
                         "OK",
-                        mapOf(
-                            "Access-Control-Allow-Origin" to "*",
-                            "Content-Type" to "application/javascript; charset=utf-8"
-                        ),
-                        ByteArrayInputStream(gsiStub.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+                        GSI_STUB_HEADERS,
+                        ByteArrayInputStream(GSI_STUB_BYTES)
                     )
                 }
             }
