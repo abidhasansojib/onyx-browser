@@ -269,3 +269,8 @@ To prevent the Android Low Memory Killer (LMK) from killing Onyx during heavy de
    - On `TRIM_MEMORY_UI_HIDDEN` (app backgrounded): Tab switcher bitmap thumbnails are evicted from Dalvik/ART heap (reloaded from disk `.webp` cache when opened), all active normal tab states are persisted to disk, and background tabs idle for over 15 minutes are hibernated.
    - On `TRIM_MEMORY_RUNNING_CRITICAL` or `TRIM_MEMORY_COMPLETE`: In-memory rule caches in `AdBlockEngine` (`requestDecisionCache`, `checkUrlCache`, `exceptionsCache`, `genericHideCache`) and CNAME alias caches in `AdBlockDomainManager` are flushed. Normal background tabs (strictly preserving any tab actively playing media via `MediaPlaybackBridge.currentPlayingTabId`) are hibernated to disk, freeing native Chromium buffers and GPU textures.
    - On `TRIM_MEMORY_RUNNING_LOW` or `TRIM_MEMORY_MODERATE`: In-memory thumbnail LRU cache is trimmed to 50% capacity.
+
+### 6.7 Chromium Runtime Async Pre-Warming (`WebViewCompat.startUpWebView`)
+To eliminate the 200–400ms main-thread hitch caused by loading `libwebviewchromium.so`, spawning Chromium sandbox processes, and initializing the V8 JavaScript engine during cold launch:
+- In `OnyxApplication.onCreate()`, `preWarmChromiumRuntimeAsync()` leverages `androidx.webkit:webkit:1.16.0+`'s `WebViewCompat.startUpWebView`.
+- Offloads Chromium C++ native runtime and sandbox initialization to a dedicated background worker thread (`OnyxChromiumPreWarm`), priming the webview subsystem concurrently while the application initializes databases and UI resources.

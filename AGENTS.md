@@ -186,5 +186,8 @@ onyx-browser/
    - `OnyxApplication`, `MainActivity`, and `TabManager` must handle system memory trimming callbacks (`ComponentCallbacks2.onTrimMemory` and `onLowMemory`).
    - On `TRIM_MEMORY_UI_HIDDEN`, tab switcher preview bitmaps are evicted from memory (saved WebP snapshots remain on disk), active tab states are written to disk, and non-active idle tabs older than 15 minutes are hibernated.
    - On `TRIM_MEMORY_RUNNING_CRITICAL` or `TRIM_MEMORY_COMPLETE`, temporary in-memory rule and CNAME caches in `AdBlockEngine` (`clearDecisionCache()`) and `AdBlockDomainManager` (`clearCache()`) are evicted, bitmap thumbnail caches are purged, and non-active normal background tabs (strictly excluding any tab actively playing background media) are safely hibernated with their state persisted to disk.
+15. **Chromium Runtime Async Pre-Warming (`WebViewCompat.startUpWebView`)**:
+   - `OnyxApplication.onCreate()` initiates asynchronous Chromium pre-warming via `WebViewCompat.startUpWebView(context, startUpConfig, outcomeReceiver)` on a dedicated background worker executor.
+   - Offloads `libwebviewchromium.so` native loading, IPC daemons, and V8 engine boot from the UI thread, eliminating cold-boot startup hitches.
 
 

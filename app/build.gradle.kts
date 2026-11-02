@@ -143,7 +143,7 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // AndroidX WebKit & Media Playback
-    implementation("androidx.webkit:webkit:1.12.1")
+    implementation("androidx.webkit:webkit:1.16.0")
     implementation("androidx.media:media:1.7.0")
     implementation("androidx.biometric:biometric:1.1.0")
 
