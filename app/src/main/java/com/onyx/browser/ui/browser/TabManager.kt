@@ -1,6 +1,7 @@
 package com.onyx.browser.ui.browser
 
 import android.app.Activity
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -495,12 +496,55 @@ class TabManager(
         setActiveTab(updatedTab)
     }
 
-    fun hibernateIdleTabs() {
-        val cutoff = System.currentTimeMillis() - (24 * 60 * 60 * 1000L) // 24 hours
+    /**
+     * Handles system memory trimming callbacks (ComponentCallbacks2.onTrimMemory).
+     * Reclaims memory gracefully according to the pressure severity.
+     */
+    fun onTrimMemory(level: Int) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { onTrimMemory(level) }
+            return
+        }
+
+        when {
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
+            level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> {
+                // Critical memory crunch:
+                // 1. Evict in-memory bitmap thumbnails (persisted WebP thumbnails reload from disk as needed)
+                snapshotCache.evictAll()
+                // 2. Persist states for all normal tabs to disk
+                saveAllTabStates()
+                // 3. Hibernate non-active background normal tabs (preserving any active media playback tab)
+                hibernateBackgroundTabs(aggressive = true)
+            }
+            level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> {
+                // App UI is hidden (user pressed Home or switched apps):
+                // 1. Evict full-res bitmap thumbnails to free ART heap
+                snapshotCache.evictAll()
+                // 2. Persist all normal tab states
+                saveAllTabStates()
+                // 3. Hibernate idle background normal tabs older than 15 minutes
+                hibernateBackgroundTabs(aggressive = false, maxAgeMs = 15 * 60 * 1000L)
+            }
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+            level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE -> {
+                // Moderate pressure while app is foregrounded:
+                // Trim in-memory thumbnail cache by half
+                snapshotCache.trimToSize(snapshotCache.maxSize() / 2)
+            }
+        }
+    }
+
+    fun hibernateBackgroundTabs(aggressive: Boolean = false, maxAgeMs: Long = if (aggressive) 0L else 30 * 60 * 1000L) {
+        val activeId = _activeTab.value?.id
+        val playingId = com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId
+        val cutoff = System.currentTimeMillis() - maxAgeMs
         
         var hasNormalChanges = false
         val updatedNormal = _normalTabs.value.map { tab ->
-            if (tab.id != _activeTab.value?.id && !tab.isHibernated && tab.lastAccessedAt < cutoff) {
+            val isPlayingBackgroundMedia = (tab.id == playingId)
+            val isEligible = (tab.id != activeId) && !isPlayingBackgroundMedia && !tab.isHibernated && (aggressive || tab.lastAccessedAt < cutoff)
+            if (isEligible) {
                 val webView = webViewPool.remove(tab.id)
                 if (webView != null) {
                     saveTabState(tab.id, webView)
@@ -519,21 +563,10 @@ class TabManager(
         if (hasNormalChanges) {
             _normalTabs.value = updatedNormal
         }
-        
-        var hasIncognitoChanges = false
-        val updatedIncognito = _incognitoTabs.value.map { tab ->
-            if (tab.id != _activeTab.value?.id && !tab.isHibernated && tab.lastAccessedAt < cutoff) {
-                val webView = webViewPool.remove(tab.id)
-                webView?.destroySafely()
-                hasIncognitoChanges = true
-                tab.copy(isHibernated = true)
-            } else {
-                tab
-            }
-        }
-        if (hasIncognitoChanges) {
-            _incognitoTabs.value = updatedIncognito
-        }
+    }
+
+    fun hibernateIdleTabs() {
+        hibernateBackgroundTabs(aggressive = false, maxAgeMs = 24 * 60 * 60 * 1000L)
     }
 
     private fun extractRootDomain(host: String): String = com.onyx.browser.web.SiteDataManager.extractRootDomain(host)

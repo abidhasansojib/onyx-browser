@@ -134,5 +134,38 @@ class OnyxApplication : Application() {
             workRequest
         )
     }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        try {
+            when {
+                level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
+                level >= android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> {
+                    AdBlockEngine.clearDecisionCache()
+                    com.onyx.browser.web.AdBlockDomainManager.clearCache()
+                    com.onyx.browser.ui.browser.TabManager.activeInstance?.onTrimMemory(level)
+                }
+                level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ||
+                level >= android.content.ComponentCallbacks2.TRIM_MEMORY_MODERATE -> {
+                    AdBlockEngine.clearDecisionCache()
+                    com.onyx.browser.web.AdBlockDomainManager.clearCache()
+                    com.onyx.browser.ui.browser.TabManager.activeInstance?.onTrimMemory(level)
+                }
+            }
+        } catch (t: Throwable) {
+            Log.e("OnyxApplication", "Error during onTrimMemory", t)
+        }
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        try {
+            AdBlockEngine.clearDecisionCache()
+            com.onyx.browser.web.AdBlockDomainManager.clearCache()
+            com.onyx.browser.ui.browser.TabManager.activeInstance?.onTrimMemory(android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
+        } catch (t: Throwable) {
+            Log.e("OnyxApplication", "Error during onLowMemory", t)
+        }
+    }
 }
 

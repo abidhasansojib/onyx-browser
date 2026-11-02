@@ -4046,6 +4046,15 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         displayTab(newTab)
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        try {
+            tabManager.onTrimMemory(level)
+        } catch (t: Throwable) {
+            android.util.Log.e("MainActivity", "Error handling onTrimMemory in MainActivity", t)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         pendingFilePathCallback?.onReceiveValue(null)

@@ -261,3 +261,11 @@ During typical web browsing on ad-heavy websites, `OnyxWebViewClient.shouldInter
    - Replaces repeated `ByteArrayInputStream(ByteArray(0))` instantiations with a stateless, thread-safe `EmptyInputStream` singleton that returns EOF immediately.
 3. **Pre-Allocated Static Headers**:
    - Common wildcard CORS responses (`EMPTY_403_WILDCARD_HEADERS`, `EMPTY_JS_WILDCARD_HEADERS`, `EMPTY_CSS_WILDCARD_HEADERS`, `EMPTY_FONT_WILDCARD_HEADERS`, `EMPTY_MEDIA_WILDCARD_HEADERS`, `EMPTY_TEXT_WILDCARD_HEADERS`, `EMPTY_PNG_WILDCARD_HEADERS`, `EMPTY_VAST_WILDCARD_HEADERS`) are cached as immutable static singletons, eliminating hundreds of temporary `HashMap` allocations and reducing Dalvik/ART GC churn during rapid page navigation.
+
+### 6.6 Memory Pressure Handlers (`ComponentCallbacks2.onTrimMemory`)
+To prevent the Android Low Memory Killer (LMK) from killing Onyx during heavy device multitasking or low-RAM events:
+1. **`ComponentCallbacks2.onTrimMemory` Lifecycle Handling**:
+   - Implemented in `OnyxApplication`, `MainActivity`, and `TabManager`.
+   - On `TRIM_MEMORY_UI_HIDDEN` (app backgrounded): Tab switcher bitmap thumbnails are evicted from Dalvik/ART heap (reloaded from disk `.webp` cache when opened), all active normal tab states are persisted to disk, and background tabs idle for over 15 minutes are hibernated.
+   - On `TRIM_MEMORY_RUNNING_CRITICAL` or `TRIM_MEMORY_COMPLETE`: In-memory rule caches in `AdBlockEngine` (`requestDecisionCache`, `checkUrlCache`, `exceptionsCache`, `genericHideCache`) and CNAME alias caches in `AdBlockDomainManager` are flushed. Normal background tabs (strictly preserving any tab actively playing media via `MediaPlaybackBridge.currentPlayingTabId`) are hibernated to disk, freeing native Chromium buffers and GPU textures.
+   - On `TRIM_MEMORY_RUNNING_LOW` or `TRIM_MEMORY_MODERATE`: In-memory thumbnail LRU cache is trimmed to 50% capacity.

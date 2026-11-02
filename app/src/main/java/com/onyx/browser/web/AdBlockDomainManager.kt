@@ -49,6 +49,10 @@ object AdBlockDomainManager {
 
     private val cnameCache = object : android.util.LruCache<String, String>(512) {}
 
+    fun clearCache() {
+        cnameCache.evictAll()
+    }
+
     fun uncloakDomain(domain: String): String {
         val d = domain.lowercase().trim()
         if (d.isBlank()) return d

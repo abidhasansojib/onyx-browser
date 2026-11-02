@@ -59,6 +59,8 @@ object AdBlockEngine {
     fun clearDecisionCache() {
         requestDecisionCache.evictAll()
         checkUrlCache.evictAll()
+        exceptionsCache.evictAll()
+        genericHideCache.evictAll()
     }
 
     external fun initEngine(data: ByteArray): Boolean

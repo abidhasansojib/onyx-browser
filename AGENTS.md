@@ -182,5 +182,9 @@ onyx-browser/
    - Modern asynchronous bridges (`OnyxTouchBridge`, `OnyxFormBridge`, `OnyxBlobBridge`) must use `WebViewCompat.addWebMessageListener` when `WebViewFeature.WEB_MESSAGE_LISTENER` is supported, falling back to `@JavascriptInterface`.
    - WebMessage channel ports (`window.onyxTouchBridge`, `window.onyxFormBridge`, `window.onyxBlobBridge`) do not leak Java reflection objects on `window`, eliminating anti-bot detection signatures.
    - Synchronous APIs (such as `OnyxShieldBridge.isUrlBlocked`) and W3C WebAuthn passkeys (`_OnyxPasskeyBridge`) must maintain direct `@JavascriptInterface` contracts as required by their blocking or specification requirements.
+14. **System Memory Pressure & Lifecycle Optimization (`ComponentCallbacks2.onTrimMemory`)**:
+   - `OnyxApplication`, `MainActivity`, and `TabManager` must handle system memory trimming callbacks (`ComponentCallbacks2.onTrimMemory` and `onLowMemory`).
+   - On `TRIM_MEMORY_UI_HIDDEN`, tab switcher preview bitmaps are evicted from memory (saved WebP snapshots remain on disk), active tab states are written to disk, and non-active idle tabs older than 15 minutes are hibernated.
+   - On `TRIM_MEMORY_RUNNING_CRITICAL` or `TRIM_MEMORY_COMPLETE`, temporary in-memory rule and CNAME caches in `AdBlockEngine` (`clearDecisionCache()`) and `AdBlockDomainManager` (`clearCache()`) are evicted, bitmap thumbnail caches are purged, and non-active normal background tabs (strictly excluding any tab actively playing background media) are safely hibernated with their state persisted to disk.
 
 
