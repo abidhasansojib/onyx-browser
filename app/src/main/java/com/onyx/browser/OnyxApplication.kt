@@ -73,7 +73,6 @@ class OnyxApplication : Application() {
             val prefs = BrowserPreferences.getInstance(this)
             if (prefs.isClearOnExitEnabled && prefs.hasPendingExitClearance) {
                 com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(this)
-                prefs.hasPendingExitClearance = false
             }
         } catch (t: Throwable) {
             Log.e("OnyxApplication", "Failed to run clear-on-exit recovery in onCreate", t)

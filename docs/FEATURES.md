@@ -31,7 +31,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Per-Site Shields & Exceptions**: Easily toggle adblocking, HTTPS upgrades, and script rules per domain from the omnibox shield icon.
 - `[x]` **Unified Script Blocking & JavaScript Control**: Shields "Block Scripts" and Site Settings "JavaScript" are fully synchronized bidirectionally at both global and per-domain levels.
 - `[x]` **Cookie & Site Storage Autoclear on Tab Close**: Standardized "Clear data on tab close" lifecycle and exit-time cookie/WebStorage purging.
-- `[x]` **Comprehensive Clear Data on Exit**: Automatically purges browsing history, normal tabs, cookies across all Chromium profiles, WebStorage, WebView caches, HTTP auth, form data, and preview thumbnails across all exit vectors (Back navigation, Recent Apps task dismissal via ClearOnExitService, and interrupted-exit cold start recovery).
+- `[x]` **Comprehensive Clear Data on Exit**: Automatically purges browsing history, normal tabs, cookies across all Chromium profiles (synchronized with CountDownLatch), WebStorage, WebView caches, HTTP auth, form data, serialized tab states, and preview thumbnails across all exit vectors (Back navigation, Recent Apps task dismissal via ClearOnExitService, background minimize + task kill via lifecycle-staged pending clearance, and interrupted-exit cold start recovery).
 - `[x]` **Social Media SSO Shield**: Comprehensive third-party authentication blocking (Google Sign-In, Facebook logins, Twitter, LinkedIn embeds).
 - `[x]` **WebRTC IP Leak Protection**: WebRTC IP handling toggleable in both Shields & Privacy and Site Settings.
 - `[x]` **DNS-over-HTTPS (DoH)**: Built-in support for Cloudflare, Google, NextDNS, and custom DoH resolver endpoints.
@@ -121,7 +121,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 ## 8. UI, Theming & Accessibility
 
 - `[x]` **Theme Modes & Web Dark Mode**: Seamless switching between System, Dark, and Light themes, with algorithmic Force Dark Web Contents toggleable directly in the Theme Picker and Accessibility settings.
-- `[x]` **Customizable Address Bar Position (Top vs. Bottom)**: Sleek floating dual-choice settings card in Settings > Appearance > Address bar customization with spring-physics transitions and phone silhouette previews. Dynamically switches between Top and Bottom toolbar placement via ConstraintSet and Edge-to-Edge window/IME insets without activity recreation.
+- `[x]` **Customizable Address Bar Position (Top vs. Bottom)**: Sleek floating dual-choice settings card in Settings > Appearance > Address bar customization under "Address Bar position" with spring-physics transitions, "Top" / "Bottom" text labels, dynamic accent-tinted badges, and phone silhouette previews. Dynamically switches between Top and Bottom toolbar placement via ConstraintSet and Edge-to-Edge window/IME insets without activity recreation.
 - `[x]` **Auto-Hide Address Bar on Scroll (Scroll-to-Hide)**: Address bar smoothly slides out of view when scrolling down to maximize screen space and slides back into view when scrolling up (with reserved status bar space preventing web content overlap), with dedicated toggle in Accessibility settings.
 - `[x]` **Material 3 Site Settings & Permission Dialogs**: Clean bottom-sheet dialogs for Camera, Microphone, Location, and Notification permissions.
 - `[x]` **Configurable Pull-to-Refresh**: Density-scaled pull sensitivity with user disable toggle.

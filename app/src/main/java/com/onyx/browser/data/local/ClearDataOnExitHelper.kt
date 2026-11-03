@@ -70,17 +70,19 @@ object ClearDataOnExitHelper {
 
         // 3. Clear Chromium Cookies across Default and Multi-Profiles
         try {
-            CookieManager.getInstance().removeAllCookies {
+            val cookieLatch = java.util.concurrent.CountDownLatch(1)
+            val cm = CookieManager.getInstance()
+            cm.removeAllCookies {
                 try {
-                    CookieManager.getInstance().flush()
+                    cm.flush()
                 } catch (_: Throwable) {}
+                cookieLatch.countDown()
             }
-            CookieManager.getInstance().removeSessionCookies {
-                try {
-                    CookieManager.getInstance().flush()
-                } catch (_: Throwable) {}
-            }
-            CookieManager.getInstance().flush()
+            cm.removeSessionCookies(null)
+            try {
+                cookieLatch.await(1000, java.util.concurrent.TimeUnit.MILLISECONDS)
+            } catch (_: Throwable) {}
+            cm.flush()
 
             if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
                 try {
@@ -128,6 +130,11 @@ object ClearDataOnExitHelper {
         try {
             val wvCacheDir = File(appContext.cacheDir, "org.chromium.android_webview")
             if (wvCacheDir.exists()) wvCacheDir.deleteRecursively()
+        } catch (_: Throwable) {}
+
+        try {
+            val stateDir = File(appContext.filesDir, "tab_states")
+            if (stateDir.exists()) stateDir.deleteRecursively()
         } catch (_: Throwable) {}
 
         // 7. Reset session preferences

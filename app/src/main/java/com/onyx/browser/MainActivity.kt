@@ -3773,7 +3773,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        tabManager.saveAllTabStates()
+        if (!preferences.isClearOnExitEnabled) {
+            tabManager.saveAllTabStates()
+        }
     }
 
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
@@ -3818,6 +3820,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onStart() {
         super.onStart()
+        if (preferences.isClearOnExitEnabled) {
+            preferences.hasPendingExitClearance = false
+        }
         MediaPlaybackBridge.isAppInBackground = false
         registerNetworkRecoveryCallback()
         
@@ -3867,7 +3872,12 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onStop() {
         super.onStop()
-        tabManager.saveAllTabStates()
+        if (preferences.isClearOnExitEnabled && !isChangingConfigurations) {
+            preferences.hasPendingExitClearance = true
+        }
+        if (!preferences.isClearOnExitEnabled) {
+            tabManager.saveAllTabStates()
+        }
         unregisterNetworkRecoveryCallback()
         tabManager.isIncognitoUnlocked = false
         val isPip = isInPipMode()
@@ -4337,6 +4347,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (isFinishing) {
             if (preferences.isClearOnExitEnabled) {
                 com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
+                preferences.hasPendingExitClearance = false
             }
             tabManager.closeAllTabs(incognitoOnly = true)
             com.onyx.browser.incognito.IncognitoNotificationHelper.dismissNotification(this)

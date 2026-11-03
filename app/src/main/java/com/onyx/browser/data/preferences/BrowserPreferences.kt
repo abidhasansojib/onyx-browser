@@ -388,7 +388,9 @@ class BrowserPreferences private constructor(private val context: Context) {
 
     var hasPendingExitClearance: Boolean
         get() = prefs.getBoolean(KEY_HAS_PENDING_EXIT_CLEARANCE, false)
-        set(value) = prefs.edit().putBoolean(KEY_HAS_PENDING_EXIT_CLEARANCE, value).apply()
+        set(value) {
+            prefs.edit().putBoolean(KEY_HAS_PENDING_EXIT_CLEARANCE, value).commit()
+        }
 
     // ── Pull to Refresh ──────────────────────────────────────────────────────
     var isPullToRefreshEnabled: Boolean
