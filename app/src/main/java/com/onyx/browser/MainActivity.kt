@@ -2653,7 +2653,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 cleanLink != null && cleanImg != null ->
                     ContextMenuBottomSheet.forImageLink(cleanLink, cleanImg, cleanText, isIncognito = isIncognito)
                 cleanVid != null ->
-                    ContextMenuBottomSheet.forVideo(cleanVid, isIncognito = isIncognito)
+                    ContextMenuBottomSheet.forVideo(cleanVid, cleanLink, cleanText, isIncognito = isIncognito)
                 cleanImg != null ->
                     ContextMenuBottomSheet.forImage(cleanImg, isIncognito = isIncognito)
                 cleanLink != null ->
@@ -2664,8 +2664,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u, isIncognito = isIncognito) }
             sheet.setOnOpenInIncognitoTab { u -> openUrlInIncognitoTab(u) }
             sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
-            sheet.setOnDownloadUrl { u ->
-                val cookies = webView.cookieManager.getCookie(u) ?: ""
+            sheet.setOnDownloadUrl { u, mime ->
+                val cookies = try {
+                    webView.cookieManager.getCookie(u) ?: ""
+                } catch (_: Exception) { "" }
                 val userAgent = webView.settings.userAgentString ?: ""
                 FormPostRegistry.claimForDownload(u)
                 DownloadHandler.handleDownload(
@@ -2674,7 +2676,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     url = u,
                     userAgent = userAgent,
                     contentDisposition = "",
-                    mimeType = "",
+                    mimeType = mime,
                     contentLength = -1L,
                     cookies = cookies,
                     referer = webView.url ?: ""
@@ -2782,6 +2784,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                                 var linkText = a ? (a.innerText || a.textContent || '').trim().substring(0, 150) : '';
                                 var imageUrl = img ? (img.currentSrc || img.src || '') : '';
                                 var videoUrl = video ? (video.currentSrc || video.src || '') : '';
+                                if (!videoUrl && video) {
+                                    var vs = video.querySelector('source');
+                                    if (vs) videoUrl = vs.currentSrc || vs.src || '';
+                                }
+                                if (videoUrl && !videoUrl.startsWith('http://') && !videoUrl.startsWith('https://') && !videoUrl.startsWith('blob:') && !videoUrl.startsWith('data:')) {
+                                    try { videoUrl = new URL(videoUrl, window.location.href).href; } catch(err) {}
+                                }
                                 return JSON.stringify({
                                     linkUrl: linkUrl,
                                     linkText: linkText,

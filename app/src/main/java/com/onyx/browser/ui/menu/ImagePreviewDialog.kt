@@ -1,14 +1,12 @@
 package com.onyx.browser.ui.menu
 
 import android.app.Dialog
-import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,7 +14,9 @@ import android.view.Window
 import android.widget.Toast
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
+import com.onyx.browser.MainActivity
 import com.onyx.browser.databinding.DialogImagePreviewBinding
+import com.onyx.browser.web.DownloadHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -151,18 +151,56 @@ class ImagePreviewDialog : DialogFragment() {
     }
 
     private fun downloadImage(url: String) {
+        val act = activity ?: MainActivity.currentInstance?.get()
+        val clean = url.substringBefore('?').substringBefore('#').lowercase()
+        val mime = when {
+            clean.endsWith(".png") -> "image/png"
+            clean.endsWith(".webp") -> "image/webp"
+            clean.endsWith(".gif") -> "image/gif"
+            clean.endsWith(".svg") -> "image/svg+xml"
+            clean.endsWith(".bmp") -> "image/bmp"
+            clean.endsWith(".ico") -> "image/x-icon"
+            clean.endsWith(".jpg") || clean.endsWith(".jpeg") -> "image/jpeg"
+            else -> "image/jpeg"
+        }
+
+        if (act != null) {
+            val cookies = try {
+                android.webkit.CookieManager.getInstance().getCookie(url) ?: ""
+            } catch (_: Exception) { "" }
+            val ua = (act as? MainActivity)?.getActiveWebView()?.settings?.userAgentString ?: ""
+            val pageUrl = (act as? MainActivity)?.getActiveWebView()?.url ?: ""
+            val scope = (act as? androidx.lifecycle.LifecycleOwner)?.lifecycleScope ?: viewLifecycleOwner.lifecycleScope
+            DownloadHandler.handleDownload(
+                activity = act,
+                coroutineScope = scope,
+                url = url,
+                userAgent = ua,
+                contentDisposition = "",
+                mimeType = mime,
+                contentLength = -1L,
+                cookies = cookies,
+                referer = pageUrl
+            )
+            dismiss()
+            return
+        }
+
         try {
-            val ctx = requireContext()
-            val filename = Uri.parse(url).lastPathSegment ?: "image_${System.currentTimeMillis()}.jpg"
-            val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle(filename)
-                .setDescription("Downloading image")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_PICTURES, filename)
-                .setAllowedOverMetered(true)
-            val dm = ctx.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            dm.enqueue(request)
-            Toast.makeText(ctx, "Saving image…", Toast.LENGTH_SHORT).show()
+            val ctx = context?.applicationContext ?: return
+            val fileName = DownloadHandler.guessResolvedFileName(url, null, mime)
+            DownloadHandler.startInternalDownload(
+                context = ctx,
+                coroutineScope = kotlinx.coroutines.MainScope(),
+                url = url,
+                userAgent = "",
+                fileName = fileName,
+                mimeType = mime,
+                contentLength = -1L,
+                cookies = "",
+                referer = ""
+            )
+            dismiss()
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "Failed to save: ${e.message}", Toast.LENGTH_SHORT).show()
         }

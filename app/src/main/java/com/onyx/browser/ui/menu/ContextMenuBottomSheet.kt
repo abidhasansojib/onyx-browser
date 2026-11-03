@@ -1,6 +1,5 @@
 package com.onyx.browser.ui.menu
 
-import android.app.DownloadManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -9,7 +8,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.util.Base64
 import android.util.Log
 import android.view.LayoutInflater
@@ -19,8 +17,10 @@ import android.widget.Toast
 import androidx.core.os.bundleOf
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.onyx.browser.MainActivity
 import com.onyx.browser.R
 import com.onyx.browser.databinding.BottomSheetContextMenuBinding
+import com.onyx.browser.web.DownloadHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -168,7 +168,7 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
             binding.itemDownloadLink.visibility = View.VISIBLE
             binding.itemDownloadLink.setOnClickListener {
                 if (onDownloadUrl != null) {
-                    onDownloadUrl?.invoke(link)
+                    onDownloadUrl?.invoke(link, "")
                 } else {
                     downloadMedia(link, "download")
                 }
@@ -209,7 +209,12 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
             // "Save image"
             binding.itemSaveImage.visibility = View.VISIBLE
             binding.itemSaveImage.setOnClickListener {
-                downloadMedia(img, "image")
+                val mime = resolveImageMimeType(img)
+                if (onDownloadUrl != null) {
+                    onDownloadUrl?.invoke(img, mime)
+                } else {
+                    downloadMedia(img, "image")
+                }
                 dismiss()
             }
 
@@ -235,12 +240,7 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
         }
 
         // ── 4. Video Actions ─────────────────────────────────────────────────
-        val effectiveVideoUrl = videoUrl ?: if (url?.let { u ->
-            u.contains(".mp4", ignoreCase = true) ||
-            u.contains(".webm", ignoreCase = true) ||
-            u.contains(".m3u8", ignoreCase = true) ||
-            u.contains("video", ignoreCase = true)
-        } == true) url else null
+        val effectiveVideoUrl = videoUrl ?: if (url?.let { isLikelyVideoUrl(it) } == true) url else null
 
         if (!effectiveVideoUrl.isNullOrBlank()) {
             val vUrl = effectiveVideoUrl
@@ -253,7 +253,12 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
 
             binding.itemSaveVideo.visibility = View.VISIBLE
             binding.itemSaveVideo.setOnClickListener {
-                downloadMedia(vUrl, "video")
+                val mime = resolveVideoMimeType(vUrl)
+                if (onDownloadUrl != null) {
+                    onDownloadUrl?.invoke(vUrl, mime)
+                } else {
+                    downloadMedia(vUrl, "video")
+                }
                 dismiss()
             }
 
@@ -353,25 +358,96 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
         startActivity(Intent.createChooser(intent, "Share link"))
     }
 
+    private fun resolveVideoMimeType(url: String): String {
+        val clean = url.substringBefore('?').substringBefore('#').lowercase()
+        return when {
+            clean.endsWith(".webm") -> "video/webm"
+            clean.endsWith(".mp4") -> "video/mp4"
+            clean.endsWith(".m3u8") -> "application/x-mpegURL"
+            clean.endsWith(".mkv") -> "video/x-matroska"
+            clean.endsWith(".mov") -> "video/quicktime"
+            clean.endsWith(".avi") -> "video/x-msvideo"
+            clean.endsWith(".flv") -> "video/x-flv"
+            clean.endsWith(".3gp") -> "video/3gpp"
+            clean.endsWith(".ts") -> "video/mp2t"
+            clean.endsWith(".mpd") -> "application/dash+xml"
+            else -> "video/mp4"
+        }
+    }
+
+    private fun resolveImageMimeType(url: String): String {
+        val clean = url.substringBefore('?').substringBefore('#').lowercase()
+        return when {
+            clean.endsWith(".png") -> "image/png"
+            clean.endsWith(".webp") -> "image/webp"
+            clean.endsWith(".gif") -> "image/gif"
+            clean.endsWith(".svg") -> "image/svg+xml"
+            clean.endsWith(".bmp") -> "image/bmp"
+            clean.endsWith(".ico") -> "image/x-icon"
+            clean.endsWith(".jpg") || clean.endsWith(".jpeg") -> "image/jpeg"
+            else -> "image/jpeg"
+        }
+    }
+
+    private fun isLikelyVideoUrl(url: String): Boolean {
+        val clean = url.substringBefore('?').substringBefore('#').lowercase()
+        return clean.endsWith(".mp4") ||
+               clean.endsWith(".webm") ||
+               clean.endsWith(".m3u8") ||
+               clean.endsWith(".mkv") ||
+               clean.endsWith(".mov") ||
+               clean.endsWith(".avi") ||
+               clean.endsWith(".flv") ||
+               clean.endsWith(".3gp") ||
+               clean.endsWith(".ts") ||
+               clean.endsWith(".mpd")
+    }
+
     private fun downloadMedia(url: String, type: String) {
+        val act = activity ?: MainActivity.currentInstance?.get()
+        val mime = when (type) {
+            "video" -> resolveVideoMimeType(url)
+            "image" -> resolveImageMimeType(url)
+            else -> ""
+        }
+
+        if (act != null) {
+            val cookies = try {
+                android.webkit.CookieManager.getInstance().getCookie(url) ?: ""
+            } catch (_: Exception) { "" }
+            val ua = (act as? MainActivity)?.getActiveWebView()?.settings?.userAgentString ?: ""
+            val pageUrl = (act as? MainActivity)?.getActiveWebView()?.url ?: ""
+            val scope = (act as? androidx.lifecycle.LifecycleOwner)?.lifecycleScope ?: kotlinx.coroutines.MainScope()
+            DownloadHandler.handleDownload(
+                activity = act,
+                coroutineScope = scope,
+                url = url,
+                userAgent = ua,
+                contentDisposition = "",
+                mimeType = mime,
+                contentLength = -1L,
+                cookies = cookies,
+                referer = pageUrl
+            )
+            return
+        }
+
         try {
-            val ctx = requireContext()
-            val filename = Uri.parse(url).lastPathSegment
-                ?: "${type}_${System.currentTimeMillis()}"
-            val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle(filename)
-                .setDescription("Downloading $type")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(
-                    if (type == "image") Environment.DIRECTORY_PICTURES else Environment.DIRECTORY_MOVIES,
-                    filename
-                )
-                .setAllowedOverMetered(true)
-            val dm = ctx.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            dm.enqueue(request)
-            Toast.makeText(ctx, "Saving $type…", Toast.LENGTH_SHORT).show()
+            val ctx = context?.applicationContext ?: return
+            val fileName = DownloadHandler.guessResolvedFileName(url, null, mime)
+            DownloadHandler.startInternalDownload(
+                context = ctx,
+                coroutineScope = kotlinx.coroutines.MainScope(),
+                url = url,
+                userAgent = "",
+                fileName = fileName,
+                mimeType = mime,
+                contentLength = -1L,
+                cookies = "",
+                referer = ""
+            )
         } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Failed to save: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.e(TAG, "Failed to download media: ${e.message}", e)
         }
     }
 
@@ -479,11 +555,17 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
                 )
             }
 
-        fun forVideo(videoUrl: String, isIncognito: Boolean = false) =
+        fun forVideo(
+            videoUrl: String,
+            linkUrl: String? = null,
+            linkText: String? = null,
+            isIncognito: Boolean = false
+        ) =
             ContextMenuBottomSheet().apply {
                 arguments = bundleOf(
-                    ARG_URL to videoUrl,
+                    ARG_URL to (linkUrl ?: videoUrl),
                     ARG_VIDEO_URL to videoUrl,
+                    ARG_LINK_TEXT to linkText,
                     ARG_IS_INCOGNITO to isIncognito
                 )
             }
