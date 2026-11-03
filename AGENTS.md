@@ -87,7 +87,7 @@ onyx-browser/
 │   ├── ISSUE_TEMPLATE/       # Structured YAML issue forms (bug reports & feature requests)
 │   └── workflows/
 │       ├── build.yml         # Rust NDK compile, Lucide sync, Gradle Release/Prerelease APKs
-│       └── sync_upstream.yml # 6-hour automated Brave filter lists sync workflow
+│       └── sync_upstream.yml # 12-hour automated Brave filter lists sync workflow
 ├── app/
 │   ├── src/main/
 │   │   ├── assets/           # easylist_rules.txt, eruda.min.js, font assets
