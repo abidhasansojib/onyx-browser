@@ -31913,8 +31913,6 @@ www.google.*###main a[href][data-sb^="/url?"]:remove-attr(data-sb)
 www.google.*##+js(href-sanitizer, #main a[href^="/url?q=http"], ?q)
 www.google.*###main a[href][ping^="/url?"]:remove-attr(ping)
 ||www.google.*/url?sa=*&source=*&cd=&ved=*&url=$urlskip=?url,doc,1p
-www.google.com##+js(aeld, mouseover, b.src, elements, #search #rso div[data-rpos] > div[data-ved])
-www.google.com##+js(rpnt, script, this.gbar_=, `window.addEventListener("mousemove",(()=>{W_jd&&document.querySelectorAll("#search #rso div[data-rpos]").forEach((t=>{let e=t.querySelector('div[data-hveid] span[jsaction^="trigger."] > a[href^="/goto?url="]');if(!e)return;let r=t.querySelector('div[id^="atritem-"]')?.attributes?.jsdata?.value?.split?.(";_;")?.[1];r&&Object.getOwnPropertySymbols(W_jd[r]).map((t=>{let l=W_jd[r][t];if("object"!=typeof l||null===l)return;let s=Object.values(l)?.[0]?.[32];if(s?.[3]?.[0]?.startsWith?.("http"))e.setAttribute("href",s[3][0]);else if(null!==s?.[3]){let t=Object.values(s?.[3]);t?.[0]?.[0]?.startsWith?.("http")&&e.setAttribute("href",t[0][0])}else null===s?.[3]&&s[11]?.[7]?.startsWith?.("http")&&e.setAttribute("href",s[11][7])}))}))}));this.gbar_=`)
 www.google.*##+js(set-attr, c-wiz[data-p] [data-query] a[target="_blank"][role="link"], rlhc, 1)
 liberation.fr,officedepot.fr,oui.sncf##+js(acs, document.createElement, '.js')
 sfr.fr##+js(aopr, _oEa)
@@ -32374,15 +32372,7 @@ arstechnica.com,dermnetnz.org##.gsc-webResult a[data-cturl]:remove-attr(/^data-c
 /wpm@*/web-pixel-
 /shopifycloud/media-analytics/v*/analytics.js
 www.youtube.com##+js(no-xhr-if, /\/api\/stats\/atr\?.+?&rt=\d+\.\d+.+?&volume=\d+&cbr=.+?&fexp=v1%[-%0-9C]{300\,}&.+?&muted=\d(&vis=3)?&docid=/ method:POST)
-||observe.runpod.io/static/web-vitals.js
-/wp-content/plugins/google-site-kit/dist/assets/js/googlesitekit-consent-mode-
-/wp-content/plugins/google-site-kit/dist/assets/js/googlesitekit-events-provider-
-/wp-content/plugins/tmbi-assertive-yield/*
-/wp-content/plugins/tmbi-data-analytics
-/wp-content/plugins/tmbi-brandmetrics
-/wp-content/plugins/tmbi-ad-density
-/wp-content/plugins/tmbi-permutive
-/wp-content/plugins/tmbi*-affiliate
+/^https:\/\/(www\.)?[a-z0-9-]+\.[a-z]+(\.[a-z]+)?\/[A-Z0-9]{6}\/$/$script,1p,match-case
 /e/*^ip=*^beacon=
 /e/*^ip=*^compression=
 ||petametrics.com^$~script
@@ -32408,6 +32398,15 @@ www.youtube.com##+js(no-xhr-if, /\/api\/stats\/atr\?.+?&rt=\d+\.\d+.+?&volume=\d
 /^https:\/\/(www\.)?[a-z0-9-]+\.[a-z]+(\.[a-z]+)?\/securegtm\/?$/$script,1p,match-case
 ||otrium.*/static/newrelic.js
 ||otrium.*/measure/
+||observe.runpod.io/static/web-vitals.js
+/wp-content/plugins/google-site-kit/dist/assets/js/googlesitekit-consent-mode-
+/wp-content/plugins/google-site-kit/dist/assets/js/googlesitekit-events-provider-
+/wp-content/plugins/tmbi-assertive-yield/*
+/wp-content/plugins/tmbi-data-analytics
+/wp-content/plugins/tmbi-brandmetrics
+/wp-content/plugins/tmbi-ad-density
+/wp-content/plugins/tmbi-permutive
+/wp-content/plugins/tmbi*-affiliate
 ||bdvmetricas.banvenez.com.ve^
 ||bilet.com/gtmcf/
 ||razorpay.com/build/razor-analytics/
@@ -44237,6 +44236,7 @@ omni.soundestlink.com$image
 ||meadowlullaby.com^
 ||measlymiddle.com^
 ||meatydime.com^
+||medanysew.com^
 ||meddleplant.com^
 ||mediamaker.net^
 ||mediatescarf.com^
@@ -51635,6 +51635,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||chartkidmatt.com/nectar_analytics
 ||chartkidmatt.com/page_view
 ||chase.com/apps/services/clientBeacon.html
+||chat.deepseek.com/api/v0/telemetry
 ||chat.groq.com/global_stats
 ||chatfuel.com/cf-analytics/
 ||chatgpt.com/awe/api/v2/rum^$ping,xmlhttprequest
@@ -76512,6 +76513,7 @@ search.rakuten.co.jp##+js(aeld, mouseup, sendClickEvent)
 @@||hello.myfonts.net/count/$stylesheet,domain=cfr.org|condor.com|corsair.com|furniturevillage.co.uk|luggagehero.com
 @@||hobbyking.com^*/gtm.js$script,~third-party
 @@||hotstarext.com/web-messages/core/error/v52.json$xmlhttprequest,domain=hotstar.com
+@@||hyundaicanada.com/scripts/analytics/analytics.js$script,~third-party
 @@||identity.mparticle.com^$xmlhttprequest
 @@||ignitetv.rogers.com/js/api/fingerprint.js$script,~third-party
 @@||ignitetv.shaw.ca/js/api/fingerprint.js$~third-party
