@@ -386,6 +386,10 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_CLEAR_ON_EXIT, false)
         set(value) = prefs.edit().putBoolean(KEY_CLEAR_ON_EXIT, value).apply()
 
+    var hasPendingExitClearance: Boolean
+        get() = prefs.getBoolean(KEY_HAS_PENDING_EXIT_CLEARANCE, false)
+        set(value) = prefs.edit().putBoolean(KEY_HAS_PENDING_EXIT_CLEARANCE, value).apply()
+
     // ── Pull to Refresh ──────────────────────────────────────────────────────
     var isPullToRefreshEnabled: Boolean
         get() = prefs.getBoolean(KEY_PULL_TO_REFRESH, true)
@@ -2282,6 +2286,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_LOCATION_ENABLED_GLOBAL = "pref_location_enabled_global"
         const val KEY_LAST_ACTIVE_TAB_ID = "pref_last_active_tab_id"
         const val KEY_CLEAR_ON_EXIT = "pref_clear_on_exit"
+        const val KEY_HAS_PENDING_EXIT_CLEARANCE = "pref_has_pending_exit_clearance"
         const val KEY_PULL_TO_REFRESH = "pref_pull_to_refresh"
         const val KEY_FORCE_DARK_MODE = "pref_force_dark_mode"
         const val KEY_REPLACE_HOME_WITH_REFRESH = "pref_replace_home_with_refresh"

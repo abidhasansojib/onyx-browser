@@ -593,6 +593,12 @@ class MediaPlaybackService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         try {
+            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(applicationContext)
+            if (prefs.isClearOnExitEnabled) {
+                prefs.hasPendingExitClearance = true
+                com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext)
+                prefs.hasPendingExitClearance = false
+            }
             isMediaPlaying = false
             isServiceRunning = false
             releaseWakeLock()

@@ -1262,6 +1262,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         applyToolbarPosition(preferences.isAddressBarAtBottom, initial = true)
 
+        try {
+            startService(Intent(this, com.onyx.browser.data.ClearOnExitService::class.java))
+        } catch (_: Throwable) {}
+
         val accentTint = AccentColorManager.getAccentColorStateList(this)
         binding.progressBar.progressTintList = accentTint
         binding.ivTranslateIcon.imageTintList = accentTint
@@ -1492,6 +1496,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         checkNotificationPermissionForDownloads()
 
         lifecycleScope.launch {
+            if (preferences.isClearOnExitEnabled && preferences.hasPendingExitClearance) {
+                com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
+                preferences.hasPendingExitClearance = false
+            }
             tabManager.restoreTabs()
             tabManager.hibernateIdleTabs()
             isTabsRestored = true
@@ -3601,16 +3609,27 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     }
 
                     if (binding.homeLayout.root.visibility != View.VISIBLE && (activeTab.url.isNotBlank() && !activeTab.url.startsWith("about:blank", ignoreCase = true))) {
-                        // All navigation steps in this tab are exhausted.
-                        // Standard browser parity (Chrome/Brave/Firefox): Minimize the app to background,
-                        // preserving the tab and its URL intact for instant resumption.
-                        moveTaskToBack(true)
-                        return
+                        if (preferences.isClearOnExitEnabled) {
+                            com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
+                            finishAffinity()
+                            return
+                        } else {
+                            // All navigation steps in this tab are exhausted.
+                            // Standard browser parity (Chrome/Brave/Firefox): Minimize the app to background,
+                            // preserving the tab and its URL intact for instant resumption.
+                            moveTaskToBack(true)
+                            return
+                        }
                     }
                 }
 
-                // Default activity back behavior: minimize to home screen
-                moveTaskToBack(true)
+                if (preferences.isClearOnExitEnabled) {
+                    com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
+                    finishAffinity()
+                } else {
+                    // Default activity back behavior: minimize to home screen
+                    moveTaskToBack(true)
+                }
             }
         })
     }
@@ -4305,7 +4324,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         try { pendingWebMediaRequest?.let { safeDenyWebPermission(it) } } catch (_: Exception) {}
         pendingWebMediaRequest = null
         pendingWebMediaResources = null
-        tabManager.saveAllTabStates()
+        if (!preferences.isClearOnExitEnabled) {
+            tabManager.saveAllTabStates()
+        }
         if (::pipController.isInitialized) {
             pipController.unregisterReceiver()
         }
@@ -4315,20 +4336,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         } catch (_: Exception) {}
         if (isFinishing) {
             if (preferences.isClearOnExitEnabled) {
-                try {
-                    val db = AppDatabase.getInstance(applicationContext)
-                    kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.NonCancellable).launch {
-                        try {
-                            db.historyDao().clearAllHistory()
-                        } catch (_: Throwable) {}
-                    }
-                    tabManager.getAllWebViews().forEach { it.clearCache(true) }
-                    android.webkit.CookieManager.getInstance().removeAllCookies(null)
-                    android.webkit.CookieManager.getInstance().flush()
-                    android.webkit.WebStorage.getInstance().deleteAllData()
-                    android.webkit.WebViewDatabase.getInstance(applicationContext).clearHttpAuthUsernamePassword()
-                    android.webkit.WebViewDatabase.getInstance(applicationContext).clearFormData()
-                } catch (_: Throwable) {}
+                com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
             }
             tabManager.closeAllTabs(incognitoOnly = true)
             com.onyx.browser.incognito.IncognitoNotificationHelper.dismissNotification(this)

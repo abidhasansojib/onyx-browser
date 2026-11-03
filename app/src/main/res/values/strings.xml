@@ -586,7 +586,7 @@
 
     <!-- Clear on exit, pull to refresh, and force dark mode -->
     <string name="clear_on_exit_title">Clear data on exit</string>
-    <string name="clear_on_exit_desc">Clear cache, cookies, and web storage when exiting the browser</string>
+    <string name="clear_on_exit_desc">Clear open tabs, history, cache, cookies, and web storage when exiting the browser</string>
     <string name="pull_to_refresh_title">Pull to refresh</string>
     <string name="pull_to_refresh_desc">Swipe down from the top to refresh web pages</string>
     <string name="force_dark_title">Force dark mode</string>

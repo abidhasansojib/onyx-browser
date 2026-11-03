@@ -190,5 +190,9 @@ onyx-browser/
 15. **Chromium Runtime Async Pre-Warming (`WebViewCompat.startUpWebView`)**:
    - `OnyxApplication.onCreate()` initiates asynchronous Chromium pre-warming via `WebViewCompat.startUpWebView(context, startUpConfig, outcomeReceiver)` on a dedicated background worker executor.
    - Offloads `libwebviewchromium.so` native loading, IPC daemons, and V8 engine boot from the UI thread, eliminating cold-boot startup hitches.
+16. **Data Clearance & Exit Lifecycle Standards**:
+   - 'Clear data on exit' (`isClearOnExitEnabled`) executes comprehensively across all exit vectors: Back navigation at root/homepage (`finishAffinity()`), Recent Apps swipe-away (`ClearOnExitService.onTaskRemoved` and `MediaPlaybackService.onTaskRemoved` with `stopWithTask="false"`), and `MainActivity.onDestroy()`.
+   - All clearances execute synchronously via `ClearDataOnExitHelper`: Room database history (`clearAllHistory()`) and tabs (`clearNormalTabs()`) via `runBlocking(Dispatchers.IO)`, active and hibernated tabs closed without undo, Chromium cookies flushed across default and `MULTI_PROFILE` profiles (`removeAllCookies`), `WebStorage` and `WebViewDatabase` purged, and thumbnail/preview/cache directories wiped from disk.
+   - When `isClearOnExitEnabled` is true, tab state saving on destroy (`saveAllTabStates()`) is omitted, and cold launches verify and enforce recovery clearance (`hasPendingExitClearance`) before restoring tabs.
 
 

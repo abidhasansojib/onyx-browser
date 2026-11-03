@@ -1118,6 +1118,13 @@ class TabManager(
         }
     }
 
+    fun clearAllTabsAndDataForExit() {
+        closeAllTabs(incognitoOnly = true, canUndo = false)
+        closeAllTabs(incognitoOnly = false, canUndo = false)
+        closedBatchesStack.clear()
+        clearAllThumbnailsAndCache()
+    }
+
     fun closeTabsCreatedSince(sinceTime: Long) {
         val normalToClose = _normalTabs.value.filter { it.createdAt >= sinceTime }
         val incognitoToClose = _incognitoTabs.value.filter { it.createdAt >= sinceTime }

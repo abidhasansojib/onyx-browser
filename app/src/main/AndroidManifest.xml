@@ -483,6 +483,12 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- Clear Data On Exit Lifecycle Service (Listens for onTaskRemoved) -->
+        <service
+            android:name=".data.ClearOnExitService"
+            android:exported="false"
+            android:stopWithTask="false" />
+
         <!-- Download Complete Broadcast Receiver -->
         <receiver
             android:name=".web.DownloadCompleteReceiver"

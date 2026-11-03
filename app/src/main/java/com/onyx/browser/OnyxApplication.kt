@@ -68,6 +68,17 @@ class OnyxApplication : Application() {
             Log.e("OnyxApplication", "Failed to initialize AppDatabase in onCreate", t)
         }
 
+        // Check if there was pending data clearance from interrupted exit
+        try {
+            val prefs = BrowserPreferences.getInstance(this)
+            if (prefs.isClearOnExitEnabled && prefs.hasPendingExitClearance) {
+                com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(this)
+                prefs.hasPendingExitClearance = false
+            }
+        } catch (t: Throwable) {
+            Log.e("OnyxApplication", "Failed to run clear-on-exit recovery in onCreate", t)
+        }
+
         // Initialize AdBlockEngine in background thread with pre-compiled filters
         applicationScope.launch(Dispatchers.IO) {
             try {

@@ -31,6 +31,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Per-Site Shields & Exceptions**: Easily toggle adblocking, HTTPS upgrades, and script rules per domain from the omnibox shield icon.
 - `[x]` **Unified Script Blocking & JavaScript Control**: Shields "Block Scripts" and Site Settings "JavaScript" are fully synchronized bidirectionally at both global and per-domain levels.
 - `[x]` **Cookie & Site Storage Autoclear on Tab Close**: Standardized "Clear data on tab close" lifecycle and exit-time cookie/WebStorage purging.
+- `[x]` **Comprehensive Clear Data on Exit**: Automatically purges browsing history, normal tabs, cookies across all Chromium profiles, WebStorage, WebView caches, HTTP auth, form data, and preview thumbnails across all exit vectors (Back navigation, Recent Apps task dismissal via ClearOnExitService, and interrupted-exit cold start recovery).
 - `[x]` **Social Media SSO Shield**: Comprehensive third-party authentication blocking (Google Sign-In, Facebook logins, Twitter, LinkedIn embeds).
 - `[x]` **WebRTC IP Leak Protection**: WebRTC IP handling toggleable in both Shields & Privacy and Site Settings.
 - `[x]` **DNS-over-HTTPS (DoH)**: Built-in support for Cloudflare, Google, NextDNS, and custom DoH resolver endpoints.
