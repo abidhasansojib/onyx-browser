@@ -386,6 +386,38 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_CLEAR_ON_EXIT, false)
         set(value) = prefs.edit().putBoolean(KEY_CLEAR_ON_EXIT, value).apply()
 
+    var isClearOnExitTabsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLEAR_ON_EXIT_TABS, true)
+        set(value) = prefs.edit().putBoolean(KEY_CLEAR_ON_EXIT_TABS, value).apply()
+
+    var isClearOnExitHistoryEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLEAR_ON_EXIT_HISTORY, true)
+        set(value) = prefs.edit().putBoolean(KEY_CLEAR_ON_EXIT_HISTORY, value).apply()
+
+    var isClearOnExitCookiesEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLEAR_ON_EXIT_COOKIES, true)
+        set(value) = prefs.edit().putBoolean(KEY_CLEAR_ON_EXIT_COOKIES, value).apply()
+
+    var isClearOnExitCacheEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLEAR_ON_EXIT_CACHE, true)
+        set(value) = prefs.edit().putBoolean(KEY_CLEAR_ON_EXIT_CACHE, value).apply()
+
+    fun getClearOnExitSummary(context: Context): String {
+        if (!isClearOnExitEnabled) {
+            return context.getString(com.onyx.browser.R.string.clear_on_exit_disabled)
+        }
+        val items = mutableListOf<String>()
+        if (isClearOnExitTabsEnabled) items.add(context.getString(com.onyx.browser.R.string.clear_data_tabs))
+        if (isClearOnExitHistoryEnabled) items.add(context.getString(com.onyx.browser.R.string.clear_data_history))
+        if (isClearOnExitCookiesEnabled) items.add(context.getString(com.onyx.browser.R.string.clear_data_cookies))
+        if (isClearOnExitCacheEnabled) items.add(context.getString(com.onyx.browser.R.string.clear_data_cache))
+        return if (items.isEmpty()) {
+            context.getString(com.onyx.browser.R.string.clear_on_exit_none_selected)
+        } else {
+            items.joinToString(", ")
+        }
+    }
+
     var hasPendingExitClearance: Boolean
         get() = prefs.getBoolean(KEY_HAS_PENDING_EXIT_CLEARANCE, false)
         set(value) {
@@ -2288,6 +2320,10 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_LOCATION_ENABLED_GLOBAL = "pref_location_enabled_global"
         const val KEY_LAST_ACTIVE_TAB_ID = "pref_last_active_tab_id"
         const val KEY_CLEAR_ON_EXIT = "pref_clear_on_exit"
+        const val KEY_CLEAR_ON_EXIT_TABS = "pref_clear_on_exit_tabs"
+        const val KEY_CLEAR_ON_EXIT_HISTORY = "pref_clear_on_exit_history"
+        const val KEY_CLEAR_ON_EXIT_COOKIES = "pref_clear_on_exit_cookies"
+        const val KEY_CLEAR_ON_EXIT_CACHE = "pref_clear_on_exit_cache"
         const val KEY_HAS_PENDING_EXIT_CLEARANCE = "pref_has_pending_exit_clearance"
         const val KEY_PULL_TO_REFRESH = "pref_pull_to_refresh"
         const val KEY_FORCE_DARK_MODE = "pref_force_dark_mode"

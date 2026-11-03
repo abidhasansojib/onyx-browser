@@ -3782,7 +3782,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        if (!preferences.isClearOnExitEnabled) {
+        if (!preferences.isClearOnExitEnabled || !preferences.isClearOnExitTabsEnabled) {
             tabManager.saveAllTabStates()
         }
     }
@@ -3884,7 +3884,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (preferences.isClearOnExitEnabled && !isChangingConfigurations) {
             preferences.hasPendingExitClearance = true
         }
-        if (!preferences.isClearOnExitEnabled) {
+        if (!preferences.isClearOnExitEnabled || !preferences.isClearOnExitTabsEnabled) {
             tabManager.saveAllTabStates()
         }
         unregisterNetworkRecoveryCallback()
@@ -4343,7 +4343,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         try { pendingWebMediaRequest?.let { safeDenyWebPermission(it) } } catch (_: Exception) {}
         pendingWebMediaRequest = null
         pendingWebMediaResources = null
-        if (!preferences.isClearOnExitEnabled) {
+        if (!preferences.isClearOnExitEnabled || !preferences.isClearOnExitTabsEnabled) {
             tabManager.saveAllTabStates()
         }
         if (::pipController.isInitialized) {

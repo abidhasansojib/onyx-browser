@@ -175,12 +175,32 @@ class ShieldsActivity : AppCompatActivity() {
             { prefs.isCookieAutoclearOnCloseEnabled = it }
         )
 
-        setupSwitchRow(
-            binding.rowClearOnExit,
-            binding.switchClearOnExit,
-            { prefs.isClearOnExitEnabled },
-            { prefs.isClearOnExitEnabled = it }
-        )
+        updateClearOnExitDisplay()
+        binding.rowClearOnExit.setOnClickListener {
+            val sheet = ClearOnExitBottomSheet {
+                updateClearOnExitDisplay()
+            }
+            sheet.show(supportFragmentManager, ClearOnExitBottomSheet.TAG)
+        }
+    }
+
+    private fun updateClearOnExitDisplay() {
+        binding.switchClearOnExit.setOnCheckedChangeListener(null)
+        binding.switchClearOnExit.isChecked = prefs.isClearOnExitEnabled
+        binding.switchClearOnExit.setOnCheckedChangeListener { _, isChecked ->
+            if (prefs.isClearOnExitEnabled != isChecked) {
+                prefs.isClearOnExitEnabled = isChecked
+                if (isChecked && !prefs.isClearOnExitTabsEnabled && !prefs.isClearOnExitHistoryEnabled &&
+                    !prefs.isClearOnExitCookiesEnabled && !prefs.isClearOnExitCacheEnabled) {
+                    prefs.isClearOnExitTabsEnabled = true
+                    prefs.isClearOnExitHistoryEnabled = true
+                    prefs.isClearOnExitCookiesEnabled = true
+                    prefs.isClearOnExitCacheEnabled = true
+                }
+                updateClearOnExitDisplay()
+            }
+        }
+        binding.tvClearOnExitSummary.text = prefs.getClearOnExitSummary(this)
     }
 
     private fun updateCookieModeDisplay() {

@@ -97,13 +97,54 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
             updatePreview(selectedIndex)
         }
 
+        // Setup granular checkbox toggle rows
+        b.rowHistory.setOnClickListener {
+            b.cbClearHistory.isChecked = !b.cbClearHistory.isChecked
+            updateClearButtonState()
+        }
+        b.cbClearHistory.setOnCheckedChangeListener { _, _ -> updateClearButtonState() }
+
+        b.rowTabs.setOnClickListener {
+            b.cbClearTabs.isChecked = !b.cbClearTabs.isChecked
+            updateClearButtonState()
+        }
+        b.cbClearTabs.setOnCheckedChangeListener { _, _ -> updateClearButtonState() }
+
+        b.rowCookies.setOnClickListener {
+            b.cbClearCookies.isChecked = !b.cbClearCookies.isChecked
+            updateClearButtonState()
+        }
+        b.cbClearCookies.setOnCheckedChangeListener { _, _ -> updateClearButtonState() }
+
+        b.rowCache.setOnClickListener {
+            b.cbClearCache.isChecked = !b.cbClearCache.isChecked
+            updateClearButtonState()
+        }
+        b.cbClearCache.setOnCheckedChangeListener { _, _ -> updateClearButtonState() }
+
+        updateClearButtonState()
+
         b.btnCancel.setOnClickListener {
             dismissAllowingStateLoss()
         }
 
         b.btnClearData.setOnClickListener {
-            performClearData(selectedIndex)
+            performClearData(
+                selectedIndex = selectedIndex,
+                clearHistory = b.cbClearHistory.isChecked,
+                clearTabs = b.cbClearTabs.isChecked,
+                clearCookies = b.cbClearCookies.isChecked,
+                clearCache = b.cbClearCache.isChecked
+            )
         }
+    }
+
+    private fun updateClearButtonState() {
+        val b = _binding ?: return
+        val hasSelection = b.cbClearHistory.isChecked || b.cbClearTabs.isChecked ||
+                           b.cbClearCookies.isChecked || b.cbClearCache.isChecked
+        b.btnClearData.isEnabled = hasSelection
+        b.btnClearData.alpha = if (hasSelection) 1.0f else 0.5f
     }
 
     private fun updatePreview(selectedIndex: Int) {
@@ -169,124 +210,138 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
         }
     }
 
-    private fun performClearData(selectedIndex: Int) {
+    private fun performClearData(
+        selectedIndex: Int,
+        clearHistory: Boolean = true,
+        clearTabs: Boolean = false,
+        clearCookies: Boolean = false,
+        clearCache: Boolean = false
+    ) {
         val cutoff = getCutoffTime(selectedIndex)
         val appContext = context?.applicationContext ?: return
         val database = AppDatabase.getInstance(appContext)
         val tm = tabManager ?: TabManager.activeInstance
 
         viewLifecycleOwner.lifecycleScope.launch {
-            // 1. Delete history
-            withContext(Dispatchers.IO) {
+            // 1. Delete history (if selected)
+            if (clearHistory) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        if (cutoff == 0L) {
+                            database.historyDao().clearAllHistory()
+                        } else {
+                            database.historyDao().deleteHistorySince(cutoff)
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+
+            // 2. Close tabs created/active in this timeframe (if selected)
+            if (clearTabs) {
                 try {
                     if (cutoff == 0L) {
-                        database.historyDao().clearAllHistory()
+                        tm?.closeAllTabs(incognitoOnly = true)
+                        tm?.closeAllTabs(incognitoOnly = false)
                     } else {
-                        database.historyDao().deleteHistorySince(cutoff)
+                        tm?.closeTabsCreatedSince(cutoff)
                     }
                 } catch (_: Exception) {}
             }
 
-            // 2. Close tabs created/active in this timeframe
-            try {
-                if (cutoff == 0L) {
-                    tm?.closeAllTabs(incognitoOnly = true)
-                    tm?.closeAllTabs(incognitoOnly = false)
-                } else {
-                    tm?.closeTabsCreatedSince(cutoff)
-                }
-            } catch (_: Exception) {}
-
-            // 3. Clear WebView cookies, cache, and web storage across all profiles
-            try {
-                CookieManager.getInstance().removeAllCookies {
-                    CookieManager.getInstance().flush()
-                }
-                CookieManager.getInstance().removeSessionCookies {
-                    CookieManager.getInstance().flush()
-                }
-                CookieManager.getInstance().flush()
-                WebStorage.getInstance().deleteAllData()
-
-                if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
-                    try {
-                        val store = androidx.webkit.ProfileStore.getInstance()
-                        val incognitoProfile = store.getProfile(com.onyx.browser.web.OnyxWebView.INCOGNITO_PROFILE_NAME)
-                        if (incognitoProfile != null) {
-                            incognitoProfile.cookieManager.removeAllCookies(null)
-                            incognitoProfile.cookieManager.flush()
-                            incognitoProfile.webStorage.deleteAllData()
-                        }
-                    } catch (_: Throwable) {}
-                }
-            } catch (_: Exception) {}
-
-            try {
-                val db = WebViewDatabase.getInstance(appContext)
-                db.clearHttpAuthUsernamePassword()
-                db.clearFormData()
-            } catch (_: Exception) {}
-
-            // 4. Restore element blocking settings back to normal
-            try {
-                val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(appContext)
-                prefs.clearAllCustomBlockedRules()
-            } catch (_: Exception) {}
-
-            // 5. Clear disk cache & preview files
-            withContext(Dispatchers.IO) {
+            // 3. Clear WebView cookies and web storage across all profiles (if selected)
+            if (clearCookies) {
                 try {
-                    val archivesDir = File(appContext.cacheDir, "web_archives")
-                    if (archivesDir.exists()) {
-                        if (cutoff == 0L) {
-                            archivesDir.deleteRecursively()
-                            com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(appContext)
-                        } else {
-                            archivesDir.listFiles()?.forEach { f ->
-                                if (f.lastModified() >= cutoff) {
-                                    f.delete()
+                    CookieManager.getInstance().removeAllCookies {
+                        CookieManager.getInstance().flush()
+                    }
+                    CookieManager.getInstance().removeSessionCookies {
+                        CookieManager.getInstance().flush()
+                    }
+                    CookieManager.getInstance().flush()
+                    WebStorage.getInstance().deleteAllData()
+
+                    if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
+                        try {
+                            val store = androidx.webkit.ProfileStore.getInstance()
+                            val incognitoProfile = store.getProfile(com.onyx.browser.web.OnyxWebView.INCOGNITO_PROFILE_NAME)
+                            if (incognitoProfile != null) {
+                                incognitoProfile.cookieManager.removeAllCookies(null)
+                                incognitoProfile.cookieManager.flush()
+                                incognitoProfile.webStorage.deleteAllData()
+                            }
+                        } catch (_: Throwable) {}
+                    }
+                } catch (_: Exception) {}
+
+                try {
+                    val db = WebViewDatabase.getInstance(appContext)
+                    db.clearHttpAuthUsernamePassword()
+                    db.clearFormData()
+                } catch (_: Exception) {}
+
+                try {
+                    val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(appContext)
+                    prefs.clearAllCustomBlockedRules()
+                } catch (_: Exception) {}
+            }
+
+            // 4. Clear disk cache & preview files (if selected)
+            if (clearCache) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val archivesDir = File(appContext.cacheDir, "web_archives")
+                        if (archivesDir.exists()) {
+                            if (cutoff == 0L) {
+                                archivesDir.deleteRecursively()
+                                com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(appContext)
+                            } else {
+                                archivesDir.listFiles()?.forEach { f ->
+                                    if (f.lastModified() >= cutoff) {
+                                        f.delete()
+                                    }
                                 }
                             }
                         }
-                    }
-                } catch (_: Exception) {}
+                    } catch (_: Exception) {}
 
-                if (cutoff == 0L) {
-                    try {
-                        com.onyx.browser.data.favicon.FaviconManager.clearCache(appContext)
-                    } catch (_: Exception) {}
-                    try {
-                        tm?.clearAllThumbnailsAndCache()
-                    } catch (_: Exception) {}
-                    try {
-                        val apk = File(appContext.cacheDir, "install_pending.apk")
-                        if (apk.exists() && System.currentTimeMillis() - apk.lastModified() > 60_000L) {
-                            apk.delete()
-                        }
-                    } catch (_: Exception) {}
+                    if (cutoff == 0L) {
+                        try {
+                            com.onyx.browser.data.favicon.FaviconManager.clearCache(appContext)
+                        } catch (_: Exception) {}
+                        try {
+                            tm?.clearAllThumbnailsAndCache()
+                        } catch (_: Exception) {}
+                        try {
+                            val apk = File(appContext.cacheDir, "install_pending.apk")
+                            if (apk.exists() && System.currentTimeMillis() - apk.lastModified() > 60_000L) {
+                                apk.delete()
+                            }
+                        } catch (_: Exception) {}
+                    }
                 }
             }
 
-            // 6. Clear cache on active WebViews safely on Main thread
+            // 5. Clear cache on active WebViews safely on Main thread
             withContext(Dispatchers.Main) {
-                try {
-                    tm?.getAllWebViews()?.forEach { wv ->
-                        wv.clearCache(true)
-                        wv.clearFormData()
-                        wv.clearSslPreferences()
-                        // Reset OAuth grace period so cookie state is re-evaluated cleanly
-                        wv.lastOAuthInteractionTimestamp = 0L
-                    }
-                } catch (_: Exception) {}
+                if (clearCache) {
+                    try {
+                        tm?.getAllWebViews()?.forEach { wv ->
+                            wv.clearCache(true)
+                            wv.clearFormData()
+                            wv.clearSslPreferences()
+                            // Reset OAuth grace period so cookie state is re-evaluated cleanly
+                            wv.lastOAuthInteractionTimestamp = 0L
+                        }
+                    } catch (_: Exception) {}
+                }
 
-                // Re-apply cookie settings on all active WebViews to restore a known-good
-                // state after clearing. This ensures the default CookieManager accepts
-                // first-party cookies (required for Facebook login to work immediately after clear).
-                try {
-                    // Ensure the default profile's CookieManager accepts cookies
-                    android.webkit.CookieManager.getInstance().setAcceptCookie(true)
-                    android.webkit.CookieManager.getInstance().flush()
-                } catch (_: Exception) {}
+                // If cookies were cleared, re-apply cookie settings to restore first-party acceptance
+                if (clearCookies) {
+                    try {
+                        android.webkit.CookieManager.getInstance().setAcceptCookie(true)
+                        android.webkit.CookieManager.getInstance().flush()
+                    } catch (_: Exception) {}
+                }
 
                 try {
                     Toast.makeText(appContext, getString(R.string.browsing_data_cleared), Toast.LENGTH_SHORT).show()

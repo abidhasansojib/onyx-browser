@@ -18,130 +18,174 @@ import java.io.File
 object ClearDataOnExitHelper {
 
     /**
-     * Synchronously and comprehensively purges all browsing data (history, normal & incognito tabs,
-     * cookies across default and multi-profiles, WebStorage, WebView caches, HTTP auth, form data,
+     * Synchronously and comprehensively purges browsing data according to user preferences or explicit flags
+     * (history, normal tabs, cookies across default and multi-profiles, WebStorage, WebView caches,
      * preview archives, and thumbnails).
      */
-    fun clearAllBrowsingDataSync(context: Context, tabManager: TabManager? = null) {
+    fun clearAllBrowsingDataSync(
+        context: Context,
+        tabManager: TabManager? = null,
+        clearTabs: Boolean? = null,
+        clearHistory: Boolean? = null,
+        clearCookies: Boolean? = null,
+        clearCache: Boolean? = null
+    ) {
         val appContext = context.applicationContext
+        val prefs = BrowserPreferences.getInstance(appContext)
 
-        // 1. Synchronously purge Room Database (History and Normal Tabs)
-        try {
-            val db = AppDatabase.getInstance(appContext)
-            runBlocking(Dispatchers.IO) {
-                try {
-                    db.historyDao().clearAllHistory()
-                } catch (_: Throwable) {}
-                try {
-                    db.tabDao().clearNormalTabs()
-                } catch (_: Throwable) {}
-            }
-        } catch (_: Throwable) {}
+        val doClearTabs = clearTabs ?: prefs.isClearOnExitTabsEnabled
+        val doClearHistory = clearHistory ?: prefs.isClearOnExitHistoryEnabled
+        val doClearCookies = clearCookies ?: prefs.isClearOnExitCookiesEnabled
+        val doClearCache = clearCache ?: prefs.isClearOnExitCacheEnabled
 
-        // 2. Clear active WebView caches, close tabs, and purge tab undo stack
-        val tm = tabManager ?: TabManager.activeInstance
-        val clearWebViewsAction = {
+        // 1. Synchronously purge Room Database (History)
+        if (doClearHistory) {
             try {
-                tm?.getAllWebViews()?.forEach { wv ->
+                val db = AppDatabase.getInstance(appContext)
+                runBlocking(Dispatchers.IO) {
                     try {
-                        wv.clearCache(true)
-                        wv.clearFormData()
-                        wv.clearSslPreferences()
+                        db.historyDao().clearAllHistory()
                     } catch (_: Throwable) {}
                 }
             } catch (_: Throwable) {}
-            try {
-                tm?.clearAllTabsAndDataForExit()
-            } catch (_: Throwable) {}
         }
 
-        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
-            clearWebViewsAction()
-        } else {
-            val latch = java.util.concurrent.CountDownLatch(1)
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                clearWebViewsAction()
-                latch.countDown()
-            }
+        // 2. Clear Tabs (Room Database, active WebViews, tab states & thumbnails)
+        if (doClearTabs) {
             try {
-                latch.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                val db = AppDatabase.getInstance(appContext)
+                runBlocking(Dispatchers.IO) {
+                    try {
+                        db.tabDao().clearNormalTabs()
+                    } catch (_: Throwable) {}
+                }
             } catch (_: Throwable) {}
-        }
 
-        // 3. Clear Chromium Cookies across Default and Multi-Profiles
-        try {
-            val cookieLatch = java.util.concurrent.CountDownLatch(1)
-            val cm = CookieManager.getInstance()
-            cm.removeAllCookies {
+            val tm = tabManager ?: TabManager.activeInstance
+            val clearWebViewsAction = {
                 try {
-                    cm.flush()
+                    tm?.clearAllTabsAndDataForExit()
                 } catch (_: Throwable) {}
-                cookieLatch.countDown()
             }
-            cm.removeSessionCookies(null)
-            try {
-                cookieLatch.await(1000, java.util.concurrent.TimeUnit.MILLISECONDS)
-            } catch (_: Throwable) {}
-            cm.flush()
 
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+                clearWebViewsAction()
+            } else {
+                val latch = java.util.concurrent.CountDownLatch(1)
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    clearWebViewsAction()
+                    latch.countDown()
+                }
                 try {
-                    val store = ProfileStore.getInstance()
-                    val incognitoProfile = store.getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
-                    if (incognitoProfile != null) {
-                        incognitoProfile.cookieManager.removeAllCookies(null)
-                        incognitoProfile.cookieManager.flush()
-                        incognitoProfile.webStorage.deleteAllData()
+                    latch.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                } catch (_: Throwable) {}
+            }
+
+            try {
+                val thumbDir = File(appContext.cacheDir, "tab_thumbnails")
+                if (thumbDir.exists()) thumbDir.deleteRecursively()
+            } catch (_: Throwable) {}
+
+            try {
+                val stateDir = File(appContext.filesDir, "tab_states")
+                if (stateDir.exists()) stateDir.deleteRecursively()
+            } catch (_: Throwable) {}
+
+            try {
+                prefs.lastActiveTabId = null
+            } catch (_: Throwable) {}
+        }
+
+        // 3. Clear Chromium Cookies across Default and Multi-Profiles, WebStorage & HTTP Auth
+        if (doClearCookies) {
+            try {
+                val cookieLatch = java.util.concurrent.CountDownLatch(1)
+                val cm = CookieManager.getInstance()
+                cm.removeAllCookies {
+                    try {
+                        cm.flush()
+                    } catch (_: Throwable) {}
+                    cookieLatch.countDown()
+                }
+                cm.removeSessionCookies(null)
+                try {
+                    cookieLatch.await(1000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                } catch (_: Throwable) {}
+                cm.flush()
+
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+                    try {
+                        val store = ProfileStore.getInstance()
+                        val incognitoProfile = store.getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
+                        if (incognitoProfile != null) {
+                            incognitoProfile.cookieManager.removeAllCookies(null)
+                            incognitoProfile.cookieManager.flush()
+                            incognitoProfile.webStorage.deleteAllData()
+                        }
+                    } catch (_: Throwable) {}
+                }
+            } catch (_: Throwable) {}
+
+            try {
+                WebStorage.getInstance().deleteAllData()
+            } catch (_: Throwable) {}
+
+            try {
+                val webViewDb = WebViewDatabase.getInstance(appContext)
+                webViewDb.clearHttpAuthUsernamePassword()
+                webViewDb.clearFormData()
+            } catch (_: Throwable) {}
+
+            try {
+                prefs.clearAllCustomBlockedRules()
+            } catch (_: Throwable) {}
+        }
+
+        // 4. Delete file caches on disk and clear active WebView caches
+        if (doClearCache) {
+            val tm = tabManager ?: TabManager.activeInstance
+            val clearCacheAction = {
+                try {
+                    tm?.getAllWebViews()?.forEach { wv ->
+                        try {
+                            wv.clearCache(true)
+                            wv.clearFormData()
+                            wv.clearSslPreferences()
+                        } catch (_: Throwable) {}
                     }
                 } catch (_: Throwable) {}
             }
-        } catch (_: Throwable) {}
 
-        // 4. Clear WebStorage (LocalStorage, IndexedDB, Web SQL) & WebViewDatabase (Form Data, Passwords)
-        try {
-            WebStorage.getInstance().deleteAllData()
-        } catch (_: Throwable) {}
+            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+                clearCacheAction()
+            } else {
+                val latch = java.util.concurrent.CountDownLatch(1)
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    clearCacheAction()
+                    latch.countDown()
+                }
+                try {
+                    latch.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                } catch (_: Throwable) {}
+            }
 
-        try {
-            val webViewDb = WebViewDatabase.getInstance(appContext)
-            webViewDb.clearHttpAuthUsernamePassword()
-            webViewDb.clearFormData()
-        } catch (_: Throwable) {}
+            try {
+                LocalFileLoader.cleanupAllPreviews(appContext)
+            } catch (_: Throwable) {}
 
-        // 5. Delete file caches on disk (previews, favicons, archives, thumbnails, webview cache)
-        try {
-            LocalFileLoader.cleanupAllPreviews(appContext)
-        } catch (_: Throwable) {}
+            try {
+                FaviconManager.clearCache(appContext)
+            } catch (_: Throwable) {}
 
-        try {
-            FaviconManager.clearCache(appContext)
-        } catch (_: Throwable) {}
+            try {
+                val archivesDir = File(appContext.cacheDir, "web_archives")
+                if (archivesDir.exists()) archivesDir.deleteRecursively()
+            } catch (_: Throwable) {}
 
-        try {
-            val archivesDir = File(appContext.cacheDir, "web_archives")
-            if (archivesDir.exists()) archivesDir.deleteRecursively()
-        } catch (_: Throwable) {}
-
-        try {
-            val thumbDir = File(appContext.cacheDir, "tab_thumbnails")
-            if (thumbDir.exists()) thumbDir.deleteRecursively()
-        } catch (_: Throwable) {}
-
-        try {
-            val wvCacheDir = File(appContext.cacheDir, "org.chromium.android_webview")
-            if (wvCacheDir.exists()) wvCacheDir.deleteRecursively()
-        } catch (_: Throwable) {}
-
-        try {
-            val stateDir = File(appContext.filesDir, "tab_states")
-            if (stateDir.exists()) stateDir.deleteRecursively()
-        } catch (_: Throwable) {}
-
-        // 7. Reset session preferences
-        try {
-            val prefs = BrowserPreferences.getInstance(appContext)
-            prefs.lastActiveTabId = null
-            prefs.clearAllCustomBlockedRules()
-        } catch (_: Throwable) {}
+            try {
+                val wvCacheDir = File(appContext.cacheDir, "org.chromium.android_webview")
+                if (wvCacheDir.exists()) wvCacheDir.deleteRecursively()
+            } catch (_: Throwable) {}
+        }
     }
 }

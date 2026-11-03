@@ -70,7 +70,7 @@
                 tools:text="Last 24 hours" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Details & Preview Card -->
+        <!-- Options Card with Granular Checkboxes -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -84,15 +84,22 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="14dp">
+                android:orientation="vertical">
 
-                <!-- Item 1: Browsing History Preview -->
+                <!-- 1. Browsing History Option -->
                 <LinearLayout
+                    android:id="@+id/rowHistory"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="12dp">
 
                     <androidx.appcompat.widget.AppCompatImageView
                         android:layout_width="22dp"
@@ -123,27 +130,41 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
                             android:ellipsize="end"
-                            android:maxLines="2"
+                            android:maxLines="1"
                             android:textColor="?android:attr/textColorSecondary"
-                            android:textSize="13sp"
-                            tools:text="e.g. google.com, wikipedia.org, github.com" />
+                            android:textSize="12sp"
+                            tools:text="e.g. google.com, wikipedia.org" />
                     </LinearLayout>
+
+                    <com.google.android.material.checkbox.MaterialCheckBox
+                        android:id="@+id/cbClearHistory"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:clickable="false"
+                        android:focusable="false" />
                 </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginTop="10dp"
-                    android:layout_marginBottom="10dp"
-                    android:alpha="0.3"
+                    android:alpha="0.25"
                     android:background="?attr/colorOutline" />
 
-                <!-- Item 2: Related Open Tabs Preview -->
+                <!-- 2. Open Tabs Option -->
                 <LinearLayout
+                    android:id="@+id/rowTabs"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="12dp">
 
                     <androidx.appcompat.widget.AppCompatImageView
                         android:layout_width="22dp"
@@ -174,43 +195,141 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
                             android:ellipsize="end"
-                            android:maxLines="2"
+                            android:maxLines="1"
                             android:textColor="?android:attr/textColorSecondary"
-                            android:textSize="13sp"
+                            android:textSize="12sp"
                             tools:text="e.g. Kotlin Reference, Wikipedia" />
                     </LinearLayout>
+
+                    <com.google.android.material.checkbox.MaterialCheckBox
+                        android:id="@+id/cbClearTabs"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false"
+                        android:clickable="false"
+                        android:focusable="false" />
                 </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginTop="10dp"
-                    android:layout_marginBottom="10dp"
-                    android:alpha="0.3"
+                    android:alpha="0.25"
                     android:background="?attr/colorOutline" />
 
-                <!-- Item 3: Cookies & Cache Warning -->
+                <!-- 3. Cookies and Site Data Option -->
                 <LinearLayout
+                    android:id="@+id/rowCookies"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="top"
-                    android:orientation="horizontal">
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="12dp">
 
                     <androidx.appcompat.widget.AppCompatImageView
                         android:layout_width="22dp"
                         android:layout_height="22dp"
                         android:layout_marginEnd="12dp"
-                        android:contentDescription="Warning"
-                        app:srcCompat="@drawable/ic_shield"
+                        android:contentDescription="Cookies"
+                        app:srcCompat="@drawable/ic_shield_lock"
                         app:tint="?attr/colorControlNormal" />
 
-                    <TextView
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/cookies_cache_warning"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="13sp" />
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/clear_data_cookies"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/clear_data_cookies_desc"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <com.google.android.material.checkbox.MaterialCheckBox
+                        android:id="@+id/cbClearCookies"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false"
+                        android:clickable="false"
+                        android:focusable="false" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:alpha="0.25"
+                    android:background="?attr/colorOutline" />
+
+                <!-- 4. Cached Images and Files Option -->
+                <LinearLayout
+                    android:id="@+id/rowCache"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="12dp">
+
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_marginEnd="12dp"
+                        android:contentDescription="Cache"
+                        app:srcCompat="@drawable/ic_broom"
+                        app:tint="?attr/colorControlNormal" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/clear_data_cache"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/clear_data_cache_desc"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <com.google.android.material.checkbox.MaterialCheckBox
+                        android:id="@+id/cbClearCache"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false"
+                        android:clickable="false"
+                        android:focusable="false" />
                 </LinearLayout>
 
             </LinearLayout>

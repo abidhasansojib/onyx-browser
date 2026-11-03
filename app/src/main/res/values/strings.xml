@@ -148,6 +148,21 @@
     <string name="cookies_cache_warning">Cookies, cache, and other site data will be cleared for this period.</string>
     <string name="clear_data">Clear Data</string>
     <string name="browsing_data_cleared">Browsing data cleared</string>
+    <string name="clear_data_tabs">Open tabs</string>
+    <string name="clear_data_history">Browsing history</string>
+    <string name="clear_data_cookies">Cookies and site data</string>
+    <string name="clear_data_cookies_desc">Signs you out of most sites</string>
+    <string name="clear_data_cache">Cached images and files</string>
+    <string name="clear_data_cache_desc">Frees up storage and memory</string>
+    <string name="clear_on_exit_disabled">Disabled</string>
+    <string name="clear_on_exit_none_selected">None selected</string>
+    <string name="clear_on_exit_sheet_title">Clear Data on Exit</string>
+    <string name="clear_on_exit_sheet_desc">Choose what data to automatically remove when exiting or closing the browser</string>
+    <string name="clear_on_exit_master_label">Enable Clear Data on Exit</string>
+    <string name="clear_on_exit_tabs_desc">Closes open tabs and removes saved tab states</string>
+    <string name="clear_on_exit_history_desc">Removes all records of visited websites</string>
+    <string name="clear_on_exit_cookies_desc">Signs you out of websites and clears stored site data</string>
+    <string name="clear_on_exit_cache_desc">Clears cached web files and frees local storage</string>
 
     <!-- Webpage Menu & Toolset -->
     <string name="translate_to">Translate to %s</string>
