@@ -6,7 +6,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - [Architecture & Core Subsystems](ARCHITECTURE.md)
 - [Android WebView Engineering Guide](WEBVIEW.md)
 
-> **Verified Golden Milestone**: Tag **`golden-reference`** (commit `c30976a`) — all core WebAuthn passkeys, privacy/adblock, background media playback, native video player touch controls, Picture-in-Picture, full-page appearance settings, and refined toolbar layout verified working.
+> **Verified Golden Milestone**: Tag **`reference`** (commit `9a2ade9`) — verified working across WebAuthn passkeys, adblocking & clickjack defusal, native video tap-to-show-controls, background audio/video playback, Picture-in-Picture, full-page appearance settings with refined "Address Bar position" dual-choice selector, robust clear-data-on-exit across minimize and Recents dismissal, unified context menu media downloads, and 12-hour automated upstream synchronization.
 
 ### Status Legend
 - `[x]` **Working** – Fully implemented, verified, and active in release builds.
