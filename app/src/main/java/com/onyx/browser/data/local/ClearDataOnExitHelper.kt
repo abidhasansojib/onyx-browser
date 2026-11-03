@@ -38,11 +38,35 @@ object ClearDataOnExitHelper {
             }
         } catch (_: Throwable) {}
 
-        // 2. Close and purge in-memory Tabs, WebViews, and Tab undo stack
+        // 2. Clear active WebView caches, close tabs, and purge tab undo stack
         val tm = tabManager ?: TabManager.activeInstance
-        try {
-            tm?.clearAllTabsAndDataForExit()
-        } catch (_: Throwable) {}
+        val clearWebViewsAction = {
+            try {
+                tm?.getAllWebViews()?.forEach { wv ->
+                    try {
+                        wv.clearCache(true)
+                        wv.clearFormData()
+                        wv.clearSslPreferences()
+                    } catch (_: Throwable) {}
+                }
+            } catch (_: Throwable) {}
+            try {
+                tm?.clearAllTabsAndDataForExit()
+            } catch (_: Throwable) {}
+        }
+
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            clearWebViewsAction()
+        } else {
+            val latch = java.util.concurrent.CountDownLatch(1)
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                clearWebViewsAction()
+                latch.countDown()
+            }
+            try {
+                latch.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+            } catch (_: Throwable) {}
+        }
 
         // 3. Clear Chromium Cookies across Default and Multi-Profiles
         try {
@@ -82,18 +106,7 @@ object ClearDataOnExitHelper {
             webViewDb.clearFormData()
         } catch (_: Throwable) {}
 
-        // 5. Clear active WebView caches
-        try {
-            tm?.getAllWebViews()?.forEach { wv ->
-                try {
-                    wv.clearCache(true)
-                    wv.clearFormData()
-                    wv.clearSslPreferences()
-                } catch (_: Throwable) {}
-            }
-        } catch (_: Throwable) {}
-
-        // 6. Delete file caches on disk (previews, favicons, archives, thumbnails, webview cache)
+        // 5. Delete file caches on disk (previews, favicons, archives, thumbnails, webview cache)
         try {
             LocalFileLoader.cleanupAllPreviews(appContext)
         } catch (_: Throwable) {}
