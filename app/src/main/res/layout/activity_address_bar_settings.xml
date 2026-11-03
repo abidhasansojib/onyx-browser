@@ -45,7 +45,7 @@
             android:paddingEnd="16dp"
             android:paddingBottom="40dp">
 
-            <!-- Section Header: Edit Address Bar -->
+            <!-- Section Header: Address Bar Position -->
             <TextView
                 android:id="@+id/tvEditAddressBarHeader"
                 android:layout_width="wrap_content"
@@ -53,8 +53,9 @@
                 android:layout_marginStart="4dp"
                 android:layout_marginBottom="8dp"
                 android:letterSpacing="0.08"
-                android:text="EDIT ADDRESS BAR"
-                android:textColor="#9E9E9E"
+                android:text="@string/address_bar_position_category"
+                android:textAllCaps="true"
+                android:textColor="@color/settings_subtitle_text"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -64,10 +65,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
-                app:cardBackgroundColor="#1C1C1E"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="2dp"
-                app:strokeColor="#1FFFFFFF"
+                app:cardBackgroundColor="@color/settings_card_bg"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/settings_card_stroke"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
@@ -80,9 +81,10 @@
                     <FrameLayout
                         android:id="@+id/optTopAddressBar"
                         android:layout_width="0dp"
-                        android:layout_height="140dp"
+                        android:layout_height="160dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_address_bar_option_selected"
+                        android:foreground="?attr/selectableItemBackground"
                         android:clickable="true"
                         android:focusable="true">
 
@@ -90,13 +92,14 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:gravity="center_horizontal"
-                            android:orientation="vertical">
+                            android:orientation="vertical"
+                            android:paddingTop="12dp"
+                            android:paddingBottom="12dp">
 
                             <!-- Phone Graphic Container (Top Half) -->
                             <FrameLayout
                                 android:layout_width="90dp"
-                                android:layout_height="72dp"
-                                android:layout_marginTop="16dp">
+                                android:layout_height="72dp">
 
                                 <androidx.appcompat.widget.AppCompatImageView
                                     android:layout_width="match_parent"
@@ -105,35 +108,46 @@
 
                                 <View
                                     android:id="@+id/pillTopPreview"
-                                    android:layout_width="56dp"
-                                    android:layout_height="14dp"
+                                    android:layout_width="44dp"
+                                    android:layout_height="12dp"
                                     android:layout_gravity="center_horizontal|top"
-                                    android:layout_marginTop="14dp"
+                                    android:layout_marginTop="10dp"
                                     android:background="@drawable/bg_address_bar_pill" />
                             </FrameLayout>
+
+                            <!-- Option Label -->
+                            <TextView
+                                android:id="@+id/tvLabelTop"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:text="@string/address_bar_position_top"
+                                android:textColor="@color/settings_title_text"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
 
                             <!-- Selection Badge Container -->
                             <FrameLayout
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="12dp">
+                                android:layout_marginTop="8dp">
 
                                 <View
                                     android:id="@+id/radioTopUnselected"
-                                    android:layout_width="24dp"
-                                    android:layout_height="24dp"
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
                                     android:background="@drawable/bg_address_bar_radio_unselected"
                                     android:visibility="gone" />
 
                                 <FrameLayout
                                     android:id="@+id/badgeTopSelected"
-                                    android:layout_width="24dp"
-                                    android:layout_height="24dp"
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
                                     android:background="@drawable/bg_address_bar_check_badge">
 
                                     <androidx.appcompat.widget.AppCompatImageView
-                                        android:layout_width="14dp"
-                                        android:layout_height="14dp"
+                                        android:layout_width="13dp"
+                                        android:layout_height="13dp"
                                         android:layout_gravity="center"
                                         app:srcCompat="@drawable/ic_check"
                                         app:tint="#FFFFFF" />
@@ -150,9 +164,10 @@
                     <FrameLayout
                         android:id="@+id/optBottomAddressBar"
                         android:layout_width="0dp"
-                        android:layout_height="140dp"
+                        android:layout_height="160dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_address_bar_option_unselected"
+                        android:foreground="?attr/selectableItemBackground"
                         android:clickable="true"
                         android:focusable="true">
 
@@ -160,13 +175,14 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:gravity="center_horizontal"
-                            android:orientation="vertical">
+                            android:orientation="vertical"
+                            android:paddingTop="12dp"
+                            android:paddingBottom="12dp">
 
                             <!-- Phone Graphic Container (Bottom Half) -->
                             <FrameLayout
                                 android:layout_width="90dp"
-                                android:layout_height="72dp"
-                                android:layout_marginTop="16dp">
+                                android:layout_height="72dp">
 
                                 <androidx.appcompat.widget.AppCompatImageView
                                     android:layout_width="match_parent"
@@ -175,35 +191,46 @@
 
                                 <View
                                     android:id="@+id/pillBottomPreview"
-                                    android:layout_width="56dp"
-                                    android:layout_height="14dp"
+                                    android:layout_width="44dp"
+                                    android:layout_height="12dp"
                                     android:layout_gravity="center_horizontal|bottom"
-                                    android:layout_marginBottom="14dp"
+                                    android:layout_marginBottom="10dp"
                                     android:background="@drawable/bg_address_bar_pill" />
                             </FrameLayout>
+
+                            <!-- Option Label -->
+                            <TextView
+                                android:id="@+id/tvLabelBottom"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:text="@string/address_bar_position_bottom"
+                                android:textColor="@color/settings_subtitle_text"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
 
                             <!-- Selection Badge Container -->
                             <FrameLayout
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="12dp">
+                                android:layout_marginTop="8dp">
 
                                 <View
                                     android:id="@+id/radioBottomUnselected"
-                                    android:layout_width="24dp"
-                                    android:layout_height="24dp"
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
                                     android:background="@drawable/bg_address_bar_radio_unselected" />
 
                                 <FrameLayout
                                     android:id="@+id/badgeBottomSelected"
-                                    android:layout_width="24dp"
-                                    android:layout_height="24dp"
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
                                     android:background="@drawable/bg_address_bar_check_badge"
                                     android:visibility="gone">
 
                                     <androidx.appcompat.widget.AppCompatImageView
-                                        android:layout_width="14dp"
-                                        android:layout_height="14dp"
+                                        android:layout_width="13dp"
+                                        android:layout_height="13dp"
                                         android:layout_gravity="center"
                                         app:srcCompat="@drawable/ic_check"
                                         app:tint="#FFFFFF" />
@@ -301,7 +328,7 @@
                 android:layout_marginTop="16dp"
                 android:layout_marginBottom="8dp"
                 android:letterSpacing="0.08"
-                android:text="TOOLBAR BEHAVIOR"
+                android:text="@string/toolbar_behavior_category"
                 android:textColor="@color/settings_subtitle_text"
                 android:textSize="11sp"
                 android:textStyle="bold" />

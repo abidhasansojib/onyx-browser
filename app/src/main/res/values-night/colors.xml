@@ -55,6 +55,9 @@
     <!-- Settings text colors — dark mode -->
     <color name="settings_title_text">#FFFFFFFF</color>
     <color name="settings_subtitle_text">#9AA0A6</color>
+    <color name="address_bar_tile_selected_bg">#2C2D30</color>
+    <color name="address_bar_tile_unselected_bg">#1D1E20</color>
+    <color name="address_bar_tile_unselected_stroke">#28292C</color>
 
     <!-- History Screen Colors — Dark mode -->
     <color name="history_icon_placeholder_bg">#2C2D30</color>

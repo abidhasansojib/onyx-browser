@@ -1,25 +1,52 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="90dp"
-    android:height="70dp"
+    android:height="72dp"
     android:viewportWidth="90"
-    android:viewportHeight="70">
+    android:viewportHeight="72">
+
+    <!-- Phone Chassis Frame -->
+    <path
+        android:pathData="M 26,2 L 64,2 A 8,8 0 0,1 72,10 L 72,62 A 8,8 0 0,1 64,70 L 26,70 A 8,8 0 0,1 18,62 L 18,10 A 8,8 0 0,1 26,2 Z"
+        android:strokeWidth="1.5"
+        android:strokeColor="@color/settings_subtitle_text"
+        android:strokeAlpha="0.45"
+        android:fillColor="@color/settings_canvas_bg"
+        android:fillAlpha="0.35" />
+
+    <!-- Top Camera Dot / Speaker Indicator -->
+    <path
+        android:pathData="M 45,5.5 m -1.5,0 a 1.5,1.5 0 1,0 3,0 a 1.5,1.5 0 1,0 -3,0"
+        android:fillColor="@color/settings_subtitle_text"
+        android:fillAlpha="0.5" />
+
+    <!-- Simulated Web Page Content Lines -->
+    <path
+        android:pathData="M 26,30 L 60,30"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeColor="@color/settings_subtitle_text"
+        android:strokeAlpha="0.3" />
 
     <path
-        android:strokeWidth="1.8"
+        android:pathData="M 26,38 L 52,38"
+        android:strokeWidth="1.5"
         android:strokeLineCap="round"
-        android:pathData="M 18,70 L 18,22 A 14,14 0 0,1 32,8 L 58,8 A 14,14 0 0,1 72,22 L 72,70">
-        <aapt:attr name="android:strokeColor">
-            <gradient
-                android:startX="45"
-                android:startY="8"
-                android:endX="45"
-                android:endY="70"
-                android:type="linear">
-                <item android:color="#B3FFFFFF" android:offset="0.0" />
-                <item android:color="#40FFFFFF" android:offset="0.4" />
-                <item android:color="#00FFFFFF" android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
+        android:strokeColor="@color/settings_subtitle_text"
+        android:strokeAlpha="0.22" />
+
+    <path
+        android:pathData="M 26,46 L 64,46"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeColor="@color/settings_subtitle_text"
+        android:strokeAlpha="0.18" />
+
+    <!-- Bottom Navigation / Home Bar -->
+    <path
+        android:pathData="M 38,65 L 52,65"
+        android:strokeWidth="2.0"
+        android:strokeLineCap="round"
+        android:strokeColor="@color/settings_subtitle_text"
+        android:strokeAlpha="0.4" />
+
 </vector>

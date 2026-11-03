@@ -79,6 +79,9 @@
     <!-- Settings text colors — light mode -->
     <color name="settings_title_text">#202124</color>
     <color name="settings_subtitle_text">#5F6368</color>
+    <color name="address_bar_tile_selected_bg">#F1F3F4</color>
+    <color name="address_bar_tile_unselected_bg">#FAFAFA</color>
+    <color name="address_bar_tile_unselected_stroke">#E0E2E6</color>
 
     <!-- History Screen Colors — Light mode -->
     <color name="history_icon_placeholder_bg">#E8EAED</color>

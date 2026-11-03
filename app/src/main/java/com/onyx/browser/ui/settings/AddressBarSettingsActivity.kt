@@ -1,7 +1,10 @@
 package com.onyx.browser.ui.settings
 
+import android.content.res.ColorStateList
 import android.content.res.Configuration
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -93,6 +96,12 @@ class AddressBarSettingsActivity : AppCompatActivity() {
 
     private val springInterpolator = android.view.animation.PathInterpolator(0.22f, 1f, 0.36f, 1f)
 
+    private fun applySelectedOptionBackground(optionView: View, accentColor: Int) {
+        optionView.setBackgroundResource(R.drawable.bg_address_bar_option_selected)
+        val drawable = optionView.background?.mutate() as? GradientDrawable
+        drawable?.setStroke((1.5f * resources.displayMetrics.density).toInt(), accentColor)
+    }
+
     private fun updateAddressBarPositionUI(isBottom: Boolean, animated: Boolean) {
         val topOption = binding.optTopAddressBar
         val bottomOption = binding.optBottomAddressBar
@@ -102,14 +111,25 @@ class AddressBarSettingsActivity : AppCompatActivity() {
         val radioTop = binding.radioTopUnselected
         val badgeBottom = binding.badgeBottomSelected
         val radioBottom = binding.radioBottomUnselected
+        val labelTop = binding.tvLabelTop
+        val labelBottom = binding.tvLabelBottom
+
+        val accentColor = AccentColorManager.getAccentColor(preferences)
+        badgeTop.backgroundTintList = ColorStateList.valueOf(accentColor)
+        badgeBottom.backgroundTintList = ColorStateList.valueOf(accentColor)
+
+        val titleColor = ContextCompat.getColor(this, R.color.settings_title_text)
+        val subtitleColor = ContextCompat.getColor(this, R.color.settings_subtitle_text)
 
         val floatPx = -2f * resources.displayMetrics.density
 
         if (animated) {
             if (!isBottom) {
                 // Top selected
-                topOption.setBackgroundResource(R.drawable.bg_address_bar_option_selected)
+                applySelectedOptionBackground(topOption, accentColor)
                 bottomOption.setBackgroundResource(R.drawable.bg_address_bar_option_unselected)
+                labelTop.setTextColor(titleColor)
+                labelBottom.setTextColor(subtitleColor)
 
                 topPill.animate()
                     .translationY(floatPx)
@@ -122,7 +142,7 @@ class AddressBarSettingsActivity : AppCompatActivity() {
                     .setDuration(300)
                     .start()
 
-                badgeTop.visibility = android.view.View.VISIBLE
+                badgeTop.visibility = View.VISIBLE
                 badgeTop.alpha = 0f
                 badgeTop.scaleX = 0.6f
                 badgeTop.scaleY = 0.6f
@@ -133,16 +153,18 @@ class AddressBarSettingsActivity : AppCompatActivity() {
                     .setInterpolator(springInterpolator)
                     .setDuration(250)
                     .start()
-                radioTop.visibility = android.view.View.GONE
+                radioTop.visibility = View.GONE
 
-                badgeBottom.visibility = android.view.View.GONE
-                radioBottom.visibility = android.view.View.VISIBLE
+                badgeBottom.visibility = View.GONE
+                radioBottom.visibility = View.VISIBLE
                 radioBottom.alpha = 0f
                 radioBottom.animate().alpha(1f).setDuration(200).start()
             } else {
                 // Bottom selected
                 topOption.setBackgroundResource(R.drawable.bg_address_bar_option_unselected)
-                bottomOption.setBackgroundResource(R.drawable.bg_address_bar_option_selected)
+                applySelectedOptionBackground(bottomOption, accentColor)
+                labelTop.setTextColor(subtitleColor)
+                labelBottom.setTextColor(titleColor)
 
                 bottomPill.animate()
                     .translationY(floatPx)
@@ -155,7 +177,7 @@ class AddressBarSettingsActivity : AppCompatActivity() {
                     .setDuration(300)
                     .start()
 
-                badgeBottom.visibility = android.view.View.VISIBLE
+                badgeBottom.visibility = View.VISIBLE
                 badgeBottom.alpha = 0f
                 badgeBottom.scaleX = 0.6f
                 badgeBottom.scaleY = 0.6f
@@ -166,38 +188,42 @@ class AddressBarSettingsActivity : AppCompatActivity() {
                     .setInterpolator(springInterpolator)
                     .setDuration(250)
                     .start()
-                radioBottom.visibility = android.view.View.GONE
+                radioBottom.visibility = View.GONE
 
-                badgeTop.visibility = android.view.View.GONE
-                radioTop.visibility = android.view.View.VISIBLE
+                badgeTop.visibility = View.GONE
+                radioTop.visibility = View.VISIBLE
                 radioTop.alpha = 0f
                 radioTop.animate().alpha(1f).setDuration(200).start()
             }
         } else {
             if (!isBottom) {
-                topOption.setBackgroundResource(R.drawable.bg_address_bar_option_selected)
+                applySelectedOptionBackground(topOption, accentColor)
                 bottomOption.setBackgroundResource(R.drawable.bg_address_bar_option_unselected)
+                labelTop.setTextColor(titleColor)
+                labelBottom.setTextColor(subtitleColor)
                 topPill.translationY = floatPx
                 bottomPill.translationY = 0f
-                badgeTop.visibility = android.view.View.VISIBLE
+                badgeTop.visibility = View.VISIBLE
                 badgeTop.alpha = 1f
                 badgeTop.scaleX = 1f
                 badgeTop.scaleY = 1f
-                radioTop.visibility = android.view.View.GONE
-                badgeBottom.visibility = android.view.View.GONE
-                radioBottom.visibility = android.view.View.VISIBLE
+                radioTop.visibility = View.GONE
+                badgeBottom.visibility = View.GONE
+                radioBottom.visibility = View.VISIBLE
             } else {
                 topOption.setBackgroundResource(R.drawable.bg_address_bar_option_unselected)
-                bottomOption.setBackgroundResource(R.drawable.bg_address_bar_option_selected)
+                applySelectedOptionBackground(bottomOption, accentColor)
+                labelTop.setTextColor(subtitleColor)
+                labelBottom.setTextColor(titleColor)
                 bottomPill.translationY = floatPx
                 topPill.translationY = 0f
-                badgeBottom.visibility = android.view.View.VISIBLE
+                badgeBottom.visibility = View.VISIBLE
                 badgeBottom.alpha = 1f
                 badgeBottom.scaleX = 1f
                 badgeBottom.scaleY = 1f
-                radioBottom.visibility = android.view.View.GONE
-                badgeTop.visibility = android.view.View.GONE
-                radioTop.visibility = android.view.View.VISIBLE
+                radioBottom.visibility = View.GONE
+                badgeTop.visibility = View.GONE
+                radioTop.visibility = View.VISIBLE
             }
         }
     }

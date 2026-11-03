@@ -80,7 +80,11 @@
     <string name="theme_light_desc">Clean, bright display for daytime</string>
     <string name="address_bar_customization">Address Bar Customization</string>
     <string name="address_bar_customization_desc">Buttons, actions, and toolbar controls</string>
+    <string name="address_bar_position_category">Address Bar position</string>
+    <string name="address_bar_position_top">Top</string>
+    <string name="address_bar_position_bottom">Bottom</string>
     <string name="toolbar_buttons_category">TOOLBAR BUTTONS</string>
+    <string name="toolbar_behavior_category">TOOLBAR BEHAVIOR</string>
     <string name="replace_home_with_refresh">Replace Home with Refresh button</string>
     <string name="replace_home_with_refresh_desc">Show a reload button instead of the home button in the address bar</string>
     <string name="refresh">Refresh</string>
