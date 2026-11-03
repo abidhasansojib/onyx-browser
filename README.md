@@ -59,14 +59,10 @@ Get the latest APK from [**GitHub Releases**](https://github.com/abidhasansojib/
 
 ## Building from Source
 
-1. Clone the repository:
-   ```bash
-   git clone --recursive https://github.com/abidhasansojib/onyx-browser.git
-   ```
-2. Build via GitHub Actions:
-   - Go to the **Actions** tab in your GitHub fork.
-   - Choose **Build Onyx Browser** and click **Run workflow**.
-   - Your compiled APKs will be ready under Releases and Artifacts.
+1. Fork this repository on GitHub.
+2. Go to the **Actions** tab in your GitHub fork.
+3. Choose **Build Onyx Browser** and click **Run workflow**.
+4. Your compiled APKs will be ready under **Releases** and **Artifacts**.
 
 ---
 
