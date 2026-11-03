@@ -53,7 +53,7 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
     private var onOpenInNewTab: ((String) -> Unit)? = null
     private var onOpenInIncognitoTab: ((String) -> Unit)? = null
     private var onEditUrl: ((String) -> Unit)? = null
-    private var onDownloadUrl: ((String) -> Unit)? = null
+    private var onDownloadUrl: ((String, String) -> Unit)? = null
 
     fun setOnOpenInNewTab(cb: (String) -> Unit) {
         onOpenInNewTab = cb
@@ -67,7 +67,7 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
         onEditUrl = cb
     }
 
-    fun setOnDownloadUrl(cb: (String) -> Unit) {
+    fun setOnDownloadUrl(cb: (String, String) -> Unit) {
         onDownloadUrl = cb
     }
 
