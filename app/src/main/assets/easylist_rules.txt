@@ -33804,8 +33804,8 @@ calgaryherald.com,calgarysun.com,canada.com,canoe.com,driving.ca,edmontonjournal
 @@||cdn.q0losid.com/prod/pni/loader.min.js$domain=calgaryherald.com|calgarysun.com|canada.com|canoe.com|driving.ca|edmontonjournal.com|edmontonsun.com|financialpost.com|intelligencer.ca|leaderpost.com|lfpress.com|montrealgazette.com|nationalpost.com|ontariofarmer.com|ottawacitizen.com|ottawasun.com|standard-freeholder.com|thegrowthop.com|theprovince.com|thestarphoenix.com|tj.news|torontosun.com|vancouversun.com|windsorstar.com|winnipegsun.com
 @@||cbsistatic.com/*/comscore.streaming.$script,domain=cbsnews.com
 ||imasdk.googleapis.com/js/sdkloader/ima3_debug.js$domain=cbsnews.com,redirect=google-ima.js,important
-cbsnews.com>>##+js(no-fetch-if, v.fwmrm.net/ad/g/, war:noop-vmap1.xml)
-cbsnews.com>>##+js(no-xhr-if, v.fwmrm.net/ad/g/, war:noop-vmap1.xml)
+cbsnews.com>>##+js(trusted-prevent-fetch, v.fwmrm.net/ad/g/, <vmap:VMAP xmlns:vmap="http://www.iab.net/videosuite/vmap" version="1.0"></vmap:VMAP>)
+cbsnews.com>>##+js(trusted-prevent-xhr, v.fwmrm.net/ad/g/, <vmap:VMAP xmlns:vmap="http://www.iab.net/videosuite/vmap" version="1.0"></vmap:VMAP>)
 @@||imasdk.googleapis.com/js/sdkloader/ima3_dai.js$domain=cbsnews.com
 @@||imasdk.googleapis.com/js/sdkloader/ima3_dai_debug.js$domain=cbsnews.com
 @@||tealium.cbsnews.com/site/prod/utag.js^$1p
@@ -35915,8 +35915,8 @@ topgear.com##+js(set, _sp_.config.events.onSPPMObjectReady, noopFunc)
 @@||worldsurfleague.com/js/videojs8/nuevo/plugins/videojs-contrib-ads.min.js^$script,1p
 @@||micro.rubiconproject.com/prebid/dynamic/$script,domain=worldsurfleague.com
 @@||securepubads.g.doubleclick.net/pagead/ima_ppub_config$xhr,domain=worldsurfleague.com
-imasdk.googleapis.com##+js(no-xhr-if, worldsurfleague.com, war:noop-vmap1.0.xml)
-||pubads.g.doubleclick.net/gampad/ads?*www.worldsurfleague.com$xhr,redirect=noop-vmap1.0.xml:5,domain=imasdk.googleapis.com
+imasdk.googleapis.com##+js(trusted-prevent-xhr, worldsurfleague.com, <vmap:VMAP xmlns:vmap="http://www.iab.net/videosuite/vmap" version="1.0"></vmap:VMAP>)
+||pubads.g.doubleclick.net/gampad/ads?*www.worldsurfleague.com$xhr,redirect=noop-vmap1.xml:5,domain=imasdk.googleapis.com
 eservice.directauto.com##+js(set, gtm, {})
 eservice.directauto.com##+js(set, gtm.trackEvent, noopFunc)
 ||imasdk.googleapis.com/js/sdkloader/ima3_debug.js$script,redirect=google-ima.js,domain=mais.sbt.com.br,important
@@ -44487,10 +44487,12 @@ omni.soundestlink.com$image
 ||passwordbyte.com^
 ||pastoralroad.com^
 ||pawsnug.com^
+||payiris.com^
 ||peacefullimit.com^
 ||peakcreator.com^
 ||pearpouch.com^
 ||peatfarming.com^
+||pedaldudes.com^
 ||pedropanther.com^
 ||peeringhost.net^
 ||pegsbuttons.com^
@@ -50872,6 +50874,8 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||assets.poxo.com/jet/jet.js
 ||cafe24.com/cfa.js
 ||cafe24.com/weblog.js
+||cdn.datamanager.co.kr/0/tcsdm.js
+||cdn.onetag.co.kr/0/tcs.js
 ||cm-exchange.toast.com^
 ||dadispapi.gmarket.co.kr^
 ||dco.coupang.com^
