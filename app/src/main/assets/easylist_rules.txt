@@ -36225,6 +36225,7 @@ funradio.fr##+js(trusted-set, getUserConsentStatus, json:{"dailymotion":true}, a
 ||log.nordot.jp^$badfilter
 ||log.nordot.jp/pageview
 @@||securepubads.g.doubleclick.net/tag/js/gpt.js$script,redirect-rule=googletagservices_gpt.js:5,domain=theglobeandmail.com
+@@||h-visa2.online-metrix.net^$frame,domain=src.visa.com
 &&sub19=undefined&sub20=undefined
 &action=js_stats
 &ev=PageView&
@@ -43759,6 +43760,7 @@ omni.soundestlink.com$image
 ||fluffybirds.com^
 ||flushingbeast.com^
 ||flutteringfireman.com^
+||fluxdecor.com^
 ||flyflightstar.com^
 ||flystranger.com^
 ||flysupercars.com^
@@ -44505,6 +44507,7 @@ omni.soundestlink.com$image
 ||perfectfetch.com^
 ||permagroove.com^
 ||petitechili.com^
+||phatfiles.com^
 ||phonecup.com^
 ||phoneresult.com^
 ||photohints.com^
@@ -44540,6 +44543,7 @@ omni.soundestlink.com$image
 ||playerhappy.com^
 ||playerscache.com^
 ||playfulriver.com^
+||playwarren.com^
 ||pleasantpump.com^
 ||plotparent.com^
 ||plotrabbit.com^
@@ -79604,6 +79608,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||spylog.com^
 ||spywarelabs.com^
 ||spywords.com^
+||srv.sayyac.com^
 ||srvmath.com^
 ||srvtrck.com^
 ||srwww1.com^
