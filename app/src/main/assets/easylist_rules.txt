@@ -43844,6 +43844,7 @@ omni.soundestlink.com$image
 ||getbendyyoga.com^
 ||getwagtail.com^
 ||ghostgenie.com^
+||ghostscholars.com^
 ||ghostwoodalbum.com^
 ||gianthypes.com^
 ||giantsvessel.com^
@@ -44615,6 +44616,7 @@ omni.soundestlink.com$image
 ||profanstee.com^
 ||profitrumour.com^
 ||profusesupport.com^
+||projectglove.com^
 ||promiseair.com^
 ||propertypotato.com^
 ||propsynergy.com^
@@ -44641,6 +44643,7 @@ omni.soundestlink.com$image
 ||puppiesart.com^
 ||purebloom.net^
 ||purposepipe.com^
+||pursuitwomen.com^
 ||q20jqurls0y7gk8.info^
 ||quadquality.com^
 ||quantumlagoon.com^
@@ -79389,6 +79392,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||quarterserver.de^
 ||quinst.com^
 ||quisma.com^
+||r.brandreward.com^
 ||r.drinksdirect.net^
 ||r.logrocket.io^
 ||r.marketing.dubaisothebys.com^
