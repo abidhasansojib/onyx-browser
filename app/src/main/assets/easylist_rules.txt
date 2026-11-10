@@ -36629,6 +36629,7 @@ funradio.fr##+js(trusted-set, getUserConsentStatus, json:{"dailymotion":true}, a
 /api/v3/getPageVisits
 /api/v3/trackSegmentEvent
 /api/video/stats/*$xmlhttprequest
+/api/viewcontent.php?
 /api/web/v1/tracker$ping
 /api_adlog.php?
 /api_ip_info.php
@@ -44103,6 +44104,7 @@ omni.soundestlink.com$image
 ||intentlens.com^
 ||internalcondition.com^
 ||internalsink.com^
+||intobuddy.com^
 ||intricateberry.com^
 ||introjava.com^
 ||inventtango.com^
@@ -44213,6 +44215,7 @@ omni.soundestlink.com$image
 ||lilydreamer.com^
 ||limecodesign.com^
 ||limepeal.com^
+||limitowl.com^
 ||linksoutside.com^
 ||linkstable.com^
 ||littlegeese.com^
@@ -44925,6 +44928,7 @@ omni.soundestlink.com$image
 ||screenphotos.com^
 ||scribblestring.com^
 ||scrollservice.com^
+||scrubchi.com^
 ||scrubswim.com^
 ||sealtravels.com^
 ||seamlesssalon.com^
