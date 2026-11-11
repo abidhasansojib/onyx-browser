@@ -13588,8 +13588,6 @@ autoevolution.com##.bgcutgrad
 ||paypal.com/xoplatform/logger/api/logger
 mail.google.com##.aeF > .nH > .nH[role="main"] > .aKB
 mail.google.com##.nH.PS
-||mail-ads.google.com^
-@@||mail-ads.google.com/mail/u/*/adsfe/main_jspb^$method=post,domain=mail.google.com
 stoodnt.com##.boxzilla-center-container
 stoodnt.com##.boxzilla-overlay
 facebook.com##.RectangleAd
@@ -40620,7 +40618,6 @@ omni.soundestlink.com$image
 ||cbtrk.net^$third-party
 ||cccpmo.com^$third-party
 ||ccgateway.net^$third-party
-||ccmbg.com^$third-party
 ||ccscserver.com^$third-party
 ||cdn-net.com^$third-party
 ||cdnlibjs.com^$third-party
@@ -44859,6 +44856,8 @@ omni.soundestlink.com$image
 ||royalsbagels.com^
 ||royalsweeper.com^
 ||rubouthunger.com^
+||rubwonders.com^
+||rubymoonwinery.com^
 ||rubyswinehouse.com^
 ||ruralrobin.com^
 ||rusticfrench.com^
@@ -47082,6 +47081,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||assets.trendii.com/pixel/main.js
 ||assets.yumpu.com/release/*/tracking.js
 ||assistant.watson.appdomain.cloud/analytics/
+||astatic.ccmbg.com/hz.js
 ||asterpix.com/tagcloudview/
 ||async-px-eu.dynamicyield.com^
 ||async-px.dynamicyield.com^
@@ -79116,6 +79116,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||madvertise.de^
 ||magnetise.io^
 ||magsrv.com^
+||mail-ads.google.com^
 ||maliva-mcs.byteoversea.com^
 ||maltiverse.lt.acemlnc.com^
 ||mantisadnetwork.com^
@@ -79616,6 +79617,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||runads.com^
 ||rundsp.com^
 ||s.adroll.com^
+||s.appreports.net^
 ||s.click.aliexpress.com^
 ||s.dmmew.com^
 ||s.uuidksinc.net^
