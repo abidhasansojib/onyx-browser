@@ -116,6 +116,10 @@ android {
             jniLibs.srcDirs("src/main/jniLibs")
         }
     }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -177,4 +181,9 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("io.mockk:mockk:1.13.12")
 }
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 

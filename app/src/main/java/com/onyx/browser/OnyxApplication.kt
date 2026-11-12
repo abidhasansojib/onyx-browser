@@ -87,6 +87,11 @@ class OnyxApplication : Application() {
         // Initialize AdBlockEngine in background thread with pre-compiled filters
         applicationScope.launch(Dispatchers.IO) {
             try {
+                com.onyx.browser.web.AssetScriptLoader.preloadAll(applicationContext)
+            } catch (t: Throwable) {
+                Log.w("OnyxApplication", "Failed to preload asset scripts in background", t)
+            }
+            try {
                 com.onyx.browser.data.filter.FilterListManager.autoEnableRegionalListsForLocale(applicationContext)
                 AdBlockEngine.initialize(applicationContext)
                 com.onyx.browser.data.filter.FilterListManager.ensureDefaultFiltersCached(applicationContext)

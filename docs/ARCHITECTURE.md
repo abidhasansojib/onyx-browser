@@ -238,19 +238,33 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
 
 ---
 
-### 2.9. Enterprise Architecture, UDF Presentation, DI & Interceptor Pipeline
+### 2.9. Enterprise Architecture, UDF Presentation, Repository Layer, DI & Interceptor Pipeline
 
-- **Unidirectional Data Flow (UDF) & ViewModels (`com.onyx.browser.ui.viewmodel`)**:
+- **Unidirectional Data Flow (UDF), Repository Layer & ViewModels (`com.onyx.browser.ui.viewmodel` & `com.onyx.browser.data.repository`)**:
   - `BrowserUiState` defines the immutable single source of truth for browser chrome state (`activeTab`, `normalTabCount`, `incognitoTabCount`, `isLoading`, `progress`, `canGoBack`, `canGoForward`, `isIncognito`, `isDesktopMode`, `blockedAdsCount`, `isSearchOverlayVisible`, `isAddressBarAtBottom`).
   - `BrowserViewModel` coordinates `TabManager` state flows (`activeTab`, `normalTabs`, `incognitoTabs`) and `BrowserPreferences.blockedRequestsFlow` inside `viewModelScope`.
-  - `HistoryViewModel`, `BookmarksViewModel`, and `DownloadsViewModel` encapsulate search queries, category/day-group filtering, and `NonCancellable` Room database mutations across configuration changes.
-  - `OnyxViewModelFactory` (`com.onyx.browser.di`) constructs all ViewModels deterministically without reflection overhead.
+  - `HistoryRepository`, `BookmarkRepository`, and `DownloadRepository` encapsulate `HistoryDao`, `BookmarkDao`, and `DownloadDao` operations and are registered in `AppContainer` / `DefaultAppContainer`.
+  - `HistoryViewModel`, `BookmarksViewModel`, and `DownloadsViewModel` accept constructor-injected repositories (`@JvmOverloads constructor`) to manage search queries, category/day-group filtering, and `NonCancellable` Room mutations across configuration changes.
+  - `OnyxViewModelFactory` (`com.onyx.browser.di`) constructs all ViewModels deterministically with repositories supplied from `AppContainer` without reflection overhead.
 
-- **MainActivity UI Delegates & Coordinators**:
+- **MainActivity UI Delegates & Coordinators (`com.onyx.browser.ui.browser`)**:
   - `ToolbarLayoutDelegate` manages Top vs. Bottom address bar `ConstraintSet` transitions, Edge-to-Edge window/IME insets, and scroll-to-hide animations.
   - `NavigationCoordinator` centralizes URL resolution, search query formatting, `javascript:` pseudo-URL execution, and deep-link intent routing.
   - `WebChromeCoordinator` encapsulates custom fullscreen video containers, geolocation/media permission prompts, and file chooser callbacks.
+  - `HomeScreenController` manages New Tab / Home screen shortcuts, tile grid editing, and home search bar interactions.
+  - `FileChooserCoordinator` handles `<input type="file">` camera capture, temporary `FileProvider` URI lifecycle, and `ActivityResultLauncher` callbacks.
+  - `WebContextMenuController` manages WebView hit-test long-press sheets for links, images, videos, and reverse image search actions.
   - `SettingsNavigator` (`SettingsDestination`) provides unified routing across all full-page settings screens.
+
+- **Domain Preference Stores (`com.onyx.browser.data.preferences`)**:
+  - `BrowserPreferences` delegates to cohesive domain stores backed by the shared `SharedPreferences` instance:
+    - `AppearancePreferences`: Theme mode, dark web mode, address bar position, home/refresh button, pull-to-refresh, and font zoom scale.
+    - `ShieldPreferences`: Global/per-domain shields, blocking levels, HTTPS upgrade modes, DoH endpoints, WebRTC policy, clear-on-exit flags, and filter signatures.
+    - `MediaAndDownloadPreferences`: Background media playback, PiP toggles, download prompt preferences, external downloader routing, and thread count.
+    - `SearchPreferences`: Selected search engine, custom search engines, and search suggestion toggles.
+
+- **Externalized JS Assets & `AssetScriptLoader` (`com.onyx.browser.web`)**:
+  - Large injected JavaScript engines (`app/src/main/assets/scripts/passkey_webauthn_polyfill.js`, `media_playback_observer.js`, `adblock_procedural_engine.js`) are stored as standalone asset files and loaded on-demand through `AssetScriptLoader` with lock-free `ConcurrentHashMap` memory caching.
 
 - **Chain-of-Responsibility Network Interceptor Pipeline (`com.onyx.browser.web.interceptor`)**:
   - `RequestInterceptor` and `RealInterceptorChain` decouple `OnyxWebViewClient.shouldInterceptRequest` into composable, zero-allocation stages:
@@ -259,15 +273,16 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
     - `AdBlockRequestInterceptor`: Evaluates `AdBlockEngine`, CNAME uncloaking, `$csp` header injection, `$redirect` surrogates, and VAST/VMAP synthesis.
     - `PrivacyUrlSanitizer`: Strips tracking query parameters (`utm_*`, `fbclid`, `gclid`, `mc_eid`, `msclkid`, `yclid`, `_hsenc`, `vero_id`, `mkt_tok`, `igshid`, `si`) during navigation.
 
-- **SQLCipher Room `SitePermissionEntity` & `SitePermissionRepository`**:
+- **SQLCipher Room `SitePermissionEntity`, Schema Export & `SitePermissionRepository`**:
   - Per-site permissions and shield overrides are persisted in the SQLCipher-encrypted `site_permissions` table (`SitePermissionEntity`, `SitePermissionDao`, `MIGRATION_7_8`) and mirrored into $O(1)$ lock-free in-memory `ConcurrentHashMap` sets inside `SitePermissionRepository`.
+  - Room KSP annotation processing exports versioned database schemas to `app/schemas` via `room.schemaLocation` in `app/build.gradle.kts`.
   - Automatically migrates legacy `SharedPreferences` domain sets on startup while keeping synchronous hot-path lookups on Chromium's `shouldInterceptRequest` IO threads non-blocking.
 
 - **Strict RAM-Aware LRU WebView Pool Governor**:
   - `TabManager.maxLiveWebViews` dynamically scales the active WebView pool (3–5 live instances) based on device memory class (`ActivityManager.MemoryInfo`).
   - Least-recently-used background tabs (excluding any tab actively playing media) are automatically hibernated: normal tabs persist state bundles to disk (`tab_states/`), while incognito tabs preserve state strictly in-memory (`incognitoStateBundles`) to maintain zero disk residue.
 
-- **Multi-Module `:core:common` & Dependency Injection Container**:
+- **Multi-Module `:core:common`, DI Container & CI Unit Test Gate**:
   - `:core:common` provides shared concurrency dispatchers (`DispatcherProvider`, `DefaultDispatcherProvider`) and functional result wrappers (`OnyxResult`).
-  - `AppContainer` and `DefaultAppContainer` (`com.onyx.browser.di`) wire singleton repositories, `AppDatabase`, `BrowserPreferences`, and `SitePermissionRepository` from `OnyxApplication`.
-  - Automated unit test suite under `app/src/test/` (JUnit 4, MockK, `kotlinx-coroutines-test`) validates URL matching, userscript metadata parsing, download rate limiting, and byte-range chunk math.
+  - `AppContainer` and `DefaultAppContainer` (`com.onyx.browser.di`) wire singleton repositories (`SitePermissionRepository`, `HistoryRepository`, `BookmarkRepository`, `DownloadRepository`), `AppDatabase`, and `BrowserPreferences` from `OnyxApplication`.
+  - Automated unit test suite under `app/src/test/` (JUnit 4, MockK, `kotlinx-coroutines-test`) including `InterceptorPipelineTest`, `RepositoryLayerTest`, `DomainPreferencesTest`, `SitePermissionEntityTest`, `DownloadModelsTest`, `UserScriptMetadataTest`, and `UserScriptUrlMatcherTest` is enforced on every CI run via `./gradlew :core:common:test testReleaseUnitTest --no-daemon` in `.github/workflows/build.yml`.

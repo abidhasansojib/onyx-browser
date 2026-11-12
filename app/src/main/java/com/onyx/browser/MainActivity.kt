@@ -74,7 +74,9 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.search.SearchSuggestionRepository
 import com.onyx.browser.databinding.ActivityMainBinding
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
+import com.onyx.browser.ui.browser.FileChooserCoordinator
 import com.onyx.browser.ui.browser.FindInPageController
+import com.onyx.browser.ui.browser.HomeScreenController
 import com.onyx.browser.ui.browser.NavigationCoordinator
 import com.onyx.browser.ui.browser.PageExportManager
 import com.onyx.browser.ui.browser.PipController
@@ -82,6 +84,7 @@ import com.onyx.browser.ui.browser.SearchController
 import com.onyx.browser.ui.browser.TabManager
 import com.onyx.browser.ui.browser.ToolbarLayoutDelegate
 import com.onyx.browser.ui.browser.WebChromeCoordinator
+import com.onyx.browser.ui.browser.WebContextMenuController
 import com.onyx.browser.ui.viewmodel.BrowserViewModel
 import com.onyx.browser.ui.common.SearchEnginePickerDialog
 import com.onyx.browser.ui.common.SearchEnginePopupMenu
@@ -125,13 +128,15 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     lateinit var toolbarLayoutDelegate: ToolbarLayoutDelegate
     lateinit var navigationCoordinator: NavigationCoordinator
     lateinit var webChromeCoordinator: WebChromeCoordinator
+    lateinit var homeScreenController: HomeScreenController
+    lateinit var fileChooserCoordinator: FileChooserCoordinator
+    lateinit var webContextMenuController: WebContextMenuController
     private lateinit var preferences: BrowserPreferences
     private lateinit var pageExportManager: PageExportManager
     private lateinit var findInPageController: FindInPageController
     private lateinit var searchController: SearchController
 
     fun getActiveWebView(): OnyxWebView? = if (::tabManager.isInitialized) tabManager.getActiveWebView() else null
-    private lateinit var shortcutsAdapter: ShortcutsAdapter
 
     lateinit var pipController: PipController
     val customVideoView: View?
@@ -364,157 +369,39 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     // ── File Chooser Subsystem (File uploads, Gallery selection & Photo capture) ──
-    private class SafeValueCallback<T>(
-        private val delegate: ValueCallback<T>?
-    ) : ValueCallback<T> {
-        private val completed = java.util.concurrent.atomic.AtomicBoolean(false)
-
-        override fun onReceiveValue(value: T?) {
-            if (completed.compareAndSet(false, true)) {
-                try {
-                    delegate?.onReceiveValue(value)
-                } catch (t: Throwable) {
-                    android.util.Log.e("OnyxFileChooser", "Error delivering callback", t)
-                }
-            }
-        }
-    }
-
-    private var pendingFilePathCallback: ValueCallback<Array<Uri>>? = null
-    private var pendingCameraPhotoUri: Uri? = null
-    private var pendingCameraPhotoFile: File? = null
-    private var pendingCameraCaptureIntent: Intent? = null
-
     private val fileChooserCameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        isSystemDialogOrChooserPending = false
-        val cameraIntent = pendingCameraCaptureIntent
-        pendingCameraCaptureIntent = null
-
-        if (granted && cameraIntent != null) {
-            try {
-                isSystemDialogOrChooserPending = true
-                fileChooserLauncher.launch(cameraIntent)
-            } catch (t: Throwable) {
-                isSystemDialogOrChooserPending = false
-                android.util.Log.e("OnyxFileChooser", "Failed to launch camera after permission granted", t)
-                pendingCameraPhotoFile?.delete()
-                pendingCameraPhotoFile = null
-                pendingCameraPhotoUri = null
-                try {
-                    pendingFilePathCallback?.onReceiveValue(null)
-                } catch (_: Throwable) {}
-                pendingFilePathCallback = null
-            }
+        if (::fileChooserCoordinator.isInitialized) {
+            fileChooserCoordinator.handleCameraPermissionResult(granted)
         } else {
-            // Permission denied or dismissed
-            pendingCameraPhotoFile?.delete()
-            pendingCameraPhotoFile = null
-            pendingCameraPhotoUri = null
-            try {
-                pendingFilePathCallback?.onReceiveValue(null)
-            } catch (_: Throwable) {}
-            pendingFilePathCallback = null
+            isSystemDialogOrChooserPending = false
         }
     }
 
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        isSystemDialogOrChooserPending = false
-        val callback = pendingFilePathCallback
-        val photoUri = pendingCameraPhotoUri
-        val photoFile = pendingCameraPhotoFile
-
-        pendingFilePathCallback = null
-        pendingCameraPhotoUri = null
-        pendingCameraPhotoFile = null
-
-        if (callback == null) {
-            photoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
-            return@registerForActivityResult
-        }
-
-        tabManager.getActiveWebView()?.onResume()
-
-        if (result.resultCode == Activity.RESULT_OK) {
-            val results = mutableListOf<Uri>()
-
-            // 1. Check if camera photo was captured to file
-            if (photoFile != null && photoFile.exists() && photoFile.length() > 0L && photoUri != null) {
-                val webViewPackages = listOf(
-                    "com.google.android.webview",
-                    "com.android.webview",
-                    "com.android.chrome",
-                    "com.chrome.beta",
-                    "com.chrome.dev",
-                    "com.chrome.canary"
-                )
-                for (pkg in webViewPackages) {
-                    try {
-                        grantUriPermission(pkg, photoUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    } catch (_: Throwable) {}
-                }
-                results.add(photoUri)
-            } else if (photoFile != null && photoUri != null && result.data?.extras?.get("data") is Bitmap) {
-                // Safeguard: some camera apps return thumbnail bitmap in 'data' extra instead of writing to EXTRA_OUTPUT
-                try {
-                    val bitmap = result.data!!.extras!!.get("data") as Bitmap
-                    photoFile.outputStream().use { out ->
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                    }
-                    if (photoFile.length() > 0L) {
-                        val webViewPackages = listOf(
-                            "com.google.android.webview",
-                            "com.android.webview",
-                            "com.android.chrome",
-                            "com.chrome.beta",
-                            "com.chrome.dev",
-                            "com.chrome.canary"
-                        )
-                        for (pkg in webViewPackages) {
-                            try {
-                                grantUriPermission(pkg, photoUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            } catch (_: Throwable) {}
-                        }
-                        results.add(photoUri)
-                    }
-                } catch (_: Throwable) {}
-            }
-
-            // 2. If camera file was not used, check intent data from Gallery / Document picker
-            if (results.isEmpty()) {
-                photoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
-
-                val data = result.data
-                if (data != null) {
-                    val clipData = data.clipData
-                    if (clipData != null && clipData.itemCount > 0) {
-                        for (i in 0 until clipData.itemCount) {
-                            clipData.getItemAt(i)?.uri?.let { results.add(it) }
-                        }
-                    } else if (data.data != null) {
-                        results.add(data.data!!)
-                    }
-                }
-            }
-
-            try {
-                if (results.isNotEmpty()) {
-                    callback.onReceiveValue(results.toTypedArray())
-                } else {
-                    callback.onReceiveValue(null)
-                }
-            } catch (t: Throwable) {
-                android.util.Log.e("OnyxFileChooser", "Failed to deliver file chooser callback", t)
-            }
+        if (::fileChooserCoordinator.isInitialized) {
+            fileChooserCoordinator.handleActivityResult(result.resultCode, result.data)
         } else {
-            // Cancelled or dismissed
-            photoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
-            try {
-                callback.onReceiveValue(null)
-            } catch (_: Throwable) {}
+            isSystemDialogOrChooserPending = false
+        }
+    }
+
+    fun createCameraImageUri(): Uri? {
+        return if (::fileChooserCoordinator.isInitialized) {
+            fileChooserCoordinator.createCameraImageUri()
+        } else {
+            null
+        }
+    }
+
+    fun launchFileChooser(fileChooserParams: WebChromeClient.FileChooserParams?): Boolean {
+        return if (::fileChooserCoordinator.isInitialized) {
+            fileChooserCoordinator.launchFileChooser(fileChooserParams)
+        } else {
+            false
         }
     }
 
@@ -522,221 +409,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         filePathCallback: ValueCallback<Array<Uri>>?,
         fileChooserParams: WebChromeClient.FileChooserParams?
     ): Boolean {
-        if (filePathCallback == null) return false
-
-        // Cancel previous pending callback safely without crashing
-        try { pendingFilePathCallback?.onReceiveValue(null) } catch (_: Throwable) {}
-        val safeCallback = SafeValueCallback(filePathCallback)
-        pendingFilePathCallback = safeCallback
-        pendingCameraPhotoFile?.delete()
-        pendingCameraPhotoFile = null
-        pendingCameraPhotoUri = null
-        pendingCameraCaptureIntent = null
-
-        val rawAcceptTypes = fileChooserParams?.acceptTypes?.filter { !it.isNullOrBlank() } ?: emptyList()
-        val allowMultiple = fileChooserParams?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE
-
-        // Flatten and clean accept types (handles comma-separated types in single entry e.g. "image/*,video/*")
-        val acceptTypes = rawAcceptTypes.flatMap { it.split(",") }.map { it.trim().lowercase() }.filter { it.isNotBlank() }
-
-        // Detect if camera/video capture was requested directly:
-        // Chromium sets isCaptureEnabled = true when HTML input contains `capture`, `capture="camera"`, `capture="environment"`, etc.
-        // Also check if web content declared capture syntax inside accept types.
-        val isExplicitCapture = fileChooserParams?.isCaptureEnabled == true ||
-                rawAcceptTypes.any { it.contains("capture=", ignoreCase = true) }
-
-        val isVideoOnly = acceptTypes.isNotEmpty() && acceptTypes.all { it.contains("video") }
-        val isImageOnly = acceptTypes.isNotEmpty() && acceptTypes.all {
-            it.startsWith("image/") || it == ".jpg" || it == ".jpeg" || it == ".png" ||
-                    it == ".webp" || it == ".gif" || it == ".bmp" || it == ".heic"
-        }
-        val isMediaOnly = acceptTypes.isNotEmpty() && acceptTypes.all {
-            it.startsWith("image/") || it.startsWith("video/") ||
-                    it == ".jpg" || it == ".jpeg" || it == ".png" || it == ".webp" ||
-                    it == ".gif" || it == ".bmp" || it == ".heic" || it == ".mp4" ||
-                    it == ".mkv" || it == ".mov" || it == ".webm" || it == ".3gp"
-        }
-
-        // =========================================================================
-        // CASE 1: DIRECT CAPTURE (Tapping Camera / Camcorder button on website)
-        // Behaves like Chrome/Brave: Directly opens Camera or Camcorder without gallery or chooser prompt!
-        // =========================================================================
-        if (isExplicitCapture) {
-            if (isVideoOnly) {
-                // Video capture requested
-                val videoIntent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
-                return try {
-                    isSystemDialogOrChooserPending = true
-                    fileChooserLauncher.launch(videoIntent)
-                    true
-                } catch (t: Throwable) {
-                    isSystemDialogOrChooserPending = false
-                    android.util.Log.e("OnyxFileChooser", "Failed to launch video capture", t)
-                    safeCallback.onReceiveValue(null)
-                    pendingFilePathCallback = null
-                    true
-                }
-            } else {
-                // Photo capture requested (default for image capture or general capture)
-                return try {
-                    val cameraDir = File(cacheDir, "camera_uploads")
-                    if (!cameraDir.exists()) cameraDir.mkdirs()
-                    val photoFile = File(cameraDir, "IMG_${System.currentTimeMillis()}.jpg")
-                    val photoUri = androidx.core.content.FileProvider.getUriForFile(
-                        this,
-                        "${applicationContext.packageName}.fileprovider",
-                        photoFile
-                    )
-                    pendingCameraPhotoFile = photoFile
-                    pendingCameraPhotoUri = photoUri
-
-                    val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
-                        putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
-                        clipData = ClipData.newUri(contentResolver, "camera_photo", photoUri)
-                        addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-
-                    // Grant URI permission to all potential camera packages matching the action
-                    val resolvedActivities = packageManager.queryIntentActivities(
-                        Intent(MediaStore.ACTION_IMAGE_CAPTURE),
-                        0
-                    )
-                    for (resolved in resolvedActivities) {
-                        val packageName = resolved.activityInfo?.packageName
-                        if (!packageName.isNullOrBlank()) {
-                            try {
-                                grantUriPermission(
-                                    packageName,
-                                    photoUri,
-                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                )
-                            } catch (_: Throwable) {}
-                        }
-                    }
-
-                    // Check runtime camera permission
-                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                        isSystemDialogOrChooserPending = true
-                        pendingCameraCaptureIntent = cameraIntent
-                        fileChooserCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                    } else {
-                        isSystemDialogOrChooserPending = true
-                        fileChooserLauncher.launch(cameraIntent)
-                    }
-                    true
-                } catch (t: Throwable) {
-                    isSystemDialogOrChooserPending = false
-                    android.util.Log.e("OnyxFileChooser", "Failed to launch camera capture", t)
-                    pendingCameraPhotoFile?.delete()
-                    pendingCameraPhotoFile = null
-                    pendingCameraPhotoUri = null
-                    safeCallback.onReceiveValue(null)
-                    pendingFilePathCallback = null
-                    true
-                }
-            }
-        }
-
-        // =========================================================================
-        // CASE 2: MEDIA / GALLERY UPLOAD (Tapping Gallery / Photo button on website)
-        // Behaves like Chrome/Brave: Directly opens Android Photo Picker / Gallery!
-        // NEVER shows an action chooser asking "Camera or Gallery" because user tapped Gallery!
-        // =========================================================================
-        if (isMediaOnly) {
-            val photoPickerSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ||
-                    ActivityResultContracts.PickVisualMedia.isPhotoPickerAvailable(this)
-
-            val galleryIntent = if (photoPickerSupported) {
-                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
-                    if (isImageOnly) {
-                        type = "image/*"
-                    } else if (isVideoOnly) {
-                        type = "video/*"
-                    } else {
-                        type = "*/*"
-                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
-                    }
-                    if (allowMultiple) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, MediaStore.getPickImagesMaxLimit())
-                        } else {
-                            putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 100)
-                        }
-                    }
-                }
-            } else {
-                Intent(Intent.ACTION_GET_CONTENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = if (isImageOnly) "image/*" else if (isVideoOnly) "video/*" else "*/*"
-                    if (!isImageOnly && !isVideoOnly) {
-                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
-                    }
-                    if (allowMultiple) {
-                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                    }
-                }
-            }
-
-            return try {
-                isSystemDialogOrChooserPending = true
-                fileChooserLauncher.launch(galleryIntent)
-                true
-            } catch (t: Throwable) {
-                android.util.Log.w("OnyxFileChooser", "Photo picker launch failed, falling back to GET_CONTENT", t)
-                try {
-                    val fallbackIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        type = if (isImageOnly) "image/*" else if (isVideoOnly) "video/*" else "*/*"
-                        if (allowMultiple) putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                    }
-                    fileChooserLauncher.launch(fallbackIntent)
-                    true
-                } catch (t2: Throwable) {
-                    isSystemDialogOrChooserPending = false
-                    android.util.Log.e("OnyxFileChooser", "Failed to launch fallback gallery intent", t2)
-                    safeCallback.onReceiveValue(null)
-                    pendingFilePathCallback = null
-                    true
-                }
-            }
-        }
-
-        // =========================================================================
-        // CASE 3: GENERIC FILE / DOCUMENT UPLOAD (<input type="file">, pdf, zip, etc.)
-        // Behaves like Chrome/Brave: Directly opens Android System File / Document Picker!
-        // =========================================================================
-        val contentIntent = try {
-            fileChooserParams?.createIntent()
-        } catch (_: Throwable) { null } ?: Intent(Intent.ACTION_GET_CONTENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = if (acceptTypes.size == 1) acceptTypes[0] else "*/*"
-            if (acceptTypes.size > 1) {
-                putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes.toTypedArray())
-            }
-        }
-
-        if (allowMultiple) {
-            try { contentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true) } catch (_: Throwable) {}
-        }
-
-        return try {
-            isSystemDialogOrChooserPending = true
-            fileChooserLauncher.launch(contentIntent)
-            true
-        } catch (t: Throwable) {
-            android.util.Log.w("OnyxFileChooser", "Direct content intent failed, trying chooser", t)
-            try {
-                val chooserTitle = fileChooserParams?.title?.takeIf { !it.isNullOrBlank() } ?: "Select file"
-                val chooserIntent = Intent.createChooser(contentIntent, chooserTitle)
-                fileChooserLauncher.launch(chooserIntent)
-                true
-            } catch (t2: Throwable) {
-                isSystemDialogOrChooserPending = false
-                android.util.Log.e("OnyxFileChooser", "Failed to launch document chooser", t2)
-                safeCallback.onReceiveValue(null)
-                pendingFilePathCallback = null
-                true
-            }
+        return if (::fileChooserCoordinator.isInitialized) {
+            fileChooserCoordinator.handleShowFileChooser(filePathCallback, fileChooserParams)
+        } else {
+            try { filePathCallback?.onReceiveValue(null) } catch (_: Throwable) {}
+            false
         }
     }
 
@@ -924,6 +601,30 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         toolbarLayoutDelegate = ToolbarLayoutDelegate(this, binding, preferences)
+        fileChooserCoordinator = FileChooserCoordinator(
+            activity = this,
+            onLaunchFileChooserIntent = { intent -> fileChooserLauncher.launch(intent) },
+            onRequestCameraPermission = { fileChooserCameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+            onChooserPendingStateChanged = { pending -> isSystemDialogOrChooserPending = pending },
+            onActiveWebViewResume = { tabManager.getActiveWebView()?.onResume() }
+        )
+        homeScreenController = HomeScreenController(
+            activity = this,
+            binding = binding,
+            preferences = preferences,
+            coroutineScope = lifecycleScope,
+            onNavigateToUrl = { url -> performSearchOrLoad(url) }
+        )
+        webContextMenuController = WebContextMenuController(
+            activity = this,
+            coroutineScope = lifecycleScope,
+            isTabIncognito = { tabId ->
+                tabManager.getTabById(tabId)?.isIncognito ?: (tabManager.activeTab.value?.isIncognito ?: false)
+            },
+            onOpenInNewTab = { url, isIncognito -> openUrlInNewTab(url, isIncognito) },
+            onOpenInIncognitoTab = { url -> openUrlInIncognitoTab(url) },
+            onEditUrlInSearchBar = { url -> editUrlInSearchBar(url) }
+        )
 
         applyToolbarPosition(preferences.isAddressBarAtBottom, initial = true)
 
@@ -1396,97 +1097,38 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private fun setupHomepageInteractions() {
-        val home = binding.homeLayout
+        if (::homeScreenController.isInitialized) {
+            homeScreenController.setup()
+        }
+    }
 
-        // Dynamic Quick Actions (Clean Non-Box Circular UI, Reorderable via Drag or Dialog, Add in 4th)
-        // Dynamic Shortcuts RecyclerView
-        shortcutsAdapter = ShortcutsAdapter(
-            onShortcutClick = { shortcut ->
-                if (shortcut.id == ShortcutItem.ID_ADD_SHORTCUT || shortcut.url == ShortcutItem.URL_ADD_SHORTCUT) {
-                    val sheet = ManageShortcutsBottomSheet()
-                    sheet.show(supportFragmentManager, ManageShortcutsBottomSheet.TAG)
-                } else {
-                    performSearchOrLoad(shortcut.url)
-                }
-            }
-        )
+    fun setupShortcuts() {
+        if (::homeScreenController.isInitialized) {
+            homeScreenController.setupShortcuts()
+        }
+    }
 
-        val shortcutSpanCount = if (resources.configuration.screenWidthDp >= 600) 6 else 4
-        home.rvShortcuts.layoutManager = GridLayoutManager(this, shortcutSpanCount)
-        home.rvShortcuts.adapter = shortcutsAdapter
+    fun refreshShortcuts() {
+        if (::homeScreenController.isInitialized) {
+            homeScreenController.refreshShortcuts()
+        }
+    }
 
-        var hasDragged = false
-        var draggedShortcut: ShortcutItem? = null
+    fun showAddShortcutDialog() {
+        if (::homeScreenController.isInitialized) {
+            homeScreenController.showAddShortcutDialog()
+        }
+    }
 
-        // Drag-and-drop reordering with ItemTouchHelper
-        val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
-            ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.START or ItemTouchHelper.END,
-            0
-        ) {
-            override fun getDragDirs(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
-                val pos = viewHolder.bindingAdapterPosition
-                if (pos == RecyclerView.NO_POSITION || pos >= shortcutsAdapter.getItems().size) {
-                    return 0
-                }
-                return super.getDragDirs(recyclerView, viewHolder)
-            }
+    fun showEditShortcutDialog(shortcut: ShortcutItem) {
+        if (::homeScreenController.isInitialized) {
+            homeScreenController.showEditShortcutDialog(shortcut)
+        }
+    }
 
-            override fun canDropOver(
-                recyclerView: RecyclerView,
-                current: RecyclerView.ViewHolder,
-                target: RecyclerView.ViewHolder
-            ): Boolean {
-                val targetPos = target.bindingAdapterPosition
-                return targetPos != RecyclerView.NO_POSITION && targetPos < shortcutsAdapter.getItems().size
-            }
-
-            override fun onMove(
-                recyclerView: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder,
-                target: RecyclerView.ViewHolder
-            ): Boolean {
-                val from = viewHolder.bindingAdapterPosition
-                val to = target.bindingAdapterPosition
-                if (from != RecyclerView.NO_POSITION && to != RecyclerView.NO_POSITION) {
-                    hasDragged = true
-                    return shortcutsAdapter.onItemMove(from, to)
-                }
-                return false
-            }
-
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
-
-            override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
-                super.onSelectedChanged(viewHolder, actionState)
-                if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
-                    val pos = viewHolder?.bindingAdapterPosition ?: RecyclerView.NO_POSITION
-                    if (pos != RecyclerView.NO_POSITION && pos < shortcutsAdapter.getItems().size) {
-                        draggedShortcut = shortcutsAdapter.getItems()[pos]
-                    }
-                    viewHolder?.itemView?.animate()?.scaleX(1.10f)?.scaleY(1.10f)?.setDuration(150)?.start()
-                }
-            }
-
-            override fun clearView(
-                recyclerView: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder
-            ) {
-                super.clearView(recyclerView, viewHolder)
-                viewHolder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                if (hasDragged) {
-                    preferences.saveShortcuts(shortcutsAdapter.getItems())
-                }
-                draggedShortcut = null
-                hasDragged = false
-            }
-        })
-        touchHelper.attachToRecyclerView(home.rvShortcuts)
-
-        // Observe shortcuts flow
-        lifecycleScope.launch {
-            preferences.shortcutsFlow.collectLatest { shortcuts ->
-                shortcutsAdapter.submitList(shortcuts)
-            }
+    fun setupQuickActions() {
+        if (::homeScreenController.isInitialized) {
+            homeScreenController.setupQuickActions()
         }
     }
 
@@ -1657,21 +1299,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private fun updateIncognitoUI(isIncognito: Boolean) {
-        val home = binding.homeLayout
-        if (isIncognito) {
-            home.ivBrandLogo.visibility = View.GONE
-            home.tvTagline.visibility = View.GONE
-            home.incognitoHeader.visibility = View.VISIBLE
-            binding.ivIncognitoIndicator.visibility = View.VISIBLE
-            binding.etUrl.hint = getString(R.string.search_privately)
-            binding.etUrl.imeOptions = binding.etUrl.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
-        } else {
-            home.ivBrandLogo.visibility = View.VISIBLE
-            home.tvTagline.visibility = View.VISIBLE
-            home.incognitoHeader.visibility = View.GONE
-            binding.ivIncognitoIndicator.visibility = View.GONE
-            binding.etUrl.hint = getString(R.string.search_or_type_url)
-            binding.etUrl.imeOptions = binding.etUrl.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING.inv()
+        if (::homeScreenController.isInitialized) {
+            homeScreenController.updateIncognitoUI(isIncognito)
         }
     }
 
@@ -2108,212 +1737,22 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
         }
 
-        fun showContextMenuForElement(
-            linkUrl: String? = null,
-            imageUrl: String? = null,
-            videoUrl: String? = null,
-            linkText: String? = null
-        ) {
-            val cleanLink = linkUrl?.takeIf { it.isNotBlank() }
-            val cleanImg = imageUrl?.takeIf { it.isNotBlank() }
-            val cleanVid = videoUrl?.takeIf { it.isNotBlank() }
-            val cleanText = linkText?.takeIf { it.isNotBlank() }
-
-            val isIncognito = tabManager.getTabById(tabId)?.isIncognito ?: (tabManager.activeTab.value?.isIncognito ?: false)
-
-            val sheet = when {
-                cleanLink != null && cleanImg != null ->
-                    ContextMenuBottomSheet.forImageLink(cleanLink, cleanImg, cleanText, isIncognito = isIncognito)
-                cleanVid != null ->
-                    ContextMenuBottomSheet.forVideo(cleanVid, cleanLink, cleanText, isIncognito = isIncognito)
-                cleanImg != null ->
-                    ContextMenuBottomSheet.forImage(cleanImg, isIncognito = isIncognito)
-                cleanLink != null ->
-                    ContextMenuBottomSheet.forLink(cleanLink, cleanText, isIncognito = isIncognito)
-                else -> return
-            }
-
-            sheet.setOnOpenInNewTab { u -> openUrlInNewTab(u, isIncognito = isIncognito) }
-            sheet.setOnOpenInIncognitoTab { u -> openUrlInIncognitoTab(u) }
-            sheet.setOnEditUrl { u -> editUrlInSearchBar(u) }
-            sheet.setOnDownloadUrl { u, mime ->
-                val cookies = try {
-                    webView.cookieManager.getCookie(u) ?: ""
-                } catch (_: Exception) { "" }
-                val userAgent = webView.settings.userAgentString ?: ""
-                FormPostRegistry.claimForDownload(u)
-                DownloadHandler.handleDownload(
-                    activity = this,
-                    coroutineScope = lifecycleScope,
-                    url = u,
-                    userAgent = userAgent,
-                    contentDisposition = "",
-                    mimeType = mime,
-                    contentLength = -1L,
-                    cookies = cookies,
-                    referer = webView.url ?: ""
-                )
-            }
-            sheet.show(supportFragmentManager, ContextMenuBottomSheet.TAG)
+        if (::webContextMenuController.isInitialized) {
+            webContextMenuController.attachToWebView(webView)
         }
+    }
 
-        // Long-press context menu for links, images, image links, videos, and media
-        webView.setOnLongClickListener {
-            val touched = webView.touchBridge.lastTouchedElement
-            val hit = webView.hitTestResult
-            val hitType = hit.type
-            val hitExtra = hit.extra
+    fun showCustomContextMenu(webView: OnyxWebView, hitResult: WebView.HitTestResult): Boolean {
+        return if (::webContextMenuController.isInitialized) {
+            webContextMenuController.showCustomContextMenu(webView, hitResult)
+        } else {
+            false
+        }
+    }
 
-            // 1. Tier 1: Real-time touch bridge pre-computed element
-            if (touched.hasContent) {
-                val linkUrl = touched.linkUrl.ifBlank {
-                    if (hitType == android.webkit.WebView.HitTestResult.SRC_ANCHOR_TYPE) hitExtra ?: "" else ""
-                }
-                val imgUrl = touched.imageUrl.ifBlank {
-                    if (hitType == android.webkit.WebView.HitTestResult.IMAGE_TYPE ||
-                        hitType == android.webkit.WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) hitExtra ?: "" else ""
-                }
-                showContextMenuForElement(
-                    linkUrl = linkUrl,
-                    imageUrl = imgUrl,
-                    videoUrl = touched.videoUrl,
-                    linkText = touched.linkText
-                )
-                return@setOnLongClickListener true
-            }
-
-            // 2. Tier 2: HitTestResult matching
-            when (hitType) {
-                android.webkit.WebView.HitTestResult.SRC_ANCHOR_TYPE,
-                android.webkit.WebView.HitTestResult.ANCHOR_TYPE -> {
-                    val url = hitExtra ?: return@setOnLongClickListener false
-                    showContextMenuForElement(linkUrl = url)
-                    return@setOnLongClickListener true
-                }
-                android.webkit.WebView.HitTestResult.IMAGE_TYPE -> {
-                    val imgUrl = hitExtra ?: return@setOnLongClickListener false
-                    showContextMenuForElement(imageUrl = imgUrl)
-                    return@setOnLongClickListener true
-                }
-                android.webkit.WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
-                    val imgUrl = hitExtra ?: ""
-                    // requestFocusNodeHref to retrieve the real anchor link URL!
-                    val msg = android.os.Handler(android.os.Looper.getMainLooper()) { m ->
-                        val linkUrl = m.data.getString("url")
-                        val title = m.data.getString("title")
-                        val src = m.data.getString("src") ?: imgUrl
-                        showContextMenuForElement(
-                            linkUrl = linkUrl,
-                            imageUrl = src,
-                            linkText = title
-                        )
-                        true
-                    }.obtainMessage()
-                    webView.requestFocusNodeHref(msg)
-                    return@setOnLongClickListener true
-                }
-                android.webkit.WebView.HitTestResult.EMAIL_TYPE -> {
-                    val mail = hitExtra ?: return@setOnLongClickListener false
-                    val mailto = if (mail.startsWith("mailto:", ignoreCase = true)) mail else "mailto:$mail"
-                    showContextMenuForElement(linkUrl = mailto, linkText = mail)
-                    return@setOnLongClickListener true
-                }
-                android.webkit.WebView.HitTestResult.PHONE_TYPE -> {
-                    val phone = hitExtra ?: return@setOnLongClickListener false
-                    val tel = if (phone.startsWith("tel:", ignoreCase = true)) phone else "tel:$phone"
-                    showContextMenuForElement(linkUrl = tel, linkText = phone)
-                    return@setOnLongClickListener true
-                }
-                android.webkit.WebView.HitTestResult.GEO_TYPE -> {
-                    val geo = hitExtra ?: return@setOnLongClickListener false
-                    val geoUri = if (geo.startsWith("geo:", ignoreCase = true)) geo else "geo:0,0?q=$geo"
-                    showContextMenuForElement(linkUrl = geoUri, linkText = geo)
-                    return@setOnLongClickListener true
-                }
-                android.webkit.WebView.HitTestResult.EDIT_TEXT_TYPE -> {
-                    // Let Android native text editing handles work
-                    return@setOnLongClickListener false
-                }
-                else -> {
-                    // Tier 3: UNKNOWN_TYPE fallback via elementFromPoint and requestFocusNodeHref
-                    val density = resources.displayMetrics.density
-                    val cssX = (webView.lastTouchX / density).toInt()
-                    val cssY = (webView.lastTouchY / density).toInt()
-                    val jsCheck = """
-                        (function(x, y) {
-                            try {
-                                var el = document.elementFromPoint(x, y);
-                                if (!el) return null;
-                                var a = el.closest('a');
-                                var img = el.closest('img') || (el.tagName === 'IMG' ? el : el.querySelector('img'));
-                                var video = el.closest('video') || (el.tagName === 'VIDEO' ? el : el.querySelector('video'));
-                                if (!video) {
-                                    var s = el.querySelector('source');
-                                    if (s && s.parentElement && s.parentElement.tagName === 'VIDEO') video = s.parentElement;
-                                }
-                                if (!a && !img && !video) return null;
-                                var linkUrl = a ? (a.href || a.getAttribute('href') || '') : '';
-                                var linkText = a ? (a.innerText || a.textContent || '').trim().substring(0, 150) : '';
-                                var imageUrl = img ? (img.currentSrc || img.src || '') : '';
-                                var videoUrl = video ? (video.currentSrc || video.src || '') : '';
-                                if (!videoUrl && video) {
-                                    var vs = video.querySelector('source');
-                                    if (vs) videoUrl = vs.currentSrc || vs.src || '';
-                                }
-                                if (videoUrl && !videoUrl.startsWith('http://') && !videoUrl.startsWith('https://') && !videoUrl.startsWith('blob:') && !videoUrl.startsWith('data:')) {
-                                    try { videoUrl = new URL(videoUrl, window.location.href).href; } catch(err) {}
-                                }
-                                return JSON.stringify({
-                                    linkUrl: linkUrl,
-                                    linkText: linkText,
-                                    imageUrl: imageUrl,
-                                    videoUrl: videoUrl
-                                });
-                            } catch(e) { return null; }
-                        })($cssX, $cssY);
-                    """.trimIndent()
-
-                    webView.evaluateJavascript(jsCheck) { jsonResult ->
-                        if (!jsonResult.isNullOrBlank() && jsonResult != "null") {
-                            try {
-                                val cleanJson = if (jsonResult.startsWith("\"") && jsonResult.endsWith("\"")) {
-                                    org.json.JSONTokener(jsonResult).nextValue().toString()
-                                } else jsonResult
-                                val obj = org.json.JSONObject(cleanJson)
-                                val lUrl = obj.optString("linkUrl").takeIf { it.isNotBlank() }
-                                val lText = obj.optString("linkText").takeIf { it.isNotBlank() }
-                                val iUrl = obj.optString("imageUrl").takeIf { it.isNotBlank() }
-                                val vUrl = obj.optString("videoUrl").takeIf { it.isNotBlank() }
-                                if (lUrl != null || iUrl != null || vUrl != null) {
-                                    showContextMenuForElement(
-                                        linkUrl = lUrl,
-                                        imageUrl = iUrl,
-                                        videoUrl = vUrl,
-                                        linkText = lText
-                                    )
-                                }
-                            } catch (_: Exception) {}
-                        }
-                    }
-
-                    val msg = android.os.Handler(android.os.Looper.getMainLooper()) { m ->
-                        val linkUrl = m.data.getString("url")
-                        val title = m.data.getString("title")
-                        val src = m.data.getString("src")
-                        if (!linkUrl.isNullOrBlank() || !src.isNullOrBlank()) {
-                            showContextMenuForElement(
-                                linkUrl = linkUrl,
-                                imageUrl = src,
-                                linkText = title
-                            )
-                        }
-                        true
-                    }.obtainMessage()
-                    webView.requestFocusNodeHref(msg)
-
-                    return@setOnLongClickListener false
-                }
-            }
+    fun showImagePreviewDialog(imageUrl: String) {
+        if (::webContextMenuController.isInitialized) {
+            webContextMenuController.showImagePreviewDialog(imageUrl)
         }
     }
 
@@ -3714,11 +3153,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onDestroy() {
         super.onDestroy()
-        pendingFilePathCallback?.onReceiveValue(null)
-        pendingFilePathCallback = null
-        pendingCameraPhotoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
-        pendingCameraPhotoFile = null
-        pendingCameraPhotoUri = null
+        if (::fileChooserCoordinator.isInitialized) {
+            fileChooserCoordinator.clearPendingCallbacks()
+        }
         if (::webChromeCoordinator.isInitialized) {
             webChromeCoordinator.cleanupOnDestroy()
         }

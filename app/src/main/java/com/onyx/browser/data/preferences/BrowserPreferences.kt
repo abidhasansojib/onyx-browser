@@ -44,6 +44,11 @@ class BrowserPreferences private constructor(private val context: Context) {
     private val _shortcutsFlow = MutableStateFlow<List<ShortcutItem>>(emptyList())
     val shortcutsFlow: StateFlow<List<ShortcutItem>> = _shortcutsFlow.asStateFlow()
 
+    val appearance: AppearancePreferences by lazy { AppearancePreferences(this) }
+    val shields: ShieldPreferences by lazy { ShieldPreferences(this) }
+    val mediaAndDownloads: MediaAndDownloadPreferences by lazy { MediaAndDownloadPreferences(this) }
+    val search: SearchPreferences by lazy { SearchPreferences(this) }
+
 
     init {
         _shortcutsFlow.value = getShortcuts()
@@ -2586,6 +2591,98 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_BLOCK_ELEMENT_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_BLOCK_ELEMENT_ENABLED, value).apply()
 
+    // ── Domain Store Facade Aliases & Extended Preferences ───────────────────
+
+    var isAddressBarScrollHideEnabled: Boolean
+        get() = isAutoHideToolbarEnabled
+        set(value) { isAutoHideToolbarEnabled = value }
+
+    var isShowShortcutsOnHome: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_SHORTCUTS_ON_HOME, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_SHORTCUTS_ON_HOME, value).apply()
+
+    var isShowQuickActionsOnHome: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_QUICK_ACTIONS_ON_HOME, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_QUICK_ACTIONS_ON_HOME, value).apply()
+
+    var pageZoomPercent: Int
+        get() = prefs.getInt(KEY_PAGE_ZOOM_PERCENT, 100)
+        set(value) = prefs.edit().putInt(KEY_PAGE_ZOOM_PERCENT, value).apply()
+
+    var httpsMode: Int
+        get() = httpsUpgradeMode
+        set(value) { httpsUpgradeMode = value }
+
+    var cookieMode: Int
+        get() = cookieBlockingMode
+        set(value) { cookieBlockingMode = value }
+
+    var dnsProvider: String
+        get() = secureDnsProvider
+        set(value) { secureDnsProvider = value }
+
+    var customDnsUrl: String
+        get() = prefs.getString(KEY_CUSTOM_DNS_URL, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CUSTOM_DNS_URL, value).apply()
+
+    var isBlockScriptsGlobal: Boolean
+        get() = isGlobalScriptBlockingEnabled
+        set(value) { isGlobalScriptBlockingEnabled = value }
+
+    var isElementBlockerEnabled: Boolean
+        get() = isBlockElementEnabled
+        set(value) { isBlockElementEnabled = value }
+
+    var isAutoPipEnabled: Boolean
+        get() = isPipEnabled
+        set(value) { isPipEnabled = value }
+
+    var isSwipeGestureVideoEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SWIPE_GESTURE_VIDEO, true)
+        set(value) = prefs.edit().putBoolean(KEY_SWIPE_GESTURE_VIDEO, value).apply()
+
+    var isDoubleTapSeekEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DOUBLE_TAP_SEEK, true)
+        set(value) = prefs.edit().putBoolean(KEY_DOUBLE_TAP_SEEK, value).apply()
+
+    var selectedDownloaderPackage: String
+        get() = prefs.getString(KEY_SELECTED_DOWNLOADER_PACKAGE, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_SELECTED_DOWNLOADER_PACKAGE, value).apply()
+
+    var isAskBeforeDownload: Boolean
+        get() = downloadManagerBehavior == 0
+        set(value) {
+            downloadManagerBehavior = if (value) 0 else 1
+        }
+
+    var downloadThreadsCount: Int
+        get() = prefs.getInt(KEY_DOWNLOAD_THREADS_COUNT, 4)
+        set(value) = prefs.edit().putInt(KEY_DOWNLOAD_THREADS_COUNT, value).apply()
+
+    var downloadSpeedLimitKbps: Int
+        get() = (downloadSpeedLimit / 1024L).toInt()
+        set(value) {
+            downloadSpeedLimit = value.toLong() * 1024L
+        }
+
+    var isWifiOnlyDownload: Boolean
+        get() = isDownloadWifiOnly
+        set(value) {
+            isDownloadWifiOnly = value
+        }
+
+    var isSearchSuggestionsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SEARCH_SUGGESTIONS_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_SEARCH_SUGGESTIONS_ENABLED, value).apply()
+
+    var isShowClipboardSuggestions: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_CLIPBOARD_SUGGESTIONS, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_CLIPBOARD_SUGGESTIONS, value).apply()
+
+    var isShowHistorySuggestions: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_HISTORY_SUGGESTIONS, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_HISTORY_SUGGESTIONS, value).apply()
+
     companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
@@ -2765,6 +2862,19 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_WEBRTC_PROTECTED_GLOBAL = "pref_webrtc_protected_global"
 
         const val KEY_SITE_PERMS_ROOM_MIGRATED = "pref_site_perms_room_migrated"
+
+        const val KEY_SHOW_SHORTCUTS_ON_HOME = "pref_show_shortcuts_on_home"
+        const val KEY_SHOW_QUICK_ACTIONS_ON_HOME = "pref_show_quick_actions_on_home"
+        const val KEY_PAGE_ZOOM_PERCENT = "pref_page_zoom_percent"
+        const val KEY_CUSTOM_DNS_URL = "pref_custom_dns_url"
+        const val KEY_SWIPE_GESTURE_VIDEO = "pref_swipe_gesture_video"
+        const val KEY_DOUBLE_TAP_SEEK = "pref_double_tap_seek"
+        const val KEY_SELECTED_DOWNLOADER_PACKAGE = "pref_selected_downloader_package"
+        const val KEY_DOWNLOAD_THREADS_COUNT = "pref_download_threads_count"
+        const val KEY_SEARCH_SUGGESTIONS_ENABLED = "pref_search_suggestions_enabled"
+        const val KEY_SHOW_CLIPBOARD_SUGGESTIONS = "pref_show_clipboard_suggestions"
+        const val KEY_SHOW_HISTORY_SUGGESTIONS = "pref_show_history_suggestions"
+
 
 
         /**

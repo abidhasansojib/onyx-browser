@@ -3,8 +3,8 @@ package com.onyx.browser.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.HistoryItem
+import com.onyx.browser.data.repository.HistoryRepository
 import com.onyx.browser.web.LocalFileLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,9 +18,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class HistoryViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val database = AppDatabase.getInstance(application)
+class HistoryViewModel @JvmOverloads constructor(
+    application: Application,
+    private val repository: HistoryRepository = HistoryRepository.getInstance(application)
+) : AndroidViewModel(application) {
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -39,9 +40,9 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             _searchQuery
                 .flatMapLatest { query ->
                     if (query.isBlank()) {
-                        database.historyDao().getAllHistoryFlow()
+                        repository.getAllHistoryFlow()
                     } else {
-                        database.historyDao().searchHistoryFlow(query)
+                        repository.searchHistoryFlow(query)
                     }
                 }
                 .collectLatest { list ->
@@ -73,7 +74,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     fun deleteHistoryItem(item: HistoryItem) {
         val appContext = getApplication<Application>().applicationContext
         viewModelScope.launch(Dispatchers.IO + NonCancellable) {
-            database.historyDao().deleteHistory(item)
+            repository.deleteHistory(item)
             if (LocalFileLoader.isPreviewUrl(item.url) ||
                 LocalFileLoader.isLocalFile(appContext, item.url)
             ) {

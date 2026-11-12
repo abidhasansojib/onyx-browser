@@ -983,6 +983,13 @@ class PasskeyWebAuthnBridge(
         )
 
         fun getWebAuthnPolyfillJs(): String {
+            return AssetScriptLoader.getCachedOrFallback(
+                AssetScriptLoader.SCRIPT_PASSKEY_POLYFILL,
+                ::buildFallbackWebAuthnPolyfillJs
+            )
+        }
+
+        private fun buildFallbackWebAuthnPolyfillJs(): String {
             return """
                 (function() {
                     if (window.__onyxPasskeyInstalled) return;

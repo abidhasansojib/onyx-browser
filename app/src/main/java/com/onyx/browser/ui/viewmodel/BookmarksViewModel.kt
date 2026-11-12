@@ -3,8 +3,8 @@ package com.onyx.browser.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.BookmarkItem
+import com.onyx.browser.data.repository.BookmarkRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
@@ -17,9 +17,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class BookmarksViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val database = AppDatabase.getInstance(application)
+class BookmarksViewModel @JvmOverloads constructor(
+    application: Application,
+    private val repository: BookmarkRepository = BookmarkRepository.getInstance(application)
+) : AndroidViewModel(application) {
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -32,9 +33,9 @@ class BookmarksViewModel(application: Application) : AndroidViewModel(applicatio
             _searchQuery
                 .flatMapLatest { query ->
                     if (query.isBlank()) {
-                        database.bookmarkDao().getAllBookmarksFlow()
+                        repository.getAllBookmarksFlow()
                     } else {
-                        database.bookmarkDao().searchAllBookmarksFlow(query)
+                        repository.searchBookmarksFlow(query)
                     }
                 }
                 .collectLatest { list ->
@@ -52,7 +53,7 @@ class BookmarksViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addBookmark(title: String, url: String, onSaved: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO + NonCancellable) {
-            database.bookmarkDao().insertBookmark(
+            repository.insertBookmark(
                 BookmarkItem(
                     title = title.ifBlank {
                         if (url.startsWith("javascript:", ignoreCase = true)) "Bookmarklet" else url
@@ -68,7 +69,7 @@ class BookmarksViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateBookmark(id: Long, title: String, url: String, onSaved: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO + NonCancellable) {
-            database.bookmarkDao().updateBookmark(
+            repository.updateBookmark(
                 id = id,
                 title = title.ifBlank {
                     if (url.startsWith("javascript:", ignoreCase = true)) "Bookmarklet" else url
@@ -83,7 +84,7 @@ class BookmarksViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteBookmark(item: BookmarkItem) {
         viewModelScope.launch(Dispatchers.IO + NonCancellable) {
-            database.bookmarkDao().deleteBookmark(item)
+            repository.deleteBookmark(item)
         }
     }
 }

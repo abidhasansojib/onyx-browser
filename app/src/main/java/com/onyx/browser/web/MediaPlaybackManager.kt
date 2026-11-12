@@ -23,7 +23,13 @@ object MediaPlaybackManager {
      * 5. Video bounds reporting for accurate Android PiP sourceRectHint.
      * 6. Universal cross-frame message bus for nested iframes.
      */
-    val mediaMonitorScript: String = """
+    val mediaMonitorScript: String
+        get() = AssetScriptLoader.getCachedOrFallback(
+            AssetScriptLoader.SCRIPT_MEDIA_OBSERVER,
+            ::buildFallbackMediaMonitorScript
+        )
+
+    private fun buildFallbackMediaMonitorScript(): String = """
         (function() {
             var host = (location.hostname || '').toLowerCase();
             var href = (location.href || '').toLowerCase();

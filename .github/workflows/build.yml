@@ -137,6 +137,10 @@ jobs:
           echo "Git Tag:       $TAG_NAME"
           echo "=========================================="
 
+      - name: Run Automated Unit Test Suite
+        run: |
+          ./gradlew :core:common:test testReleaseUnitTest --stacktrace
+
       # ------------------------------------------------------------------------
       # RELEASE BUILD: ABI Splits + R8 Minification + Signed APKs
       # ------------------------------------------------------------------------

@@ -3,8 +3,8 @@ package com.onyx.browser.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.DownloadItem
+import com.onyx.browser.data.repository.DownloadRepository
 import com.onyx.browser.ui.downloads.ApkInstallerHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +13,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
-class DownloadsViewModel(application: Application) : AndroidViewModel(application) {
+class DownloadsViewModel @JvmOverloads constructor(
+    application: Application,
+    private val repository: DownloadRepository = DownloadRepository.getInstance(application)
+) : AndroidViewModel(application) {
 
     companion object {
         const val FILTER_ALL = 0
@@ -48,8 +51,6 @@ class DownloadsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    private val database = AppDatabase.getInstance(application)
-
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -64,7 +65,7 @@ class DownloadsViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         viewModelScope.launch {
-            database.downloadDao().getAllDownloadsFlow().collectLatest { list ->
+            repository.getAllDownloadsFlow().collectLatest { list ->
                 _allDownloads.value = list
             }
         }
