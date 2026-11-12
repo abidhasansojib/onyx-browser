@@ -1,23 +1,25 @@
-# AGENTS.md — Onyx Browser AI Agent Operational Mandates & Rules
+# AGENTS.md — Onyx Browser AI Agent Operational Mandates & Instructions
 
 > **CRITICAL DIRECTIVE FOR ALL AI MODELS & AGENTS**:  
 > Read this entire document before inspecting, modifying, or executing any task on this codebase. All rules defined herein are absolute, strictly enforced, and take precedence over default assistant behavior.
 
 ---
 
-## 1. Overview & Technology Stack
+## 1. Project Overview & Technology Stack
 
 **Onyx Browser** (`com.onyx.browser`) is a fast, lightweight, and privacy-oriented Android browser targeting Min SDK 26 (Android 8.0+) and Target SDK 35 (Android 15).
 
 - **UI Framework**: Native Kotlin and XML Views with ViewBinding (Jetpack Compose is intentionally avoided for fast startup and minimal memory usage).
 - **Engine**: Android System WebView hardened with Chromium multi-profile isolation, scriptlet injection, and network-level interception.
-- **Content Blocking**: Brave `adblock-rust` engine compiled via Android NDK into `libadblock_bridge.so` across all 4 ABIs.
+- **Content Blocking**: Brave `adblock-rust` engine compiled via Android NDK into `libadblock_bridge.so` across all 4 ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`).
 - **Database**: SQLCipher AES-256 encrypted Room database.
+- **Dependencies**: Centralized Gradle Version Catalog (`gradle/libs.versions.toml`).
 
 For complete subsystem specifications and technical architecture, see:
 - [Architecture & Core Subsystems](docs/ARCHITECTURE.md)
 - [Android WebView Engineering Guide](docs/WEBVIEW.md)
 - [Features & Roadmap](docs/FEATURES.md)
+- [Contributing & Setup Guide](CONTRIBUTING.md)
 
 ---
 
@@ -58,7 +60,7 @@ When triggered for a build (after user confirms or explicitly requests Release o
    - Commit the fix, push to `origin main`, re-trigger the workflow, and repeat until 100% successful.
 
 ### RULE 4: Mandatory Documentation Maintenance
-- Whenever a feature is added, a bug is fixed, an architectural decision is made, or a workflow is completed, update this `AGENTS.md` and `docs/FEATURES.md` before concluding the turn.
+- Whenever a feature is added, a bug is fixed, an architectural decision is made, or a refactoring is executed, update this `AGENTS.md` and `docs/FEATURES.md` before concluding the turn.
 - Deep subsystem details and technical architecture must be maintained in `docs/ARCHITECTURE.md`.
 - WebView engineering standards must be maintained in `docs/WEBVIEW.md`.
 
@@ -76,10 +78,75 @@ When triggered for a build (after user confirms or explicitly requests Release o
 - **Current Golden Milestone / Role Model Reference**: Tag **`reference`** (commit `9a2ade9`) — verified working across WebAuthn passkeys (assertion signature verification with matching clientDataJSON, registration, autofill & password managers), adblocking & clickjack defusal, native video tap-to-show-controls, background audio/video playback, Picture-in-Picture (inline, fullscreen, cross-origin iframe, expand & 'X' close lifecycle), full-page appearance settings with refined "Address Bar position" dual-choice selector, robust clear-data-on-exit across minimize and Recents dismissal, unified context menu media downloads, and 12-hour automated upstream synchronization. Use this commit as the baseline reference if any future change regresses these subsystems.
 - AI agents are **strictly forbidden** from automatically bumping or declaring a "Golden Milestone / Role Model" reference in `AGENTS.md` or `docs/FEATURES.md` unless explicitly commanded by the user.
 
+---
+
+## 3. Step-by-Step Instructions for Working in this Project
+
+### 3.1 Operating in the Host Environment
+- **Hardware Profile**: The workspace runs on a mobile Linux environment inside Android. CPU cycles, RAM, and thermal headroom are limited.
+- **Forbidden Commands**: Never run `./gradlew`, `cargo`, `rustc`, `cmake`, `ninja`, `make`, `docker`, or any daemon processes locally.
+- **Allowed Tools**: Use Python 3, Bash, standard Unix utilities (`grep`, `sed`, `find`, `awk`), Git, and GitHub CLI (`gh`).
+- **Memory Conservation**: Do not load massive files entirely into memory in scripts; process line-by-line where possible. Keep Git trees clean and synchronized with `origin/main`.
+
+### 3.2 Pre-Commit Static Verification Protocol
+Since local Gradle builds cannot be run, agents must perform rigorous static verification before committing:
+
+1. **Syntax & Bracket Balance Validation**:
+   - Inspect all modified or newly created Kotlin/Java files to verify balanced braces (`{}`), parentheses (`()`), and quotes.
+   - Run lightweight Python syntax check scripts to parse files and confirm no unclosed tokens or malformed constructs exist.
+2. **Package & Import Cross-Referencing**:
+   - Verify that the `package` header in every file matches its directory structure.
+   - Grep the repository to confirm that all imported classes and methods exist and match their expected signatures.
+   - When renaming or moving a class, check all call sites:
+     - Kotlin/Java source files in `:app` and `:core:common`.
+     - Layout XML files (`tools:context`, custom views).
+     - `AndroidManifest.xml` (activities, services, broadcast receivers).
+     - `app/proguard-rules.pro` (`-keep` rules).
+     - Test files in `app/src/test/`.
+3. **XML Resource Validation**:
+   - Ensure every view ID referenced via ViewBinding exists in the respective layout XML.
+   - Always pair new color resources across `res/values/colors.xml` and `res/values-night/colors.xml`.
+   - Use theme attributes (`?attr/colorControlNormal`, `?attr/colorPrimary`) for icon tints and surface backgrounds rather than hardcoded hex colors.
+4. **JavaScript Bridge & Interface Safety**:
+   - Renaming a Kotlin bridge class (e.g., `ShieldBridge`, `FormBridge`, `BlobBridge`) must **never** modify the exposed JavaScript interface name registered on the DOM (`window.OnyxShieldBridge`, `window.onyxFormBridge`, `window.onyxBlobBridge`, `window.onyxTouchBridge`, `_OnyxPasskeyBridge`).
+   - Retain backward-compatible `typealias` declarations if external callers or test suites reference previous class names.
+5. **Git Hygiene**:
+   - Inspect changes before staging using `git diff` and `git status`.
+   - Never stage scratch files, temporary Python scripts, or artifacts.
+   - Use standard conventional commit format: `<type>(<scope>): <concise message>`.
+
+### 3.3 Component & Class Naming Conventions
+Follow standardized architectural suffixes across all modules:
+
+| Component Type | Suffix Standard | Examples |
+| :--- | :--- | :--- |
+| **Lifecycle & Navigation Orchestrators** | `*Coordinator` | `BrowserMenuCoordinator`, `WebContextMenuCoordinator`, `NavigationCoordinator`, `TabCoordinator`, `PageExportCoordinator`, `FileChooserCoordinator`, `WebChromeCoordinator` |
+| **Bound UI / View State Controllers** | `*Controller` | `ToolbarLayoutController`, `SearchController`, `FindInPageController`, `HomeScreenController`, `PipController` |
+| **Modal Sheets** | `*BottomSheet` | `MenuBottomSheet`, `SiteShieldBottomSheet`, `WebPermissionBottomSheet`, `ClearOnExitBottomSheet`, `InstallUserScriptBottomSheet`, `ThemePickerBottomSheet` |
+| **JavaScript Bridges** | `*Bridge` | `ShieldBridge`, `FormBridge`, `BlobBridge`, `TouchBridge`, `NotificationBridge`, `PasskeyWebAuthnBridge`, `RegexFindBridge` |
+| **Domain Preferences** | `*Preferences` | `AppearancePreferences`, `ShieldPreferences`, `MediaAndDownloadPreferences`, `SearchPreferences` |
+| **Data Repositories** | `*Repository` | `HistoryRepository`, `BookmarkRepository`, `DownloadRepository`, `SitePermissionRepository` |
+
+### 3.4 Packaging & Directory Standards
+Organize all new and existing classes into their dedicated domain packages:
+
+- **`com.onyx.browser.web.bridge`**: All `@JavascriptInterface` bridge classes and WebMessage channel handlers (`BlobBridge`, `ChromeEnvironmentBridge`, `FormBridge`, `NotificationBridge`, `PasskeyWebAuthnBridge`, `RegexFindBridge`, `ShieldBridge`, `TouchBridge`, `WebGLCompatibilityBridge`).
+- **`com.onyx.browser.web.adblock`**: Web-layer adblocking, scriptlet injection, domain alias manager, service worker helper, and hydration fixes (`AdBlockDocumentStart`, `AdBlockDomainManager`, `AdBlockServiceWorkerHelper`, `DsdHydrationFix`).
+- **`com.onyx.browser.web.interceptor`**: `RequestInterceptor` chain implementations (`RealInterceptorChain`, `HttpsUpgradeInterceptor`, `AuthBypassInterceptor`, `AdBlockRequestInterceptor`, `PrivacyUrlSanitizer`).
+- **`com.onyx.browser.web.navigation`**: External URL scheme and intent routing (`ExternalNavigationHandler`).
+- **`com.onyx.browser.web.translate`**: In-page translation bridge and scriptlets.
+- **`com.onyx.browser.download`**: Download engine, service, notification helper, handlers, and download receivers (`DownloadEngine`, `OnyxDownloadService`, `DownloadHandler`, `DownloadCompleteReceiver`).
+- **`com.onyx.browser.autofill`**: System `AutofillManager` and Credential Manager integration (`AutofillHelper`).
+- **`com.onyx.browser.privacy`**: Privacy lifecycle cleanup services and helpers (`ClearOnExitService`, `ClearDataOnExitHelper`).
+- **`com.onyx.browser.ui.browser`**: Coordinators and controllers managing browser UI, tabs, navigation, toolbar, and overlays.
+- **`com.onyx.browser.ui.settings.shields`**: Shields, blocking level, filter list, HTTPS, DoH, and clear-on-exit settings.
+- **`com.onyx.browser.ui.settings.site`**: Site settings, per-site permissions, and all-sites management.
+- **`com.onyx.browser.ui.settings.userscript`**: Userscript manager, editor, install bottom sheet, and list adapter.
+- **`com.onyx.browser.ui.settings.appearance`**: Theme picker, address bar customization, and visual display settings.
 
 ---
 
-## 3. Directory Layout & Architecture Map
+## 4. Directory Layout & Architecture Map
 
 ```text
 onyx-browser/
@@ -104,9 +171,26 @@ onyx-browser/
 │   │   │   ├── media/              # MediaPlaybackService and MediaPlaybackBridge
 │   │   │   ├── nativebridge/       # AdBlockEngine JNI bindings to libadblock_bridge.so
 │   │   │   ├── privacy/            # ClearOnExitService, ClearDataOnExitHelper privacy lifecycle cleanup
-│   │   │   ├── ui/                 # ViewBinding presentation layer, UDF viewmodel/, browser/ (coordinators, controllers), settings/ (shields/, site/, userscript/, appearance/)
+│   │   │   ├── ui/                 # ViewBinding presentation layer
+│   │   │   │   ├── browser/        # Coordinators (*Coordinator) & View state controllers (*Controller)
+│   │   │   │   ├── common/         # Common UI dialogs and pickers
+│   │   │   │   ├── downloads/      # Download list UI and sheets
+│   │   │   │   ├── home/           # Homepage shortcuts and quick actions
+│   │   │   │   ├── menu/           # MenuBottomSheet, SiteShieldBottomSheet, ImageSearchPickerBottomSheet
+│   │   │   │   ├── settings/       # Settings activities partitioned by feature domain
+│   │   │   │   │   ├── appearance/ # AppearanceActivity, AddressBarSettingsActivity, ThemePickerBottomSheet
+│   │   │   │   │   ├── shields/    # ShieldsActivity, ContentFiltersActivity, filter sheets
+│   │   │   │   │   ├── site/       # SiteSettingsActivity, SingleSiteSettingsBottomSheet, AllSitesBottomSheet
+│   │   │   │   │   └── userscript/ # UserScriptsActivity, UserScriptEditorActivity, UserScriptAdapter
+│   │   │   │   ├── tabs/           # TabSwitcherBottomSheet, ClearBrowsingDataDialog
+│   │   │   │   └── viewmodel/      # UDF ViewModels (BrowserViewModel, HistoryViewModel, BookmarksViewModel, DownloadsViewModel)
 │   │   │   ├── userscript/         # Tampermonkey/Violentmonkey engine, metadata parser, matcher, bridge
-│   │   │   └── web/                # Hardened Chromium WebView subsystem, AssetScriptLoader, adblock/, bridge/, interceptor/, navigation/, translate/
+│   │   │   └── web/                # Hardened Chromium WebView subsystem
+│   │   │       ├── adblock/        # AdBlockDocumentStart, AdBlockDomainManager, AdBlockServiceWorkerHelper, DsdHydrationFix
+│   │   │       ├── bridge/         # BlobBridge, FormBridge, PasskeyWebAuthnBridge, ShieldBridge, TouchBridge, etc.
+│   │   │       ├── interceptor/    # RequestInterceptor, RealInterceptorChain, AdBlockRequestInterceptor, HttpsUpgradeInterceptor
+│   │   │       ├── navigation/     # ExternalNavigationHandler (scheme/intent resolution)
+│   │   │       └── translate/      # CSP-immune in-page DOM translation engine
 │   │   └── res/                    # Google Theme styles (Light/Dark/AMOLED), layouts, vectors
 │   ├── src/test/                   # JUnit 4, MockK, and Coroutines unit test suite
 │   └── build.gradle.kts            # App dependencies, NDK configuration, Room KSP schema export, deterministic signing
@@ -124,7 +208,7 @@ onyx-browser/
 
 ---
 
-## 4. Architectural & Coding Mandates for AI Agents
+## 5. Architectural & Coding Mandates for AI Agents
 
 1. **Native Views Over Compose**:
    - Strictly write native Android XML Views and ViewBinding.
@@ -148,10 +232,10 @@ onyx-browser/
      - `PATCH = RUN_NUM % 100`
    - Patch increments 0..99, rolling over to Minor at 100. Minor increments 0..9, rolling over to Major after 9 (e.g., `1.0.99` -> `1.1.0`, `1.9.99` -> `2.0.0`).
 7. **Authentication, Autofill & WebAuthn Bridge Compatibility**:
-   - WebAuthn polyfills (`PasskeyWebAuthnBridge`) must be injected on all login domains (e.g., GitHub, Google, Microsoft) and omitted strictly on Meta's internal challenge frames (`fbsbx.com`) and Meta auth domains.
+   - WebAuthn polyfills (`PasskeyWebAuthnBridge` in `com.onyx.browser.web.bridge`) must be injected on all login domains (e.g., GitHub, Google, Microsoft) and omitted strictly on Meta's internal challenge frames (`fbsbx.com`) and Meta auth domains.
    - `@JavascriptInterface` methods in `PasskeyWebAuthnBridge` execute on Chromium's background `JavaBridge` thread and must NEVER read `WebView` properties (`webView.url`) off the Main UI thread (`mainHandler.post`).
    - `PublicKeyCredential.isConditionalMediationAvailable()` must return `Promise.resolve(false)` (and hold `mediation: 'conditional'` requests passively until aborted) so login pages do not auto-launch modal `CredentialManager` sheets on page load.
-   - `PasskeyWebAuthnBridge` must pass verified web `origin` + `clientDataHash` (never falling back to `origin = null` native app credentials), construct canonical unescaped `clientDataJSON` matching `clientDataHash` and inject it into assertion and registration responses (overriding provider placeholder or package-name client data so Relying Party SHA-256 hash checks verify against authenticator signatures), normalize all Base64 fields to canonical unpadded Base64URL, extract CBOR `attestationObject` metadata (`authenticatorData`, DER SPKI `publicKey`, `publicKeyAlgorithm`), and support W3C `PasswordCredential` (`GetPasswordOption` / `CreatePasswordRequest`) alongside Android `AutofillManager` (`AutofillHelper.getActivePasswordManager` via `autofillServiceComponentName`).
+   - `PasskeyWebAuthnBridge` must pass verified web `origin` + `clientDataHash` (never falling back to `origin = null` native app credentials), construct canonical unescaped `clientDataJSON` matching `clientDataHash` and inject it into assertion and registration responses (overriding provider placeholder or package-name client data so Relying Party SHA-256 hash checks verify against authenticator signatures), normalize all Base64 fields to canonical unpadded Base64URL, extract CBOR `attestationObject` metadata (`authenticatorData`, DER SPKI `publicKey`, `publicKeyAlgorithm`), and support W3C `PasswordCredential` (`GetPasswordOption` / `CreatePasswordRequest`) alongside Android `AutofillManager` (`AutofillHelper.getActivePasswordManager` via `autofillServiceComponentName` in `com.onyx.browser.autofill`).
    - `_OnyxPasskeyBridge` must never be deleted from the window or overwritten with `undefined` on login pages.
    - `navigator.userAgentData` must polyfill authentic Chrome/Chromium brands without leaking `"Android WebView"` to ensure Google Sign-In and OAuth flows succeed without `403 disallowed_useragent` blocks.
 8. **Adblock Engine & Network Interception Standards**:
@@ -180,7 +264,7 @@ onyx-browser/
 10. **Navigation, Downloads & JavaScript Execution Standards**:
    - JavaScript pseudo-URLs (`javascript:...`) clicked in web pages or bookmarked must execute directly via `evaluateJavascript()` in `shouldOverrideUrlLoading`, bypassing Chromium top-level navigation restrictions on script URLs.
    - Synthetic URL schemes (`javascript:`, `about:`, `data:`, `blob:`, `file:///android_asset/`, `file:///android_res/`) must be classified as synthetic in `OnyxWebView.isSyntheticOrDataUrl` so they never clobber active page state, user agents, or history.
-   - POST form download triggers (e.g. `javascript:document.getElementById('id').submit();` or download buttons submitting forms via POST) must be captured at document-start via `OnyxFormBridge` / `FormPostRegistry`, matched on `DownloadListener`, and executed via HTTP POST in `DownloadEngine` with accurate `Origin`, `Referer`, and `Content-Type` headers.
+   - POST form download triggers (e.g. `javascript:document.getElementById('id').submit();` or download buttons submitting forms via POST) must be captured at document-start via `FormBridge` / `FormPostRegistry`, matched on `DownloadListener`, and executed via HTTP POST in `DownloadEngine` with accurate `Origin`, `Referer`, and `Content-Type` headers.
    - Download triggers spawning blank popup tabs (`target="_blank"`) must retire the unpromoted popup tab once the download is enqueued, preventing zombie tabs.
    - Context Menu & Media Downloader Unified Routing: Tap-and-hold context menu actions ("Save video", "Save image", "Download link") and image preview dialogs must never bypass Onyx's internal downloader or dispatch directly to Android's system `DownloadManager`. All download actions route through `DownloadHandler.handleDownload` to strictly honor user preferences in Settings > Downloads (Ask before download / `DownloadPromptBottomSheet`, Onyx internal multi-threaded downloader, or external downloader handoff).
    - Desktop Mode, Subdomain Resolution & Network-Level Client Hints: Follows professional mobile browser (Chrome/Brave) standards with tab-scoped desktop mode (`OnyxWebView.isDesktopMode`). Toggling Desktop Site in the 3-dot menu toggles the active tab's desktop state without polluting global SharedPreferences domain rules, while Site Settings and Site Shield retain explicit per-site permissions (`ALLOWED`/`BLOCKED`). Automatically translates mobile subdomains (`resolveDesktopUrl` and `resolveMobileUrl`: `m.youtube.com` <-> `www.youtube.com`, `m.facebook.com` <-> `www.facebook.com`, `en.m.wikipedia.org` <-> `en.wikipedia.org`, etc.) on toggle. New tabs opened from a parent tab inherit the parent's explicit desktop mode. Synchronizes network-level Client Hints via `WebSettingsCompat.setUserAgentMetadata` (`Sec-CH-UA-Mobile: ?0` for desktop, `?1` for mobile, `Sec-CH-UA-Platform`, and sanitizing `"Android WebView"` brands) before initial HTTP requests, with layout viewport pinned to 980px and auto overview scale.
@@ -196,9 +280,9 @@ onyx-browser/
    - Native `@JavascriptInterface` bridge (`OnyxUserScriptBridge` registered at `window.onyxGM`) exposes scoped key-value storage (`GM_getValue`, `GM_setValue`, `GM_deleteValue`, `GM_listValues`), `@connect`-validated background networking (`GM_xmlhttpRequest`), clipboard (`GM_setClipboard`), notifications (`GM_notification`), dynamic DOM element injection (`GM_addStyle`, `GM_addElement`), tab spawning (`GM_openInTab` restricted to `http`/`https`), and dynamic page menu commands (`GM_registerMenuCommand`, `GM_unregisterMenuCommand`).
    - Script management UI is centralized in `Settings > Privacy & Security > Site settings > Scripts` with a top-right `+` button (New script editor, Import from URL, Import from file) and `Update` button.
 13. **WebMessageListener & Bridge IPC Standards**:
-   - Modern asynchronous bridges (`OnyxTouchBridge`, `OnyxFormBridge`, `OnyxBlobBridge`) must use `WebViewCompat.addWebMessageListener` when `WebViewFeature.WEB_MESSAGE_LISTENER` is supported, falling back to `@JavascriptInterface`.
+   - Modern asynchronous bridges (`TouchBridge`, `FormBridge`, `BlobBridge` in `com.onyx.browser.web.bridge`) must use `WebViewCompat.addWebMessageListener` when `WebViewFeature.WEB_MESSAGE_LISTENER` is supported, falling back to `@JavascriptInterface`.
    - WebMessage channel ports (`window.onyxTouchBridge`, `window.onyxFormBridge`, `window.onyxBlobBridge`) do not leak Java reflection objects on `window`, eliminating anti-bot detection signatures.
-   - Synchronous APIs (such as `OnyxShieldBridge.isUrlBlocked`) and W3C WebAuthn passkeys (`_OnyxPasskeyBridge`) must maintain direct `@JavascriptInterface` contracts as required by their blocking or specification requirements.
+   - Synchronous APIs (such as `ShieldBridge.isUrlBlocked` registered at `window.OnyxShieldBridge`) and W3C WebAuthn passkeys (`_OnyxPasskeyBridge`) must maintain direct `@JavascriptInterface` contracts as required by their blocking or specification requirements.
 14. **System Memory Pressure & Lifecycle Optimization (`ComponentCallbacks2.onTrimMemory`)**:
    - `OnyxApplication`, `MainActivity`, and `TabCoordinator` must handle system memory trimming callbacks (`ComponentCallbacks2.onTrimMemory` and `onLowMemory`).
    - On `TRIM_MEMORY_UI_HIDDEN`, tab switcher preview bitmaps are evicted from memory (saved WebP snapshots remain on disk), active tab states are written to disk, and non-active idle tabs older than 15 minutes are hibernated.
@@ -223,5 +307,3 @@ onyx-browser/
    - `TabCoordinator` enforces a RAM-aware LRU WebView pool governor (`maxLiveWebViews` of 3–5 live instances scaled by `ActivityManager.MemoryInfo`), hibernating least-recently-used non-media background tabs to disk (or `incognitoStateBundles` in-memory for private tabs).
    - CI builds enforce an automated unit test gate (`./gradlew :core:common:test testReleaseUnitTest --no-daemon`) in `.github/workflows/build.yml` prior to APK assembly.
    - Never allocate raw unmanaged `CoroutineScope(Dispatchers.IO)` instances inside UI controllers; always use `lifecycleScope` / `viewModelScope` with `NonCancellable` for critical persistence writes or a named `SupervisorJob` scope for singleton managers.
-
-
