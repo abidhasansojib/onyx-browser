@@ -33599,7 +33599,7 @@ webex.com##+js(no-xhr-if, svc.webex.com/metrics)
 ||directg.jp/js/fingerprint2.js$script,redirect=fingerprint2.js,important
 /fingerprint2.js$script,redirect=fingerprint2.js
 /fingerprint2.min.js$script,redirect=fingerprint2.js
-||curiosity.sheepesports.com^
+||rainbow.sheepesports.com^
 mashable.com##+js(href-sanitizer, a[href^="https://zdcs.link/"], ?u)
 ||prydwen.gg/api/v1/ping/
 vaughn.live##+js(no-fetch-if, method:POST body:zaraz)
@@ -44543,6 +44543,7 @@ omni.soundestlink.com$image
 ||owlthegoodies.com^
 ||owltin.com^
 ||oxygenfuse.com^
+||paidjourneys.com^
 ||pailcrime.com^
 ||pailpatch.com^
 ||painstakingpickle.com^
@@ -44958,6 +44959,7 @@ omni.soundestlink.com$image
 ||seenvault.com^
 ||seespice.com^
 ||selectivesummer.com^
+||selectscholars.com^
 ||selfishsea.com^
 ||selfishsnake.com^
 ||sendinblast.com^
@@ -45175,6 +45177,7 @@ omni.soundestlink.com$image
 ||squishybears.com^
 ||squishykiosk.com^
 ||stableapp.net^
+||stableparty.com^
 ||stadiumzoo.net^
 ||stakedances.com^
 ||stakeschips.com^
@@ -79886,6 +79889,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||spaceleadster.com^
 ||sparkstudios.com^
 ||speakol.com^
+||speciesjewelry.com^
 ||specificmedia.co.uk^
 ||specificpop.com^
 ||speedomizer.com^
