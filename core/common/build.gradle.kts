@@ -1,5 +1,5 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm")
+    alias(libs.plugins.kotlin.jvm)
 }
 
 java {
@@ -14,5 +14,5 @@ kotlin {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation(libs.kotlinx.coroutines.core)
 }

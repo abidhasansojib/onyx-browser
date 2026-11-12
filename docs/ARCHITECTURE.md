@@ -249,12 +249,16 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
 
 - **MainActivity UI Delegates & Coordinators (`com.onyx.browser.ui.browser`)**:
   - `ToolbarLayoutDelegate` manages Top vs. Bottom address bar `ConstraintSet` transitions, Edge-to-Edge window/IME insets, and scroll-to-hide animations.
+  - `BrowserMenuCoordinator` encapsulates the 3-dot browser overflow menu, desktop site toggling, page tools (Find in Page, Translate, PDF/MHT export, Zapper, DevTools), and dynamic Userscript menu command items.
   - `NavigationCoordinator` centralizes URL resolution, search query formatting, `javascript:` pseudo-URL execution, and deep-link intent routing.
   - `WebChromeCoordinator` encapsulates custom fullscreen video containers, geolocation/media permission prompts, and file chooser callbacks.
   - `HomeScreenController` manages New Tab / Home screen shortcuts, tile grid editing, and home search bar interactions.
   - `FileChooserCoordinator` handles `<input type="file">` camera capture, temporary `FileProvider` URI lifecycle, and `ActivityResultLauncher` callbacks.
   - `WebContextMenuController` manages WebView hit-test long-press sheets for links, images, videos, and reverse image search actions.
   - `SettingsNavigator` (`SettingsDestination`) provides unified routing across all full-page settings screens.
+
+- **External Navigation & Intent Routing (`com.onyx.browser.web.navigation.ExternalNavigationHandler`)**:
+  - Decouples custom URL scheme handling (`intent://`, `market://`, `mailto:`, `tel:`, `sms:`), `OpenInAppPromptDialog` deep-link resolution, and cross-domain streaming ad/betting redirect defense from `OnyxWebViewClient.shouldOverrideUrlLoading`.
 
 - **Domain Preference Stores (`com.onyx.browser.data.preferences`)**:
   - `BrowserPreferences` delegates to cohesive domain stores backed by the shared `SharedPreferences` instance:
@@ -282,7 +286,9 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
   - `TabManager.maxLiveWebViews` dynamically scales the active WebView pool (3–5 live instances) based on device memory class (`ActivityManager.MemoryInfo`).
   - Least-recently-used background tabs (excluding any tab actively playing media) are automatically hibernated: normal tabs persist state bundles to disk (`tab_states/`), while incognito tabs preserve state strictly in-memory (`incognitoStateBundles`) to maintain zero disk residue.
 
-- **Multi-Module `:core:common`, DI Container & CI Unit Test Gate**:
+- **Multi-Module `:core:common`, Version Catalog, DI Container & CI Unit Test Gate**:
+  - `gradle/libs.versions.toml` centralizes all Gradle plugin and library versions across `:app` and `:core:common`.
   - `:core:common` provides shared concurrency dispatchers (`DispatcherProvider`, `DefaultDispatcherProvider`) and functional result wrappers (`OnyxResult`).
   - `AppContainer` and `DefaultAppContainer` (`com.onyx.browser.di`) wire singleton repositories (`SitePermissionRepository`, `HistoryRepository`, `BookmarkRepository`, `DownloadRepository`), `AppDatabase`, and `BrowserPreferences` from `OnyxApplication`.
-  - Automated unit test suite under `app/src/test/` (JUnit 4, MockK, `kotlinx-coroutines-test`) including `InterceptorPipelineTest`, `RepositoryLayerTest`, `DomainPreferencesTest`, `SitePermissionEntityTest`, `DownloadModelsTest`, `UserScriptMetadataTest`, and `UserScriptUrlMatcherTest` is enforced on every CI run via `./gradlew :core:common:test testReleaseUnitTest --no-daemon` in `.github/workflows/build.yml`.
+  - Automated unit test suite under `app/src/test/` (JUnit 4, MockK, `kotlinx-coroutines-test`) including `InterceptorPipelineTest`, `ExternalNavigationHandlerTest`, `RepositoryLayerTest`, `DomainPreferencesTest`, `SitePermissionEntityTest`, `DownloadModelsTest`, `UserScriptMetadataTest`, and `UserScriptUrlMatcherTest` is enforced on every CI run via `./gradlew :core:common:test testReleaseUnitTest --no-daemon` in `.github/workflows/build.yml`.
+  - Open-source contributor tooling includes `./scripts/bootstrap_dev.sh` (one-command submodule, patch, symlink, icon, filter list, and `cargo-ndk` bootstrap), `.editorconfig`, `CONTRIBUTING.md`, `SECURITY.md`, and `.github/PULL_REQUEST_TEMPLATE.md`.

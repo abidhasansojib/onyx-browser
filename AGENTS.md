@@ -84,14 +84,15 @@ When triggered for a build (after user confirms or explicitly requests Release o
 ```text
 onyx-browser/
 ├── .github/
-│   ├── ISSUE_TEMPLATE/       # Structured YAML issue forms (bug reports & feature requests)
+│   ├── ISSUE_TEMPLATE/             # Structured YAML issue forms (bug reports & feature requests)
+│   ├── PULL_REQUEST_TEMPLATE.md    # Standardized Pull Request review & privacy/security checklist
 │   └── workflows/
-│       ├── build.yml         # Rust NDK compile, Lucide sync, CI unit test gate, Gradle Release/Prerelease APKs
-│       └── sync_upstream.yml # 12-hour automated Brave filter lists sync workflow
+│       ├── build.yml               # Rust NDK compile, Lucide sync, CI unit test gate, Gradle Release/Prerelease APKs
+│       └── sync_upstream.yml       # 12-hour automated Brave filter lists sync workflow
 ├── app/
-│   ├── schemas/              # Exported Room database schemas (room.schemaLocation)
+│   ├── schemas/                    # Exported Room database schemas (room.schemaLocation)
 │   ├── src/main/
-│   │   ├── assets/           # easylist_rules.txt, eruda.min.js, scripts/ (WebAuthn, media, procedural JS), font assets
+│   │   ├── assets/                 # easylist_rules.txt, eruda.min.js, scripts/ (WebAuthn, media, procedural JS), font assets
 │   │   ├── java/com/onyx/browser/
 │   │   │   ├── MainActivity.kt     # SingleTask primary activity, toolbar, and window coordinator
 │   │   │   ├── OnyxApplication.kt  # Startup lifecycle, DI container, SQLCipher init, Safe Browsing setup
@@ -101,15 +102,20 @@ onyx-browser/
 │   │   │   ├── nativebridge/       # AdBlockEngine JNI bindings to libadblock_bridge.so
 │   │   │   ├── ui/                 # ViewBinding presentation layer, UDF viewmodel/, browser/ controllers, settings
 │   │   │   ├── userscript/         # Tampermonkey/Violentmonkey engine, metadata parser, matcher, bridge
-│   │   │   └── web/                # Hardened Chromium WebView subsystem, AssetScriptLoader, interceptor/, bridges
+│   │   │   └── web/                # Hardened Chromium WebView subsystem, AssetScriptLoader, interceptor/, navigation/, bridges
 │   │   └── res/                    # Google Theme styles (Light/Dark/AMOLED), layouts, vectors
 │   ├── src/test/                   # JUnit 4, MockK, and Coroutines unit test suite
 │   └── build.gradle.kts            # App dependencies, NDK configuration, Room KSP schema export, deterministic signing
 ├── core/
 │   └── common/                     # Shared multi-module utilities (DispatcherProvider, OnyxResult)
 ├── docs/                           # Documentation assets (logo.png), FEATURES.md, ARCHITECTURE.md, WEBVIEW.md
+├── gradle/
+│   └── libs.versions.toml          # Centralized Gradle Version Catalog for dependencies and plugins
 ├── rust_engine/                    # Native Rust NDK Bridge (libadblock_bridge.so)
-└── scripts/                        # Icon and filter list synchronization automation
+├── scripts/                        # bootstrap_dev.sh, icon sync, and filter list synchronization automation
+├── .editorconfig                   # Cross-IDE formatting rules (Kotlin, Rust, XML, YAML, TOML, Markdown)
+├── CONTRIBUTING.md                 # Open-source contributor setup, module architecture, and PR guidelines
+└── SECURITY.md                     # Security architecture overview and vulnerability reporting policy
 ```
 
 ---
@@ -203,7 +209,9 @@ onyx-browser/
    - When `isClearOnExitEnabled && isClearOnExitTabsEnabled` is true, tab state saving on `onStop`, `onSaveInstanceState`, and `onDestroy` (`saveAllTabStates()`) is omitted, `hasPendingExitClearance = true` is synchronously committed to disk in `onStop()`, cleared on foreground resumption (`onStart()`), and enforced across cold launches in `OnyxApplication.onCreate()` and `MainActivity.onCreate()` before restoring tabs, guaranteeing complete data purge even when OEM task managers (MIUI/HyperOS, OneUI) kill background processes without calling `onTaskRemoved()`.
 17. **UDF ViewModels, Repository Layer, Domain Preferences, DI Container, Interceptor Pipeline & LRU WebView Pool**:
    - Presentation screens (`MainActivity`, `HistoryActivity`, `BookmarksActivity`, `DownloadsActivity`) use Unidirectional Data Flow (UDF) `StateFlow` state holders (`BrowserViewModel`, `HistoryViewModel`, `BookmarksViewModel`, `DownloadsViewModel`) instantiated via `OnyxViewModelFactory` with constructor-injected repositories (`HistoryRepository`, `BookmarkRepository`, `DownloadRepository`).
-   - `MainActivity` delegates UI and browser feature domains across focused controllers in `com.onyx.browser.ui.browser`: `ToolbarLayoutDelegate`, `NavigationCoordinator`, `WebChromeCoordinator`, `HomeScreenController`, `FileChooserCoordinator`, `WebContextMenuController`, and `SettingsNavigator`.
+   - `MainActivity` delegates UI and browser feature domains across focused controllers in `com.onyx.browser.ui.browser`: `ToolbarLayoutDelegate`, `BrowserMenuCoordinator`, `NavigationCoordinator`, `WebChromeCoordinator`, `HomeScreenController`, `FileChooserCoordinator`, `WebContextMenuController`, and `SettingsNavigator`.
+   - `ExternalNavigationHandler` (`com.onyx.browser.web.navigation`) isolates external scheme resolution (`intent://`, `market://`, `mailto:`, `tel:`, app deep-link prompts, and cross-domain betting/ad redirect defense) from `OnyxWebViewClient`.
+   - Dependencies and plugin versions are centrally managed via the Gradle Version Catalog (`gradle/libs.versions.toml`), while external contributors can bootstrap submodules, patches, symlinks, icons, filter lists, and `cargo-ndk` builds with `./scripts/bootstrap_dev.sh` (documented in `CONTRIBUTING.md`, `SECURITY.md`, `.editorconfig`, and `.github/PULL_REQUEST_TEMPLATE.md`).
    - `BrowserPreferences` composes cohesive domain preference stores (`AppearancePreferences`, `ShieldPreferences`, `MediaAndDownloadPreferences`, `SearchPreferences`) while preserving full backward-compatible delegation.
    - Large injected JavaScript payloads (`passkey_webauthn_polyfill.js`, `media_playback_observer.js`, `adblock_procedural_engine.js`) reside in `app/src/main/assets/scripts/` and are loaded/cached in memory via `AssetScriptLoader` (`ConcurrentHashMap`).
    - Network interception in `OnyxWebViewClient` routes through the Chain-of-Responsibility `RequestInterceptor` pipeline (`RealInterceptorChain`, `HttpsUpgradeInterceptor`, `AuthBypassInterceptor`, `AdBlockRequestInterceptor`, and `PrivacyUrlSanitizer`).

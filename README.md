@@ -13,7 +13,7 @@ A fast, private, and lightweight browser for Android.
 
 <br />
 
-[**Download APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**Features**](docs/FEATURES.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Report an Issue**](https://github.com/abidhasansojib/onyx-browser/issues)
+[**Download APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**Features**](docs/FEATURES.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Contributing**](CONTRIBUTING.md) • [**Security**](SECURITY.md) • [**Report an Issue**](https://github.com/abidhasansojib/onyx-browser/issues)
 
 </div>
 
@@ -48,16 +48,34 @@ Get the latest APK from [**GitHub Releases**](https://github.com/abidhasansojib/
 
 ---
 
-## Built With
+## Built With & Architecture Highlights
 
-- **Kotlin & Native Views** – Lightweight Android UI with ViewBinding
-- **Rust NDK** – Brave's native `adblock-rust` engine
-- **SQLCipher** – Local database encryption
-- **CameraX** – Fast on-device QR scanning
+- **Kotlin & Native Views** – Fast startup and low memory footprint with XML ViewBinding, UDF `StateFlow` ViewModels, and modular UI coordinators (`ToolbarLayoutDelegate`, `BrowserMenuCoordinator`, `NavigationCoordinator`)
+- **Rust NDK (`libadblock_bridge.so`)** – Brave's native `adblock-rust` engine with FlatBuffers binary rule caching and a Chain-of-Responsibility `RequestInterceptor` pipeline
+- **Hardened Chromium WebView** – Multi-Profile Incognito partitioning, WebAuthn Level 3 Passkey bridge, `ExternalNavigationHandler` intent routing, and Tampermonkey/Violentmonkey Userscript engine
+- **SQLCipher AES-256** – Full on-device Room database encryption (`OnyxDatabase`, `SitePermissionRepository`) backed by Android KeyStore master keys
+- **CameraX & ML Kit** – Fast on-device QR and barcode scanning
+
+See [Architecture & Core Subsystems](docs/ARCHITECTURE.md) and [WebView Engineering Guide](docs/WEBVIEW.md) for full technical details.
 
 ---
 
 ## Building from Source
+
+### Option 1: Local Workstation Build (Linux / macOS / WSL2)
+
+Prerequisites: **JDK 17**, **Android SDK (API 35)**, **Android NDK r26b+**, and **Rust stable** + `cargo-ndk`.
+
+```bash
+git clone --recurse-submodules https://github.com/abidhasansojib/onyx-browser.git
+cd onyx-browser
+./scripts/bootstrap_dev.sh
+./gradlew :core:common:test testReleaseUnitTest assembleRelease
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup instructions and development guidelines.
+
+### Option 2: GitHub Actions CI Build
 
 1. Fork this repository on GitHub.
 2. Go to the **Actions** tab in your GitHub fork.

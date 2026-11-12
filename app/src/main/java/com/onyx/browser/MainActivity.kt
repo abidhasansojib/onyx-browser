@@ -74,6 +74,7 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.search.SearchSuggestionRepository
 import com.onyx.browser.databinding.ActivityMainBinding
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
+import com.onyx.browser.ui.browser.BrowserMenuCoordinator
 import com.onyx.browser.ui.browser.FileChooserCoordinator
 import com.onyx.browser.ui.browser.FindInPageController
 import com.onyx.browser.ui.browser.HomeScreenController
@@ -126,6 +127,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     lateinit var tabManager: TabManager
     lateinit var browserViewModel: BrowserViewModel
     lateinit var toolbarLayoutDelegate: ToolbarLayoutDelegate
+    lateinit var browserMenuCoordinator: BrowserMenuCoordinator
     lateinit var navigationCoordinator: NavigationCoordinator
     lateinit var webChromeCoordinator: WebChromeCoordinator
     lateinit var homeScreenController: HomeScreenController
@@ -601,6 +603,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         toolbarLayoutDelegate = ToolbarLayoutDelegate(this, binding, preferences)
+        browserMenuCoordinator = BrowserMenuCoordinator(this, binding, preferences)
         fileChooserCoordinator = FileChooserCoordinator(
             activity = this,
             onLaunchFileChooserIntent = { intent -> fileChooserLauncher.launch(intent) },
@@ -950,22 +953,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         // SSL Lock Icon: opens per-site adblock controls (Brave Shields panel)
         binding.ivSslLock.setOnClickListener {
-            val activeTab = tabManager.activeTab.value ?: return@setOnClickListener
-            val url = activeTab.url
-            if (url.isNotBlank() && !url.startsWith("about:blank", ignoreCase = true)) {
-                val activeWv = tabManager.getActiveWebView()
-                val blockedCount = activeWv?.pageBlockedCount ?: 0
-                val cert = activeWv?.certificate
-                val dialog = com.onyx.browser.ui.menu.SiteShieldBottomSheetDialog(
-                    currentUrl = url,
-                    pageBlockedCount = blockedCount,
-                    isIncognito = activeTab.isIncognito,
-                    sslCertificate = cert
-                ) {
-                    tabManager.getActiveWebView()?.onSiteSettingsChanged()
-                }
-                dialog.show(supportFragmentManager, com.onyx.browser.ui.menu.SiteShieldBottomSheetDialog.TAG)
-            }
+            showSiteShieldDialog()
         }
 
         // Address Bar Focus & Search Mode
@@ -1056,43 +1044,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         // Three-Dot Menu Button
         binding.btnMenu.setOnClickListener {
-            val activeTab = tabManager.activeTab.value
-            val activeWebView = tabManager.getActiveWebView()
-            val isHome = (binding.homeLayout.root.visibility == View.VISIBLE) || activeTab?.url.isNullOrBlank()
-
-            val sheet = MenuBottomSheetDialogFragment().apply {
-                isHomePage = isHome
-                currentUrl = activeTab?.url ?: ""
-                currentTitle = activeTab?.title ?: ""
-                isDesktopSiteEnabled = activeWebView?.isDesktopMode ?: false
-                onDesktopSiteToggled = { _ ->
-                    // Toggle desktop mode scoped to the active tab, with automatic mobile subdomain translation
-                    activeWebView?.toggleDesktopMode()
-                }
-                onFindInPageClicked = {
-                    findInPageController.show()
-                }
-                onTranslateClicked = { langCode ->
-                    translateCurrentPage(langCode)
-                }
-                onSavePageClicked = {
-                    showSavePageDialog()
-                }
-                onAddToHomeScreenClicked = {
-                    addCurrentPageToHomeScreen()
-                }
-                onDeveloperToolsClicked = {
-                    injectDeveloperTools()
-                }
-                onBlockElementClicked = {
-                    startElementBlocker()
-                }
-                onSiteShieldWhitelistChanged = { _ ->
-                    activeWebView?.onSiteSettingsChanged()
-                }
-
-            }
-            sheet.show(supportFragmentManager, MenuBottomSheetDialogFragment.TAG)
+            showMenuBottomSheet()
         }
     }
 
@@ -2184,109 +2136,52 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         imm?.hideSoftInputFromWindow(binding.etUrl.windowToken, 0)
     }
 
-    private var currentTranslateTargetCode: String = ""
-    private var isUpdatingTranslateUi = false
+    fun showMenuBottomSheet() {
+        if (::browserMenuCoordinator.isInitialized) {
+            browserMenuCoordinator.showMenuBottomSheet()
+        }
+    }
+
+    fun showSiteShieldDialog() {
+        if (::browserMenuCoordinator.isInitialized) {
+            browserMenuCoordinator.showSiteShieldDialog()
+        }
+    }
+
+    fun showLanguageSelectionDialog(webView: OnyxWebView? = getActiveWebView()) {
+        if (::browserMenuCoordinator.isInitialized) {
+            browserMenuCoordinator.showLanguageSelectionDialog(webView)
+        }
+    }
+
+    fun toggleBookmarkForCurrentPage(onResult: ((Boolean) -> Unit)? = null) {
+        if (::browserMenuCoordinator.isInitialized) {
+            browserMenuCoordinator.toggleBookmarkForCurrentPage(onResult)
+        }
+    }
+
+    fun showFindInPage() {
+        if (::findInPageController.isInitialized) {
+            findInPageController.show()
+        }
+    }
 
     fun setTranslateLoading(isLoading: Boolean) {
-        runOnUiThread {
-            binding.pbTranslateLoading.visibility = if (isLoading) View.VISIBLE else View.GONE
+        if (::browserMenuCoordinator.isInitialized) {
+            browserMenuCoordinator.setTranslateLoading(isLoading)
         }
     }
 
     private fun setupTranslateBar() {
-        binding.toggleTranslateMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (isUpdatingTranslateUi || !isChecked) return@addOnButtonCheckedListener
-            val wv = tabManager.getActiveWebView() ?: return@addOnButtonCheckedListener
-            when (checkedId) {
-                R.id.btnTranslateOriginal -> {
-                    wv.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
-                    binding.pbTranslateLoading.visibility = View.GONE
-                }
-                R.id.btnTranslateTarget -> {
-                    val code = currentTranslateTargetCode.ifBlank { preferences.targetTranslateLanguage }
-                    binding.pbTranslateLoading.visibility = View.VISIBLE
-                    wv.evaluateJavascript(PageTranslateManager.toggleTranslatedScript) { result ->
-                        val res = result?.trim('"')
-                        if (res != "translated") {
-                            wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code), null)
-                        } else {
-                            binding.pbTranslateLoading.visibility = View.GONE
-                        }
-                    }
-                }
-            }
+        if (::browserMenuCoordinator.isInitialized) {
+            browserMenuCoordinator.setupTranslateBar()
         }
-
-        binding.btnChangeTranslateLanguage.setOnClickListener {
-            val dialog = LanguageSelectionDialog { code, name ->
-                currentTranslateTargetCode = code
-                preferences.targetTranslateLanguage = code
-                preferences.targetTranslateLanguageName = name
-                binding.btnTranslateTarget.text = name
-                isUpdatingTranslateUi = true
-                try {
-                    binding.toggleTranslateMode.check(R.id.btnTranslateTarget)
-                } finally {
-                    isUpdatingTranslateUi = false
-                }
-                val wv = tabManager.getActiveWebView() ?: return@LanguageSelectionDialog
-                binding.pbTranslateLoading.visibility = View.VISIBLE
-                wv.evaluateJavascript(PageTranslateManager.getTranslateScript(code), null)
-            }
-            dialog.show(supportFragmentManager, "LanguageSelectionDialog")
-        }
-
-        binding.btnCloseTranslate.setOnClickListener {
-            hideTranslateBar(restoreOriginal = true)
-        }
-    }
-
-    private fun showTranslateBar(targetCode: String, targetName: String) {
-        currentTranslateTargetCode = targetCode
-        binding.btnTranslateTarget.text = targetName
-        isUpdatingTranslateUi = true
-        try {
-            binding.toggleTranslateMode.check(R.id.btnTranslateTarget)
-        } finally {
-            isUpdatingTranslateUi = false
-        }
-        showToolbar(animated = false)
-        binding.translateBar.visibility = View.VISIBLE
     }
 
     private fun hideTranslateBar(restoreOriginal: Boolean = false) {
-        binding.translateBar.visibility = View.GONE
-        binding.pbTranslateLoading.visibility = View.GONE
-        if (restoreOriginal) {
-            tabManager.getActiveWebView()?.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
+        if (::browserMenuCoordinator.isInitialized) {
+            browserMenuCoordinator.hideTranslateBar(restoreOriginal)
         }
-    }
-
-    private fun translateCurrentPage(langCode: String) {
-        val activeTab = tabManager.activeTab.value ?: return
-        val currentUrl = activeTab.url
-        if (currentUrl.isBlank() || currentUrl.startsWith("onyx://") || currentUrl.startsWith("about:") || LocalFileLoader.isLocalFile(this, currentUrl)) {
-            Toast.makeText(this, "Cannot translate internal page", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val targetCode = if (langCode.isNotBlank()) langCode else preferences.targetTranslateLanguage
-        val targetName = preferences.targetTranslateLanguageName
-
-        val webView = tabManager.getActiveWebView()
-        if (webView == null) {
-            Toast.makeText(this, "No active webpage to translate", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        showTranslateBar(targetCode, targetName)
-        binding.pbTranslateLoading.visibility = View.VISIBLE
-
-        webView.evaluateJavascript(PageTranslateManager.getTranslateScript(targetCode), null)
-    }
-
-    private fun addCurrentPageToHomeScreen() {
-        pinWebpageToHomeScreen()
     }
 
     fun pinWebpageToHomeScreen() {
@@ -2296,55 +2191,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 favicon = tabManager.getActiveWebView()?.favicon
             )
         }
-    }
-
-    private fun injectDeveloperTools() {
-        val webView = tabManager.getActiveWebView() ?: return
-        val activeTab = tabManager.activeTab.value
-        if (activeTab == null || activeTab.url.isBlank() ||
-            activeTab.url.startsWith("onyx://") || activeTab.url.startsWith("about:")) {
-            Toast.makeText(this, "Developer tools can only run on active web pages", Toast.LENGTH_SHORT).show()
-            return
-        }
-        lifecycleScope.launch {
-            val isDark = preferences.isDarkMode()
-            DevToolsManager.toggleDevTools(this@MainActivity, webView, isDark) { status: String ->
-                when (status) {
-                    "shown" -> {
-                        webView.isDevToolsActive = true
-                        // No toast needed — the Eruda panel appearing is its own feedback
-                    }
-                    "hidden" -> {
-                        // Panel is minimized but Eruda icon stays visible on screen
-                        // Keep isDevToolsActive = true so auto-reinject fires on navigation
-                        webView.isDevToolsActive = true
-                    }
-                    "failed" -> {
-                        webView.isDevToolsActive = false
-                        Toast.makeText(this@MainActivity, "Unable to load developer tools", Toast.LENGTH_SHORT).show()
-                    }
-                    "error" -> {
-                        webView.isDevToolsActive = false
-                        Toast.makeText(this@MainActivity, "Developer tools encountered an error", Toast.LENGTH_SHORT).show()
-                    }
-                    else -> {
-                        // Unexpected — do not change state
-                    }
-                }
-            }
-        }
-    }
-
-    private fun startElementBlocker() {
-        val webView = tabManager.getActiveWebView() ?: return
-        val activeTab = tabManager.activeTab.value
-        if (activeTab == null || activeTab.url.isBlank() ||
-            activeTab.url.startsWith("onyx://") || activeTab.url.startsWith("about:")) {
-            Toast.makeText(this, "Element blocker can only run on active web pages", Toast.LENGTH_SHORT).show()
-            return
-        }
-        com.onyx.browser.ui.menu.ElementPickerManager.startPicker(webView)
-        Toast.makeText(this, R.string.block_element_hint, Toast.LENGTH_SHORT).show()
     }
 
     private fun setupBackNavigation() {
@@ -3131,7 +2977,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
-    private fun showSavePageDialog() {
+    fun showSavePageDialog() {
         val activeWebView = tabManager.getActiveWebView() ?: return
         val currentTab = tabManager.activeTab.value ?: return
         pageExportManager.showSavePageDialog(activeWebView, currentTab.title)

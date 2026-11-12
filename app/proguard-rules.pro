@@ -89,6 +89,7 @@
 -keepclassmembers class com.onyx.browser.data.repository.** { *; }
 -keep class com.onyx.browser.di.** { *; }
 -keep class com.onyx.browser.web.interceptor.** { *; }
+-keep class com.onyx.browser.web.navigation.** { *; }
 -keep class com.onyx.browser.core.common.** { *; }
 -keep class **_Impl { *; }
 -dontwarn androidx.room.**
