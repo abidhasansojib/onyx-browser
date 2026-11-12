@@ -10,7 +10,6 @@ import com.onyx.browser.data.favicon.FaviconManager
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
-import com.onyx.browser.ui.browser.TabManager
 import com.onyx.browser.web.LocalFileLoader
 import com.onyx.browser.web.OnyxWebView
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +25,7 @@ object ClearDataOnExitHelper {
      */
     fun clearAllBrowsingDataSync(
         context: Context,
-        tabManager: TabManager? = null,
+        tabManager: TabCoordinator? = null,
         clearTabs: Boolean? = null,
         clearHistory: Boolean? = null,
         clearCookies: Boolean? = null,
@@ -63,7 +62,7 @@ object ClearDataOnExitHelper {
                 }
             } catch (_: Throwable) {}
 
-            val tm = tabManager ?: TabManager.activeInstance
+            val tm = tabManager ?: TabCoordinator.activeInstance
             val clearWebViewsAction = {
                 try {
                     tm?.clearAllTabsAndDataForExit()
@@ -145,7 +144,7 @@ object ClearDataOnExitHelper {
 
         // 4. Delete file caches on disk and clear active WebView caches
         if (doClearCache) {
-            val tm = tabManager ?: TabManager.activeInstance
+            val tm = tabManager ?: TabCoordinator.activeInstance
             val clearCacheAction = {
                 try {
                     tm?.getAllWebViews()?.forEach { wv ->

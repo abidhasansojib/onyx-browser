@@ -31,14 +31,13 @@ import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.databinding.BottomSheetTabSwitcherBinding
 import com.onyx.browser.databinding.PopupTabSwitcherMenuBinding
 import com.onyx.browser.ui.browser.TabCoordinator
-import com.onyx.browser.ui.browser.TabManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class TabSwitcherBottomSheet(
-    private val tabManager: TabManager,
+    private val tabManager: TabCoordinator,
     private val coroutineScope: CoroutineScope,
     private val onTabSelected: (TabItem) -> Unit,
     private val onNewTabRequested: (Boolean) -> Unit,
@@ -523,7 +522,7 @@ class TabSwitcherBottomSheet(
         showUndoToastWithMessage(getString(R.string.tab_closed_toast, displayTitle))
     }
 
-    private fun showUndoToastForBatch(batch: TabManager.ClosedTabBatch) {
+    private fun showUndoToastForBatch(batch: TabCoordinator.ClosedTabBatch) {
         if (batch.states.size == 1) {
             showUndoToastForTab(batch.states.first().tab)
         } else {

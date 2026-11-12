@@ -11,10 +11,9 @@ import androidx.fragment.app.DialogFragment
 import com.onyx.browser.R
 import com.onyx.browser.databinding.DialogConfirmCloseAllTabsBinding
 import com.onyx.browser.ui.browser.TabCoordinator
-import com.onyx.browser.ui.browser.TabManager
 
 class CloseAllTabsDialog @JvmOverloads constructor(
-    private var tabManager: TabManager? = null,
+    private var tabManager: TabCoordinator? = null,
     private var isIncognito: Boolean = false,
     private var onTabsClosed: ((closedCount: Int) -> Unit)? = null
 ) : DialogFragment() {
@@ -40,7 +39,7 @@ class CloseAllTabsDialog @JvmOverloads constructor(
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val tm = tabManager ?: TabManager.activeInstance
+        val tm = tabManager ?: TabCoordinator.activeInstance
         val tabList = if (isIncognito) {
             tm?.incognitoTabs?.value ?: emptyList()
         } else {

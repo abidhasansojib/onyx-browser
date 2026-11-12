@@ -186,7 +186,7 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
             b.tvHistoryExample.text = exampleString
 
             // 2. Open tabs count and examples
-            val tm = tabManager ?: TabManager.activeInstance
+            val tm = tabManager ?: TabCoordinator.activeInstance
             val normalTabs = tm?.normalTabs?.value ?: emptyList()
             val incognitoTabs = tm?.incognitoTabs?.value ?: emptyList()
             val allTabs = normalTabs + incognitoTabs
@@ -220,7 +220,7 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
         val cutoff = getCutoffTime(selectedIndex)
         val appContext = context?.applicationContext ?: return
         val database = AppDatabase.getInstance(appContext)
-        val tm = tabManager ?: TabManager.activeInstance
+        val tm = tabManager ?: TabCoordinator.activeInstance
 
         viewLifecycleOwner.lifecycleScope.launch {
             // 1. Delete history (if selected)
