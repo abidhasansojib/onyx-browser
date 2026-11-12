@@ -193,6 +193,13 @@ if [ -d "${EXTERNAL_LISTS_DIR}/brave-lists" ]; then
     echo "Created symlink: app/src/main/assets/brave-lists -> external/adblock-lists/brave-lists"
 fi
 
+# Synchronize brave-resources.json from external/adblock-rust if available
+BRAVE_RESOURCES_SRC="${ROOT_DIR}/external/adblock-rust/data/brave/brave-resources.json"
+if [ -f "${BRAVE_RESOURCES_SRC}" ]; then
+    cp "${BRAVE_RESOURCES_SRC}" "${ASSETS_DIR}/brave-resources.json"
+    echo "Synchronized brave-resources.json from external/adblock-rust"
+fi
+
 RULE_COUNT=$(grep -c "^[^!#[]" "${OUTPUT_RULES_FILE}" || true)
 FILE_SIZE=$(wc -c < "${OUTPUT_RULES_FILE}")
 echo "=== Filter lists sync complete ==="

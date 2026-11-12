@@ -33,7 +33,7 @@ object FilterListManager {
     private const val DEFAULT_ASSET_RULES = "easylist_rules.txt"
 
     private val isUpdating = AtomicBoolean(false)
-    private const val ASSET_RULES_VERSION = 4 // Invalidate cache to compile popup/popunder rules and new engine options
+    private const val ASSET_RULES_VERSION = 5 // Invalidate cache for adblock-rust v9 FlatBuffers schema ($to= option support)
 
     fun getCurrentFilterSignature(prefs: BrowserPreferences): String {
         val enabledBuiltIn = prefs.enabledFilterLists.sorted().joinToString(",")

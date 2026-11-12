@@ -96,21 +96,33 @@ object AdBlockEngine {
                     loadBraveResources(context)
                     clearDecisionCache()
                     return@withContext
+                } else {
+                    Log.w(TAG, "Binary cache format version mismatch (adblock-rust DAT_VERSION updated). Invalidating cache for full recompile.")
+                    cacheFile.delete()
+                    prefs.compiledFilterSignature = ""
                 }
             } else if (!isCacheValid && cacheFile.exists()) {
                 Log.i(TAG, "Filter binary cache signature mismatch or stale. Invalidating cache.")
                 cacheFile.delete()
             }
 
-            // Fallback to bundled asset rules
+            // Fallback to bundled asset rules for immediate startup protection while FilterListManager merges full lists
             Log.i(TAG, "Initializing AdBlockEngine from bundled rules asset...")
             val assetStream: InputStream = context.assets.open(DEFAULT_ASSET_RULES)
             val rulesText = assetStream.bufferedReader().use { it.readText() }
             val compiledBytes = initFromRules(rulesText)
             if (compiledBytes != null && compiledBytes.isNotEmpty()) {
                 FileOutputStream(cacheFile).use { it.write(compiledBytes) }
-                prefs.compiledFilterSignature = currentSig
-                Log.i(TAG, "Compiled and cached filter database (${compiledBytes.size} bytes)")
+                val hasExtraLists = prefs.enabledFilterLists.isNotEmpty() ||
+                    prefs.getCustomFilters().any { it.isEnabled } ||
+                    prefs.customFilterRules.isNotBlank()
+                if (!hasExtraLists) {
+                    prefs.compiledFilterSignature = currentSig
+                } else {
+                    // Leave signature unset so FilterListManager.ensureDefaultFiltersCached compiles all enabled lists
+                    prefs.compiledFilterSignature = ""
+                }
+                Log.i(TAG, "Compiled base asset filter database (${compiledBytes.size} bytes, pendingFullMerge=$hasExtraLists)")
             }
 
             // Load scriptlet resources (brave-resources.json) so +js() rules resolve to real JS
