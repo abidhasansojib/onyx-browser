@@ -184,9 +184,10 @@ class OnyxWebViewClient(
     )
 
     companion object {
-        private val TRANSPARENT_1X1_PNG: ByteArray = Base64.decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-            Base64.DEFAULT
+        private val TRANSPARENT_1X1_PNG: ByteArray = byteArrayOf(
+            137.toByte(), 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 0, 0, 0,
+            181.toByte(), 28, 12, 2, 0, 0, 0, 11, 73, 68, 65, 84, 120, 218.toByte(), 99, 100, 96, 0, 0, 0, 6, 0, 2, 48,
+            129.toByte(), 208.toByte(), 47, 0, 0, 0, 0, 73, 69, 78, 68, 174.toByte(), 66, 96, 130.toByte()
         )
         private val EMPTY_VAST_BYTES: ByteArray =
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?><VAST version=\"3.0\"/>".toByteArray(java.nio.charset.StandardCharsets.UTF_8)
