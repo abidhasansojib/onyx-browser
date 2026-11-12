@@ -9,6 +9,8 @@ import androidx.webkit.WebViewStartUpResult
 import androidx.webkit.WebViewStartupException
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.di.AppContainer
+import com.onyx.browser.di.DefaultAppContainer
 import com.onyx.browser.nativebridge.AdBlockEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,10 +20,14 @@ import java.util.concurrent.Executors
 
 class OnyxApplication : Application() {
 
+    lateinit var appContainer: AppContainer
+        private set
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
+        appContainer = DefaultAppContainer(this)
 
         // Install global uncaught exception logger to surface root causes in logcat
         try {

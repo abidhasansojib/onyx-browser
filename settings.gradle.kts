@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Onyx Browser"
 include(":app")
+include(":core:common")

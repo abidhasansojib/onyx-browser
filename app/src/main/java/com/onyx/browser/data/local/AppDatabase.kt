@@ -8,6 +8,7 @@ import androidx.room.RoomDatabase
 import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.data.model.DownloadItem
 import com.onyx.browser.data.model.HistoryItem
+import com.onyx.browser.data.model.SitePermissionEntity
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.data.model.UserScriptItem
 import com.onyx.browser.data.model.UserScriptValueItem
@@ -24,9 +25,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BookmarkItem::class,
         DownloadItem::class,
         UserScriptItem::class,
-        UserScriptValueItem::class
+        UserScriptValueItem::class,
+        SitePermissionEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,6 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun downloadDao(): DownloadDao
     abstract fun userScriptDao(): UserScriptDao
     abstract fun userScriptValueDao(): UserScriptValueDao
+    abstract fun sitePermissionDao(): SitePermissionDao
 
     companion object {
         private const val TAG = "AppDatabase"
@@ -100,6 +103,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS site_permissions (
+                        domain TEXT NOT NULL,
+                        permissionType TEXT NOT NULL,
+                        state TEXT NOT NULL,
+                        updatedAt INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY(domain, permissionType)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_site_permissions_permissionType ON site_permissions(permissionType)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_site_permissions_domain ON site_permissions(domain)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -125,7 +146,7 @@ abstract class AppDatabase : RoomDatabase() {
                         AppDatabase::class.java,
                         "onyx_browser_fallback.db"
                     )
-                        .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                        .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                         .fallbackToDestructiveMigration()
                         .build()
                         .also {
@@ -151,7 +172,7 @@ abstract class AppDatabase : RoomDatabase() {
                 "onyx_browser_secure.db"
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .fallbackToDestructiveMigration()
                 .build()
 

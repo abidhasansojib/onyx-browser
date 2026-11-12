@@ -93,15 +93,19 @@ onyx-browser/
 │   │   ├── assets/           # easylist_rules.txt, eruda.min.js, font assets
 │   │   ├── java/com/onyx/browser/
 │   │   │   ├── MainActivity.kt     # SingleTask primary activity, toolbar, and window coordinator
-│   │   │   ├── OnyxApplication.kt  # Startup lifecycle, SQLCipher init, Safe Browsing setup
-│   │   │   ├── data/               # FilterListManager, Room DB, DAOs, BrowserPreferences
+│   │   │   ├── OnyxApplication.kt  # Startup lifecycle, DI container, SQLCipher init, Safe Browsing setup
+│   │   │   ├── data/               # FilterListManager, Room DB, DAOs, repository/, BrowserPreferences
+│   │   │   ├── di/                 # AppContainer, DefaultAppContainer, OnyxViewModelFactory
 │   │   │   ├── media/              # MediaPlaybackService and MediaPlaybackBridge
 │   │   │   ├── nativebridge/       # AdBlockEngine JNI bindings to libadblock_bridge.so
-│   │   │   ├── ui/                 # ViewBinding presentation layer (tabs, settings, search, menu)
+│   │   │   ├── ui/                 # ViewBinding presentation layer, UDF viewmodel/, delegates, settings
 │   │   │   ├── userscript/         # Tampermonkey/Violentmonkey engine, metadata parser, matcher, bridge
-│   │   │   └── web/                # Hardened Chromium WebView subsystem, client, and bridges
+│   │   │   └── web/                # Hardened Chromium WebView subsystem, interceptor/, client, bridges
 │   │   └── res/                    # Google Theme styles (Light/Dark/AMOLED), layouts, vectors
+│   ├── src/test/                   # JUnit 4, MockK, and Coroutines unit test suite
 │   └── build.gradle.kts            # App dependencies, NDK configuration, deterministic signing
+├── core/
+│   └── common/                     # Shared multi-module utilities (DispatcherProvider, OnyxResult)
 ├── docs/                           # Documentation assets (logo.png), FEATURES.md, ARCHITECTURE.md, WEBVIEW.md
 ├── rust_engine/                    # Native Rust NDK Bridge (libadblock_bridge.so)
 └── scripts/                        # Icon and filter list synchronization automation
@@ -196,5 +200,11 @@ onyx-browser/
    - Granular Exit & Browsing Data Selection: "Clear Browsing Data" dialog (`ClearBrowsingDataDialog`) features independent selection checkboxes (`cbClearHistory`, `cbClearTabs`, `cbClearCookies`, `cbClearCache`) preventing accidental session loss when clearing recent history. In Shields settings, `rowClearOnExit` expands into `ClearOnExitBottomSheet` allowing granular configuration (`isClearOnExitTabsEnabled`, `isClearOnExitHistoryEnabled`, `isClearOnExitCookiesEnabled`, `isClearOnExitCacheEnabled`), enabling users to keep open tabs while wiping cookies, cache, and history. When `isClearOnExitTabsEnabled` is false, `saveAllTabStates()` and tab restoration are preserved while history, cookies, and cache are purged.
    - All clearances execute synchronously via `ClearDataOnExitHelper`: Room database history (`clearAllHistory()`) and tabs (`clearNormalTabs()`) via `runBlocking(Dispatchers.IO)`, active and hibernated tabs closed without undo, Chromium cookies flushed across default and `MULTI_PROFILE` profiles (`removeAllCookies` with CountDownLatch synchronization + `flush()`), `WebStorage` and `WebViewDatabase` purged, and thumbnail/preview/state (`tab_states`) directories wiped from disk.
    - When `isClearOnExitEnabled && isClearOnExitTabsEnabled` is true, tab state saving on `onStop`, `onSaveInstanceState`, and `onDestroy` (`saveAllTabStates()`) is omitted, `hasPendingExitClearance = true` is synchronously committed to disk in `onStop()`, cleared on foreground resumption (`onStart()`), and enforced across cold launches in `OnyxApplication.onCreate()` and `MainActivity.onCreate()` before restoring tabs, guaranteeing complete data purge even when OEM task managers (MIUI/HyperOS, OneUI) kill background processes without calling `onTaskRemoved()`.
+17. **UDF ViewModels, DI Container, Interceptor Pipeline & LRU WebView Pool**:
+   - Presentation screens (`MainActivity`, `HistoryActivity`, `BookmarksActivity`, `DownloadsActivity`) use Unidirectional Data Flow (UDF) `StateFlow` state holders (`BrowserViewModel`, `HistoryViewModel`, `BookmarksViewModel`, `DownloadsViewModel`) instantiated via `OnyxViewModelFactory`, with `SettingsNavigator` centralizing settings routing and `ToolbarLayoutDelegate`, `NavigationCoordinator`, and `WebChromeCoordinator` modularizing `MainActivity` responsibilities.
+   - Network interception in `OnyxWebViewClient` routes through the Chain-of-Responsibility `RequestInterceptor` pipeline (`RealInterceptorChain`, `HttpsUpgradeInterceptor`, `AuthBypassInterceptor`, `AdBlockRequestInterceptor`, and `PrivacyUrlSanitizer`).
+   - Per-site permissions and domain exceptions are persisted in the SQLCipher-encrypted `site_permissions` Room table (`SitePermissionEntity`, `MIGRATION_7_8`) and cached in $O(1)$ lock-free `ConcurrentHashMap` sets inside `SitePermissionRepository` for zero-blocking reads on WebView interception threads.
+   - `TabManager` enforces a RAM-aware LRU WebView pool governor (`maxLiveWebViews` of 3–5 live instances scaled by `ActivityManager.MemoryInfo`), hibernating least-recently-used non-media background tabs to disk (or `incognitoStateBundles` in-memory for private tabs).
+   - Never allocate raw unmanaged `CoroutineScope(Dispatchers.IO)` instances inside UI controllers; always use `lifecycleScope` / `viewModelScope` with `NonCancellable` for critical persistence writes or a named `SupervisorJob` scope for singleton managers.
 
 

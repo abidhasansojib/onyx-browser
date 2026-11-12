@@ -24,6 +24,7 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityContentFiltersBinding
 import com.onyx.browser.databinding.ItemContentFilterBinding
 import com.onyx.browser.ui.theme.AccentColorManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -249,7 +250,7 @@ class ContentFiltersActivity : AppCompatActivity() {
         if (hasPendingRecompile) {
             hasPendingRecompile = false
             val appCtx = applicationContext
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            lifecycleScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 FilterListManager.recompileFilters(appCtx)
             }
         }

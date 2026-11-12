@@ -10,29 +10,24 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.onyx.browser.R
-import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.databinding.ActivityBookmarksBinding
 import com.onyx.browser.databinding.DialogEditBookmarkBinding
 import com.onyx.browser.ui.theme.AccentColorManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import com.onyx.browser.ui.viewmodel.BookmarksViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class BookmarksActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityBookmarksBinding
     private lateinit var adapter: BookmarksAdapter
-    private lateinit var database: AppDatabase
-
-    private var currentQuery: String = ""
-    private var observeJob: Job? = null
+    private lateinit var viewModel: BookmarksViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AccentColorManager.applyThemeOverlay(this)
@@ -40,14 +35,14 @@ class BookmarksActivity : AppCompatActivity() {
         binding = ActivityBookmarksBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        database = AppDatabase.getInstance(this)
+        viewModel = ViewModelProvider(this)[BookmarksViewModel::class.java]
 
         binding.toolbarBookmarks.setNavigationOnClickListener { finish() }
 
         setupRecyclerView()
         setupSearch()
         setupAddBookmarkFab()
-        observeBookmarks("")
+        observeBookmarks()
     }
 
     private fun setupRecyclerView() {
@@ -102,9 +97,7 @@ class BookmarksActivity : AppCompatActivity() {
                 showEditBookmarkDialog(item)
             },
             onItemDeleted = { item ->
-                lifecycleScope.launch(Dispatchers.IO) {
-                    database.bookmarkDao().deleteBookmark(item)
-                }
+                viewModel.deleteBookmark(item)
             }
         )
 
@@ -113,10 +106,17 @@ class BookmarksActivity : AppCompatActivity() {
     }
 
     private fun setupSearch() {
+        val existingQuery = viewModel.searchQuery.value
+        if (existingQuery.isNotEmpty() && binding.etSearchBookmarks.text?.toString() != existingQuery) {
+            binding.etSearchBookmarks.setText(existingQuery)
+            binding.etSearchBookmarks.setSelection(existingQuery.length)
+        }
+        binding.btnClearBookmarksSearch.visibility = if (existingQuery.isNotEmpty()) View.VISIBLE else View.GONE
+
         binding.etSearchBookmarks.doAfterTextChanged { text ->
-            currentQuery = text?.toString()?.trim() ?: ""
-            binding.btnClearBookmarksSearch.visibility = if (currentQuery.isNotEmpty()) View.VISIBLE else View.GONE
-            observeBookmarks(currentQuery)
+            val query = text?.toString()?.trim() ?: ""
+            binding.btnClearBookmarksSearch.visibility = if (query.isNotEmpty()) View.VISIBLE else View.GONE
+            viewModel.setSearchQuery(query)
         }
 
         binding.btnClearBookmarksSearch.setOnClickListener {
@@ -164,17 +164,9 @@ class BookmarksActivity : AppCompatActivity() {
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(dialogBinding.etBookmarkUrl.windowToken, 0)
 
-            lifecycleScope.launch(Dispatchers.IO) {
-                database.bookmarkDao().insertBookmark(
-                    BookmarkItem(
-                        title = title.ifBlank { if (url.startsWith("javascript:", ignoreCase = true)) "Bookmarklet" else url },
-                        url = url
-                    )
-                )
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@BookmarksActivity, R.string.bookmark_saved, Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
-                }
+            viewModel.addBookmark(title, url) {
+                Toast.makeText(this@BookmarksActivity, R.string.bookmark_saved, Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
             }
         }
 
@@ -209,31 +201,18 @@ class BookmarksActivity : AppCompatActivity() {
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(dialogBinding.etBookmarkUrl.windowToken, 0)
 
-            lifecycleScope.launch(Dispatchers.IO) {
-                database.bookmarkDao().updateBookmark(
-                    id = item.id,
-                    title = newTitle.ifBlank { if (newUrl.startsWith("javascript:", ignoreCase = true)) "Bookmarklet" else newUrl },
-                    url = newUrl
-                )
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@BookmarksActivity, R.string.bookmark_saved, Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
-                }
+            viewModel.updateBookmark(item.id, newTitle, newUrl) {
+                Toast.makeText(this@BookmarksActivity, R.string.bookmark_saved, Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
             }
         }
 
         dialog.show()
     }
 
-    private fun observeBookmarks(query: String) {
-        observeJob?.cancel()
-        observeJob = lifecycleScope.launch {
-            val flow = if (query.isBlank()) {
-                database.bookmarkDao().getAllBookmarksFlow()
-            } else {
-                database.bookmarkDao().searchAllBookmarksFlow(query)
-            }
-            flow.collectLatest { list ->
+    private fun observeBookmarks() {
+        lifecycleScope.launch {
+            viewModel.bookmarks.collectLatest { list ->
                 adapter.submitList(list)
                 binding.emptyBookmarksView.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
                 binding.rvBookmarks.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE

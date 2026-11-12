@@ -85,6 +85,11 @@
 -keepclassmembers class com.onyx.browser.data.local.** { *; }
 -keep class com.onyx.browser.data.model.** { *; }
 -keepclassmembers class com.onyx.browser.data.model.** { *; }
+-keep class com.onyx.browser.data.repository.** { *; }
+-keepclassmembers class com.onyx.browser.data.repository.** { *; }
+-keep class com.onyx.browser.di.** { *; }
+-keep class com.onyx.browser.web.interceptor.** { *; }
+-keep class com.onyx.browser.core.common.** { *; }
 -keep class **_Impl { *; }
 -dontwarn androidx.room.**
 

@@ -19,6 +19,8 @@ import kotlinx.coroutines.withContext
  */
 object SiteDataManager {
 
+    private val ioScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+
     private val MULTI_PART_TLD_PARTS = setOf(
         "co", "com", "org", "net", "gov", "edu", "ac", "ne", "or", "go", "mil", "nom"
     )
@@ -84,7 +86,7 @@ object SiteDataManager {
 
         val allPurgeDomains = getPurgeDomains(cleanHost)
 
-        CoroutineScope(Dispatchers.IO).launch {
+        ioScope.launch {
             try {
                 // 1. Delete WebStorage on Main Thread
                 withContext(Dispatchers.Main) {

@@ -101,40 +101,40 @@ class SettingsActivity : AppCompatActivity() {
         // 1. Search engine
         updateSearchEngineDisplay()
         binding.settingSearchEngineRow.setOnClickListener {
-            startActivity(Intent(this, SearchEngineSettingsActivity::class.java))
+            SettingsNavigator.navigate(this, SettingsDestination.SEARCH_ENGINE)
         }
 
         // 2. Appearance (Full page activity)
         updateThemeDisplay()
         binding.settingAppearanceRow.setOnClickListener {
-            startActivity(Intent(this, AppearanceActivity::class.java))
+            SettingsNavigator.navigate(this, SettingsDestination.APPEARANCE)
         }
 
         // 3. Auto fill & passwords
         binding.settingAutofillRow.setOnClickListener {
-            startActivity(Intent(this, AutofillSettingsActivity::class.java))
+            SettingsNavigator.navigate(this, SettingsDestination.AUTOFILL)
         }
 
         // 4. Video Options
         binding.settingVideoOptionsRow.setOnClickListener {
-            startActivity(Intent(this, VideoSettingsActivity::class.java))
+            SettingsNavigator.navigate(this, SettingsDestination.VIDEO_PLAYBACK)
         }
 
         // 5. Download settings
         binding.settingDownloadSettingsRow.setOnClickListener {
-            startActivity(Intent(this, DownloadSettingsActivity::class.java))
+            SettingsNavigator.navigate(this, SettingsDestination.DOWNLOADS)
         }
 
         // 6. Accessibility
         binding.settingAccessibilityRow.setOnClickListener {
-            startActivity(Intent(this, AccessibilitySettingsActivity::class.java))
+            SettingsNavigator.navigate(this, SettingsDestination.ACCESSIBILITY)
         }
     }
 
     private fun setupCategoryPrivacyAndSecurity() {
         // 1. Privacy & shields
         binding.settingShieldsRow.setOnClickListener {
-            startActivity(Intent(this, ShieldsActivity::class.java))
+            SettingsNavigator.navigate(this, SettingsDestination.SHIELDS)
         }
 
         // 2. User agent spoofer
@@ -145,13 +145,13 @@ class SettingsActivity : AppCompatActivity() {
 
         // 3. Site permissions
         binding.settingSitePermissionsRow.setOnClickListener {
-            startActivity(Intent(this, SiteSettingsActivity::class.java))
+            SettingsNavigator.navigate(this, SettingsDestination.SITE_SETTINGS)
         }
 
         // 4. UserScripts
         updateUserScriptsStatus()
         binding.settingUserScriptsRow.setOnClickListener {
-            startActivity(Intent(this, UserScriptsActivity::class.java))
+            SettingsNavigator.navigate(this, SettingsDestination.USER_SCRIPTS)
         }
     }
 
@@ -168,7 +168,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupCategoryAbout() {
         // About Onyx
         binding.settingAboutRow.setOnClickListener {
-            startActivity(Intent(this, AboutActivity::class.java))
+            SettingsNavigator.navigate(this, SettingsDestination.ABOUT)
         }
     }
 

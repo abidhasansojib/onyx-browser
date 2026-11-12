@@ -60,6 +60,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.widget.doAfterTextChanged
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -74,10 +75,14 @@ import com.onyx.browser.data.search.SearchSuggestionRepository
 import com.onyx.browser.databinding.ActivityMainBinding
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
 import com.onyx.browser.ui.browser.FindInPageController
+import com.onyx.browser.ui.browser.NavigationCoordinator
 import com.onyx.browser.ui.browser.PageExportManager
 import com.onyx.browser.ui.browser.PipController
 import com.onyx.browser.ui.browser.SearchController
 import com.onyx.browser.ui.browser.TabManager
+import com.onyx.browser.ui.browser.ToolbarLayoutDelegate
+import com.onyx.browser.ui.browser.WebChromeCoordinator
+import com.onyx.browser.ui.viewmodel.BrowserViewModel
 import com.onyx.browser.ui.common.SearchEnginePickerDialog
 import com.onyx.browser.ui.common.SearchEnginePopupMenu
 import com.onyx.browser.ui.common.SearchEngineIconHelper
@@ -116,6 +121,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     private lateinit var binding: ActivityMainBinding
     lateinit var tabManager: TabManager
+    lateinit var browserViewModel: BrowserViewModel
+    lateinit var toolbarLayoutDelegate: ToolbarLayoutDelegate
+    lateinit var navigationCoordinator: NavigationCoordinator
+    lateinit var webChromeCoordinator: WebChromeCoordinator
     private lateinit var preferences: BrowserPreferences
     private lateinit var pageExportManager: PageExportManager
     private lateinit var findInPageController: FindInPageController
@@ -149,10 +158,21 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private var lastAccentColor: String = ""
     private var pendingNightModeRecreate: Boolean = false
     private var isLaunchingChildActivity: Boolean = false
-    private var isToolbarHidden = false
-    private var toolbarAnimator: android.animation.ValueAnimator? = null
-    private var lastKnownTopBarHeight: Int = 0
-    private var lastAddressBarAtBottom: Boolean? = null
+    private var isToolbarHidden: Boolean
+        get() = if (::toolbarLayoutDelegate.isInitialized) toolbarLayoutDelegate.isToolbarHidden else false
+        set(value) {
+            if (::toolbarLayoutDelegate.isInitialized) toolbarLayoutDelegate.isToolbarHidden = value
+        }
+    private var lastKnownTopBarHeight: Int
+        get() = if (::toolbarLayoutDelegate.isInitialized) toolbarLayoutDelegate.lastKnownTopBarHeight else 0
+        set(value) {
+            if (::toolbarLayoutDelegate.isInitialized) toolbarLayoutDelegate.lastKnownTopBarHeight = value
+        }
+    private var lastAddressBarAtBottom: Boolean?
+        get() = if (::toolbarLayoutDelegate.isInitialized) toolbarLayoutDelegate.lastAddressBarAtBottom else null
+        set(value) {
+            if (::toolbarLayoutDelegate.isInitialized) toolbarLayoutDelegate.lastAddressBarAtBottom = value
+        }
     private var lastStatusBarTopInset: Int = 0
 
     private fun isInPipMode(): Boolean {
@@ -229,34 +249,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
-    private var pendingGeoOrigin: String? = null
-    private var pendingGeoCallback: GeolocationPermissions.Callback? = null
-    private var pendingGeoRemember: Boolean = true
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         isSystemDialogOrChooserPending = false
-        val fine = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val coarse = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val granted = fine || coarse
-        pendingGeoOrigin?.let { origin ->
-            val host = try {
-                Uri.parse(origin).host?.takeIf { it.isNotBlank() } ?: origin
-            } catch (_: Exception) {
-                origin
-            }
-            if (pendingGeoRemember && granted) {
-                preferences.setWebLocationAllowed(host, true)
-            }
+        if (::webChromeCoordinator.isInitialized) {
+            webChromeCoordinator.onLocationPermissionsResult(permissions)
         }
-        try {
-            pendingGeoCallback?.invoke(pendingGeoOrigin, granted, pendingGeoRemember)
-        } catch (_: Exception) {}
-        pendingGeoOrigin = null
-        pendingGeoCallback = null
-        pendingGeoRemember = true
     }
 
     private fun promptWebPermission(
@@ -269,120 +268,32 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         onAllowedWhileVisiting: () -> Unit,
         onDenied: (permanently: Boolean) -> Unit
     ) {
-        if (isFinishing || isDestroyed) {
+        if (::webChromeCoordinator.isInitialized) {
+            webChromeCoordinator.showWebPermissionDialog(
+                host = host,
+                title = title,
+                message = message,
+                iconResId = iconResId,
+                isHttps = isHttps,
+                onAllowedAlways = onAllowedAlways,
+                onAllowedWhileVisiting = onAllowedWhileVisiting,
+                onDenied = onDenied
+            )
+        } else {
             onDenied(false)
-            return
         }
-        val sheet = com.onyx.browser.ui.dialog.WebPermissionBottomSheetDialog(
-            host = host,
-            permissionTitle = title,
-            permissionDesc = message,
-            iconResId = iconResId,
-            isHttps = isHttps,
-            onAllowedAlways = onAllowedAlways,
-            onAllowedOnce = onAllowedWhileVisiting,
-            onDenied = onDenied
-        )
-        sheet.show(supportFragmentManager, com.onyx.browser.ui.dialog.WebPermissionBottomSheetDialog.TAG)
     }
 
     private fun handleGeolocationPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
-        if (origin == null || callback == null) return
-        val host = try {
-            Uri.parse(origin).host?.takeIf { it.isNotBlank() } ?: origin
-        } catch (_: Exception) {
-            origin
-        }
-
-        if (!preferences.isLocationEnabledGlobal) {
-            try { callback.invoke(origin, false, true) } catch (_: Exception) {}
-            return
-        }
-
-        val locAllowed = preferences.isWebLocationAllowed(host)
-        if (locAllowed == false) {
-            try { callback.invoke(origin, false, true) } catch (_: Exception) {}
-            return
-        }
-
-        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-
-        if (locAllowed == true && (fine || coarse)) {
-            try { callback.invoke(origin, true, true) } catch (_: Exception) {}
-            return
-        }
-
-        if (isFinishing || isDestroyed) {
-            try { callback.invoke(origin, false, false) } catch (_: Exception) {}
-            return
-        }
-
-        if (locAllowed == null) {
-            val isHttps = origin.startsWith("https://", ignoreCase = true)
-            promptWebPermission(
-                host = host,
-                title = "$host wants to access your location",
-                message = "Allow $host to access your precise location?",
-                iconResId = R.drawable.ic_location,
-                isHttps = isHttps,
-                onAllowedAlways = {
-                    if (fine || coarse) {
-                        preferences.setWebLocationAllowed(host, true)
-                        try { callback.invoke(origin, true, true) } catch (_: Exception) {}
-                    } else {
-                        pendingGeoOrigin = origin
-                        pendingGeoCallback = callback
-                        pendingGeoRemember = true
-                        isSystemDialogOrChooserPending = true
-                        locationPermissionLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                        )
-                    }
-                },
-                onAllowedWhileVisiting = {
-                    if (fine || coarse) {
-                        try { callback.invoke(origin, true, false) } catch (_: Exception) {}
-                    } else {
-                        pendingGeoOrigin = origin
-                        pendingGeoCallback = callback
-                        pendingGeoRemember = false
-                        isSystemDialogOrChooserPending = true
-                        locationPermissionLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                        )
-                    }
-                },
-                onDenied = { permanently ->
-                    if (permanently) {
-                        preferences.setWebLocationAllowed(host, false)
-                    }
-                    try { callback.invoke(origin, false, permanently) } catch (_: Exception) {}
-                }
-            )
-            return
-        }
-
-        if (fine || coarse) {
-            preferences.setWebLocationAllowed(host, true)
-            try { callback.invoke(origin, true, true) } catch (_: Exception) {}
-        } else {
-            pendingGeoOrigin = origin
-            pendingGeoCallback = callback
-            isSystemDialogOrChooserPending = true
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        }
+        if (!::webChromeCoordinator.isInitialized) return
+        webChromeCoordinator.showGeolocationPermissionDialog(
+            origin = origin,
+            callback = callback,
+            requestOsLocationPermissions = { perms ->
+                isSystemDialogOrChooserPending = true
+                locationPermissionLauncher.launch(perms)
+            }
+        )
     }
 
     private var isSystemDialogOrChooserPending: Boolean = false
@@ -398,47 +309,16 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         isSystemDialogOrChooserPending = false
         updatePipParams()
     }
-    private val handledWebRequests = java.util.Collections.synchronizedSet(
-        java.util.Collections.newSetFromMap(java.util.WeakHashMap<PermissionRequest, Boolean>())
-    )
-    private var pendingWebMediaRequest: PermissionRequest? = null
-    private var pendingWebMediaResources: Array<String>? = null
-    private var pendingWebMediaNeedsAudio: Boolean = false
-    private var pendingWebMediaNeedsVideo: Boolean = false
-    private var pendingWebMediaHost: String? = null
-    private var pendingWebMediaRemember: Boolean = true
 
     private fun safeGrantWebPermission(request: PermissionRequest, resources: Array<String>) {
-        if (handledWebRequests.contains(request)) return
-        handledWebRequests.add(request)
-        if (isFinishing || isDestroyed) {
-            try { request.deny() } catch (_: Throwable) {}
-            return
-        }
-        val requestedSet = request.resources?.toSet() ?: emptySet()
-        val validResources = resources.filter { requestedSet.contains(it) }.toTypedArray()
-        if (validResources.isEmpty()) {
-            try { request.deny() } catch (_: Throwable) {}
-            return
-        }
-        runOnUiThread {
-            try {
-                tabManager.getActiveWebView()?.onResume()
-                request.grant(validResources)
-            } catch (t: Throwable) {
-                android.util.Log.e("OnyxPermissions", "Failed to grant web media permissions", t)
-                try { request.deny() } catch (_: Throwable) {}
-            }
+        if (::webChromeCoordinator.isInitialized) {
+            webChromeCoordinator.safeGrantWebPermission(request, resources)
         }
     }
 
     private fun safeDenyWebPermission(request: PermissionRequest) {
-        if (handledWebRequests.contains(request)) return
-        handledWebRequests.add(request)
-        runOnUiThread {
-            try {
-                request.deny()
-            } catch (_: Exception) {}
+        if (::webChromeCoordinator.isInitialized) {
+            webChromeCoordinator.safeDenyWebPermission(request)
         }
     }
 
@@ -446,260 +326,40 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         isSystemDialogOrChooserPending = false
-        val request = pendingWebMediaRequest
-        val allResources = pendingWebMediaResources
-        val needsAudio = pendingWebMediaNeedsAudio
-        val needsVideo = pendingWebMediaNeedsVideo
-        val host = pendingWebMediaHost ?: ""
-        val remember = pendingWebMediaRemember
-
-        pendingWebMediaRequest = null
-        pendingWebMediaResources = null
-        pendingWebMediaNeedsAudio = false
-        pendingWebMediaNeedsVideo = false
-        pendingWebMediaHost = null
-        pendingWebMediaRemember = true
-
-        if (request == null || allResources == null) return@registerForActivityResult
-
-        val audioGranted = !needsAudio || (permissions[Manifest.permission.RECORD_AUDIO] == true) ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        val videoGranted = !needsVideo || (permissions[Manifest.permission.CAMERA] == true) ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-
-        val grantedList = mutableListOf<String>()
-        if (needsAudio && audioGranted) {
-            grantedList.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-            if (remember && host.isNotBlank()) preferences.setWebMicAllowed(host, true)
-        }
-        if (needsVideo && videoGranted) {
-            grantedList.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-            if (remember && host.isNotBlank()) preferences.setWebCameraAllowed(host, true)
-        }
-        for (res in allResources) {
-            if (res != PermissionRequest.RESOURCE_AUDIO_CAPTURE && res != PermissionRequest.RESOURCE_VIDEO_CAPTURE) {
-                grantedList.add(res)
-            }
-        }
-
-        if (grantedList.isNotEmpty()) {
-            safeGrantWebPermission(request, grantedList.toTypedArray())
-        } else {
-            safeDenyWebPermission(request)
+        if (::webChromeCoordinator.isInitialized) {
+            webChromeCoordinator.onWebMediaPermissionsResult(permissions)
         }
     }
 
     private fun handleWebPermissionRequest(request: PermissionRequest?) {
-        if (request == null) return
-        if (handledWebRequests.contains(request)) return
-
-        val resources = request.resources ?: emptyArray()
-        if (resources.isEmpty()) {
-            safeDenyWebPermission(request)
-            return
-        }
-
-        val needsAudio = resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-        val needsVideo = resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-
-        // If no hardware sensors (microphone/camera) requested — check for Protected Media ID (DRM/EME)
-        if (!needsAudio && !needsVideo) {
-            val needsProtectedMedia = resources.contains(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)
-            if (needsProtectedMedia && !preferences.isProtectedContentEnabledGlobal) {
-                safeDenyWebPermission(request)
-            } else {
-                safeGrantWebPermission(request, resources)
-            }
-            return
-        }
-
-        val origin = request.origin?.toString() ?: ""
-        val host = try {
-            val uri = Uri.parse(origin)
-            uri.host?.takeIf { it.isNotBlank() } ?: origin
-        } catch (_: Exception) {
-            origin
-        }
-
-        if ((needsVideo && !preferences.isCameraEnabledGlobal) || (needsAudio && !preferences.isMicEnabledGlobal)) {
-            safeDenyWebPermission(request)
-            return
-        }
-
-        val camAllowed = if (needsVideo) preferences.isWebCameraAllowed(host) else true
-        val micAllowed = if (needsAudio) preferences.isWebMicAllowed(host) else true
-
-        if (camAllowed == false && micAllowed == false) {
-            safeDenyWebPermission(request)
-            return
-        }
-
-        if (camAllowed == true && micAllowed == true) {
-            grantWebMediaPermission(request, needsAudio, needsVideo, resources, host, remember = false)
-            return
-        }
-
-        if (camAllowed == true && micAllowed == false) {
-            grantWebMediaPermission(request, needsAudio = false, needsVideo = true, arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE), host, remember = false)
-            return
-        }
-        if (camAllowed == false && micAllowed == true) {
-            grantWebMediaPermission(request, needsAudio = true, needsVideo = false, arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE), host, remember = false)
-            return
-        }
-
-        if (isFinishing || isDestroyed) {
-            safeDenyWebPermission(request)
-            return
-        }
-
-        val promptForCam = needsVideo && camAllowed == null
-        val promptForMic = needsAudio && micAllowed == null
-
-        val promptItems = mutableListOf<String>()
-        if (promptForCam) promptItems.add("Camera")
-        if (promptForMic) promptItems.add("Microphone")
-        val itemsStr = promptItems.joinToString(" and ")
-        val icon = when {
-            promptForCam && promptForMic -> R.drawable.ic_camera
-            promptForCam -> R.drawable.ic_camera
-            else -> R.drawable.ic_mic
-        }
-        val isHttps = origin.startsWith("https://", ignoreCase = true)
-
-        promptWebPermission(
-            host = host,
-            title = "$host wants to access your $itemsStr",
-            message = "Allow $host to access your $itemsStr?",
-            iconResId = icon,
-            isHttps = isHttps,
-            onAllowedAlways = {
-                if (promptForCam) preferences.setWebCameraAllowed(host, true)
-                if (promptForMic) preferences.setWebMicAllowed(host, true)
-                val grantAudio = (needsAudio && micAllowed == true) || promptForMic
-                val grantVideo = (needsVideo && camAllowed == true) || promptForCam
-                val toGrant = mutableListOf<String>()
-                if (grantAudio) toGrant.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-                if (grantVideo) toGrant.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-                grantWebMediaPermission(request, grantAudio, grantVideo, toGrant.toTypedArray(), host, remember = false)
-            },
-            onAllowedWhileVisiting = {
-                val grantAudio = (needsAudio && micAllowed == true) || promptForMic
-                val grantVideo = (needsVideo && camAllowed == true) || promptForCam
-                val toGrant = mutableListOf<String>()
-                if (grantAudio) toGrant.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-                if (grantVideo) toGrant.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-                grantWebMediaPermission(request, grantAudio, grantVideo, toGrant.toTypedArray(), host, remember = false)
-            },
-            onDenied = { permanently ->
-                if (permanently) {
-                    if (promptForCam) preferences.setWebCameraAllowed(host, false)
-                    if (promptForMic) preferences.setWebMicAllowed(host, false)
-                }
-                val grantAudio = needsAudio && micAllowed == true
-                val grantVideo = needsVideo && camAllowed == true
-                if (grantAudio || grantVideo) {
-                    val toGrant = mutableListOf<String>()
-                    if (grantAudio) toGrant.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-                    if (grantVideo) toGrant.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-                    grantWebMediaPermission(request, grantAudio, grantVideo, toGrant.toTypedArray(), host, remember = false)
-                } else {
-                    safeDenyWebPermission(request)
-                }
+        if (!::webChromeCoordinator.isInitialized) return
+        webChromeCoordinator.handleWebPermissionRequest(
+            request = request,
+            requestOsMediaPermissions = { perms ->
+                isSystemDialogOrChooserPending = true
+                webMediaPermissionLauncher.launch(perms)
             }
         )
     }
 
-    private fun grantWebMediaPermission(
-        request: PermissionRequest,
-        needsAudio: Boolean,
-        needsVideo: Boolean,
-        allResources: Array<String>,
-        host: String,
-        remember: Boolean
-    ) {
-        val hasAudio = !needsAudio || ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        val hasVideo = !needsVideo || ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-
-        if (hasAudio && hasVideo) {
-            if (remember) {
-                if (needsVideo) preferences.setWebCameraAllowed(host, true)
-                if (needsAudio) preferences.setWebMicAllowed(host, true)
-            }
-            safeGrantWebPermission(request, allResources)
-        } else {
-            val neededOs = mutableListOf<String>()
-            if (needsAudio && !hasAudio) neededOs.add(Manifest.permission.RECORD_AUDIO)
-            if (needsVideo && !hasVideo) neededOs.add(Manifest.permission.CAMERA)
-
-            pendingWebMediaRequest = request
-            pendingWebMediaResources = allResources
-            pendingWebMediaNeedsAudio = needsAudio
-            pendingWebMediaNeedsVideo = needsVideo
-            pendingWebMediaHost = host
-            pendingWebMediaRemember = remember
-
-            isSystemDialogOrChooserPending = true
-            webMediaPermissionLauncher.launch(neededOs.toTypedArray())
-        }
-    }
-
     private fun handleWebPermissionRequestCanceled(request: PermissionRequest?) {
-        if (request != null) {
-            handledWebRequests.add(request)
-            if (pendingWebMediaRequest == request) {
-                pendingWebMediaRequest = null
-                pendingWebMediaResources = null
-                pendingWebMediaNeedsAudio = false
-                pendingWebMediaNeedsVideo = false
-                pendingWebMediaHost = null
-            }
+        if (::webChromeCoordinator.isInitialized) {
+            webChromeCoordinator.handleWebPermissionRequestCanceled(request)
         }
     }
 
     fun requestNotificationPermissionForSite(host: String, callback: (String) -> Unit) {
-        if (host.isBlank() || isFinishing || isDestroyed) {
+        if (!::webChromeCoordinator.isInitialized) {
             callback("denied")
             return
         }
-        val notifPerm = preferences.isWebNotificationsAllowed(host)
-        if (notifPerm == true) {
-            callback("granted")
-            return
-        }
-        if (notifPerm == false || !preferences.isNotificationsEnabledGlobal) {
-            callback("denied")
-            return
-        }
-        promptWebPermission(
+        webChromeCoordinator.requestNotificationPermissionForSite(
             host = host,
-            title = "$host wants to send notifications",
-            message = "Allow $host to send you browser notifications?",
-            iconResId = R.drawable.ic_bell,
-            isHttps = true,
-            onAllowedAlways = {
-                preferences.setSiteNotificationsPermission(host, com.onyx.browser.data.preferences.SitePermissionState.ALLOWED)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                    isSystemDialogOrChooserPending = true
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-                callback("granted")
+            requestOsNotificationPermission = {
+                isSystemDialogOrChooserPending = true
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             },
-            onAllowedWhileVisiting = {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                    isSystemDialogOrChooserPending = true
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-                callback("granted")
-            },
-            onDenied = { permanently ->
-                if (permanently) {
-                    preferences.setSiteNotificationsPermission(host, com.onyx.browser.data.preferences.SitePermissionState.BLOCKED)
-                }
-                callback("denied")
-            }
+            callback = callback
         )
     }
 
@@ -1250,15 +910,20 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         lastAccentColor = preferences.accentColorHex
         com.onyx.browser.download.OnyxDownloadManager.init(this)
         pageExportManager = PageExportManager(this, lifecycleScope)
+        navigationCoordinator = NavigationCoordinator(this, preferences)
+        webChromeCoordinator = WebChromeCoordinator(this, preferences)
         tabManager = TabManager(this, lifecycleScope)
         tabManager.onTabClosedListener = { tab ->
             previewTabsFromDownloads.remove(tab.id)
             previewTabsFromExternal.remove(tab.id)
             localFileViewTabs.remove(tab.id)
         }
+        browserViewModel = ViewModelProvider(this)[BrowserViewModel::class.java]
+        browserViewModel.bindTabManager(tabManager)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        toolbarLayoutDelegate = ToolbarLayoutDelegate(this, binding, preferences)
 
         applyToolbarPosition(preferences.isAddressBarAtBottom, initial = true)
 
@@ -1513,143 +1178,16 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
+    fun applyAddressBarPositionLayout(isBottom: Boolean = preferences.isAddressBarAtBottom, initial: Boolean = false) {
+        applyToolbarPosition(isBottom, initial)
+    }
+
     fun applyToolbarPosition(isBottom: Boolean, initial: Boolean = false) {
-        lastAddressBarAtBottom = isBottom
-
-        val constraintSet = ConstraintSet()
-        constraintSet.clone(binding.mainRoot)
-
-        if (isBottom) {
-            // Anchor topBar to bottom of parent
-            constraintSet.clear(R.id.topBar, ConstraintSet.TOP)
-            constraintSet.connect(R.id.topBar, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, 0)
-            constraintSet.connect(R.id.topBar, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
-            constraintSet.connect(R.id.topBar, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
-
-            // Anchor topBarDivider above topBar
-            constraintSet.clear(R.id.topBarDivider, ConstraintSet.TOP)
-            constraintSet.connect(R.id.topBarDivider, ConstraintSet.BOTTOM, R.id.topBar, ConstraintSet.TOP, 0)
-            constraintSet.connect(R.id.topBarDivider, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
-            constraintSet.connect(R.id.topBarDivider, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
-
-            // Anchor progressBar above topBar
-            constraintSet.clear(R.id.progressBar, ConstraintSet.TOP)
-            constraintSet.connect(R.id.progressBar, ConstraintSet.BOTTOM, R.id.topBar, ConstraintSet.TOP, 0)
-            constraintSet.connect(R.id.progressBar, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
-            constraintSet.connect(R.id.progressBar, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
-
-            // Anchor contentContainer between tvNetworkStatus.bottom and topBar.top
-            constraintSet.connect(R.id.contentContainer, ConstraintSet.TOP, R.id.tvNetworkStatus, ConstraintSet.BOTTOM, 0)
-            constraintSet.connect(R.id.contentContainer, ConstraintSet.BOTTOM, R.id.topBar, ConstraintSet.TOP, 0)
-
-            // Anchor searchOverlay between tvNetworkStatus.bottom and topBar.top
-            constraintSet.connect(R.id.searchOverlay, ConstraintSet.TOP, R.id.tvNetworkStatus, ConstraintSet.BOTTOM, 0)
-            constraintSet.connect(R.id.searchOverlay, ConstraintSet.BOTTOM, R.id.topBar, ConstraintSet.TOP, 0)
-
-            // Anchor findInPageBar to tvNetworkStatus.bottom
-            constraintSet.clear(R.id.findInPageBar, ConstraintSet.BOTTOM)
-            constraintSet.connect(R.id.findInPageBar, ConstraintSet.TOP, R.id.tvNetworkStatus, ConstraintSet.BOTTOM, 0)
-        } else {
-            // Anchor topBar to bottom of tvNetworkStatus
-            constraintSet.clear(R.id.topBar, ConstraintSet.BOTTOM)
-            constraintSet.connect(R.id.topBar, ConstraintSet.TOP, R.id.tvNetworkStatus, ConstraintSet.BOTTOM, 0)
-            constraintSet.connect(R.id.topBar, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
-            constraintSet.connect(R.id.topBar, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
-
-            // Anchor topBarDivider below topBar
-            constraintSet.clear(R.id.topBarDivider, ConstraintSet.BOTTOM)
-            constraintSet.connect(R.id.topBarDivider, ConstraintSet.TOP, R.id.topBar, ConstraintSet.BOTTOM, 0)
-            constraintSet.connect(R.id.topBarDivider, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
-            constraintSet.connect(R.id.topBarDivider, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
-
-            // Anchor progressBar below topBarDivider
-            constraintSet.clear(R.id.progressBar, ConstraintSet.BOTTOM)
-            constraintSet.connect(R.id.progressBar, ConstraintSet.TOP, R.id.topBarDivider, ConstraintSet.BOTTOM, 0)
-            constraintSet.connect(R.id.progressBar, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
-            constraintSet.connect(R.id.progressBar, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
-
-            // Anchor contentContainer between topBarDivider.bottom and parent.bottom
-            constraintSet.connect(R.id.contentContainer, ConstraintSet.TOP, R.id.topBarDivider, ConstraintSet.BOTTOM, 0)
-            constraintSet.connect(R.id.contentContainer, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, 0)
-
-            // Anchor searchOverlay between topBarDivider.bottom and parent.bottom
-            constraintSet.connect(R.id.searchOverlay, ConstraintSet.TOP, R.id.topBarDivider, ConstraintSet.BOTTOM, 0)
-            constraintSet.connect(R.id.searchOverlay, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, 0)
-
-            // Anchor findInPageBar to topBarDivider.bottom
-            constraintSet.clear(R.id.findInPageBar, ConstraintSet.BOTTOM)
-            constraintSet.connect(R.id.findInPageBar, ConstraintSet.TOP, R.id.topBarDivider, ConstraintSet.BOTTOM, 0)
+        if (::toolbarLayoutDelegate.isInitialized) {
+            toolbarLayoutDelegate.applyToolbarPosition(isBottom, lastNavBarBottomInset, initial)
         }
-
-        constraintSet.applyTo(binding.mainRoot)
-
-        // Reset any margin translation on toolbar
-        val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
-        if (lp != null) {
-            lp.topMargin = 0
-            lp.bottomMargin = 0
-            binding.topBar.layoutParams = lp
-        }
-
-        val baseBottomPaddingPx = (8 * resources.displayMetrics.density).toInt()
-        val topPaddingPx = (6 * resources.displayMetrics.density).toInt()
-
-        if (isBottom) {
-            binding.topBar.setPadding(
-                binding.topBar.paddingLeft,
-                topPaddingPx,
-                binding.topBar.paddingRight,
-                baseBottomPaddingPx + lastNavBarBottomInset
-            )
-            binding.contentContainer.setPadding(
-                binding.contentContainer.paddingLeft,
-                binding.contentContainer.paddingTop,
-                binding.contentContainer.paddingRight,
-                0
-            )
-            binding.searchOverlay.setPadding(0, 0, 0, 0)
-            val fabLp = binding.fabScrollToTop.layoutParams as? ViewGroup.MarginLayoutParams
-            if (fabLp != null) {
-                val barH = if (lastKnownTopBarHeight > 0) lastKnownTopBarHeight else (56 * resources.displayMetrics.density).toInt()
-                fabLp.bottomMargin = barH + (16 * resources.displayMetrics.density).toInt()
-                binding.fabScrollToTop.layoutParams = fabLp
-            }
-        } else {
-            binding.topBar.setPadding(
-                binding.topBar.paddingLeft,
-                topPaddingPx,
-                binding.topBar.paddingRight,
-                baseBottomPaddingPx
-            )
-            binding.contentContainer.setPadding(
-                binding.contentContainer.paddingLeft,
-                binding.contentContainer.paddingTop,
-                binding.contentContainer.paddingRight,
-                lastNavBarBottomInset
-            )
-            binding.searchOverlay.setPadding(0, 0, 0, lastNavBarBottomInset)
-            val fabLp = binding.fabScrollToTop.layoutParams as? ViewGroup.MarginLayoutParams
-            if (fabLp != null) {
-                fabLp.bottomMargin = (72 * resources.displayMetrics.density).toInt()
-                binding.fabScrollToTop.layoutParams = fabLp
-            }
-        }
-
-        binding.topBar.post {
-            if (binding.topBar.height > 0) {
-                lastKnownTopBarHeight = binding.topBar.height
-            }
-            if (isBottom) {
-                val fabLp = binding.fabScrollToTop.layoutParams as? ViewGroup.MarginLayoutParams
-                if (fabLp != null) {
-                    val barH = if (lastKnownTopBarHeight > 0) lastKnownTopBarHeight else (56 * resources.displayMetrics.density).toInt()
-                    val targetFabMargin = barH + (16 * resources.displayMetrics.density).toInt()
-                    if (fabLp.bottomMargin != targetFabMargin) {
-                        fabLp.bottomMargin = targetFabMargin
-                        binding.fabScrollToTop.layoutParams = fabLp
-                    }
-                }
-            }
+        if (::browserViewModel.isInitialized) {
+            browserViewModel.refreshPreferences()
         }
     }
 
@@ -2044,113 +1582,30 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
+    fun hideAddressBarAnimated(animated: Boolean = true) {
+        hideToolbar(animated)
+    }
+
+    fun showAddressBarAnimated(animated: Boolean = true) {
+        showToolbar(animated)
+    }
+
     fun hideToolbar(animated: Boolean = true) {
-        if (isToolbarHidden) return
-        if (!preferences.isAutoHideToolbarEnabled) return
-        if (binding.homeLayout.root.visibility == View.VISIBLE) return
-        if (binding.searchOverlay.visibility == View.VISIBLE || binding.etUrl.hasFocus()) return
-        if (binding.findInPageBar.visibility == View.VISIBLE) return
-        if (binding.translateBar.visibility == View.VISIBLE) return
-        if (customVideoView != null) return
-
-        isToolbarHidden = true
-        if (binding.topBar.height > 0) {
-            lastKnownTopBarHeight = binding.topBar.height
-        }
-        val barHeight = if (lastKnownTopBarHeight > 0) {
-            lastKnownTopBarHeight
-        } else {
-            (56 * resources.displayMetrics.density).toInt()
-        }
-        val targetMargin = -barHeight
-
-        val isBottom = preferences.isAddressBarAtBottom
-        toolbarAnimator?.cancel()
-        if (animated) {
-            val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
-            val currentMargin = if (isBottom) (lp?.bottomMargin ?: 0) else (lp?.topMargin ?: 0)
-            toolbarAnimator = android.animation.ValueAnimator.ofInt(currentMargin, targetMargin).apply {
-                duration = 180L
-                interpolator = android.view.animation.DecelerateInterpolator()
-                addUpdateListener { animator ->
-                    val margin = animator.animatedValue as Int
-                    val currentLp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return@addUpdateListener
-                    if (isBottom) {
-                        if (currentLp.bottomMargin != margin) {
-                            currentLp.bottomMargin = margin
-                            binding.topBar.layoutParams = currentLp
-                        }
-                    } else {
-                        if (currentLp.topMargin != margin) {
-                            currentLp.topMargin = margin
-                            binding.topBar.layoutParams = currentLp
-                        }
-                    }
-                }
-                start()
-            }
-        } else {
-            val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
-            if (lp != null) {
-                if (isBottom) {
-                    if (lp.bottomMargin != targetMargin) {
-                        lp.bottomMargin = targetMargin
-                        binding.topBar.layoutParams = lp
-                    }
-                } else {
-                    if (lp.topMargin != targetMargin) {
-                        lp.topMargin = targetMargin
-                        binding.topBar.layoutParams = lp
-                    }
-                }
-            }
+        if (::toolbarLayoutDelegate.isInitialized) {
+            toolbarLayoutDelegate.hideToolbar(
+                animated = animated,
+                hasCustomVideoView = customVideoView != null
+            )
         }
     }
 
     fun showToolbar(animated: Boolean = true) {
-        if (isInPipMode() || customVideoView != null) return
-        val isBottom = preferences.isAddressBarAtBottom
-        val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
-        val currentMargin = if (isBottom) (lp?.bottomMargin ?: 0) else (lp?.topMargin ?: 0)
-        if (!isToolbarHidden && currentMargin == 0) return
-
-        isToolbarHidden = false
-        toolbarAnimator?.cancel()
-        if (animated) {
-            toolbarAnimator = android.animation.ValueAnimator.ofInt(currentMargin, 0).apply {
-                duration = 180L
-                interpolator = android.view.animation.DecelerateInterpolator()
-                addUpdateListener { animator ->
-                    val margin = animator.animatedValue as Int
-                    val currentLp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return@addUpdateListener
-                    if (isBottom) {
-                        if (currentLp.bottomMargin != margin) {
-                            currentLp.bottomMargin = margin
-                            binding.topBar.layoutParams = currentLp
-                        }
-                    } else {
-                        if (currentLp.topMargin != margin) {
-                            currentLp.topMargin = margin
-                            binding.topBar.layoutParams = currentLp
-                        }
-                    }
-                }
-                start()
-            }
-        } else {
-            if (lp != null) {
-                if (isBottom) {
-                    if (lp.bottomMargin != 0) {
-                        lp.bottomMargin = 0
-                        binding.topBar.layoutParams = lp
-                    }
-                } else {
-                    if (lp.topMargin != 0) {
-                        lp.topMargin = 0
-                        binding.topBar.layoutParams = lp
-                    }
-                }
-            }
+        if (::toolbarLayoutDelegate.isInitialized) {
+            toolbarLayoutDelegate.showToolbar(
+                animated = animated,
+                isInPipMode = isInPipMode(),
+                hasCustomVideoView = customVideoView != null
+            )
         }
     }
 
@@ -2172,6 +1627,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         val isIncognito = tabManager.activeTab.value?.isIncognito == true
         updateIncognitoUI(isIncognito)
+        if (::browserViewModel.isInitialized) {
+            browserViewModel.updateLoadingState(isLoading = false, progress = 0)
+            browserViewModel.updateNavigationState(canGoBack = false, canGoForward = false, isDesktopMode = false)
+        }
 
         val child = if (binding.webViewContainer.childCount > 0) binding.webViewContainer.getChildAt(0) as? OnyxWebView else null
         val isPlayingChild = preferences.isBackgroundPlayEnabled && (child?.tabId == MediaPlaybackBridge.currentPlayingTabId)
@@ -2247,7 +1706,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         }
                     } else {
                         var restored = false
-                        if (forceUrl == null && !tab.isIncognito && (webView.url.isNullOrBlank() || webView.url == "about:blank")) {
+                        if (forceUrl == null && (webView.url.isNullOrBlank() || webView.url == "about:blank")) {
                             restored = tabManager.restoreTabState(tab.id, webView)
                         }
                         if (!restored) {
@@ -2260,6 +1719,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 }
             }
             updateAddressBarDisplay(if (LocalFileLoader.isLocalFile(this, targetUrl)) targetUrl else (webView.url ?: targetUrl))
+            if (::browserViewModel.isInitialized) {
+                browserViewModel.updateNavigationState(
+                    canGoBack = webView.canGoBack(),
+                    canGoForward = webView.canGoForward(),
+                    isDesktopMode = webView.isDesktopMode
+                )
+            }
             webView.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.mediaMonitorScript, null)
         } else {
             showHomeScreen()
@@ -2321,26 +1787,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     private fun setupWebViewClients(webView: OnyxWebView) {
         val tabId = webView.tabId
-        webView.onScrollChangedCallback = { _, t, _, oldt ->
-            if (preferences.isScrollToTopEnabled && currentDisplayedTabId == tabId && tabManager.activeTab.value?.id == tabId) {
-                if (t > 500 && t > oldt) {
-                    binding.fabScrollToTop.visibility = android.view.View.VISIBLE
-                } else if (t < 10) {
-                    binding.fabScrollToTop.visibility = android.view.View.GONE
-                }
-            }
-
-            if (preferences.isAutoHideToolbarEnabled && currentDisplayedTabId == tabId && tabManager.activeTab.value?.id == tabId && binding.homeLayout.root.visibility != View.VISIBLE) {
-                val deltaY = t - oldt
-                val threshold = (12 * resources.displayMetrics.density).toInt()
-                if (t <= 5) {
-                    showToolbar(animated = true)
-                } else if (deltaY > threshold && t > (lastKnownTopBarHeight.takeIf { it > 0 } ?: binding.topBar.height)) {
-                    hideToolbar(animated = true)
-                } else if (deltaY < -threshold) {
-                    showToolbar(animated = true)
-                }
-            }
+        if (::toolbarLayoutDelegate.isInitialized) {
+            toolbarLayoutDelegate.attachWebViewScrollAutoHide(
+                webView = webView,
+                isTargetActiveTab = { currentDisplayedTabId == tabId && tabManager.activeTab.value?.id == tabId },
+                isInPipMode = { isInPipMode() },
+                hasCustomVideoView = { customVideoView != null }
+            )
         }
 
         val client = OnyxWebViewClient(
@@ -2370,8 +1823,15 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     tabManager.updateTabUrlAndTitle(tabId, cleanUrl, finalTitle)
                     if (currentDisplayedTabId == tabId && tabManager.activeTab.value?.id == tabId) {
                         updateAddressBarDisplay(cleanUrl)
+                        if (::browserViewModel.isInitialized) {
+                            browserViewModel.updateNavigationState(
+                                canGoBack = webView.canGoBack(),
+                                canGoForward = webView.canGoForward(),
+                                isDesktopMode = webView.isDesktopMode
+                            )
+                        }
                         val activeTab = tabManager.activeTab.value
-                        if (activeTab != null && !activeTab.isIncognito) {
+                        if (activeTab != null) {
                             tabManager.saveTabState(activeTab.id, webView)
                         }
                     }
@@ -2402,8 +1862,16 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 }
                 if (currentDisplayedTabId == tabId) {
                     binding.progressBar.visibility = View.GONE
+                    if (::browserViewModel.isInitialized) {
+                        browserViewModel.updateLoadingState(isLoading = false, progress = 100)
+                        browserViewModel.updateNavigationState(
+                            canGoBack = webView.canGoBack(),
+                            canGoForward = webView.canGoForward(),
+                            isDesktopMode = webView.isDesktopMode
+                        )
+                    }
                     val activeTab = tabManager.activeTab.value
-                    if (activeTab != null && !activeTab.isIncognito) {
+                    if (activeTab != null) {
                         tabManager.saveTabState(activeTab.id, webView)
                     }
                     if (activeTab != null && (webView.url == finishedUrl || webView.currentSyntheticState != null)) {
@@ -2445,6 +1913,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         webView.webChromeClient = OnyxWebChromeClient(
             onProgressChangedCallback = { progress ->
                 if (currentDisplayedTabId != tabId || isInPipMode()) return@OnyxWebChromeClient
+                if (::browserViewModel.isInitialized) {
+                    browserViewModel.updateLoadingState(isLoading = progress < 100, progress = progress)
+                }
                 if (binding.progressBar.visibility != android.view.View.VISIBLE && progress < 100) {
                     binding.progressBar.visibility = android.view.View.VISIBLE
                     binding.progressBar.alpha = 1f
@@ -2489,8 +1960,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 handleGeolocationPrompt(origin, callback)
             },
             onGeolocationHidePromptCallback = {
-                pendingGeoOrigin = null
-                pendingGeoCallback = null
+                if (::webChromeCoordinator.isInitialized) {
+                    webChromeCoordinator.onGeolocationPermissionsHidePrompt()
+                }
             },
             onPermissionRequestCallback = { request ->
                 handleWebPermissionRequest(request)
@@ -2941,50 +2413,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             return
         }
 
-        val url = when {
-            LocalFileLoader.isSensitiveOrRestrictedPath(this, trimmed) -> {
-                Toast.makeText(this, "Access to private or restricted files is blocked", Toast.LENGTH_SHORT).show()
-                return
-            }
-
-            LocalFileLoader.isLocalFile(this, trimmed) -> trimmed
-
-            trimmed.startsWith("http://", ignoreCase = true) ||
-            trimmed.startsWith("https://", ignoreCase = true) ||
-            trimmed.startsWith("about:", ignoreCase = true) ||
-            trimmed.startsWith("data:", ignoreCase = true) -> trimmed
-
-            trimmed.startsWith("file://", ignoreCase = true) -> {
-                val parsed = try { Uri.parse(trimmed) } catch (_: Exception) { null }
-                val path = parsed?.path
-                if (path != null && File(path).exists()) {
-                    trimmed
-                } else {
-                    Toast.makeText(this, "File not found: $trimmed", Toast.LENGTH_SHORT).show()
-                    return
-                }
-            }
-
-            isLikelyUrl(trimmed) -> "https://$trimmed"
-
-            else -> {
-                val allEngines = preferences.getAllSearchEngines()
-                val spaceIndex = trimmed.indexOf(' ')
-                if (spaceIndex > 0) {
-                    val firstToken = trimmed.substring(0, spaceIndex).trim()
-                    val queryAfterKeyword = trimmed.substring(spaceIndex + 1).trim()
-                    val matchedEngine = allEngines.firstOrNull {
-                        it.keyword.isNotBlank() && it.keyword.equals(firstToken, ignoreCase = true)
-                    }
-                    if (matchedEngine != null && queryAfterKeyword.isNotEmpty()) {
-                        matchedEngine.buildSearchUrl(queryAfterKeyword)
-                    } else {
-                        preferences.searchEngine.buildSearchUrl(trimmed)
-                    }
-                } else {
-                    preferences.searchEngine.buildSearchUrl(trimmed)
-                }
-            }
+        val url = if (::navigationCoordinator.isInitialized) {
+            navigationCoordinator.resolveOmniboxInputToUrl(trimmed) ?: return
+        } else {
+            return
         }
 
         val activeTab = tabManager.activeTab.value ?: tabManager.createNewTab()
@@ -2997,21 +2429,19 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private fun isLikelyUrl(input: String): Boolean {
-        return com.onyx.browser.data.search.SearchSuggestionRepository.isLikelyDomainOrUrl(input)
+        return if (::navigationCoordinator.isInitialized) {
+            navigationCoordinator.isLikelyUrl(input)
+        } else {
+            com.onyx.browser.data.search.SearchSuggestionRepository.isLikelyDomainOrUrl(input)
+        }
     }
 
     private fun isReelOrFeedUrl(url: String): Boolean {
-        if (url.isBlank()) return false
-        if (url.contains("facebook.com") && (url.contains("/reel") || url.contains("/watch") || url.contains("/videos"))) {
-            return true
+        return if (::navigationCoordinator.isInitialized) {
+            navigationCoordinator.isReelOrFeedUrl(url)
+        } else {
+            false
         }
-        if (url.contains("instagram.com") && (url.contains("/reel") || url.contains("/reels") || url.contains("/stories"))) {
-            return true
-        }
-        if (url.contains("youtube.com/shorts") || url.contains("tiktok.com")) {
-            return true
-        }
-        return false
     }
 
     private fun getActivePageUrl(): String {
@@ -3298,6 +2728,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private fun showSoftKeyboard() {
+        if (::browserViewModel.isInitialized) {
+            browserViewModel.updateSearchOverlayVisible(binding.searchOverlay.visibility == View.VISIBLE)
+        }
         binding.etUrl.post {
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.showSoftInput(binding.etUrl, InputMethodManager.SHOW_IMPLICIT)
@@ -3305,6 +2738,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private fun hideSoftKeyboard() {
+        if (::browserViewModel.isInitialized) {
+            browserViewModel.updateSearchOverlayVisible(binding.searchOverlay.visibility == View.VISIBLE)
+        }
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(binding.etUrl.windowToken, 0)
     }
@@ -3411,37 +2847,15 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private fun addCurrentPageToHomeScreen() {
-        val activeTab = tabManager.activeTab.value ?: return
-        val currentUrl = activeTab.url
-        if (currentUrl.isBlank() || currentUrl.startsWith("onyx://") || currentUrl.startsWith("about:")) {
-            Toast.makeText(this, "Cannot add internal page to Home screen", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val title = activeTab.title.ifBlank { currentUrl }
-        val webView = tabManager.getActiveWebView()
-        val favicon = webView?.favicon
+        pinWebpageToHomeScreen()
+    }
 
-        if (ShortcutManagerCompat.isRequestPinShortcutSupported(this)) {
-            val shortcutIntent = Intent(this, MainActivity::class.java).apply {
-                action = Intent.ACTION_VIEW
-                data = Uri.parse(currentUrl)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val iconCompat = if (favicon != null) {
-                IconCompat.createWithBitmap(favicon)
-            } else {
-                IconCompat.createWithResource(this, R.mipmap.ic_launcher)
-            }
-            val pinShortcutInfo = ShortcutInfoCompat.Builder(this, "onyx_web_${currentUrl.hashCode()}")
-                .setShortLabel(title.take(20))
-                .setLongLabel(title)
-                .setIcon(iconCompat)
-                .setIntent(shortcutIntent)
-                .build()
-            ShortcutManagerCompat.requestPinShortcut(this, pinShortcutInfo, null)
-            Toast.makeText(this, getString(R.string.added_to_home_screen), Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "Pin shortcut not supported by launcher", Toast.LENGTH_SHORT).show()
+    fun pinWebpageToHomeScreen() {
+        if (::navigationCoordinator.isInitialized) {
+            navigationCoordinator.pinWebpageToHomeScreen(
+                activeTab = tabManager.activeTab.value,
+                favicon = tabManager.getActiveWebView()?.favicon
+            )
         }
     }
 
@@ -4025,6 +3439,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (lastAddressBarAtBottom != null && lastAddressBarAtBottom != currentAddressBarAtBottom) {
             applyToolbarPosition(currentAddressBarAtBottom)
         }
+        if (::browserViewModel.isInitialized) {
+            browserViewModel.refreshPreferences()
+        }
         com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
 
         // 3. Sync scroll to top FAB visibility & auto-hide toolbar state
@@ -4042,6 +3459,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         wv?.applyUserAgentForUrl(wv.url ?: "")
         if (wv != null) {
             wv.applyCookieSettings()
+            if (::browserViewModel.isInitialized) {
+                browserViewModel.updateNavigationState(
+                    canGoBack = wv.canGoBack(),
+                    canGoForward = wv.canGoForward(),
+                    isDesktopMode = wv.isDesktopMode
+                )
+            }
             // JS enablement is managed by applySiteSettingsForUrl (called above in applyUserAgentForUrl),
             // which correctly applies both the global isJavaScriptEnabledGlobal toggle and
             // per-site exceptions. Do NOT blindly overwrite it here.
@@ -4233,64 +3657,19 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     }
 
     private fun extractUrlFromIntent(intent: Intent?): String? {
-        if (intent == null) return null
-
-        // Priority 1: Direct data URI from file manager, link click, or download item
-        val dataUri = intent.data ?: intent.clipData?.let { if (it.itemCount > 0) it.getItemAt(0).uri else null }
-        if (dataUri != null) {
-            val uriStr = dataUri.toString().trim()
-            if (uriStr.isNotBlank()) {
-                return uriStr
-            }
+        return if (::navigationCoordinator.isInitialized) {
+            navigationCoordinator.extractUrlFromIntent(intent)
+        } else {
+            null
         }
-        val dataString = intent.dataString?.trim()
-        if (!dataString.isNullOrBlank()) {
-            return dataString
-        }
-
-        val action = intent.action ?: return null
-
-        when (action) {
-            Intent.ACTION_VIEW, Intent.ACTION_SEND -> {
-                val extraText = intent.getStringExtra(Intent.EXTRA_TEXT)
-                if (!extraText.isNullOrBlank()) {
-                    return parseUrlOrExtract(extraText)
-                }
-            }
-            Intent.ACTION_WEB_SEARCH, Intent.ACTION_SEARCH -> {
-                val query = intent.getStringExtra(SearchManager.QUERY)
-                    ?: intent.getStringExtra("query")
-                if (!query.isNullOrBlank()) {
-                    return preferences.searchEngine.buildSearchUrl(query.trim())
-                }
-            }
-        }
-        return null
     }
 
     private fun parseUrlOrExtract(text: String): String {
-        val trimmed = text.trim()
-        if (LocalFileLoader.isSensitiveOrRestrictedPath(this, trimmed)) {
-            return preferences.searchEngine.buildSearchUrl(trimmed)
+        return if (::navigationCoordinator.isInitialized) {
+            navigationCoordinator.parseUrlOrExtract(text)
+        } else {
+            preferences.searchEngine.buildSearchUrl(text.trim())
         }
-        if (LocalFileLoader.isLocalFile(this, trimmed) ||
-            trimmed.startsWith("http://", ignoreCase = true) ||
-            trimmed.startsWith("https://", ignoreCase = true) ||
-            trimmed.startsWith("file://", ignoreCase = true) ||
-            trimmed.startsWith("content://", ignoreCase = true) ||
-            trimmed.startsWith("about:", ignoreCase = true)
-        ) {
-            return trimmed
-        }
-        val urlRegex = Regex("(https?://[^\\s]+)")
-        val match = urlRegex.find(trimmed)
-        if (match != null) {
-            return match.value
-        }
-        if (isLikelyUrl(trimmed)) {
-            return "https://$trimmed"
-        }
-        return preferences.searchEngine.buildSearchUrl(trimmed)
     }
 
     private fun enforceHighRefreshRate() {
@@ -4340,9 +3719,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         pendingCameraPhotoFile?.let { if (it.exists() && it.length() == 0L) it.delete() }
         pendingCameraPhotoFile = null
         pendingCameraPhotoUri = null
-        try { pendingWebMediaRequest?.let { safeDenyWebPermission(it) } } catch (_: Exception) {}
-        pendingWebMediaRequest = null
-        pendingWebMediaResources = null
+        if (::webChromeCoordinator.isInitialized) {
+            webChromeCoordinator.cleanupOnDestroy()
+        }
         if (!preferences.isClearOnExitEnabled || !preferences.isClearOnExitTabsEnabled) {
             tabManager.saveAllTabStates()
         }

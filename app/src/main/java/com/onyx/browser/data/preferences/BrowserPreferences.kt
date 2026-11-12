@@ -6,11 +6,18 @@ import androidx.appcompat.app.AppCompatDelegate
 import com.onyx.browser.data.model.SearchEngine
 import com.onyx.browser.data.model.QuickActionItem
 import com.onyx.browser.data.model.ShortcutItem
+import com.onyx.browser.data.model.SitePermissionEntity
+import com.onyx.browser.data.model.SitePermissionType
+import com.onyx.browser.data.repository.SitePermissionRepository
 import android.os.Handler
 import android.os.Looper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.util.concurrent.atomic.AtomicLong
 
@@ -25,6 +32,12 @@ class BrowserPreferences private constructor(private val context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
+    private val migrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val sitePermissionRepo: SitePermissionRepository by lazy {
+        SitePermissionRepository.getInstance(context)
+    }
+
     private val _blockedRequestsFlow = MutableStateFlow(getBlockedRequestsCount())
     val blockedRequestsFlow: StateFlow<Long> = _blockedRequestsFlow.asStateFlow()
 
@@ -36,6 +49,110 @@ class BrowserPreferences private constructor(private val context: Context) {
         _shortcutsFlow.value = getShortcuts()
         migrateDefaultSearchEngine()
         migrateAutoRedirectDefaults()
+        migrateSitePermissionsToRoom()
+    }
+
+    private fun syncSitePermissionToRoom(domain: String, type: SitePermissionType, state: SitePermissionState) {
+        if (domain.isBlank()) return
+        sitePermissionRepo.setPermissionState(domain, type, state)
+    }
+
+    private fun migrateSitePermissionsToRoom() {
+        if (prefs.getBoolean(KEY_SITE_PERMS_ROOM_MIGRATED, false)) return
+        migrationScope.launch {
+            try {
+                if (prefs.getBoolean(KEY_SITE_PERMS_ROOM_MIGRATED, false)) return@launch
+                val now = System.currentTimeMillis()
+                val entities = mutableListOf<SitePermissionEntity>()
+
+                fun collectPair(type: SitePermissionType, allowedKey: String, blockedKey: String) {
+                    val allowed = prefs.getStringSet(allowedKey, emptySet()) ?: emptySet()
+                    val blocked = prefs.getStringSet(blockedKey, emptySet()) ?: emptySet()
+                    for (d in allowed) {
+                        val clean = cleanDomain(d)
+                        if (clean.isNotBlank()) {
+                            entities.add(
+                                SitePermissionEntity(
+                                    domain = clean,
+                                    permissionType = type.name,
+                                    state = SitePermissionState.ALLOWED.name,
+                                    updatedAt = now
+                                )
+                            )
+                        }
+                    }
+                    for (d in blocked) {
+                        val clean = cleanDomain(d)
+                        if (clean.isNotBlank() && !allowed.contains(d)) {
+                            entities.add(
+                                SitePermissionEntity(
+                                    domain = clean,
+                                    permissionType = type.name,
+                                    state = SitePermissionState.BLOCKED.name,
+                                    updatedAt = now
+                                )
+                            )
+                        }
+                    }
+                }
+
+                collectPair(SitePermissionType.CAMERA, KEY_ALLOWED_CAMERA_DOMAINS, KEY_BLOCKED_CAMERA_DOMAINS)
+                collectPair(SitePermissionType.MICROPHONE, KEY_ALLOWED_MIC_DOMAINS, KEY_BLOCKED_MIC_DOMAINS)
+                collectPair(SitePermissionType.LOCATION, KEY_ALLOWED_LOCATION_DOMAINS, KEY_BLOCKED_LOCATION_DOMAINS)
+                collectPair(SitePermissionType.NOTIFICATIONS, KEY_ALLOWED_NOTIF_DOMAINS, KEY_BLOCKED_NOTIF_DOMAINS)
+                collectPair(SitePermissionType.JAVASCRIPT, KEY_ALLOWED_JS_DOMAINS, KEY_BLOCKED_JS_DOMAINS)
+                collectPair(SitePermissionType.POPUPS, KEY_ALLOWED_POPUP_DOMAINS, KEY_BLOCKED_POPUP_DOMAINS)
+                collectPair(SitePermissionType.AUTOPLAY, KEY_ALLOWED_AUTOPLAY_DOMAINS, KEY_BLOCKED_AUTOPLAY_DOMAINS)
+                collectPair(SitePermissionType.IMAGES, KEY_ALLOWED_IMAGES_DOMAINS, KEY_BLOCKED_IMAGES_DOMAINS)
+                collectPair(SitePermissionType.ZOOM, KEY_ALLOWED_ZOOM_DOMAINS, KEY_BLOCKED_ZOOM_DOMAINS)
+                collectPair(SitePermissionType.MIXED_CONTENT, KEY_ALLOWED_MIXED_DOMAINS, KEY_BLOCKED_MIXED_DOMAINS)
+                collectPair(SitePermissionType.GOOGLE_SIGNIN, KEY_ALLOWED_GOOGLE_SIGNIN_DOMAINS, KEY_BLOCKED_GOOGLE_SIGNIN_DOMAINS)
+                collectPair(SitePermissionType.AUTO_SHRED, KEY_AUTO_SHRED_DOMAINS, KEY_AUTO_KEEP_DOMAINS)
+                collectPair(SitePermissionType.SENSORS, KEY_ALLOWED_SENSORS_DOMAINS, KEY_BLOCKED_SENSORS_DOMAINS)
+                collectPair(SitePermissionType.CLIPBOARD, KEY_ALLOWED_CLIPBOARD_DOMAINS, KEY_BLOCKED_CLIPBOARD_DOMAINS)
+                collectPair(SitePermissionType.SOUND, KEY_ALLOWED_SOUND_DOMAINS, KEY_BLOCKED_SOUND_DOMAINS)
+                collectPair(SitePermissionType.AUTO_DOWNLOADS, KEY_ALLOWED_AUTO_DOWNLOADS_DOMAINS, KEY_BLOCKED_AUTO_DOWNLOADS_DOMAINS)
+                collectPair(SitePermissionType.WAKE_LOCK, KEY_ALLOWED_WAKE_LOCK_DOMAINS, KEY_BLOCKED_WAKE_LOCK_DOMAINS)
+                collectPair(SitePermissionType.WEBRTC, KEY_ALLOWED_WEBRTC_DOMAINS, KEY_BLOCKED_WEBRTC_DOMAINS)
+                collectPair(SitePermissionType.DESKTOP_MODE, KEY_DESKTOP_DOMAINS, KEY_MOBILE_DOMAINS)
+
+                val whitelist = prefs.getStringSet(KEY_ADBLOCK_WHITELIST, emptySet()) ?: emptySet()
+                for (d in whitelist) {
+                    val clean = cleanDomain(d)
+                    if (clean.isNotBlank()) {
+                        entities.add(
+                            SitePermissionEntity(
+                                domain = clean,
+                                permissionType = SitePermissionType.ADS.name,
+                                state = SitePermissionState.ALLOWED.name,
+                                updatedAt = now
+                            )
+                        )
+                    }
+                }
+
+                val scriptBlocked = prefs.getStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, emptySet()) ?: emptySet()
+                for (d in scriptBlocked) {
+                    val clean = cleanDomain(d)
+                    if (clean.isNotBlank()) {
+                        entities.add(
+                            SitePermissionEntity(
+                                domain = clean,
+                                permissionType = SitePermissionType.JAVASCRIPT.name,
+                                state = SitePermissionState.BLOCKED.name,
+                                updatedAt = now
+                            )
+                        )
+                    }
+                }
+
+                if (entities.isNotEmpty()) {
+                    sitePermissionRepo.importFromLegacyPreferences(entities)
+                }
+                prefs.edit().putBoolean(KEY_SITE_PERMS_ROOM_MIGRATED, true).apply()
+            } catch (_: Exception) {
+            }
+        }
     }
 
     private fun migrateDefaultSearchEngine() {
@@ -497,6 +614,11 @@ class BrowserPreferences private constructor(private val context: Context) {
             .putStringSet(KEY_ALLOWED_JS_DOMAINS, a)
             .putStringSet(KEY_BLOCKED_JS_DOMAINS, b)
             .apply()
+        syncSitePermissionToRoom(
+            domain,
+            SitePermissionType.JAVASCRIPT,
+            if (block) SitePermissionState.BLOCKED else SitePermissionState.ASK
+        )
     }
 
     // ── Misc ─────────────────────────────────────────────────────────────────
@@ -696,7 +818,26 @@ class BrowserPreferences private constructor(private val context: Context) {
         }
         cachedWhitelist = currentSet
         prefs.edit().putStringSet(KEY_ADBLOCK_WHITELIST, currentSet).apply()
+        syncSitePermissionToRoom(
+            domain,
+            SitePermissionType.ADS,
+            if (whitelisted) SitePermissionState.ALLOWED else SitePermissionState.ASK
+        )
         com.onyx.browser.nativebridge.AdBlockEngine.clearDecisionCache()
+    }
+
+    fun getSiteAdsPermission(domainOrUrl: String): SitePermissionState {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return SitePermissionState.ASK
+        if (isDomainWhitelisted(domain)) return SitePermissionState.ALLOWED
+        return sitePermissionRepo.getPermissionState(domain, SitePermissionType.ADS)
+    }
+
+    fun setSiteAdsPermission(domainOrUrl: String, state: SitePermissionState) {
+        val domain = cleanDomain(domainOrUrl)
+        if (domain.isBlank()) return
+        setDomainWhitelisted(domain, state == SitePermissionState.ALLOWED)
+        syncSitePermissionToRoom(domain, SitePermissionType.ADS, state)
     }
 
     fun addWhitelistedDomain(domainOrUrl: String) {
@@ -730,7 +871,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             s
         }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.CAMERA)
     }
 
     fun setWebCameraAllowed(domainOrUrl: String, allowed: Boolean) {
@@ -751,6 +892,11 @@ class BrowserPreferences private constructor(private val context: Context) {
             .putStringSet(KEY_ALLOWED_CAMERA_DOMAINS, allowedSet)
             .putStringSet(KEY_BLOCKED_CAMERA_DOMAINS, blockedSet)
             .apply()
+        syncSitePermissionToRoom(
+            domain,
+            SitePermissionType.CAMERA,
+            if (allowed) SitePermissionState.ALLOWED else SitePermissionState.BLOCKED
+        )
     }
 
     fun isWebMicAllowed(domainOrUrl: String): Boolean? {
@@ -768,7 +914,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             s
         }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.MICROPHONE)
     }
 
     fun setWebMicAllowed(domainOrUrl: String, allowed: Boolean) {
@@ -789,6 +935,11 @@ class BrowserPreferences private constructor(private val context: Context) {
             .putStringSet(KEY_ALLOWED_MIC_DOMAINS, allowedSet)
             .putStringSet(KEY_BLOCKED_MIC_DOMAINS, blockedSet)
             .apply()
+        syncSitePermissionToRoom(
+            domain,
+            SitePermissionType.MICROPHONE,
+            if (allowed) SitePermissionState.ALLOWED else SitePermissionState.BLOCKED
+        )
     }
 
     fun isWebLocationAllowed(domainOrUrl: String): Boolean? {
@@ -806,7 +957,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             s
         }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.LOCATION)
     }
 
     fun setWebLocationAllowed(domainOrUrl: String, allowed: Boolean) {
@@ -827,6 +978,11 @@ class BrowserPreferences private constructor(private val context: Context) {
             .putStringSet(KEY_ALLOWED_LOCATION_DOMAINS, allowedSet)
             .putStringSet(KEY_BLOCKED_LOCATION_DOMAINS, blockedSet)
             .apply()
+        syncSitePermissionToRoom(
+            domain,
+            SitePermissionType.LOCATION,
+            if (allowed) SitePermissionState.ALLOWED else SitePermissionState.BLOCKED
+        )
     }
 
     var isCameraEnabledGlobal: Boolean
@@ -874,6 +1030,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             .putStringSet(KEY_ALLOWED_CAMERA_DOMAINS, allowedSet)
             .putStringSet(KEY_BLOCKED_CAMERA_DOMAINS, blockedSet)
             .apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.CAMERA, state)
     }
 
     fun getSiteMicPermission(domainOrUrl: String): SitePermissionState {
@@ -909,6 +1066,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             .putStringSet(KEY_ALLOWED_MIC_DOMAINS, allowedSet)
             .putStringSet(KEY_BLOCKED_MIC_DOMAINS, blockedSet)
             .apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.MICROPHONE, state)
     }
 
     fun getSiteLocationPermission(domainOrUrl: String): SitePermissionState {
@@ -944,6 +1102,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             .putStringSet(KEY_ALLOWED_LOCATION_DOMAINS, allowedSet)
             .putStringSet(KEY_BLOCKED_LOCATION_DOMAINS, blockedSet)
             .apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.LOCATION, state)
     }
 
     // ── Per-domain Ad & Tracker Blocking Level (Standard / Aggressive) ─────────
@@ -1053,6 +1212,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         }
         desktopDomains = desk
         mobileDomains = mob
+        syncSitePermissionToRoom(key, SitePermissionType.DESKTOP_MODE, state)
     }
 
     fun setDesktopModeForDomain(domainOrUrl: String, enabled: Boolean) {
@@ -1090,6 +1250,17 @@ class BrowserPreferences private constructor(private val context: Context) {
                isWebAutoDownloadsAllowed(domain) != null ||
                isWebWakeLockAllowed(domain) != null ||
                isWebWebRtcExplicitlySet(domain) != null ||
+               isWebUsbAllowed(domain) != null ||
+               isWebMidiAllowed(domain) != null ||
+               isWebVrArAllowed(domain) != null ||
+               isWebIdleDetectionAllowed(domain) != null ||
+               isWebSerialAllowed(domain) != null ||
+               isWebHidAllowed(domain) != null ||
+               isWebFileEditingAllowed(domain) != null ||
+               isWebFontAccessAllowed(domain) != null ||
+               isWebStorageAccessAllowed(domain) != null ||
+               isWebWindowManagementAllowed(domain) != null ||
+               isWebPaymentHandlerAllowed(domain) != null ||
                isDomainWhitelisted(domain) ||
                isScriptBlockingEnabledForDomain(domain) ||
                getSiteDesktopModeState(domain) != SitePermissionState.ASK ||
@@ -1123,6 +1294,104 @@ class BrowserPreferences private constructor(private val context: Context) {
         setSiteDesktopModeState(domain, SitePermissionState.ASK)
         setSiteBlockingLevel(domain, null)
         clearCustomBlockedRulesForDomain(domain)
+        sitePermissionRepo.clearDomainPermissions(domain)
+    }
+
+    fun resetSitePermissionsForDomain(domainOrUrl: String) {
+        resetSitePermissions(domainOrUrl)
+    }
+
+    fun resetAllSiteSettings() {
+        cachedAllowedCameraDomains = emptySet()
+        cachedBlockedCameraDomains = emptySet()
+        cachedAllowedMicDomains = emptySet()
+        cachedBlockedMicDomains = emptySet()
+        cachedAllowedLocationDomains = emptySet()
+        cachedBlockedLocationDomains = emptySet()
+        cachedAllowedNotifDomains = emptySet()
+        cachedBlockedNotifDomains = emptySet()
+        cachedAllowedJsDomains = emptySet()
+        cachedBlockedJsDomains = emptySet()
+        cachedScriptBlockingDomains = emptySet()
+        cachedAllowedPopupDomains = emptySet()
+        cachedBlockedPopupDomains = emptySet()
+        cachedAllowedAutoplayDomains = emptySet()
+        cachedBlockedAutoplayDomains = emptySet()
+        cachedAllowedImagesDomains = emptySet()
+        cachedBlockedImagesDomains = emptySet()
+        cachedAllowedZoomDomains = emptySet()
+        cachedBlockedZoomDomains = emptySet()
+        cachedAllowedMixedDomains = emptySet()
+        cachedBlockedMixedDomains = emptySet()
+        cachedAllowedGoogleSignInDomains = emptySet()
+        cachedBlockedGoogleSignInDomains = emptySet()
+        cachedAutoShredDomains = emptySet()
+        cachedAutoKeepDomains = emptySet()
+        cachedAllowedSensorsDomains = emptySet()
+        cachedBlockedSensorsDomains = emptySet()
+        cachedAllowedClipboardDomains = emptySet()
+        cachedBlockedClipboardDomains = emptySet()
+        cachedAllowedSoundDomains = emptySet()
+        cachedBlockedSoundDomains = emptySet()
+        cachedAllowedAutoDownloadsDomains = emptySet()
+        cachedBlockedAutoDownloadsDomains = emptySet()
+        cachedAllowedWakeLockDomains = emptySet()
+        cachedBlockedWakeLockDomains = emptySet()
+        cachedAllowedWebRtcDomains = emptySet()
+        cachedBlockedWebRtcDomains = emptySet()
+        cachedDesktopDomains = emptySet()
+        cachedMobileDomains = emptySet()
+        cachedWhitelist = emptySet()
+        cachedAggressiveDomains = emptySet()
+        cachedStandardDomains = emptySet()
+
+        prefs.edit()
+            .remove(KEY_ALLOWED_CAMERA_DOMAINS)
+            .remove(KEY_BLOCKED_CAMERA_DOMAINS)
+            .remove(KEY_ALLOWED_MIC_DOMAINS)
+            .remove(KEY_BLOCKED_MIC_DOMAINS)
+            .remove(KEY_ALLOWED_LOCATION_DOMAINS)
+            .remove(KEY_BLOCKED_LOCATION_DOMAINS)
+            .remove(KEY_ALLOWED_NOTIF_DOMAINS)
+            .remove(KEY_BLOCKED_NOTIF_DOMAINS)
+            .remove(KEY_ALLOWED_JS_DOMAINS)
+            .remove(KEY_BLOCKED_JS_DOMAINS)
+            .remove(KEY_SCRIPT_BLOCKING_DOMAINS)
+            .remove(KEY_ALLOWED_POPUP_DOMAINS)
+            .remove(KEY_BLOCKED_POPUP_DOMAINS)
+            .remove(KEY_ALLOWED_AUTOPLAY_DOMAINS)
+            .remove(KEY_BLOCKED_AUTOPLAY_DOMAINS)
+            .remove(KEY_ALLOWED_IMAGES_DOMAINS)
+            .remove(KEY_BLOCKED_IMAGES_DOMAINS)
+            .remove(KEY_ALLOWED_ZOOM_DOMAINS)
+            .remove(KEY_BLOCKED_ZOOM_DOMAINS)
+            .remove(KEY_ALLOWED_MIXED_DOMAINS)
+            .remove(KEY_BLOCKED_MIXED_DOMAINS)
+            .remove(KEY_ALLOWED_GOOGLE_SIGNIN_DOMAINS)
+            .remove(KEY_BLOCKED_GOOGLE_SIGNIN_DOMAINS)
+            .remove(KEY_AUTO_SHRED_DOMAINS)
+            .remove(KEY_AUTO_KEEP_DOMAINS)
+            .remove(KEY_ALLOWED_SENSORS_DOMAINS)
+            .remove(KEY_BLOCKED_SENSORS_DOMAINS)
+            .remove(KEY_ALLOWED_CLIPBOARD_DOMAINS)
+            .remove(KEY_BLOCKED_CLIPBOARD_DOMAINS)
+            .remove(KEY_ALLOWED_SOUND_DOMAINS)
+            .remove(KEY_BLOCKED_SOUND_DOMAINS)
+            .remove(KEY_ALLOWED_AUTO_DOWNLOADS_DOMAINS)
+            .remove(KEY_BLOCKED_AUTO_DOWNLOADS_DOMAINS)
+            .remove(KEY_ALLOWED_WAKE_LOCK_DOMAINS)
+            .remove(KEY_BLOCKED_WAKE_LOCK_DOMAINS)
+            .remove(KEY_ALLOWED_WEBRTC_DOMAINS)
+            .remove(KEY_BLOCKED_WEBRTC_DOMAINS)
+            .remove(KEY_DESKTOP_DOMAINS)
+            .remove(KEY_MOBILE_DOMAINS)
+            .remove(KEY_ADBLOCK_WHITELIST)
+            .remove(KEY_AGGRESSIVE_DOMAINS)
+            .remove(KEY_STANDARD_DOMAINS)
+            .apply()
+
+        sitePermissionRepo.clearAllSitePermissions()
+        com.onyx.browser.nativebridge.AdBlockEngine.clearDecisionCache()
     }
 
     fun getAllowedCameraDomains(): Set<String> =
@@ -1154,10 +1423,12 @@ class BrowserPreferences private constructor(private val context: Context) {
         if (allowed.contains(domain)) return true
         val blocked = cachedBlockedNotifDomains ?: run { val s = prefs.getStringSet(KEY_BLOCKED_NOTIF_DOMAINS, emptySet()) ?: emptySet(); cachedBlockedNotifDomains = s; s }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.NOTIFICATIONS)
     }
 
     fun getSiteNotificationsPermission(domainOrUrl: String): SitePermissionState = when (isWebNotificationsAllowed(domainOrUrl)) { true -> SitePermissionState.ALLOWED; false -> SitePermissionState.BLOCKED; null -> SitePermissionState.ASK }
+
+    fun getSiteNotificationPermission(domainOrUrl: String): SitePermissionState = getSiteNotificationsPermission(domainOrUrl)
 
     fun setSiteNotificationsPermission(domainOrUrl: String, state: SitePermissionState) {
         val domain = cleanDomain(domainOrUrl); if (domain.isBlank()) return
@@ -1166,7 +1437,10 @@ class BrowserPreferences private constructor(private val context: Context) {
         when (state) { SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }; SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }; SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) } }
         cachedAllowedNotifDomains = a; cachedBlockedNotifDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_NOTIF_DOMAINS, a).putStringSet(KEY_BLOCKED_NOTIF_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.NOTIFICATIONS, state)
     }
+
+    fun setSiteNotificationPermission(domainOrUrl: String, state: SitePermissionState) = setSiteNotificationsPermission(domainOrUrl, state)
 
     fun getAllowedNotifDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_NOTIF_DOMAINS, emptySet()) ?: emptySet()
     fun getBlockedNotifDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_NOTIF_DOMAINS, emptySet()) ?: emptySet()
@@ -1186,7 +1460,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         if (allowed.contains(domain)) return true
         val blocked = cachedBlockedJsDomains ?: run { val s = prefs.getStringSet(KEY_BLOCKED_JS_DOMAINS, emptySet()) ?: emptySet(); cachedBlockedJsDomains = s; s }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.JAVASCRIPT)
     }
 
     fun isJavaScriptEnabledForDomain(domainOrUrl: String): Boolean {
@@ -1198,6 +1472,8 @@ class BrowserPreferences private constructor(private val context: Context) {
     }
 
     fun getSiteJavaScriptPermission(domainOrUrl: String): SitePermissionState = when (isWebJavaScriptAllowed(domainOrUrl)) { true -> SitePermissionState.ALLOWED; false -> SitePermissionState.BLOCKED; null -> SitePermissionState.ASK }
+
+    fun getSiteJsPermission(domainOrUrl: String): SitePermissionState = getSiteJavaScriptPermission(domainOrUrl)
 
     fun setSiteJavaScriptPermission(domainOrUrl: String, state: SitePermissionState) {
         val domain = cleanDomain(domainOrUrl); if (domain.isBlank()) return
@@ -1223,7 +1499,10 @@ class BrowserPreferences private constructor(private val context: Context) {
             .putStringSet(KEY_BLOCKED_JS_DOMAINS, b)
             .putStringSet(KEY_SCRIPT_BLOCKING_DOMAINS, scriptBlocked)
             .apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.JAVASCRIPT, state)
     }
+
+    fun setSiteJsPermission(domainOrUrl: String, state: SitePermissionState) = setSiteJavaScriptPermission(domainOrUrl, state)
 
     fun getAllowedJsDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_JS_DOMAINS, emptySet()) ?: emptySet()
     fun getBlockedJsDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_JS_DOMAINS, emptySet()) ?: emptySet()
@@ -1248,10 +1527,12 @@ class BrowserPreferences private constructor(private val context: Context) {
         if (allowed.contains(domain)) return true
         val blocked = cachedBlockedPopupDomains ?: run { val s = prefs.getStringSet(KEY_BLOCKED_POPUP_DOMAINS, emptySet()) ?: emptySet(); cachedBlockedPopupDomains = s; s }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.POPUPS)
     }
 
     fun getSitePopupsPermission(domainOrUrl: String): SitePermissionState = when (isWebPopupsAllowed(domainOrUrl)) { true -> SitePermissionState.ALLOWED; false -> SitePermissionState.BLOCKED; null -> SitePermissionState.ASK }
+
+    fun getSitePopupPermission(domainOrUrl: String): SitePermissionState = getSitePopupsPermission(domainOrUrl)
 
     fun setSitePopupsPermission(domainOrUrl: String, state: SitePermissionState) {
         val domain = cleanDomain(domainOrUrl); if (domain.isBlank()) return
@@ -1260,7 +1541,10 @@ class BrowserPreferences private constructor(private val context: Context) {
         when (state) { SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }; SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }; SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) } }
         cachedAllowedPopupDomains = a; cachedBlockedPopupDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_POPUP_DOMAINS, a).putStringSet(KEY_BLOCKED_POPUP_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.POPUPS, state)
     }
+
+    fun setSitePopupPermission(domainOrUrl: String, state: SitePermissionState) = setSitePopupsPermission(domainOrUrl, state)
 
     fun getAllowedPopupDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_POPUP_DOMAINS, emptySet()) ?: emptySet()
     fun getBlockedPopupDomains(): Set<String> = prefs.getStringSet(KEY_BLOCKED_POPUP_DOMAINS, emptySet()) ?: emptySet()
@@ -1280,7 +1564,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         if (allowed.contains(domain)) return true
         val blocked = cachedBlockedAutoplayDomains ?: run { val s = prefs.getStringSet(KEY_BLOCKED_AUTOPLAY_DOMAINS, emptySet()) ?: emptySet(); cachedBlockedAutoplayDomains = s; s }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.AUTOPLAY)
     }
 
     fun getSiteAutoplayPermission(domainOrUrl: String): SitePermissionState = when (isWebAutoplayAllowed(domainOrUrl)) { true -> SitePermissionState.ALLOWED; false -> SitePermissionState.BLOCKED; null -> SitePermissionState.ASK }
@@ -1292,6 +1576,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         when (state) { SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }; SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }; SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) } }
         cachedAllowedAutoplayDomains = a; cachedBlockedAutoplayDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_AUTOPLAY_DOMAINS, a).putStringSet(KEY_BLOCKED_AUTOPLAY_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.AUTOPLAY, state)
     }
 
     fun getAllowedAutoplayDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_AUTOPLAY_DOMAINS, emptySet()) ?: emptySet()
@@ -1312,7 +1597,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         if (allowed.contains(domain)) return true
         val blocked = cachedBlockedImagesDomains ?: run { val s = prefs.getStringSet(KEY_BLOCKED_IMAGES_DOMAINS, emptySet()) ?: emptySet(); cachedBlockedImagesDomains = s; s }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.IMAGES)
     }
 
     fun getSiteImagesPermission(domainOrUrl: String): SitePermissionState = when (isWebImagesAllowed(domainOrUrl)) { true -> SitePermissionState.ALLOWED; false -> SitePermissionState.BLOCKED; null -> SitePermissionState.ASK }
@@ -1324,6 +1609,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         when (state) { SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }; SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }; SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) } }
         cachedAllowedImagesDomains = a; cachedBlockedImagesDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_IMAGES_DOMAINS, a).putStringSet(KEY_BLOCKED_IMAGES_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.IMAGES, state)
     }
 
     fun getAllowedImagesDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_IMAGES_DOMAINS, emptySet()) ?: emptySet()
@@ -1344,7 +1630,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         if (allowed.contains(domain)) return true
         val blocked = cachedBlockedZoomDomains ?: run { val s = prefs.getStringSet(KEY_BLOCKED_ZOOM_DOMAINS, emptySet()) ?: emptySet(); cachedBlockedZoomDomains = s; s }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.ZOOM)
     }
 
     fun getSiteZoomPermission(domainOrUrl: String): SitePermissionState = when (isWebZoomAllowed(domainOrUrl)) { true -> SitePermissionState.ALLOWED; false -> SitePermissionState.BLOCKED; null -> SitePermissionState.ASK }
@@ -1356,6 +1642,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         when (state) { SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }; SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }; SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) } }
         cachedAllowedZoomDomains = a; cachedBlockedZoomDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_ZOOM_DOMAINS, a).putStringSet(KEY_BLOCKED_ZOOM_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.ZOOM, state)
     }
 
     fun getAllowedZoomDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_ZOOM_DOMAINS, emptySet()) ?: emptySet()
@@ -1376,7 +1663,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         if (allowed.contains(domain)) return true
         val blocked = cachedBlockedMixedDomains ?: run { val s = prefs.getStringSet(KEY_BLOCKED_MIXED_DOMAINS, emptySet()) ?: emptySet(); cachedBlockedMixedDomains = s; s }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.MIXED_CONTENT)
     }
 
     fun getSiteMixedContentPermission(domainOrUrl: String): SitePermissionState = when (isWebMixedContentAllowed(domainOrUrl)) { true -> SitePermissionState.ALLOWED; false -> SitePermissionState.BLOCKED; null -> SitePermissionState.ASK }
@@ -1388,6 +1675,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         when (state) { SitePermissionState.ALLOWED -> { a.add(domain); b.remove(domain) }; SitePermissionState.BLOCKED -> { b.add(domain); a.remove(domain) }; SitePermissionState.ASK -> { a.remove(domain); b.remove(domain) } }
         cachedAllowedMixedDomains = a; cachedBlockedMixedDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_MIXED_DOMAINS, a).putStringSet(KEY_BLOCKED_MIXED_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.MIXED_CONTENT, state)
     }
 
     fun getAllowedMixedDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_MIXED_DOMAINS, emptySet()) ?: emptySet()
@@ -1421,7 +1709,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             s
         }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.GOOGLE_SIGNIN)
     }
 
     fun getSiteGoogleSignInPermission(domainOrUrl: String): SitePermissionState =
@@ -1444,6 +1732,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         cachedAllowedGoogleSignInDomains = a
         cachedBlockedGoogleSignInDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_GOOGLE_SIGNIN_DOMAINS, a).putStringSet(KEY_BLOCKED_GOOGLE_SIGNIN_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.GOOGLE_SIGNIN, state)
     }
 
     fun getAllowedGoogleSignInDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_GOOGLE_SIGNIN_DOMAINS, emptySet()) ?: emptySet()
@@ -1482,13 +1771,13 @@ class BrowserPreferences private constructor(private val context: Context) {
     fun isSiteAutoShredEnabled(domainOrUrl: String): Boolean {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return false
-        return autoShredDomains.contains(domain)
+        return autoShredDomains.contains(domain) || sitePermissionRepo.isAllowed(domain, SitePermissionType.AUTO_SHRED) == true
     }
 
     fun isSiteAutoKeepEnabled(domainOrUrl: String): Boolean {
         val domain = cleanDomain(domainOrUrl)
         if (domain.isBlank()) return false
-        return autoKeepDomains.contains(domain)
+        return autoKeepDomains.contains(domain) || sitePermissionRepo.isAllowed(domain, SitePermissionType.AUTO_SHRED) == false
     }
 
     fun getSiteAutoShredState(domainOrUrl: String): SitePermissionState {
@@ -1496,7 +1785,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         if (domain.isBlank()) return SitePermissionState.ASK
         if (autoShredDomains.contains(domain)) return SitePermissionState.ALLOWED
         if (autoKeepDomains.contains(domain)) return SitePermissionState.BLOCKED
-        return SitePermissionState.ASK
+        return sitePermissionRepo.getPermissionState(domain, SitePermissionType.AUTO_SHRED)
     }
 
     fun setSiteAutoShredState(domainOrUrl: String, state: SitePermissionState) {
@@ -1511,6 +1800,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         }
         autoShredDomains = shred
         autoKeepDomains = keep
+        syncSitePermissionToRoom(domain, SitePermissionType.AUTO_SHRED, state)
     }
 
     fun setSiteAutoShredEnabled(domainOrUrl: String, enabled: Boolean) {
@@ -1536,7 +1826,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             s
         }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.SENSORS)
     }
 
     fun getSiteSensorsPermission(domainOrUrl: String): SitePermissionState =
@@ -1559,6 +1849,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         cachedAllowedSensorsDomains = a
         cachedBlockedSensorsDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_SENSORS_DOMAINS, a).putStringSet(KEY_BLOCKED_SENSORS_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.SENSORS, state)
     }
 
     fun getAllowedSensorsDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_SENSORS_DOMAINS, emptySet()) ?: emptySet()
@@ -1587,7 +1878,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             s
         }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.CLIPBOARD)
     }
 
     fun getSiteClipboardPermission(domainOrUrl: String): SitePermissionState =
@@ -1610,6 +1901,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         cachedAllowedClipboardDomains = a
         cachedBlockedClipboardDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_CLIPBOARD_DOMAINS, a).putStringSet(KEY_BLOCKED_CLIPBOARD_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.CLIPBOARD, state)
     }
 
     fun getAllowedClipboardDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_CLIPBOARD_DOMAINS, emptySet()) ?: emptySet()
@@ -1638,7 +1930,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             s
         }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.SOUND)
     }
 
     fun getSiteSoundPermission(domainOrUrl: String): SitePermissionState =
@@ -1661,6 +1953,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         cachedAllowedSoundDomains = a
         cachedBlockedSoundDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_SOUND_DOMAINS, a).putStringSet(KEY_BLOCKED_SOUND_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.SOUND, state)
     }
 
     fun getAllowedSoundDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_SOUND_DOMAINS, emptySet()) ?: emptySet()
@@ -1689,7 +1982,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             s
         }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.AUTO_DOWNLOADS)
     }
 
     fun getSiteAutoDownloadsPermission(domainOrUrl: String): SitePermissionState =
@@ -1712,6 +2005,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         cachedAllowedAutoDownloadsDomains = a
         cachedBlockedAutoDownloadsDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_AUTO_DOWNLOADS_DOMAINS, a).putStringSet(KEY_BLOCKED_AUTO_DOWNLOADS_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.AUTO_DOWNLOADS, state)
     }
 
     fun getAllowedAutoDownloadsDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_AUTO_DOWNLOADS_DOMAINS, emptySet()) ?: emptySet()
@@ -1740,7 +2034,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             s
         }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.WAKE_LOCK)
     }
 
     fun getSiteWakeLockPermission(domainOrUrl: String): SitePermissionState =
@@ -1763,6 +2057,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         cachedAllowedWakeLockDomains = a
         cachedBlockedWakeLockDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_WAKE_LOCK_DOMAINS, a).putStringSet(KEY_BLOCKED_WAKE_LOCK_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.WAKE_LOCK, state)
     }
 
     fun getAllowedWakeLockDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_WAKE_LOCK_DOMAINS, emptySet()) ?: emptySet()
@@ -1791,7 +2086,7 @@ class BrowserPreferences private constructor(private val context: Context) {
             s
         }
         if (blocked.contains(domain)) return false
-        return null
+        return sitePermissionRepo.isAllowed(domain, SitePermissionType.WEBRTC)
     }
 
     /** Returns true if WebRTC local IP leak protection is actively enforced for the domain. */
@@ -1823,6 +2118,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         cachedAllowedWebRtcDomains = a
         cachedBlockedWebRtcDomains = b
         prefs.edit().putStringSet(KEY_ALLOWED_WEBRTC_DOMAINS, a).putStringSet(KEY_BLOCKED_WEBRTC_DOMAINS, b).apply()
+        syncSitePermissionToRoom(domain, SitePermissionType.WEBRTC, state)
     }
 
     fun getAllowedWebRtcDomains(): Set<String> = prefs.getStringSet(KEY_ALLOWED_WEBRTC_DOMAINS, emptySet()) ?: emptySet()
@@ -1831,6 +2127,84 @@ class BrowserPreferences private constructor(private val context: Context) {
     var isWebRtcProtectedGlobal: Boolean
         get() = prefs.getBoolean(KEY_WEBRTC_PROTECTED_GLOBAL, true)
         set(value) = prefs.edit().putBoolean(KEY_WEBRTC_PROTECTED_GLOBAL, value).apply()
+
+    // ── Extended Hardware & Capability Permissions (Room-backed) ─────────────
+    fun isWebUsbAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.USB)
+    fun getSiteUsbPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.USB)
+    fun setSiteUsbPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.USB, state)
+
+    fun isWebMidiAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.MIDI)
+    fun getSiteMidiPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.MIDI)
+    fun setSiteMidiPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.MIDI, state)
+
+    fun isWebVrArAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.VR_AR)
+    fun getSiteVrArPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.VR_AR)
+    fun setSiteVrArPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.VR_AR, state)
+
+    fun isWebIdleDetectionAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.IDLE_DETECTION)
+    fun getSiteIdleDetectionPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.IDLE_DETECTION)
+    fun setSiteIdleDetectionPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.IDLE_DETECTION, state)
+
+    fun isWebSerialAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.SERIAL)
+    fun getSiteSerialPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.SERIAL)
+    fun setSiteSerialPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.SERIAL, state)
+
+    fun isWebHidAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.HID)
+    fun getSiteHidPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.HID)
+    fun setSiteHidPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.HID, state)
+
+    fun isWebFileEditingAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.FILE_EDITING)
+    fun getSiteFileEditingPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.FILE_EDITING)
+    fun setSiteFileEditingPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.FILE_EDITING, state)
+
+    fun isWebFontAccessAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.FONT_ACCESS)
+    fun getSiteFontAccessPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.FONT_ACCESS)
+    fun setSiteFontAccessPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.FONT_ACCESS, state)
+
+    fun isWebStorageAccessAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.STORAGE_ACCESS)
+    fun getSiteStorageAccessPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.STORAGE_ACCESS)
+    fun setSiteStorageAccessPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.STORAGE_ACCESS, state)
+
+    fun isWebWindowManagementAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.WINDOW_MANAGEMENT)
+    fun getSiteWindowManagementPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.WINDOW_MANAGEMENT)
+    fun setSiteWindowManagementPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.WINDOW_MANAGEMENT, state)
+
+    fun isWebPaymentHandlerAllowed(domainOrUrl: String): Boolean? =
+        sitePermissionRepo.isAllowed(cleanDomain(domainOrUrl), SitePermissionType.PAYMENT_HANDLER)
+    fun getSitePaymentHandlerPermission(domainOrUrl: String): SitePermissionState =
+        sitePermissionRepo.getPermissionState(cleanDomain(domainOrUrl), SitePermissionType.PAYMENT_HANDLER)
+    fun setSitePaymentHandlerPermission(domainOrUrl: String, state: SitePermissionState) =
+        syncSitePermissionToRoom(cleanDomain(domainOrUrl), SitePermissionType.PAYMENT_HANDLER, state)
 
     fun getAllConfiguredDomains(): Set<String> {
         val domains = sortedSetOf<String>()
@@ -1870,6 +2244,10 @@ class BrowserPreferences private constructor(private val context: Context) {
         domains.addAll(getBlockedWakeLockDomains())
         domains.addAll(getAllowedWebRtcDomains())
         domains.addAll(getBlockedWebRtcDomains())
+        for (type in SitePermissionType.values()) {
+            domains.addAll(sitePermissionRepo.getAllowedDomains(type))
+            domains.addAll(sitePermissionRepo.getBlockedDomains(type))
+        }
         // Desktop mode per-domain overrides (both Desktop and Mobile)
         domains.addAll(desktopDomains)
         domains.addAll(mobileDomains)
@@ -2385,6 +2763,8 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_ALLOWED_WEBRTC_DOMAINS = "pref_allowed_webrtc_domains"
         const val KEY_BLOCKED_WEBRTC_DOMAINS = "pref_blocked_webrtc_domains"
         const val KEY_WEBRTC_PROTECTED_GLOBAL = "pref_webrtc_protected_global"
+
+        const val KEY_SITE_PERMS_ROOM_MIGRATED = "pref_site_perms_room_migrated"
 
 
         /**

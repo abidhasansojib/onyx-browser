@@ -19,8 +19,8 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivitySiteSettingsBinding
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.SiteDataManager
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -284,7 +284,7 @@ class SiteSettingsActivity : AppCompatActivity() {
                     prefs.autoShredDomains = emptySet()
                     prefs.autoKeepDomains = emptySet()
                     prefs.clearAllCustomBlockedRules()
-                    CoroutineScope(Dispatchers.IO).launch {
+                    lifecycleScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                         try {
                             com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
                         } catch (_: Exception) {}

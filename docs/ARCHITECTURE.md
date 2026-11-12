@@ -235,3 +235,39 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
 - **Dynamic App Resolution & Theming**:
   - Resolves target intents via `PackageManager.resolveActivity` to display native app icons and human-readable application labels ("Open in Telegram?", "Open in YouTube?").
   - Includes a target destination card with middle-ellipsized URLs/deep links and provides safe fallback routing to web alternatives or Google Play when external apps are absent.
+
+---
+
+### 2.9. Enterprise Architecture, UDF Presentation, DI & Interceptor Pipeline
+
+- **Unidirectional Data Flow (UDF) & ViewModels (`com.onyx.browser.ui.viewmodel`)**:
+  - `BrowserUiState` defines the immutable single source of truth for browser chrome state (`activeTab`, `normalTabCount`, `incognitoTabCount`, `isLoading`, `progress`, `canGoBack`, `canGoForward`, `isIncognito`, `isDesktopMode`, `blockedAdsCount`, `isSearchOverlayVisible`, `isAddressBarAtBottom`).
+  - `BrowserViewModel` coordinates `TabManager` state flows (`activeTab`, `normalTabs`, `incognitoTabs`) and `BrowserPreferences.blockedRequestsFlow` inside `viewModelScope`.
+  - `HistoryViewModel`, `BookmarksViewModel`, and `DownloadsViewModel` encapsulate search queries, category/day-group filtering, and `NonCancellable` Room database mutations across configuration changes.
+  - `OnyxViewModelFactory` (`com.onyx.browser.di`) constructs all ViewModels deterministically without reflection overhead.
+
+- **MainActivity UI Delegates & Coordinators**:
+  - `ToolbarLayoutDelegate` manages Top vs. Bottom address bar `ConstraintSet` transitions, Edge-to-Edge window/IME insets, and scroll-to-hide animations.
+  - `NavigationCoordinator` centralizes URL resolution, search query formatting, `javascript:` pseudo-URL execution, and deep-link intent routing.
+  - `WebChromeCoordinator` encapsulates custom fullscreen video containers, geolocation/media permission prompts, and file chooser callbacks.
+  - `SettingsNavigator` (`SettingsDestination`) provides unified routing across all full-page settings screens.
+
+- **Chain-of-Responsibility Network Interceptor Pipeline (`com.onyx.browser.web.interceptor`)**:
+  - `RequestInterceptor` and `RealInterceptorChain` decouple `OnyxWebViewClient.shouldInterceptRequest` into composable, zero-allocation stages:
+    - `HttpsUpgradeInterceptor`: Upgrades eligible main-frame and subresource HTTP requests to HTTPS.
+    - `AuthBypassInterceptor`: Preserves OAuth, passkey, and anti-bot challenge flows (Google, Apple, Microsoft, Meta, Cloudflare Turnstile, Arkose Labs) without adblock interference.
+    - `AdBlockRequestInterceptor`: Evaluates `AdBlockEngine`, CNAME uncloaking, `$csp` header injection, `$redirect` surrogates, and VAST/VMAP synthesis.
+    - `PrivacyUrlSanitizer`: Strips tracking query parameters (`utm_*`, `fbclid`, `gclid`, `mc_eid`, `msclkid`, `yclid`, `_hsenc`, `vero_id`, `mkt_tok`, `igshid`, `si`) during navigation.
+
+- **SQLCipher Room `SitePermissionEntity` & `SitePermissionRepository`**:
+  - Per-site permissions and shield overrides are persisted in the SQLCipher-encrypted `site_permissions` table (`SitePermissionEntity`, `SitePermissionDao`, `MIGRATION_7_8`) and mirrored into $O(1)$ lock-free in-memory `ConcurrentHashMap` sets inside `SitePermissionRepository`.
+  - Automatically migrates legacy `SharedPreferences` domain sets on startup while keeping synchronous hot-path lookups on Chromium's `shouldInterceptRequest` IO threads non-blocking.
+
+- **Strict RAM-Aware LRU WebView Pool Governor**:
+  - `TabManager.maxLiveWebViews` dynamically scales the active WebView pool (3–5 live instances) based on device memory class (`ActivityManager.MemoryInfo`).
+  - Least-recently-used background tabs (excluding any tab actively playing media) are automatically hibernated: normal tabs persist state bundles to disk (`tab_states/`), while incognito tabs preserve state strictly in-memory (`incognitoStateBundles`) to maintain zero disk residue.
+
+- **Multi-Module `:core:common` & Dependency Injection Container**:
+  - `:core:common` provides shared concurrency dispatchers (`DispatcherProvider`, `DefaultDispatcherProvider`) and functional result wrappers (`OnyxResult`).
+  - `AppContainer` and `DefaultAppContainer` (`com.onyx.browser.di`) wire singleton repositories, `AppDatabase`, `BrowserPreferences`, and `SitePermissionRepository` from `OnyxApplication`.
+  - Automated unit test suite under `app/src/test/` (JUnit 4, MockK, `kotlinx-coroutines-test`) validates URL matching, userscript metadata parsing, download rate limiting, and byte-range chunk math.

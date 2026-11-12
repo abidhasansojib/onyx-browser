@@ -1,6 +1,7 @@
 package com.onyx.browser.ui.browser
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.Bitmap
@@ -99,8 +100,31 @@ class TabManager(
     }
 
     private val webViewPool = mutableMapOf<String, OnyxWebView>()
+    private val incognitoStateBundles = java.util.concurrent.ConcurrentHashMap<String, Bundle>()
     var isIncognitoUnlocked: Boolean = false
     var onTabClosedListener: ((TabItem) -> Unit)? = null
+
+    val maxLiveWebViews: Int by lazy {
+        try {
+            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            if (activityManager != null) {
+                val memInfo = ActivityManager.MemoryInfo()
+                activityManager.getMemoryInfo(memInfo)
+                val totalRamBytes = memInfo.totalMem
+                val gb = 1024L * 1024L * 1024L
+                when {
+                    totalRamBytes <= 0L -> 4
+                    totalRamBytes < 4L * gb -> 3
+                    totalRamBytes <= 6L * gb -> 4
+                    else -> 5
+                }
+            } else {
+                4
+            }
+        } catch (_: Throwable) {
+            4
+        }
+    }
     
     private val maxMem = (Runtime.getRuntime().maxMemory() / 1024).toInt()
     private val cacheSize = (maxMem / 8).coerceIn(4096, 32768)
@@ -176,9 +200,7 @@ class TabManager(
     }
 
     fun saveTabState(tabId: String, webView: OnyxWebView) {
-        val tab = _normalTabs.value.firstOrNull { it.id == tabId }
-        // Never persist state for incognito tabs or blank/synthetic URLs
-        if (tab == null || tab.isIncognito) return
+        val tab = getTabById(tabId) ?: return
         val currentUrl = webView.url
         if (currentUrl.isNullOrBlank() || OnyxWebView.isSyntheticOrDataUrl(currentUrl)) return
 
@@ -186,14 +208,28 @@ class TabManager(
             val bundle = Bundle()
             val list = webView.saveState(bundle)
             if (list != null && list.size > 0) {
-                saveBundleToFile(bundle, getStateFile(tabId))
+                if (tab.isIncognito) {
+                    // Store strictly in RAM for incognito tabs; never write private tab state to disk
+                    incognitoStateBundles[tabId] = bundle
+                } else {
+                    saveBundleToFile(bundle, getStateFile(tabId))
+                }
             }
         } catch (_: Throwable) {}
     }
 
     fun restoreTabState(tabId: String, webView: OnyxWebView): Boolean {
-        val tab = _normalTabs.value.firstOrNull { it.id == tabId }
-        if (tab == null || tab.isIncognito) return false
+        val tab = getTabById(tabId) ?: return false
+        if (tab.isIncognito) {
+            val bundle = incognitoStateBundles[tabId] ?: return false
+            return try {
+                val list = webView.restoreState(bundle)
+                list != null && list.size > 0
+            } catch (_: Throwable) {
+                incognitoStateBundles.remove(tabId)
+                false
+            }
+        }
         val file = getStateFile(tabId)
         if (!file.exists() || file.length() == 0L) return false
 
@@ -208,11 +244,13 @@ class TabManager(
     }
 
     fun hasSavedTabState(tabId: String): Boolean {
+        if (incognitoStateBundles.containsKey(tabId)) return true
         val file = getStateFile(tabId)
         return file.exists() && file.length() > 0L
     }
 
     fun deleteTabState(tabId: String) {
+        incognitoStateBundles.remove(tabId)
         try {
             getStateFile(tabId).delete()
         } catch (_: Throwable) {}
@@ -380,6 +418,7 @@ class TabManager(
      * All cookies, web storage, and cache within the incognito profile are destroyed.
      */
     fun purgeIncognitoProfile() {
+        incognitoStateBundles.clear()
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return
         try {
             val store = ProfileStore.getInstance()
@@ -421,6 +460,7 @@ class TabManager(
                 }
             }
             webViewPool[tab.id] = webView
+            enforceWebViewPoolLruLimit(tab.id)
         }
         return webView
     }
@@ -494,6 +534,93 @@ class TabManager(
             _incognitoTabs.value = newList
         }
         setActiveTab(updatedTab)
+        val mainLooper = Looper.getMainLooper()
+        if (mainLooper != null && Looper.myLooper() != mainLooper) {
+            Handler(mainLooper).post { enforceWebViewPoolLruLimit(updatedTab.id) }
+        } else {
+            enforceWebViewPoolLruLimit(updatedTab.id)
+        }
+    }
+
+    fun switchToTab(tab: TabItem) {
+        selectTab(tab)
+    }
+
+    /**
+     * Enforces the strict LRU active WebView pool limit ([maxLiveWebViews]).
+     * Evicts the oldest background tabs while protecting the active/target tab,
+     * background media playback tab, pending popups, and recently touched/created tabs.
+     */
+    fun enforceWebViewPoolLruLimit(protectedTabId: String? = _activeTab.value?.id) {
+        val mainLooper = Looper.getMainLooper()
+        if (mainLooper != null && Looper.myLooper() != mainLooper) {
+            Handler(mainLooper).post { enforceWebViewPoolLruLimit(protectedTabId) }
+            return
+        }
+
+        if (webViewPool.size <= maxLiveWebViews) return
+
+        val activeId = _activeTab.value?.id
+        val playingId = com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId
+        val now = System.currentTimeMillis()
+
+        val allTabs = _normalTabs.value + _incognitoTabs.value
+        val evictableCandidates = allTabs
+            .filter { tab ->
+                val wv = webViewPool[tab.id] ?: return@filter false
+                tab.id != protectedTabId &&
+                    tab.id != activeId &&
+                    tab.id != playingId &&
+                    !wv.isPopupPendingDisplay &&
+                    (now - tab.lastAccessedAt >= 3000L)
+            }
+            .sortedBy { it.lastAccessedAt }
+
+        val excessCount = webViewPool.size - maxLiveWebViews
+        if (excessCount <= 0) return
+
+        val tabsToEvict = evictableCandidates.take(excessCount)
+        if (tabsToEvict.isEmpty()) return
+
+        val evictedIds = mutableSetOf<String>()
+        for (tab in tabsToEvict) {
+            val webView = webViewPool.remove(tab.id)
+            if (webView != null) {
+                saveTabState(tab.id, webView)
+                webView.destroySafely()
+            }
+            evictedIds.add(tab.id)
+        }
+
+        var hasNormalChanges = false
+        val updatedNormal = _normalTabs.value.map { tab ->
+            if (tab.id in evictedIds) {
+                hasNormalChanges = true
+                val hibernatedTab = tab.copy(isHibernated = true)
+                coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                    database.tabDao().updateTab(hibernatedTab)
+                }
+                hibernatedTab
+            } else {
+                tab
+            }
+        }
+        if (hasNormalChanges) {
+            _normalTabs.value = updatedNormal
+        }
+
+        var hasIncognitoChanges = false
+        val updatedIncognito = _incognitoTabs.value.map { tab ->
+            if (tab.id in evictedIds) {
+                hasIncognitoChanges = true
+                tab.copy(isHibernated = true)
+            } else {
+                tab
+            }
+        }
+        if (hasIncognitoChanges) {
+            _incognitoTabs.value = updatedIncognito
+        }
     }
 
     /**
@@ -562,6 +689,26 @@ class TabManager(
         }
         if (hasNormalChanges) {
             _normalTabs.value = updatedNormal
+        }
+
+        var hasIncognitoChanges = false
+        val updatedIncognito = _incognitoTabs.value.map { tab ->
+            val isPlayingBackgroundMedia = (tab.id == playingId)
+            val isEligible = (tab.id != activeId) && !isPlayingBackgroundMedia && !tab.isHibernated && (aggressive || tab.lastAccessedAt < cutoff)
+            if (isEligible) {
+                val webView = webViewPool.remove(tab.id)
+                if (webView != null) {
+                    saveTabState(tab.id, webView)
+                    webView.destroySafely()
+                }
+                hasIncognitoChanges = true
+                tab.copy(isHibernated = true)
+            } else {
+                tab
+            }
+        }
+        if (hasIncognitoChanges) {
+            _incognitoTabs.value = updatedIncognito
         }
     }
 
@@ -939,6 +1086,7 @@ class TabManager(
         var autoCreatedTabId: String? = null
 
         if (tab.isIncognito) {
+            incognitoStateBundles.remove(tab.id)
             val updated = _incognitoTabs.value
                 .filter { it.id != tab.id }
                 .map { if (it.parentId == tab.id) it.copy(parentId = orphanParentId) else it }
@@ -990,10 +1138,17 @@ class TabManager(
         }
     }
 
+    fun closeAllIncognitoTabs(canUndo: Boolean = true) {
+        closeAllTabs(incognitoOnly = true, canUndo = canUndo)
+    }
+
     fun closeAllTabs(incognitoOnly: Boolean, canUndo: Boolean = true) {
         if (incognitoOnly) {
             val tabsToClose = _incognitoTabs.value
-            if (tabsToClose.isEmpty()) return
+            if (tabsToClose.isEmpty()) {
+                incognitoStateBundles.clear()
+                return
+            }
 
             val closedPlayingTab = tabsToClose.any { it.id == com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId }
             if (closedPlayingTab) {
@@ -1005,6 +1160,7 @@ class TabManager(
             val states = mutableListOf<ClosedTabState>()
             tabsToClose.forEachIndexed { index, tab ->
                 onTabClosedListener?.invoke(tab)
+                incognitoStateBundles.remove(tab.id)
                 val webView = webViewPool.remove(tab.id)
                 candidateUrls.addAll(extractCandidateUrls(tab, webView))
                 com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
@@ -1231,6 +1387,7 @@ class TabManager(
 
     fun clearAllWebViews() {
         com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
+        incognitoStateBundles.clear()
         webViewPool.values.forEach { it.destroySafely() }
         webViewPool.clear()
     }

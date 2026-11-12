@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -20,7 +21,6 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.preferences.SitePermissionState
 import com.onyx.browser.databinding.BottomSheetAllSitesBinding
 import com.onyx.browser.web.SiteDataManager
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -269,7 +269,7 @@ class AllSitesSheet(
                         }
                         // Reset permissions too for clean slate
                         prefs.resetSitePermissions(domain)
-                        CoroutineScope(Dispatchers.IO).launch {
+                        lifecycleScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                             try {
                                 com.onyx.browser.data.filter.FilterListManager.recompileFilters(ctx)
                             } catch (_: Exception) {}

@@ -23,6 +23,13 @@ import com.onyx.browser.media.MediaPlaybackBridge
 import com.onyx.browser.nativebridge.AdBlockEngine
 import com.onyx.browser.web.error.SyntheticNavigationState
 import com.onyx.browser.web.error.WebErrorHandler
+import com.onyx.browser.web.interceptor.AdBlockRequestInterceptor
+import com.onyx.browser.web.interceptor.AuthBypassInterceptor
+import com.onyx.browser.web.interceptor.HttpsUpgradeInterceptor
+import com.onyx.browser.web.interceptor.InterceptRequestContext
+import com.onyx.browser.web.interceptor.PrivacyUrlSanitizer
+import com.onyx.browser.web.interceptor.RealInterceptorChain
+import com.onyx.browser.web.interceptor.RequestInterceptor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -167,186 +174,27 @@ class OnyxWebViewClient(
         }
     }
 
-    // Social media tracker domains (analytics/pixel only, not content)
-    private val socialMediaTrackerDomains = setOf(
-        // Facebook/Meta pixels and analytics
-        "an.facebook.com", "pixel.facebook.com", "tr.facebook.com",
-        // Instagram trackers
-        "i.instagram.com",
-        // Twitter/X analytics
-        "analytics.twitter.com", "ads-api.twitter.com",
-        // LinkedIn analytics
-        "snap.licdn.com", "analytics.linkedin.com",
-        // Pinterest
-        "ct.pinterest.com", "analytics.pinterest.com",
-        // TikTok
-        "analytics.tiktok.com",
-        // Reddit
-        "alb.reddit.com"
-    )
+    internal fun isMetaDomain(domain: String): Boolean =
+        PrivacyUrlSanitizer.isMetaDomain(domain)
 
-    // Facebook domains that are content (logins, embeds, CDN) not pure tracking
-    private val facebookContentDomains = setOf(
-        "facebook.com", "www.facebook.com", "m.facebook.com", "web.facebook.com", "touch.facebook.com",
-        "static.facebook.com", "staticxx.facebook.com", "static.xx.fbcdn.net",
-        "connect.facebook.net", "facebook.net", "graph.facebook.com",
-        "fbcdn.net", "scontent.xx.fbcdn.net", "fbsbx.com", "fb.com", "fb.me", "accountkit.com",
-        "meta.com", "threads.net", "cdninstagram.com"
-    )
-
-    private fun isMetaDomain(domain: String): Boolean {
-        if (domain.isBlank()) return false
-        val d = domain.lowercase()
-        return d == "facebook.com" || d.endsWith(".facebook.com") ||
-                d == "meta.com" || d.endsWith(".meta.com") ||
-                d == "fb.com" || d.endsWith(".fb.com") ||
-                d == "fb.me" || d.endsWith(".fb.me") ||
-                d == "fbcdn.net" || d.endsWith(".fbcdn.net") ||
-                d == "facebook.net" || d.endsWith(".facebook.net") ||
-                d == "fbsbx.com" || d.endsWith(".fbsbx.com") ||
-                d == "messenger.com" || d.endsWith(".messenger.com") ||
-                d == "instagram.com" || d.endsWith(".instagram.com") ||
-                d == "cdninstagram.com" || d.endsWith(".cdninstagram.com") ||
-                d == "threads.net" || d.endsWith(".threads.net") ||
-                d == "accountkit.com" || d.endsWith(".accountkit.com") ||
-                d == "workplace.com" || d.endsWith(".workplace.com")
-    }
-
-    private fun isCaptchaOrAuthUrl(url: String, domain: String): Boolean {
-        val d = domain.lowercase()
-        val u = url.lowercase()
-        return d.contains("recaptcha") || d.contains("hcaptcha") ||
-                d.contains("arkose") || d.contains("arkoselabs") || d.contains("funcaptcha") ||
-                d.contains("matchkey") || d.contains("turnstile") || d.contains("geetest") || d.contains("datadome") ||
-                d.contains("kasada") || d.contains("perimeterx") ||
-                d == "fbsbx.com" || d.endsWith(".fbsbx.com") ||
-                d == "challenges.cloudflare.com" || d.endsWith(".challenges.cloudflare.com") ||
-                u.contains("recaptcha") || u.contains("hcaptcha") || u.contains("arkose") ||
-                u.contains("funcaptcha") || u.contains("matchkey") || u.contains("turnstile") ||
-                u.contains("/captcha/arkose/") || u.contains("meta-api.arkoselabs.com") ||
-                u.contains("client-api.arkoselabs.com") ||
-                u.contains("/cdn-cgi/challenge-platform") || u.contains("/cdn-cgi/cf-challenge") ||
-                u.contains("__cf_chl") ||
-                u.contains("/checkpoint/") || u.contains("/challenge/") ||
-                u.contains("/captcha/") || u.contains("/security-check") ||
-                u.contains("/waf/") || u.contains("/bot-detection") ||
-                u.contains("/human-verification") || u.contains("login/device-based") ||
-                u.contains("/two_step_verification") || u.contains("/save-device/") ||
-                u.contains("/trusted-devices/") || u.contains("/login_attempt") ||
-                u.contains("/fc/api") || u.contains("/fc/assets") || u.contains("/client-api/") ||
-                u.contains("/checkpoint") || u.contains("/confirm") ||
-                u.contains("lsd=") || u.contains("jazoest=") || u.contains("datr=")
-    }
+    internal fun isCaptchaOrAuthUrl(url: String, domain: String): Boolean =
+        PrivacyUrlSanitizer.isCaptchaOrAuthUrl(url, domain)
 
     /**
      * Returns true if the given domain is a known OAuth/SSO/identity/payment provider that
      * requires third-party cookies for login flows to work correctly.
-     *
-     * Based on Brave's approach: these are exempted from BLOCK_THIRD_PARTY cookie mode
-     * because they are cross-site by design (OAuth redirects, embedded login iframes,
-     * payment processors). Blocking third-party cookies on these breaks:
-     *   - Google Sign-In / Apple Sign-In / GitHub OAuth
-     *   - PayPal / Stripe / payment confirmation pages
-     *   - Microsoft/Azure AD authentication
-     *   - Auth0, Okta, Keycloak, Firebase Auth
      */
-    private fun isOAuthOrLoginProvider(domain: String): Boolean {
-        if (domain.isBlank()) return false
-        val d = domain.lowercase()
-        // Meta / Facebook identity & OAuth & Arkose challenges
-        return isMetaDomain(d) ||
-               d.contains("arkose") || d.contains("funcaptcha") ||
-               // Google identity and auth
-               d == "accounts.google.com" || d.endsWith(".accounts.google.com") ||
-               d == "oauth2.googleapis.com" || d == "apis.google.com" ||
-               d == "ssl.gstatic.com" || d == "www.gstatic.com" ||
-               d == "id.google.com" ||
-               // Apple Sign-In
-               d == "appleid.apple.com" || d.endsWith(".apple.com") && (d.contains("auth") || d.contains("appleid")) ||
-               d == "idmsa.apple.com" || d == "signin.apple.com" ||
-               // Microsoft / Azure AD / MSAL
-               d == "login.microsoftonline.com" || d == "login.microsoft.com" ||
-               d == "login.live.com" || d == "account.microsoft.com" ||
-               d == "aadcdn.msftauth.net" || d == "aadcdn.msauth.net" ||
-               d == "msauth.net" || d.endsWith(".msauth.net") ||
-               // GitHub OAuth and asset domains
-               d == "github.com" || d.endsWith(".github.com") || d == "api.github.com" ||
-               d == "githubassets.com" || d.endsWith(".githubassets.com") ||
-               d == "githubusercontent.com" || d.endsWith(".githubusercontent.com") ||
-               // Twitter/X OAuth
-               d == "api.twitter.com" || d == "api.x.com" || d == "twitter.com" || d == "x.com" ||
-               // TikTok OAuth
-               d == "open-api.tiktok.com" || (d.endsWith(".tiktok.com") && d.contains("auth")) ||
-               // Spotify OAuth
-               d == "accounts.spotify.com" ||
-               // Yahoo OAuth
-               d == "login.yahoo.com" ||
-               // Slack OAuth
-               d == "slack.com" || d.endsWith(".slack.com") ||
-               // PayPal payment flows
-               d == "paypal.com" || d == "www.paypal.com" || d.endsWith(".paypal.com") ||
-               d == "paypalobjects.com" || d.endsWith(".paypalobjects.com") ||
-               // Stripe payment flows
-               d == "stripe.com" || d.endsWith(".stripe.com") ||
-               d == "js.stripe.com" || d == "m.stripe.network" || d.endsWith(".stripe.network") ||
-               // Auth0
-               d.endsWith(".auth0.com") || d == "auth0.com" ||
-               d.endsWith(".us.auth0.com") || d.endsWith(".eu.auth0.com") ||
-               // Okta
-               d.endsWith(".okta.com") || d == "okta.com" ||
-               d.endsWith(".oktapreview.com") ||
-               // OneLogin & PingIdentity
-               d.endsWith(".onelogin.com") || d.endsWith(".pingidentity.com") ||
-               // Keycloak / generic auth subdomains
-               d.startsWith("auth.") || d.startsWith("login.") || d.startsWith("sso.") ||
-               d.startsWith("id.") || d.startsWith("identity.") || d.startsWith("account.") ||
-               d.startsWith("accounts.") || d.startsWith("signin.") || d.startsWith("oauth.") ||
-               // Firebase Auth
-               d.endsWith(".firebaseapp.com") || d == "securetoken.googleapis.com" ||
-               // Amazon / AWS Cognito
-               d.endsWith(".amazoncognito.com") || d == "cognito-identity.amazonaws.com" ||
-               d == "amazon.com" || d == "www.amazon.com" ||
-               // LinkedIn OAuth
-               d == "linkedin.com" || d == "www.linkedin.com" ||
-               // Twitch OAuth
-               d == "id.twitch.tv" ||
-               // Discord OAuth
-               d == "discord.com" || d == "discordapp.com" ||
-               // Cloudflare Access
-               d.endsWith(".cloudflareaccess.com") ||
-               // Generic OAuth indicators in path
-               d.contains("oauth") || d.contains("openid") || d.contains("saml")
-    }
+    internal fun isOAuthOrLoginProvider(domain: String): Boolean =
+        PrivacyUrlSanitizer.isOAuthOrLoginProvider(domain)
 
-    private fun isOAuthOrLoginUrl(url: String): Boolean {
-        if (url.isBlank()) return false
-        val u = url.lowercase()
-        return u.contains("/oauth") || u.contains("/oauth2") ||
-                u.contains("/openid-connect") || u.contains("/saml") ||
-                u.contains("/signin") || u.contains("/login") ||
-                u.contains("/auth/") || u.contains("/authenticate") ||
-                u.contains("/sso/") || u.contains("/checkpoint/") ||
-                u.contains("/challenge/") ||
-                u.contains("code=") || u.contains("access_token=") ||
-                u.contains("id_token=") || u.contains("oauth_token=") ||
-                u.contains("state=") && (u.contains("auth") || u.contains("login") || u.contains("oauth"))
-    }
+    internal fun isOAuthOrLoginUrl(url: String): Boolean =
+        PrivacyUrlSanitizer.isOAuthOrLoginUrl(url)
 
     fun isStreamingOrMediaPage(url: String): Boolean = Companion.isStreamingOrMediaPage(url)
 
     fun isMediaOrStreamingHost(host: String): Boolean = Companion.isMediaOrStreamingHost(host)
 
-    fun isMediaUrl(url: String): Boolean {
-        if (url.isBlank()) return false
-        val clean = url.substringBefore('?').substringBefore('#').lowercase()
-        return clean.endsWith(".m3u8") || clean.endsWith(".mpd") || clean.endsWith(".ts") ||
-                clean.endsWith(".m2ts") || clean.endsWith(".m4s") || clean.endsWith(".cmfv") ||
-                clean.endsWith(".cmfa") || clean.endsWith(".fmp4") || clean.endsWith(".mp4") ||
-                clean.endsWith(".m4v") || clean.endsWith(".webm") || clean.endsWith(".mkv") ||
-                clean.endsWith(".ogv") || clean.endsWith(".ogg") || clean.endsWith(".flv") ||
-                clean.endsWith(".mp3") || clean.endsWith(".aac") || clean.endsWith(".m4a") ||
-                clean.endsWith(".opus") || clean.endsWith(".flac") || clean.endsWith(".wav")
-    }
+    fun isMediaUrl(url: String): Boolean = PrivacyUrlSanitizer.isMediaUrl(url)
 
     private fun isPopupAd(url: String, onyxWv: OnyxWebView?): Boolean {
         if (!preferences.isAdBlockEnabled) return false
@@ -408,26 +256,35 @@ class OnyxWebViewClient(
         return false
     }
 
-    // Twitter/X content domains (embeds)
-    private val twitterContentDomains = setOf(
-        "platform.twitter.com", "cdn.syndication.twimg.com",
-        "syndication.twitter.com", "pbs.twimg.com", "abs.twimg.com"
-    )
-
-    // LinkedIn content domains (embeds)
-    private val linkedinContentDomains = setOf(
-        "www.linkedin.com", "platform.linkedin.com", "badges.linkedin.com"
-    )
-
-    // Tracking query parameters to strip
-    private val trackingParams = setOf(
-        "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-        "utm_id", "utm_source_platform", "utm_creative_format", "utm_marketing_tactic",
-        "fbclid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid",
-        "mc_eid", "mc_cid", "oly_enc_id", "oly_anon_id",
-        "_openstat", "vero_id", "mkt_tok",
-        "twclid", "msclkid", "ttclid", "li_fat_id",
-        "igshid", "s_cid", "srsltid", "epik"
+    /**
+     * Ordered Chain of Responsibility pipeline for subresource network interception:
+     * 1. [HttpsUpgradeInterceptor]: Blocks cleartext HTTP subresources in Strict HTTPS mode (preserving media & LAN/localhost).
+     * 2. [AuthBypassInterceptor]: Early pass-through for CAPTCHA challenges, OAuth/SSO providers, active OAuth grace periods, and media streams.
+     * 3. [AdBlockRequestInterceptor]: Social tracker blocking, script blocking, CNAME uncloaking, and Rust AdBlockEngine evaluation.
+     */
+    val requestInterceptors: List<RequestInterceptor> = listOf(
+        HttpsUpgradeInterceptor(
+            preferences = preferences,
+            onBlockedSubresource = { ctx ->
+                recordBlockedRequest(ctx.view)
+                val requestOrigin = getHeaderCaseInsensitive(ctx.request.requestHeaders, "Origin")
+                createBlockedResponse(ctx.resourceType, ctx.requestUrl, requestOrigin)
+            }
+        ),
+        AuthBypassInterceptor(
+            preferences = preferences,
+            currentPageUrlProvider = { currentPageUrl },
+            onBlockedRequest = { v -> recordBlockedRequest(v) }
+        ),
+        AdBlockRequestInterceptor(
+            preferences = preferences,
+            currentPageUrlProvider = { currentPageUrl },
+            detectResourceTypeInt = { req -> detectResourceTypeInt(req) },
+            getRequestOrigin = { req -> getHeaderCaseInsensitive(req.requestHeaders, "Origin") },
+            createBlockedResponse = { resType, reqUrl, reqOrigin -> createBlockedResponse(resType, reqUrl, reqOrigin) },
+            createSurrogateResponse = { redirect, resType, reqOrigin -> createSurrogateResponse(redirect, resType, reqOrigin) },
+            onBlockedRequest = { v -> recordBlockedRequest(v) }
+        )
     )
 
     companion object {
@@ -1046,11 +903,6 @@ class OnyxWebViewClient(
                 return null
             }
 
-            // Never block in-page translation resources
-            if (url.contains("translate.google.com") || url.contains("translate.googleapis.com")) {
-                return null
-            }
-
             val requestOrigin = getHeaderCaseInsensitive(request.requestHeaders, "Origin")
             val pageUrl = run {
                 val headers = request.requestHeaders
@@ -1064,229 +916,27 @@ class OnyxWebViewClient(
 
             val pageDomain = preferences.cleanDomain(pageUrl)
             val reqDomain = preferences.cleanDomain(url)
-            val isWhitelisted = preferences.isDomainWhitelisted(pageDomain)
-            val isIncognitoView = (view as? OnyxWebView)?.isIncognito ?: false
             val resourceType = detectResourceType(request)
+            val isThirdParty = PrivacyUrlSanitizer.isThirdPartyDomain(reqDomain, pageDomain)
 
-            val currentDomain = preferences.cleanDomain(currentPageUrl)
-            val isMetaContext = isMetaDomain(pageDomain) || isMetaDomain(currentDomain) ||
-                    isCaptchaOrAuthUrl(currentPageUrl, currentDomain) ||
-                    isCaptchaOrAuthUrl(pageUrl, pageDomain)
+            val interceptContext = InterceptRequestContext(
+                view = view,
+                onyxWebView = view as? OnyxWebView,
+                request = request,
+                requestUrl = url,
+                requestHost = reqDomain,
+                pageUrl = pageUrl,
+                pageHost = pageDomain,
+                isMainFrame = request.isForMainFrame,
+                resourceType = resourceType,
+                isThirdParty = isThirdParty
+            )
 
-            // ── Universal CAPTCHA, Verification & Security Protection ──────────────
-            // Anti-bot verifications and checkpoints must never be blocked on any website
-            val isCaptchaResource = isCaptchaOrAuthUrl(url, reqDomain)
-
-            // ── OAuth / SSO / Identity & Payment Provider Exemption ───────────────
-            // Brave exempts known identity providers from BLOCK_THIRD_PARTY cookie mode because
-            // they are legitimately cross-site (Google Sign-In iframes, Stripe payment forms, etc.).
-            val isOAuthResource = isOAuthOrLoginProvider(reqDomain) ||
-                    isOAuthOrLoginProvider(pageDomain) ||
-                    isOAuthOrLoginUrl(url)
-
-            // ── Ensure active auth, CAPTCHA iframes, and media streams retain cross-site cookies ──
-            if (isMetaContext || isCaptchaResource || isOAuthResource) {
-                (view as? OnyxWebView)?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
-                view?.post {
-                    try {
-                        val activeCm = (view as? OnyxWebView)?.cookieManager ?: CookieManager.getInstance()
-                        activeCm.setAcceptCookie(true)
-                        activeCm.setAcceptThirdPartyCookies(view, true)
-                    } catch (_: Exception) {}
-                }
-            } else if (resourceType == "media" || resourceType == "sub_frame" || isMediaUrl(url) || isMediaOrStreamingHost(reqDomain)) {
-                if (resourceType == "media" || isMediaUrl(url) || isMediaOrStreamingHost(reqDomain) ||
-                    (resourceType == "sub_frame" && (isStreamingOrMediaPage(url) || isStreamingOrMediaPage(pageUrl)))
-                ) {
-                    (view as? OnyxWebView)?.hasActiveMediaSubresource = true
-                }
-                view?.post {
-                    try {
-                        val activeCm = (view as? OnyxWebView)?.cookieManager ?: CookieManager.getInstance()
-                        activeCm.setAcceptCookie(true)
-                        activeCm.setAcceptThirdPartyCookies(view, true)
-                    } catch (_: Exception) {}
-                }
-            }
-
-            if (isCaptchaResource) {
-                return null
-            }
-
-            // ── Google Sign-In Prompts Blocking (Brave parity) ─────────────────────
-            // Third-party websites load Google One-Tap via accounts.google.com/gsi/client or iframes.
-            // When Google Sign-In is blocked for the origin (or globally blocked), defuse the prompt.
-            if (url.contains("accounts.google.com/gsi/")) {
-                val isGoogleSignInAllowed = preferences.isWebGoogleSignInAllowed(pageDomain)
-                    ?: preferences.isWebGoogleSignInAllowed(currentDomain)
-                    ?: !preferences.isGoogleSignInBlockedGlobal
-                if (!isGoogleSignInAllowed && !pageDomain.endsWith("google.com") && !currentDomain.endsWith("google.com")) {
-                    recordBlockedRequest(view)
-                    return WebResourceResponse(
-                        "application/javascript",
-                        "UTF-8",
-                        200,
-                        "OK",
-                        GSI_STUB_HEADERS,
-                        ByteArrayInputStream(GSI_STUB_BYTES)
-                    )
-                }
-            }
-
-            if (isOAuthResource) {
-                return null
-            }
-
-            // ── Meta / Facebook First-Party Integrity ─────────────────────────────
-            val isMetaResource = isMetaDomain(reqDomain)
-            val isMetaAdPixel = reqDomain == "pixel.facebook.com" || reqDomain == "an.facebook.com" || reqDomain == "tr.facebook.com"
-
-            if (isMetaResource) {
-                // When in a Meta context (user is on Facebook, Instagram, Messenger, or during login/checkpoint/CAPTCHA verification),
-                // NEVER block any Meta resource (including tr.facebook.com and pixel.facebook.com) because Facebook's login handshake,
-                // Arkose challenge completion, and account security checkpoints require first-party telemetry endpoints.
-                if (isMetaContext) {
-                    return null
-                }
-                // On third-party sites: allow first-party Meta assets/OAuth if in active OAuth flow or grace period
-                val isInOAuth = (view as? OnyxWebView)?.isWithinOAuthGracePeriod() == true || isOAuthResource
-                if (isInOAuth && !isMetaAdPixel) {
-                    return null
-                }
-            }
-
-            // ── Permitted Social Content & Embeds ─────────────────────────────────
-            // When allowed, bypass adblock ONLY if actively in OAuth flow or on Meta domain
-            val isInFbAuth = isMetaContext || (view as? OnyxWebView)?.isWithinOAuthGracePeriod() == true || isOAuthResource
-            val isFbContent = preferences.allowFacebookLogins && isInFbAuth &&
-                    facebookContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
-            if (isFbContent) {
-                return null
-            }
-
-            val isTwitterContent = preferences.allowTwitterEmbeds &&
-                    twitterContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
-            if (isTwitterContent) {
-                return null
-            }
-
-            val isLinkedInContent = preferences.allowLinkedInEmbeds &&
-                    linkedinContentDomains.any { d -> reqDomain == d || reqDomain.endsWith(".$d") }
-            if (isLinkedInContent) {
-                return null
-            }
-
-            // ── Element blocking in private windows: respect the setting ─────────
-            // If element blocking in private windows is disabled and this is incognito,
-            // skip all blocking
-            if (isIncognitoView && !preferences.isElementBlockingInPrivateEnabled) {
-                return null
-            }
-
-            // ── Social Media Tracker Blocking ─────────────────────────────────────
-            if (preferences.isSocialMediaBlockingEnabled && !isWhitelisted && !isMetaContext) {
-                val isSocialTrackerDomain = socialMediaTrackerDomains.any { trackerDomain ->
-                    reqDomain == trackerDomain || reqDomain.endsWith(".$trackerDomain")
-                } || (!preferences.allowFacebookLogins && (reqDomain == "connect.facebook.net" || reqDomain == "graph.facebook.com"))
-
-                if (isSocialTrackerDomain) {
-                    recordBlockedRequest(view)
-                    return createBlockedResponse(resourceType, url, requestOrigin)
-                }
-            }
-
-            // ── Global Script Blocking ─────────────────────────────────────────
-            if (!isWhitelisted && (preferences.isGlobalScriptBlockingEnabled ||
-                    preferences.isScriptBlockingEnabledForDomain(pageDomain))) {
-                if (resourceType == "script") {
-                    recordBlockedRequest(view)
-                    return createBlockedResponse("script", url, requestOrigin)
-                }
-            }
-
-            // ── Ad & Tracker Blocking ─────────────────────────────────────────
-            if (preferences.isAdBlockEnabled && !isWhitelisted) {
-                val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
-
-                // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
-                // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave). Only subresources and trackers
-                // are intercepted. In Aggressive mode (DomainBlockingType::kAggressive), main-frame ad domains can also be blocked.
-                if (request.isForMainFrame && !isAggressive) {
-                    return null
-                }
-
-                // Never block media streams (video/audio, HLS chunks, DASH segments) with generic domain lists.
-                // Only let the adblock engine check if there is an explicit media rule.
-                if (resourceType == "media") {
-                    val uncloakedMediaUrl = AdBlockDomainManager.uncloakUrl(url)
-                    val mediaMethod = request.method ?: "GET"
-                    val mediaResult = AdBlockEngine.checkRequest(uncloakedMediaUrl, pageUrl, AdBlockEngine.RESOURCE_TYPE_MEDIA, mediaMethod)
-                    if (mediaResult.shouldBlock) {
-                        recordBlockedRequest(view)
-                        if (!mediaResult.redirectData.isNullOrBlank()) {
-                            val surrogate = createSurrogateResponse(mediaResult.redirectData, "media", requestOrigin)
-                            if (surrogate != null) return surrogate
-                        }
-                        return createBlockedResponse("media", url, requestOrigin)
-                    }
-                    return null // Allow media playback!
-                }
-
-                // Explicit detection for synthetic ad test probes (e.g. adblock-tester.com, d3ward, canyoublockit)
-                val isAdTestResource = url.contains("pr_advertising_ads_banner") ||
-                        url.contains("ymatuhin.ru") ||
-                        url.contains("/fakepage.html") ||
-                        (currentDomain == "adblock-tester.com" && (url.contains("/banners/") || url.contains("/ads/")))
-
-                // Static CNAME uncloaking
-                val uncloakedDomain = AdBlockDomainManager.uncloakDomain(reqDomain)
-                val uncloakedUrl = AdBlockDomainManager.uncloakUrl(url)
-
-                // Query native Rust engine through high-performance Kotlin LRU decision cache
-                val resourceTypeInt = detectResourceTypeInt(request)
-                val method = request.method ?: "GET"
-                var engineResult = if (!isAdTestResource) {
-                    AdBlockEngine.checkRequest(uncloakedUrl, pageUrl, resourceTypeInt, method)
-                } else null
-
-                // Dual-pass: if uncloaked URL was not blocked and uncloakedUrl != url, check original URL
-                // to catch rules that explicitly target the cloaked alias
-                if (engineResult?.shouldBlock != true && uncloakedUrl != url && !isAdTestResource) {
-                    val originalResult = AdBlockEngine.checkRequest(url, pageUrl, resourceTypeInt, method)
-                    if (originalResult.shouldBlock || !originalResult.redirectData.isNullOrBlank() || !originalResult.rewrittenUrl.isNullOrBlank()) {
-                        engineResult = originalResult
-                    }
-                }
-
-                val blockedByEngine = engineResult?.shouldBlock == true
-                val redirectData = engineResult?.redirectData
-                val rewrittenUrl = engineResult?.rewrittenUrl
-
-                if (isAdTestResource || blockedByEngine) {
-                    recordBlockedRequest(view)
-
-                    // If a surrogate redirect ($redirect rule) is matched, serve the surrogate script directly!
-                    if (!redirectData.isNullOrBlank()) {
-                        val surrogateResponse = createSurrogateResponse(redirectData, resourceType, requestOrigin)
-                        if (surrogateResponse != null) {
-                            return surrogateResponse
-                        }
-                    }
-
-                    return createBlockedResponse(resourceType, url, requestOrigin)
-                }
-
-                // If a data: rewrite rule ($rewrite=abp-resource:...) modified the URL, serve the synthesized data.
-                // Note: Never return a synthetic 307 Location WebResourceResponse for http(s) $removeparam rewrites,
-                // because Android WebView shouldInterceptRequest does not follow 3xx redirects and delivers an empty
-                // 0-byte body to Blink, breaking embedded player iframes, scripts, and HLS/DASH manifests.
-                if (!rewrittenUrl.isNullOrBlank() && rewrittenUrl != url && rewrittenUrl.startsWith("data:", ignoreCase = true)) {
-                    val dataResponse = createSurrogateResponse(rewrittenUrl, resourceType, requestOrigin)
-                    if (dataResponse != null) return dataResponse
-                }
-            }
-
-            null
+            RealInterceptorChain(
+                interceptors = requestInterceptors,
+                index = 0,
+                context = interceptContext
+            ).proceed(interceptContext)
         } catch (t: Throwable) {
             null
         }
@@ -1803,65 +1453,15 @@ class OnyxWebViewClient(
      * Strip known tracking query parameters from a URL.
      * Returns the cleaned URL, or the original if no params were stripped.
      */
-    private fun stripTrackingParams(url: String): String {
-        return try {
-            val uri = Uri.parse(url)
-            val queryParams = uri.queryParameterNames
-            if (queryParams.none { trackingParams.contains(it) }) return url
-
-            val rawQuery = uri.encodedQuery ?: return url
-            val cleanParts = rawQuery.split('&').filter { part ->
-                if (part.isBlank()) return@filter false
-                val key = part.substringBefore('=').let {
-                    try { Uri.decode(it) } catch (_: Exception) { it }
-                }
-                !trackingParams.contains(key)
-            }
-
-            val newQuery = if (cleanParts.isNotEmpty()) cleanParts.joinToString("&") else null
-            uri.buildUpon().encodedQuery(newQuery).build().toString()
-        } catch (_: Exception) {
-            url
-        }
-    }
+    internal fun stripTrackingParams(url: String): String =
+        PrivacyUrlSanitizer.stripTrackingParams(url)
 
     /**
      * Detect Google AMP URLs and return the canonical URL.
      * Returns null if the URL is not AMP.
-     * Supports formats:
-     *   - amp.example.com -> example.com
-     *   - example.com/amp/article -> example.com/article
-     *   - google.com/amp/s/example.com/path -> https://example.com/path
      */
-    private fun resolveAmpUrl(url: String): String? {
-        return try {
-            val uri = Uri.parse(url)
-            val host = uri.host ?: return null
-            val path = uri.path ?: ""
-
-            // Google AMP cache: https://www.google.com/amp/s/example.com/path
-            if ((host == "www.google.com" || host == "google.com") &&
-                path.startsWith("/amp/s/")) {
-                val canonical = "https://" + path.removePrefix("/amp/s/")
-                return canonical
-            }
-
-            // ?amp=1 query param (clean AMP query parameter)
-            if (uri.getQueryParameter("amp") == "1") {
-                val builder = uri.buildUpon().clearQuery()
-                for (param in uri.queryParameterNames) {
-                    if (param != "amp") {
-                        builder.appendQueryParameter(param, uri.getQueryParameter(param))
-                    }
-                }
-                return builder.build().toString()
-            }
-
-            null
-        } catch (_: Exception) {
-            null
-        }
-    }
+    internal fun resolveAmpUrl(url: String): String? =
+        PrivacyUrlSanitizer.resolveAmpUrl(url)
 
     override fun onPageCommitVisible(view: WebView?, url: String?) {
         super.onPageCommitVisible(view, url)

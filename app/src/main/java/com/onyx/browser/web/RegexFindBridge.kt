@@ -13,6 +13,7 @@ class RegexFindBridge(
     private val onFindResult: (Int, Int) -> Unit
 ) {
 
+    private val mainScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main)
     private var isRegexMode = false
 
     fun setRegexMode(enabled: Boolean) {
@@ -192,7 +193,7 @@ class RegexFindBridge(
 
     @JavascriptInterface
     fun reportResult(activeIndex: Int, matchCount: Int) {
-        CoroutineScope(Dispatchers.Main).launch {
+        mainScope.launch {
             onFindResult(activeIndex, matchCount)
         }
     }

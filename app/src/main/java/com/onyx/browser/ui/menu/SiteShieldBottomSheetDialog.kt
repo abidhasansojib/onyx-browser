@@ -19,7 +19,7 @@ import com.onyx.browser.databinding.BottomSheetSiteShieldBinding
 import com.onyx.browser.web.SiteDataManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -52,7 +52,7 @@ class SiteShieldBottomSheetDialog(
 
     private lateinit var prefs: BrowserPreferences
     private lateinit var domain: String
-    private val scope = CoroutineScope(Dispatchers.Main + Job())
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     override fun getTheme(): Int = R.style.Theme_OnyxBrowser_BottomSheetDialog
 

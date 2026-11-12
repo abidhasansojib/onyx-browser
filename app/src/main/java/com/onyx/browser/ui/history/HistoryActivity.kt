@@ -7,18 +7,17 @@ import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.onyx.browser.R
-import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.databinding.ActivityHistoryBinding
 import com.onyx.browser.ui.browser.TabManager
 import com.onyx.browser.ui.tabs.ClearBrowsingDataDialog
 import com.onyx.browser.ui.theme.AccentColorManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import com.onyx.browser.ui.viewmodel.HistoryViewModel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -26,14 +25,7 @@ class HistoryActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHistoryBinding
     private lateinit var adapter: HistoryAdapter
-    private lateinit var database: AppDatabase
-
-    private var historyJob: Job? = null
-    private var currentQuery: String = ""
-    private var currentRawHistory: List<HistoryItem> = emptyList()
-
-    private val collapsedDayKeys = mutableSetOf<String>()
-    private var isInitialCollapseConfigured = false
+    private lateinit var viewModel: HistoryViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AccentColorManager.applyThemeOverlay(this)
@@ -41,14 +33,14 @@ class HistoryActivity : AppCompatActivity() {
         binding = ActivityHistoryBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        database = AppDatabase.getInstance(this)
+        viewModel = ViewModelProvider(this)[HistoryViewModel::class.java]
 
         binding.toolbarHistory.setNavigationOnClickListener { finish() }
 
         setupRecyclerView()
         setupSearch()
         setupClearDataButton()
-        loadHistory()
+        observeHistory()
     }
 
     private fun setupRecyclerView() {
@@ -59,21 +51,10 @@ class HistoryActivity : AppCompatActivity() {
                 finish()
             },
             onItemDeleted = { item ->
-                lifecycleScope.launch(Dispatchers.IO) {
-                    database.historyDao().deleteHistory(item)
-                    if (com.onyx.browser.web.LocalFileLoader.isPreviewUrl(item.url) ||
-                        com.onyx.browser.web.LocalFileLoader.isLocalFile(this@HistoryActivity, item.url)) {
-                        com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(this@HistoryActivity)
-                    }
-                }
+                viewModel.deleteHistoryItem(item)
             },
             onHeaderToggled = { dayKey ->
-                if (collapsedDayKeys.contains(dayKey)) {
-                    collapsedDayKeys.remove(dayKey)
-                } else {
-                    collapsedDayKeys.add(dayKey)
-                }
-                updateDisplayList()
+                viewModel.toggleDayHeader(dayKey)
             }
         )
 
@@ -82,10 +63,17 @@ class HistoryActivity : AppCompatActivity() {
     }
 
     private fun setupSearch() {
+        val existingQuery = viewModel.searchQuery.value
+        if (existingQuery.isNotEmpty() && binding.etSearchHistory.text?.toString() != existingQuery) {
+            binding.etSearchHistory.setText(existingQuery)
+            binding.etSearchHistory.setSelection(existingQuery.length)
+        }
+        binding.btnClearHistorySearch.visibility = if (existingQuery.isNotEmpty()) View.VISIBLE else View.GONE
+
         binding.etSearchHistory.doAfterTextChanged { text ->
-            currentQuery = text?.toString()?.trim() ?: ""
-            binding.btnClearHistorySearch.visibility = if (currentQuery.isNotEmpty()) View.VISIBLE else View.GONE
-            loadHistory()
+            val query = text?.toString()?.trim() ?: ""
+            binding.btnClearHistorySearch.visibility = if (query.isNotEmpty()) View.VISIBLE else View.GONE
+            viewModel.setSearchQuery(query)
         }
 
         binding.btnClearHistorySearch.setOnClickListener {
@@ -101,49 +89,52 @@ class HistoryActivity : AppCompatActivity() {
             val tm = TabManager.activeInstance
             val dialog = ClearBrowsingDataDialog(
                 tabManager = tm,
-                onDataCleared = {
-                    loadHistory()
-                }
+                onDataCleared = {}
             )
             dialog.show(supportFragmentManager, ClearBrowsingDataDialog.TAG)
         }
     }
 
-    private fun loadHistory() {
-        historyJob?.cancel()
-        historyJob = lifecycleScope.launch {
-            val flow = if (currentQuery.isBlank()) {
-                database.historyDao().getAllHistoryFlow()
-            } else {
-                database.historyDao().searchHistoryFlow(currentQuery)
-            }
-
-            flow.collectLatest { list ->
-                currentRawHistory = list
-                updateDisplayList()
+    private fun observeHistory() {
+        lifecycleScope.launch {
+            combine(
+                viewModel.rawHistory,
+                viewModel.collapsedDayKeys,
+                viewModel.searchQuery
+            ) { rawHistory, collapsedKeys, query ->
+                Triple(rawHistory, collapsedKeys, query)
+            }.collectLatest { (rawHistory, collapsedKeys, query) ->
+                updateDisplayList(rawHistory, collapsedKeys, query)
             }
         }
     }
 
-    private fun updateDisplayList() {
+    private fun updateDisplayList(
+        currentRawHistory: List<HistoryItem>,
+        currentCollapsedKeys: Set<String>,
+        currentQuery: String
+    ) {
         val isSearch = currentQuery.isNotBlank()
 
-        if (!isInitialCollapseConfigured && currentRawHistory.isNotEmpty() && !isSearch) {
-            isInitialCollapseConfigured = true
+        var effectiveCollapsedKeys = currentCollapsedKeys
+        if (!viewModel.isInitialCollapseConfigured && currentRawHistory.isNotEmpty() && !isSearch) {
             val nowCal = Calendar.getInstance()
             val todayKey = HistoryDateUtils.getDayKey(nowCal.timeInMillis)
             val yesterdayCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
             val yesterdayKey = HistoryDateUtils.getDayKey(yesterdayCal.timeInMillis)
 
+            val initialKeys = mutableSetOf<String>()
             val groupedKeys = currentRawHistory.map { HistoryDateUtils.getDayKey(it.visitTime) }.distinct()
             groupedKeys.forEachIndexed { index, key ->
                 if (index > 0 && key != todayKey && key != yesterdayKey) {
-                    collapsedDayKeys.add(key)
+                    initialKeys.add(key)
                 }
             }
+            viewModel.configureInitialCollapsedDays(initialKeys)
+            effectiveCollapsedKeys = initialKeys
         }
 
-        val displayList = buildDisplayList(this, currentRawHistory, collapsedDayKeys, isSearch)
+        val displayList = buildDisplayList(this, currentRawHistory, effectiveCollapsedKeys, isSearch)
         adapter.submitList(displayList)
 
         val isEmpty = currentRawHistory.isEmpty()
