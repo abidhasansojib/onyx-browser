@@ -1,14 +1,14 @@
 # Onyx Browser — Architecture & Core Subsystems
 
-This document provides a comprehensive technical guide to Onyx Browser's internal architecture, native subsystems, Chromium WebView hardening, and privacy engines.
+This document provides a technical guide to Onyx Browser's internal architecture, native subsystems, Chromium WebView hardening, and privacy engines.
 
 ---
 
 ## 1. High-Level Architecture Overview
 
-Onyx Browser (`com.onyx.browser`) is built with a native Android presentation layer, a native Rust content-filtering engine, and a hardened Android System WebView rendering engine.
+Onyx Browser (`com.onyx.browser`) consists of a native Android presentation layer, a native Rust content-filtering engine, and a hardened Android System WebView rendering engine.
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Native Android UI Layer                  │
 │       Activities, ViewBinding XML, Material 3 Theming       │
@@ -18,8 +18,8 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
 │   StateFlow Preferences      │   MediaSession Lockscreen    │
 ├──────────────────────────────┴──────────────────────────────┤
 │                 Hardened Chromium WebView                   │
-│   Multi-Profile Isolation (Normal / Incognito Partitioning)  │
-│   Document-Start Scriptlets & Anti-Bot Masking Bridges       │
+│   Multi-Profile Isolation (Normal / Incognito Partitioning) │
+│   Document-Start Scriptlets & Anti-Bot Masking Bridges      │
 │   Network-Level Request Interception (shouldInterceptRequest)│
 ├─────────────────────────────────────────────────────────────┤
 │               Native Rust Content Blocking Engine           │
@@ -36,259 +36,233 @@ Onyx Browser (`com.onyx.browser`) is built with a native Android presentation la
 ### 2.1. Ad-Blocking Subsystem (`OnyxWebViewClient` & `AdBlockEngine`)
 
 - **Pure Filter-List Evaluation & Kotlin LRU Decision Cache**:
-  - All ad, tracker, popunder, and clickjack blocking decisions are driven 100% by filter lists (54 compiled Brave filter lists + EasyList) evaluated in native `adblock-rust`.
-  - High-performance thread-safe in-memory LRU Decision Caches (`requestDecisionCache` with 8,192 entries and `checkUrlCache` with 4,096 entries) in `AdBlockEngine.kt` ensure `<0.01µs` repeat lookups in Kotlin memory without crossing the JNI boundary.
-  - Cache entries are automatically invalidated via `AdBlockEngine.clearDecisionCache()` whenever shields, blocking levels, or whitelists are modified in `BrowserPreferences`.
+  - Popunder, ad, tracker, and clickjack blocking decisions are driven 100% by filter lists (54 compiled Brave filter lists + EasyList) evaluated in native `adblock-rust`.
+  - In-memory LRU Decision Caches (`requestDecisionCache` with 8,192 entries and `checkUrlCache` with 4,096 entries) in `AdBlockEngine.kt` enable `<0.01µs` repeat lookups without crossing the JNI boundary.
+  - Invalidation via `AdBlockEngine.clearDecisionCache()` occurs whenever shields, blocking levels, or whitelists change in `BrowserPreferences`.
 
-- **Dynamic Blocking Level & Zero Stale Baking (`AdBlockDocumentStart.kt`)**:
-  - The blocking level is queried dynamically at document start via `window.OnyxShieldBridge.getBlockingLevelForDomain()` rather than statically baking blocking levels into `WebViewCompat.addDocumentStartJavaScript`.
-  - Aggressive consent banner rules reside in `#onyx-aggressive-banners` and are dynamically attached or detached via `updateCosmeticBannerStyles(lvl)`, ensuring instant reversion when toggled back to Standard.
+- **Dynamic Blocking Level & Zero Stale Baking (`com.onyx.browser.web.adblock.AdBlockDocumentStart`)**:
+  - The blocking level is queried dynamically at document start via `window.OnyxShieldBridge.getBlockingLevelForDomain()` rather than baking static levels into document-start scripts.
+  - Aggressive consent banner rules reside in `#onyx-aggressive-banners` and attach or detach dynamically via `updateCosmeticBannerStyles(lvl)`.
 
 - **On-Demand Filter Fetching & First-Run Seeding (`FilterListManager`)**:
-  - Missing filter lists are downloaded on-demand into `filter_cache/` when toggled in Content Filters settings or during app startup via `FilterListManager.ensureDefaultFiltersCached()`.
-  - Downloaded rules are merged and compiled into `onyx_filters.bin` and the active in-memory Rust engine, scaling rule coverage from base EasyList (~35,500) to full multi-list protection (~135,000+ rules).
-  - Filter signatures (`compiledFilterSignature`) trigger binary recompilation on startup when subscriptions change. Background updates use an `AtomicBoolean` mutex to prevent concurrent file conflicts, and `recompileFilters` executes in a `NonCancellable` context.
+  - Filter lists download on-demand into `filter_cache/` when toggled in Content Filters settings or during app startup via `FilterListManager.ensureDefaultFiltersCached()`.
+  - Downloaded rules compile into `onyx_filters.bin` and the active in-memory Rust engine, scaling rule coverage from base EasyList (~35,500) to full multi-list protection (~135,000+ rules).
+  - Background updates use an `AtomicBoolean` mutex to prevent concurrent file conflicts, with compilation executing in a `NonCancellable` context.
 
 - **Video Ad Cosmetic Selector Preservation**:
-  - Refined `safeSelectors` preserves selectors with ad, banner, sponsor, promo, overlay, popup, and preroll keywords while protecting bare `<video>`/`<audio>` tags and generic media containers, restoring cosmetic ad hiding on streaming sites.
+  - `safeSelectors` preserves selectors with ad, banner, sponsor, promo, overlay, popup, and preroll keywords while protecting bare `<video>`/`<audio>` tags and generic media containers, preventing breakage on video sites.
 
 - **Scoped Auth & Login Context Bypass**:
-  - Confines `/login/` deactivations and Meta auth parameter bypasses strictly to authentication/challenge domains, ensuring normal websites with `/login/` in their paths retain active shields and ad-blocking.
+  - Confines `/login/` deactivations and Meta auth parameter bypasses strictly to authentication/challenge domains, ensuring normal websites with `/login/` in their paths retain active shields.
 
-- **Scoped Social Tracker Evaluation**:
-  - Third-party Facebook SDK scripts (`connect.facebook.net`, `graph.facebook.com`) on non-Meta websites undergo native adblock filter evaluation unless the user is actively in an OAuth flow or on a Meta context.
-
-- **Static CNAME Uncloaking (`AdBlockDomainManager`)**:
+- **Static CNAME Uncloaking (`com.onyx.browser.web.adblock.AdBlockDomainManager`)**:
   - Resolves cloaked first-party subdomains (e.g. Adobe Omniture, Criteo, Branch, AppsFlyer) to their real third-party tracker hosts before rule evaluation.
 
 - **Surrogate Redirect (`$redirect`) & URL Rewrite (`$rewrite`) Handling**:
-  - Evaluates `$redirect` surrogate targets and `data:` `$rewrite` rules natively with credentialed-CORS-compatible headers (`Access-Control-Allow-Origin` echoing the request `Origin` + `Access-Control-Allow-Credentials: true` when `Origin` is present). Script and XHR resources serve safe surrogates (`google-analytics_analytics.js`, `googletagmanager_gtm.js`, `adsbygoogle.js`, `google-ima.js`, `noopjson`, `noopvast`, `noopjs`) with HTTP 200 OK so web applications and third-party video players do not stall or throw `TypeError`.
-  - Document-start `fetch` / `XMLHttpRequest` proxies delegate to `OnyxShieldBridge.isUrlBlocked` first and allow `$redirect` and VAST/VMAP requests through to `OnyxWebViewClient.shouldInterceptRequest`. `http(s):` `$removeparam` subresource matches pass through natively rather than returning synthetic 3xx `WebResourceResponse` objects (which Android WebView does not follow).
+  - Evaluates `$redirect` surrogate targets and `data:` `$rewrite` rules with credentialed-CORS headers (`Access-Control-Allow-Origin: <Origin>` + `Access-Control-Allow-Credentials: true`). Script and XHR resources serve safe surrogates (`google-analytics_analytics.js`, `googletagmanager_gtm.js`, `adsbygoogle.js`, `google-ima.js`, `noopjson`, `noopvast`, `noopjs`) with HTTP 200 OK.
+  - Document-start `fetch` / `XMLHttpRequest` proxies delegate to `ShieldBridge.isUrlBlocked` first and allow `$redirect` and VAST/VMAP requests through to `OnyxWebViewClient.shouldInterceptRequest`.
 
 - **CSP Directives Extraction & MSE Worker Preservation**:
-  - Native bridge exposes `getCspDirectivesNative` to query `engine.get_csp_directives(&request)` and enforce Content Security Policies declared by filter rules. `OnyxShieldBridge.getCspDirectives` strips `<meta>`-invalid directives (`sandbox`, `frame-ancestors`, `report-uri`) and rewrites `worker-src 'none'` to `worker-src blob:` so `https:` ServiceWorkers remain blocked while in-memory MSE `blob:` Web Workers (`hls.js`, `dash.js`, `mpegts.js`) can demux video streams.
+  - Queries `engine.get_csp_directives(&request)` to enforce Content Security Policies declared by filter rules. `ShieldBridge.getCspDirectives` strips `<meta>`-invalid directives (`sandbox`, `frame-ancestors`, `report-uri`) and rewrites `worker-src 'none'` to `worker-src blob:` so in-memory MSE `blob:` Web Workers (`hls.js`, `dash.js`) continue demuxing video streams.
 
-- **Document-Start Synchronous Injection (`OnyxShieldBridge`)**:
-  - Pulls domain-specific cosmetic CSS and Brave scriptlets synchronously via `OnyxShieldBridge` at `document_start` before initial DOM parsing begins. Injects `<style id="onyx-domain-cosmetic">` to eliminate layout flicker and executes Brave scriptlets across all main frames and subframes before any inline or external scripts run.
+- **Document-Start Synchronous Injection (`com.onyx.browser.web.bridge.ShieldBridge`)**:
+  - Pulls domain-specific cosmetic CSS and Brave scriptlets synchronously via `ShieldBridge` (exposed to scripts as `window.OnyxShieldBridge`) at `document_start` before initial DOM parsing. Injects `<style id="onyx-domain-cosmetic">` to eliminate layout flicker and executes Brave scriptlets across all main frames and subframes.
 
 - **Full Brave Procedural Filter Engine**:
-  - Complete port of Brave's `procedural_filters.ts` featuring all 15 procedural operators (`css-selector`, `has-text`, `min-text-length`, `matches-attr`, `matches-property`, `matches-css`, `matches-css-before`, `matches-css-after`, `matches-media`, `matches-path`, `upward`, `xpath`, `has`, `not`, `contains`) with fast-path optimizations for media queries and URL paths, coupled with action operators (`style`, `remove`, `remove-attr`, `remove-class`).
+  - Complete port of Brave's `procedural_filters.ts` featuring all 15 procedural operators (`css-selector`, `has-text`, `min-text-length`, `matches-attr`, `matches-property`, `matches-css`, `matches-css-before`, `matches-css-after`, `matches-media`, `matches-path`, `upward`, `xpath`, `has`, `not`, `contains`) and action operators (`style`, `remove`, `remove-attr`, `remove-class`).
 
 - **Response Synthesis (`createBlockedResponse`)**:
-  - *Standard Mode (Spoofing OFF)*: Returns HTTP 403 Forbidden with CORS headers for third-party ad resources.
-  - *Adblocker Spoofing Mode (Spoofing ON)*: Synthesizes type-aware safe HTTP 200 OK stubs with CORS headers (1×1 transparent PNG for images, empty JS for scripts, empty CSS for stylesheets, HTML comment for subframes) to bypass aggressive anti-adblock detection walls.
+  - *Standard Mode*: Returns HTTP 403 Forbidden with CORS headers for third-party ad resources.
+  - *Adblocker Spoofing Mode*: Synthesizes type-aware HTTP 200 OK stubs with CORS headers (1×1 transparent PNG for images, empty JS for scripts, empty CSS for stylesheets, HTML comment for subframes) to bypass anti-adblock detection walls.
 
 - **Universal Streaming Video Ad & Clickjack Defusal Architecture**:
-  - *Native `$popup` & `$popunder` Option Support*: `abstract_network.rs` in `adblock-rust` maps `$popup` and `$popunder` filter options to `NetworkFilterOption::Document`, and `rust_engine/src/lib.rs` normalizes filter rules during `initFromRules`. EasyList and uBlock Origin popup rules (`||betting-site.com^$popup`) are compiled into native filter lists and matched against `main_frame` and `popup` request types.
-  - *Capture-Phase Clickjack Annihilation (`AdBlockDocumentStart.kt`)*: Capture-phase `click` traps intercept touches strictly on empty invisible clickjack traps (`clickjack` classes/IDs, empty `opacity: 0` max-z-index shields, empty full-player `target="_blank"` anchors) without matching player control overlays, intercepting `pointerdown`, or synthetically toggling `video.play()`/`pause()`.
-  - *Google IMA SDK Surrogate & Fallback Alignment*: Avoids pre-defining global `window.google.ima` stubs on pages; blocked `ima3.js` scripts return HTTP 403 (`script.onerror` direct-play fallback), `$redirect=google-ima.js` rules serve Brave's full IMA surrogate from `brave-resources.json`, and `@@||imasdk.googleapis.com` whitelist exceptions load normally.
-  - *Universal HTML5 Video In-Stream Ad Skipper*: Multi-observer subsystem monitors active ad-playback states (`.jw-flag-ads video`, `.vjs-ad-playing video`, `.ad-showing video`, `.videoAdUi video`, `.ima-ad-container video[title="Advertisement"]`). Automatically mutes ad audio, accelerates playback rate to 16x, jumps to the end of ad duration, and clicks explicit ad-skip buttons without touching content videos or seek controls (`.vjs-skip-button`).
-  - *Network-Level Main-Frame & Cross-Domain Redirect Interception (`OnyxWebViewClient`)*: `shouldOverrideUrlLoading` intercepts cross-domain navigations away from media/streaming pages to known ad/betting networks (e.g. 1xBet, Stake, Clickadu, AdMaven, Monetag, PropellerAds) and navigations matching `AdBlockEngine.shouldBlock(..., "main_frame")` in both Standard and Aggressive modes.
-  - *Streaming Popup Gating (`MainActivity`)*: `onCreateWindowCallback` evaluates the active tab's streaming/media status and suppresses tap-spawned popunder tabs when shields are active, preventing transparent overlay taps from opening unwanted browser windows.
-  - *VAST/VMAP Empty XML Synthesis*: XHR/fetch requests matching VAST or VMAP ad tags (excluding `.js`/`.css`/`.html`/image assets) return valid empty `<VAST version="3.0"/>` XML (`text/xml; charset=utf-8`) with HTTP 200 OK and credentialed-safe CORS headers, preventing player XML parse and CORS errors.
-  - *Procedural DOM Element Deletion*: Procedural filter action `remove` calls `el.remove()` in addition to CSS concealment, permanently excising transparent overlays from the DOM tree. Subframes (`<iframe>`) re-query cosmetic rules and scriptlets once frame URLs resolve from `about:blank`.
+  - *Native `$popup` & `$popunder` Option Support*: Maps `$popup` and `$popunder` filter options to `NetworkFilterOption::Document` in `rust_engine/src/lib.rs`. EasyList and uBlock Origin popup rules are compiled into native filter lists and matched against `main_frame` and `popup` request types.
+  - *Capture-Phase Clickjack Annihilation (`AdBlockDocumentStart.kt`)*: Intercepts touches on empty invisible clickjack traps (`clickjack` classes/IDs, empty `opacity: 0` max-z-index shields, empty full-player `target="_blank"` anchors) without matching player controls or synthetically toggling playback.
+  - *Google IMA SDK Surrogate & Fallback Alignment*: Blocked `ima3.js` scripts return HTTP 403 (`script.onerror` fallback), `$redirect=google-ima.js` rules serve Brave's full IMA surrogate, and `@@||imasdk.googleapis.com` whitelist exceptions load normally.
+  - *HTML5 Video In-Stream Ad Skipper*: Monitors active ad-playback states (`.jw-flag-ads video`, `.vjs-ad-playing video`, `.ad-showing video`, `.videoAdUi video`). Automatically mutes ad audio, accelerates playback rate to 16x, jumps to the end of ad duration, and clicks explicit ad-skip buttons.
+  - *Cross-Domain Redirect Interception (`OnyxWebViewClient`)*: `shouldOverrideUrlLoading` intercepts cross-domain navigations away from media/streaming pages to known ad/betting networks.
+  - *VAST/VMAP Empty XML Synthesis*: XHR/fetch requests matching VAST or VMAP ad tags return valid empty `<VAST version="3.0"/>` XML (`text/xml; charset=utf-8`) with HTTP 200 OK and CORS headers.
 
 - **Trusted Types CSP Immunity for Brave Scriptlets**:
-  - On sites serving `require-trusted-types-for 'script'` CSP (such as YouTube), `Function()` and `eval()` throw `TypeError`. Both `AdBlockDocumentStart.kt` and `OnyxWebViewClient.kt` create an early Trusted Types policy (`onyx-shield-policy`) with fallback to DOM `<script>` injection, ensuring `json-prune`, `set`, and all Brave scriptlets execute reliably without being dropped.
+  - On sites serving `require-trusted-types-for 'script'` CSP (such as YouTube), `AdBlockDocumentStart.kt` and `OnyxWebViewClient.kt` create an early Trusted Types policy (`onyx-shield-policy`) with fallback to DOM `<script>` injection, ensuring scriptlets execute reliably.
+
+- **Declarative Shadow DOM (DSD) Progressive Hydration Safety Net (`DsdHydrationFix`)**:
+  - In `com.onyx.browser.web.adblock.DsdHydrationFix`, removes `dsd-pending` attributes across root documents and open shadow roots on `onPageFinished`, preventing blank pages when progressive hydration scripts are blocked by tracker filters.
 
 ---
 
 ### 2.2. Media & Playback Subsystem (`MediaPlaybackManager`, `MediaPlaybackBridge`, and `MediaPlaybackService`)
 
 - **Transparent Video Poster (`OnyxWebChromeClient`)**:
-  - Overrides `getDefaultVideoPoster()` to return a cached 1×1 transparent ARGB_8888 bitmap, universally removing Android WebView's default dark-gray box with embedded black play arrow (`ic_media_embed_play.png`) across all websites.
+  - Overrides `getDefaultVideoPoster()` to return a cached 1×1 transparent ARGB_8888 bitmap, removing Android WebView's default dark-gray box with embedded play arrow.
 
 - **Muted Looping & Decorative Visual Filtering (`isQualifyingMedia`)**:
-  - Excludes muted looping decorative animations (`elem.loop && (elem.muted || elem.volume === 0)`) and muted videos without user controls from qualifying media. Background hero visuals play silently without triggering foreground notifications, MediaSession takeovers, or AudioFocus races.
+  - Excludes muted looping background animations (`elem.loop && (elem.muted || elem.volume === 0)`) from qualifying media, avoiding unnecessary foreground notifications or MediaSession takeovers.
 
-- **Strictly Guarded PiP Restoration & Resize Protection**:
-  - `restoreVideoFromPipScript` execution in `onResume()` and `onWindowFocusChanged()` is strictly guarded by `justExitedPip || isCurrentlyInPip` in `MainActivity`.
-  - The script itself verifies `__onyx_pip_style` and active PiP DOM targets before dispatching `resize` events, completely eliminating synthetic resize loops that cause responsive navigation components (e.g. GitHub toolbar) to oscillate between dropdown and button rows.
+- **Guarded PiP Restoration**:
+  - `restoreVideoFromPipScript` execution in `onResume()` and `onWindowFocusChanged()` is guarded by `justExitedPip || isCurrentlyInPip` in `MainActivity`. Verifies active PiP DOM targets before dispatching resize events, eliminating responsive toolbar oscillation.
 
-- **Clean Foreground/Background Media Service Handshake**:
-  - In the foreground, Android System WebView retains 100% native control over playback and MediaSession without focus collisions.
-  - `MediaPlaybackService` holds both `PARTIAL_WAKE_LOCK` and `WifiLock` (low latency / high performance) to completely prevent CPU suspension and Wi-Fi chip sleep during long background playback sessions with screen off. Separate PendingIntent request codes prevent SystemUI action collisions.
-  - `MediaPlaybackService` is launched on background transition or tab-switch away from an active media tab, and `outgoingWebView.resumeTimers()` maintains JavaScript decoding on detached WebViews.
+- **Foreground/Background Media Service Handshake**:
+  - In foreground, WebView retains native control over playback and MediaSession.
+  - `MediaPlaybackService` holds `PARTIAL_WAKE_LOCK` and `WifiLock` to prevent CPU suspension during screen-off background playback.
+  - Detached WebViews receive `resumeTimers()` to maintain JavaScript audio demuxing.
 
-- **Partitioned Media Cookies & CDN Stream Playback (Brave Parity)**:
-  - Automatically permits third-party cookies for media subresources, video stream CDNs (such as HLS `.m3u8` playlists and segments), and embedded player iframes (e.g. `ravok.buzz`, `fireplayer.stream`), preventing HTTP 403 Forbidden on token/cookie-authenticated streams.
+- **Partitioned Media Cookies & CDN Stream Playback**:
+  - Permits third-party cookies for media subresources, video stream CDNs (HLS `.m3u8` playlists and segments), and embedded player iframes, preventing HTTP 403 on token-authenticated streams.
 
-- **Brave & Firefox `userHitPause` Architecture & Auto-Resume**:
-  - Sets `HTMLMediaElement.prototype.userHitPause = true` only upon genuine user player touch interactions (`window.__onyx_last_player_touch < 2500`) or explicit bridge pause commands (`__onyx_allow_explicit_pause`), and `false` on `play`.
-  - When web pages, tab switches, or OS blur events trigger auto-pause without explicit user intent (`!element.userHitPause`), Onyx automatically re-invokes `play()` and suppresses bridge pause callbacks to sustain seamless playback.
+- **`userHitPause` Intent Tracking & Auto-Resume**:
+  - Sets `HTMLMediaElement.prototype.userHitPause = true` upon user player touch interactions or bridge pause commands, and `false` on `play`.
+  - When web pages or OS blur events trigger auto-pause without explicit user intent (`!element.userHitPause`), Onyx re-invokes `play()` and suppresses bridge pause callbacks.
 
 - **Universal Page Visibility Interception & YouTube Keep-Alive**:
-  - Capturing `visibilitychange` and `webkitvisibilitychange` listeners intercept visibility events with `stopImmediatePropagation()` before website scripts receive them.
+  - Capturing `visibilitychange` listeners intercept visibility events with `stopImmediatePropagation()`.
   - `Document.prototype.visibilityState` returns `'visible'` and `Document.prototype.hidden` returns `false` when background playback is active.
-  - YouTube mobile tracks user inactivity via `window._lact`; Onyx refreshes `_lact` every 30 seconds to prevent "Video paused. Continue watching?" interruptions, and automatically re-binds media listeners on SPA page transitions (`yt-navigate-finish`, `yt-page-data-updated`).
+  - Refreshes YouTube mobile's `window._lact` inactivity timer every 30 seconds to prevent "Video paused. Continue watching?" interruptions.
 
-- **Audio Becoming Noisy & Audio Focus Management (Brave Parity)**:
-  - Registers a system `BroadcastReceiver` for `AudioManager.ACTION_AUDIO_BECOMING_NOISY`. When wired headphones are unplugged or Bluetooth audio disconnects during media playback, the service immediately pauses playback and updates lockscreen notification controls.
-  - Audio focus is handled by the Chromium WebView media session (pauses on loss, resumes on transient regain). `MediaPlaybackService` does not request focus to avoid stealing it from the WebView in the same process.
-  - Lifecycle: `onPause()` never pauses media; `onStop()` keeps the media tab running (background play) or pauses media explicitly. Native auto-resume of non-user pauses runs only while stopped, skips calls, and is capped at 3 per 15s.
+- **Audio Becoming Noisy & Audio Focus Management**:
+  - `AudioManager.ACTION_AUDIO_BECOMING_NOISY` receiver pauses playback when headphones or Bluetooth audio disconnect.
+  - Audio focus is managed by the Chromium WebView media session. `MediaPlaybackService` does not request its own focus, avoiding intra-process focus fighting.
+  - `onPause()` never pauses media (allowing PiP and dialog transitions); `onStop()` decides whether to sustain playback based on the background play preference.
 
-- **Picture-in-Picture (PiP) Architecture & Auto-Enter (Brave Parity)**:
-  - Isolates strictly the single active `[data-onyx-pip-video="true"]` `<video>` or player `<iframe>` across Light DOM, Shadow DOM, and cross-origin subframes (`__onyx_cmd: 'pip'`) via stylesheet-only rules (`#__onyx_pip_style`), dissolving ancestor stacking contexts and hiding non-ancestor sibling chrome via `visibility: hidden` without clobbering original inline styles or promoting secondary `<video>` / helper `<iframe>` nodes.
-  - Maps CSS `getBoundingClientRect()` coordinates (including subframe offsets) against `window.innerWidth` / `window.innerHeight` and physical `WebView` bounds for accurate `sourceRectHint` transitions across mobile and desktop viewports, ignoring PiP-sized bounds while inside PiP.
-  - Dynamically arms `setAutoEnterEnabled(true)` on Android 12+ (API 31+) strictly when video is playing on the active foreground tab (`isActiveTabVideoPlaying()`), and disarms immediately upon pause, tab switch, or internal child activity launch.
-  - Leverages `onUserLeaveHint()` for Android 8-11 Auto-PiP transitions (and 12+ fallback when `isAutoEnterArmed` is false), and resolves PiP exit deterministically via `pendingPipCloseCheck` (`onResume()` keeps playback running on Expand; `onStop()` while screen is interactive marks `isExplicitUserPause = true` and stops media on 'X' Close).
-  - Preserves `fullscreenControlsOverlay` inside `fullscreenCustomViewContainer` across repeated fullscreen sessions with 3.5s auto-hide and seamlessly hands off to isolated in-page PiP if Chromium invokes `onHideCustomView()` mid-PiP.
-  - Coerces aspect ratio strictly within `[Rational(1, 2), Rational(2, 1)]`, tracks live `<video>` `resize` dimension changes, shields all `setPictureInPictureParams()` calls via `safeSetPictureInPictureParams`, and synchronizes RemoteAction play/pause icons in real time.
+- **Picture-in-Picture (PiP) Architecture & Auto-Enter**:
+  - Styles strictly the active `[data-onyx-pip-video="true"]` `<video>` or player `<iframe>` via stylesheet-only rules (`#__onyx_pip_style`), dissolving ancestor stacking contexts without altering inline styles.
+  - Maps `getBoundingClientRect()` against physical `WebView` bounds for accurate `sourceRectHint` animations.
+  - Arms `setAutoEnterEnabled(true)` on Android 12+ (API 31+) when video is playing on the active foreground tab, disarming on pause, tab switch, or internal child activity launches.
+  - `onUserLeaveHint()` handles Android 8-11 Auto-PiP transitions.
+  - `pendingPipCloseCheck` distinguishes between expanding PiP back to the browser (playback continues) and dismissing PiP via 'X' (pauses media).
+  - Coerces aspect ratio strictly within `[Rational(1, 2), Rational(2, 1)]`, tracking live dimension changes via `safeSetPictureInPictureParams`.
 
 - **Lockscreen Playlist Autoplay Grace Gap**:
-  - Implements a 2000ms debounce gap on track completion (`onMediaEnded`), preventing sudden teardown of foreground service notification and wake locks while media players buffer the subsequent track during locked-screen playlist sessions.
+  - Debounce gap of 2000ms on track completion (`onMediaEnded`) prevents premature teardown of foreground service notifications while the subsequent playlist track buffers.
 
-- **Night Mode Recreation Shielding & Battery Governor**:
-  - Defers activity recreation on system night mode or configuration changes while in PiP (`maybeDeferNightModeRecreate`), preventing abrupt window destruction mid-stream.
-  - Conserves battery by pausing inactive background WebViews via `onPause()` during background playback, while preserving timer execution exclusively on the active media tab (`mediaTabWv.resumeTimers()`).
+- **Battery Governor**:
+  - Inactive background WebViews are suspended via `onPause()` during background playback, while JavaScript timers remain active exclusively on the media-playing tab (`resumeTimers()`).
 
 ---
 
-### 2.3. Chromium Multi-Profile Isolation (Normal vs Incognito)
+### 2.3. Chromium Multi-Profile Isolation (Normal vs. Incognito)
 
 - **Profile Partitioning**:
-  - `OnyxWebView` assigns profile-scoped cookie jars and WebStorage via `ProfileStore.getOrCreateProfile("incognito")` and `WebViewCompat.setProfile()`. Normal and incognito tabs have 100% isolated cookies, localStorage, IndexedDB, and cache.
+  - `OnyxWebView` assigns profile-scoped cookie jars and WebStorage via `ProfileStore.getOrCreateProfile("incognito")` and `WebViewCompat.setProfile()`. Normal and incognito tabs maintain isolated cookies, localStorage, IndexedDB, and cache.
 
 - **Deferred Cookie Configuration**:
-  - `applyCookieSettings()` is executed strictly after profile assignment, preventing incognito tabs from binding to the default profile.
+  - `applyCookieSettings()` executes strictly after profile assignment, preventing incognito tabs from binding to the default profile.
 
 - **Automated Lifecycle Purge**:
-  - Closing all incognito tabs triggers `TabManager.purgeIncognitoProfile()`, wiping all incognito cookies, deleting WebStorage data, and destroying the incognito profile partition.
+  - Closing all incognito tabs triggers `TabCoordinator.purgeIncognitoProfileStatic()`, purging cookies, deleting WebStorage, and destroying the incognito profile partition.
 
-- **Universal OAuth Grace Period**:
+- **OAuth Authentication Grace Period**:
   - Third-party cookies are temporarily permitted on the active profile during authentication and CAPTCHA handshakes (Google, Apple, Microsoft, Meta, Arkose), ensuring logins succeed in both normal and incognito modes.
 
 ---
 
-### 2.4. Anti-Bot, CAPTCHA & Authentication Integrity (Arkose Labs & Meta Parity)
+### 2.4. Anti-Bot, CAPTCHA & Authentication Integrity
 
 - **`fbsbx.com` & Challenge Domain Isolation**:
   - Meta serves Arkose MatchKey / FunCaptcha challenges inside an iframe hosted at `https://www.fbsbx.com/captcha/arkose/iframe/` connecting to `meta-api.arkoselabs.com`.
-  - All document-start polyfills and monitoring scripts (`DevToolsManager`, `WebGLCompatibilityBridge`, `OnyxTouchBridge`, `MediaPlaybackManager`, `DesktopModeManager`) comprehensively exempt `fbsbx.com`, `facebook.net`, `fbcdn.net`, and challenge paths (`/captcha/`, `/checkpoint/`, `/fc/`).
+  - All document-start polyfills and monitoring scripts (`DevToolsManager`, `WebGLCompatibilityBridge`, `TouchBridge`, `MediaPlaybackManager`, `DesktopModeManager`) exempt `fbsbx.com`, `facebook.net`, `fbcdn.net`, and challenge paths (`/captcha/`, `/checkpoint/`, `/fc/`).
 
-- **Window Hash (`wh`) Reflection Masking (`ChromeEnvironmentBridge`)**:
+- **Window Hash (`wh`) Reflection Masking (`com.onyx.browser.web.bridge.ChromeEnvironmentBridge`)**:
   - Arkose Labs computes a cryptographic Window Hash (`wh = MurmurHash3-128(Object.getOwnPropertyNames(window).sort().join('|'))`).
-  - Injected Android Java bridge properties (`OnyxShieldBridge`, `PasskeyWebAuthnBridge`, etc.) and `__onyx*` variables are hidden from `Object.getOwnPropertyNames`, `Object.keys`, and `Reflect.ownKeys` on `window` and `window.__proto__` using native-masked functions (`function () { [native code] }`), ensuring the resulting hash matches 100% authentic mobile Chrome.
+  - Injected Android Java bridge properties (`OnyxShieldBridge`, `PasskeyWebAuthnBridge`, etc.) and `__onyx*` variables are masked from `Object.getOwnPropertyNames`, `Object.keys`, and `Reflect.ownKeys` on `window` and `window.__proto__` using native-masked functions (`function () { [native code] }`).
 
 - **Console & WebGL Prototype Protection**:
-  - Anti-bot engines verify `console.log.toString() === "function log() { [native code] }"` and profile WebGL/Canvas rendering via `HTMLCanvasElement.prototype.getContext`. DevTools console pre-buffering and WebGL shims are bypassed on auth and challenge frames to prevent bot detection flags.
+  - Anti-bot engines verify `console.log.toString() === "function log() { [native code] }"`. DevTools console pre-buffering and WebGL shims are bypassed on auth and challenge frames to prevent bot detection flags.
 
-- **Touch Dynamics & Micro-Timing Preservation**:
-  - Touch event listeners on `document` with capture phase are suppressed in challenge iframes, eliminating DOM traversal and Java bridge IPC latency so Arkose's sensor telemetry records authentic human touch gesture dynamics.
-
-- **WebAuthn Level 3 Passkeys, PasswordCredential & Universal Password Managers**:
-  - `PasskeyWebAuthnBridge.kt` marshals all `@JavascriptInterface` invocations from Chromium's `JavaBridge` thread onto the Main UI thread before reading `webView.url`, validates `rpId` domain suffixes and subframe `crossOrigin` flags, and invokes Android `CredentialManager` with `CREDENTIAL_MANAGER_SET_ORIGIN` (`origin` + `clientDataHash`) while holding `MainActivity` dialog lifecycle guards (`onCredentialManagerDialogStart`/`End`).
-  - Preserves provider-signed `clientDataJSON` payloads when valid JSON is returned, parses CBOR `attestationObject` structures to populate `authenticatorData`, DER SPKI `publicKey` (P-256, P-384, Ed25519, RS256), and `publicKeyAlgorithm`, sanitizes binary WebAuthn extensions (`ArrayBuffer` to Base64Url) for strict provider parsers (e.g. Bitwarden Rust SDK), and suppresses unsolicited page-load conditional mediation popups (`isConditionalMediationAvailable() -> false`).
-  - Supports W3C `PasswordCredential` (`GetPasswordOption` and `CreatePasswordRequest`) alongside live `OnyxWebView.syncAutofillSettings()` and `AutofillManager.autofillServiceComponentName` provider detection across Bitwarden, Proton Pass, 1Password, KeePassDX, Dashlane, Enpass, and NordPass.
-  - `ChromeEnvironmentBridge.kt` masks native Android WebView fingerprints while polyfilling `navigator.userAgentData.brands` with standard Chrome/Chromium brands, preventing Google Sign-In from throwing `403: disallowed_useragent`.
-  - Passkey injection is enabled across all login domains (e.g. GitHub, Google, Microsoft), omitting only Meta's internal challenge frames (`fbsbx.com`) and Meta auth domains.
+- **WebAuthn Level 3 Passkeys, PasswordCredential & Credential Manager (`com.onyx.browser.web.bridge.PasskeyWebAuthnBridge`)**:
+  - Marshals `@JavascriptInterface` invocations from Chromium's `JavaBridge` thread onto the Main UI thread before reading `webView.url`, validates `rpId` domain suffixes and subframe `crossOrigin` flags, and invokes Android `CredentialManager` with `CREDENTIAL_MANAGER_SET_ORIGIN` (`origin` + `clientDataHash`).
+  - Constructs canonical unescaped `clientDataJSON` matching `clientDataHash` and injects it into assertion and registration responses, ensuring Relying Party SHA-256 checks verify against authenticator signatures.
+  - Normalizes Base64 fields to canonical unpadded Base64URL, extracts CBOR `attestationObject` metadata (`authenticatorData`, DER SPKI `publicKey`, `publicKeyAlgorithm`), and suppresses unsolicited page-load conditional mediation popups (`isConditionalMediationAvailable() -> false`).
+  - Supports W3C `PasswordCredential` alongside `AutofillHelper.getActivePasswordManager` provider detection (`com.onyx.browser.autofill`).
+  - Injects authentic Chrome brands in `navigator.userAgentData`, preventing Google Sign-In `403: disallowed_useragent` blocks.
 
 ---
 
-### 2.5. Subsystem Reliability & Process Lifecycle Hardening
+### 2.5. Reliability & Process Lifecycle Hardening
 
 - **Media Playback Lifecycle Guarding**:
-  - `MediaPlaybackService` tracks `@Volatile var isServiceRunning: Boolean` ensuring `updateState`, `updateProgress`, and `updateMetadata` never invoke `startForegroundService` when the service is inactive or media is paused, eliminating Android 12+ `ForegroundServiceStartNotAllowedException` crashes.
-  - Explicit `MediaPlaybackService.stop(applicationContext)` in `MainActivity.onDestroy()` and `onTaskRemoved()` in `MediaPlaybackService` guarantee zero orphaned foreground services, held wake locks, or sticky notifications when the app is swiped away or closed.
+  - `MediaPlaybackService` tracks `@Volatile var isServiceRunning: Boolean` ensuring state updates never invoke `startForegroundService` when the service is inactive or media is paused, eliminating Android 12+ `ForegroundServiceStartNotAllowedException` crashes.
+  - Explicit `MediaPlaybackService.stop(applicationContext)` in `MainActivity.onDestroy()` and `onTaskRemoved()` in `MediaPlaybackService` prevent orphaned foreground services.
 
-- **WebView Renderer Process Crash Self-Healing**:
-  - `OnyxWebViewClient.onRenderProcessGone` traps renderer process terminations and out-of-memory kills, preventing application crashes.
-  - Delegates to `TabActionCallback.onRendererCrash(tabId)`, which notifies `TabManager.handleRendererCrash(tabId)` to evict the dead WebView instance and instantiate a fresh WebView with restored state.
+- **Renderer Crash Self-Healing**:
+  - `OnyxWebViewClient.onRenderProcessGone` catches renderer process terminations and OOM kills. Delegates to `TabCoordinator.handleRendererCrash(tabId)` to evict the crashed WebView and recreate a fresh instance with restored state.
 
 - **BroadcastReceiver Asynchronous Execution (`goAsync`)**:
-  - Handlers performing Room database writes, Scoped Storage lookups, or profile purges (`DownloadCompleteReceiver`, `IncognitoNotificationReceiver`) invoke `val pendingResult = goAsync()` and execute work inside `CoroutineScope(Dispatchers.IO).launch { try { ... } finally { pendingResult.finish() } }`.
+  - Receivers performing Room writes or profile purges (`DownloadCompleteReceiver`, `IncognitoNotificationReceiver`) invoke `goAsync()` and dispatch work to `CoroutineScope(Dispatchers.IO)`.
 
-- **Download Memory Safety & Data URI Protection**:
-  - `DownloadHandler` enforces a 64MB memory boundary on Base64 `data:` URIs and defensive `OutOfMemoryError` handling, preventing large media payloads from exceeding process heap limits.
-  - RFC 5987 / RFC 6266 filename resolution correctly extracts UTF-8 encoded names and classifies generic stream headers (`application/octet-stream`) as neutral to avoid stripping `.zip`, `.apk`, or `.pdf` extensions.
+- **Download Memory Safety & Data URI Protection (`com.onyx.browser.download.DownloadHandler`)**:
+  - Enforces a 64MB memory ceiling on Base64 `data:` URIs with defensive `OutOfMemoryError` guards.
+  - RFC 5987 / RFC 6266 filename resolution extracts UTF-8 encoded names and classifies generic stream headers (`application/octet-stream`) as neutral to preserve `.zip`, `.apk`, or `.pdf` extensions.
 
-- **Zero Unwanted Tab Auto-Creation on Close**:
-  - Closing the last tab or executing "Close all tabs" sets active tab to `null` and empties `_normalTabs` without automatically generating an unwanted placeholder tab.
-  - `MainActivity.observeTabs` smoothly transitions to `showHomeScreen()` with badge count "0", `TabSwitcherBottomSheet` renders the clean "No tabs open" empty state, and new tabs are created strictly on explicit user intent (tapping "+", entering a URL/search, or clicking a shortcut).
+- **Privacy Lifecycle Cleanup (`com.onyx.browser.privacy`)**:
+  - `ClearOnExitService` listens for `onTaskRemoved` upon Recent Apps swipe-away.
+  - Synchronous browsing data clearance routes through `ClearDataOnExitHelper`: Room database history and normal tabs purged via `runBlocking(Dispatchers.IO)`, Chromium cookies flushed across default and multi-profiles, WebStorage/caches emptied, and thumbnail state directories wiped from disk.
+
+- **Tab State Lifecycle**:
+  - Closing the last tab or executing "Close all tabs" empties the tab list without generating an unwanted placeholder tab, transitioning smoothly to `showHomeScreen()` with badge count "0".
+  - `TabCoordinator.maxLiveWebViews` dynamically scales the active WebView pool (3–5 live instances) based on device memory class (`ActivityManager.MemoryInfo`). Background tabs hibernate to disk (`tab_states/`), while incognito tabs preserve state strictly in-memory.
 
 ---
 
 ### 2.6. Permissions, Site Settings & Storage Management
 
-- **Web Permissions Flow (`WebPermissionBottomSheetDialog`)**:
-  - Replaces generic system dialogs with a modern Material 3 bottom sheet providing HTTPS security indicators, origin display, and 3-state decisions: "Always allow", "Allow this time" (ephemeral session grant), and "Block".
-  - Manages Camera, Microphone, Geolocation, and W3C Web Notifications (`OnyxNotificationBridge`).
+- **Web Permissions Flow (`com.onyx.browser.ui.dialog.WebPermissionBottomSheet`)**:
+  - Material 3 bottom sheet providing HTTPS indicators, origin display, and 3-state decisions: "Always allow", "Allow this time", and "Block".
+  - Manages Camera, Microphone, Geolocation, and W3C Web Notifications (`com.onyx.browser.web.bridge.NotificationBridge`).
 
-- **Per-Site Security & Permissions Hub (`SiteSettingsActivity`)**:
-  - Centralized site settings dashboard with card-grouped Allowed/Blocked lists, "+ Add site exception" manual rule entry, and per-domain inspector (`SingleSiteSettingsSheet`) for granular toggles and cookie/WebStorage clearing via `SiteDataManager`.
+- **Per-Site Settings (`com.onyx.browser.ui.settings.site.SiteSettingsActivity`)**:
+  - Site settings dashboard with card-grouped Allowed/Blocked lists, "+ Add site exception" rule entry, and per-domain inspector (`SingleSiteSettingsBottomSheet`) for granular toggles and storage clearing via `SiteDataManager`.
 
 - **Encrypted Local Storage (`OnyxDatabase`)**:
-  - SQLCipher AES-256 encrypted Room database encrypts tabs, bookmarks, history, shortcuts, and download metadata at rest with master keys managed by `KeyStoreManager`.
+  - SQLCipher AES-256 encrypted Room database encrypts tabs, bookmarks, history, shortcuts, and download metadata at rest with master keys managed by `SecureDatabaseKeyProvider`.
 
 ---
 
-### 2.7. Universal In-Page Webpage Translation Engine
+### 2.7. Webpage Translation Engine
 
 - **CSP-Immune Native DOM Translation**:
-  - Evaluates translations directly within the page DOM without external script tags that violate Content Security Policies.
-  - Supports 45+ languages across search engines and web applications, observing dynamic DOM additions via `MutationObserver` and providing 0ms in-place restoration to original content without triggering page reloads.
+  - Evaluates translations directly within the page DOM without injecting external script tags that violate Content Security Policies.
+  - Supports 45+ languages, observing dynamic DOM additions via `MutationObserver` and providing 0ms in-place restoration without triggering page reloads.
 
 ---
 
-### 2.8. Open in App Intent Routing (`OpenInAppPromptDialog`)
+### 2.8. Presentation, Coordinators, Controllers & Interceptor Pipeline
 
-- **Dynamic App Resolution & Theming**:
-  - Resolves target intents via `PackageManager.resolveActivity` to display native app icons and human-readable application labels ("Open in Telegram?", "Open in YouTube?").
-  - Includes a target destination card with middle-ellipsized URLs/deep links and provides safe fallback routing to web alternatives or Google Play when external apps are absent.
+- **Unidirectional Data Flow (UDF) & ViewModels (`com.onyx.browser.ui.viewmodel`)**:
+  - `BrowserUiState` defines the immutable state for browser chrome (`activeTab`, tab counts, loading state, navigation availability, shields stats, address bar position).
+  - `BrowserViewModel` coordinates `TabCoordinator` state flows and `BrowserPreferences.blockedRequestsFlow` within `viewModelScope`.
+  - `HistoryViewModel`, `BookmarksViewModel`, and `DownloadsViewModel` accept constructor-injected repositories from `AppContainer`.
+  - `OnyxViewModelFactory` (`com.onyx.browser.di`) constructs ViewModels deterministically with repositories supplied from `AppContainer`.
 
----
+- **MainActivity UI Coordinators & Controllers (`com.onyx.browser.ui.browser`)**:
+  - `ToolbarLayoutController`: Address bar ConstraintSet transitions (Top vs. Bottom), Edge-to-Edge insets, and scroll auto-hide.
+  - `BrowserMenuCoordinator`: 3-dot overflow menu, desktop site toggle, and page actions.
+  - `NavigationCoordinator`: URL resolution, search queries, `javascript:` pseudo-URL execution, and deep links.
+  - `WebChromeCoordinator`: Fullscreen video containers, permission prompts, and file chooser callbacks.
+  - `HomeScreenController`: Home shortcuts, tile grid editing, and home search bar interactions.
+  - `FileChooserCoordinator`: Camera capture, temporary `FileProvider` URI lifecycle, and `ActivityResultLauncher` handling.
+  - `WebContextMenuCoordinator`: WebView hit-test long-press context menus, image previews, and reverse image search.
+  - `PageExportCoordinator`: MHTML archives, headless PDFs, and system print service integration.
+  - `TabCoordinator`: Tab lifecycle, multi-profile isolation, and LRU memory hibernation.
+  - `PipController`: Picture-in-Picture auto-enter, dimension aspect ratios, and exit lifecycle.
+  - `SearchController`: Omnibox suggestions, query formatting, and search transitions.
+  - `FindInPageController`: In-page search bar and regex text search.
+  - `SettingsNavigator`: Clean routing across domain-partitioned settings activities.
 
-### 2.9. Enterprise Architecture, UDF Presentation, Repository Layer, DI & Interceptor Pipeline
-
-- **Unidirectional Data Flow (UDF), Repository Layer & ViewModels (`com.onyx.browser.ui.viewmodel` & `com.onyx.browser.data.repository`)**:
-  - `BrowserUiState` defines the immutable single source of truth for browser chrome state (`activeTab`, `normalTabCount`, `incognitoTabCount`, `isLoading`, `progress`, `canGoBack`, `canGoForward`, `isIncognito`, `isDesktopMode`, `blockedAdsCount`, `isSearchOverlayVisible`, `isAddressBarAtBottom`).
-  - `BrowserViewModel` coordinates `TabManager` state flows (`activeTab`, `normalTabs`, `incognitoTabs`) and `BrowserPreferences.blockedRequestsFlow` inside `viewModelScope`.
-  - `HistoryRepository`, `BookmarkRepository`, and `DownloadRepository` encapsulate `HistoryDao`, `BookmarkDao`, and `DownloadDao` operations and are registered in `AppContainer` / `DefaultAppContainer`.
-  - `HistoryViewModel`, `BookmarksViewModel`, and `DownloadsViewModel` accept constructor-injected repositories (`@JvmOverloads constructor`) to manage search queries, category/day-group filtering, and `NonCancellable` Room mutations across configuration changes.
-  - `OnyxViewModelFactory` (`com.onyx.browser.di`) constructs all ViewModels deterministically with repositories supplied from `AppContainer` without reflection overhead.
-
-- **MainActivity UI Delegates & Coordinators (`com.onyx.browser.ui.browser`)**:
-  - `ToolbarLayoutDelegate` manages Top vs. Bottom address bar `ConstraintSet` transitions, Edge-to-Edge window/IME insets, and scroll-to-hide animations.
-  - `BrowserMenuCoordinator` encapsulates the 3-dot browser overflow menu, desktop site toggling, page tools (Find in Page, Translate, PDF/MHT export, Zapper, DevTools), and dynamic Userscript menu command items.
-  - `NavigationCoordinator` centralizes URL resolution, search query formatting, `javascript:` pseudo-URL execution, and deep-link intent routing.
-  - `WebChromeCoordinator` encapsulates custom fullscreen video containers, geolocation/media permission prompts, and file chooser callbacks.
-  - `HomeScreenController` manages New Tab / Home screen shortcuts, tile grid editing, and home search bar interactions.
-  - `FileChooserCoordinator` handles `<input type="file">` camera capture, temporary `FileProvider` URI lifecycle, and `ActivityResultLauncher` callbacks.
-  - `WebContextMenuController` manages WebView hit-test long-press sheets for links, images, videos, and reverse image search actions.
-  - `SettingsNavigator` (`SettingsDestination`) provides unified routing across all full-page settings screens.
-
-- **External Navigation & Intent Routing (`com.onyx.browser.web.navigation.ExternalNavigationHandler`)**:
-  - Decouples custom URL scheme handling (`intent://`, `market://`, `mailto:`, `tel:`, `sms:`), `OpenInAppPromptDialog` deep-link resolution, and cross-domain streaming ad/betting redirect defense from `OnyxWebViewClient.shouldOverrideUrlLoading`.
+- **Chain-of-Responsibility Network Interceptors (`com.onyx.browser.web.interceptor`)**:
+  - `HttpsUpgradeInterceptor`: Upgrades eligible HTTP requests to HTTPS.
+  - `AuthBypassInterceptor`: Preserves OAuth, passkeys, and anti-bot challenge endpoints without adblock interference.
+  - `AdBlockRequestInterceptor`: Evaluates `AdBlockEngine`, CNAME uncloaking, CSP injection, `$redirect` surrogates, and VAST synthesis.
+  - `PrivacyUrlSanitizer`: Strips tracking query parameters (`utm_*`, `fbclid`, `gclid`, `msclkid`, `yclid`, `igshid`, `si`) during navigation.
 
 - **Domain Preference Stores (`com.onyx.browser.data.preferences`)**:
-  - `BrowserPreferences` delegates to cohesive domain stores backed by the shared `SharedPreferences` instance:
-    - `AppearancePreferences`: Theme mode, dark web mode, address bar position, home/refresh button, pull-to-refresh, and font zoom scale.
-    - `ShieldPreferences`: Global/per-domain shields, blocking levels, HTTPS upgrade modes, DoH endpoints, WebRTC policy, clear-on-exit flags, and filter signatures.
-    - `MediaAndDownloadPreferences`: Background media playback, PiP toggles, download prompt preferences, external downloader routing, and thread count.
-    - `SearchPreferences`: Selected search engine, custom search engines, and search suggestion toggles.
+  - `AppearancePreferences`: Theme mode, address bar position, home/refresh button, and font zoom scale.
+  - `ShieldPreferences`: Global/per-domain shields, blocking levels, HTTPS upgrade modes, DoH endpoints, and clear-on-exit flags.
+  - `MediaAndDownloadPreferences`: Background media playback, PiP toggles, download prompt preferences, and external downloaders.
+  - `SearchPreferences`: Selected search engine, custom search engines, and search suggestions.
 
-- **Externalized JS Assets & `AssetScriptLoader` (`com.onyx.browser.web`)**:
-  - Large injected JavaScript engines (`app/src/main/assets/scripts/passkey_webauthn_polyfill.js`, `media_playback_observer.js`, `adblock_procedural_engine.js`) are stored as standalone asset files and loaded on-demand through `AssetScriptLoader` with lock-free `ConcurrentHashMap` memory caching.
-
-- **Chain-of-Responsibility Network Interceptor Pipeline (`com.onyx.browser.web.interceptor`)**:
-  - `RequestInterceptor` and `RealInterceptorChain` decouple `OnyxWebViewClient.shouldInterceptRequest` into composable, zero-allocation stages:
-    - `HttpsUpgradeInterceptor`: Upgrades eligible main-frame and subresource HTTP requests to HTTPS.
-    - `AuthBypassInterceptor`: Preserves OAuth, passkey, and anti-bot challenge flows (Google, Apple, Microsoft, Meta, Cloudflare Turnstile, Arkose Labs) without adblock interference.
-    - `AdBlockRequestInterceptor`: Evaluates `AdBlockEngine`, CNAME uncloaking, `$csp` header injection, `$redirect` surrogates, and VAST/VMAP synthesis.
-    - `PrivacyUrlSanitizer`: Strips tracking query parameters (`utm_*`, `fbclid`, `gclid`, `mc_eid`, `msclkid`, `yclid`, `_hsenc`, `vero_id`, `mkt_tok`, `igshid`, `si`) during navigation.
-
-- **SQLCipher Room `SitePermissionEntity`, Schema Export & `SitePermissionRepository`**:
-  - Per-site permissions and shield overrides are persisted in the SQLCipher-encrypted `site_permissions` table (`SitePermissionEntity`, `SitePermissionDao`, `MIGRATION_7_8`) and mirrored into $O(1)$ lock-free in-memory `ConcurrentHashMap` sets inside `SitePermissionRepository`.
-  - Room KSP annotation processing exports versioned database schemas to `app/schemas` via `room.schemaLocation` in `app/build.gradle.kts`.
-  - Automatically migrates legacy `SharedPreferences` domain sets on startup while keeping synchronous hot-path lookups on Chromium's `shouldInterceptRequest` IO threads non-blocking.
-
-- **Strict RAM-Aware LRU WebView Pool Governor**:
-  - `TabManager.maxLiveWebViews` dynamically scales the active WebView pool (3–5 live instances) based on device memory class (`ActivityManager.MemoryInfo`).
-  - Least-recently-used background tabs (excluding any tab actively playing media) are automatically hibernated: normal tabs persist state bundles to disk (`tab_states/`), while incognito tabs preserve state strictly in-memory (`incognitoStateBundles`) to maintain zero disk residue.
-
-- **Multi-Module `:core:common`, Version Catalog, DI Container & CI Unit Test Gate**:
-  - `gradle/libs.versions.toml` centralizes all Gradle plugin and library versions across `:app` and `:core:common`.
-  - `:core:common` provides shared concurrency dispatchers (`DispatcherProvider`, `DefaultDispatcherProvider`) and functional result wrappers (`OnyxResult`).
-  - `AppContainer` and `DefaultAppContainer` (`com.onyx.browser.di`) wire singleton repositories (`SitePermissionRepository`, `HistoryRepository`, `BookmarkRepository`, `DownloadRepository`), `AppDatabase`, and `BrowserPreferences` from `OnyxApplication`.
-  - Automated unit test suite under `app/src/test/` (JUnit 4, MockK, `kotlinx-coroutines-test`) including `InterceptorPipelineTest`, `ExternalNavigationHandlerTest`, `RepositoryLayerTest`, `DomainPreferencesTest`, `SitePermissionEntityTest`, `DownloadModelsTest`, `UserScriptMetadataTest`, and `UserScriptUrlMatcherTest` is enforced on every CI run via `./gradlew :core:common:test testReleaseUnitTest --no-daemon` in `.github/workflows/build.yml`.
-  - Open-source contributor tooling includes `./scripts/bootstrap_dev.sh` (one-command submodule, patch, symlink, icon, filter list, and `cargo-ndk` bootstrap), `.editorconfig`, `CONTRIBUTING.md`, `SECURITY.md`, and `.github/PULL_REQUEST_TEMPLATE.md`.
+- **Contained Settings Subpackages (`com.onyx.browser.ui.settings`)**:
+  - `shields/`: `ShieldsActivity`, `ContentFiltersActivity`, and shields bottom sheets.
+  - `site/`: `SiteSettingsActivity`, `SingleSiteSettingsBottomSheet`, `SitePermissionCategoryBottomSheet`, `AllSitesBottomSheet`.
+  - `userscript/`: `UserScriptsActivity`, `UserScriptEditorActivity`, `UserScriptAdapter`, and userscript sheets.
+  - `appearance/`: `AppearanceActivity`, `AddressBarSettingsActivity`, `ThemePickerBottomSheet`.

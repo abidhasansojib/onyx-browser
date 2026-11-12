@@ -114,7 +114,7 @@ To ensure zero stutter and native 120Hz frame rates:
   ```
 - **Synthetic Navigation Guards**: When an error page is displayed, `OnyxWebView.reload()` re-requests the actual failing URL (`lastFailingUrl`) instead of reloading the synthetic error document.
 
-### 3.4 Progressive Hydration & DSD Safety Net (`DsdHydrationFix`)
+### 3.4 Progressive Hydration & DSD Safety Net (`com.onyx.browser.web.adblock.DsdHydrationFix`)
 Websites using Declarative Shadow DOM (DSD) progressive hydration patterns commonly render with `<body dsd-pending>` and stylesheet rules hiding unhydrated content (`[dsd-pending] { display: none !important; }`). When adblocking or tracking protection blocks any script in the bootstrap/telemetry pipeline, the removal callback fails to execute, leaving the page completely blank.
 
 Onyx Browser guards against this in `OnyxWebViewClient.onPageFinished` via `DsdHydrationFix.applyFix()`:
@@ -147,9 +147,9 @@ override fun onCreateWindow(
         return false // Reject automatic ad popups
     }
 
-    // Allocate popup tab in TabManager and pass transport message to the new WebView
-    val newTab = tabManager.createNewTab(url = "", isIncognito = isIncognito, parentId = parentTab?.id)
-    val newWebView = tabManager.getOrCreateWebView(newTab)
+    // Allocate popup tab in TabCoordinator and pass transport message to the new WebView
+    val newTab = tabCoordinator.createNewTab(url = "", isIncognito = isIncognito, parentId = parentTab?.id)
+    val newWebView = tabCoordinator.getOrCreateWebView(newTab)
     newWebView.isPopupPendingDisplay = true
     newWebView.isPopupTab = true
     val transport = resultMsg.obj as? WebView.WebViewTransport
@@ -187,10 +187,10 @@ webView.evaluateJavascript(script) { result ->
 This avoids UI thread blocking and prevents deadlocks associated with legacy synchronous `loadUrl("javascript:...")` patterns.
 
 ### 5.4 Modern WebMessageListener IPC Architecture
-To eliminate anti-bot detection signatures and `JavaBridge` background-thread reflection overhead, asynchronous bridges (`OnyxTouchBridge`, `OnyxFormBridge`, `OnyxBlobBridge`) leverage `WebViewCompat.addWebMessageListener`:
+To eliminate anti-bot detection signatures and `JavaBridge` background-thread reflection overhead, asynchronous bridges (`TouchBridge`, `FormBridge`, `BlobBridge`) leverage `WebViewCompat.addWebMessageListener`:
 - **Zero Java Reflection on `window`**: Chromium exposes standard W3C `postMessage()` channel ports (`window.onyxTouchBridge`, `window.onyxFormBridge`, `window.onyxBlobBridge`) without Java reflection wrappers or `.getClass()` properties.
 - **Main Thread Delivery**: Incoming messages via `WebMessageListener.onPostMessage` execute directly on the Android UI thread, eliminating manual `Looper.getMainLooper()` marshaling and thread-race conditions.
-- **Backward Compatibility**: Seamlessly falls back to `@JavascriptInterface` on platforms where `WebViewFeature.WEB_MESSAGE_LISTENER` is unavailable. Synchronous APIs (such as `OnyxShieldBridge.isUrlBlocked`) retain direct `@JavascriptInterface` methods.
+- **Backward Compatibility**: Seamlessly falls back to `@JavascriptInterface` on platforms where `WebViewFeature.WEB_MESSAGE_LISTENER` is unavailable. Synchronous APIs (such as `ShieldBridge.isUrlBlocked`) retain direct `@JavascriptInterface` methods.
 
 ---
 
@@ -228,7 +228,7 @@ Onyx implements total data separation between Normal and Incognito modes using A
   - `incognitoProfile.webStorage` holds isolated `localStorage` and `IndexedDB`.
   - Cache set to `WebSettings.LOAD_NO_CACHE`.
 - **Complete Purge on Session Exit**:
-  When all incognito tabs are closed or on app launch, `TabManager.purgeIncognitoProfile()`:
+  When all incognito tabs are closed or on app launch, `TabCoordinator.purgeIncognitoProfileStatic()`:
   1. Purges all incognito cookies (`removeAllCookies`).
   2. Deletes all origin storage (`deleteAllData`).
   3. Deletes the incognito profile from `ProfileStore`.
@@ -256,18 +256,18 @@ On Android 8.0+ (API 26+), Onyx dynamically manages Chromium renderer process pr
 During typical web browsing on ad-heavy websites, `OnyxWebViewClient.shouldInterceptRequest` and `AdBlockServiceWorkerHelper` intercept between 50 and 150 tracker and advertisement subresources per page load.
 1. **`Content-Length: 0` Stream Pipe Termination**:
    - Android WebView does not automatically deduce the stream length when wrapping an empty `InputStream`. Without an explicit `Content-Length`, Blink's C++ `ResourceLoader` reads the stream in chunks until EOF (`-1`), keeping subresource connection pipes and worker threads allocated unnecessarily.
-   - Supplying explicit `"Content-Length": "0"` (or exact size for synthetic XML/PNG stubs) informs Blink immediately that no body payload follows, allowing the browser engine to close the subresource stream pipe in 0ms.
+   - Supplying explicit `"Content-Length": "0"` informs Blink immediately that no body payload follows, allowing the browser engine to close the subresource stream pipe in 0ms.
 2. **Stateless `EmptyInputStream` Singleton**:
    - Replaces repeated `ByteArrayInputStream(ByteArray(0))` instantiations with a stateless, thread-safe `EmptyInputStream` singleton that returns EOF immediately.
 3. **Pre-Allocated Static Headers**:
-   - Common wildcard CORS responses (`EMPTY_403_WILDCARD_HEADERS`, `EMPTY_JS_WILDCARD_HEADERS`, `EMPTY_CSS_WILDCARD_HEADERS`, `EMPTY_FONT_WILDCARD_HEADERS`, `EMPTY_MEDIA_WILDCARD_HEADERS`, `EMPTY_TEXT_WILDCARD_HEADERS`, `EMPTY_PNG_WILDCARD_HEADERS`, `EMPTY_VAST_WILDCARD_HEADERS`) are cached as immutable static singletons, eliminating hundreds of temporary `HashMap` allocations and reducing Dalvik/ART GC churn during rapid page navigation.
+   - Common wildcard CORS responses (`EMPTY_403_WILDCARD_HEADERS`, `EMPTY_JS_WILDCARD_HEADERS`, `EMPTY_CSS_WILDCARD_HEADERS`, etc.) are cached as immutable static singletons, eliminating temporary `HashMap` allocations and reducing Dalvik/ART GC churn during rapid page navigation.
 
 ### 6.6 Memory Pressure Handlers (`ComponentCallbacks2.onTrimMemory`)
 To prevent the Android Low Memory Killer (LMK) from killing Onyx during heavy device multitasking or low-RAM events:
 1. **`ComponentCallbacks2.onTrimMemory` Lifecycle Handling**:
-   - Implemented in `OnyxApplication`, `MainActivity`, and `TabManager`.
-   - On `TRIM_MEMORY_UI_HIDDEN` (app backgrounded): Tab switcher bitmap thumbnails are evicted from Dalvik/ART heap (reloaded from disk `.webp` cache when opened), all active normal tab states are persisted to disk, and background tabs idle for over 15 minutes are hibernated.
-   - On `TRIM_MEMORY_RUNNING_CRITICAL` or `TRIM_MEMORY_COMPLETE`: In-memory rule caches in `AdBlockEngine` (`requestDecisionCache`, `checkUrlCache`, `exceptionsCache`, `genericHideCache`) and CNAME alias caches in `AdBlockDomainManager` are flushed. Normal background tabs (strictly preserving any tab actively playing media via `MediaPlaybackBridge.currentPlayingTabId`) are hibernated to disk, freeing native Chromium buffers and GPU textures.
+   - Implemented in `OnyxApplication`, `MainActivity`, and `TabCoordinator`.
+   - On `TRIM_MEMORY_UI_HIDDEN` (app backgrounded): Tab switcher bitmap thumbnails are evicted from Dalvik/ART heap, all active normal tab states are persisted to disk, and background tabs idle for over 15 minutes are hibernated.
+   - On `TRIM_MEMORY_RUNNING_CRITICAL` or `TRIM_MEMORY_COMPLETE`: In-memory rule caches in `AdBlockEngine` (`requestDecisionCache`, `checkUrlCache`, `exceptionsCache`, `genericHideCache`) and CNAME alias caches in `AdBlockDomainManager` are flushed. Normal background tabs (strictly preserving any tab actively playing media) are hibernated to disk, freeing native Chromium buffers and GPU textures.
    - On `TRIM_MEMORY_RUNNING_LOW` or `TRIM_MEMORY_MODERATE`: In-memory thumbnail LRU cache is trimmed to 50% capacity.
 
 ### 6.7 Chromium Runtime Async Pre-Warming (`WebViewCompat.startUpWebView`)

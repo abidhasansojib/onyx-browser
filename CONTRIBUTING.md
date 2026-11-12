@@ -1,26 +1,26 @@
 # Contributing to Onyx Browser
 
-Thank you for contributing to **Onyx Browser**. This guide covers workstation prerequisites, repository setup, module architecture, and pull request standards.
+Thank you for contributing to **Onyx Browser**. This guide covers workstation setup, repository architecture, coding standards, and pull request guidelines.
 
 ---
 
 ## 1. Prerequisites
 
-To build and test Onyx Browser on a local Linux, macOS, or Windows (WSL2) workstation, ensure the following tools are installed:
+To build and test Onyx Browser on Linux, macOS, or Windows (WSL2):
 
-- **JDK 17** (Eclipse Temurin 17 recommended)
-- **Android SDK** (Compile/Target SDK **API 35**, Min SDK **API 26**)
-- **Android NDK r26b+** (`26.3.11579264` or newer, with `ANDROID_NDK_HOME` configured)
-- **Rust Stable Toolchain** + **`cargo-ndk`**:
+- **JDK 17** (e.g. Eclipse Temurin 17)
+- **Android SDK** (Compile & Target SDK **API 35**, Min SDK **API 26**)
+- **Android NDK r26b+** (`26.3.11579264` or newer, with `ANDROID_NDK_HOME` set)
+- **Rust Toolchain & `cargo-ndk`**:
   ```bash
   rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
   cargo install cargo-ndk
   ```
-- **Python 3** & **`curl`** (used by icon and filter list sync scripts)
+- **Python 3 & curl** (for asset & filter synchronization scripts)
 
 ---
 
-## 2. Quick-Start Local Setup
+## 2. Quick Setup
 
 Clone the repository with submodules and run the bootstrap script:
 
@@ -30,86 +30,104 @@ cd onyx-browser
 ./scripts/bootstrap_dev.sh
 ```
 
-What `./scripts/bootstrap_dev.sh` does:
-1. Initializes and updates Git submodules (`external/adblock-rust`, `external/adblock-lists`).
-2. Applies `patches/adblock-rust.patch` idempotently.
-3. Verifies symlinks (`rust_engine/adblock-rust` and `app/src/main/assets/brave-lists`) and syncs `brave-resources.json`.
-4. Fetches and converts Lucide vector drawables (`./scripts/fetch_icons.sh`).
-5. Compiles bundled EasyList + Brave filter rules (`./scripts/update_filter_lists.sh`).
-6. Compiles `libadblock_bridge.so` into `app/src/main/jniLibs/` if `cargo-ndk` is installed (pass `--skip-rust` to skip native compilation when working only on Kotlin/JVM unit tests).
+`./scripts/bootstrap_dev.sh` automates:
+1. Submodule initialization (`external/adblock-rust`, `external/adblock-lists`).
+2. Symlinks and Brave filter assets synchronization.
+3. Lucide icon vector conversion (`./scripts/fetch_icons.sh`).
+4. Bundled EasyList and Brave filter list compilation (`./scripts/update_filter_lists.sh`).
+5. Native NDK compilation of `libadblock_bridge.so` into `app/src/main/jniLibs/` (pass `--skip-rust` to skip when working purely on Kotlin/JVM code).
 
 ---
 
-## 3. Architecture & Module Map
+## 3. Module & Package Architecture
 
-Onyx Browser is structured as a multi-module Gradle project with centralized version catalogs (`gradle/libs.versions.toml`):
+The project consists of two Gradle modules and a native Rust engine:
 
-| Module / Directory | Responsibility |
+| Component | Responsibility |
 | :--- | :--- |
-| `:app` | Primary Android application module (`com.onyx.browser`): Native XML ViewBinding UI, UDF ViewModels, Coordinators, hardened Chromium WebView engine, SQLCipher Room database, and Userscript engine. |
-| `:core:common` | Shared multi-module utilities (`DispatcherProvider`, `DefaultDispatcherProvider`, and `OnyxResult` functional wrappers). |
-| `rust_engine/` | Native Rust NDK bridge (`libadblock_bridge.so`) wrapping Brave's `adblock-rust` with JNI bindings for `AdBlockEngine.kt`. |
-| `gradle/libs.versions.toml` | Centralized Gradle Version Catalog for all AndroidX, Kotlin, Room, SQLCipher, and test dependencies. |
+| `:app` | Android application module (`com.onyx.browser`): Native XML UI, ViewModels, hardened Chromium WebView, SQLCipher database, and userscript engine. |
+| `:core:common` | Multi-module utilities (`DispatcherProvider`, `DefaultDispatcherProvider`, and `OnyxResult`). |
+| `rust_engine/` | Native Rust NDK bridge (`libadblock_bridge.so`) compiling Brave `adblock-rust` with JNI bindings for `AdBlockEngine`. |
+| `gradle/libs.versions.toml` | Centralized Gradle Version Catalog for dependencies and plugins. |
 
-### Key Subsystems in `:app`
-- **UDF ViewModels (`com.onyx.browser.ui.viewmodel`)**: `BrowserViewModel`, `HistoryViewModel`, `BookmarksViewModel`, and `DownloadsViewModel` expose immutable `StateFlow` states and are constructed via `OnyxViewModelFactory` and `AppContainer`.
-- **UI Coordinators & Delegates (`com.onyx.browser.ui.browser`)**: Focused controllers keep `MainActivity` lean:
-  - `ToolbarLayoutDelegate` (Top/Bottom address bar `ConstraintSet`, Edge-to-Edge insets, scroll auto-hide)
-  - `BrowserMenuCoordinator` (3-dot overflow menu, page actions, desktop site toggle, userscript menu commands)
-  - `NavigationCoordinator` (URL resolution, search queries, `javascript:` execution, intent routing)
-  - `WebChromeCoordinator`, `HomeScreenController`, `FileChooserCoordinator`, `WebContextMenuController`, `SettingsNavigator`, `PipController`
-- **Network Interception Pipeline (`com.onyx.browser.web.interceptor`)**: Chain-of-Responsibility `RequestInterceptor` pipeline (`RealInterceptorChain`, `HttpsUpgradeInterceptor`, `AuthBypassInterceptor`, `AdBlockRequestInterceptor`, `PrivacyUrlSanitizer`).
-- **External Navigation (`com.onyx.browser.web.navigation`)**: `ExternalNavigationHandler` decouples custom scheme resolution (`intent://`, `market://`, `mailto:`, `tel:`, external app prompts, and ad/betting redirect defense) from `OnyxWebViewClient`.
-- **Encrypted Repositories (`com.onyx.browser.data.repository`)**: `SitePermissionRepository` ($O(1)$ lock-free `ConcurrentHashMap` cache backed by SQLCipher Room `SitePermissionEntity`), `HistoryRepository`, `BookmarkRepository`, and `DownloadRepository`.
+### `:app` Package Organization
 
-For deep architectural specifications, read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/WEBVIEW.md](docs/WEBVIEW.md).
-
----
-
-## 4. Extending Onyx Browser
-
-### Adding a Network `RequestInterceptor`
-1. Create a class in `app/src/main/java/com/onyx/browser/web/interceptor/` implementing `RequestInterceptor`:
-   ```kotlin
-   class CustomHeaderInterceptor : RequestInterceptor {
-       override fun intercept(chain: RequestInterceptor.Chain): WebResourceResponse? {
-           val request = chain.request
-           // Inspect request and either return a synthetic WebResourceResponse or proceed:
-           return chain.proceed(request)
-       }
-   }
-   ```
-2. Keep hot-path execution non-blocking (never perform disk or database I/O on Chromium's `shouldInterceptRequest` thread; use lock-free in-memory caches like `SitePermissionRepository`).
-3. Register the interceptor in the `OnyxWebViewClient` pipeline and add unit tests in `app/src/test/java/com/onyx/browser/web/interceptor/InterceptorPipelineTest.kt`.
-
-### Adding a UI Coordinator
-1. Place new browser UI coordinators in `app/src/main/java/com/onyx/browser/ui/browser/`.
-2. Pass narrow callbacks or `StateFlow` collectors rather than exposing mutable activity internals.
-3. Bind coroutines to `lifecycleScope` / `viewModelScope` and use `NonCancellable` for critical persistence operations.
+```text
+com.onyx.browser
+├── MainActivity.kt        # Primary activity, toolbar coordinator, and window orchestration
+├── OnyxApplication.kt     # App entry point, DI container init, SQLCipher setup
+├── autofill/              # System AutofillManager & Credential Manager passkey helpers
+├── data/                  # Room database, SQLCipher keys, models, repositories, preferences
+├── di/                    # Dependency injection (AppContainer, ViewModelFactory)
+├── download/              # DownloadEngine, DownloadHandler, notifications, background service
+├── incognito/             # IncognitoNotificationReceiver, isolated profile lifecycle
+├── media/                 # Foreground MediaPlaybackService and MediaPlaybackBridge
+├── nativebridge/          # AdBlockEngine JNI interface to libadblock_bridge.so
+├── privacy/               # ClearOnExitService and ClearDataOnExitHelper
+├── ui/                    # Presentation layer
+│   ├── browser/           # UI coordinators (*Coordinator) and view controllers (*Controller)
+│   ├── settings/          # Settings screens partitioned by domain (shields/, site/, userscript/, appearance/)
+│   └── viewmodel/         # UDF StateFlow ViewModels (BrowserViewModel, HistoryViewModel, etc.)
+├── userscript/            # Tampermonkey/Violentmonkey engine, metadata parser, and GM_* bridge
+└── web/                   # Hardened Chromium WebView subsystem
+    ├── adblock/           # Document-start adblock scripts, domain uncloaking, and DSD hydration fix
+    ├── bridge/            # @JavascriptInterface bridges (Passkey, Shield, Form, Blob, Touch, Notification)
+    ├── error/             # Synthetic HTTPS error pages and error bridges
+    ├── interceptor/       # Chain-of-responsibility request interceptors (HTTPS, AdBlock, Sanitizer)
+    ├── navigation/        # External scheme and app intent navigation handler
+    └── translate/         # CSP-immune in-page DOM translation engine
+```
 
 ---
 
-## 5. Running Unit Tests
+## 4. Architectural Conventions & Suffix Standards
 
-Run the JVM unit test suite across `:core:common` and `:app`:
+To keep the codebase predictable across the team, adhere to these standards:
+
+1. **Native Views Over Compose**:
+   - Use Android XML Views with ViewBinding.
+   - Do not introduce Jetpack Compose dependencies.
+
+2. **Standardized Class Suffixes**:
+   - **`*Coordinator`**: For lifecycle, navigation, and dialog orchestrators (e.g., `BrowserMenuCoordinator`, `WebContextMenuCoordinator`, `NavigationCoordinator`, `TabCoordinator`).
+   - **`*Controller`**: For bound View/UI state controllers (e.g., `ToolbarLayoutController`, `SearchController`, `FindInPageController`, `PipController`).
+   - **`*BottomSheet`**: For all `BottomSheetDialogFragment` implementations (e.g., `MenuBottomSheet`, `SiteShieldBottomSheet`, `ClearOnExitBottomSheet`).
+   - **`*Bridge`**: For `@JavascriptInterface` bridges in `web/bridge/` (e.g., `ShieldBridge`, `FormBridge`, `BlobBridge`, `PasskeyWebAuthnBridge`). *Note: Internal JS window interface names such as `window.OnyxShieldBridge` remain unchanged for script compatibility.*
+
+3. **Performance on Interception Threads**:
+   - `shouldInterceptRequest` executes on Chromium's background I/O threads. Never run blocking disk or database operations here. Always query lock-free in-memory caches (e.g., `SitePermissionRepository`).
+
+4. **Persistence & Cryptography**:
+   - All database records pass through SQLCipher AES-256 encryption via `OnyxDatabase`.
+   - Never write sensitive browsing records or authentication secrets to unencrypted storage.
+
+---
+
+## 5. Development Workflow & Testing
+
+### Running Unit Tests
+
+Run the JVM test suite across `:core:common` and `:app`:
 
 ```bash
 ./gradlew :core:common:test testReleaseUnitTest --no-daemon
 ```
 
-All pull requests and CI builds must pass the unit test gate cleanly.
+All pull requests must pass the unit test suite before merge.
 
----
+### Conventional Commit Messages
 
-## 6. Coding Standards & Pull Request Guidelines
+Follow the conventional commit format with appropriate scopes:
+- `feat(adblock): add support for $rule`
+- `fix(navigation): handle custom intent scheme`
+- `refactor(ui): extract address bar controller`
+- `test(interceptor): add unit tests for url sanitizer`
+- `docs: update subsystem architecture guide`
 
-- **Native Views Only**: Write native Android XML layouts with ViewBinding. Do not introduce Jetpack Compose dependencies.
-- **Formatting**: Follow `.editorconfig` (4-space indentation for Kotlin/Java/Rust/XML, 2-space indentation for YAML/JSON/TOML/Markdown, UTF-8, LF line endings).
-- **Theme Parity**: Always pair color definitions across `res/values/colors.xml` and `res/values-night/colors.xml`.
-- **Conventional Commits**: Use concise conventional commit messages:
-  - `feat(adblock): ...`
-  - `fix(webview): ...`
-  - `refactor(ui): ...`
-  - `test(interceptor): ...`
-  - `docs: ...`
-- **Pull Requests**: Fill out `.github/PULL_REQUEST_TEMPLATE.md` completely, detailing the affected subsystem, verification steps, and security/privacy checklist.
+### Pull Request Checklist
+
+Before submitting a PR:
+- [ ] Code compiles cleanly and adheres to `.editorconfig` (4-space indentation for Kotlin/XML).
+- [ ] Unit tests pass via `./gradlew testReleaseUnitTest`.
+- [ ] Color resources are paired in `res/values/colors.xml` and `res/values-night/colors.xml`.
+- [ ] Any new architectural changes are reflected in `AGENTS.md` and `docs/`.
