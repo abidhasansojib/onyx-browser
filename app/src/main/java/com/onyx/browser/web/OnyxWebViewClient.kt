@@ -18,6 +18,12 @@ import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.media.MediaPlaybackBridge
 import com.onyx.browser.nativebridge.AdBlockEngine
+import com.onyx.browser.web.adblock.AdBlockDocumentStart
+import com.onyx.browser.web.adblock.AdBlockDomainManager
+import com.onyx.browser.web.adblock.DsdHydrationFix
+import com.onyx.browser.web.bridge.PasskeyWebAuthnBridge
+import com.onyx.browser.web.bridge.TouchBridge
+import com.onyx.browser.web.bridge.WebGLCompatibilityBridge
 import com.onyx.browser.web.error.SyntheticNavigationState
 import com.onyx.browser.web.error.WebErrorHandler
 import com.onyx.browser.web.interceptor.AdBlockRequestInterceptor
@@ -881,7 +887,7 @@ class OnyxWebViewClient(
             if (com.onyx.browser.userscript.UserScriptManager.isUserScriptUrl(url)) {
                 findFragmentActivity(view?.context)?.let { act ->
                     view?.post {
-                        com.onyx.browser.ui.settings.InstallUserScriptBottomSheet.show(act.supportFragmentManager, url)
+                        com.onyx.browser.ui.settings.userscript.InstallUserScriptBottomSheet.show(act.supportFragmentManager, url)
                     }
                     return true
                 }
@@ -1570,7 +1576,7 @@ class OnyxWebViewClient(
                 view?.evaluateJavascript(MediaPlaybackManager.backgroundPlaybackScript, null)
             }
             if (!isSyntheticError && !isFinishedAuthOrMeta) {
-                view?.evaluateJavascript(OnyxTouchBridge.TOUCH_LISTENER_JS, null)
+                view?.evaluateJavascript(TouchBridge.TOUCH_LISTENER_JS, null)
                 DsdHydrationFix.applyFix(view)
                 injectUserScripts(view, effectiveUrl, com.onyx.browser.userscript.RunAt.DOCUMENT_END)
             }

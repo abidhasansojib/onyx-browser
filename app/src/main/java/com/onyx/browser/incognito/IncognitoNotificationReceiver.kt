@@ -7,7 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import com.onyx.browser.R
-import com.onyx.browser.ui.browser.TabManager
+import com.onyx.browser.ui.browser.TabCoordinator
 
 class IncognitoNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {

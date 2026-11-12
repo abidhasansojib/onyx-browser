@@ -30,7 +30,7 @@ import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.databinding.BottomSheetTabSwitcherBinding
 import com.onyx.browser.databinding.PopupTabSwitcherMenuBinding
-import com.onyx.browser.ui.browser.TabManager
+import com.onyx.browser.ui.browser.TabCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest

@@ -2,6 +2,12 @@ package com.onyx.browser.ui.settings
 
 import android.content.Context
 import android.content.Intent
+import com.onyx.browser.ui.settings.appearance.AddressBarSettingsActivity
+import com.onyx.browser.ui.settings.appearance.AppearanceActivity
+import com.onyx.browser.ui.settings.shields.ContentFiltersActivity
+import com.onyx.browser.ui.settings.shields.ShieldsActivity
+import com.onyx.browser.ui.settings.site.SiteSettingsActivity
+import com.onyx.browser.ui.settings.userscript.UserScriptsActivity
 
 enum class SettingsDestination {
     PRIVACY_AND_SECURITY,

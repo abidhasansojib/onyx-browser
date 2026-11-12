@@ -219,7 +219,7 @@ class DownloadEngine(
                     task.fileName = sanitizeFileName(parsedName)
                 }
             } else if (task.fileName.startsWith("download_") || !task.fileName.contains('.') || task.fileName.endsWith(".bin", ignoreCase = true)) {
-                val guessed = com.onyx.browser.web.DownloadHandler.guessResolvedFileName(finalUrl, contentDisp, detectedMime)
+                val guessed = com.onyx.browser.download.DownloadHandler.guessResolvedFileName(finalUrl, contentDisp, detectedMime)
                 if (guessed.isNotBlank()) {
                     task.fileName = sanitizeFileName(guessed)
                 }
@@ -715,7 +715,7 @@ class DownloadEngine(
     }
 
     private fun parseContentDispositionFilename(contentDisposition: String): String {
-        return com.onyx.browser.web.DownloadHandler.parseContentDispositionFilename(contentDisposition) ?: ""
+        return com.onyx.browser.download.DownloadHandler.parseContentDispositionFilename(contentDisposition) ?: ""
     }
 
     private fun sanitizeFileName(name: String): String {

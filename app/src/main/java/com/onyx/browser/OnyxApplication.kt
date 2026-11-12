@@ -78,7 +78,7 @@ class OnyxApplication : Application() {
         try {
             val prefs = BrowserPreferences.getInstance(this)
             if (prefs.isClearOnExitEnabled && prefs.hasPendingExitClearance) {
-                com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(this)
+                com.onyx.browser.privacy.ClearDataOnExitHelper.clearAllBrowsingDataSync(this)
             }
         } catch (t: Throwable) {
             Log.e("OnyxApplication", "Failed to run clear-on-exit recovery in onCreate", t)
@@ -106,7 +106,7 @@ class OnyxApplication : Application() {
 
         // Initialize ServiceWorker ad/tracker interception
         try {
-            com.onyx.browser.web.AdBlockServiceWorkerHelper.initialize(this)
+            com.onyx.browser.web.adblock.AdBlockServiceWorkerHelper.initialize(this)
         } catch (t: Throwable) {
             Log.e("OnyxApplication", "Failed to initialize ServiceWorker interception", t)
         }
@@ -203,14 +203,14 @@ class OnyxApplication : Application() {
                 level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
                 level >= android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> {
                     AdBlockEngine.clearDecisionCache()
-                    com.onyx.browser.web.AdBlockDomainManager.clearCache()
-                    com.onyx.browser.ui.browser.TabManager.activeInstance?.onTrimMemory(level)
+                    com.onyx.browser.web.adblock.AdBlockDomainManager.clearCache()
+                    com.onyx.browser.ui.browser.TabCoordinator.activeInstance?.onTrimMemory(level)
                 }
                 level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ||
                 level >= android.content.ComponentCallbacks2.TRIM_MEMORY_MODERATE -> {
                     AdBlockEngine.clearDecisionCache()
-                    com.onyx.browser.web.AdBlockDomainManager.clearCache()
-                    com.onyx.browser.ui.browser.TabManager.activeInstance?.onTrimMemory(level)
+                    com.onyx.browser.web.adblock.AdBlockDomainManager.clearCache()
+                    com.onyx.browser.ui.browser.TabCoordinator.activeInstance?.onTrimMemory(level)
                 }
             }
         } catch (t: Throwable) {
@@ -222,8 +222,8 @@ class OnyxApplication : Application() {
         super.onLowMemory()
         try {
             AdBlockEngine.clearDecisionCache()
-            com.onyx.browser.web.AdBlockDomainManager.clearCache()
-            com.onyx.browser.ui.browser.TabManager.activeInstance?.onTrimMemory(android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
+            com.onyx.browser.web.adblock.AdBlockDomainManager.clearCache()
+            com.onyx.browser.ui.browser.TabCoordinator.activeInstance?.onTrimMemory(android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
         } catch (t: Throwable) {
             Log.e("OnyxApplication", "Error during onLowMemory", t)
         }

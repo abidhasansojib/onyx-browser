@@ -90,11 +90,11 @@ class DownloadSettingsActivity : AppCompatActivity() {
 
         binding.settingDownloadManagerRow.setOnClickListener {
             val currentIndex = preferences.downloadManagerBehavior.coerceIn(0, 2)
-            val sheet = DownloadManagerPickerSheet(currentIndex) { which ->
+            val sheet = DownloadManagerPickerBottomSheet(currentIndex) { which ->
                 preferences.downloadManagerBehavior = which
                 updateLabel()
             }
-            sheet.show(supportFragmentManager, DownloadManagerPickerSheet.TAG)
+            sheet.show(supportFragmentManager, DownloadManagerPickerBottomSheet.TAG)
         }
 
         binding.settingDownloadWifiOnlySwitch.isChecked = preferences.isDownloadWifiOnly

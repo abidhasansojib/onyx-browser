@@ -16,7 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.databinding.DialogClearBrowsingDataBinding
-import com.onyx.browser.ui.browser.TabManager
+import com.onyx.browser.ui.browser.TabCoordinator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

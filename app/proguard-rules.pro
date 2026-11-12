@@ -40,6 +40,10 @@
 }
 
 # Preserve AdBlock domain manager and start script helpers
+-keep class com.onyx.browser.web.adblock.** { *; }
+-keepclassmembers class com.onyx.browser.web.adblock.** {
+    *;
+}
 -keep class com.onyx.browser.web.AdBlock* { *; }
 -keepclassmembers class com.onyx.browser.web.AdBlock* {
     *;
@@ -54,18 +58,36 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
+# Preserve JavaScript Bridges in web.bridge
+-keep class com.onyx.browser.web.bridge.** { *; }
+-keepclassmembers class com.onyx.browser.web.bridge.** {
+    public <methods>;
+    *;
+}
+
 # Preserve PasskeyWebAuthnBridge and its public methods called from JavaScript
+-keep class com.onyx.browser.web.bridge.PasskeyWebAuthnBridge { *; }
+-keep class com.onyx.browser.web.bridge.PasskeyWebAuthnBridge$* { *; }
 -keep class com.onyx.browser.web.PasskeyWebAuthnBridge { *; }
 -keep class com.onyx.browser.web.PasskeyWebAuthnBridge$* { *; }
+-keepclassmembers class com.onyx.browser.web.bridge.PasskeyWebAuthnBridge {
+    public <methods>;
+}
 -keepclassmembers class com.onyx.browser.web.PasskeyWebAuthnBridge {
     public <methods>;
 }
--keep class com.onyx.browser.web.OnyxFormBridge { *; }
 
-# Preserve OnyxFormBridge and FormPostRegistry for POST download replay
+# Preserve FormBridge and FormPostRegistry for POST download replay
+-keep class com.onyx.browser.web.bridge.FormBridge { *; }
+-keep class com.onyx.browser.web.bridge.FormPostRegistry { *; }
+-keep class com.onyx.browser.web.bridge.FormPost { *; }
 -keep class com.onyx.browser.web.OnyxFormBridge { *; }
 -keep class com.onyx.browser.web.FormPostRegistry { *; }
 -keep class com.onyx.browser.web.FormPost { *; }
+
+# Preserve Domain Utilities & Services
+-keep class com.onyx.browser.autofill.** { *; }
+-keep class com.onyx.browser.privacy.** { *; }
 
 # Preserve custom WebView and WebChrome clients
 -keep class com.onyx.browser.web.OnyxWebView { *; }

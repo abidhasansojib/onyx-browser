@@ -22,7 +22,7 @@ import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityDownloadPromptBinding
 import com.onyx.browser.ui.theme.AccentColorManager
-import com.onyx.browser.web.DownloadHandler
+import com.onyx.browser.download.DownloadHandler
 
 class DownloadPromptActivity : AppCompatActivity() {
 

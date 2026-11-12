@@ -96,13 +96,17 @@ onyx-browser/
 │   │   ├── java/com/onyx/browser/
 │   │   │   ├── MainActivity.kt     # SingleTask primary activity, toolbar, and window coordinator
 │   │   │   ├── OnyxApplication.kt  # Startup lifecycle, DI container, SQLCipher init, Safe Browsing setup
+│   │   │   ├── autofill/           # AutofillHelper system Autofill & Credential Manager domain utility
 │   │   │   ├── data/               # FilterListManager, Room DB, DAOs, repository/, preferences/ domain stores
 │   │   │   ├── di/                 # AppContainer, DefaultAppContainer, OnyxViewModelFactory
+│   │   │   ├── download/           # DownloadEngine, DownloadHandler, DownloadNotificationHelper, OnyxDownloadService
+│   │   │   ├── incognito/          # IncognitoNotificationReceiver, isolated profile manager
 │   │   │   ├── media/              # MediaPlaybackService and MediaPlaybackBridge
 │   │   │   ├── nativebridge/       # AdBlockEngine JNI bindings to libadblock_bridge.so
-│   │   │   ├── ui/                 # ViewBinding presentation layer, UDF viewmodel/, browser/ controllers, settings
+│   │   │   ├── privacy/            # ClearOnExitService, ClearDataOnExitHelper privacy lifecycle cleanup
+│   │   │   ├── ui/                 # ViewBinding presentation layer, UDF viewmodel/, browser/ (coordinators, controllers), settings/ (shields/, site/, userscript/, appearance/)
 │   │   │   ├── userscript/         # Tampermonkey/Violentmonkey engine, metadata parser, matcher, bridge
-│   │   │   └── web/                # Hardened Chromium WebView subsystem, AssetScriptLoader, interceptor/, navigation/, bridges
+│   │   │   └── web/                # Hardened Chromium WebView subsystem, AssetScriptLoader, adblock/, bridge/, interceptor/, navigation/, translate/
 │   │   └── res/                    # Google Theme styles (Light/Dark/AMOLED), layouts, vectors
 │   ├── src/test/                   # JUnit 4, MockK, and Coroutines unit test suite
 │   └── build.gradle.kts            # App dependencies, NDK configuration, Room KSP schema export, deterministic signing

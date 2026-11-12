@@ -16,7 +16,7 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.MainActivity
 import com.onyx.browser.databinding.DialogImagePreviewBinding
-import com.onyx.browser.web.DownloadHandler
+import com.onyx.browser.download.DownloadHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

@@ -11,7 +11,7 @@ import com.onyx.browser.MainActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.preferences.SitePermissionState
-import com.onyx.browser.ui.dialog.WebPermissionBottomSheetDialog
+import com.onyx.browser.ui.dialog.WebPermissionBottomSheet
 import java.util.Collections
 import java.util.WeakHashMap
 
@@ -51,7 +51,7 @@ class WebChromeCoordinator(
             onDenied(false)
             return
         }
-        val sheet = WebPermissionBottomSheetDialog(
+        val sheet = WebPermissionBottomSheet(
             host = host,
             permissionTitle = title,
             permissionDesc = message,
@@ -61,7 +61,7 @@ class WebChromeCoordinator(
             onAllowedOnce = onAllowedWhileVisiting,
             onDenied = onDenied
         )
-        sheet.show(activity.supportFragmentManager, WebPermissionBottomSheetDialog.TAG)
+        sheet.show(activity.supportFragmentManager, WebPermissionBottomSheet.TAG)
     }
 
     fun showGeolocationPermissionDialog(

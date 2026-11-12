@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.browser.TabManager
+import com.onyx.browser.ui.browser.TabCoordinator
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

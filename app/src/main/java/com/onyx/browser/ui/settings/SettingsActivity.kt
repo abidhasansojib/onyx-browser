@@ -195,8 +195,8 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun showUaSpooferDialog() {
-        UserAgentPickerSheet {
+        UserAgentPickerBottomSheet {
             updateUaSpooferText()
-        }.show(supportFragmentManager, "UserAgentPickerSheet")
+        }.show(supportFragmentManager, UserAgentPickerBottomSheet.TAG)
     }
 }

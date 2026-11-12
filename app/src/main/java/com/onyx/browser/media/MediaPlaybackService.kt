@@ -596,7 +596,7 @@ class MediaPlaybackService : Service() {
             val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(applicationContext)
             if (prefs.isClearOnExitEnabled) {
                 prefs.hasPendingExitClearance = true
-                com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext)
+                com.onyx.browser.privacy.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext)
                 prefs.hasPendingExitClearance = false
             }
             isMediaPlaying = false

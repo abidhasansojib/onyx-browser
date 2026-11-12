@@ -363,32 +363,27 @@
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
-            android:name=".ui.settings.AppearanceActivity"
+            android:name=".ui.settings.appearance.AppearanceActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
-            android:name=".ui.settings.AddressBarSettingsActivity"
+            android:name=".ui.settings.appearance.AddressBarSettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
-            android:name=".ui.settings.SettingsPrivacyActivity"
+            android:name=".ui.settings.shields.ShieldsActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
-            android:name=".ui.settings.ShieldsActivity"
+            android:name=".ui.settings.site.SiteSettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
-            android:name=".ui.settings.SiteSettingsActivity"
-            android:exported="false"
-            android:theme="@style/Theme.OnyxBrowser" />
-
-        <activity
-            android:name=".ui.settings.ContentFiltersActivity"
+            android:name=".ui.settings.shields.ContentFiltersActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />
 
@@ -423,12 +418,12 @@
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
-            android:name=".ui.settings.UserScriptsActivity"
+            android:name=".ui.settings.userscript.UserScriptsActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser" />
 
         <activity
-            android:name=".ui.settings.UserScriptEditorActivity"
+            android:name=".ui.settings.userscript.UserScriptEditorActivity"
             android:exported="false"
             android:theme="@style/Theme.OnyxBrowser"
             android:windowSoftInputMode="adjustResize" />
@@ -485,13 +480,13 @@
 
         <!-- Clear Data On Exit Lifecycle Service (Listens for onTaskRemoved) -->
         <service
-            android:name=".data.ClearOnExitService"
+            android:name=".privacy.ClearOnExitService"
             android:exported="false"
             android:stopWithTask="false" />
 
         <!-- Download Complete Broadcast Receiver -->
         <receiver
-            android:name=".web.DownloadCompleteReceiver"
+            android:name=".download.DownloadCompleteReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />

@@ -3,6 +3,8 @@ package com.onyx.browser.ui.settings
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.onyx.browser.R
+import com.onyx.browser.autofill.ActivePasswordManagerInfo
+import com.onyx.browser.autofill.AutofillHelper
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityAutofillSettingsBinding
 import com.onyx.browser.ui.theme.AccentColorManager

@@ -21,6 +21,16 @@ import androidx.webkit.Profile
 import androidx.webkit.ProfileStore
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.onyx.browser.web.adblock.AdBlockDocumentStart
+import com.onyx.browser.web.bridge.BlobBridge
+import com.onyx.browser.web.bridge.ChromeEnvironmentBridge
+import com.onyx.browser.web.bridge.FormBridge
+import com.onyx.browser.web.bridge.NotificationBridge
+import com.onyx.browser.web.bridge.PasskeyWebAuthnBridge
+import com.onyx.browser.web.bridge.RegexFindBridge
+import com.onyx.browser.web.bridge.ShieldBridge
+import com.onyx.browser.web.bridge.TouchBridge
+import com.onyx.browser.web.bridge.WebGLCompatibilityBridge
 import com.onyx.browser.web.error.SyntheticNavigationState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -80,7 +90,7 @@ class OnyxWebView @JvmOverloads constructor(
         private set
     @Volatile private var lastAppliedSpoofTemplate: String? = null
     
-    val touchBridge = OnyxTouchBridge()
+    val touchBridge = TouchBridge()
     var lastTouchX: Float = 0f
         private set
     var lastTouchY: Float = 0f
@@ -351,7 +361,7 @@ class OnyxWebView @JvmOverloads constructor(
         // Blob Downloads Bridge (Modern WebMessageListener with @JavascriptInterface fallback)
         try {
             val bridgeScope = (activity as? LifecycleOwner)?.lifecycleScope ?: webViewScope
-            val blobBridge = OnyxBlobBridge(context.applicationContext, bridgeScope)
+            val blobBridge = BlobBridge(context.applicationContext, bridgeScope)
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER)) {
                 androidx.webkit.WebViewCompat.addWebMessageListener(
                     this,
@@ -366,7 +376,7 @@ class OnyxWebView @JvmOverloads constructor(
 
         // Form POST capture bridge (Modern WebMessageListener with @JavascriptInterface fallback)
         try {
-            val formBridge = OnyxFormBridge()
+            val formBridge = FormBridge()
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER)) {
                 androidx.webkit.WebViewCompat.addWebMessageListener(
                     this,
@@ -375,7 +385,7 @@ class OnyxWebView @JvmOverloads constructor(
                     formBridge.createWebMessageListener()
                 )
             } else {
-                addJavascriptInterface(formBridge, OnyxFormBridge.INTERFACE_NAME)
+                addJavascriptInterface(formBridge, FormBridge.INTERFACE_NAME)
             }
         } catch (_: Exception) {}
 
@@ -389,14 +399,14 @@ class OnyxWebView @JvmOverloads constructor(
                     touchBridge.createWebMessageListener()
                 )
             } else {
-                addJavascriptInterface(touchBridge, OnyxTouchBridge.INTERFACE_NAME)
+                addJavascriptInterface(touchBridge, TouchBridge.INTERFACE_NAME)
             }
         } catch (_: Exception) {}
 
         // Onyx Shield & AdBlock Whitelist Bridge (synchronous checks at document-start)
         try {
             addJavascriptInterface(
-                OnyxShieldBridge(context.applicationContext, java.lang.ref.WeakReference(this)),
+                ShieldBridge(context.applicationContext, java.lang.ref.WeakReference(this)),
                 "OnyxShieldBridge"
             )
         } catch (_: Exception) {}
@@ -415,10 +425,10 @@ class OnyxWebView @JvmOverloads constructor(
             try {
                 val mainAct = activity as? com.onyx.browser.MainActivity
                 addJavascriptInterface(
-                    OnyxNotificationBridge(activity, this) { host, callback ->
+                    NotificationBridge(activity, this) { host, callback ->
                         mainAct?.requestNotificationPermissionForSite(host, callback) ?: callback("denied")
                     },
-                    OnyxNotificationBridge.BRIDGE_NAME
+                    NotificationBridge.BRIDGE_NAME
                 )
             } catch (_: Exception) {}
         }
@@ -450,7 +460,7 @@ class OnyxWebView @JvmOverloads constructor(
                 )
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
-                    OnyxNotificationBridge.POLYFILL_SCRIPT,
+                    NotificationBridge.POLYFILL_SCRIPT,
                     setOf("*")
                 )
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
@@ -460,12 +470,12 @@ class OnyxWebView @JvmOverloads constructor(
                 )
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
-                    OnyxTouchBridge.TOUCH_LISTENER_JS,
+                    TouchBridge.TOUCH_LISTENER_JS,
                     setOf("*")
                 )
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
-                    OnyxFormBridge.SUBMIT_HOOK_SCRIPT,
+                    FormBridge.SUBMIT_HOOK_SCRIPT,
                     setOf("*")
                 )
                 // Always inject the media monitor: powers floating video menu pill, media session,

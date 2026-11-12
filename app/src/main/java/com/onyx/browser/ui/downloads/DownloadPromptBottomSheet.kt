@@ -24,7 +24,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
 import com.onyx.browser.databinding.BottomSheetDownloadPromptBinding
-import com.onyx.browser.web.DownloadHandler
+import com.onyx.browser.download.DownloadHandler
 
 class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
 

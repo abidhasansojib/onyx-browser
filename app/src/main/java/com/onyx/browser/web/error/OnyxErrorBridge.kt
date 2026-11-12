@@ -146,7 +146,7 @@ class OnyxErrorBridge(
     fun openShields() {
         if (!isSyntheticErrorPageActive()) return
         activity?.let {
-            it.startActivity(Intent(it, com.onyx.browser.ui.settings.ShieldsActivity::class.java))
+            it.startActivity(Intent(it, com.onyx.browser.ui.settings.shields.ShieldsActivity::class.java))
         }
     }
 

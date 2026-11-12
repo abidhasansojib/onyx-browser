@@ -139,16 +139,16 @@ class SearchEngineSettingsActivity : AppCompatActivity() {
     }
 
     private fun showAddSearchEngineDialog() {
-        val dialog = AddEditSearchEngineDialog(existingEngine = null) { newEngine ->
+        val dialog = AddEditSearchEngineBottomSheet(existingEngine = null) { newEngine ->
             preferences.addCustomSearchEngine(newEngine)
             populateAllEngines()
             Toast.makeText(this, "Added ${newEngine.displayName}", Toast.LENGTH_SHORT).show()
         }
-        dialog.show(supportFragmentManager, AddEditSearchEngineDialog.TAG)
+        dialog.show(supportFragmentManager, AddEditSearchEngineBottomSheet.TAG)
     }
 
     private fun showEditSearchEngineDialog(engine: SearchEngine) {
-        val dialog = AddEditSearchEngineDialog(existingEngine = engine) { updated ->
+        val dialog = AddEditSearchEngineBottomSheet(existingEngine = engine) { updated ->
             preferences.updateCustomSearchEngine(updated)
             // If the updated engine is currently active, re-set it
             if (preferences.searchEngine.id == updated.id) {
@@ -157,7 +157,7 @@ class SearchEngineSettingsActivity : AppCompatActivity() {
             populateAllEngines()
             Toast.makeText(this, "Updated ${updated.displayName}", Toast.LENGTH_SHORT).show()
         }
-        dialog.show(supportFragmentManager, AddEditSearchEngineDialog.TAG)
+        dialog.show(supportFragmentManager, AddEditSearchEngineBottomSheet.TAG)
     }
 
     private fun confirmDeleteCustomEngine(engine: SearchEngine) {

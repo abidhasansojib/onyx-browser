@@ -79,15 +79,15 @@ import com.onyx.browser.ui.browser.FileChooserCoordinator
 import com.onyx.browser.ui.browser.FindInPageController
 import com.onyx.browser.ui.browser.HomeScreenController
 import com.onyx.browser.ui.browser.NavigationCoordinator
-import com.onyx.browser.ui.browser.PageExportManager
+import com.onyx.browser.ui.browser.PageExportCoordinator
 import com.onyx.browser.ui.browser.PipController
 import com.onyx.browser.ui.browser.SearchController
-import com.onyx.browser.ui.browser.TabManager
-import com.onyx.browser.ui.browser.ToolbarLayoutDelegate
+import com.onyx.browser.ui.browser.TabCoordinator
+import com.onyx.browser.ui.browser.ToolbarLayoutController
 import com.onyx.browser.ui.browser.WebChromeCoordinator
-import com.onyx.browser.ui.browser.WebContextMenuController
+import com.onyx.browser.ui.browser.WebContextMenuCoordinator
 import com.onyx.browser.ui.viewmodel.BrowserViewModel
-import com.onyx.browser.ui.common.SearchEnginePickerDialog
+import com.onyx.browser.ui.common.SearchEnginePickerBottomSheet
 import com.onyx.browser.ui.common.SearchEnginePopupMenu
 import com.onyx.browser.ui.common.SearchEngineIconHelper
 import com.onyx.browser.ui.downloads.DownloadsActivity
@@ -95,12 +95,12 @@ import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.home.EditShortcutDialog
 import com.onyx.browser.ui.home.ManageShortcutsBottomSheet
 import com.onyx.browser.ui.home.ShortcutsAdapter
-import com.onyx.browser.ui.menu.MenuBottomSheetDialogFragment
+import com.onyx.browser.ui.menu.MenuBottomSheet
 import com.onyx.browser.ui.menu.ContextMenuBottomSheet
 import com.onyx.browser.ui.menu.LanguageSelectionDialog
 import com.onyx.browser.ui.tabs.TabSwitcherBottomSheet
-import com.onyx.browser.web.DownloadHandler
-import com.onyx.browser.web.FormPostRegistry
+import com.onyx.browser.download.DownloadHandler
+import com.onyx.browser.web.bridge.FormPostRegistry
 import com.onyx.browser.web.LocalFileLoader
 import com.onyx.browser.web.OnyxWebChromeClient
 import com.onyx.browser.web.OnyxWebView
@@ -632,7 +632,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         applyToolbarPosition(preferences.isAddressBarAtBottom, initial = true)
 
         try {
-            startService(Intent(this, com.onyx.browser.data.ClearOnExitService::class.java))
+            startService(Intent(this, com.onyx.browser.privacy.ClearOnExitService::class.java))
         } catch (_: Throwable) {}
 
         val accentTint = AccentColorManager.getAccentColorStateList(this)
@@ -866,7 +866,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         lifecycleScope.launch {
             if (preferences.isClearOnExitEnabled && preferences.hasPendingExitClearance) {
-                com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
+                com.onyx.browser.privacy.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
                 preferences.hasPendingExitClearance = false
             }
             tabManager.restoreTabs()
@@ -1660,7 +1660,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
             val guessedFileName = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype).lowercase()
             if (com.onyx.browser.userscript.UserScriptManager.isUserScriptUrl(url) || guessedFileName.endsWith(".user.js")) {
-                com.onyx.browser.ui.settings.InstallUserScriptBottomSheet.show(supportFragmentManager, url)
+                com.onyx.browser.ui.settings.userscript.InstallUserScriptBottomSheet.show(supportFragmentManager, url)
                 return@setDownloadListener
             }
             val cookies = try {
@@ -2318,7 +2318,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
                     if (binding.homeLayout.root.visibility != View.VISIBLE && (activeTab.url.isNotBlank() && !activeTab.url.startsWith("about:blank", ignoreCase = true))) {
                         if (preferences.isClearOnExitEnabled) {
-                            com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
+                            com.onyx.browser.privacy.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
                             finishAffinity()
                             return
                         } else {
@@ -2332,7 +2332,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 }
 
                 if (preferences.isClearOnExitEnabled) {
-                    com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
+                    com.onyx.browser.privacy.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
                     finishAffinity()
                 } else {
                     // Default activity back behavior: minimize to home screen
@@ -3017,7 +3017,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         } catch (_: Exception) {}
         if (isFinishing) {
             if (preferences.isClearOnExitEnabled) {
-                com.onyx.browser.data.local.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
+                com.onyx.browser.privacy.ClearDataOnExitHelper.clearAllBrowsingDataSync(applicationContext, tabManager)
                 preferences.hasPendingExitClearance = false
             }
             tabManager.closeAllTabs(incognitoOnly = true)

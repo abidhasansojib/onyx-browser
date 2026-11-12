@@ -11,8 +11,8 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityMainBinding
 import com.onyx.browser.ui.menu.ElementPickerManager
 import com.onyx.browser.ui.menu.LanguageSelectionDialog
-import com.onyx.browser.ui.menu.MenuBottomSheetDialogFragment
-import com.onyx.browser.ui.menu.SiteShieldBottomSheetDialog
+import com.onyx.browser.ui.menu.MenuBottomSheet
+import com.onyx.browser.ui.menu.SiteShieldBottomSheet
 import com.onyx.browser.web.DevToolsManager
 import com.onyx.browser.web.LocalFileLoader
 import com.onyx.browser.web.OnyxWebView
@@ -40,7 +40,7 @@ class BrowserMenuCoordinator(
         val activeWebView = activity.tabManager.getActiveWebView()
         val isHome = (binding.homeLayout.root.visibility == View.VISIBLE) || activeTab?.url.isNullOrBlank()
 
-        val sheet = MenuBottomSheetDialogFragment().apply {
+        val sheet = MenuBottomSheet().apply {
             isHomePage = isHome
             currentUrl = activeTab?.url ?: ""
             currentTitle = activeTab?.title ?: ""
@@ -71,7 +71,7 @@ class BrowserMenuCoordinator(
                 activeWebView?.onSiteSettingsChanged()
             }
         }
-        sheet.show(activity.supportFragmentManager, MenuBottomSheetDialogFragment.TAG)
+        sheet.show(activity.supportFragmentManager, MenuBottomSheet.TAG)
     }
 
     fun showSiteShieldDialog() {
@@ -82,7 +82,7 @@ class BrowserMenuCoordinator(
             val activeWv = activity.tabManager.getActiveWebView()
             val blockedCount = activeWv?.pageBlockedCount ?: 0
             val cert = activeWv?.certificate
-            val dialog = SiteShieldBottomSheetDialog(
+            val dialog = SiteShieldBottomSheet(
                 currentUrl = url,
                 pageBlockedCount = blockedCount,
                 isIncognito = activeTab.isIncognito,
@@ -90,7 +90,7 @@ class BrowserMenuCoordinator(
             ) {
                 activity.tabManager.getActiveWebView()?.onSiteSettingsChanged()
             }
-            dialog.show(activity.supportFragmentManager, SiteShieldBottomSheetDialog.TAG)
+            dialog.show(activity.supportFragmentManager, SiteShieldBottomSheet.TAG)
         }
     }
 

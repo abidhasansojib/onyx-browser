@@ -20,7 +20,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.MainActivity
 import com.onyx.browser.R
 import com.onyx.browser.databinding.BottomSheetContextMenuBinding
-import com.onyx.browser.web.DownloadHandler
+import com.onyx.browser.download.DownloadHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

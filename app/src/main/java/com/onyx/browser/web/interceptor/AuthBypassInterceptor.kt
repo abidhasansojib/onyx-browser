@@ -5,7 +5,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.nativebridge.AdBlockEngine
-import com.onyx.browser.web.AdBlockDomainManager
+import com.onyx.browser.web.adblock.AdBlockDomainManager
 import com.onyx.browser.web.OnyxWebView
 import com.onyx.browser.web.OnyxWebViewClient
 import java.io.ByteArrayInputStream
