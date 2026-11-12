@@ -50,13 +50,13 @@ class BrowserMenuCoordinator(
                 activeWebView?.toggleDesktopMode()
             }
             onFindInPageClicked = {
-                activity.showFindInPage()
+                this@BrowserMenuCoordinator.activity.showFindInPage()
             }
             onTranslateClicked = { langCode ->
                 translateCurrentPage(langCode)
             }
             onSavePageClicked = {
-                activity.showSavePageDialog()
+                this@BrowserMenuCoordinator.activity.showSavePageDialog()
             }
             onAddToHomeScreenClicked = {
                 addCurrentPageToHomeScreen()
