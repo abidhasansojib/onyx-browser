@@ -11,6 +11,7 @@ import androidx.fragment.app.DialogFragment
 import com.onyx.browser.R
 import com.onyx.browser.databinding.DialogConfirmCloseAllTabsBinding
 import com.onyx.browser.ui.browser.TabCoordinator
+import com.onyx.browser.ui.browser.TabManager
 
 class CloseAllTabsDialog @JvmOverloads constructor(
     private var tabManager: TabManager? = null,

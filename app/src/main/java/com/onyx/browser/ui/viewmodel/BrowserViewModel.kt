@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
+import com.onyx.browser.ui.browser.TabManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,7 +41,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun bindTabManager(tabManager: TabManager) {
+    fun bindTabManager(tabManager: TabCoordinator) {
         tabManagerJob?.cancel()
         tabManagerJob = viewModelScope.launch {
             combine(
@@ -61,6 +62,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
+
+    fun bindTabCoordinator(tabCoordinator: TabCoordinator) = bindTabManager(tabCoordinator)
 
     fun updateLoadingState(isLoading: Boolean, progress: Int = _uiState.value.progress) {
         _uiState.update { state ->

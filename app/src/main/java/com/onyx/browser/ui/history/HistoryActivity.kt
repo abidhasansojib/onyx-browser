@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.databinding.ActivityHistoryBinding
 import com.onyx.browser.ui.browser.TabCoordinator
+import com.onyx.browser.ui.browser.TabManager
 import com.onyx.browser.ui.tabs.ClearBrowsingDataDialog
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.viewmodel.HistoryViewModel
@@ -86,7 +87,7 @@ class HistoryActivity : AppCompatActivity() {
             if (isFinishing || isDestroyed || supportFragmentManager.isStateSaved || supportFragmentManager.isDestroyed) {
                 return@setOnClickListener
             }
-            val tm = TabManager.activeInstance
+            val tm = TabCoordinator.activeInstance
             val dialog = ClearBrowsingDataDialog(
                 tabManager = tm,
                 onDataCleared = {}

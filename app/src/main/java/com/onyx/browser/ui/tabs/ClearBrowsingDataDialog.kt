@@ -24,7 +24,7 @@ import java.io.File
 import java.net.URI
 
 class ClearBrowsingDataDialog @JvmOverloads constructor(
-    private var tabManager: TabManager? = TabManager.activeInstance,
+    private var tabManager: TabCoordinator? = TabCoordinator.activeInstance,
     private var onDataCleared: () -> Unit = {}
 ) : DialogFragment() {
 
@@ -47,7 +47,7 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NO_TITLE, 0)
         if (tabManager == null) {
-            tabManager = TabManager.activeInstance
+            tabManager = TabCoordinator.activeInstance
         }
     }
 

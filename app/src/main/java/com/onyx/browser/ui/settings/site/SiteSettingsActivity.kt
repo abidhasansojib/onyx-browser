@@ -18,6 +18,7 @@ import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivitySiteSettingsBinding
 import com.onyx.browser.ui.settings.shields.CookieModePickerBottomSheet
+import com.onyx.browser.ui.settings.userscript.UserScriptsActivity
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.SiteDataManager
 import kotlinx.coroutines.Dispatchers

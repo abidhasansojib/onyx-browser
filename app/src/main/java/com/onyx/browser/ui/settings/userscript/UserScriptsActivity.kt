@@ -22,6 +22,7 @@ import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.UserScriptItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityUserscriptsBinding
+import com.onyx.browser.ui.settings.shields.ShieldsActivity
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.userscript.UpdateResult
 import com.onyx.browser.userscript.UserScriptManager

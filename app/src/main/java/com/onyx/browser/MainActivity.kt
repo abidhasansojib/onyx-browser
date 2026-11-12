@@ -74,18 +74,7 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.search.SearchSuggestionRepository
 import com.onyx.browser.databinding.ActivityMainBinding
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
-import com.onyx.browser.ui.browser.BrowserMenuCoordinator
-import com.onyx.browser.ui.browser.FileChooserCoordinator
-import com.onyx.browser.ui.browser.FindInPageController
-import com.onyx.browser.ui.browser.HomeScreenController
-import com.onyx.browser.ui.browser.NavigationCoordinator
-import com.onyx.browser.ui.browser.PageExportCoordinator
-import com.onyx.browser.ui.browser.PipController
-import com.onyx.browser.ui.browser.SearchController
-import com.onyx.browser.ui.browser.TabCoordinator
-import com.onyx.browser.ui.browser.ToolbarLayoutController
-import com.onyx.browser.ui.browser.WebChromeCoordinator
-import com.onyx.browser.ui.browser.WebContextMenuCoordinator
+import com.onyx.browser.ui.browser.*
 import com.onyx.browser.ui.viewmodel.BrowserViewModel
 import com.onyx.browser.ui.common.SearchEnginePickerBottomSheet
 import com.onyx.browser.ui.common.SearchEnginePopupMenu
@@ -124,17 +113,21 @@ import kotlinx.coroutines.withContext
 class MainActivity : AppCompatActivity(), TabActionCallback {
 
     private lateinit var binding: ActivityMainBinding
-    lateinit var tabManager: TabManager
+    lateinit var tabManager: TabCoordinator
+    val tabCoordinator: TabCoordinator get() = tabManager
     lateinit var browserViewModel: BrowserViewModel
-    lateinit var toolbarLayoutDelegate: ToolbarLayoutDelegate
+    lateinit var toolbarLayoutDelegate: ToolbarLayoutController
+    val toolbarLayoutController: ToolbarLayoutController get() = toolbarLayoutDelegate
     lateinit var browserMenuCoordinator: BrowserMenuCoordinator
     lateinit var navigationCoordinator: NavigationCoordinator
     lateinit var webChromeCoordinator: WebChromeCoordinator
     lateinit var homeScreenController: HomeScreenController
     lateinit var fileChooserCoordinator: FileChooserCoordinator
-    lateinit var webContextMenuController: WebContextMenuController
+    lateinit var webContextMenuController: WebContextMenuCoordinator
+    val webContextMenuCoordinator: WebContextMenuCoordinator get() = webContextMenuController
     private lateinit var preferences: BrowserPreferences
-    private lateinit var pageExportManager: PageExportManager
+    private lateinit var pageExportManager: PageExportCoordinator
+    val pageExportCoordinator: PageExportCoordinator get() = pageExportManager
     private lateinit var findInPageController: FindInPageController
     private lateinit var searchController: SearchController
 
@@ -588,10 +581,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         lastAccentColor = preferences.accentColorHex
         com.onyx.browser.download.OnyxDownloadManager.init(this)
-        pageExportManager = PageExportManager(this, lifecycleScope)
+        pageExportManager = PageExportCoordinator(this, lifecycleScope)
         navigationCoordinator = NavigationCoordinator(this, preferences)
         webChromeCoordinator = WebChromeCoordinator(this, preferences)
-        tabManager = TabManager(this, lifecycleScope)
+        tabManager = TabCoordinator(this, lifecycleScope)
         tabManager.onTabClosedListener = { tab ->
             previewTabsFromDownloads.remove(tab.id)
             previewTabsFromExternal.remove(tab.id)
@@ -602,7 +595,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        toolbarLayoutDelegate = ToolbarLayoutDelegate(this, binding, preferences)
+        toolbarLayoutDelegate = ToolbarLayoutController(this, binding, preferences)
         browserMenuCoordinator = BrowserMenuCoordinator(this, binding, preferences)
         fileChooserCoordinator = FileChooserCoordinator(
             activity = this,
@@ -618,7 +611,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             coroutineScope = lifecycleScope,
             onNavigateToUrl = { url -> performSearchOrLoad(url) }
         )
-        webContextMenuController = WebContextMenuController(
+        webContextMenuController = WebContextMenuCoordinator(
             activity = this,
             coroutineScope = lifecycleScope,
             isTabIncognito = { tabId ->
@@ -3022,8 +3015,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
             tabManager.closeAllTabs(incognitoOnly = true)
             com.onyx.browser.incognito.IncognitoNotificationHelper.dismissNotification(this)
-            if (TabManager.activeInstance == tabManager) {
-                TabManager.activeInstance = null
+            if (TabCoordinator.activeInstance == tabManager) {
+                TabCoordinator.activeInstance = null
             }
         }
         tabManager.clearAllWebViews()

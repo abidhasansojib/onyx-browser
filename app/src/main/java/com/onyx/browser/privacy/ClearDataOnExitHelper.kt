@@ -1,8 +1,5 @@
 package com.onyx.browser.privacy
 
-import com.onyx.browser.ui.browser.TabCoordinator
-import com.onyx.browser.ui.browser.TabCoordinator
-
 import android.content.Context
 import android.webkit.CookieManager
 import android.webkit.WebStorage
@@ -10,8 +7,10 @@ import android.webkit.WebViewDatabase
 import androidx.webkit.ProfileStore
 import androidx.webkit.WebViewFeature
 import com.onyx.browser.data.favicon.FaviconManager
+import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
+import com.onyx.browser.ui.browser.TabManager
 import com.onyx.browser.web.LocalFileLoader
 import com.onyx.browser.web.OnyxWebView
 import kotlinx.coroutines.Dispatchers

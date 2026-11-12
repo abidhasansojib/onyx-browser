@@ -39,8 +39,8 @@ class TabCoordinator(
     private val coroutineScope: CoroutineScope
 ) {
     companion object {
-        private var _activeInstanceRef: java.lang.ref.WeakReference<TabManager>? = null
-        var activeInstance: TabManager?
+        private var _activeInstanceRef: java.lang.ref.WeakReference<TabCoordinator>? = null
+        var activeInstance: TabCoordinator?
             get() = _activeInstanceRef?.get()
             set(value) {
                 _activeInstanceRef = value?.let { java.lang.ref.WeakReference(it) }

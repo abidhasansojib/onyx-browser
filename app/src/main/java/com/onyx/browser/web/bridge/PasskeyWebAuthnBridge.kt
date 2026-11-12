@@ -1,5 +1,6 @@
 package com.onyx.browser.web.bridge
 
+import com.onyx.browser.web.AssetScriptLoader
 import com.onyx.browser.web.OnyxWebView
 
 import android.app.Activity

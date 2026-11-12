@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityShieldsBinding
+import com.onyx.browser.ui.settings.userscript.UserScriptsActivity
 import com.onyx.browser.ui.theme.AccentColorManager
 
 class ShieldsActivity : AppCompatActivity() {

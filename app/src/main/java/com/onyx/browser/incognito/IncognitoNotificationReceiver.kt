@@ -13,7 +13,7 @@ class IncognitoNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action == IncognitoNotificationHelper.ACTION_CLOSE_ALL_INCOGNITO) {
             val pendingResult = goAsync()
-            val active = TabManager.activeInstance
+            val active = TabCoordinator.activeInstance
             if (active != null) {
                 Handler(Looper.getMainLooper()).post {
                     try {
@@ -27,7 +27,7 @@ class IncognitoNotificationReceiver : BroadcastReceiver() {
             } else {
                 Handler(Looper.getMainLooper()).post {
                     try {
-                        TabManager.purgeIncognitoProfileStatic()
+                        TabCoordinator.purgeIncognitoProfileStatic()
                     } finally {
                         IncognitoNotificationHelper.dismissNotification(context)
                         showToast(context)
