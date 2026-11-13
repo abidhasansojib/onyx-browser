@@ -33623,6 +33623,8 @@ $uritransform=/#Echobox=[\d]{10}$//,to=iltalehti.fi|hs.fi
 ||stats.index.hr^
 ||index.hr/tracking-beacon
 ||index.hr/api/Stats/
+||index.hr/api/homepage/seen
+||index.hr/setabcookie
 ||sms24.me/numbers/pixel
 ||narto-drama.com/presence/heartbeat
 adhs-zentrum.de##+js(no-xhr-if, method:POST body:/"track"|adblock/)
@@ -45132,6 +45134,7 @@ omni.soundestlink.com$image
 ||spareapp.com^
 ||sparkgoal.com^
 ||sparklingshelf.com^
+||spasmgame.com^
 ||specialreview.net^
 ||specialscissors.com^
 ||specialtypin.com^
@@ -45340,6 +45343,7 @@ omni.soundestlink.com$image
 ||teeshining.com^
 ||telephoneapparatus.com^
 ||tempertrick.com^
+||tempowraps.com^
 ||temptteam.com^
 ||tendertest.com^
 ||tenhourweek.com^
@@ -45646,6 +45650,7 @@ omni.soundestlink.com$image
 ||wtaccesscontrol.com^
 ||yachtloft.com^
 ||yellowscissors.com^
+||yetiminis.com^
 ||yieldingwoman.com^
 ||youcandrawanything.com^
 ||yourgiftedbaby.com^
@@ -78149,7 +78154,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||adserver.o2.pl^
 ||adserver.oddschecker.com^
 ||adserver.omroepzeeland.nl^
-||adserver.otthonom.hu^
 ||adserver.pampa.com.br^
 ||adserver.piksel.mk^
 ||adserver.pl^
@@ -78440,7 +78444,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||banners.adultfriendfinder.com^
 ||banners.amigos.com^
 ||banners.asiafriendfinder.com^
-||banners.babylon-x.com^
 ||banners.bol.com.br^
 ||banners.cams.com^
 ||banners.czi.cz^
@@ -78961,7 +78964,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||freepay.com^
 ||freestats.com^
 ||freestats.tv^
-||freewebcounter.com^
 ||freewheel.com^
 ||freewheel.tv^
 ||freshrelevance.com^
@@ -79199,11 +79201,13 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||l1.britannica.com^
 ||larati.net^
 ||launchbit.com^
+||layer-ad.de^
 ||layer-ads.de^
 ||lazybumblebee.com^
 ||lbn.ru^
 ||lead02.com^
 ||leadboltads.net^
+||leadclick.com^
 ||leadinfo.net^
 ||leadingedgecash.com^
 ||leadplace.fr^
@@ -79250,15 +79254,16 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||linkprice.com^
 ||linkrain.com^
 ||linkreferral.com^
+||links-ranking.de^
 ||links.email.crunchbase.com^
 ||links.housekeep.com^
-||links.prosservice.fr^
 ||links.zoopla.co.uk^
 ||linkstorms.com^
 ||linkswaper.com^
 ||linksynergy.com^
 ||linktarget.com^
 ||linkvertise.com^
+||liquidad.narrowcastmedia.com^
 ||litix.io^
 ||live.trmzum.com^
 ||liveadexchanger.com^
@@ -79491,6 +79496,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||offerforge.com^
 ||offermatica.com^
 ||offers.gateway-lts450.com^
+||offers.ltsc-has.com^
 ||ogads-pa.googleapis.com^
 ||oglasi.posjetnica.com^
 ||ogury.com^
@@ -79789,7 +79795,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||rtbadzesto.com^
 ||rtbflairads.com^
 ||rtbplatform.net^
-||rtbpop.com^
 ||rtxplatform.com^
 ||ru4.com^
 ||rubiconproject.com^
@@ -80296,7 +80301,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||www.photo-ads.co.uk^
 ||www8.glam.com^
 ||wwwpromoter.com^
-||x-traceur.com^
 ||x6.yakiuchi.com^
 ||xad.com^
 ||xapads.com^
