@@ -126,16 +126,13 @@ class OnyxWebViewClient(
             return true
         }
 
-        // 4. Query Brave adblock native engine for both $popup and $main_frame rules
+        // 4. Query Brave adblock native engine for explicit $popup rules
         val effectiveSourceUrl = if (parentUrl.isNotBlank()) parentUrl else currentPageUrl
         if (AdBlockEngine.checkUrlCached(url, effectiveSourceUrl, "popup")) {
             return true
         }
-        if (AdBlockEngine.shouldBlock(url, effectiveSourceUrl, "main_frame")) {
-            return true
-        }
 
-        // 6. If parent tab is a streaming/video/anime media player, ALL non-auth cross-domain popups are clickjacks/ads!
+        // 5. If parent tab is a streaming/video/anime media player, ALL non-auth cross-domain popups are clickjacks/ads!
         val isParentStreamingOrMedia = isStreamingOrMediaPage(parentUrl) ||
                 isMediaOrStreamingHost(parentDomain) ||
                 MediaPlaybackBridge.isVideoAvailableForTab(parentTab?.id)
@@ -143,9 +140,12 @@ class OnyxWebViewClient(
             return true
         }
 
-        // In Aggressive blocking mode, block any unverified cross-domain popup
-        val effectiveBlocking = preferences.getEffectiveBlockingLevel(onyxWv?.url ?: "")
+        // 6. In Aggressive blocking mode, also block main_frame ad rules or unverified cross-domain popups
+        val effectiveBlocking = preferences.getEffectiveBlockingLevel(parentUrl)
         if (effectiveBlocking == BrowserPreferences.BLOCKING_AGGRESSIVE) {
+            if (AdBlockEngine.shouldBlock(url, effectiveSourceUrl, "main_frame")) {
+                return true
+            }
             return true
         }
 
@@ -1091,6 +1091,12 @@ class OnyxWebViewClient(
                         return false
                     }
                     if (tryOpenAppForHttpLink(view, uri, url)) {
+                        val onyxWv = view as? OnyxWebView
+                        if (onyxWv != null && onyxWv.isPopupTab && (onyxWv.isPopupPendingDisplay || !onyxWv.canGoBack())) {
+                            onyxWv.post {
+                                tabActionCallback?.closeTab(onyxWv.tabId)
+                            }
+                        }
                         return true
                     }
                 }
@@ -1098,7 +1104,13 @@ class OnyxWebViewClient(
             }
 
             // External app URL schemes (tg://, whatsapp://, tel:, mailto:, sms:, geo:, intent:, market:, etc.)
-            dispatchExternalScheme(view, uri, url, scheme)
+            val handled = dispatchExternalScheme(view, uri, url, scheme)
+            val onyxWv = view as? OnyxWebView
+            if (handled && onyxWv != null && onyxWv.isPopupTab && (onyxWv.isPopupPendingDisplay || !onyxWv.canGoBack())) {
+                onyxWv.post {
+                    tabActionCallback?.closeTab(onyxWv.tabId)
+                }
+            }
             true
         } catch (_: Throwable) {
             true

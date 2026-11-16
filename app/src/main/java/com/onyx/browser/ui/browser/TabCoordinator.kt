@@ -1095,7 +1095,15 @@ class TabCoordinator(
                 purgeIncognitoProfile()
             }
             if (_activeTab.value?.id == tab.id) {
-                setActiveTab(parentTab ?: updated.lastOrNull() ?: _normalTabs.value.lastOrNull())
+                val nextTab = parentTab ?: run {
+                    if (updated.isNotEmpty()) {
+                        val nextIdx = originalIndex.coerceIn(0, updated.size - 1)
+                        updated[nextIdx]
+                    } else {
+                        _normalTabs.value.lastOrNull()
+                    }
+                }
+                setActiveTab(nextTab)
             }
         } else {
             val updated = _normalTabs.value
@@ -1110,7 +1118,8 @@ class TabCoordinator(
                 if (parentTab != null) {
                     setActiveTab(parentTab)
                 } else if (updated.isNotEmpty()) {
-                    setActiveTab(updated.last())
+                    val nextIdx = originalIndex.coerceIn(0, updated.size - 1)
+                    setActiveTab(updated[nextIdx])
                 } else {
                     // Do not auto-create a new tab when the last tab is closed
                     setActiveTab(null)

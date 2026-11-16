@@ -1301,7 +1301,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             ?: ""
         if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
             val isCurrentLoaded = !webView.url.isNullOrBlank() && webView.url != "about:blank"
-            val needsLoad = forceUrl != null || !isCurrentLoaded || (reloadIfChanged && webView.url != targetUrl)
+            val needsLoad = forceUrl != null || !isCurrentLoaded
             if (needsLoad) {
                 // If it's a popup tab and Chromium is already loading it (transport was supplied), do NOT re-load or stopLoading!
                 if (!webView.isPopupTab || webView.url.isNullOrBlank()) {
@@ -1673,10 +1673,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     }
                 }
             },
-            onCloseWindowCallback = {
-                val activeTab = tabManager.activeTab.value
-                if (activeTab != null) {
-                    tabManager.closeTab(activeTab)
+            onCloseWindowCallback = { closingWebView ->
+                val targetTabId = (closingWebView as? OnyxWebView)?.tabId
+                val tabToClose = targetTabId?.let { tabManager.getTabById(it) } ?: tabManager.activeTab.value
+                if (tabToClose != null) {
+                    tabManager.closeTab(tabToClose)
                 }
             }
         )
@@ -1710,9 +1711,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 cookies = cookies,
                 referer = referer
             )
-            // If this download was triggered in an unpromoted popup tab (e.g. target="_blank" download button),
-            // clean up the hidden blank popup window so it doesn't linger as an orphan tab.
-            if (webView.isPopupPendingDisplay && currentDisplayedTabId != tabId) {
+            // If this download was triggered in a transient popup tab (e.g. target="_blank" download button or redirect),
+            // clean up the blank popup window so it doesn't linger as an orphan tab or leave the user on an empty screen.
+            if (webView.isPopupTab && (!webView.canGoBack() || (webView.isPopupPendingDisplay && currentDisplayedTabId != tabId))) {
                 closeTabById(tabId)
             }
         }
@@ -2390,6 +2391,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         // This tab was opened from another tab (e.g. redirected or opened in new tab).
                         // Since all history steps in this tab are gone, pressing back closes this tab
                         // and returns to the original tab from where the user was redirected.
+                        tabManager.closeTab(activeTab)
+                        return
+                    }
+
+                    // If this was a popup tab with no valid history left and multiple tabs exist,
+                    // close it so the user returns to their prior tabs instead of minimizing the app.
+                    if (activeWebView?.isPopupTab == true && (tabManager.normalTabs.value.size + tabManager.incognitoTabs.value.size) > 1) {
                         tabManager.closeTab(activeTab)
                         return
                     }
