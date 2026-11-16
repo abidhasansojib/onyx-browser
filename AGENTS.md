@@ -47,10 +47,12 @@ When triggered for a build (after user confirms or explicitly requests Release o
 3. **If Build Succeeds**:
    - **Release Build**:
      - Released to GitHub Releases as a full release.
+     - Release notes are automatically categorized via `scripts/generate_release_notes.py` (Features, Bug Fixes, Shields, Performance, Upstream, Checksums, and ABI architecture guide).
      - DO NOT download artifacts to the device unless explicitly requested.
      - Report the release version tag, changelog, and GitHub release download links to the user.
    - **Prerelease Build**:
      - Released to GitHub Releases marked as a **Pre-release** (`applicationId` has `.prerelease` suffix).
+     - Release notes are automatically categorized via `scripts/generate_release_notes.py`.
      - DO NOT download artifacts to the device unless explicitly requested.
      - Report the prerelease tag, changelog, and GitHub release download links to the user.
 4. **If Build Fails (CRITICAL AUTO-REPAIR REQUIREMENT)**:
@@ -216,6 +218,7 @@ onyx-browser/
 2. **Resource & Color Consistency**:
    - Always pair color resources between `res/values/colors.xml` and `res/values-night/colors.xml`.
    - Use theme attributes (`?attr/colorControlNormal`, `?attr/colorPrimary`) for icon tints and surface backgrounds.
+   - Resource shrinking (`isShrinkResources = true`) is enabled for Release and Prerelease builds. All native icons (`ic_*`), background shapes (`bg_*`), vector silhouettes (`vector_*`), and manifest configs (`res/xml/*`) are strictly protected via `res/raw/keep.xml` (`tools:shrinkMode="safe"`); never delete or rename keep rules that safeguard runtime resources.
 3. **Database & Persistence Security**:
    - All persistent Room database operations must route through SQLCipher AES-256 encryption via `OnyxDatabase`.
    - Never write sensitive browsing records or authentication data into plain SQLite or unencrypted SharedPreferences.

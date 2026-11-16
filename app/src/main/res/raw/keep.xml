@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Resource shrinker keep rules for Onyx Browser.
+    Preserves all native icons (ic_*), surface backgrounds (bg_*), phone silhouettes (vector_*),
+    manifest XML declarations (file_paths, security config, shortcuts, search widget),
+    and raw/mipmap assets while allowing R8 to discard unused third-party library resources.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:shrinkMode="safe"
+    tools:keep="@drawable/ic_*,@drawable/bg_*,@drawable/vector_*,@xml/*,@raw/*,@mipmap/*" />

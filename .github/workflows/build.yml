@@ -199,7 +199,13 @@ jobs:
             fi
           done
           cd ../../../../..
-          echo "Final Binaries:"
+          
+          # Generate SHA-256 cryptographic checksums for all packaged binaries
+          cd package_apks
+          sha256sum *.apk > SHA256SUMS.txt
+          cd ..
+          
+          echo "Final Binaries & Checksums:"
           ls -lh package_apks/
 
       - name: Publish GitHub Release
@@ -218,36 +224,28 @@ jobs:
             EXTRA_FLAGS=""
           fi
 
-          # Fetch latest tags to determine previous release
+          # Ensure latest tags are available
           git fetch --tags origin 2>/dev/null || true
-          PREV_TAG=$(git tag -l "v*" --sort=-v:refname | grep -v "^${TAG}$" | head -n 1)
 
-          echo "## What's Changed in $TAG" > release_notes.md
-          echo "" >> release_notes.md
+          # Generate Clean Categorized Release Notes with architecture guide & checksums
+          python3 scripts/generate_release_notes.py \
+            --tag "$TAG" \
+            --repo "$REPO" \
+            --output release_notes.md \
+            --apks-dir package_apks
 
-          if [ -n "$PREV_TAG" ]; then
-            COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"* %s ([%h](https://github.com/${REPO}/commit/%H))")
-            if [ -n "$COMMITS" ]; then
-              echo "$COMMITS" >> release_notes.md
-            else
-              git log -n 1 --pretty=format:"* %s ([%h](https://github.com/${REPO}/commit/%H))" >> release_notes.md
-            fi
-            echo "" >> release_notes.md
-            echo "**Full Changelog**: https://github.com/${REPO}/compare/${PREV_TAG}...${TAG}" >> release_notes.md
-          else
-            git log -n 10 --pretty=format:"* %s ([%h](https://github.com/${REPO}/commit/%H))" >> release_notes.md
-          fi
-
-          echo "Generated Release Notes:"
+          echo "Generated Categorized Release Notes:"
           cat release_notes.md
 
-          gh release create "$TAG" package_apks/*.apk \
+          gh release create "$TAG" package_apks/*.apk package_apks/SHA256SUMS.txt \
             $EXTRA_FLAGS \
             --title "$TITLE" \
-            --notes-file release_notes.md || (gh release upload "$TAG" package_apks/*.apk --clobber && gh release edit "$TAG" $EXTRA_FLAGS --notes-file release_notes.md)
+            --notes-file release_notes.md || (gh release upload "$TAG" package_apks/*.apk package_apks/SHA256SUMS.txt --clobber && gh release edit "$TAG" $EXTRA_FLAGS --notes-file release_notes.md)
 
       - name: Upload APKs to Workflow Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Onyx-Browser-${{ env.BUILD_TYPE }}-APKs
-          path: package_apks/*.apk
+          path: |
+            package_apks/*.apk
+            package_apks/SHA256SUMS.txt
