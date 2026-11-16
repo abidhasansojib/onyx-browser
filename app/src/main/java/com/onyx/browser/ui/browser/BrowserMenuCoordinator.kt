@@ -241,20 +241,20 @@ class BrowserMenuCoordinator(
                 when (status) {
                     "shown" -> {
                         webView.isDevToolsActive = true
-                        activity.binding.swipeRefreshLayout.isEnabled = false
+                        binding.swipeRefreshLayout.isEnabled = false
                     }
                     "hidden" -> {
                         webView.isDevToolsActive = false
-                        activity.binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
+                        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
                     }
                     "failed" -> {
                         webView.isDevToolsActive = false
-                        activity.binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
+                        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
                         Toast.makeText(activity, "Unable to load developer tools", Toast.LENGTH_SHORT).show()
                     }
                     "error" -> {
                         webView.isDevToolsActive = false
-                        activity.binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
+                        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
                         Toast.makeText(activity, "Developer tools encountered an error", Toast.LENGTH_SHORT).show()
                     }
                     else -> {}
