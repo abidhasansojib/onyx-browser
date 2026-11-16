@@ -16,7 +16,7 @@ interface TabActionCallback {
     fun closeTab(tabId: String)
 
     /** Make a popup tab visible to the user. */
-    fun displayPopupTab(tab: TabItem)
+    fun displayPopupTab(tab: TabItem, targetUrl: String? = null)
 
     /** Return the [TabItem] for the given ID, or null if not found. */
     fun getTabById(tabId: String): TabItem?

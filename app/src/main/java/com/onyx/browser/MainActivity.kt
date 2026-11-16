@@ -1177,7 +1177,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         currentDisplayedTabId = tab.id
 
-        if (tab.url.isBlank() || tab.url == "about:blank") {
+        val webView = tabManager.getWebView(tab.id)
+        val hasActiveWebUrl = (tab.url.isNotBlank() && tab.url != "about:blank") ||
+                (!webView?.url.isNullOrBlank() && webView?.url != "about:blank") ||
+                (!webView?.pendingMainFrameUrl.isNullOrBlank() && webView?.pendingMainFrameUrl != "about:blank") ||
+                (webView?.isPopupTab == true)
+
+        if (!hasActiveWebUrl) {
             showHomeScreen()
         } else {
             showWebView(tab, reloadIfChanged = tabChanged)
@@ -1289,28 +1295,34 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             updatePipParams()
         }
 
-        val targetUrl = forceUrl ?: tab.url
+        val targetUrl = forceUrl ?: tab.url.takeIf { it.isNotBlank() && it != "about:blank" }
+            ?: webView.url?.takeIf { it.isNotBlank() && it != "about:blank" }
+            ?: webView.pendingMainFrameUrl?.takeIf { it.isNotBlank() && it != "about:blank" }
+            ?: ""
         if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
             val isCurrentLoaded = !webView.url.isNullOrBlank() && webView.url != "about:blank"
             val needsLoad = forceUrl != null || !isCurrentLoaded || (reloadIfChanged && webView.url != targetUrl)
             if (needsLoad) {
-                try {
-                    if (LocalFileLoader.isLocalFile(this, targetUrl)) {
-                        LocalFileLoader.loadLocalFile(this, webView, targetUrl) { title ->
-                            tabManager.updateActiveTab(targetUrl, title)
+                // If it's a popup tab and Chromium is already loading it (transport was supplied), do NOT re-load or stopLoading!
+                if (!webView.isPopupTab || webView.url.isNullOrBlank()) {
+                    try {
+                        if (LocalFileLoader.isLocalFile(this, targetUrl)) {
+                            LocalFileLoader.loadLocalFile(this, webView, targetUrl) { title ->
+                                tabManager.updateActiveTab(targetUrl, title)
+                            }
+                        } else {
+                            var restored = false
+                            if (forceUrl == null && (webView.url.isNullOrBlank() || webView.url == "about:blank")) {
+                                restored = tabManager.restoreTabState(tab.id, webView)
+                            }
+                            if (!restored) {
+                                webView.stopLoading()
+                                webView.loadUrl(targetUrl)
+                            }
                         }
-                    } else {
-                        var restored = false
-                        if (forceUrl == null && (webView.url.isNullOrBlank() || webView.url == "about:blank")) {
-                            restored = tabManager.restoreTabState(tab.id, webView)
-                        }
-                        if (!restored) {
-                            webView.stopLoading()
-                            webView.loadUrl(targetUrl)
-                        }
+                    } catch (t: Throwable) {
+                        Toast.makeText(this, "Failed to load URL: ${t.message}", Toast.LENGTH_SHORT).show()
                     }
-                } catch (t: Throwable) {
-                    Toast.makeText(this, "Failed to load URL: ${t.message}", Toast.LENGTH_SHORT).show()
                 }
             }
             updateAddressBarDisplay(if (LocalFileLoader.isLocalFile(this, targetUrl)) targetUrl else (webView.url ?: targetUrl))
@@ -1322,6 +1334,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 )
             }
             webView.evaluateJavascript(com.onyx.browser.web.MediaPlaybackManager.mediaMonitorScript, null)
+        } else if (webView.isPopupTab) {
+            updateAddressBarDisplay(webView.url ?: "")
         } else {
             showHomeScreen()
         }
@@ -1764,15 +1778,23 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         return if (::tabManager.isInitialized) tabManager.getTabById(tabId) else null
     }
 
-    override fun displayPopupTab(tab: TabItem) {
+    override fun displayPopupTab(tab: TabItem, targetUrl: String?) {
         runOnUiThread {
             val wv = tabManager.getWebView(tab.id)
             if (wv != null && wv.isPopupPendingDisplay) {
                 wv.isPopupPendingDisplay = false
-                tabManager.selectTab(tab)
-                currentDisplayedTabId = tab.id
+                val effectiveUrl = targetUrl?.takeIf { it.isNotBlank() && it != "about:blank" }
+                    ?: wv.url?.takeIf { it.isNotBlank() && it != "about:blank" }
+                    ?: wv.pendingMainFrameUrl?.takeIf { it.isNotBlank() && it != "about:blank" }
+                    ?: tab.url
+                if (effectiveUrl.isNotBlank() && effectiveUrl != "about:blank") {
+                    tabManager.updateTabUrlAndTitle(tab.id, effectiveUrl, wv.title?.takeIf { it.isNotBlank() } ?: effectiveUrl)
+                }
+                val updatedTab = tabManager.getTabById(tab.id) ?: tab
+                currentDisplayedTabId = updatedTab.id
+                tabManager.selectTab(updatedTab)
                 updateTabBadgeCount()
-                showWebView(tab)
+                showWebView(updatedTab, forceUrl = effectiveUrl.takeIf { it.isNotBlank() && it != "about:blank" })
             }
         }
     }

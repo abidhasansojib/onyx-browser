@@ -1039,7 +1039,7 @@ class OnyxWebViewClient(
                         val tabId = onyxWv.tabId
                         val tab = tabActionCallback?.getTabById(tabId)
                         if (tab != null) {
-                            tabActionCallback?.displayPopupTab(tab)
+                            tabActionCallback?.displayPopupTab(tab, url)
                         }
                     }
                 }
@@ -1431,7 +1431,7 @@ class OnyxWebViewClient(
                 } else {
                     val tab = tabActionCallback?.getTabById(onyxWv.tabId)
                     if (tab != null) {
-                        tabActionCallback?.displayPopupTab(tab)
+                        tabActionCallback?.displayPopupTab(tab, url)
                     }
                 }
             }
@@ -1552,7 +1552,7 @@ class OnyxWebViewClient(
                 } else {
                     val tab = tabActionCallback?.getTabById(onyxWv.tabId)
                     if (tab != null) {
-                        tabActionCallback?.displayPopupTab(tab)
+                        tabActionCallback?.displayPopupTab(tab, effectiveUrl)
                     }
                 }
             }
