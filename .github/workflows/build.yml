@@ -208,6 +208,19 @@ jobs:
           echo "Final Binaries & Checksums:"
           ls -lh package_apks/
 
+      - name: Commit Bundled Filter Lists to Repository
+        run: |
+          if [ -n "$(git status --porcelain app/src/main/assets external/adblock-lists)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add app/src/main/assets/easylist_rules.txt app/src/main/assets/brave-resources.json external/adblock-lists 2>/dev/null || true
+            git commit -m "chore(filters): bundle updated filter rules for ${{ env.TAG_NAME }}"
+            git push origin main
+            echo "Committed and pushed bundled filter rules for ${{ env.TAG_NAME }} to main."
+          else
+            echo "Filter assets unchanged, skipping commit."
+          fi
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

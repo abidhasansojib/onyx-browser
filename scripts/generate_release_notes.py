@@ -91,7 +91,7 @@ def main():
             scope = m.group(2).lower() if m.group(2) else ""
             if scope == "upstream" or "auto-sync" in subject.lower():
                 upstream_syncs.append((subject, link))
-            elif scope in ["adblock", "shields"] or "adblock" in subject.lower():
+            elif scope in ["adblock", "shields", "filters"] or "adblock" in subject.lower() or "filter" in subject.lower():
                 categories["adblock"]["items"].append(entry)
             elif prefix == "feat":
                 categories["feat"]["items"].append(entry)

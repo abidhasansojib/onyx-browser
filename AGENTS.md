@@ -157,7 +157,7 @@ onyx-browser/
 │   ├── PULL_REQUEST_TEMPLATE.md    # Standardized Pull Request review & privacy/security checklist
 │   └── workflows/
 │       ├── build.yml               # Rust NDK compile, Lucide sync, CI unit test gate, Gradle Release/Prerelease APKs
-│       └── sync_upstream.yml       # 12-hour automated Brave filter lists sync workflow
+│       └── sync_upstream.yml       # Automated Brave adblock-rust native engine watchdog & notification workflow
 ├── app/
 │   ├── schemas/                    # Exported Room database schemas (room.schemaLocation)
 │   ├── src/main/

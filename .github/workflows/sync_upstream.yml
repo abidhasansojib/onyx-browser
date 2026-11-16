@@ -2,19 +2,21 @@ name: Sync Upstream Brave Repositories
 
 on:
   schedule:
-    # Run automatically every 12 hours to check for upstream updates
-    - cron: '0 */12 * * *'
+    # Run once daily at 04:00 UTC to check for adblock-rust engine updates
+    - cron: '0 4 * * *'
   workflow_dispatch:
   repository_dispatch:
     types: [ upstream_update ]
 
 permissions:
   contents: write
-  actions: write
+  issues: write
 
 jobs:
   sync:
-    name: Sync Brave adblock-rust & adblock-lists
+    name: Sync Brave adblock-rust Native Engine
+    # Strictly ensure this only runs on the main repository, never on forks
+    if: github.repository == 'abidhasansojib/onyx-browser'
     runs-on: ubuntu-latest
 
     steps:
@@ -30,46 +32,40 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Execute Upstream Sync & Refresh Lists
+      - name: Sync adblock-rust Native Engine Submodule
         run: |
-          chmod +x scripts/sync_upstream.sh scripts/update_filter_lists.sh
-          ./scripts/sync_upstream.sh
+          chmod +x scripts/sync_upstream.sh
+          ./scripts/sync_upstream.sh --engine-only
 
-      - name: Check For Upstream Changes
-        id: check_changes
+      - name: Check For Engine Updates
+        id: check_engine
         run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "changes_detected=true" >> $GITHUB_OUTPUT
-            echo "Changes detected in repository:"
-            git status --short
+          if [ -n "$(git status --porcelain external/adblock-rust)" ]; then
+            OLD_HASH=$(git diff external/adblock-rust | grep '^-Subproject' | awk '{print $3}' | cut -c1-7 || git rev-parse :external/adblock-rust | cut -c1-7)
+            NEW_HASH=$(git -C external/adblock-rust rev-parse --short HEAD)
+            echo "engine_updated=true" >> $GITHUB_OUTPUT
+            echo "old_hash=$OLD_HASH" >> $GITHUB_OUTPUT
+            echo "new_hash=$NEW_HASH" >> $GITHUB_OUTPUT
+            echo "adblock-rust native engine updated: $OLD_HASH -> $NEW_HASH"
           else
-            echo "changes_detected=false" >> $GITHUB_OUTPUT
-            echo "No upstream changes detected. Everything is up-to-date."
+            echo "engine_updated=false" >> $GITHUB_OUTPUT
+            echo "adblock-rust native engine is unchanged and up-to-date. No commits needed."
           fi
 
-          if [ -n "$(git status --porcelain external/adblock-rust rust_engine)" ]; then
-            echo "rust_engine_updated=true" >> $GITHUB_OUTPUT
-            echo "adblock-rust native engine update detected! Build will be triggered."
-          else
-            echo "rust_engine_updated=false" >> $GITHUB_OUTPUT
-            echo "adblock-rust native engine is unchanged (filter lists only). Build will be skipped."
-          fi
-
-      - name: Commit and Push Upstream Changes
-        if: steps.check_changes.outputs.changes_detected == 'true'
+      - name: Commit and Push Submodule Update
+        if: steps.check_engine.outputs.engine_updated == 'true'
         run: |
-          git add -A
-          if [ "${{ steps.check_changes.outputs.rust_engine_updated }}" = "true" ]; then
-            git commit -m "chore(upstream): auto-sync Brave adblock-rust engine"
-          else
-            git commit -m "chore(upstream): auto-sync filter lists"
-          fi
+          NEW_HASH="${{ steps.check_engine.outputs.new_hash }}"
+          git add external/adblock-rust rust_engine/adblock-rust 2>/dev/null || true
+          git commit -m "chore(upstream): auto-sync Brave adblock-rust engine ($NEW_HASH)"
           git push origin main
+          echo "Committed and pushed adblock-rust update ($NEW_HASH) to main."
 
-      - name: Trigger Build Workflow for Updated Rust Engine
-        if: steps.check_changes.outputs.rust_engine_updated == 'true'
+      - name: Notify Developer via GitHub Issue
+        if: steps.check_engine.outputs.engine_updated == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Native adblock-rust engine updated! Triggering build workflow..."
-          gh workflow run build.yml --ref main || true
+          python3 scripts/notify_upstream_update.py \
+            --old "${{ steps.check_engine.outputs.old_hash }}" \
+            --new "${{ steps.check_engine.outputs.new_hash }}"
