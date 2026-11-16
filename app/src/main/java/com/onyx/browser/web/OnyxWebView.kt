@@ -95,11 +95,17 @@ class OnyxWebView @JvmOverloads constructor(
         private set
     var lastTouchY: Float = 0f
         private set
+    var touchDownX: Float = 0f
+        private set
+    var touchDownY: Float = 0f
+        private set
     @Volatile private var lastTouchTimestamp: Long = 0L
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                touchDownX = event.x
+                touchDownY = event.y
                 lastTouchX = event.x
                 lastTouchY = event.y
                 lastTouchTimestamp = System.currentTimeMillis()

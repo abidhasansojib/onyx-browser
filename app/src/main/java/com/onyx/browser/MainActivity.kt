@@ -784,9 +784,24 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val webView = tabManager.getActiveWebView() ?: return@setOnChildScrollUpCallback true
             if (webView.canScrollVertically(-1) || webView.scrollY > 0) return@setOnChildScrollUpCallback true
 
+            // Block pull-to-refresh if DevTools is active
+            if (webView.isDevToolsActive) return@setOnChildScrollUpCallback true
+
             // Block pull-to-refresh on immersive reels, shorts, and video feeds
             val url = (webView.url ?: "").lowercase()
             if (isReelOrFeedUrl(url)) return@setOnChildScrollUpCallback true
+
+            // Top-Zone Touch Gating:
+            // Pull-to-refresh must strictly originate from the top zone of the web content.
+            // Swipes initiated in the middle or bottom of the screen (e.g. inside inner feeds,
+            // scrollable divs, modals, code blocks, or floating panels) must never trigger reload.
+            val density = resources.displayMetrics.density
+            val maxTopTouchPx = (160 * density).coerceAtMost(
+                (webView.height * 0.22f).coerceAtLeast(100 * density)
+            )
+            if (webView.touchDownY > maxTopTouchPx) {
+                return@setOnChildScrollUpCallback true
+            }
 
             // Block pull-to-refresh if inner container is scrolled, overscroll-behavior is none/contain,
             // or body is overflow-hidden
@@ -1264,11 +1279,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         binding.homeLayout.root.visibility = View.GONE
         binding.webViewContainer.visibility = View.VISIBLE
-        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
 
         updateIncognitoUI(tab.isIncognito)
 
         val webView = tabManager.getOrCreateWebView(tab)
+        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && !webView.isDevToolsActive
         attachWebViewToContainer(webView)
         if (!inPip) {
             updatePipParams()

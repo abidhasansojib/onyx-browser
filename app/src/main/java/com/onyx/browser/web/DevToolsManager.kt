@@ -203,6 +203,26 @@ object DevToolsManager {
                     }
                 });
 
+                // Synchronize Eruda show/hide with Pull-To-Refresh gating
+                try {
+                    window.eruda.on('show', function() {
+                        window.__onyx_eruda_visible = true;
+                        if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                            window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: false }));
+                        } else if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(false);
+                        }
+                    });
+                    window.eruda.on('hide', function() {
+                        window.__onyx_eruda_visible = false;
+                        if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                            window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: true }));
+                        } else if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                        }
+                    });
+                } catch (_) {}
+
                 // Replay pre-buffered console logs into Eruda Console panel
                 try {
                     if (Array.isArray(window.__onyx_console_buffer)) {
@@ -256,10 +276,24 @@ object DevToolsManager {
                         if (window.__onyx_eruda_visible) {
                             window.eruda.hide();
                             window.__onyx_eruda_visible = false;
+                            try {
+                                if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                                    window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: true }));
+                                } else if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                                    window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                                }
+                            } catch (_) {}
                             return 'hidden';
                         } else {
                             window.eruda.show();
                             window.__onyx_eruda_visible = true;
+                            try {
+                                if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                                    window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: false }));
+                                } else if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                                    window.OnyxTouchBridge.setPullToRefreshAllowed(false);
+                                }
+                            } catch (_) {}
                             return 'shown';
                         }
                     }
@@ -269,6 +303,13 @@ object DevToolsManager {
                     if (window.eruda && window.eruda._isInit) {
                         window.eruda.show();
                         window.__onyx_eruda_visible = true;
+                        try {
+                            if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                                window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: false }));
+                            } else if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                                window.OnyxTouchBridge.setPullToRefreshAllowed(false);
+                            }
+                        } catch (_) {}
                         return 'shown';
                     }
                     return 'failed';

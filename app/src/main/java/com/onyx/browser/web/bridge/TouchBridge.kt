@@ -121,12 +121,9 @@ class TouchBridge {
                 var href = (location.href || '').toLowerCase();
                 var path = (location.pathname || '').toLowerCase();
                 var ref = (document.referrer || '').toLowerCase();
-                if (/facebook\.com|meta\.com|fb\.com|fb\.me|fbcdn\.net|facebook\.net|fbsbx\.com|instagram\.com|cdninstagram\.com|messenger\.com|threads\.net|accountkit\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
-                    path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
-                    path.indexOf('/captcha/') !== -1 || path.indexOf('/challenge/') !== -1 || path.indexOf('/fc/') !== -1 ||
-                    href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 || href.indexOf('/captcha/') !== -1 ||
-                    href.indexOf('/login/') !== -1 || href.indexOf('/auth/') !== -1 || href.indexOf('lsd=') !== -1 ||
-                    href.indexOf('jazoest=') !== -1 || href.indexOf('datr=') !== -1) {
+                if (/fbsbx\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
+                    path.indexOf('/checkpoint/') !== -1 || path.indexOf('/challenge/') !== -1 || path.indexOf('/fc/') !== -1 ||
+                    href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 || href.indexOf('/captcha/') !== -1) {
                     return;
                 }
 
@@ -139,18 +136,54 @@ class TouchBridge {
                 var __scrollableTarget = null;
                 var __directionLocked = false;
 
+                function isErudaOrDevTools(el, path) {
+                    try {
+                        if (window.__onyx_eruda_visible) return true;
+                        if (path && path.length > 0) {
+                            for (var i = 0; i < path.length; i++) {
+                                var n = path[i];
+                                if (!n) continue;
+                                if (n.id === 'eruda') return true;
+                                var cls = n.className;
+                                if (typeof cls === 'string' && cls.indexOf('eruda') !== -1) return true;
+                                if (n.hasAttribute && (n.hasAttribute('data-eruda') || n.hasAttribute('eruda'))) return true;
+                            }
+                        }
+                        if (el) {
+                            if (el.id === 'eruda' || (el.className && typeof el.className === 'string' && el.className.indexOf('eruda') !== -1)) return true;
+                            if (el.closest && el.closest('#eruda, [class*="eruda"], [data-eruda]')) return true;
+                        }
+                    } catch (_) {}
+                    return false;
+                }
+
                 /**
-                 * Walk up from element to find the nearest scrollable container
+                 * Walk up from element or inspect composedPath to find the nearest scrollable container
                  * that has actual overflow content (scrollHeight > clientHeight).
                  */
-                function findScrollableParent(el) {
+                function findScrollableParent(el, path) {
+                    try {
+                        if (path && path.length > 0) {
+                            for (var i = 0; i < path.length; i++) {
+                                var node = path[i];
+                                if (!node || node === document.body || node === document.documentElement || !(node instanceof HTMLElement)) continue;
+                                var s = window.getComputedStyle(node);
+                                if ((s.overflowY === 'scroll' || s.overflowY === 'auto') &&
+                                    node.scrollHeight > node.clientHeight) {
+                                    return node;
+                                }
+                            }
+                        }
+                    } catch (_) {}
                     var p = el;
                     while (p && p !== document.body && p !== document.documentElement) {
-                        var s = window.getComputedStyle(p);
-                        if ((s.overflowY === 'scroll' || s.overflowY === 'auto') &&
-                            p.scrollHeight > p.clientHeight) {
-                            return p;
-                        }
+                        try {
+                            var s2 = window.getComputedStyle(p);
+                            if ((s2.overflowY === 'scroll' || s2.overflowY === 'auto') &&
+                                p.scrollHeight > p.clientHeight) {
+                                return p;
+                            }
+                        } catch (_) {}
                         p = p.parentElement;
                     }
                     return null;
@@ -160,8 +193,12 @@ class TouchBridge {
                  * Evaluate pull-to-refresh eligibility at touchstart.
                  * Returns true if pull-to-refresh should be BLOCKED.
                  */
-                function evaluatePullBlock(el) {
+                function evaluatePullBlock(el, path) {
                     try {
+                        if (isErudaOrDevTools(el, path)) {
+                            return true;
+                        }
+
                         var docStyle = window.getComputedStyle(document.documentElement);
                         var bodyStyle = document.body ? window.getComputedStyle(document.body) : null;
                         if (docStyle.overflowY === 'hidden' || (bodyStyle && bodyStyle.overflowY === 'hidden')) {
@@ -173,15 +210,35 @@ class TouchBridge {
                             return true;
                         }
 
+                        if (path && path.length > 0) {
+                            for (var i = 0; i < path.length; i++) {
+                                var node = path[i];
+                                if (!node || !(node instanceof HTMLElement)) continue;
+                                var tag = (node.tagName || '').toLowerCase();
+                                if (tag === 'video' || tag === 'audio') return true;
+                                var s = window.getComputedStyle(node);
+                                var ob = s.overscrollBehaviorY || s.overscrollBehavior;
+                                if (ob === 'none' || ob === 'contain') return true;
+                                if ((s.overflowY === 'scroll' || s.overflowY === 'auto') &&
+                                    node.scrollHeight > node.clientHeight && node.scrollTop > 0) {
+                                    return true;
+                                }
+                            }
+                        }
+
                         if (el) {
                             if (el.closest('video, audio, [role="feed"], [data-pagelet*="Reel"], [aria-label*="Reel"], [class*="reel" i], [class*="Reel"], [class*="Shorts" i], [class*="shorts" i]')) {
                                 return true;
                             }
                             var p = el;
                             while (p && p !== document.body && p !== document.documentElement) {
-                                var s = window.getComputedStyle(p);
-                                var ob = s.overscrollBehaviorY || s.overscrollBehavior;
-                                if (ob === 'none' || ob === 'contain') {
+                                var s2 = window.getComputedStyle(p);
+                                var ob2 = s2.overscrollBehaviorY || s2.overscrollBehavior;
+                                if (ob2 === 'none' || ob2 === 'contain') {
+                                    return true;
+                                }
+                                if ((s2.overflowY === 'scroll' || s2.overflowY === 'auto') &&
+                                    p.scrollHeight > p.clientHeight && p.scrollTop > 0) {
                                     return true;
                                 }
                                 p = p.parentElement;
@@ -209,15 +266,14 @@ class TouchBridge {
                         var t = e.touches[0];
                         __touchStartY = t.clientY;
                         __touchStartX = t.clientX;
+                        var path = (e.composedPath && typeof e.composedPath === 'function') ? e.composedPath() : null;
                         var el = document.elementFromPoint(t.clientX, t.clientY);
 
                         // Cache nearest scrollable parent for use in touchmove
-                        if (el) {
-                            __scrollableTarget = findScrollableParent(el);
-                        }
+                        __scrollableTarget = findScrollableParent(el, path);
 
                         // ── 1. Evaluate Pull-To-Refresh Eligibility (static checks) ─────
-                        var blocked = evaluatePullBlock(el);
+                        var blocked = evaluatePullBlock(el, path);
                         if (!postTouchMsg({ type: 'ptr', allowed: !blocked })) {
                             if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
                                 window.OnyxTouchBridge.setPullToRefreshAllowed(!blocked);
@@ -296,8 +352,8 @@ class TouchBridge {
                                 bridge.setPullToRefreshAllowed(false);
                             }
                         } else {
-                            // Swiping DOWN — block if an inner scrollable container is mid-scroll
-                            if (__scrollableTarget && __scrollableTarget.scrollTop > 0) {
+                            // Swiping DOWN — block if an inner scrollable container is mid-scroll or if DevTools
+                            if (window.__onyx_eruda_visible || (__scrollableTarget && __scrollableTarget.scrollTop > 0)) {
                                 if (!postTouchMsg({ type: 'ptr', allowed: false })) {
                                     bridge.setPullToRefreshAllowed(false);
                                 }
@@ -309,7 +365,9 @@ class TouchBridge {
                 document.addEventListener('touchend', function() {
                     __directionLocked = false;
                     __scrollableTarget = null;
+                    if (window.__onyx_eruda_visible) return;
                     setTimeout(function() {
+                        if (window.__onyx_eruda_visible) return;
                         if (!postTouchMsg({ type: 'cleared' })) {
                             if (window.OnyxTouchBridge) {
                                 window.OnyxTouchBridge.onTouchCleared();
@@ -322,6 +380,7 @@ class TouchBridge {
                 document.addEventListener('touchcancel', function() {
                     __directionLocked = false;
                     __scrollableTarget = null;
+                    if (window.__onyx_eruda_visible) return;
                     if (!postTouchMsg({ type: 'cleared' })) {
                         if (window.OnyxTouchBridge) {
                             window.OnyxTouchBridge.onTouchCleared();
