@@ -1264,8 +1264,38 @@ object WebErrorHandler {
         ),
 
         // ====================================================================
-        // --- HTTP, PROTOCOL & STREAMING ERRORS (11) ---
+        // --- HTTP, PROTOCOL & STREAMING ERRORS (13) ---
         // ====================================================================
+        "ERR_INVALID_RESPONSE" to ErrorDefinition(
+            category = SyntheticNavigationState.ErrorCategory.GENERIC,
+            title = "This page isn’t working",
+            descriptionTemplate = "%s sent an invalid response.",
+            checklist = listOf(
+                "The web server responded with invalid data, an unrecognized protocol format, or corrupted compression",
+                "Try reloading the page in a few moments",
+                "Contact the website owner if the problem persists"
+            ),
+            primaryButtonText = "Reload",
+            primaryButtonAction = "reload",
+            secondaryButtonText = "Details",
+            secondaryButtonAction = "details",
+            canCheckWayback = true,
+            technicalDetails = "Chromium network stack error net::ERR_INVALID_RESPONSE: The server returned a response that could not be parsed or violates HTTP specifications."
+        ),
+        "ERR_INVALID_CHUNKED_ENCODING" to ErrorDefinition(
+            category = SyntheticNavigationState.ErrorCategory.GENERIC,
+            title = "Invalid chunked encoding",
+            descriptionTemplate = "The server at %s sent a malformed chunked transfer encoding.",
+            checklist = listOf(
+                "The server stream was corrupted or terminated unexpectedly while transmitting chunked data",
+                "Try reloading the page in a few moments"
+            ),
+            primaryButtonText = "Reload",
+            primaryButtonAction = "reload",
+            secondaryButtonText = "Details",
+            secondaryButtonAction = "details",
+            technicalDetails = "HTTP chunked transfer decoding error net::ERR_INVALID_CHUNKED_ENCODING."
+        ),
         "ERR_INVALID_HTTP_RESPONSE" to ErrorDefinition(
             category = SyntheticNavigationState.ErrorCategory.GENERIC,
             title = "Invalid HTTP response",

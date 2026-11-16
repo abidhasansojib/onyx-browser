@@ -420,14 +420,21 @@
         }
       } catch (e) {}
 
+      const rawError = p.get('error') || 'ERR_CONNECTION_FAILED';
+      const isInvalidResponse = rawError.includes('ERR_INVALID_RESPONSE') || rawError.includes('ERR_INVALID_HTTP_RESPONSE');
+
       data = {
         category: 'GENERIC',
-        errorCode: p.get('error') || 'ERR_CONNECTION_FAILED',
-        title: 'This site can’t be reached',
-        description: '<strong>' + host + '</strong> refused to connect.',
+        errorCode: rawError,
+        title: isInvalidResponse ? 'This page isn’t working' : 'This site can’t be reached',
+        description: isInvalidResponse ? ('<strong>' + host + '</strong> sent an invalid response.') : ('<strong>' + host + '</strong> refused to connect.'),
         url: rawUrl,
         domain: host,
-        checklist: [
+        checklist: isInvalidResponse ? [
+          'The web server responded with invalid data or corrupted compression',
+          'Try reloading the page in a few moments',
+          'Contact the website owner if the problem persists'
+        ] : [
           'Checking the connection',
           'Checking the proxy and the firewall'
         ],
@@ -438,7 +445,7 @@
         isDanger: false,
         technicalDetails: p.get('desc') || '',
         isHstsEnforced: false,
-        canCheckWayback: false
+        canCheckWayback: isInvalidResponse
       };
     }
 
