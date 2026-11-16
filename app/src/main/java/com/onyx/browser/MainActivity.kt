@@ -102,6 +102,10 @@ import com.onyx.browser.web.DevToolsManager
 import com.onyx.browser.web.MediaPlaybackManager
 import com.onyx.browser.web.translate.PageTranslateManager
 import com.onyx.browser.ui.theme.AccentColorManager
+import com.onyx.browser.update.AppUpdateManager
+import com.onyx.browser.update.AppUpdatePromptHelper
+import com.onyx.browser.update.UpdateInfo
+import com.google.android.material.snackbar.Snackbar
 import com.onyx.browser.web.TabActionCallback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -856,6 +860,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         pipController.registerReceiver()
 
         checkNotificationPermissionForDownloads()
+        setupAppUpdateChecker()
 
         lifecycleScope.launch {
             if (preferences.isClearOnExitEnabled && preferences.hasPendingExitClearance) {
@@ -2135,6 +2140,48 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
+    fun updateMenuUpdateBadge() {
+        val hasUpdate = AppUpdateManager.getCachedUpdate(this) != null
+        binding.badgeMenuUpdate.visibility = if (hasUpdate) View.VISIBLE else View.GONE
+    }
+
+    private fun setupAppUpdateChecker() {
+        updateMenuUpdateBadge()
+
+        val cachedUpdate = AppUpdateManager.getCachedUpdate(this)
+        if (cachedUpdate != null && cachedUpdate.tagName != preferences.dismissedUpdateTag) {
+            showUpdateAvailableSnackbar(cachedUpdate)
+        }
+
+        lifecycleScope.launch {
+            delay(2500)
+            val newUpdate = AppUpdateManager.checkSilentlyIfDue(this@MainActivity)
+            withContext(Dispatchers.Main) {
+                if (isFinishing || isDestroyed) return@withContext
+                updateMenuUpdateBadge()
+                if (newUpdate != null && newUpdate.tagName != preferences.dismissedUpdateTag) {
+                    showUpdateAvailableSnackbar(newUpdate)
+                }
+            }
+        }
+    }
+
+    private fun showUpdateAvailableSnackbar(updateInfo: UpdateInfo) {
+        if (isFinishing || isDestroyed) return
+        val snackbar = Snackbar.make(
+            binding.contentContainer,
+            getString(R.string.update_available_snackbar_msg, updateInfo.tagName),
+            Snackbar.LENGTH_LONG
+        ).setAction(R.string.update) {
+            AppUpdatePromptHelper.showUpdateAvailableDialog(this, updateInfo)
+        }.setActionTextColor(AccentColorManager.getAccentColor(this))
+
+        if (preferences.isAddressBarAtBottom) {
+            snackbar.anchorView = binding.topBar
+        }
+        snackbar.show()
+    }
+
     fun showSiteShieldDialog() {
         if (::browserMenuCoordinator.isInitialized) {
             browserMenuCoordinator.showSiteShieldDialog()
@@ -2684,6 +2731,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     override fun onResume() {
         super.onResume()
+        AppUpdatePromptHelper.handleResumeInstall(this)
+        updateMenuUpdateBadge()
         isLaunchingChildActivity = false
         MediaPlaybackBridge.isAppInBackground = false
         if (MediaPlaybackBridge.isMediaPlaying) {

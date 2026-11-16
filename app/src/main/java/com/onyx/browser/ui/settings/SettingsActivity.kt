@@ -16,6 +16,7 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivitySettingsBinding
 import com.onyx.browser.ui.common.SearchEngineIconHelper
 import com.onyx.browser.ui.theme.AccentColorManager
+import com.onyx.browser.update.AppUpdateManager
 import com.onyx.browser.web.UserAgentManager
 
 class SettingsActivity : AppCompatActivity() {
@@ -91,6 +92,7 @@ class SettingsActivity : AppCompatActivity() {
         updateThemeDisplay()
         updateUaSpooferText()
         updateUserScriptsStatus()
+        updateAboutRowStatus()
         if (lastThemeMode != -1 && lastThemeMode != preferences.themeMode) {
             lastThemeMode = preferences.themeMode
             recreate()
@@ -167,8 +169,22 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun setupCategoryAbout() {
         // About Onyx
+        updateAboutRowStatus()
         binding.settingAboutRow.setOnClickListener {
             SettingsNavigator.navigate(this, SettingsDestination.ABOUT)
+        }
+    }
+
+    private fun updateAboutRowStatus() {
+        val cachedUpdate = AppUpdateManager.getCachedUpdate(this)
+        if (cachedUpdate != null) {
+            binding.tvAboutSubtitle.text = getString(R.string.update_available_about_desc, cachedUpdate.tagName)
+            binding.tvAboutSubtitle.setTextColor(AccentColorManager.getAccentColor(this))
+            binding.tvAboutBadge.visibility = android.view.View.VISIBLE
+        } else {
+            binding.tvAboutSubtitle.setText(R.string.about_subtitle_default)
+            binding.tvAboutSubtitle.setTextColor(ContextCompat.getColor(this, R.color.settings_subtitle_text))
+            binding.tvAboutBadge.visibility = android.view.View.GONE
         }
     }
 

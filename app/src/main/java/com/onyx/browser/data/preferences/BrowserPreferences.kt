@@ -457,6 +457,50 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getInt(KEY_FILTER_UPDATE_INTERVAL, 24)
         set(value) = prefs.edit().putInt(KEY_FILTER_UPDATE_INTERVAL, value).apply()
 
+    // ── App In-App Update Preferences ──────────────────────────────────────────
+    var lastAppUpdateCheckTime: Long
+        get() = prefs.getLong(KEY_LAST_APP_UPDATE_CHECK_TIME, 0L)
+        set(value) = prefs.edit().putLong(KEY_LAST_APP_UPDATE_CHECK_TIME, value).apply()
+
+    var dismissedUpdateTag: String
+        get() = prefs.getString(KEY_DISMISSED_UPDATE_TAG, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_DISMISSED_UPDATE_TAG, value).apply()
+
+    var cachedUpdateTag: String
+        get() = prefs.getString(KEY_CACHED_UPDATE_TAG, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CACHED_UPDATE_TAG, value).apply()
+
+    var cachedUpdateTitle: String
+        get() = prefs.getString(KEY_CACHED_UPDATE_TITLE, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CACHED_UPDATE_TITLE, value).apply()
+
+    var cachedUpdateNotes: String
+        get() = prefs.getString(KEY_CACHED_UPDATE_NOTES, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CACHED_UPDATE_NOTES, value).apply()
+
+    var cachedUpdateAssetName: String
+        get() = prefs.getString(KEY_CACHED_UPDATE_ASSET_NAME, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CACHED_UPDATE_ASSET_NAME, value).apply()
+
+    var cachedUpdateAssetUrl: String
+        get() = prefs.getString(KEY_CACHED_UPDATE_ASSET_URL, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CACHED_UPDATE_ASSET_URL, value).apply()
+
+    var cachedUpdateAssetSize: Long
+        get() = prefs.getLong(KEY_CACHED_UPDATE_ASSET_SIZE, 0L)
+        set(value) = prefs.edit().putLong(KEY_CACHED_UPDATE_ASSET_SIZE, value).apply()
+
+    fun clearCachedUpdate() {
+        prefs.edit()
+            .remove(KEY_CACHED_UPDATE_TAG)
+            .remove(KEY_CACHED_UPDATE_TITLE)
+            .remove(KEY_CACHED_UPDATE_NOTES)
+            .remove(KEY_CACHED_UPDATE_ASSET_NAME)
+            .remove(KEY_CACHED_UPDATE_ASSET_URL)
+            .remove(KEY_CACHED_UPDATE_ASSET_SIZE)
+            .apply()
+    }
+
     // ── Element Blocking in Private Windows ──────────────────────────────────
     var isElementBlockingInPrivateEnabled: Boolean
         get() = prefs.getBoolean(KEY_ELEMENT_BLOCKING_PRIVATE, true)
@@ -2874,6 +2918,15 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_SEARCH_SUGGESTIONS_ENABLED = "pref_search_suggestions_enabled"
         const val KEY_SHOW_CLIPBOARD_SUGGESTIONS = "pref_show_clipboard_suggestions"
         const val KEY_SHOW_HISTORY_SUGGESTIONS = "pref_show_history_suggestions"
+
+        const val KEY_LAST_APP_UPDATE_CHECK_TIME = "pref_last_app_update_check_time"
+        const val KEY_DISMISSED_UPDATE_TAG = "pref_dismissed_update_tag"
+        const val KEY_CACHED_UPDATE_TAG = "pref_cached_update_tag"
+        const val KEY_CACHED_UPDATE_TITLE = "pref_cached_update_title"
+        const val KEY_CACHED_UPDATE_NOTES = "pref_cached_update_notes"
+        const val KEY_CACHED_UPDATE_ASSET_NAME = "pref_cached_update_asset_name"
+        const val KEY_CACHED_UPDATE_ASSET_URL = "pref_cached_update_asset_url"
+        const val KEY_CACHED_UPDATE_ASSET_SIZE = "pref_cached_update_asset_size"
 
 
 

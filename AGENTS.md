@@ -186,6 +186,7 @@ onyx-browser/
 │   │   │   │   │   └── userscript/ # UserScriptsActivity, UserScriptEditorActivity, UserScriptAdapter
 │   │   │   │   ├── tabs/           # TabSwitcherBottomSheet, ClearBrowsingDataDialog
 │   │   │   │   └── viewmodel/      # UDF ViewModels (BrowserViewModel, HistoryViewModel, BookmarksViewModel, DownloadsViewModel)
+│   │   │   ├── update/             # AppUpdateManager, AppUpdatePromptHelper, AppUpdateDownloader (in-app updater)
 │   │   │   ├── userscript/         # Tampermonkey/Violentmonkey engine, metadata parser, matcher, bridge
 │   │   │   └── web/                # Hardened Chromium WebView subsystem
 │   │   │       ├── adblock/        # AdBlockDocumentStart, AdBlockDomainManager, AdBlockServiceWorkerHelper, DsdHydrationFix

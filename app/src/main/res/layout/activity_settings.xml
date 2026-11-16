@@ -708,19 +708,45 @@
                             android:layout_weight="1"
                             android:orientation="vertical">
 
-                            <TextView
+                            <LinearLayout
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="About Onyx"
-                                android:textColor="@color/settings_title_text"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="About Onyx"
+                                    android:textColor="@color/settings_title_text"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvAboutBadge"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="8dp"
+                                    android:background="@drawable/bg_pill_badge"
+                                    android:backgroundTint="?attr/colorPrimary"
+                                    android:paddingStart="6dp"
+                                    android:paddingTop="2dp"
+                                    android:paddingEnd="6dp"
+                                    android:paddingBottom="2dp"
+                                    android:text="@string/update"
+                                    android:textColor="?attr/colorOnPrimary"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold"
+                                    android:visibility="gone"
+                                    tools:visibility="visible" />
+                            </LinearLayout>
 
                             <TextView
+                                android:id="@+id/tvAboutSubtitle"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Version, update checker, licenses"
+                                android:text="@string/about_subtitle_default"
                                 android:textColor="@color/settings_subtitle_text"
                                 android:textSize="12.5sp" />
                         </LinearLayout>

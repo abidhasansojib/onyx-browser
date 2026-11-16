@@ -221,16 +221,31 @@
                     android:textStyle="bold" />
             </FrameLayout>
 
-            <!-- 5. Three-Dot Menu Button -->
-            <androidx.appcompat.widget.AppCompatImageButton
-                android:id="@+id/btnMenu"
-                android:layout_width="28dp"
-                android:layout_height="34dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/menu"
-                android:padding="2dp"
-                app:srcCompat="@drawable/ic_more_vert"
-                app:tint="?attr/colorControlNormal" />
+            <!-- 5. Three-Dot Menu Button with Update Badge -->
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnMenu"
+                    android:layout_width="28dp"
+                    android:layout_height="34dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/menu"
+                    android:padding="2dp"
+                    app:srcCompat="@drawable/ic_more_vert"
+                    app:tint="?attr/colorControlNormal" />
+
+                <View
+                    android:id="@+id/badgeMenuUpdate"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_gravity="top|end"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginEnd="2dp"
+                    android:background="@drawable/bg_notification_dot"
+                    android:visibility="gone" />
+            </FrameLayout>
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 

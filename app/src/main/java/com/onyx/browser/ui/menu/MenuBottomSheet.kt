@@ -11,6 +11,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
@@ -24,6 +25,8 @@ import com.onyx.browser.ui.bookmarks.BookmarksActivity
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.settings.SettingsActivity
+import com.onyx.browser.update.AppUpdateManager
+import com.onyx.browser.update.AppUpdatePromptHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -77,6 +80,8 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupUpdateBanner()
+
         if (isHomePage) {
             binding.layoutHomeMenu.visibility = View.VISIBLE
             binding.layoutWebpageMenu.visibility = View.GONE
@@ -85,6 +90,23 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
             binding.layoutHomeMenu.visibility = View.GONE
             binding.layoutWebpageMenu.visibility = View.VISIBLE
             setupWebpageMenu()
+        }
+    }
+
+    private fun setupUpdateBanner() {
+        val cachedUpdate = AppUpdateManager.getCachedUpdate(requireContext())
+        if (cachedUpdate != null) {
+            binding.bannerUpdateAvailable.visibility = View.VISIBLE
+            binding.tvUpdateBannerSubtitle.text = getString(R.string.update_available_subtitle, cachedUpdate.tagName)
+            binding.bannerUpdateAvailable.setOnClickListener {
+                val act = activity as? AppCompatActivity
+                dismiss()
+                if (act != null) {
+                    AppUpdatePromptHelper.showUpdateAvailableDialog(act, cachedUpdate)
+                }
+            }
+        } else {
+            binding.bannerUpdateAvailable.visibility = View.GONE
         }
     }
 

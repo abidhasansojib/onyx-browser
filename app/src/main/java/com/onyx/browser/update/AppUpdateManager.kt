@@ -5,7 +5,11 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Xml
 import com.onyx.browser.BuildConfig
+import com.onyx.browser.data.preferences.BrowserPreferences
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -52,14 +56,110 @@ object AppUpdateManager {
         )
     }
 
+    private val _availableUpdateFlow = MutableStateFlow<UpdateInfo?>(null)
+    val availableUpdateFlow: StateFlow<UpdateInfo?> = _availableUpdateFlow.asStateFlow()
+
+    fun getCachedUpdate(context: Context): UpdateInfo? {
+        val currentInstalled = getInstalledVersionName(context)
+        val prefs = BrowserPreferences.getInstance(context)
+        val tag = prefs.cachedUpdateTag
+        if (tag.isBlank()) {
+            _availableUpdateFlow.value = null
+            return null
+        }
+
+        if (!isUpdateAvailable(currentVersion = currentInstalled, remoteTag = tag)) {
+            // Already updated to this or newer version; clear outdated cache
+            prefs.clearCachedUpdate()
+            _availableUpdateFlow.value = null
+            return null
+        }
+
+        val matchingAsset = if (prefs.cachedUpdateAssetUrl.isNotBlank() && prefs.cachedUpdateAssetName.isNotBlank()) {
+            ReleaseAsset(
+                name = prefs.cachedUpdateAssetName,
+                size = prefs.cachedUpdateAssetSize,
+                downloadUrl = prefs.cachedUpdateAssetUrl
+            )
+        } else {
+            val isPre = isPrerelease(context)
+            selectBestAsset(buildDefaultAssetsForTag(tag, isPre)) ?: ReleaseAsset(
+                name = "Onyx-Browser-$tag-${Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"}-${if (isPre) "prerelease" else "release"}.apk",
+                size = 0L,
+                downloadUrl = "https://github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases/download/$tag/Onyx-Browser-$tag-${Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"}-${if (isPre) "prerelease" else "release"}.apk"
+            )
+        }
+
+        val info = UpdateInfo(
+            tagName = tag,
+            versionName = tag.removePrefix("v"),
+            releaseTitle = prefs.cachedUpdateTitle.ifBlank { "Onyx Browser $tag" },
+            releaseNotes = prefs.cachedUpdateNotes,
+            matchingAsset = matchingAsset,
+            allAssets = listOf(matchingAsset),
+            isUpdateAvailable = true
+        )
+        _availableUpdateFlow.value = info
+        return info
+    }
+
+    private fun persistAvailableUpdate(context: Context, updateInfo: UpdateInfo) {
+        try {
+            val prefs = BrowserPreferences.getInstance(context)
+            prefs.cachedUpdateTag = updateInfo.tagName
+            prefs.cachedUpdateTitle = updateInfo.releaseTitle
+            prefs.cachedUpdateNotes = updateInfo.releaseNotes
+            prefs.cachedUpdateAssetName = updateInfo.matchingAsset.name
+            prefs.cachedUpdateAssetUrl = updateInfo.matchingAsset.downloadUrl
+            prefs.cachedUpdateAssetSize = updateInfo.matchingAsset.size
+            _availableUpdateFlow.value = updateInfo
+        } catch (_: Exception) {}
+    }
+
+    private fun clearPersistedUpdate(context: Context) {
+        try {
+            val prefs = BrowserPreferences.getInstance(context)
+            prefs.clearCachedUpdate()
+            _availableUpdateFlow.value = null
+        } catch (_: Exception) {}
+    }
+
     suspend fun checkForUpdate(context: Context): UpdateCheckResult = withContext(Dispatchers.IO) {
         val currentVersion = getInstalledVersionName(context)
         val isPrereleaseApp = isPrerelease(context)
 
-        if (isPrereleaseApp) {
+        val result = if (isPrereleaseApp) {
             checkPrereleaseUpdate(currentVersion)
         } else {
             checkReleaseUpdate(currentVersion)
+        }
+
+        when (result) {
+            is UpdateCheckResult.Available -> persistAvailableUpdate(context, result.updateInfo)
+            is UpdateCheckResult.UpToDate -> clearPersistedUpdate(context)
+            else -> {}
+        }
+
+        result
+    }
+
+    suspend fun checkSilentlyIfDue(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
+        val prefs = BrowserPreferences.getInstance(context)
+        val now = System.currentTimeMillis()
+        val lastCheck = prefs.lastAppUpdateCheckTime
+        val twentyFourHoursMs = 24 * 60 * 60 * 1000L
+
+        // If not due yet, return currently cached update if valid
+        if (now - lastCheck < twentyFourHoursMs && lastCheck > 0L) {
+            return@withContext getCachedUpdate(context)
+        }
+
+        prefs.lastAppUpdateCheckTime = now
+        val result = checkForUpdate(context)
+        if (result is UpdateCheckResult.Available) {
+            result.updateInfo
+        } else {
+            null
         }
     }
 
