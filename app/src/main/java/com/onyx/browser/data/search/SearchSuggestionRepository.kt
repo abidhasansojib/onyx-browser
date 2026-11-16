@@ -1,19 +1,18 @@
 package com.onyx.browser.data.search
 
+import com.onyx.browser.data.local.BookmarkDao
 import com.onyx.browser.data.local.HistoryDao
 import com.onyx.browser.data.model.SearchEngine
 import com.onyx.browser.data.model.SearchSuggestion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.ConnectionPool
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONArray
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-
-import com.onyx.browser.data.local.BookmarkDao
+import java.util.concurrent.TimeUnit
 
 class SearchSuggestionRepository(
     private val historyDao: HistoryDao,
@@ -21,6 +20,14 @@ class SearchSuggestionRepository(
 ) {
 
     companion object {
+        private val client = OkHttpClient.Builder()
+            .connectTimeout(1500, TimeUnit.MILLISECONDS)
+            .readTimeout(1500, TimeUnit.MILLISECONDS)
+            .connectionPool(ConnectionPool(5, 60, TimeUnit.SECONDS))
+            .followRedirects(true)
+            .retryOnConnectionFailure(true)
+            .build()
+
         /**
          * Checks whether an input query represents a navigable domain or URL rather than a search phrase.
          */
@@ -58,8 +65,8 @@ class SearchSuggestionRepository(
     }
 
     // Thread-safe in-memory result cache keyed by (trimmed_query|engine_id).
-    // Bounded to 50 entries to handle backspacing and re-typing smoothly.
-    private val queryCache = object : android.util.LruCache<String, List<SearchSuggestion>>(50) {}
+    // Bounded to 100 entries to handle backspacing and re-typing smoothly in 0ms.
+    private val queryCache = object : android.util.LruCache<String, List<SearchSuggestion>>(100) {}
 
     fun clearCache() {
         queryCache.evictAll()
@@ -227,19 +234,22 @@ class SearchSuggestionRepository(
     }
 
     private fun httpGet(urlString: String): String? {
-        var conn: HttpURLConnection? = null
         return try {
-            conn = (URL(urlString).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 2500
-                readTimeout = 2500
-                requestMethod = "GET"
-                setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0")
-                setRequestProperty("Accept", "application/json, text/javascript, */*")
+            val request = Request.Builder()
+                .url(urlString)
+                .header("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0")
+                .header("Accept", "application/json, text/javascript, */*")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    response.body?.string()
+                } else {
+                    null
+                }
             }
-            if (conn.responseCode in 200..299)
-                BufferedReader(InputStreamReader(conn.inputStream, StandardCharsets.UTF_8)).use { it.readText() }
-            else null
-        } catch (_: Exception) { null }
-        finally { conn?.disconnect() }
+        } catch (_: Exception) {
+            null
+        }
     }
 }

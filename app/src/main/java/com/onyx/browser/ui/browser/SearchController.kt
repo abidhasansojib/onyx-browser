@@ -312,9 +312,8 @@ class SearchController(
         }
 
         suggestionJob = coroutineScope.launch {
-            // 300ms debounce: waits for user to briefly pause typing
-            // before firing the network request and DB query.
-            delay(300)
+            // 180ms debounce: highly responsive keystroke feel while preventing request storms
+            delay(180)
             val isIncog = getActiveTab()?.isIncognito == true
             val suggestions = suggestionRepository.getSuggestions(trimmed, preferences.searchEngine, isIncognito = isIncog)
             if (isSearchMode) {

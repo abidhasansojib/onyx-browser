@@ -86,7 +86,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 ## 5. Search & Omnibox Experience
 
 - `[x]` **Full-Page Omnibox Search Mode**: Distraction-free search interface with automatic keyboard focus.
-- `[x]` **Real-Time Multi-Engine Suggestions**: Fast query suggestions from Brave, Google, DuckDuckGo, Bing, Yahoo, and Startpage.
+- `[x]` **Real-Time Low-Latency Multi-Engine Suggestions**: Fast query suggestions from Brave, Google, DuckDuckGo, Bing, Yahoo, and Startpage powered by an HTTP/2 connection-pooled `OkHttpClient` (`SearchSuggestionRepository`) reusing warm TLS 1.3 sockets, an expanded 100-entry query LRU cache, and an optimized 180ms typing debounce.
 - `[x]` **Custom Search Engines & Keyword Shortcuts**: Add arbitrary search engines with keyword triggers (e.g., `w <query>` for Wikipedia) and cached circular logos.
 - `[x]` **Smart Clipboard Suggestions**: Proactively surfaces copied URLs and search queries with one-tap insertion.
 - `[x]` **Integrated CameraX + ML Kit Scanner**: Rapid QR code and barcode scanning directly from the address bar.

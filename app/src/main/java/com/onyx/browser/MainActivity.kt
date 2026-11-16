@@ -796,7 +796,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         val database = AppDatabase.getInstance(this)
-        val suggestionRepository = SearchSuggestionRepository(database.historyDao(), database.bookmarkDao())
+        val suggestionRepository = (application as? OnyxApplication)?.appContainer?.searchSuggestionRepository
+            ?: SearchSuggestionRepository(database.historyDao(), database.bookmarkDao())
         searchController = SearchController(
             activity = this,
             binding = binding,
