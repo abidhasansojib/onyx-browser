@@ -2,6 +2,7 @@ package com.onyx.browser.data.filter
 
 import android.content.Context
 import android.util.Log
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -19,19 +20,32 @@ class FilterUpdateWorker(
 
     override suspend fun doWork(): Result {
         return try {
-            Log.i(TAG, "Starting periodic background filter update worker...")
+            Log.i(TAG, "Starting periodic background filter update worker (attempt $runAttemptCount)...")
             val success = FilterListManager.checkAndAutoUpdateFilters(applicationContext, force = true)
-            Log.i(TAG, "Periodic filter update completed with success=$success")
-            Result.success()
+            if (success) {
+                Log.i(TAG, "Periodic filter update completed with success=true")
+                Result.success()
+            } else if (runAttemptCount < MAX_RETRIES) {
+                Log.w(TAG, "Periodic filter update returned false (attempt $runAttemptCount), scheduling retry")
+                Result.retry()
+            } else {
+                Log.w(TAG, "Periodic filter update failed after $MAX_RETRIES attempts; will resume on next cycle")
+                Result.success()
+            }
         } catch (t: Throwable) {
-            Log.e(TAG, "Periodic filter update failed, will retry later", t)
-            Result.retry()
+            Log.e(TAG, "Periodic filter update threw exception (attempt $runAttemptCount)", t)
+            if (runAttemptCount < MAX_RETRIES) {
+                Result.retry()
+            } else {
+                Result.success()
+            }
         }
     }
 
     companion object {
         private const val TAG = "FilterUpdateWorker"
         const val WORK_NAME = "OnyxFilterListUpdate"
+        private const val MAX_RETRIES = 3
 
         /**
          * Schedules or reschedules the periodic background filter update worker with the
@@ -43,7 +57,7 @@ class FilterUpdateWorker(
                 val prefs = BrowserPreferences.getInstance(appContext)
                 val workManager = WorkManager.getInstance(appContext)
 
-                if (!prefs.isFilterAutoUpdateEnabled) {
+                if (!prefs.isFilterAutoUpdateEnabled || prefs.filterAutoUpdateIntervalHours <= 0) {
                     Log.i(TAG, "Filter auto-update is disabled; cancelling scheduled background worker")
                     workManager.cancelUniqueWork(WORK_NAME)
                     return
@@ -61,6 +75,7 @@ class FilterUpdateWorker(
                     intervalHours, TimeUnit.HOURS
                 )
                     .setConstraints(constraints)
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
                     .build()
 
                 val policy = if (forceReschedule) {

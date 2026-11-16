@@ -115,12 +115,14 @@ class ContentFiltersActivity : AppCompatActivity() {
 
     private fun updateSubtitleDisplay() {
         val hours = preferences.filterAutoUpdateIntervalHours
-        val intervalLabel = when (hours) {
-            6 -> "Every 6h"
-            12 -> "Every 12h"
-            24 -> "Every 24h"
-            72 -> "Every 3 days"
-            168 -> "Every 7 days"
+        val isEnabled = preferences.isFilterAutoUpdateEnabled && hours > 0
+        val intervalLabel = when {
+            !isEnabled -> "Disabled"
+            hours == 6 -> "Every 6h"
+            hours == 12 -> "Every 12h"
+            hours == 24 -> "Every 24h"
+            hours == 72 -> "Every 3 days"
+            hours == 168 -> "Every 7 days"
             else -> "Every ${hours}h"
         }
         val lastUpdated = FilterListManager.getLastUpdatedFormatted(this)
@@ -129,15 +131,16 @@ class ContentFiltersActivity : AppCompatActivity() {
 
     private fun showUpdateIntervalDialog() {
         val intervals = listOf(
+            0 to "Manual updates only (Disabled)",
             6 to "Every 6 hours",
             12 to "Every 12 hours",
             24 to "Every 1 day (24 hours)",
             72 to "Every 3 days",
             168 to "Every 7 days (1 week)"
         )
-        val currentHours = preferences.filterAutoUpdateIntervalHours
+        val currentHours = if (preferences.isFilterAutoUpdateEnabled) preferences.filterAutoUpdateIntervalHours else 0
         val currentIndex = intervals.indexOfFirst { it.first == currentHours }.let {
-            if (it >= 0) it else 2 // default to 24h
+            if (it >= 0) it else 3 // default to 24h
         }
 
         val labels = intervals.map { it.second }.toTypedArray()
@@ -146,8 +149,13 @@ class ContentFiltersActivity : AppCompatActivity() {
             .setTitle(R.string.filter_auto_update_period_title)
             .setSingleChoiceItems(labels, currentIndex) { dialog, which ->
                 val selectedHours = intervals[which].first
-                preferences.filterAutoUpdateIntervalHours = selectedHours
-                preferences.isFilterAutoUpdateEnabled = true
+                if (selectedHours == 0) {
+                    preferences.filterAutoUpdateIntervalHours = 0
+                    preferences.isFilterAutoUpdateEnabled = false
+                } else {
+                    preferences.filterAutoUpdateIntervalHours = selectedHours
+                    preferences.isFilterAutoUpdateEnabled = true
+                }
                 com.onyx.browser.data.filter.FilterUpdateWorker.schedule(this, forceReschedule = true)
                 updateSubtitleDisplay()
                 Toast.makeText(
