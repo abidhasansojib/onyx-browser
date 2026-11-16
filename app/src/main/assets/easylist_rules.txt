@@ -33673,6 +33673,8 @@ tiktok.com##+js(set-local-storage-item, /__tea_cache_events_.*/, $remove$)
 ||mediamarkt.be/api/v1/msg
 ||1.1.1.1/dns-query$domain=mediamarkt.be,method=post,xhr
 ||pxtrkapp.com^
+/prod/pni/g2i.min.js?
+/prod/pni/fp.min.js?
 @@||awstrack.me/*auth.coindesk.com$doc,popup
 @@||awstrack.me/*cmd=ac-inactive-restore$doc,popup
 @@||che168.com^$xhr,removeparam=s_cid
@@ -45132,6 +45134,7 @@ omni.soundestlink.com$image
 ||soresidewalk.com^
 ||soretrain.com^
 ||soulclicking.com^
+||soulfreedom.net^
 ||soundmachine.net^
 ||soundmuseums.com^
 ||soundstocking.com^
@@ -45470,6 +45473,7 @@ omni.soundestlink.com$image
 ||tuplebar.com^
 ||turtleface.net^
 ||tutorshelf.com^
+||tuxedocard.com^
 ||twelvedawn.com^
 ||twentyerr.com^
 ||twistloss.com^
