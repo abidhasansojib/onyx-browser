@@ -148,6 +148,7 @@ class ContentFiltersActivity : AppCompatActivity() {
                 val selectedHours = intervals[which].first
                 preferences.filterAutoUpdateIntervalHours = selectedHours
                 preferences.isFilterAutoUpdateEnabled = true
+                com.onyx.browser.data.filter.FilterUpdateWorker.schedule(this, forceReschedule = true)
                 updateSubtitleDisplay()
                 Toast.makeText(
                     this,

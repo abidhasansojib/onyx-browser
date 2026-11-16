@@ -95,7 +95,6 @@ class OnyxApplication : Application() {
                 com.onyx.browser.data.filter.FilterListManager.autoEnableRegionalListsForLocale(applicationContext)
                 AdBlockEngine.initialize(applicationContext)
                 com.onyx.browser.data.filter.FilterListManager.ensureDefaultFiltersCached(applicationContext)
-                com.onyx.browser.data.filter.FilterListManager.checkAndAutoUpdateFilters(applicationContext)
             } catch (t: Throwable) {
                 Log.e("OnyxApplication", "Failed to initialize AdBlockEngine in background", t)
             }
@@ -147,22 +146,7 @@ class OnyxApplication : Application() {
     }
 
     private fun scheduleFilterUpdateWork() {
-        val constraints = androidx.work.Constraints.Builder()
-            .setRequiredNetworkType(androidx.work.NetworkType.UNMETERED)
-            .setRequiresBatteryNotLow(true)
-            .build()
-
-        val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.onyx.browser.data.filter.FilterUpdateWorker>(
-            24, java.util.concurrent.TimeUnit.HOURS
-        )
-            .setConstraints(constraints)
-            .build()
-
-        androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            com.onyx.browser.data.filter.FilterUpdateWorker.WORK_NAME,
-            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
-            workRequest
-        )
+        com.onyx.browser.data.filter.FilterUpdateWorker.schedule(this, forceReschedule = false)
     }
 
     /**

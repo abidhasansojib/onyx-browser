@@ -19,6 +19,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 
 - `[x]` **Native Rust Adblock Engine**: High-performance Brave `adblock-rust` compiled via Android NDK across all 4 ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`) with full privileged scriptlet permissions (`PermissionMask::from_bits(u8::MAX)`), CSP directive enforcement (`$csp`), and popup rule classification.
 - `[x]` **54 Brave Content Filter Lists**: Evaluates Brave shields rules with pre-compiled FlatBuffers binary caching (`onyx_filters.bin`).
+- `[x]` **Background Filter Auto-Update Engine (WorkManager)**: Daemon-free background synchronization using Android OS `JobScheduler` via `FilterUpdateWorker` (supporting 6h, 12h, 24h, 3d, 7d intervals, mobile data and Wi-Fi networks via `NetworkType.CONNECTED`, and battery protection), with race-condition immunity against cold process startups and atomic `.tmp` replacement for `onyx_filters.bin` binary cache.
 - `[x]` **Dual-Tier Adblocking & CNAME Uncloaking**: Standard vs Aggressive shields with instant dynamic reversion at document start, plus dual-pass CNAME uncloaking matching both original alias and uncloaked destination.
 - `[x]` **Procedural & Cosmetic Filtering**: Complete 15-operator procedural engine (`:has-text()`, `:upward()`, `:min-text-length()`, `remove()`, etc.) and pre-parse synchronous CSS injection.
 - `[x]` **Anti-Adblock Defuser & Benchmark Compatibility**: 100% pass rate on adblock test sites; type-aware response synthesis and DOM honeypot defusal.

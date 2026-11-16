@@ -112,7 +112,20 @@ object AdBlockEngine {
             val rulesText = assetStream.bufferedReader().use { it.readText() }
             val compiledBytes = initFromRules(rulesText)
             if (compiledBytes != null && compiledBytes.isNotEmpty()) {
-                FileOutputStream(cacheFile).use { it.write(compiledBytes) }
+                val tempFile = File(context.filesDir, "$BINARY_CACHE_FILE.tmp")
+                try {
+                    FileOutputStream(tempFile).use { it.write(compiledBytes) }
+                    if (tempFile.exists() && tempFile.length() > 0) {
+                        if (cacheFile.exists()) cacheFile.delete()
+                        if (!tempFile.renameTo(cacheFile)) {
+                            tempFile.copyTo(cacheFile, overwrite = true)
+                            tempFile.delete()
+                        }
+                    }
+                } catch (t: Throwable) {
+                    Log.e(TAG, "Failed writing base asset binary cache", t)
+                    try { tempFile.delete() } catch (_: Exception) {}
+                }
                 val hasExtraLists = prefs.enabledFilterLists.isNotEmpty() ||
                     prefs.getCustomFilters().any { it.isEnabled } ||
                     prefs.customFilterRules.isNotBlank()
@@ -168,7 +181,21 @@ object AdBlockEngine {
                 val compiledBytes = initFromRules(rulesText)
                 if (compiledBytes != null && compiledBytes.isNotEmpty()) {
                     val cacheFile = File(context.filesDir, BINARY_CACHE_FILE)
-                    FileOutputStream(cacheFile).use { it.write(compiledBytes) }
+                    val tempFile = File(context.filesDir, "$BINARY_CACHE_FILE.tmp")
+                    try {
+                        FileOutputStream(tempFile).use { it.write(compiledBytes) }
+                        if (tempFile.exists() && tempFile.length() > 0) {
+                            if (cacheFile.exists()) cacheFile.delete()
+                            if (!tempFile.renameTo(cacheFile)) {
+                                tempFile.copyTo(cacheFile, overwrite = true)
+                                tempFile.delete()
+                            }
+                        }
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "Failed writing updated network binary cache", t)
+                        try { tempFile.delete() } catch (_: Exception) {}
+                        return@withContext false
+                    }
                     BrowserPreferences.getInstance(context).filterLastUpdatedTime = System.currentTimeMillis()
                     Log.i(TAG, "Successfully updated and serialized filter lists (${compiledBytes.size} bytes)")
                     // Reload scriptlet resources after filter update

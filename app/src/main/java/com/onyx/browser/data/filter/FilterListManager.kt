@@ -884,7 +884,21 @@ object FilterListManager {
             val compiledBytes = AdBlockEngine.initFromRules(mergedRules)
             if (compiledBytes != null && compiledBytes.isNotEmpty()) {
                 val cacheFile = File(context.filesDir, BINARY_CACHE_FILE)
-                FileOutputStream(cacheFile).use { it.write(compiledBytes) }
+                val tempFile = File(context.filesDir, "$BINARY_CACHE_FILE.tmp")
+                try {
+                    FileOutputStream(tempFile).use { it.write(compiledBytes) }
+                    if (tempFile.exists() && tempFile.length() > 0) {
+                        if (cacheFile.exists()) cacheFile.delete()
+                        if (!tempFile.renameTo(cacheFile)) {
+                            tempFile.copyTo(cacheFile, overwrite = true)
+                            tempFile.delete()
+                        }
+                    }
+                } catch (t: Throwable) {
+                    Log.e(TAG, "Failed writing compiled filter binary cache", t)
+                    try { tempFile.delete() } catch (_: Exception) {}
+                    return 0
+                }
                 prefs.compiledFilterSignature = getCurrentFilterSignature(prefs)
                 // Immediately apply new rules to the active in-memory Rust engine!
                 AdBlockEngine.initEngine(compiledBytes)
