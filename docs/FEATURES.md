@@ -113,6 +113,7 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Headless PDF Export & Web Archive (.mht) Saving**: One-tap page saving directly to public Downloads without showing printer dialogs.
 - `[x]` **Direct APK Package Installer**: Seamless installation handoff for downloaded APKs without redundant confirmation prompts.
 - `[x]` **Categorical Filter Chips**: Filter downloads by All, APKs, Images, Videos, and Documents with live item counts.
+- `[x]` **Unified Download Item Actions & Material 3 Details Sheet**: Long-pressing or tapping the 3-dot overflow menu on any download item opens the comprehensive Material 3 options bottom sheet with intelligent state handling (hides dead actions and provides "Download again" and "Remove from list" for files deleted or moved from device storage). Features a dedicated "Details & Checksums" sheet with 100% theme-consistent styling, real-time SHA-256 and MD5 cryptographic integrity calculation, live hash verification, and one-tap copy shortcuts.
 
 ---
 

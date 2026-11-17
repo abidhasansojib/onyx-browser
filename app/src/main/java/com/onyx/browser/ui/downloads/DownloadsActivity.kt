@@ -23,8 +23,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProvider
+import com.onyx.browser.download.DownloadHandler
 import com.onyx.browser.download.FileUtils
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -35,16 +37,24 @@ import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.DownloadItem
 import com.onyx.browser.databinding.ActivityDownloadsBinding
+import com.onyx.browser.databinding.BottomSheetDownloadDetailsBinding
 import com.onyx.browser.databinding.BottomSheetDownloadItemMenuBinding
 import com.onyx.browser.ui.viewmodel.DownloadsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.webkit.CookieManager
 import android.webkit.MimeTypeMap
+import android.webkit.WebSettings
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.LocalFileLoader
 import java.io.File
+import java.io.FileInputStream
+import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class DownloadsActivity : AppCompatActivity() {
 
@@ -135,7 +145,7 @@ class DownloadsActivity : AppCompatActivity() {
             onCancelOngoingClicked = { item -> confirmCancelDownload(item) },
             onMoreOptionsClicked = { item -> showDownloadItemOptionsMenu(item) },
             onActionClicked = { item -> toggleDownloadAction(item) },
-            onItemLongClicked = { item -> showDownloadDetailsDialog(item) }
+            onItemLongClicked = { item -> showDownloadItemOptionsMenu(item) }
         )
 
         binding.rvDownloads.layoutManager = LinearLayoutManager(this)
@@ -395,6 +405,19 @@ class DownloadsActivity : AppCompatActivity() {
                 menuBinding.ivMenuOpenIcon.setImageResource(R.drawable.ic_open_in_new)
                 menuBinding.tvMenuOpenText.text = "Open in browser"
             }
+            lowerName.endsWith(".png") || lowerName.endsWith(".jpg") ||
+            lowerName.endsWith(".jpeg") || lowerName.endsWith(".webp") ||
+            lowerName.endsWith(".gif") || item.mimeType.startsWith("image/") -> {
+                menuBinding.ivMenuFileIcon.setImageResource(R.drawable.ic_image)
+                menuBinding.ivMenuOpenIcon.setImageResource(R.drawable.ic_open_in_new)
+                menuBinding.tvMenuOpenText.text = "Open file"
+            }
+            lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") ||
+            lowerName.endsWith(".webm") || item.mimeType.startsWith("video/") -> {
+                menuBinding.ivMenuFileIcon.setImageResource(R.drawable.ic_play_circle)
+                menuBinding.ivMenuOpenIcon.setImageResource(R.drawable.ic_open_in_new)
+                menuBinding.tvMenuOpenText.text = "Play video"
+            }
             lowerName.endsWith(".md") || lowerName.endsWith(".markdown") ||
             lowerName.endsWith(".txt") -> {
                 menuBinding.ivMenuFileIcon.setImageResource(R.drawable.ic_file)
@@ -419,6 +442,30 @@ class DownloadsActivity : AppCompatActivity() {
             else -> "Locally generated / page data"
         }
         menuBinding.tvMenuSiteUrl.text = displaySiteUrl
+
+        val fileExists = FileUtils.doesFileExist(item.filePath, this)
+        if (!fileExists) {
+            menuBinding.tvMenuStatusBadge.visibility = View.VISIBLE
+            menuBinding.tvMenuStatusBadge.text = "File deleted from device"
+
+            menuBinding.menuOpenOrInstall.visibility = View.GONE
+            menuBinding.menuOpenInFolder.visibility = View.GONE
+            menuBinding.menuShareFile.visibility = View.GONE
+            menuBinding.menuRenameFile.visibility = View.GONE
+
+            menuBinding.menuDownloadAgain.visibility = if (!isLocalData && item.url.isNotBlank()) View.VISIBLE else View.GONE
+            menuBinding.tvMenuDeleteText.text = "Remove from list"
+        } else {
+            menuBinding.tvMenuStatusBadge.visibility = View.GONE
+
+            menuBinding.menuOpenOrInstall.visibility = View.VISIBLE
+            menuBinding.menuOpenInFolder.visibility = View.VISIBLE
+            menuBinding.menuShareFile.visibility = View.VISIBLE
+            menuBinding.menuRenameFile.visibility = View.VISIBLE
+
+            menuBinding.menuDownloadAgain.visibility = if (!isLocalData && item.url.isNotBlank()) View.VISIBLE else View.GONE
+            menuBinding.tvMenuDeleteText.text = "Delete"
+        }
 
         menuBinding.menuOpenOrInstall.setOnClickListener {
             bottomSheet.dismiss()
@@ -450,6 +497,20 @@ class DownloadsActivity : AppCompatActivity() {
             shareDownloadedFile(item)
         }
 
+        menuBinding.menuDownloadAgain.setOnClickListener {
+            bottomSheet.dismiss()
+            redownloadItem(item)
+        }
+
+        menuBinding.menuCopyLink.setOnClickListener {
+            bottomSheet.dismiss()
+            if (item.url.isBlank()) {
+                Toast.makeText(this, "Download link not available", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            copyToClipboard("Download Link", item.url)
+        }
+
         menuBinding.menuOpenSite.setOnClickListener {
             bottomSheet.dismiss()
             if (isLocalData || item.url.isBlank()) {
@@ -469,9 +530,18 @@ class DownloadsActivity : AppCompatActivity() {
             showRenameFileDialog(item)
         }
 
+        menuBinding.menuViewDetails.setOnClickListener {
+            bottomSheet.dismiss()
+            showDownloadDetailsBottomSheet(item)
+        }
+
         menuBinding.menuDeleteFile.setOnClickListener {
             bottomSheet.dismiss()
-            confirmDeleteDownload(item)
+            if (!fileExists) {
+                deleteDownloadItem(item)
+            } else {
+                confirmDeleteDownload(item)
+            }
         }
 
         bottomSheet.show()
@@ -809,118 +879,250 @@ class DownloadsActivity : AppCompatActivity() {
         }
     }
 
-    private fun showDownloadDetailsDialog(item: DownloadItem) {
-        val typedValue = android.util.TypedValue()
-        theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
-        val primaryTextColor = typedValue.data
-        theme.resolveAttribute(android.R.attr.textColorSecondary, typedValue, true)
-        val secondaryTextColor = typedValue.data
+    private fun copyToClipboard(label: String, text: String) {
+        if (text.isBlank()) return
+        val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clip.setPrimaryClip(ClipData.newPlainText(label, text))
+        Toast.makeText(this, "$label copied", Toast.LENGTH_SHORT).show()
+    }
 
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 24)
+    private fun redownloadItem(item: DownloadItem) {
+        val rawUrl = item.url.trim()
+        if (rawUrl.isBlank()) {
+            Toast.makeText(this, "Cannot re-download: missing URL", Toast.LENGTH_SHORT).show()
+            return
         }
+        val isLocalData = rawUrl.startsWith("data:", ignoreCase = true) || rawUrl.startsWith("blob:", ignoreCase = true)
+        if (isLocalData) {
+            Toast.makeText(this, "Cannot re-download locally generated file directly", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Toast.makeText(this, "Starting download: ${item.fileName}", Toast.LENGTH_SHORT).show()
+        DownloadHandler.handleDownload(
+            activity = this,
+            coroutineScope = lifecycleScope,
+            url = rawUrl,
+            userAgent = WebSettings.getDefaultUserAgent(this),
+            contentDisposition = "",
+            mimeType = item.mimeType,
+            contentLength = item.fileSize,
+            cookies = CookieManager.getInstance().getCookie(rawUrl).orEmpty(),
+            referer = rawUrl
+        )
+    }
 
-        fun addRow(label: String, value: String, isCopyable: Boolean = false) {
-            if (value.isBlank()) return
-            val labelView = TextView(this).apply {
-                text = label
-                textSize = 12f
-                setTextColor(secondaryTextColor)
-                setPadding(0, 12, 0, 2)
-            }
-            val valView = TextView(this).apply {
-                text = value
-                textSize = 14f
-                setTextColor(primaryTextColor)
-                setTextIsSelectable(true)
-                if (isCopyable) {
-                    setOnClickListener {
-                        val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clip.setPrimaryClip(ClipData.newPlainText(label, value))
-                        Toast.makeText(this@DownloadsActivity, "$label copied", Toast.LENGTH_SHORT).show()
-                    }
+    private suspend fun computeFileChecksums(filePath: String): Pair<String, String>? = withContext(Dispatchers.IO) {
+        try {
+            val resolvedPath = FileUtils.resolveExistingPath(filePath, this@DownloadsActivity) ?: filePath
+            val inputStream = if (resolvedPath.startsWith("content://")) {
+                contentResolver.openInputStream(Uri.parse(resolvedPath))
+            } else {
+                val file = File(resolvedPath)
+                if (file.exists() && file.canRead()) FileInputStream(file) else null
+            } ?: return@withContext null
+
+            val sha256Digest = MessageDigest.getInstance("SHA-256")
+            val md5Digest = MessageDigest.getInstance("MD5")
+            val buffer = ByteArray(64 * 1024)
+            inputStream.use { stream ->
+                var bytesRead: Int
+                while (stream.read(buffer).also { bytesRead = it } != -1) {
+                    sha256Digest.update(buffer, 0, bytesRead)
+                    md5Digest.update(buffer, 0, bytesRead)
                 }
             }
-            container.addView(labelView)
-            container.addView(valView)
+            val sha256 = sha256Digest.digest().joinToString("") { "%02x".format(it) }
+            val md5 = md5Digest.digest().joinToString("") { "%02x".format(it) }
+            Pair(sha256, md5)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun showDownloadDetailsBottomSheet(item: DownloadItem) {
+        val bottomSheet = BottomSheetDialog(this)
+        val detailsBinding = BottomSheetDownloadDetailsBinding.inflate(layoutInflater)
+        bottomSheet.setContentView(detailsBinding.root)
+
+        val isApk = ApkInstallerHelper.isApkFile(item.fileName, item.mimeType)
+        val lowerName = item.fileName.lowercase()
+        when {
+            isApk -> detailsBinding.ivDetailsFileIcon.setImageResource(R.drawable.ic_android)
+            lowerName.endsWith(".mht") || lowerName.endsWith(".mhtml") ||
+            lowerName.endsWith(".html") || lowerName.endsWith(".htm") ||
+            item.mimeType.contains("html") || item.mimeType.contains("multipart") -> {
+                detailsBinding.ivDetailsFileIcon.setImageResource(R.drawable.ic_web)
+            }
+            lowerName.endsWith(".png") || lowerName.endsWith(".jpg") ||
+            lowerName.endsWith(".jpeg") || lowerName.endsWith(".webp") ||
+            lowerName.endsWith(".gif") || item.mimeType.startsWith("image/") -> {
+                detailsBinding.ivDetailsFileIcon.setImageResource(R.drawable.ic_image)
+            }
+            lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") ||
+            lowerName.endsWith(".webm") || item.mimeType.startsWith("video/") -> {
+                detailsBinding.ivDetailsFileIcon.setImageResource(R.drawable.ic_play_circle)
+            }
+            else -> detailsBinding.ivDetailsFileIcon.setImageResource(R.drawable.ic_file)
         }
 
-        addRow("File Name", item.fileName)
-        if (item.fileSize > 0) {
-            addRow("Size", Formatter.formatFileSize(this, item.fileSize))
+        detailsBinding.tvDetailsHeaderTitle.text = "File Details"
+        detailsBinding.tvDetailsHeaderSubtitle.text = item.fileName
+        detailsBinding.btnDetailsClose.setOnClickListener { bottomSheet.dismiss() }
+
+        detailsBinding.tvDetailFileName.text = item.fileName
+        detailsBinding.btnCopyFileName.setOnClickListener {
+            copyToClipboard("File Name", item.fileName)
         }
-        addRow("File Path", item.filePath, isCopyable = true)
+
+        val sizeFormatted = if (item.fileSize > 0) {
+            "${Formatter.formatFileSize(this, item.fileSize)} (${item.fileSize} bytes)"
+        } else {
+            "Unknown size"
+        }
+        detailsBinding.tvDetailFileSize.text = sizeFormatted
+
+        val fileExists = FileUtils.doesFileExist(item.filePath, this)
+        if (fileExists) {
+            detailsBinding.tvDetailFileStatus.text = "Available on storage"
+            detailsBinding.tvDetailFileStatus.setTextColor(ContextCompat.getColor(this, R.color.green_success))
+        } else {
+            detailsBinding.tvDetailFileStatus.text = "File deleted or moved"
+            detailsBinding.tvDetailFileStatus.setTextColor(ContextCompat.getColor(this, R.color.red_danger))
+        }
+
+        val dateFormatted = try {
+            val sdf = SimpleDateFormat("MMM d, yyyy • h:mm a", Locale.getDefault())
+            sdf.format(Date(item.downloadTime))
+        } catch (_: Exception) {
+            DateUtils.getRelativeTimeSpanString(item.downloadTime, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+        }
+        detailsBinding.tvDetailFileDate.text = dateFormatted
+
+        detailsBinding.tvDetailFilePath.text = item.filePath
+        detailsBinding.btnCopyFilePath.setOnClickListener {
+            copyToClipboard("File Path", item.filePath)
+        }
+
         val isLocalData = item.url.startsWith("data:", ignoreCase = true) || item.url.startsWith("blob:", ignoreCase = true)
-        val detailsUrl = when {
+        val displayUrl = when {
             item.url.isNotBlank() && !isLocalData -> item.url
             item.url.isNotBlank() && isLocalData -> "Locally generated data"
-            else -> ""
+            else -> "Not available"
         }
-        if (detailsUrl.isNotBlank()) {
-            addRow("URL", detailsUrl, isCopyable = !isLocalData)
-        }
-
-        if (item.sha256.isNotBlank()) {
-            addRow("SHA-256 Checksum", item.sha256, isCopyable = true)
-        }
-        if (item.md5.isNotBlank()) {
-            addRow("MD5 Checksum", item.md5, isCopyable = true)
+        detailsBinding.tvDetailFileUrl.text = displayUrl
+        detailsBinding.btnCopyFileUrl.visibility = if (!isLocalData && item.url.isNotBlank()) View.VISIBLE else View.GONE
+        detailsBinding.btnCopyFileUrl.setOnClickListener {
+            copyToClipboard("Download URL", item.url)
         }
 
-        // Integrity verification input
-        if (item.sha256.isNotBlank() || item.md5.isNotBlank()) {
-            val verifyLabel = TextView(this).apply {
-                text = "Verify Checksum"
-                textSize = 12f
-                setTextColor(secondaryTextColor)
-                setPadding(0, 16, 0, 4)
-            }
-            val verifyInput = EditText(this).apply {
-                hint = "Paste expected SHA-256 or MD5"
-                textSize = 13f
-            }
-            val resultView = TextView(this).apply {
-                textSize = 12f
-                setPadding(0, 4, 0, 4)
+        var currentSha256 = item.sha256
+        var currentMd5 = item.md5
+
+        fun updateChecksumViews() {
+            if (currentSha256.isNotBlank()) {
+                detailsBinding.containerSha256.visibility = View.VISIBLE
+                detailsBinding.tvDetailSha256.text = currentSha256
+                detailsBinding.btnCopySha256.setOnClickListener {
+                    copyToClipboard("SHA-256", currentSha256)
+                }
+            } else {
+                detailsBinding.containerSha256.visibility = View.GONE
             }
 
-            verifyInput.addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    val input = s?.toString()?.trim() ?: ""
-                    if (input.isBlank()) {
-                        resultView.text = ""
-                    } else if (input.equals(item.sha256, ignoreCase = true) || input.equals(item.md5, ignoreCase = true)) {
-                        resultView.text = "✓ Checksum MATCHES successfully"
-                        resultView.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
-                    } else {
-                        resultView.text = "✗ Checksum MISMATCH"
-                        resultView.setTextColor(android.graphics.Color.parseColor("#F44336"))
+            if (currentMd5.isNotBlank()) {
+                detailsBinding.containerMd5.visibility = View.VISIBLE
+                detailsBinding.tvDetailMd5.text = currentMd5
+                detailsBinding.btnCopyMd5.setOnClickListener {
+                    copyToClipboard("MD5", currentMd5)
+                }
+            } else {
+                detailsBinding.containerMd5.visibility = View.GONE
+            }
+
+            if (currentSha256.isBlank() && currentMd5.isBlank()) {
+                if (!fileExists) {
+                    detailsBinding.tvChecksumStatus.text = "Checksums unavailable (file not present on device)"
+                    detailsBinding.containerVerifyInput.visibility = View.GONE
+                    detailsBinding.tvVerifyHeader.visibility = View.GONE
+                    detailsBinding.dividerVerify.visibility = View.GONE
+                } else {
+                    detailsBinding.tvChecksumStatus.text = "Calculating cryptographic checksums..."
+                }
+            } else {
+                detailsBinding.tvChecksumStatus.text = "Cryptographic hashes for verifying file authenticity"
+                detailsBinding.containerVerifyInput.visibility = View.VISIBLE
+                detailsBinding.tvVerifyHeader.visibility = View.VISIBLE
+                detailsBinding.dividerVerify.visibility = View.VISIBLE
+            }
+        }
+
+        updateChecksumViews()
+
+        if (fileExists && (currentSha256.isBlank() || currentMd5.isBlank())) {
+            lifecycleScope.launch {
+                val computed = computeFileChecksums(item.filePath)
+                if (computed != null && bottomSheet.isShowing) {
+                    currentSha256 = computed.first
+                    currentMd5 = computed.second
+                    updateChecksumViews()
+
+                    withContext(Dispatchers.IO) {
+                        try {
+                            val updated = item.copy(sha256 = currentSha256, md5 = currentMd5)
+                            database.downloadDao().updateDownload(updated)
+                        } catch (_: Exception) {}
                     }
                 }
-                override fun afterTextChanged(s: Editable?) {}
-            })
-
-            container.addView(verifyLabel)
-            container.addView(verifyInput)
-            container.addView(resultView)
+            }
         }
 
-        val builder = MaterialAlertDialogBuilder(this)
-            .setTitle(item.fileName)
-            .setView(container)
-            .setPositiveButton("Close", null)
+        detailsBinding.btnClearVerify.setOnClickListener {
+            detailsBinding.etVerifyChecksum.text?.clear()
+        }
+
+        detailsBinding.etVerifyChecksum.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val input = s?.toString()?.trim() ?: ""
+                detailsBinding.btnClearVerify.visibility = if (input.isNotEmpty()) View.VISIBLE else View.GONE
+                if (input.isBlank()) {
+                    detailsBinding.tvVerifyResult.visibility = View.GONE
+                } else if (input.equals(currentSha256, ignoreCase = true) || input.equals(currentMd5, ignoreCase = true)) {
+                    detailsBinding.tvVerifyResult.visibility = View.VISIBLE
+                    detailsBinding.tvVerifyResult.text = "✓ Checksum MATCHES successfully"
+                    detailsBinding.tvVerifyResult.setTextColor(ContextCompat.getColor(this@DownloadsActivity, R.color.green_success))
+                    detailsBinding.tvVerifyResult.setBackgroundResource(R.drawable.bg_pill_badge)
+                } else {
+                    detailsBinding.tvVerifyResult.visibility = View.VISIBLE
+                    detailsBinding.tvVerifyResult.text = "✗ Checksum MISMATCH — hash does not match"
+                    detailsBinding.tvVerifyResult.setTextColor(ContextCompat.getColor(this@DownloadsActivity, R.color.red_danger))
+                    detailsBinding.tvVerifyResult.setBackgroundResource(R.drawable.bg_pill_badge)
+                }
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
 
         if (!isLocalData && item.url.isNotBlank()) {
-            builder.setNeutralButton("Share Link") { _, _ ->
+            detailsBinding.btnDetailsShareLink.visibility = View.VISIBLE
+            detailsBinding.btnDetailsShareLink.setOnClickListener {
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
                     putExtra(Intent.EXTRA_TEXT, item.url)
                 }
                 startActivity(Intent.createChooser(shareIntent, "Share Download Link"))
             }
+        } else {
+            detailsBinding.btnDetailsShareLink.visibility = View.GONE
         }
-        builder.show()
+
+        detailsBinding.btnDetailsDone.setOnClickListener {
+            bottomSheet.dismiss()
+        }
+
+        bottomSheet.show()
+    }
+
+    private fun showDownloadDetailsDialog(item: DownloadItem) {
+        showDownloadDetailsBottomSheet(item)
     }
 }
