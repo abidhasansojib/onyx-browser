@@ -17,11 +17,11 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0
@@ -52,7 +52,7 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
       - name: Cache cargo-ndk
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-ndk
           key: cargo-ndk-${{ runner.os }}
@@ -256,7 +256,7 @@ jobs:
             --notes-file release_notes.md || (gh release upload "$TAG" package_apks/*.apk package_apks/SHA256SUMS.txt --clobber && gh release edit "$TAG" $EXTRA_FLAGS --notes-file release_notes.md)
 
       - name: Upload APKs to Workflow Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Onyx-Browser-${{ env.BUILD_TYPE }}-APKs
           path: |
