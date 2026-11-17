@@ -2,7 +2,7 @@
 # ==============================================================================
 # Script: scripts/generate_release_notes.py
 # Purpose: Generate clean, categorized GitHub release notes from Git commits
-#          with architecture guidance and cryptographic checksums.
+#          with cryptographic checksums.
 # ==============================================================================
 
 import argparse
@@ -148,16 +148,6 @@ def main():
 
     if compare_url:
         out.append(f"**Full Changelog**: {compare_url}\n")
-
-    # Architecture Guidance Section
-    out.append("### 📱 Architecture Guide")
-    out.append("| Architecture | Best Suited For |")
-    out.append("| :--- | :--- |")
-    out.append("| **arm64-v8a** | Recommended for 99% of modern Android phones & tablets (64-bit ARM) |")
-    out.append("| **armeabi-v7a** | Legacy 32-bit Android devices |")
-    out.append("| **x86_64** | Android Emulators, ChromeOS, and Intel devices |")
-    out.append("| **universal** | All architectures combined in one package |")
-    out.append("")
 
     # Checksums Section (if SHA256SUMS.txt exists in package_apks)
     if apks_dir and os.path.isdir(apks_dir):
