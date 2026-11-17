@@ -240,7 +240,7 @@ jobs:
           # Ensure latest tags are available
           git fetch --tags origin 2>/dev/null || true
 
-          # Generate Clean Categorized Release Notes with architecture guide & checksums
+          # Generate Clean Categorized Release Notes
           python3 scripts/generate_release_notes.py \
             --tag "$TAG" \
             --repo "$REPO" \

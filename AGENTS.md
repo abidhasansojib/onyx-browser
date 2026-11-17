@@ -47,7 +47,7 @@ When triggered for a build (after user confirms or explicitly requests Release o
 3. **If Build Succeeds**:
    - **Release Build**:
      - Released to GitHub Releases as a full release.
-     - Release notes are automatically categorized via `scripts/generate_release_notes.py` (Features, Bug Fixes, Shields, Performance, Upstream, and Checksums).
+     - Release notes are automatically categorized via `scripts/generate_release_notes.py` (Features, Bug Fixes, Shields, Performance, and Upstream).
      - DO NOT download artifacts to the device unless explicitly requested.
      - Report the release version tag, changelog, and GitHub release download links to the user.
    - **Prerelease Build**:

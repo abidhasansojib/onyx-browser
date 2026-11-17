@@ -2,7 +2,6 @@
 # ==============================================================================
 # Script: scripts/generate_release_notes.py
 # Purpose: Generate clean, categorized GitHub release notes from Git commits
-#          with cryptographic checksums.
 # ==============================================================================
 
 import argparse
@@ -149,23 +148,7 @@ def main():
     if compare_url:
         out.append(f"**Full Changelog**: {compare_url}\n")
 
-    # Checksums Section (if SHA256SUMS.txt exists in package_apks)
-    if apks_dir and os.path.isdir(apks_dir):
-        sha256_file = os.path.join(apks_dir, "SHA256SUMS.txt")
-        if os.path.isfile(sha256_file):
-            try:
-                with open(sha256_file, "r", encoding="utf-8") as f:
-                    sums = f.read().strip()
-                if sums:
-                    out.append("### 🔐 Checksums (SHA-256)")
-                    out.append("```text")
-                    out.append(sums)
-                    out.append("```")
-                    out.append("")
-            except Exception:
-                pass
-
-    content = "\n".join(out)
+    content = "\n".join(out).strip() + "\n"
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)
 
