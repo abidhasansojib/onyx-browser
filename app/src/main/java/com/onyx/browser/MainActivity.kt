@@ -792,13 +792,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (isReelOrFeedUrl(url)) return@setOnChildScrollUpCallback true
 
             // Top-Zone Touch Gating:
-            // Pull-to-refresh must strictly originate from the top zone of the web content.
+            // Pull-to-refresh must strictly originate from the top zone of the web content (top 33%).
             // Swipes initiated in the middle or bottom of the screen (e.g. inside inner feeds,
             // scrollable divs, modals, code blocks, or floating panels) must never trigger reload.
             val density = resources.displayMetrics.density
-            val maxTopTouchPx = (160 * density).coerceAtMost(
-                (webView.height * 0.22f).coerceAtLeast(100 * density)
-            )
+            val maxTopTouchPx = (webView.height * 0.33f).coerceAtLeast(120 * density)
             if (webView.touchDownY > maxTopTouchPx) {
                 return@setOnChildScrollUpCallback true
             }
