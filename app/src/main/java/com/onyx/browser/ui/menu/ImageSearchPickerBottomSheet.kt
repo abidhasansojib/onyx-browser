@@ -66,18 +66,6 @@ class ImageSearchPickerBottomSheet(
             dismiss()
         }
 
-        binding.optionSauceNao.setOnClickListener {
-            val url = "https://saucenao.com/search.php?url=$encoded"
-            onEngineSelected(url, "SauceNAO")
-            dismiss()
-        }
-
-        binding.optionAscii2d.setOnClickListener {
-            val url = "https://ascii2d.net/search/url/$encoded"
-            onEngineSelected(url, "ASCII2D")
-            dismiss()
-        }
-
         binding.btnDismissImageSearch.setOnClickListener { dismiss() }
     }
 
