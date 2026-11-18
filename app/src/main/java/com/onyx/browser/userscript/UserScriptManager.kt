@@ -132,7 +132,7 @@ class UserScriptManager private constructor(private val context: Context) {
 
     fun getMatchingScripts(url: String, runAt: RunAt): List<ParsedUserScript> {
         val prefs = BrowserPreferences.getInstance(context)
-        if (prefs.isGlobalScriptBlockingEnabled) return emptyList()
+        if (prefs.isGlobalScriptBlockingEnabled || !prefs.isJavaScriptEnabledGlobal) return emptyList()
 
         val domain = try {
             java.net.URI(url).host?.lowercase()?.removePrefix("www.") ?: ""
@@ -274,7 +274,10 @@ class UserScriptManager private constructor(private val context: Context) {
         }
 
         val existing = if (metadata.name != UserScriptMetadata.DEFAULT_NAME) {
-            scripts.firstOrNull { it.script.name == metadata.name }?.script
+            scripts.firstOrNull {
+                it.script.name == metadata.name &&
+                        (metadata.namespace.isBlank() || it.metadata.namespace == metadata.namespace)
+            }?.script
         } else null
 
         if (existing != null) {

@@ -2100,9 +2100,39 @@ class OnyxWebViewClient(
                             if (reg[$scriptId]) return;
                             reg[$scriptId] = true;
                             var s = document.createElement('script');
-                            s.textContent = decodeURIComponent(escape(atob('$b64')));
-                            (document.head || document.documentElement).appendChild(s);
-                            s.parentNode && s.parentNode.removeChild(s);
+                            var _code;
+                            try {
+                                _code = decodeURIComponent(escape(atob('$b64')));
+                            } catch(_) {
+                                var _b = atob('$b64');
+                                var _bytes = new Uint8Array(_b.length);
+                                for (var _i = 0; _i < _b.length; _i++) _bytes[_i] = _b.charCodeAt(_i);
+                                _code = new TextDecoder('utf-8').decode(_bytes);
+                            }
+                            s.textContent = _code;
+                            var _t = document.head || document.documentElement;
+                            if (_t) {
+                                _t.appendChild(s);
+                                s.parentNode && s.parentNode.removeChild(s);
+                            } else if (typeof MutationObserver !== 'undefined') {
+                                var _obs = new MutationObserver(function() {
+                                    var _el = document.head || document.documentElement;
+                                    if (_el) {
+                                        _obs.disconnect();
+                                        _el.appendChild(s);
+                                        s.parentNode && s.parentNode.removeChild(s);
+                                    }
+                                });
+                                _obs.observe(document, { childList: true, subtree: true });
+                            } else {
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    var _el = document.head || document.documentElement;
+                                    if (_el) {
+                                        _el.appendChild(s);
+                                        s.parentNode && s.parentNode.removeChild(s);
+                                    }
+                                });
+                            }
                         } catch(e) { console.error('Onyx userscript idle inject error', e); }
                     }
                     if (typeof window.requestIdleCallback === 'function') {
@@ -2131,9 +2161,39 @@ class OnyxWebViewClient(
                         if (reg[$scriptId]) return;
                         reg[$scriptId] = true;
                         var s = document.createElement('script');
-                        s.textContent = decodeURIComponent(escape(atob('$b64')));
-                        (document.head || document.documentElement).appendChild(s);
-                        s.parentNode && s.parentNode.removeChild(s);
+                        var _code;
+                        try {
+                            _code = decodeURIComponent(escape(atob('$b64')));
+                        } catch(_) {
+                            var _b = atob('$b64');
+                            var _bytes = new Uint8Array(_b.length);
+                            for (var _i = 0; _i < _b.length; _i++) _bytes[_i] = _b.charCodeAt(_i);
+                            _code = new TextDecoder('utf-8').decode(_bytes);
+                        }
+                        s.textContent = _code;
+                        var _t = document.head || document.documentElement;
+                        if (_t) {
+                            _t.appendChild(s);
+                            s.parentNode && s.parentNode.removeChild(s);
+                        } else if (typeof MutationObserver !== 'undefined') {
+                            var _obs = new MutationObserver(function() {
+                                var _el = document.head || document.documentElement;
+                                if (_el) {
+                                    _obs.disconnect();
+                                    _el.appendChild(s);
+                                    s.parentNode && s.parentNode.removeChild(s);
+                                }
+                            });
+                            _obs.observe(document, { childList: true, subtree: true });
+                        } else {
+                            document.addEventListener('DOMContentLoaded', function() {
+                                var _el = document.head || document.documentElement;
+                                if (_el) {
+                                    _el.appendChild(s);
+                                    s.parentNode && s.parentNode.removeChild(s);
+                                }
+                            });
+                        }
                     } catch(e) { console.error('Onyx userscript inject error', e); }
                 })();
                 """.trimIndent()

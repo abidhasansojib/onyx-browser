@@ -913,6 +913,7 @@ class OnyxWebView @JvmOverloads constructor(
             evaluateJavascript("try { var v = document.querySelectorAll('video, audio'); for(var i=0; i<v.length; i++) { v[i].pause(); v[i].src = ''; } } catch(e){}", null)
             evaluateJavascript("try { " + com.onyx.browser.web.translate.PageTranslateManager.cleanupScript + " } catch(e){}", null)
             clearUserScriptState()
+            userScriptBridge.destroy()
             stopLoading()
             clearHistory()
             (parent as? ViewGroup)?.removeView(this)

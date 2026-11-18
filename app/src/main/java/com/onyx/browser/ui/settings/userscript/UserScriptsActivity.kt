@@ -281,7 +281,8 @@ class UserScriptsActivity : AppCompatActivity() {
     }
 
     private fun loadScripts() {
-        val isBlocked = BrowserPreferences.getInstance(this).isGlobalScriptBlockingEnabled
+        val prefs = BrowserPreferences.getInstance(this)
+        val isBlocked = prefs.isGlobalScriptBlockingEnabled || !prefs.isJavaScriptEnabledGlobal
         binding.cardScriptsBlockedWarning.visibility = if (isBlocked) View.VISIBLE else View.GONE
         if (isBlocked) {
             binding.tvToolbarSubtitle.text = getString(R.string.userscripts_disabled_scripts_blocked)

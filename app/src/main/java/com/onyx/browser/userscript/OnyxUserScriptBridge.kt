@@ -14,6 +14,7 @@ import com.onyx.browser.web.OnyxWebView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -106,6 +107,12 @@ class OnyxUserScriptBridge(
         activeCalls.clear()
         activeDownloads.clear()
         downloadSessions.clear()
+    }
+
+    fun destroy() {
+        clearTokens()
+        OnyxDownloadManager.removeEventListener(downloadListener)
+        scope.cancel()
     }
 
     private fun scriptIdFor(token: String?, api: String): Long? {
