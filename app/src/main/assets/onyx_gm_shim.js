@@ -31,6 +31,7 @@
     if (!hub) {
         hub = {
             xhrCallbacks: {},
+            downloadCallbacks: {},
             menuCallbacks: {},
             seq: 0,
             handleXhr: function (reqId, eventName, payload) {
@@ -61,6 +62,32 @@
                     }
                     if (eventName === 'load' || eventName === 'error' || eventName === 'timeout') {
                         delete self.xhrCallbacks[reqId];
+                    }
+                }, 0);
+            },
+            handleDownload: function (reqId, eventName, payload) {
+                var self = this;
+                setTimeout(function () {
+                    var cb = self.downloadCallbacks[reqId];
+                    if (!cb) return;
+                    var data;
+                    try { data = JSON.parse(payload); } catch (e) { data = {}; }
+                    try {
+                        if (eventName === 'progress') {
+                            if (cb.onprogress) cb.onprogress(data);
+                        } else if (eventName === 'error') {
+                            if (cb.onerror) cb.onerror(data);
+                        } else if (eventName === 'timeout') {
+                            if (cb.ontimeout) cb.ontimeout(data);
+                            else if (cb.onerror) cb.onerror(data);
+                        } else if (eventName === 'load') {
+                            if (cb.onload) cb.onload(data);
+                        }
+                    } catch (cbErr) {
+                        console.error('onyx GM_download callback error', cbErr);
+                    }
+                    if (eventName === 'load' || eventName === 'error' || eventName === 'timeout') {
+                        delete self.downloadCallbacks[reqId];
                     }
                 }, 0);
             },
@@ -217,6 +244,49 @@
         };
     }
 
+    function GM_download(detailsOrUrl, name) {
+        var details;
+        if (typeof detailsOrUrl === 'string') {
+            details = { url: detailsOrUrl, name: name || '' };
+        } else {
+            details = detailsOrUrl || {};
+        }
+
+        var reqId = SCRIPT_ID + ':dl:' + (++hub.seq);
+        hub.downloadCallbacks[reqId] = {
+            onload: details.onload,
+            onerror: details.onerror,
+            ontimeout: details.ontimeout,
+            onprogress: details.onprogress
+        };
+
+        var wire = {
+            url: details.url,
+            name: details.name || '',
+            headers: details.headers || {},
+            timeout: details.timeout || 0,
+            saveAs: !!details.saveAs
+        };
+
+        try {
+            if (bridge && bridge.gmDownload) {
+                bridge.gmDownload(GM_TOKEN, reqId, JSON.stringify(wire));
+            } else {
+                delete hub.downloadCallbacks[reqId];
+                if (details.onerror) details.onerror({ error: 'not_whitelisted', details: 'Bridge unavailable' });
+            }
+        } catch (e) {
+            delete hub.downloadCallbacks[reqId];
+            if (details.onerror) details.onerror({ error: 'download_error', details: String(e) });
+        }
+
+        return {
+            abort: function () {
+                try { if (bridge && bridge.gmAbortDownload) bridge.gmAbortDownload(GM_TOKEN, reqId); } catch (e) {}
+            }
+        };
+    }
+
     function GM_registerMenuCommand(caption, fn) {
         var fnId = SCRIPT_ID + ':menu:' + (++hub.seq);
         hub.menuCallbacks[fnId] = fn;
@@ -246,8 +316,17 @@
     }
 
     function GM_notification(detailsOrText, title, image, onclick) {
-        var text = typeof detailsOrText === 'string' ? detailsOrText : (detailsOrText ? detailsOrText.text : '');
-        try { if (bridge) bridge.gmNotification(GM_TOKEN, String(text)); } catch (e) {}
+        var text = '';
+        var t = '';
+        if (typeof detailsOrText === 'string') {
+            text = detailsOrText;
+            t = title || '';
+        } else if (detailsOrText && typeof detailsOrText === 'object') {
+            text = detailsOrText.text || '';
+            t = detailsOrText.title || title || '';
+        }
+        var msg = (t && text) ? (t + ': ' + text) : (t || text);
+        try { if (bridge) bridge.gmNotification(GM_TOKEN, String(msg)); } catch (e) {}
     }
 
     var GM = {
@@ -259,6 +338,7 @@
         addStyle: GM_addStyle,
         addElement: GM_addElement,
         xmlHttpRequest: GM_xmlhttpRequest,
+        download: function (detailsOrUrl, name) { return GM_download(detailsOrUrl, name); },
         registerMenuCommand: GM_registerMenuCommand,
         unregisterMenuCommand: GM_unregisterMenuCommand,
         openInTab: GM_openInTab,
@@ -278,6 +358,7 @@
         GM_addStyle: GM_addStyle,
         GM_addElement: GM_addElement,
         GM_xmlhttpRequest: GM_xmlhttpRequest,
+        GM_download: GM_download,
         GM_registerMenuCommand: GM_registerMenuCommand,
         GM_unregisterMenuCommand: GM_unregisterMenuCommand,
         GM_openInTab: GM_openInTab,

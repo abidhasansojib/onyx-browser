@@ -50,8 +50,8 @@ data class UserScriptMetadata(
     companion object {
         private val NATIVE_APIS = listOf(
             "getValue", "setValue", "deleteValue", "listValues", "xmlhttpRequest",
-            "registerMenuCommand", "unregisterMenuCommand", "openInTab", "setClipboard",
-            "notification", "log"
+            "download", "registerMenuCommand", "unregisterMenuCommand", "openInTab",
+            "setClipboard", "notification", "log"
         )
 
         const val DEFAULT_NAME = "Unnamed script"

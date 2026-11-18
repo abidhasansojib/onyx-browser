@@ -122,6 +122,7 @@ class UserScriptMetadataTest {
             // @grant GM_xmlHttpRequest
             // @grant GM_SetValue
             // @grant gm_getvalue
+            // @grant GM_download
             // ==/UserScript==
         """.trimIndent()
 
@@ -129,6 +130,7 @@ class UserScriptMetadataTest {
         assertTrue(meta.allowsApi("xmlhttpRequest"))
         assertTrue(meta.allowsApi("setValue"))
         assertTrue(meta.allowsApi("getValue"))
+        assertTrue(meta.allowsApi("download"))
         assertTrue(meta.requiresNativeBridge)
         assertTrue(meta.isIsolatedWorld)
 

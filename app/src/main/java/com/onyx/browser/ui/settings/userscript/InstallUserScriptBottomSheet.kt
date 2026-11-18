@@ -187,8 +187,10 @@ class InstallUserScriptBottomSheet : BottomSheetDialogFragment() {
             binding.tvScriptGrants.text = getString(R.string.userscripts_perm_none)
         }
 
-        // Cross-domain request warning
-        val hasNetworkAccess = grants.any { it.contains("xmlhttpRequest", ignoreCase = true) }
+        // Cross-domain request & download warning
+        val hasNetworkAccess = grants.any {
+            it.contains("xmlhttpRequest", ignoreCase = true) || it.contains("download", ignoreCase = true)
+        }
         if (hasNetworkAccess) {
             binding.layoutWarningNetwork.visibility = View.VISIBLE
             val connectDomains = meta.connects

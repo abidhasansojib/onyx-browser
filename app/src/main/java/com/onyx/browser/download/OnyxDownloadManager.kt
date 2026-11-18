@@ -21,6 +21,23 @@ import java.util.concurrent.ConcurrentHashMap
 
 object OnyxDownloadManager {
 
+    interface DownloadEventListener {
+        fun onProgress(task: DownloadTask) {}
+        fun onCompleted(task: DownloadTask) {}
+        fun onFailed(task: DownloadTask, error: String) {}
+        fun onCancelled(taskId: Long) {}
+    }
+
+    private val eventListeners = java.util.concurrent.CopyOnWriteArrayList<DownloadEventListener>()
+
+    fun addEventListener(listener: DownloadEventListener) {
+        eventListeners.add(listener)
+    }
+
+    fun removeEventListener(listener: DownloadEventListener) {
+        eventListeners.remove(listener)
+    }
+
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeTasks = ConcurrentHashMap<Long, DownloadTask>()
     private val _snapshotsFlow = MutableStateFlow<Map<Long, DownloadTaskSnapshot>>(emptyMap())
@@ -273,6 +290,7 @@ object OnyxDownloadManager {
         }
 
         emitSnapshot()
+        eventListeners.forEach { it.onCancelled(taskId) }
     }
 
     fun retryDownload(taskId: Long) {
@@ -317,6 +335,7 @@ object OnyxDownloadManager {
 
     private fun onTaskProgress(task: DownloadTask) {
         emitSnapshot()
+        eventListeners.forEach { it.onProgress(task) }
     }
 
     private fun onTaskPaused(task: DownloadTask) {
@@ -333,6 +352,7 @@ object OnyxDownloadManager {
 
         activeTasks.remove(task.id)
         emitSnapshot()
+        eventListeners.forEach { it.onCompleted(task) }
     }
 
     private fun onTaskFailed(task: DownloadTask, error: String) {
@@ -344,6 +364,7 @@ object OnyxDownloadManager {
         }
 
         emitSnapshot()
+        eventListeners.forEach { it.onFailed(task, error) }
     }
 
     private fun handleNetworkStateChange(isAvailable: Boolean, isWifi: Boolean) {
