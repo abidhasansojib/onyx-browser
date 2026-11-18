@@ -198,7 +198,11 @@ class UserScriptManager private constructor(private val context: Context) {
             put("version", m.version)
             put("description", m.description)
             put("author", m.author)
-            put("runAt", if (m.runAt == RunAt.DOCUMENT_START) "document-start" else "document-end")
+            put("runAt", when (m.runAt) {
+                RunAt.DOCUMENT_START -> "document-start"
+                RunAt.DOCUMENT_END -> "document-end"
+                RunAt.DOCUMENT_IDLE -> "document-idle"
+            })
             put("matches", JSONArray(m.matches))
             put("includes", JSONArray(m.includes))
             put("excludes", JSONArray(m.excludes))
@@ -235,7 +239,11 @@ class UserScriptManager private constructor(private val context: Context) {
                 description = metadata.description,
                 author = metadata.author,
                 matchSummary = matchSummary,
-                runAt = if (metadata.runAt == RunAt.DOCUMENT_START) "document-start" else "document-end"
+                runAt = when (metadata.runAt) {
+                    RunAt.DOCUMENT_START -> "document-start"
+                    RunAt.DOCUMENT_END -> "document-end"
+                    RunAt.DOCUMENT_IDLE -> "document-idle"
+                }
             )
             userScriptDao.update(updated)
             writeCodeFile(existing.id, code)
@@ -253,7 +261,11 @@ class UserScriptManager private constructor(private val context: Context) {
             description = metadata.description,
             author = metadata.author,
             matchSummary = matchSummary,
-            runAt = if (metadata.runAt == RunAt.DOCUMENT_START) "document-start" else "document-end"
+            runAt = when (metadata.runAt) {
+                RunAt.DOCUMENT_START -> "document-start"
+                RunAt.DOCUMENT_END -> "document-end"
+                RunAt.DOCUMENT_IDLE -> "document-idle"
+            }
         )
         val id = userScriptDao.insert(newItem)
         writeCodeFile(id, code)
@@ -276,7 +288,11 @@ class UserScriptManager private constructor(private val context: Context) {
             description = metadata.description,
             author = metadata.author,
             matchSummary = matchSummary,
-            runAt = if (metadata.runAt == RunAt.DOCUMENT_START) "document-start" else "document-end"
+            runAt = when (metadata.runAt) {
+                RunAt.DOCUMENT_START -> "document-start"
+                RunAt.DOCUMENT_END -> "document-end"
+                RunAt.DOCUMENT_IDLE -> "document-idle"
+            }
         )
         userScriptDao.update(updated)
         writeCodeFile(id, code)

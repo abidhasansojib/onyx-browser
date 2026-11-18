@@ -379,6 +379,8 @@ class OnyxWebViewClient(
 
             return false
         }
+
+        private const val DOCUMENT_IDLE_DELAY_MS = 500L
     }
 
     private fun buildCorsHeaders(requestOrigin: String?): Map<String, String> {
@@ -1592,6 +1594,16 @@ class OnyxWebViewClient(
                 view?.evaluateJavascript(TouchBridge.TOUCH_LISTENER_JS, null)
                 DsdHydrationFix.applyFix(view)
                 injectUserScripts(view, effectiveUrl, com.onyx.browser.userscript.RunAt.DOCUMENT_END)
+
+                // Schedule DOCUMENT_IDLE userscripts after a short debounce to allow client-side framework
+                // hydration (React/Vue/Angular) to complete without frame drops or missing target elements.
+                val targetUrl = effectiveUrl
+                view?.postDelayed({
+                    val activeWv = view as? OnyxWebView
+                    if (activeWv != null && !activeWv.isLoadingSyntheticPage && (activeWv.url == targetUrl || activeWv.originalUrl == targetUrl)) {
+                        injectUserScripts(view, targetUrl, com.onyx.browser.userscript.RunAt.DOCUMENT_IDLE)
+                    }
+                }, DOCUMENT_IDLE_DELAY_MS)
             }
 
             // DevTools auto-persistence across page navigations
@@ -2068,7 +2080,29 @@ class OnyxWebViewClient(
                 android.util.Base64.NO_WRAP
             )
             val scriptId = parsed.script.id
-            val injector = """
+            val injector = if (runAt == com.onyx.browser.userscript.RunAt.DOCUMENT_IDLE) {
+                """
+                (function(){
+                    function _exec() {
+                        try {
+                            var reg = window.__onyxInjectedScripts || (window.__onyxInjectedScripts = {});
+                            if (reg[$scriptId]) return;
+                            reg[$scriptId] = true;
+                            var s = document.createElement('script');
+                            s.textContent = decodeURIComponent(escape(atob('$b64')));
+                            (document.head || document.documentElement).appendChild(s);
+                            s.parentNode && s.parentNode.removeChild(s);
+                        } catch(e) { console.error('Onyx userscript idle inject error', e); }
+                    }
+                    if (typeof window.requestIdleCallback === 'function') {
+                        window.requestIdleCallback(_exec, { timeout: 1000 });
+                    } else {
+                        setTimeout(_exec, 50);
+                    }
+                })();
+                """.trimIndent()
+            } else {
+                """
                 (function(){
                     try {
                         var reg = window.__onyxInjectedScripts || (window.__onyxInjectedScripts = {});
@@ -2080,7 +2114,8 @@ class OnyxWebViewClient(
                         s.parentNode && s.parentNode.removeChild(s);
                     } catch(e) { console.error('Onyx userscript inject error', e); }
                 })();
-            """.trimIndent()
+                """.trimIndent()
+            }
             onyxWv.evaluateJavascript(injector, null)
         }
     }

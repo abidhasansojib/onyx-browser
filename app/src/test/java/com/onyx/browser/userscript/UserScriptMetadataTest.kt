@@ -88,7 +88,7 @@ class UserScriptMetadataTest {
         assertEquals(RunAt.DOCUMENT_START, UserScriptMetadata.parse(docStart).runAt)
         assertEquals(RunAt.DOCUMENT_START, UserScriptMetadata.parse(docBody).runAt)
         assertEquals(RunAt.DOCUMENT_END, UserScriptMetadata.parse(docEnd).runAt)
-        assertEquals(RunAt.DOCUMENT_END, UserScriptMetadata.parse(docIdle).runAt)
+        assertEquals(RunAt.DOCUMENT_IDLE, UserScriptMetadata.parse(docIdle).runAt)
     }
 
     @Test
@@ -107,7 +107,7 @@ class UserScriptMetadataTest {
         assertTrue(meta.grants.isEmpty())
         assertTrue(meta.connects.isEmpty())
         assertTrue(meta.requires.isEmpty())
-        assertEquals(RunAt.DOCUMENT_END, meta.runAt)
+        assertEquals(RunAt.DOCUMENT_IDLE, meta.runAt)
         assertFalse(meta.noFrames)
         assertEquals("", meta.updateUrl)
         assertEquals("", meta.downloadUrl)

@@ -199,7 +199,7 @@ class UserScriptEditorActivity : AppCompatActivity() {
             // @author       You
             // @match        *://*/*
             // @grant        none
-            // @run-at       document-end
+            // @run-at       document-idle
             // ==/UserScript==
 
             (function() {

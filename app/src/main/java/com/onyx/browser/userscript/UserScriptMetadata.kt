@@ -2,7 +2,8 @@ package com.onyx.browser.userscript
 
 enum class RunAt {
     DOCUMENT_START,
-    DOCUMENT_END
+    DOCUMENT_END,
+    DOCUMENT_IDLE
 }
 
 /**
@@ -66,8 +67,9 @@ data class UserScriptMetadata(
             val runAt = when (first("run-at").lowercase()) {
                 "document-start" -> RunAt.DOCUMENT_START
                 "document-body" -> RunAt.DOCUMENT_START
-                "document-idle" -> RunAt.DOCUMENT_END
-                else -> RunAt.DOCUMENT_END
+                "document-end" -> RunAt.DOCUMENT_END
+                "document-idle" -> RunAt.DOCUMENT_IDLE
+                else -> RunAt.DOCUMENT_IDLE
             }
 
             return UserScriptMetadata(
