@@ -2085,7 +2085,18 @@ class OnyxWebViewClient(
                 (function(){
                     function _exec() {
                         try {
-                            var reg = window.__onyxInjectedScripts || (window.__onyxInjectedScripts = {});
+                            var reg = window.__onyxInjectedScripts;
+                            if (!reg) {
+                                reg = {};
+                                try {
+                                    Object.defineProperty(window, '__onyxInjectedScripts', {
+                                        value: reg,
+                                        writable: true,
+                                        configurable: true,
+                                        enumerable: false
+                                    });
+                                } catch(_) { window.__onyxInjectedScripts = reg; }
+                            }
                             if (reg[$scriptId]) return;
                             reg[$scriptId] = true;
                             var s = document.createElement('script');
@@ -2105,7 +2116,18 @@ class OnyxWebViewClient(
                 """
                 (function(){
                     try {
-                        var reg = window.__onyxInjectedScripts || (window.__onyxInjectedScripts = {});
+                        var reg = window.__onyxInjectedScripts;
+                        if (!reg) {
+                            reg = {};
+                            try {
+                                Object.defineProperty(window, '__onyxInjectedScripts', {
+                                    value: reg,
+                                    writable: true,
+                                    configurable: true,
+                                    enumerable: false
+                                });
+                            } catch(_) { window.__onyxInjectedScripts = reg; }
+                        }
                         if (reg[$scriptId]) return;
                         reg[$scriptId] = true;
                         var s = document.createElement('script');

@@ -29,7 +29,7 @@
 
     var hub = window.__onyxGM;
     if (!hub) {
-        hub = window.__onyxGM = {
+        hub = {
             xhrCallbacks: {},
             menuCallbacks: {},
             seq: 0,
@@ -69,9 +69,29 @@
                 if (cb) cb();
             }
         };
+        try {
+            Object.defineProperty(window, '__onyxGM', {
+                value: hub,
+                writable: true,
+                configurable: true,
+                enumerable: false
+            });
+        } catch (_) {
+            window.__onyxGM = hub;
+        }
     }
 
     var bridge = window.onyxGM;
+    if (bridge) {
+        try {
+            Object.defineProperty(window, 'onyxGM', {
+                value: bridge,
+                writable: false,
+                configurable: true,
+                enumerable: false
+            });
+        } catch (_) {}
+    }
 
     function GM_getValue(key, defaultValue) {
         try {
@@ -221,7 +241,7 @@
     return {
         GM: GM,
         GM_info: GM_INFO,
-        unsafeWindow: window,
+        unsafeWindow: (typeof unsafeWindow !== 'undefined' ? unsafeWindow : window),
         GM_getValue: GM_getValue,
         GM_setValue: GM_setValue,
         GM_deleteValue: GM_deleteValue,

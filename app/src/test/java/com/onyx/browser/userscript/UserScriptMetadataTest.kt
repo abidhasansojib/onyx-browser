@@ -127,6 +127,32 @@ class UserScriptMetadataTest {
         val meta = UserScriptMetadata.parse(script)
         assertFalse(meta.allowsApi("getValue"))
         assertFalse(meta.requiresNativeBridge)
+        assertFalse(meta.isIsolatedWorld)
+    }
+
+    @Test
+    fun `isIsolatedWorld resolves true for GM grants and false for none or empty`() {
+        val privileged = """
+            // ==UserScript==
+            // @name Privileged
+            // @grant GM_setValue
+            // ==/UserScript==
+        """.trimIndent()
+        val unprivileged = """
+            // ==UserScript==
+            // @name Unprivileged
+            // @grant none
+            // ==/UserScript==
+        """.trimIndent()
+        val omitted = """
+            // ==UserScript==
+            // @name Omitted
+            // ==/UserScript==
+        """.trimIndent()
+
+        assertTrue(UserScriptMetadata.parse(privileged).isIsolatedWorld)
+        assertFalse(UserScriptMetadata.parse(unprivileged).isIsolatedWorld)
+        assertFalse(UserScriptMetadata.parse(omitted).isIsolatedWorld)
     }
 
     @Test

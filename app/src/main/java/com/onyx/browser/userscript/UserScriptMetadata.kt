@@ -35,6 +35,15 @@ data class UserScriptMetadata(
     val requiresNativeBridge: Boolean
         get() = NATIVE_APIS.any(::allowsApi)
 
+    /**
+     * Determines whether the userscript should execute within an isolated execution world scope.
+     * Following the Tampermonkey standard:
+     * - Scripts with `@grant none` (or no grants) run directly in the host page's world.
+     * - Scripts requesting `GM_*` grants execute within an isolated scope sandbox with `unsafeWindow`.
+     */
+    val isIsolatedWorld: Boolean
+        get() = "none" !in grants && (requiresNativeBridge || grants.any { it.startsWith("GM") })
+
     companion object {
         private val NATIVE_APIS = listOf(
             "getValue", "setValue", "deleteValue", "listValues", "xmlhttpRequest",

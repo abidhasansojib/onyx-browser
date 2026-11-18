@@ -163,21 +163,63 @@ class UserScriptManager private constructor(private val context: Context) {
     }
 
     fun buildInjectionJs(parsed: ParsedUserScript, token: String): String {
-        val shimTemplate = loadShimAsset()
-            .replace("__SCRIPT_ID__", parsed.script.id.toString())
-            .replace("__GM_TOKEN__", JSONObject.quote(token))
-            .replace("__GM_INFO__", buildGmInfo(parsed))
+        val isIsolated = parsed.metadata.isIsolatedWorld
 
-        return buildString {
-            append("(function(){\nvar {")
-            append("GM, GM_info, unsafeWindow, GM_getValue, GM_setValue, GM_deleteValue, ")
-            append("GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, ")
-            append("GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, ")
-            append("GM_setClipboard, GM_log, GM_notification")
-            append("} = ").append(shimTemplate).append(";\n")
-            if (parsed.requiresContent.isNotEmpty()) append(parsed.requiresContent).append('\n')
-            append(parsed.code).append("\n}).call(window);\n")
-            append("\n//# sourceURL=onyx-userscript-").append(parsed.script.id).append(".user.js\n")
+        return if (isIsolated) {
+            val shimTemplate = loadShimAsset()
+                .replace("__SCRIPT_ID__", parsed.script.id.toString())
+                .replace("__GM_TOKEN__", JSONObject.quote(token))
+                .replace("__GM_INFO__", buildGmInfo(parsed))
+
+            buildString {
+                append("(function(){\n")
+                append("var unsafeWindow = window;\n")
+                append("var {")
+                append("GM, GM_info, GM_getValue, GM_setValue, GM_deleteValue, ")
+                append("GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, ")
+                append("GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, ")
+                append("GM_setClipboard, GM_log, GM_notification")
+                append("} = ").append(shimTemplate).append(";\n")
+                append("var _scope = Object.create(unsafeWindow);\n")
+                append("_scope.unsafeWindow = unsafeWindow;\n")
+                append("_scope.window = _scope;\n")
+                append("_scope.self = _scope;\n")
+                append("_scope.globalThis = _scope;\n")
+                append("_scope.GM = GM;\n")
+                append("_scope.GM_info = GM_info;\n")
+                append("_scope.GM_getValue = GM_getValue;\n")
+                append("_scope.GM_setValue = GM_setValue;\n")
+                append("_scope.GM_deleteValue = GM_deleteValue;\n")
+                append("_scope.GM_listValues = GM_listValues;\n")
+                append("_scope.GM_addStyle = GM_addStyle;\n")
+                append("_scope.GM_addElement = GM_addElement;\n")
+                append("_scope.GM_xmlhttpRequest = GM_xmlhttpRequest;\n")
+                append("_scope.GM_registerMenuCommand = GM_registerMenuCommand;\n")
+                append("_scope.GM_unregisterMenuCommand = GM_unregisterMenuCommand;\n")
+                append("_scope.GM_openInTab = GM_openInTab;\n")
+                append("_scope.GM_setClipboard = GM_setClipboard;\n")
+                append("_scope.GM_log = GM_log;\n")
+                append("_scope.GM_notification = GM_notification;\n")
+                append("(function(GM, GM_info, unsafeWindow, GM_getValue, GM_setValue, GM_deleteValue, GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, GM_setClipboard, GM_log, GM_notification){\n")
+                if (parsed.requiresContent.isNotEmpty()) append(parsed.requiresContent).append('\n')
+                append(parsed.code).append("\n")
+                append("}).call(_scope, GM, GM_info, unsafeWindow, GM_getValue, GM_setValue, GM_deleteValue, GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, GM_setClipboard, GM_log, GM_notification);\n")
+                append("})();\n")
+                append("\n//# sourceURL=onyx-userscript-").append(parsed.script.id).append(".user.js\n")
+            }
+        } else {
+            // Unprivileged / Page-World script (@grant none or omitted grants):
+            // Runs directly in the host page's context for 100% compatibility with site internals (e.g. YouTube ytplayer/ytcfg).
+            val gmInfoJson = buildGmInfo(parsed)
+            buildString {
+                append("(function(){\n")
+                append("var unsafeWindow = window;\n")
+                append("var GM_info = ").append(gmInfoJson).append(";\n")
+                if (parsed.requiresContent.isNotEmpty()) append(parsed.requiresContent).append('\n')
+                append(parsed.code).append("\n")
+                append("}).call(window);\n")
+                append("\n//# sourceURL=onyx-userscript-").append(parsed.script.id).append(".user.js\n")
+            }
         }
     }
 
