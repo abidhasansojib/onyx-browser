@@ -129,7 +129,24 @@
     function GM_addStyle(css) {
         var style = document.createElement('style');
         style.textContent = css;
-        (document.head || document.documentElement).appendChild(style);
+        var target = document.head || document.documentElement;
+        if (target) {
+            target.appendChild(style);
+        } else if (typeof MutationObserver !== 'undefined') {
+            var observer = new MutationObserver(function () {
+                var el = document.head || document.documentElement;
+                if (el) {
+                    observer.disconnect();
+                    el.appendChild(style);
+                }
+            });
+            observer.observe(document, { childList: true, subtree: true });
+        } else {
+            document.addEventListener('DOMContentLoaded', function () {
+                var el = document.head || document.documentElement;
+                if (el) el.appendChild(style);
+            });
+        }
         return style;
     }
 
@@ -146,7 +163,19 @@
             if (k === 'textContent') el.textContent = attrs[k];
             else el.setAttribute(k, attrs[k]);
         }
-        (parent || document.head || document.documentElement).appendChild(el);
+        var target = parent || document.head || document.documentElement;
+        if (target) {
+            target.appendChild(el);
+        } else if (typeof MutationObserver !== 'undefined') {
+            var observer = new MutationObserver(function () {
+                var container = parent || document.head || document.documentElement;
+                if (container) {
+                    observer.disconnect();
+                    container.appendChild(el);
+                }
+            });
+            observer.observe(document, { childList: true, subtree: true });
+        }
         return el;
     }
 

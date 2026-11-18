@@ -2072,7 +2072,7 @@ class OnyxWebViewClient(
         matching.forEach { parsed ->
             val token = java.util.UUID.randomUUID().toString()
             if (parsed.metadata.requiresNativeBridge) {
-                bridge.registerToken(token, parsed.script.id)
+                bridge.registerToken(token, parsed.script.id, url)
             }
             val js = manager.buildInjectionJs(parsed, token)
             val b64 = android.util.Base64.encodeToString(

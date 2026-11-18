@@ -115,6 +115,37 @@ class UserScriptMetadataTest {
     }
 
     @Test
+    fun `grant matching is case insensitive`() {
+        val script = """
+            // ==UserScript==
+            // @name CaseTest
+            // @grant GM_xmlHttpRequest
+            // @grant GM_SetValue
+            // @grant gm_getvalue
+            // ==/UserScript==
+        """.trimIndent()
+
+        val meta = UserScriptMetadata.parse(script)
+        assertTrue(meta.allowsApi("xmlhttpRequest"))
+        assertTrue(meta.allowsApi("setValue"))
+        assertTrue(meta.allowsApi("getValue"))
+        assertTrue(meta.requiresNativeBridge)
+        assertTrue(meta.isIsolatedWorld)
+
+        val noneScript = """
+            // ==UserScript==
+            // @name NoneCaseTest
+            // @grant NONE
+            // @grant GM_getValue
+            // ==/UserScript==
+        """.trimIndent()
+        val noneMeta = UserScriptMetadata.parse(noneScript)
+        assertFalse(noneMeta.allowsApi("getValue"))
+        assertFalse(noneMeta.requiresNativeBridge)
+        assertFalse(noneMeta.isIsolatedWorld)
+    }
+
+    @Test
     fun `grant none disables native bridge capabilities`() {
         val script = """
             // ==UserScript==

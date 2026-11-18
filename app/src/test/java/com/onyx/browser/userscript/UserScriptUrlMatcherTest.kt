@@ -7,10 +7,17 @@ import org.junit.Test
 class UserScriptUrlMatcherTest {
 
     @Test
-    fun `matches returns false when both match and include patterns are empty`() {
-        assertFalse(
+    fun `matches returns true for web urls when both match and include patterns are empty`() {
+        assertTrue(
             UserScriptUrlMatcher.matches(
                 url = "https://example.com/page",
+                matchPatterns = emptyList(),
+                includePatterns = emptyList()
+            )
+        )
+        assertFalse(
+            UserScriptUrlMatcher.matches(
+                url = "file:///sdcard/page.html",
                 matchPatterns = emptyList(),
                 includePatterns = emptyList()
             )

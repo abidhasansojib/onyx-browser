@@ -215,9 +215,12 @@ class UserScriptManager private constructor(private val context: Context) {
                 append("(function(){\n")
                 append("var unsafeWindow = window;\n")
                 append("var GM_info = ").append(gmInfoJson).append(";\n")
+                append("var GM = { info: GM_info };\n")
+                append("(function(GM, GM_info, unsafeWindow){\n")
                 if (parsed.requiresContent.isNotEmpty()) append(parsed.requiresContent).append('\n')
                 append(parsed.code).append("\n")
-                append("}).call(window);\n")
+                append("}).call(window, GM, GM_info, unsafeWindow);\n")
+                append("})();\n")
                 append("\n//# sourceURL=onyx-userscript-").append(parsed.script.id).append(".user.js\n")
             }
         }

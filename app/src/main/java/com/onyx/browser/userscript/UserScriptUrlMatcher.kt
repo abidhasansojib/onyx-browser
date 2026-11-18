@@ -11,7 +11,9 @@ object UserScriptUrlMatcher {
     private val includeCache = ConcurrentHashMap<String, Regex>()
 
     fun matches(url: String, matchPatterns: List<String>, includePatterns: List<String>): Boolean {
-        if (matchPatterns.isEmpty() && includePatterns.isEmpty()) return false
+        if (matchPatterns.isEmpty() && includePatterns.isEmpty()) {
+            return url.startsWith("http://") || url.startsWith("https://")
+        }
         return matchPatterns.any { matchPattern(url, it) } ||
                 includePatterns.any { includePattern(url, it) }
     }

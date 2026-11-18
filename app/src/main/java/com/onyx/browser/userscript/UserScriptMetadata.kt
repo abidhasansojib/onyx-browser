@@ -27,10 +27,12 @@ data class UserScriptMetadata(
     val downloadUrl: String
 ) {
     /** Explicit grants only; `none` (or omitted grants) gives no native capability. */
-    fun allowsApi(api: String): Boolean = "none" !in grants && grants.any {
-        it == "GM_$api" || it == "GM.$api" ||
-                (api == "xmlhttpRequest" && (it == "GM.xmlHttpRequest" || it == "GM_xmlhttpRequest"))
-    }
+    fun allowsApi(api: String): Boolean =
+        grants.none { it.equals("none", ignoreCase = true) } && grants.any {
+            it.equals("GM_$api", ignoreCase = true) || it.equals("GM.$api", ignoreCase = true) ||
+                    (api.equals("xmlhttpRequest", ignoreCase = true) &&
+                            (it.equals("GM.xmlHttpRequest", ignoreCase = true) || it.equals("GM_xmlhttpRequest", ignoreCase = true)))
+        }
 
     val requiresNativeBridge: Boolean
         get() = NATIVE_APIS.any(::allowsApi)
@@ -42,7 +44,8 @@ data class UserScriptMetadata(
      * - Scripts requesting `GM_*` grants execute within an isolated scope sandbox with `unsafeWindow`.
      */
     val isIsolatedWorld: Boolean
-        get() = "none" !in grants && (requiresNativeBridge || grants.any { it.startsWith("GM") })
+        get() = grants.none { it.equals("none", ignoreCase = true) } &&
+                (requiresNativeBridge || grants.any { it.startsWith("GM", ignoreCase = true) })
 
     companion object {
         private val NATIVE_APIS = listOf(

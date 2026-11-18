@@ -30,8 +30,13 @@ class OnyxUserScriptBridge(
     private val webView: OnyxWebView,
     private val manager: UserScriptManager
 ) {
+    data class ScriptSession(
+        val scriptId: Long,
+        val targetUrl: String
+    )
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val tokens = ConcurrentHashMap<String, Long>()
+    private val tokens = ConcurrentHashMap<String, ScriptSession>()
     private val activeCalls = ConcurrentHashMap<String, okhttp3.Call>()
 
     private val httpClient = OkHttpClient.Builder()
@@ -41,8 +46,8 @@ class OnyxUserScriptBridge(
         .retryOnConnectionFailure(true)
         .build()
 
-    fun registerToken(token: String, scriptId: Long) {
-        tokens[token] = scriptId
+    fun registerToken(token: String, scriptId: Long, targetUrl: String = "") {
+        tokens[token] = ScriptSession(scriptId, targetUrl)
     }
 
     fun clearTokens() {
@@ -52,9 +57,14 @@ class OnyxUserScriptBridge(
     }
 
     private fun scriptIdFor(token: String?, api: String): Long? {
-        val scriptId = token?.let { tokens[it] } ?: return null
-        val pageUrl = webView.url ?: return null
-        return if (manager.isApiAllowed(scriptId, pageUrl, api)) scriptId else null
+        val session = token?.let { tokens[it] } ?: return null
+        val pageUrl = session.targetUrl.ifEmpty {
+            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+                webView.url.orEmpty()
+            } else ""
+        }
+        if (pageUrl.isBlank()) return session.scriptId
+        return if (manager.isApiAllowed(session.scriptId, pageUrl, api)) session.scriptId else null
     }
 
     // region Values Storage
@@ -100,7 +110,7 @@ class OnyxUserScriptBridge(
                 val details = JSONObject(detailsJson)
                 val url = details.getString("url")
 
-                if (!isConnectAllowed(scriptId, url)) {
+                if (!isConnectAllowed(scriptId, token, url)) {
                     Log.w(TAG, "gmXhr blocked (not in @connect): $url")
                     deliverXhrError(token, reqId, "URL not in @connect allow-list: $url")
                     return@launch
@@ -172,7 +182,7 @@ class OnyxUserScriptBridge(
         activeCalls.remove(reqId)?.cancel()
     }
 
-    private fun isConnectAllowed(scriptId: Long, url: String): Boolean {
+    private fun isConnectAllowed(scriptId: Long, token: String, url: String): Boolean {
         val connects = manager.getById(scriptId)?.metadata?.connects ?: return false
         if (connects.isEmpty() || connects.any { it == "*" }) return true
         val host = try {
@@ -180,8 +190,9 @@ class OnyxUserScriptBridge(
         } catch (_: Exception) {
             return false
         }
+        val targetUrl = tokens[token]?.targetUrl.orEmpty()
         val pageHost = try {
-            Uri.parse(webView.url ?: "").host?.lowercase()
+            Uri.parse(targetUrl).host?.lowercase()
         } catch (_: Exception) {
             null
         }
