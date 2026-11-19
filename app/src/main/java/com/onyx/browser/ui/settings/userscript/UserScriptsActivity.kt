@@ -106,8 +106,6 @@ class UserScriptsActivity : ComponentActivity() {
 
         loadScripts()
 
-        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
-
         setContent {
             val isDark = when (preferences.themeMode) {
                 BrowserPreferences.THEME_DARK -> true
@@ -115,7 +113,7 @@ class UserScriptsActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 UserScriptsScreen(
                     scripts = scripts,
                     isGlobalScriptBlocked = isGlobalScriptBlocked,

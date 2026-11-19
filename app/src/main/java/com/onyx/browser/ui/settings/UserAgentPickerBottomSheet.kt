@@ -53,11 +53,6 @@ class UserAgentPickerBottomSheet @JvmOverloads constructor(
         super.onViewCreated(view, savedInstanceState)
         preferences = BrowserPreferences.getInstance(requireContext())
 
-        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
-        if (isAmoled) {
-            binding.root.setBackgroundColor(0xFF000000.toInt())
-        }
-
         setupCustomCard()
         setupTemplatesList()
 
@@ -70,10 +65,7 @@ class UserAgentPickerBottomSheet @JvmOverloads constructor(
         super.onStart()
         dialog?.window?.let { window ->
             val isDark = preferences.isDarkMode()
-            val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
-            val canvasColor = if (isAmoled) {
-                0xFF000000.toInt()
-            } else if (isDark) {
+            val canvasColor = if (isDark) {
                 0xFF161616.toInt()
             } else {
                 0xFFF1F3F4.toInt()

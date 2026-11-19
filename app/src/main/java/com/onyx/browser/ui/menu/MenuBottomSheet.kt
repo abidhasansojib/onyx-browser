@@ -93,6 +93,15 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
     var onSavePageClicked: (() -> Unit)? = null
     var onSiteShieldWhitelistChanged: ((Boolean) -> Unit)? = null
 
+    private val roleRequestLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (isDefaultBrowser()) {
+            Toast.makeText(requireContext(), "Onyx set as default browser", Toast.LENGTH_SHORT).show()
+        }
+        dismiss()
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -107,7 +116,6 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
                     BrowserPreferences.THEME_LIGHT -> false
                     else -> isSystemInDarkTheme()
                 }
-                val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
 
                 var isBookmarked by remember { mutableStateOf(false) }
                 val db = AppDatabase.getInstance(requireContext())
@@ -123,7 +131,7 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
                     }
                 }
 
-                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                OnyxTheme(darkTheme = isDark, isAmoled = false) {
                     MenuSheetLayout(
                         isHomePage = isHomePage,
                         currentUrl = currentUrl,
@@ -239,25 +247,34 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun promptSetDefaultBrowser() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val roleManager = requireContext().getSystemService(RoleManager::class.java)
-                if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_BROWSER)) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = requireContext().getSystemService(RoleManager::class.java)
+            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_BROWSER)) {
+                try {
                     val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_BROWSER)
-                    startActivity(intent)
-                    dismiss()
+                    roleRequestLauncher.launch(intent)
                     return
+                } catch (_: Exception) {
                 }
             }
-            val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
-            startActivity(intent)
-        } catch (_: Exception) {
+        }
+
+        val fallbackIntents = listOf(
+            Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS),
+            Intent("android.settings.MANAGE_DEFAULT_APPS_SETTINGS"),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", requireContext().packageName, null)
+            },
+            Intent(Settings.ACTION_SETTINGS)
+        )
+
+        for (intent in fallbackIntents) {
             try {
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", requireContext().packageName, null)
-                }
                 startActivity(intent)
-            } catch (_: Exception) {}
+                dismiss()
+                return
+            } catch (_: Exception) {
+            }
         }
         dismiss()
     }

@@ -94,8 +94,6 @@ class ShieldsActivity : ComponentActivity() {
         prefs = BrowserPreferences.getInstance(this)
         loadState()
 
-        val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
-
         setContent {
             val isDark = when (prefs.themeMode) {
                 BrowserPreferences.THEME_DARK -> true
@@ -103,7 +101,7 @@ class ShieldsActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 ShieldsScreen(
                     onBackClick = { finish() },
 

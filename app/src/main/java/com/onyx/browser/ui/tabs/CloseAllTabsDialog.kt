@@ -47,12 +47,11 @@ class CloseAllTabsDialog @JvmOverloads constructor(
                     BrowserPreferences.THEME_LIGHT -> false
                     else -> isSystemInDarkTheme()
                 }
-                val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
                 val accentColor = remember(prefs.accentColorHex, prefs.accentColorPreset) {
                     androidx.compose.ui.graphics.Color(AccentColorManager.getAccentColor(prefs))
                 }
 
-                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled, accentColor = accentColor) {
+                OnyxTheme(darkTheme = isDark, isAmoled = false, accentColor = accentColor) {
                     val tm = tabManager ?: TabCoordinator.activeInstance
                     val tabList = if (isIncognito) {
                         tm?.incognitoTabs?.value ?: emptyList()

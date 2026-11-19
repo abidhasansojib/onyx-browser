@@ -249,15 +249,20 @@ object DesktopModeManager {
                 var TARGET_DESKTOP_WIDTH = $DEFAULT_DESKTOP_WIDTH;
 
                 function computeDesktopViewportContent() {
-                    return 'width=' + TARGET_DESKTOP_WIDTH + ', minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes';
+                    var screenW = (window.screen && window.screen.width) ? window.screen.width : 390;
+                    if (window.innerWidth && window.innerHeight && window.innerWidth > window.innerHeight && screenW < window.screen.height) {
+                        screenW = window.screen.height;
+                    }
+                    var scale = Math.min(1.0, screenW / TARGET_DESKTOP_WIDTH);
+                    scale = Math.round(scale * 1000) / 1000;
+                    return 'width=' + TARGET_DESKTOP_WIDTH + ', initial-scale=' + scale + ', minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes';
                 }
 
                 function enforceMetaViewport(metaNode) {
                     if (!metaNode) return;
                     try {
                         var desiredContent = computeDesktopViewportContent();
-                        var current = metaNode.getAttribute('content') || '';
-                        if (current.indexOf('width=' + TARGET_DESKTOP_WIDTH) === -1) {
+                        if (metaNode.getAttribute('content') !== desiredContent) {
                             metaNode.setAttribute('content', desiredContent);
                         }
                     } catch (e) {}
@@ -340,7 +345,13 @@ object DesktopModeManager {
             (function() {
                 try {
                     var TARGET_DESKTOP_WIDTH = $DEFAULT_DESKTOP_WIDTH;
-                    var desiredContent = 'width=' + TARGET_DESKTOP_WIDTH + ', minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes';
+                    var screenW = (window.screen && window.screen.width) ? window.screen.width : 390;
+                    if (window.innerWidth && window.innerHeight && window.innerWidth > window.innerHeight && screenW < window.screen.height) {
+                        screenW = window.screen.height;
+                    }
+                    var scale = Math.min(1.0, screenW / TARGET_DESKTOP_WIDTH);
+                    scale = Math.round(scale * 1000) / 1000;
+                    var desiredContent = 'width=' + TARGET_DESKTOP_WIDTH + ', initial-scale=' + scale + ', minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes';
 
                     var meta = document.querySelector('meta[name="viewport"]');
                     if (!meta) {
@@ -349,11 +360,8 @@ object DesktopModeManager {
                         meta.setAttribute('content', desiredContent);
                         var head = document.head || document.getElementsByTagName('head')[0] || document.documentElement;
                         if (head) head.appendChild(meta);
-                    } else {
-                        var current = meta.getAttribute('content') || '';
-                        if (current.indexOf('width=' + TARGET_DESKTOP_WIDTH) === -1) {
-                            meta.setAttribute('content', desiredContent);
-                        }
+                    } else if (meta.getAttribute('content') !== desiredContent) {
+                        meta.setAttribute('content', desiredContent);
                     }
                 } catch (e) {}
             })();

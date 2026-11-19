@@ -84,7 +84,7 @@ class AppearanceActivity : ComponentActivity() {
                 null
             }
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isDark, accentColor = accentColor) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false, accentColor = accentColor) {
                 AppearanceScreen(
                     onBackClick = { finish() },
                     selectedTheme = selectedThemeMode,

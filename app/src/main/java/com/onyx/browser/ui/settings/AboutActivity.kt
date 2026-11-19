@@ -59,12 +59,6 @@ class AboutActivity : AppCompatActivity() {
         binding = ActivityAboutBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
-        if (isAmoled) {
-            binding.aboutRoot.setBackgroundColor(Color.BLACK)
-            binding.appBarLayout.setBackgroundColor(Color.BLACK)
-        }
-
         // Apply WindowInsets to avoid collision with status bar and navigation bar
         ViewCompat.setOnApplyWindowInsetsListener(binding.aboutRoot) { _, insets ->
             val statusBarInsets = insets.getInsets(

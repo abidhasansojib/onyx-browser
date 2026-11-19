@@ -100,8 +100,6 @@ class UserScriptEditorActivity : ComponentActivity() {
 
         loadScript()
 
-        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
-
         setContent {
             val isDark = when (preferences.themeMode) {
                 BrowserPreferences.THEME_DARK -> true
@@ -109,7 +107,7 @@ class UserScriptEditorActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 UserScriptEditorScreen(
                     title = if (scriptId > 0) "Edit Userscript" else "New Userscript",
                     code = codeText,

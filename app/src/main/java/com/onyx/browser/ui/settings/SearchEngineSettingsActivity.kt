@@ -87,8 +87,6 @@ class SearchEngineSettingsActivity : ComponentActivity() {
         preferences = BrowserPreferences.getInstance(this)
         loadEngines()
 
-        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
-
         setContent {
             val isDark = when (preferences.themeMode) {
                 BrowserPreferences.THEME_DARK -> true
@@ -96,7 +94,7 @@ class SearchEngineSettingsActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 SearchEngineSettingsScreen(
                     onBackClick = { finish() },
                     activeEngineId = activeEngineId,

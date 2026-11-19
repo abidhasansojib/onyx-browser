@@ -115,17 +115,22 @@ class ShieldBridge(
 
     @JavascriptInterface
     fun isDesktopModeActive(): Boolean {
-        return webViewRef?.get()?.isDesktopMode ?: preferences.isDesktopMode
+        val wv = webViewRef?.get()
+        val target = wv?.url ?: wv?.pendingMainFrameUrl
+        if (!target.isNullOrBlank()) {
+            return preferences.getEffectiveDesktopMode(target)
+        }
+        return wv?.isDesktopMode ?: preferences.isDesktopMode
     }
 
     @JavascriptInterface
     fun isDesktopModeActive(domainOrUrl: String?): Boolean {
         val wv = webViewRef?.get()
-        if (wv != null) {
-            return wv.isDesktopMode
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: wv?.url ?: wv?.pendingMainFrameUrl
+        if (!target.isNullOrBlank()) {
+            return preferences.getEffectiveDesktopMode(target)
         }
-        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return preferences.isDesktopMode
-        return preferences.getEffectiveDesktopMode(target)
+        return wv?.isDesktopMode ?: preferences.isDesktopMode
     }
 
     @JavascriptInterface

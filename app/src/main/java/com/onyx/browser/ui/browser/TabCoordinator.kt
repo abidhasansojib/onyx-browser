@@ -472,6 +472,12 @@ class TabCoordinator(
                     if (parentWv != null && parentWv.isDesktopModeExplicitlyToggled) {
                         setDesktopMode(parentWv.isDesktopMode, tab.url)
                         recordTabDesktopMode(tab.id, parentWv.isDesktopMode)
+                    } else if (tab.url.isNotBlank() && !BrowserWebView.isSyntheticOrDataUrl(tab.url)) {
+                        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+                        val key = prefs.getCanonicalDesktopKey(tab.url)
+                        if (key.isNotBlank() && prefs.getEffectiveDesktopMode(key)) {
+                            setDesktopMode(true, tab.url)
+                        }
                     }
                 }
             }
@@ -1178,6 +1184,13 @@ class TabCoordinator(
         if (saved != null) {
             tabDesktopModeStates[newTab.id] = saved
             tabDesktopModeExplicitToggles[newTab.id] = tabDesktopModeExplicitToggles[tab.id] ?: true
+        } else if (tab.url.isNotBlank() && !BrowserWebView.isSyntheticOrDataUrl(tab.url)) {
+            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+            val key = prefs.getCanonicalDesktopKey(tab.url)
+            if (key.isNotBlank() && prefs.getEffectiveDesktopMode(key)) {
+                tabDesktopModeStates[newTab.id] = true
+                tabDesktopModeExplicitToggles[newTab.id] = true
+            }
         }
         return newTab
     }

@@ -44,7 +44,7 @@ class BrowserMenuCoordinator(
             isHomePage = isHome
             currentUrl = activeTab?.url ?: ""
             currentTitle = activeTab?.title ?: ""
-            isDesktopSiteEnabled = activeWebView?.isDesktopMode ?: false
+            isDesktopSiteEnabled = activeWebView?.isDesktopModeEnabledForCurrentPage() ?: false
             onCloseTabClicked = {
                 this@BrowserMenuCoordinator.activity.closeCurrentTab()
             }

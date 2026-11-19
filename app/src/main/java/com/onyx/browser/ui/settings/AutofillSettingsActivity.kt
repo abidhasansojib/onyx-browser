@@ -51,8 +51,6 @@ class AutofillSettingsActivity : ComponentActivity() {
         preferences = BrowserPreferences.getInstance(this)
         loadState()
 
-        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
-
         setContent {
             val isDark = when (preferences.themeMode) {
                 BrowserPreferences.THEME_DARK -> true
@@ -60,7 +58,7 @@ class AutofillSettingsActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 AutofillSettingsScreen(
                     onBackClick = { finish() },
                     isSupported = isSupported,

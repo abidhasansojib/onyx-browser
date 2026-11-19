@@ -103,8 +103,6 @@ class SiteSettingsActivity : AppCompatActivity() {
         prefs = BrowserPreferences.getInstance(this)
         loadStatuses()
 
-        val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
-
         setContent {
             val isDark = when (prefs.themeMode) {
                 BrowserPreferences.THEME_DARK -> true
@@ -112,7 +110,7 @@ class SiteSettingsActivity : AppCompatActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 SiteSettingsScreen(
                     onBackClick = { finish() },
                     allSitesCount = allSitesCount,

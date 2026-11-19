@@ -52,8 +52,6 @@ class VideoSettingsActivity : ComponentActivity() {
         isBackgroundPlayEnabled = preferences.isBackgroundPlayEnabled
         updatePipSwitchState()
 
-        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
-
         setContent {
             val isDark = when (preferences.themeMode) {
                 BrowserPreferences.THEME_DARK -> true
@@ -61,7 +59,7 @@ class VideoSettingsActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 VideoSettingsScreen(
                     onBackClick = { finish() },
                     isBackgroundPlay = isBackgroundPlayEnabled,

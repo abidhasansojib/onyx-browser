@@ -99,8 +99,6 @@ class BookmarksActivity : ComponentActivity() {
         viewModel = ViewModelProvider(this)[BookmarksViewModel::class.java]
         preferences = BrowserPreferences.getInstance(this)
 
-        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
-
         setContent {
             val isDark = when (preferences.themeMode) {
                 BrowserPreferences.THEME_DARK -> true
@@ -111,7 +109,7 @@ class BookmarksActivity : ComponentActivity() {
             val bookmarks by viewModel.bookmarks.collectAsState()
             val searchQuery by viewModel.searchQuery.collectAsState()
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 BookmarksScreen(
                     bookmarks = bookmarks,
                     searchQuery = searchQuery,

@@ -51,6 +51,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
 import com.onyx.browser.data.model.ShortcutItem
 import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
@@ -69,9 +70,8 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                     BrowserPreferences.THEME_LIGHT -> false
                     else -> isSystemInDarkTheme()
                 }
-                val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
 
-                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                OnyxTheme(darkTheme = isDark, isAmoled = false) {
                     ManageShortcutsContent()
                 }
             }
@@ -125,123 +125,53 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(vertical = 12.dp)
                     .navigationBarsPadding()
             ) {
                 // Drag handle
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
-                        .padding(bottom = 16.dp)
+                        .padding(top = 4.dp, bottom = 10.dp)
                         .size(width = 36.dp, height = 4.dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(MaterialTheme.colorScheme.outlineVariant)
                 )
 
-                Text(
-                    text = "Manage Shortcuts",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Add New Shortcut Section
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    modifier = Modifier.fillMaxWidth()
+                // Header with Title & Close button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 12.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(
-                            text = "Add Shortcut",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                    Text(
+                        text = "Shortcuts",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    IconButton(
+                        onClick = { dismiss() },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_close),
+                            contentDescription = stringResource(R.string.close),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
                         )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        OutlinedTextField(
-                            value = newTitle,
-                            onValueChange = { newTitle = it },
-                            label = { Text("Name (optional)") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        OutlinedTextField(
-                            value = newUrl,
-                            onValueChange = {
-                                newUrl = it
-                                urlError = null
-                            },
-                            label = { Text("URL (e.g. example.com)") },
-                            isError = urlError != null,
-                            supportingText = urlError?.let { { Text(it) } },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Button(
-                            onClick = {
-                                val trimmedUrl = newUrl.trim()
-                                if (trimmedUrl.isBlank()) {
-                                    urlError = "URL cannot be empty"
-                                    return@Button
-                                }
-
-                                val validUrl = if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
-                                    "https://$trimmedUrl"
-                                } else {
-                                    trimmedUrl
-                                }
-
-                                val finalTitle = newTitle.trim().ifBlank {
-                                    try {
-                                        android.net.Uri.parse(validUrl).host?.removePrefix("www.") ?: validUrl
-                                    } catch (_: Exception) {
-                                        validUrl
-                                    }
-                                }
-
-                                prefs.addShortcut(ShortcutItem(title = finalTitle, url = validUrl))
-                                newTitle = ""
-                                newUrl = ""
-                                Toast.makeText(context, "$finalTitle added", Toast.LENGTH_SHORT).show()
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Add")
-                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Suggestions Section
-                Text(
-                    text = "SUGGESTIONS",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
+                // ── SUGGESTED ──────────────────────────────────────────
+                CategoryHeader("SUGGESTED")
 
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(suggestedItems) { (title, url, iconType) ->
@@ -288,7 +218,7 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
 
                                 Text(
                                     text = title,
@@ -301,23 +231,103 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // ── ADD CUSTOM ──────────────────────────────────────────
+                CategoryHeader("ADD CUSTOM")
 
-                // My Shortcuts Header
-                Text(
-                    text = "MY SHORTCUTS (${shortcuts.size})",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                CardContainer {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        OutlinedTextField(
+                            value = newTitle,
+                            onValueChange = { newTitle = it },
+                            label = { Text("Title (optional)") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedTextField(
+                            value = newUrl,
+                            onValueChange = {
+                                newUrl = it
+                                urlError = null
+                            },
+                            label = { Text("Website URL (e.g. example.com)") },
+                            isError = urlError != null,
+                            supportingText = urlError?.let { { Text(it) } },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Button(
+                            onClick = {
+                                val trimmedUrl = newUrl.trim()
+                                if (trimmedUrl.isBlank()) {
+                                    urlError = "URL cannot be empty"
+                                    return@Button
+                                }
+
+                                val validUrl = if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+                                    "https://$trimmedUrl"
+                                } else {
+                                    trimmedUrl
+                                }
+
+                                val finalTitle = newTitle.trim().ifBlank {
+                                    try {
+                                        android.net.Uri.parse(validUrl).host?.removePrefix("www.") ?: validUrl
+                                    } catch (_: Exception) {
+                                        validUrl
+                                    }
+                                }
+
+                                prefs.addShortcut(ShortcutItem(title = finalTitle, url = validUrl))
+                                newTitle = ""
+                                newUrl = ""
+                                Toast.makeText(context, "$finalTitle added", Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Add Shortcut")
+                        }
+                    }
+                }
+
+                // ── MY SHORTCUTS ──────────────────────────────────────────
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "MY SHORTCUTS (${localShortcutsList.size})",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Text(
+                        text = "drag to reorder",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
 
                 // Shortcuts List
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false),
+                        .weight(1f, fill = false)
+                        .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(localShortcutsList, key = { it.id }) { item ->
@@ -485,8 +495,10 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
 
                                 val isBookmarksOrHistory = isSystem ||
                                         item.iconType in listOf(ShortcutItem.ICON_BOOKMARKS, ShortcutItem.ICON_HISTORY) ||
-                                        item.id in listOf("sys_bookmarks", "sys_history") ||
-                                        item.url in listOf("onyx://bookmarks", "onyx://history")
+                                        item.id in listOf("sys_bookmarks", "sys_history", "bookmarks", "history") ||
+                                        item.url in listOf("onyx://bookmarks", "onyx://history", "system://bookmarks", "system://history") ||
+                                        item.title.equals("Bookmarks", ignoreCase = true) ||
+                                        item.title.equals("History", ignoreCase = true)
 
                                 if (!isBookmarksOrHistory) {
                                     IconButton(
@@ -524,15 +536,19 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
-
-                TextButton(
-                    onClick = { dismiss() },
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text(stringResource(R.string.close))
-                }
             }
         }
+    }
+
+    @Composable
+    private fun CategoryHeader(title: String) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 4.dp)
+        )
     }
 
     private fun showEditDialog(shortcut: ShortcutItem) {

@@ -65,8 +65,6 @@ class AddressBarSettingsActivity : ComponentActivity() {
         isHomeReplacedWithRefresh = preferences.isHomeReplacedWithRefresh
         isAutoHideToolbar = preferences.isAutoHideToolbarEnabled
 
-        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
-
         setContent {
             val isDark = when (preferences.themeMode) {
                 BrowserPreferences.THEME_DARK -> true
@@ -74,7 +72,7 @@ class AddressBarSettingsActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 AddressBarSettingsScreen(
                     onBackClick = { finish() },
                     isBottom = isAddressBarAtBottom,

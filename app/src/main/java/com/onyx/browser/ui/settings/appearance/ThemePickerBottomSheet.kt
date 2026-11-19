@@ -53,7 +53,13 @@ class ThemePickerBottomSheet(
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                OnyxTheme {
+                val prefs = remember { BrowserPreferences.getInstance(requireContext()) }
+                val isDark = when (prefs.themeMode) {
+                    BrowserPreferences.THEME_DARK -> true
+                    BrowserPreferences.THEME_LIGHT -> false
+                    else -> androidx.compose.foundation.isSystemInDarkTheme()
+                }
+                OnyxTheme(darkTheme = isDark, isAmoled = false) {
                     ThemePickerContent()
                 }
             }
@@ -68,7 +74,7 @@ class ThemePickerBottomSheet(
 
         Surface(
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            color = MaterialTheme.colorScheme.surface,
+            color = MaterialTheme.colorScheme.background,
             tonalElevation = 4.dp,
             modifier = Modifier.fillMaxWidth()
         ) {

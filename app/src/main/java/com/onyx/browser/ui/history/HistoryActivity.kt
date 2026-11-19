@@ -79,8 +79,6 @@ class HistoryActivity : ComponentActivity() {
         viewModel = ViewModelProvider(this)[HistoryViewModel::class.java]
         preferences = BrowserPreferences.getInstance(this)
 
-        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
-
         setContent {
             val isDark = when (preferences.themeMode) {
                 BrowserPreferences.THEME_DARK -> true
@@ -91,7 +89,7 @@ class HistoryActivity : ComponentActivity() {
             val rawHistory by viewModel.rawHistory.collectAsState()
             val searchQuery by viewModel.searchQuery.collectAsState()
 
-            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+            OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 HistoryScreen(
                     historyItems = rawHistory,
                     searchQuery = searchQuery,

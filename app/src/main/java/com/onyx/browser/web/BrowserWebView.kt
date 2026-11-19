@@ -668,29 +668,50 @@ class BrowserWebView @JvmOverloads constructor(
     }
 
     /**
-     * Returns true if desktop mode is active for this tab.
+     * Returns true if desktop mode is active for this tab and current website.
+     * Takes into account explicit per-site rules, canonical domain overrides, and tab state.
      */
-    fun isDesktopModeEnabledForCurrentPage(): Boolean = isDesktopMode
+    fun isDesktopModeEnabledForCurrentPage(): Boolean {
+        val targetUrl = url ?: pendingMainFrameUrl ?: ""
+        if (targetUrl.isNotBlank() && !isSyntheticOrDataUrl(targetUrl)) {
+            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+            val key = prefs.getCanonicalDesktopKey(targetUrl)
+            if (key.isNotBlank()) {
+                val siteState = prefs.getSiteDesktopModeState(key)
+                if (siteState == com.onyx.browser.data.preferences.SitePermissionState.ALLOWED) return true
+                if (siteState == com.onyx.browser.data.preferences.SitePermissionState.BLOCKED) return false
+            }
+        }
+        return isDesktopMode
+    }
 
-    fun isDesktopModeEnabled(): Boolean = isDesktopMode
+    fun isDesktopModeEnabled(): Boolean = isDesktopModeEnabledForCurrentPage()
 
     /**
-     * Toggles desktop mode for this active tab without polluting global domain settings.
-     * Automatically resolves mobile subdomains (e.g. m.youtube.com -> www.youtube.com).
+     * Toggles desktop mode for this active tab and persists the preference for the canonical domain.
+     * Automatically resolves mobile subdomains (e.g. m.youtube.com <-> www.youtube.com).
      */
     fun toggleDesktopMode(pageUrl: String? = null) {
-        setDesktopMode(!isDesktopMode, pageUrl)
+        setDesktopMode(!isDesktopModeEnabledForCurrentPage(), pageUrl)
     }
 
     /**
-     * Sets desktop mode for this active tab.
+     * Sets desktop mode for this active tab and remembers the preference for the website's domain and subdomains.
      */
     fun setDesktopMode(enabled: Boolean, pageUrl: String? = null) {
+        val currentUrl = pageUrl?.takeIf { it.isNotBlank() } ?: (url ?: "")
+        val targetUrl = if (enabled) resolveDesktopUrl(currentUrl) else resolveMobileUrl(currentUrl)
+
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        val key = prefs.getCanonicalDesktopKey(targetUrl).takeIf { it.isNotBlank() }
+            ?: prefs.getCanonicalDesktopKey(currentUrl).takeIf { it.isNotBlank() }
+        if (key != null) {
+            prefs.setDesktopModeForDomain(key, enabled)
+        }
+
         isDesktopMode = enabled
         isDesktopModeExplicitlyToggled = true
         (context as? com.onyx.browser.MainActivity)?.tabManager?.recordTabDesktopMode(tabId, enabled)
-        val currentUrl = pageUrl?.takeIf { it.isNotBlank() } ?: (url ?: "")
-        val targetUrl = if (enabled) resolveDesktopUrl(currentUrl) else resolveMobileUrl(currentUrl)
         applyUserAgentForUrl(targetUrl, forceRefreshLayout = true)
     }
 
@@ -829,9 +850,9 @@ class BrowserWebView @JvmOverloads constructor(
 
         val siteState = if (key != null) prefs.getSiteDesktopModeState(key) else com.onyx.browser.data.preferences.SitePermissionState.ASK
         val wantsDesktop = when {
-            isDesktopModeExplicitlyToggled -> isDesktopMode
             siteState == com.onyx.browser.data.preferences.SitePermissionState.ALLOWED -> true
             siteState == com.onyx.browser.data.preferences.SitePermissionState.BLOCKED -> false
+            isDesktopModeExplicitlyToggled -> isDesktopMode
             else -> prefs.isDesktopMode || prefs.userAgentSpoofTemplate in UserAgentManager.DESKTOP_KEYS
         }
         isDesktopMode = wantsDesktop

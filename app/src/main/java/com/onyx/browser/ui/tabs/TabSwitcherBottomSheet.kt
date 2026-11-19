@@ -121,8 +121,7 @@ class TabSwitcherBottomSheet(
                 BrowserPreferences.THEME_LIGHT -> false
                 else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             }
-            val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
-            val bgColor = if (isAmoled) 0xFF000000.toInt() else if (isDark) 0xFF161616.toInt() else 0xFFF1F3F4.toInt()
+            val bgColor = if (isDark) 0xFF161616.toInt() else 0xFFF1F3F4.toInt()
             setBackgroundDrawable(ColorDrawable(bgColor))
             statusBarColor = bgColor
             navigationBarColor = bgColor
@@ -169,12 +168,11 @@ class TabSwitcherBottomSheet(
                     BrowserPreferences.THEME_LIGHT -> false
                     else -> isSystemInDarkTheme()
                 }
-                val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
                 val accentColor = remember(prefs.accentColorHex, prefs.accentColorPreset) {
                     androidx.compose.ui.graphics.Color(AccentColorManager.getAccentColor(prefs))
                 }
 
-                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled, accentColor = accentColor) {
+                OnyxTheme(darkTheme = isDark, isAmoled = false, accentColor = accentColor) {
                     TabSwitcherScreen()
                 }
             }
