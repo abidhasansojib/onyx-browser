@@ -1,8 +1,11 @@
 package com.onyx.browser.ui.menu
 
+import android.app.role.RoleManager
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -25,26 +28,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AddCircleOutline
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.FindInPage
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -54,8 +42,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.colorResource
@@ -72,6 +58,9 @@ import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.SwitchPreference
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.settings.SettingsActivity
@@ -112,7 +101,7 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                val prefs = BrowserPreferences.getInstance(requireContext())
+                val prefs = remember { BrowserPreferences.getInstance(requireContext()) }
                 val isDark = when (prefs.themeMode) {
                     BrowserPreferences.THEME_DARK -> true
                     BrowserPreferences.THEME_LIGHT -> false
@@ -123,6 +112,7 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
                 var isBookmarked by remember { mutableStateOf(false) }
                 val db = AppDatabase.getInstance(requireContext())
                 val cachedUpdate = remember { AppUpdateManager.getCachedUpdate(requireContext()) }
+                val isDefault = remember { isDefaultBrowser() }
 
                 if (currentUrl.isNotBlank()) {
                     viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
@@ -139,6 +129,7 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
                         currentUrl = currentUrl,
                         currentTitle = currentTitle,
                         isBookmarked = isBookmarked,
+                        isDefaultBrowser = isDefault,
                         cachedUpdate = cachedUpdate,
                         onUpdateClick = {
                             val act = activity as? AppCompatActivity
@@ -147,6 +138,7 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
                                 AppUpdatePromptHelper.showUpdateAvailableDialog(act, cachedUpdate)
                             }
                         },
+                        onSetDefaultBrowserClick = { promptSetDefaultBrowser() },
                         onToggleBookmark = {
                             if (currentUrl.isNotBlank()) {
                                 viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
@@ -231,6 +223,45 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
+    private fun isDefaultBrowser(): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val roleManager = requireContext().getSystemService(RoleManager::class.java)
+                roleManager?.isRoleHeld(RoleManager.ROLE_BROWSER) == true
+            } else {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))
+                val resolveInfo = requireContext().packageManager.resolveActivity(intent, 0)
+                resolveInfo?.activityInfo?.packageName == requireContext().packageName
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun promptSetDefaultBrowser() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val roleManager = requireContext().getSystemService(RoleManager::class.java)
+                if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_BROWSER)) {
+                    val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_BROWSER)
+                    startActivity(intent)
+                    dismiss()
+                    return
+                }
+            }
+            val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+            startActivity(intent)
+        } catch (_: Exception) {
+            try {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", requireContext().packageName, null)
+                }
+                startActivity(intent)
+            } catch (_: Exception) {}
+        }
+        dismiss()
+    }
+
     private fun openBookmarks() {
         (activity as? MainActivity)?.openBookmarks() ?: startActivity(Intent(requireContext(), BookmarksActivity::class.java))
         dismiss()
@@ -281,8 +312,10 @@ fun MenuSheetLayout(
     currentUrl: String,
     currentTitle: String,
     isBookmarked: Boolean,
+    isDefaultBrowser: Boolean = true,
     cachedUpdate: UpdateInfo? = null,
     onUpdateClick: (() -> Unit)? = null,
+    onSetDefaultBrowserClick: (() -> Unit)? = null,
     onToggleBookmark: () -> Unit,
     onBookmarksClick: () -> Unit,
     onHistoryClick: () -> Unit,
@@ -308,7 +341,7 @@ fun MenuSheetLayout(
 
     Surface(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.background,
         tonalElevation = 4.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -331,24 +364,19 @@ fun MenuSheetLayout(
 
             // Update Available Banner
             if (cachedUpdate != null) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable { onUpdateClick?.invoke() }
-                ) {
+                CardContainer {
                     Row(
-                        modifier = Modifier.padding(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onUpdateClick?.invoke() }
+                            .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_refresh),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(24.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(26.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -356,20 +384,32 @@ fun MenuSheetLayout(
                                 text = stringResource(R.string.update_available_title),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = stringResource(R.string.update_available_subtitle, cachedUpdate.tagName),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primary)
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.update),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
             }
 
-            // Webpage Site Header Card (only shown when visiting a website)
+            // Webpage Site Header Card (only shown when visiting an active website)
             if (!isHomePage && currentUrl.isNotBlank()) {
                 val domain = remember(currentUrl) {
                     try {
@@ -378,26 +418,20 @@ fun MenuSheetLayout(
                         currentUrl
                     }
                 }
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = colorResource(R.color.shortcut_tile_bg),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
+                CardContainer {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Lock,
+                            painter = painterResource(R.drawable.ic_web),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = domain,
                             style = MaterialTheme.typography.titleSmall,
@@ -412,167 +446,263 @@ fun MenuSheetLayout(
                             modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Security,
+                                painter = painterResource(R.drawable.ic_shield_lock),
                                 contentDescription = "Shields",
                                 tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = onShareClick,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_share),
+                                contentDescription = "Share",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
             }
 
-            // Quick Action Row (Bookmarks, History, Downloads, Share)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                QuickActionButton(
-                    iconRes = R.drawable.ic_bookmark,
-                    label = if (!isHomePage && isBookmarked) "Bookmarked" else stringResource(R.string.bookmarks),
-                    tint = if (!isHomePage && isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                    onClick = if (!isHomePage) onToggleBookmark else onBookmarksClick
-                )
+            // Top Shortcuts Quick Bar (Bookmarks, History, Downloads, Share)
+            CardContainer {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp, horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    QuickActionButton(
+                        iconRes = if (!isHomePage && isBookmarked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border,
+                        label = if (!isHomePage && isBookmarked) "Bookmarked" else stringResource(R.string.bookmarks),
+                        isActive = !isHomePage && isBookmarked,
+                        onClick = if (!isHomePage) onToggleBookmark else onBookmarksClick
+                    )
 
-                QuickActionButton(
-                    iconRes = R.drawable.ic_history,
-                    label = stringResource(R.string.history),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    onClick = onHistoryClick
-                )
+                    QuickActionButton(
+                        iconRes = R.drawable.ic_history,
+                        label = stringResource(R.string.history),
+                        onClick = onHistoryClick
+                    )
 
-                QuickActionButton(
-                    iconRes = R.drawable.ic_download,
-                    label = stringResource(R.string.downloads),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    onClick = onDownloadsClick
-                )
+                    QuickActionButton(
+                        iconRes = R.drawable.ic_download,
+                        label = stringResource(R.string.downloads),
+                        onClick = onDownloadsClick
+                    )
 
-                QuickActionButton(
-                    iconRes = R.drawable.ic_share,
-                    label = stringResource(R.string.share),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    onClick = onShareClick
-                )
+                    QuickActionButton(
+                        iconRes = R.drawable.ic_share,
+                        label = stringResource(R.string.share),
+                        onClick = onShareClick
+                    )
+                }
             }
 
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
-
-            // Primary Navigation Actions
-            MenuItemRow(
-                title = stringResource(R.string.new_tab),
-                icon = Icons.Default.Add,
-                onClick = onNewTabClick
-            )
-
-            MenuItemRow(
-                title = stringResource(R.string.new_incognito_tab),
-                iconResId = R.drawable.ic_incognito,
-                onClick = onNewIncognitoTabClick
-            )
-
-            if (!isHomePage && currentUrl.isNotBlank()) {
-                MenuItemRow(
-                    title = "Close Tab",
-                    icon = Icons.Default.Close,
-                    onClick = onCloseTabClick
-                )
-            }
-
-            // Webpage-specific Actions
-            if (!isHomePage) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                )
-
-                MenuItemRow(
-                    title = "Find in Page",
-                    icon = Icons.Default.FindInPage,
-                    onClick = onFindInPageClick
-                )
-
-                MenuItemRow(
-                    title = "Desktop Site",
-                    subtitle = "Request desktop version",
-                    icon = Icons.Default.Computer,
-                    trailing = {
-                        Switch(
-                            checked = isDesktop,
-                            onCheckedChange = onDesktopToggle,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary
-                            )
+            // Set as Default Browser Banner (Shown on Homepage when not default browser)
+            if (isHomePage && !isDefaultBrowser) {
+                CardContainer {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSetDefaultBrowserClick?.invoke() }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_shield_lock),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
                         )
-                    },
-                    onClick = { onDesktopToggle(!isDesktop) }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.set_as_default_browser),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = stringResource(R.string.set_default_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            painter = painterResource(R.drawable.ic_external),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // Tabs & Navigation Section
+            CategoryHeader("Navigation")
+            CardContainer {
+                PreferenceItem(
+                    title = stringResource(R.string.new_tab),
+                    iconResId = R.drawable.ic_add,
+                    showChevron = false,
+                    onClick = onNewTabClick
                 )
 
-                MenuItemRow(
-                    title = "Translate Webpage",
-                    icon = Icons.Default.Translate,
-                    onClick = onTranslateClick
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                 )
 
-                MenuItemRow(
-                    title = "Save this page",
-                    icon = Icons.Default.Save,
-                    onClick = onSavePageClick
+                PreferenceItem(
+                    title = stringResource(R.string.new_incognito_tab),
+                    iconResId = R.drawable.ic_incognito,
+                    showChevron = false,
+                    onClick = onNewIncognitoTabClick
                 )
 
-                if (isAddToHomeScreenVisible) {
-                    MenuItemRow(
-                        title = "Add to Home Screen",
-                        icon = Icons.Default.AddCircleOutline,
-                        onClick = onAddToHomeScreenClick
+                if (!isHomePage && currentUrl.isNotBlank()) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    )
+
+                    PreferenceItem(
+                        title = stringResource(R.string.close_tab),
+                        iconResId = R.drawable.ic_close,
+                        showChevron = false,
+                        onClick = onCloseTabClick
                     )
                 }
+            }
 
-                if (isBlockElementVisible) {
-                    MenuItemRow(
-                        title = "Block Element on Page",
-                        icon = Icons.Default.Build,
-                        onClick = onBlockElementClick
+            // Webpage-specific Actions (Page Actions & Tools)
+            if (!isHomePage) {
+                CategoryHeader("Page Actions")
+                CardContainer {
+                    SwitchPreference(
+                        title = stringResource(R.string.desktop_site),
+                        subtitle = "Request desktop version",
+                        iconResId = R.drawable.ic_desktop,
+                        checked = isDesktop,
+                        onCheckedChange = onDesktopToggle
                     )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    )
+
+                    PreferenceItem(
+                        title = stringResource(R.string.find_in_page),
+                        iconResId = R.drawable.ic_search,
+                        showChevron = false,
+                        onClick = onFindInPageClick
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    )
+
+                    PreferenceItem(
+                        title = "Translate Webpage",
+                        iconResId = R.drawable.ic_translate,
+                        showChevron = false,
+                        onClick = onTranslateClick
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    )
+
+                    PreferenceItem(
+                        title = stringResource(R.string.save_this_page),
+                        subtitle = "Save as original, MHTML, or PDF",
+                        iconResId = R.drawable.ic_download,
+                        showChevron = false,
+                        onClick = onSavePageClick
+                    )
+
+                    if (isAddToHomeScreenVisible) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        )
+
+                        PreferenceItem(
+                            title = stringResource(R.string.add_to_home_screen),
+                            iconResId = R.drawable.ic_add_to_home_screen,
+                            showChevron = false,
+                            onClick = onAddToHomeScreenClick
+                        )
+                    }
                 }
 
-                MenuItemRow(
-                    title = "Developer Tools",
-                    subtitle = "In-page Eruda console",
-                    icon = Icons.Default.Code,
-                    onClick = onDevToolsClick
+                CategoryHeader("Developer & Tools")
+                CardContainer {
+                    if (isBlockElementVisible) {
+                        PreferenceItem(
+                            title = stringResource(R.string.block_element),
+                            iconResId = R.drawable.ic_block_element,
+                            showChevron = false,
+                            onClick = onBlockElementClick
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        )
+                    }
+
+                    PreferenceItem(
+                        title = stringResource(R.string.developer_tools),
+                        subtitle = stringResource(R.string.developer_tools_subtitle),
+                        iconResId = R.drawable.ic_terminal_outline,
+                        showChevron = false,
+                        onClick = onDevToolsClick
+                    )
+                }
+            }
+
+            // Settings Section
+            CategoryHeader(stringResource(R.string.settings))
+            CardContainer {
+                PreferenceItem(
+                    title = stringResource(R.string.settings),
+                    subtitle = "Preferences, privacy, shields & appearance",
+                    iconResId = R.drawable.ic_settings,
+                    showChevron = true,
+                    onClick = onSettingsClick
                 )
             }
 
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-            )
-
-            MenuItemRow(
-                title = stringResource(R.string.settings),
-                icon = Icons.Default.Settings,
-                onClick = onSettingsClick
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
+}
+
+@Composable
+private fun CategoryHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 4.dp)
+    )
 }
 
 @Composable
 private fun QuickActionButton(
     iconRes: Int,
     label: String,
-    tint: Color = MaterialTheme.colorScheme.onSurface,
+    isActive: Boolean = false,
     onClick: () -> Unit
 ) {
     Column(
@@ -580,19 +710,22 @@ private fun QuickActionButton(
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
     ) {
         Box(
             modifier = Modifier
                 .size(50.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(colorResource(R.color.shortcut_tile_bg)),
+                .background(
+                    if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    else colorResource(R.color.shortcut_tile_bg)
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = label,
-                tint = tint,
+                tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -603,66 +736,8 @@ private fun QuickActionButton(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             maxLines = 1
         )
-    }
-}
-
-@Composable
-private fun MenuItemRow(
-    title: String,
-    subtitle: String? = null,
-    icon: ImageVector? = null,
-    iconResId: Int? = null,
-    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    trailing: (@Composable () -> Unit)? = null,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (iconResId != null) {
-            Icon(
-                painter = painterResource(iconResId),
-                contentDescription = title,
-                tint = iconTint,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-        } else if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = iconTint,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-        }
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Normal,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (!subtitle.isNullOrBlank()) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        if (trailing != null) {
-            trailing()
-        }
     }
 }

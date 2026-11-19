@@ -5,9 +5,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -52,7 +54,15 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                OnyxTheme {
+                val prefs = remember { BrowserPreferences.getInstance(requireContext()) }
+                val isDark = when (prefs.themeMode) {
+                    BrowserPreferences.THEME_DARK -> true
+                    BrowserPreferences.THEME_LIGHT -> false
+                    else -> isSystemInDarkTheme()
+                }
+                val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
+
+                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
                     ManageShortcutsContent()
                 }
             }
@@ -86,7 +96,7 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
 
         Surface(
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            color = MaterialTheme.colorScheme.surface,
+            color = MaterialTheme.colorScheme.background,
             tonalElevation = 4.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -110,15 +120,16 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                     text = "Manage Shortcuts",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.primary
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Add New Shortcut Section
-                Surface(
+                Card(
                     shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
@@ -216,7 +227,8 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable {
@@ -291,8 +303,9 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                         val favicon = if (!isSystem) rememberFavicon(item.url) else null
 
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -381,33 +394,40 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                     )
                                 }
 
-                                IconButton(
-                                    onClick = {
-                                        showEditDialog(item)
-                                    },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
+                                val isBookmarksOrHistory = isSystem ||
+                                        item.iconType in listOf(ShortcutItem.ICON_BOOKMARKS, ShortcutItem.ICON_HISTORY) ||
+                                        item.id in listOf("sys_bookmarks", "sys_history") ||
+                                        item.url in listOf("onyx://bookmarks", "onyx://history")
 
-                                IconButton(
-                                    onClick = {
-                                        prefs.deleteShortcut(item.id)
-                                        Toast.makeText(context, R.string.shortcut_deleted, Toast.LENGTH_SHORT).show()
-                                    },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete",
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                if (!isBookmarksOrHistory) {
+                                    IconButton(
+                                        onClick = {
+                                            showEditDialog(item)
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            prefs.deleteShortcut(item.id)
+                                            Toast.makeText(context, R.string.shortcut_deleted, Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
