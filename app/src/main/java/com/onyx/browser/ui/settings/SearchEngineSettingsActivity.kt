@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -52,13 +54,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import com.onyx.browser.R
 import com.onyx.browser.data.model.SearchEngine
 import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.ui.common.SearchEngineIcon
 import com.onyx.browser.ui.components.AppAlertDialog
-import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.ui.widget.SearchWidgetProvider
@@ -176,17 +182,8 @@ fun SearchEngineSettingsScreen(
     Scaffold(
         topBar = {
             AppTopBar(
-                title = "Search Engines",
-                onBackClick = onBackClick,
-                actions = {
-                    IconButton(onClick = onAddEngineClick) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Add Search Engine",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+                title = "Search Engine",
+                onBackClick = onBackClick
             )
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -198,42 +195,117 @@ fun SearchEngineSettingsScreen(
                 .verticalScroll(scrollState)
                 .padding(bottom = 32.dp)
         ) {
-            CategoryHeader("Standard Search Engines")
-            CardContainer {
-                SearchEngine.BUILT_IN.forEach { engine ->
-                    SearchEngineRow(
-                        engine = engine,
-                        isSelected = engine.id == activeEngineId,
-                        onClick = { onEngineSelected(engine) }
-                    )
+            Text(
+                text = "STANDARD SEARCH ENGINES",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                letterSpacing = 0.5.sp,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 8.dp)
+            )
+
+            SearchEngine.BUILT_IN.forEach { engine ->
+                SearchEngineRow(
+                    engine = engine,
+                    isSelected = engine.id == activeEngineId,
+                    onClick = { onEngineSelected(engine) }
+                )
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "CUSTOM SEARCH ENGINES",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 0.5.sp
+                )
+
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onAddEngineClick)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Add",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
-            CategoryHeader("Custom Search Engines")
-            CardContainer {
-                if (customEngines.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No custom search engines added yet",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    customEngines.forEach { engine ->
-                        SearchEngineRow(
-                            engine = engine,
-                            isSelected = engine.id == activeEngineId,
-                            onClick = { onEngineSelected(engine) },
-                            onEdit = { onEditEngineClick(engine) },
-                            onDelete = { onDeleteEngineClick(engine) }
-                        )
-                    }
+            Text(
+                text = "Add any search provider with a %s query placeholder. Type the shortcut keyword followed by space in the address bar to quickly search with it.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 20.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+
+            if (customEngines.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 40.dp, bottom = 48.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_web),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                        modifier = Modifier.size(56.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "No custom search engines",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Tap '+ Add' above to add Ecosia, Kagi, Perplexity, etc.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+                customEngines.forEach { engine ->
+                    SearchEngineRow(
+                        engine = engine,
+                        isSelected = engine.id == activeEngineId,
+                        onClick = { onEngineSelected(engine) },
+                        onEdit = { onEditEngineClick(engine) },
+                        onDelete = { onDeleteEngineClick(engine) }
+                    )
                 }
             }
         }
@@ -264,26 +336,14 @@ private fun SearchEngineRow(
             )
         )
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
 
-        // Avatar Initial
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            val initial = engine.displayName.trim().firstOrNull()?.uppercase() ?: "S"
-            Text(
-                text = initial,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
+        SearchEngineIcon(
+            engine = engine,
+            modifier = Modifier.size(28.dp)
+        )
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
 
         Column(
             modifier = Modifier.weight(1f)
@@ -299,17 +359,18 @@ private fun SearchEngineRow(
                 )
 
                 if (engine.keyword.isNotBlank()) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    val formattedKeyword = if (engine.keyword.startsWith(":")) engine.keyword else ":${engine.keyword}"
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                     ) {
                         Text(
-                            text = ":${engine.keyword}",
+                            text = formattedKeyword,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
                 }
@@ -319,7 +380,8 @@ private fun SearchEngineRow(
                 text = engine.homeUrl.ifBlank { engine.queryUrl },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
 
@@ -475,15 +537,4 @@ private fun AddEditSearchEngineSheet(
             }
         }
     }
-}
-
-@Composable
-private fun CategoryHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp)
-    )
 }

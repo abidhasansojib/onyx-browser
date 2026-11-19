@@ -103,10 +103,8 @@ class SearchEnginePickerBottomSheet : BottomSheetDialogFragment() {
                                 .padding(horizontal = 12.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                painter = painterResource(item.iconResId),
-                                contentDescription = null,
-                                tint = androidx.compose.ui.graphics.Color.Unspecified,
+                            SearchEngineIcon(
+                                engine = item,
                                 modifier = Modifier.size(24.dp)
                             )
 

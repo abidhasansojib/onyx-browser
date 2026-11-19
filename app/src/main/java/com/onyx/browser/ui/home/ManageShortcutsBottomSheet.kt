@@ -220,7 +220,7 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                             ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
                             else -> null
                         }
-                        val favicon = if (brandIcon == null) rememberFavicon(url) else null
+                        val favicon = rememberFavicon(url)
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -242,14 +242,6 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 when {
-                                    brandIcon != null -> {
-                                        Icon(
-                                            painter = painterResource(brandIcon),
-                                            contentDescription = null,
-                                            tint = Color.Unspecified,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
                                     favicon != null -> {
                                         Image(
                                             bitmap = favicon,
@@ -258,6 +250,14 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                             modifier = Modifier
                                                 .size(18.dp)
                                                 .clip(CircleShape)
+                                        )
+                                    }
+                                    brandIcon != null -> {
+                                        Icon(
+                                            painter = painterResource(brandIcon),
+                                            contentDescription = null,
+                                            tint = Color.Unspecified,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                     else -> {
@@ -313,7 +313,7 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                             ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
                             else -> null
                         }
-                        val favicon = if (!isSystem && brandIcon == null) rememberFavicon(item.url) else null
+                        val favicon = if (!isSystem) rememberFavicon(item.url) else null
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -358,14 +358,6 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         }
-                                        brandIcon != null -> {
-                                            Icon(
-                                                painter = painterResource(brandIcon),
-                                                contentDescription = null,
-                                                tint = Color.Unspecified,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
                                         favicon != null -> {
                                             Image(
                                                 bitmap = favicon,
@@ -374,6 +366,14 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                                 modifier = Modifier
                                                     .size(20.dp)
                                                     .clip(CircleShape)
+                                            )
+                                        }
+                                        brandIcon != null -> {
+                                            Icon(
+                                                painter = painterResource(brandIcon),
+                                                contentDescription = null,
+                                                tint = Color.Unspecified,
+                                                modifier = Modifier.size(20.dp)
                                             )
                                         }
                                         else -> {

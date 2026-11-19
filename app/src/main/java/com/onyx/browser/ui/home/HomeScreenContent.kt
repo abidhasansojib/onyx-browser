@@ -172,7 +172,7 @@ fun HomeScreenContent(
                         ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
                         else -> null
                     }
-                    val favicon = if (!isAddSentinel && !isSystem && brandIcon == null) rememberFavicon(item.url) else null
+                    val favicon = if (!isAddSentinel && !isSystem) rememberFavicon(item.url) else null
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -242,17 +242,7 @@ fun HomeScreenContent(
                                         )
                                     }
 
-                                    // 3. Fallback for Static Brand Icons (Google, YouTube, etc.)
-                                    brandIcon != null -> {
-                                        Icon(
-                                            painter = painterResource(brandIcon),
-                                            contentDescription = item.title,
-                                            tint = Color.Unspecified,
-                                            modifier = Modifier.size(26.dp)
-                                        )
-                                    }
-
-                                    // 4. Website Shortcuts with Live Cached Favicons
+                                    // 3. Website Shortcuts with Live Cached Favicons
                                     favicon != null -> {
                                         Image(
                                             bitmap = favicon,
@@ -261,6 +251,16 @@ fun HomeScreenContent(
                                             modifier = Modifier
                                                 .size(28.dp)
                                                 .clip(CircleShape)
+                                        )
+                                    }
+
+                                    // 4. Fallback for Static Brand Icons (Google, YouTube, etc.)
+                                    brandIcon != null -> {
+                                        Icon(
+                                            painter = painterResource(brandIcon),
+                                            contentDescription = item.title,
+                                            tint = Color.Unspecified,
+                                            modifier = Modifier.size(26.dp)
                                         )
                                     }
 

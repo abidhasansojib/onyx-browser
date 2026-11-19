@@ -2,8 +2,25 @@ package com.onyx.browser.ui.common
 
 import android.content.Context
 import android.widget.ImageView
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.onyx.browser.R
 import com.onyx.browser.data.favicon.FaviconManager
 import com.onyx.browser.data.model.SearchEngine
+import com.onyx.browser.ui.home.rememberFavicon
 
 /**
  * Universal helper for loading, dynamically fetching, caching, and shaping search engine logos.
@@ -54,6 +71,55 @@ object SearchEngineIconHelper {
                 imageView.setImageBitmap(shaped)
                 imageView.clearColorFilter()
                 imageView.imageTintList = null
+            }
+        }
+    }
+}
+
+/**
+ * Composable search engine icon that dynamically resolves and renders the search engine's
+ * authentic logo: checks dynamic live favicon first, bundled crisp transparent drawable second,
+ * and falls back to a clean initial avatar.
+ */
+@Composable
+fun SearchEngineIcon(
+    engine: SearchEngine,
+    modifier: Modifier = Modifier.size(28.dp)
+) {
+    val targetUrl = engine.homeUrl.ifBlank { engine.queryUrl }
+    val dynamicFavicon = if (targetUrl.isNotBlank()) rememberFavicon(targetUrl) else null
+
+    when {
+        dynamicFavicon != null -> {
+            Image(
+                bitmap = dynamicFavicon,
+                contentDescription = engine.displayName,
+                contentScale = ContentScale.Fit,
+                modifier = modifier.clip(CircleShape)
+            )
+        }
+        engine.iconResId != 0 && engine.iconResId != R.drawable.ic_web -> {
+            Image(
+                painter = painterResource(engine.iconResId),
+                contentDescription = engine.displayName,
+                contentScale = ContentScale.Fit,
+                modifier = modifier.clip(CircleShape)
+            )
+        }
+        else -> {
+            Box(
+                modifier = modifier
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                val initial = engine.displayName.trim().firstOrNull()?.uppercase() ?: "S"
+                Text(
+                    text = initial,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }

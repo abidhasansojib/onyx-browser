@@ -75,7 +75,7 @@ class EditShortcutDialog @JvmOverloads constructor(
             ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
             else -> null
         }
-        val favicon = if (!isSystem && brandIcon == null) rememberFavicon(url) else null
+        val favicon = if (!isSystem) rememberFavicon(url) else null
 
         Surface(
             shape = RoundedCornerShape(24.dp),
@@ -125,14 +125,6 @@ class EditShortcutDialog @JvmOverloads constructor(
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
-                            brandIcon != null -> {
-                                Icon(
-                                    painter = painterResource(brandIcon),
-                                    contentDescription = null,
-                                    tint = ComposeColor.Unspecified,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
                             favicon != null -> {
                                 Image(
                                     bitmap = favicon,
@@ -141,6 +133,14 @@ class EditShortcutDialog @JvmOverloads constructor(
                                     modifier = Modifier
                                         .size(26.dp)
                                         .clip(CircleShape)
+                                )
+                            }
+                            brandIcon != null -> {
+                                Icon(
+                                    painter = painterResource(brandIcon),
+                                    contentDescription = null,
+                                    tint = ComposeColor.Unspecified,
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                             else -> {
