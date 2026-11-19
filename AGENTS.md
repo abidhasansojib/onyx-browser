@@ -9,7 +9,7 @@
 
 **Onyx Browser** (`com.onyx.browser`) is a fast, lightweight, and privacy-oriented Android browser targeting Min SDK 26 (Android 8.0+) and Target SDK 35 (Android 15).
 
-- **UI Framework**: Native Kotlin and XML Views with ViewBinding (Jetpack Compose is intentionally avoided for fast startup and minimal memory usage).
+- **UI Framework**: Modern Jetpack Compose and Material 3 (`androidx.compose`) on the `dev` branch with Compose BOM `2024.10.01` and Kotlin 2.0.21 compiler plugin; dual ViewBinding interop preserved for high-performance web and camera container embedding.
 - **Engine**: Android System WebView hardened with Chromium multi-profile isolation, scriptlet injection, and network-level interception.
 - **Content Blocking**: Brave `adblock-rust` engine compiled via Android NDK into `libadblock_bridge.so` across all 4 ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`).
 - **Database**: SQLCipher AES-256 encrypted Room database.
