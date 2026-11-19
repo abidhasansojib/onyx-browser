@@ -1,18 +1,73 @@
 package com.onyx.browser.ui.menu
 
-import android.app.role.RoleManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.MainActivity
@@ -20,11 +75,14 @@ import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.BottomSheetMenuBinding
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
+import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.OnyxPreferenceItem
+import com.onyx.browser.ui.components.OnyxSwitchPreference
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.settings.SettingsActivity
+import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.update.AppUpdateManager
 import com.onyx.browser.update.AppUpdatePromptHelper
 import kotlinx.coroutines.Dispatchers
@@ -32,10 +90,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MenuBottomSheet : BottomSheetDialogFragment() {
-
-    private var _binding: BottomSheetMenuBinding? = null
-    private val binding get() = _binding!!
-    private val preferences by lazy { BrowserPreferences.getInstance(requireContext()) }
 
     var isHomePage: Boolean = true
     var currentUrl: String = ""
@@ -50,461 +104,383 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
     var onBlockElementClicked: (() -> Unit)? = null
     var onSavePageClicked: (() -> Unit)? = null
     var onSiteShieldWhitelistChanged: ((Boolean) -> Unit)? = null
-    
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setStyle(STYLE_NORMAL, R.style.Theme_OnyxBrowser_BottomSheetDialog)
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = BottomSheetMenuBinding.inflate(inflater, container, false)
-        return binding.root
-    }
-
-    override fun onStart() {
-        super.onStart()
-        dialog?.let { d ->
-            val bottomSheet = d.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-            bottomSheet?.let { sheet ->
-                sheet.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_bottom_sheet_soft_menu)
-                sheet.clipToOutline = true
-            }
-        }
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-        setupUpdateBanner()
-
-        if (isHomePage) {
-            binding.layoutHomeMenu.visibility = View.VISIBLE
-            binding.layoutWebpageMenu.visibility = View.GONE
-            setupHomeMenu()
-        } else {
-            binding.layoutHomeMenu.visibility = View.GONE
-            binding.layoutWebpageMenu.visibility = View.VISIBLE
-            setupWebpageMenu()
-        }
-    }
-
-    private fun setupUpdateBanner() {
-        val cachedUpdate = AppUpdateManager.getCachedUpdate(requireContext())
-        if (cachedUpdate != null) {
-            binding.bannerUpdateAvailable.visibility = View.VISIBLE
-            binding.tvUpdateBannerSubtitle.text = getString(R.string.update_available_subtitle, cachedUpdate.tagName)
-            binding.bannerUpdateAvailable.setOnClickListener {
-                val act = activity as? AppCompatActivity
-                dismiss()
-                if (act != null) {
-                    AppUpdatePromptHelper.showUpdateAvailableDialog(act, cachedUpdate)
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                val prefs = BrowserPreferences.getInstance(requireContext())
+                val isDark = when (prefs.themeMode) {
+                    BrowserPreferences.THEME_DARK -> true
+                    BrowserPreferences.THEME_LIGHT -> false
+                    else -> isSystemInDarkTheme()
                 }
-            }
-        } else {
-            binding.bannerUpdateAvailable.visibility = View.GONE
-        }
-    }
+                val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
 
-    private fun setupHomeMenu() {
-        val main = activity as? MainActivity
+                var isBookmarked by remember { mutableStateOf(false) }
+                val db = AppDatabase.getInstance(requireContext())
 
-        // 1. Shortcuts: Bookmarks
-        binding.homeQuickBookmarks.setOnClickListener {
-            if (main != null) {
-                main.openBookmarks()
-            } else {
-                startActivity(Intent(requireContext(), BookmarksActivity::class.java))
-            }
-            dismiss()
-        }
-
-        // 2. Shortcuts: History
-        binding.homeQuickHistory.setOnClickListener {
-            if (main != null) {
-                main.openHistory()
-            } else {
-                startActivity(Intent(requireContext(), HistoryActivity::class.java))
-            }
-            dismiss()
-        }
-
-        // 3. Shortcuts: Downloads
-        binding.homeQuickDownloads.setOnClickListener {
-            if (main != null) {
-                main.openDownloads()
-            } else {
-                startActivity(Intent(requireContext(), DownloadsActivity::class.java))
-            }
-            dismiss()
-        }
-
-        // 4. Shortcuts: Share App
-        binding.homeQuickShare.setOnClickListener {
-            val sendIntent = Intent().apply {
-                action = Intent.ACTION_SEND
-                putExtra(Intent.EXTRA_TEXT, "Browse the web fast and private with Onyx Browser!")
-                type = "text/plain"
-            }
-            startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
-            dismiss()
-        }
-
-        // Default Browser Banner (under shortcuts, shown only if not default)
-        setupDefaultBrowserBanner()
-
-
-
-        // New Tab Button
-        binding.menuItemHomeNewTab.setOnClickListener {
-            main?.openNewTab(isIncognito = false)
-            dismiss()
-        }
-
-        // New Incognito Tab Button
-        binding.menuItemHomeNewIncognitoTab.setOnClickListener {
-            main?.openNewTab(isIncognito = true)
-            dismiss()
-        }
-
-        // Settings Button (under default browser banner)
-        binding.menuItemHomeSettings.setOnClickListener {
-            startActivity(Intent(requireContext(), SettingsActivity::class.java))
-            dismiss()
-        }
-    }
-
-    private fun setupWebpageMenu() {
-        val prefs = BrowserPreferences.getInstance(requireContext())
-        val cleanDomain = prefs.cleanDomain(currentUrl)
-        val main = activity as? MainActivity
-        val db = AppDatabase.getInstance(requireContext())
-
-        // Top Shortcuts Quick Bar (Bookmarks, History, Downloads, Share)
-        if (currentUrl.isNotBlank()) {
-            viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-                val isBookmarked = db.bookmarkDao().isBookmarked(currentUrl)
-                withContext(Dispatchers.Main) {
-                    if (_binding != null) {
-                        if (isBookmarked) {
-                            binding.ivWebQuickBookmark.setColorFilter(
-                                com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(requireContext())
-                            )
-                        } else {
-                            binding.ivWebQuickBookmark.clearColorFilter()
+                if (currentUrl.isNotBlank()) {
+                    viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                        val exists = db.bookmarkDao().isBookmarked(currentUrl)
+                        withContext(Dispatchers.Main) {
+                            isBookmarked = exists
                         }
                     }
                 }
-            }
-        }
 
-        // 1. Web Shortcuts: Bookmarks (1-tap toggles active page bookmark, long-press opens bookmarks list)
-        binding.webQuickBookmarks.setOnClickListener {
-            if (currentUrl.isNotBlank()) {
-                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-                    val isBookmarked = db.bookmarkDao().isBookmarked(currentUrl)
-                    if (isBookmarked) {
-                        db.bookmarkDao().deleteByUrl(currentUrl)
-                        withContext(Dispatchers.Main) {
-                            if (_binding != null) {
-                                binding.ivWebQuickBookmark.clearColorFilter()
-                                Toast.makeText(requireContext(), R.string.bookmark_removed, Toast.LENGTH_SHORT).show()
+                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                    MenuSheetLayout(
+                        isHomePage = isHomePage,
+                        currentUrl = currentUrl,
+                        currentTitle = currentTitle,
+                        isBookmarked = isBookmarked,
+                        onToggleBookmark = {
+                            if (currentUrl.isNotBlank()) {
+                                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                                    val exists = db.bookmarkDao().isBookmarked(currentUrl)
+                                    if (exists) {
+                                        db.bookmarkDao().deleteByUrl(currentUrl)
+                                    } else {
+                                        val title = currentTitle.ifBlank { currentUrl }
+                                        db.bookmarkDao().insertBookmark(BookmarkItem(url = currentUrl, title = title))
+                                    }
+                                    withContext(Dispatchers.Main) {
+                                        isBookmarked = !exists
+                                        Toast.makeText(
+                                            requireContext(),
+                                            if (!exists) R.string.bookmark_added else R.string.bookmark_removed,
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            } else {
+                                openBookmarks()
                             }
+                        },
+                        onBookmarksClick = { openBookmarks() },
+                        onHistoryClick = { openHistory() },
+                        onDownloadsClick = { openDownloads() },
+                        onShareClick = { sharePage() },
+                        onNewTabClick = {
+                            (activity as? MainActivity)?.openNewTab(isIncognito = false)
+                            dismiss()
+                        },
+                        onNewIncognitoTabClick = {
+                            (activity as? MainActivity)?.openNewTab(isIncognito = true)
+                            dismiss()
+                        },
+                        onSiteShieldClick = {
+                            openSiteShield()
+                        },
+                        onFindInPageClick = {
+                            onFindInPageClicked?.invoke()
+                            dismiss()
+                        },
+                        isDesktop = isDesktopSiteEnabled,
+                        onDesktopToggle = {
+                            isDesktopSiteEnabled = it
+                            onDesktopSiteToggled?.invoke(it)
+                            dismiss()
+                        },
+                        onTranslateClick = {
+                            onTranslateClicked?.invoke(prefs.targetTranslateLanguage)
+                            dismiss()
+                        },
+                        onSavePageClick = {
+                            onSavePageClicked?.invoke()
+                            dismiss()
+                        },
+                        isAddToHomeScreenVisible = prefs.isAddToHomeScreenEnabled,
+                        onAddToHomeScreenClick = {
+                            onAddToHomeScreenClicked?.invoke()
+                            dismiss()
+                        },
+                        isBlockElementVisible = prefs.isBlockElementEnabled,
+                        onBlockElementClick = {
+                            onBlockElementClicked?.invoke()
+                            dismiss()
+                        },
+                        onDevToolsClick = {
+                            onDeveloperToolsClicked?.invoke()
+                            dismiss()
+                        },
+                        onSettingsClick = {
+                            startActivity(Intent(requireContext(), SettingsActivity::class.java))
+                            dismiss()
                         }
-                    } else {
-                        val title = currentTitle.ifBlank { currentUrl }
-                        db.bookmarkDao().insertBookmark(BookmarkItem(url = currentUrl, title = title))
-                        withContext(Dispatchers.Main) {
-                            if (_binding != null) {
-                                binding.ivWebQuickBookmark.setColorFilter(
-                                    com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(requireContext())
-                                )
-                                Toast.makeText(requireContext(), R.string.bookmark_added, Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
+                    )
                 }
-            } else {
-                if (main != null) main.openBookmarks() else startActivity(Intent(requireContext(), BookmarksActivity::class.java))
-                dismiss()
             }
         }
+    }
 
-        binding.webQuickBookmarks.setOnLongClickListener {
-            it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-            if (main != null) {
-                main.openBookmarks()
-            } else {
-                startActivity(Intent(requireContext(), BookmarksActivity::class.java))
-            }
-            dismiss()
-            true
+    private fun openBookmarks() {
+        (activity as? MainActivity)?.openBookmarks() ?: startActivity(Intent(requireContext(), BookmarksActivity::class.java))
+        dismiss()
+    }
+
+    private fun openHistory() {
+        (activity as? MainActivity)?.openHistory() ?: startActivity(Intent(requireContext(), HistoryActivity::class.java))
+        dismiss()
+    }
+
+    private fun openDownloads() {
+        (activity as? MainActivity)?.openDownloads() ?: startActivity(Intent(requireContext(), DownloadsActivity::class.java))
+        dismiss()
+    }
+
+    private fun sharePage() {
+        val url = currentUrl.ifBlank { "https://github.com/abidhasansojib/onyx-browser" }
+        val sendIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, url)
+            type = "text/plain"
         }
+        startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
+        dismiss()
+    }
 
-        // 2. Web Shortcuts: History
-        binding.webQuickHistory.setOnClickListener {
-            if (main != null) {
-                main.openHistory()
-            } else {
-                startActivity(Intent(requireContext(), HistoryActivity::class.java))
-            }
-            dismiss()
-        }
-
-        // 3. Web Shortcuts: Downloads
-        binding.webQuickDownloads.setOnClickListener {
-            if (main != null) {
-                main.openDownloads()
-            } else {
-                startActivity(Intent(requireContext(), DownloadsActivity::class.java))
-            }
-            dismiss()
-        }
-
-        // 4. Web Shortcuts: Share Webpage
-        binding.webQuickShare.setOnClickListener {
-            if (currentUrl.isNotBlank()) {
-                val sendIntent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    putExtra(Intent.EXTRA_TEXT, currentUrl)
-                    type = "text/plain"
-                }
-                startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
-            } else {
-                Toast.makeText(requireContext(), "No webpage to share", Toast.LENGTH_SHORT).show()
-            }
-            dismiss()
-        }
-
-        // 1st: Box-Type UI Card
-        binding.tvWebsiteDomain.text = cleanDomain.ifBlank { "Webpage" }
-
-        // Shield with lock icon button: opens per-site adblock controls (Brave Shields panel)
-        binding.btnSiteShield.setOnClickListener {
-            val activeWv = main?.getActiveWebView()
-            val blockedCount = activeWv?.pageBlockedCount ?: 0
-            val isIncognito = activeWv?.isIncognito ?: false
-            val cert = activeWv?.certificate
-            val dialog = SiteShieldBottomSheet(
-                currentUrl = currentUrl,
-                pageBlockedCount = blockedCount,
-                isIncognito = isIncognito,
-                sslCertificate = cert
-            ) {
-                onSiteShieldWhitelistChanged?.invoke(true)
-            }
-            dialog.show(childFragmentManager, SiteShieldBottomSheet.TAG)
-        }
-
-        // Share icon button: shares webpage URL
-        binding.btnWebpageShare.setOnClickListener {
-            if (currentUrl.isNotBlank()) {
-                val sendIntent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    putExtra(Intent.EXTRA_TEXT, currentUrl)
-                    type = "text/plain"
-                }
-                startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
-            } else {
-                Toast.makeText(requireContext(), "No webpage to share", Toast.LENGTH_SHORT).show()
-            }
-            dismiss()
-        }
-
-        // New Tab & New Incognito Tab
-        binding.menuItemNewTab.setOnClickListener {
-            main?.openNewTab(isIncognito = false)
-            dismiss()
-        }
-
-        binding.menuItemNewIncognitoTab.setOnClickListener {
-            main?.openNewTab(isIncognito = true)
-            dismiss()
-        }
-
-        // 2nd: Translate to [Language]
-        fun updateTranslateText() {
-            binding.tvTranslateTitle.text = getString(R.string.translate_to, prefs.targetTranslateLanguageName)
-        }
-        updateTranslateText()
-
-        // Main translate row click
-        binding.menuItemTranslate.setOnClickListener {
-            onTranslateClicked?.invoke(prefs.targetTranslateLanguage)
-            dismiss()
-        }
-
-        // Right gear icon click: open language selector
-        binding.btnTranslateSettings.setOnClickListener {
-            val langDialog = LanguageSelectionDialog { code, name ->
-                updateTranslateText()
-            }
-            langDialog.show(childFragmentManager, LanguageSelectionDialog.TAG)
-        }
-
-        // 3rd: Find in Page
-        binding.menuItemFindInPage.setOnClickListener {
-            onFindInPageClicked?.invoke()
-            dismiss()
-        }
-
-        // 4th: Request Desktop Site
-        binding.switchDesktopSite.isChecked = isDesktopSiteEnabled
-        binding.menuItemDesktopSite.setOnClickListener {
-            val newState = !binding.switchDesktopSite.isChecked
-            binding.switchDesktopSite.isChecked = newState
-            onDesktopSiteToggled?.invoke(newState)
-            dismiss()
-        }
-
-
-
-        // Save Page
-        binding.menuItemSavePage.setOnClickListener {
-            onSavePageClicked?.invoke()
-            dismiss()
-        }
-
-        // 5th: Add to Home screen (controlled via Accessibility settings toggle)
-        if (prefs.isAddToHomeScreenEnabled) {
-            binding.menuItemAddToHomeScreen.visibility = View.VISIBLE
-            binding.menuItemAddToHomeScreen.setOnClickListener {
-                onAddToHomeScreenClicked?.invoke()
-                dismiss()
-            }
-        } else {
-            binding.menuItemAddToHomeScreen.visibility = View.GONE
-        }
-
-
-
-        // 6th: Developer Tools (Eruda Console)
-        binding.menuItemDeveloperTools.setOnClickListener {
-            onDeveloperToolsClicked?.invoke()
-            dismiss()
-        }
-
-        // Visual Element Blocker (Zapper) — hidden unless enabled in Settings > Privacy & shields
-        if (preferences.isBlockElementEnabled) {
-            binding.menuItemBlockElement.visibility = View.VISIBLE
-            binding.menuItemBlockElement.setOnClickListener {
-                onBlockElementClicked?.invoke()
-                dismiss()
-            }
-        } else {
-            binding.menuItemBlockElement.visibility = View.GONE
-        }
-
-        // Userscript Menu Commands (GM_registerMenuCommand)
+    private fun openSiteShield() {
+        val main = activity as? MainActivity
         val activeWv = main?.getActiveWebView()
-        val scriptCommands = activeWv?.userScriptMenuCommands ?: emptyMap()
-        if (scriptCommands.isNotEmpty()) {
-            binding.menuItemScriptCommands.visibility = View.VISIBLE
-            binding.tvScriptCommandsCount.text = "${scriptCommands.size}"
-            binding.menuItemScriptCommands.setOnClickListener {
-                dismiss()
-                val captions = scriptCommands.keys.toTypedArray()
-                val fnIds = scriptCommands.values.toTypedArray()
-                com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-                    .setTitle(R.string.userscripts_menu_commands_title)
-                    .setItems(captions) { _, which ->
-                        val fnId = fnIds.getOrNull(which)
-                        if (fnId != null) {
-                            activeWv?.invokeUserScriptMenuCommand(fnId)
-                        }
-                    }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show()
-            }
-        } else {
-            binding.menuItemScriptCommands.visibility = View.GONE
+        val blockedCount = activeWv?.pageBlockedCount ?: 0
+        val isIncognito = activeWv?.isIncognito ?: false
+        val cert = activeWv?.certificate
+        val dialog = SiteShieldBottomSheet(
+            currentUrl = currentUrl,
+            pageBlockedCount = blockedCount,
+            isIncognito = isIncognito,
+            sslCertificate = cert
+        ) {
+            onSiteShieldWhitelistChanged?.invoke(true)
         }
-
-        // 7th: Settings
-        binding.menuItemWebSettings.setOnClickListener {
-            startActivity(Intent(requireContext(), SettingsActivity::class.java))
-            dismiss()
-        }
-    }
-
-    private fun setupDefaultBrowserBanner() {
-        val isDefault = isDefaultBrowser()
-        if (!isDefault) {
-            binding.bannerDefaultBrowser.visibility = View.VISIBLE
-            binding.bannerDefaultBrowser.setOnClickListener {
-                promptSetDefaultBrowser()
-                dismiss()
-            }
-        } else {
-            binding.bannerDefaultBrowser.visibility = View.GONE
-        }
-    }
-
-    private fun isDefaultBrowser(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val roleManager = requireContext().getSystemService(RoleManager::class.java)
-            roleManager?.isRoleHeld(RoleManager.ROLE_BROWSER) == true
-        } else {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))
-            val resolveInfo = requireContext().packageManager.resolveActivity(intent, 0)
-            resolveInfo?.activityInfo?.packageName == requireContext().packageName
-        }
-    }
-
-    private val roleRequestLauncher = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
-    ) {
-        if (isDefaultBrowser()) {
-            Toast.makeText(requireContext(), "Onyx set as default browser", Toast.LENGTH_SHORT).show()
-            binding.bannerDefaultBrowser.visibility = View.GONE
-        }
-    }
-
-    private fun promptSetDefaultBrowser() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val roleManager = requireContext().getSystemService(RoleManager::class.java)
-            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_BROWSER)) {
-                try {
-                    val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_BROWSER)
-                    roleRequestLauncher.launch(intent)
-                    return
-                } catch (_: Exception) {
-                }
-            }
-        }
-
-        // Fallback for earlier Android versions or customized OEM ROMs
-        val fallbackIntents = listOf(
-            Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS),
-            Intent("android.settings.MANAGE_DEFAULT_APPS_SETTINGS"),
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", requireContext().packageName, null)
-            },
-            Intent(Settings.ACTION_SETTINGS)
-        )
-
-        for (intent in fallbackIntents) {
-            try {
-                startActivity(intent)
-                return
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
-
-    companion object {
-        const val TAG = "MenuBottomSheet"
+        dialog.show(childFragmentManager, SiteShieldBottomSheet.TAG)
     }
 }
 
+@Composable
+fun MenuSheetLayout(
+    isHomePage: Boolean,
+    currentUrl: String,
+    currentTitle: String,
+    isBookmarked: Boolean,
+    onToggleBookmark: () -> Unit,
+    onBookmarksClick: () -> Unit,
+    onHistoryClick: () -> Unit,
+    onDownloadsClick: () -> Unit,
+    onShareClick: () -> Unit,
+    onNewTabClick: () -> Unit,
+    onNewIncognitoTabClick: () -> Unit,
+    onSiteShieldClick: () -> Unit,
+    onFindInPageClick: () -> Unit,
+    isDesktop: Boolean,
+    onDesktopToggle: (Boolean) -> Unit,
+    onTranslateClick: () -> Unit,
+    onSavePageClick: () -> Unit,
+    isAddToHomeScreenVisible: Boolean,
+    onAddToHomeScreenClick: () -> Unit,
+    isBlockElementVisible: Boolean,
+    onBlockElementClick: () -> Unit,
+    onDevToolsClick: () -> Unit,
+    onSettingsClick: () -> Unit
+) {
+    val scrollState = rememberScrollState()
 
-typealias MenuBottomSheetDialogFragment = MenuBottomSheet
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(vertical = 16.dp)
+            .verticalScroll(scrollState)
+    ) {
+        // Quick Action Row (Bookmarks, History, Downloads, Share)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            QuickActionButton(
+                icon = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                label = "Bookmark",
+                tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                onClick = onToggleBookmark
+            )
+
+            QuickActionButton(
+                icon = Icons.Default.History,
+                label = "History",
+                onClick = onHistoryClick
+            )
+
+            QuickActionButton(
+                icon = Icons.Default.Download,
+                label = "Downloads",
+                onClick = onDownloadsClick
+            )
+
+            QuickActionButton(
+                icon = Icons.Default.Share,
+                label = "Share",
+                onClick = onShareClick
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (!isHomePage && currentUrl.isNotBlank()) {
+            val domain = Uri.parse(currentUrl).host?.removePrefix("www.") ?: "Webpage"
+            // Page Header Card
+            OnyxCardContainer {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Text(
+                        text = domain,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    IconButton(onClick = onSiteShieldClick) {
+                        Icon(
+                            imageVector = Icons.Default.Security,
+                            contentDescription = "Shields",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+
+        // Standard Menu Actions
+        OnyxCardContainer {
+            OnyxPreferenceItem(
+                title = "New Tab",
+                icon = Icons.Default.Add,
+                onClick = onNewTabClick
+            )
+
+            OnyxPreferenceItem(
+                title = "New Incognito Tab",
+                icon = Icons.Default.VisibilityOff,
+                onClick = onNewIncognitoTabClick
+            )
+
+            if (!isHomePage) {
+                OnyxPreferenceItem(
+                    title = "Find in Page",
+                    icon = Icons.Default.FindInPage,
+                    onClick = onFindInPageClick
+                )
+
+                OnyxSwitchPreference(
+                    title = "Desktop Site",
+                    subtitle = "Request desktop version of this website",
+                    icon = Icons.Default.Computer,
+                    checked = isDesktop,
+                    onCheckedChange = onDesktopToggle
+                )
+
+                OnyxPreferenceItem(
+                    title = "Translate Webpage",
+                    icon = Icons.Default.Translate,
+                    onClick = onTranslateClick
+                )
+
+                OnyxPreferenceItem(
+                    title = "Save Page as MHTML",
+                    icon = Icons.Default.Save,
+                    onClick = onSavePageClick
+                )
+
+                if (isAddToHomeScreenVisible) {
+                    OnyxPreferenceItem(
+                        title = "Add to Home Screen",
+                        icon = Icons.Default.AddCircleOutline,
+                        onClick = onAddToHomeScreenClick
+                    )
+                }
+
+                if (isBlockElementVisible) {
+                    OnyxPreferenceItem(
+                        title = "Block Element on Page",
+                        icon = Icons.Default.Build,
+                        onClick = onBlockElementClick
+                    )
+                }
+
+                OnyxPreferenceItem(
+                    title = "Developer Tools",
+                    subtitle = "Open in-page Eruda debugging console",
+                    icon = Icons.Default.Code,
+                    onClick = onDevToolsClick
+                )
+            }
+
+            OnyxPreferenceItem(
+                title = "Settings",
+                icon = Icons.Default.Settings,
+                onClick = onSettingsClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickActionButton(
+    icon: ImageVector,
+    label: String,
+    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = tint,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
