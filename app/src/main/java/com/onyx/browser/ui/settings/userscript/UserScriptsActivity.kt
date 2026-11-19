@@ -1,30 +1,73 @@
 package com.onyx.browser.ui.settings.userscript
 
 import android.content.Intent
-import android.content.res.ColorStateList
-import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.onyx.browser.R
-import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.UserScriptItem
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.ActivityUserscriptsBinding
-import com.onyx.browser.ui.settings.shields.ShieldsActivity
-import com.onyx.browser.ui.theme.AccentColorManager
-import com.onyx.browser.userscript.UpdateResult
+import com.onyx.browser.ui.components.OnyxAlertDialog
+import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.OnyxPreferenceItem
+import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.userscript.UserScriptManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,12 +75,17 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-class UserScriptsActivity : AppCompatActivity() {
+class UserScriptsActivity : ComponentActivity() {
 
-    private lateinit var binding: ActivityUserscriptsBinding
-    private lateinit var adapter: UserScriptAdapter
     private lateinit var manager: UserScriptManager
+    private lateinit var preferences: BrowserPreferences
     private val httpClient = OkHttpClient()
+
+    private val scripts = mutableStateListOf<UserScriptItem>()
+    private var isGlobalScriptBlocked by mutableStateOf(false)
+    private var scriptToDelete by mutableStateOf<UserScriptItem?>(null)
+    private var showAddOptionsSheet by mutableStateOf(false)
+    private var showImportUrlSheet by mutableStateOf(false)
 
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -48,275 +96,447 @@ class UserScriptsActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
-
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
-        @Suppress("DEPRECATION")
-        window.statusBarColor = canvasBg
-        @Suppress("DEPRECATION")
-        window.navigationBarColor = canvasBg
-
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        insetsController.isAppearanceLightStatusBars = !isNightMode
-        insetsController.isAppearanceLightNavigationBars = !isNightMode
-
-        binding = ActivityUserscriptsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        ViewCompat.setOnApplyWindowInsetsListener(binding.userScriptsRoot) { _, insets ->
-            val statusBarInsets = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-
-            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
-            binding.rvUserScripts.updatePadding(bottom = navBarInsets.bottom + (16 * resources.displayMetrics.density).toInt())
-            insets
-        }
 
         manager = UserScriptManager.getInstance(this)
+        preferences = BrowserPreferences.getInstance(this)
+        isGlobalScriptBlocked = preferences.isGlobalScriptBlockingEnabled
 
-        binding.toolbar.setNavigationOnClickListener { finish() }
+        loadScripts()
 
-        binding.appBarLayout.apply {
-            isLiftOnScroll = false
-            setLiftable(false)
-            setLifted(false)
-            elevation = 0f
-            stateListAnimator = null
-            outlineProvider = null
-            statusBarForeground = null
-            setBackgroundColor(canvasBg)
-            backgroundTintList = ColorStateList.valueOf(canvasBg)
+        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
+
+        setContent {
+            val isDark = when (preferences.themeMode) {
+                BrowserPreferences.THEME_DARK -> true
+                BrowserPreferences.THEME_LIGHT -> false
+                else -> isSystemInDarkTheme()
+            }
+
+            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                UserScriptsScreen(
+                    scripts = scripts,
+                    isGlobalScriptBlocked = isGlobalScriptBlocked,
+                    onBackClick = { finish() },
+                    onToggleScript = { script, enabled ->
+                        lifecycleScope.launch {
+                            manager.setEnabled(script.id, enabled)
+                            loadScripts()
+                        }
+                    },
+                    onEditScript = { script ->
+                        val intent = Intent(this@UserScriptsActivity, UserScriptEditorActivity::class.java).apply {
+                            putExtra(UserScriptEditorActivity.EXTRA_SCRIPT_ID, script.id)
+                        }
+                        startActivity(intent)
+                    },
+                    onDeleteScript = { script ->
+                        scriptToDelete = script
+                    },
+                    onAddClick = { showAddOptionsSheet = true }
+                )
+
+                if (showAddOptionsSheet) {
+                    AddScriptOptionsSheet(
+                        onDismiss = { showAddOptionsSheet = false },
+                        onCreateNew = {
+                            showAddOptionsSheet = false
+                            startActivity(Intent(this@UserScriptsActivity, UserScriptEditorActivity::class.java))
+                        },
+                        onImportFile = {
+                            showAddOptionsSheet = false
+                            filePickerLauncher.launch("*/*")
+                        },
+                        onImportUrl = {
+                            showAddOptionsSheet = false
+                            showImportUrlSheet = true
+                        }
+                    )
+                }
+
+                if (showImportUrlSheet) {
+                    ImportUrlSheet(
+                        onDismiss = { showImportUrlSheet = false },
+                        onImport = { url ->
+                            showImportUrlSheet = false
+                            fetchAndInstallScriptFromUrl(url)
+                        }
+                    )
+                }
+
+                if (scriptToDelete != null) {
+                    val toDelete = scriptToDelete!!
+                    OnyxAlertDialog(
+                        title = "Delete userscript?",
+                        text = { Text("Are you sure you want to delete '${toDelete.name}'?") },
+                        confirmButtonText = "Delete",
+                        isDestructive = true,
+                        onConfirm = {
+                            lifecycleScope.launch {
+                                manager.delete(toDelete.id)
+                                loadScripts()
+                                scriptToDelete = null
+                            }
+                        },
+                        onDismissRequest = { scriptToDelete = null }
+                    )
+                }
+            }
         }
-
-        binding.toolbar.apply {
-            elevation = 0f
-            outlineProvider = null
-            setBackgroundColor(canvasBg)
-            backgroundTintList = ColorStateList.valueOf(canvasBg)
-        }
-
-        setupRecyclerView()
-        setupButtons()
     }
 
     override fun onResume() {
         super.onResume()
+        isGlobalScriptBlocked = preferences.isGlobalScriptBlockingEnabled
         loadScripts()
     }
 
-    private fun setupRecyclerView() {
-        adapter = UserScriptAdapter(
-            scripts = emptyList(),
-            onToggle = { script, isChecked ->
-                lifecycleScope.launch {
-                    manager.toggleScript(script.id, isChecked)
-                }
-            },
-            onClick = { script ->
-                val intent = Intent(this, UserScriptEditorActivity::class.java).apply {
-                    putExtra(UserScriptEditorActivity.EXTRA_SCRIPT_ID, script.id)
-                }
-                startActivity(intent)
-            },
-            onDelete = { script ->
-                showDeleteConfirmDialog(script)
-            }
-        )
-
-        binding.rvUserScripts.layoutManager = LinearLayoutManager(this)
-        binding.rvUserScripts.adapter = adapter
-    }
-
-    private fun setupButtons() {
-        // Plus button: shows add options bottom sheet (New Script, Import from URL, Import from File)
-        binding.btnPlus.setOnClickListener {
-            showAddOptions()
-        }
-
-        // Update button: checks and updates all installed scripts
-        binding.btnUpdate.setOnClickListener {
-            performUpdateAll()
-        }
-
-        binding.btnEmptyAddScript.setOnClickListener {
-            showAddOptions()
-        }
-
-        binding.cardScriptsBlockedWarning.setOnClickListener {
-            startActivity(Intent(this, ShieldsActivity::class.java))
-        }
-    }
-
-    private fun showAddOptions() {
-        val sheet = AddScriptOptionsBottomSheet(
-            onNewScript = {
-                startActivity(Intent(this, UserScriptEditorActivity::class.java))
-            },
-            onImportUrl = {
-                showImportUrlSheet()
-            },
-            onImportFile = {
-                filePickerLauncher.launch("*/*")
-            }
-        )
-        sheet.show(supportFragmentManager, AddScriptOptionsBottomSheet.TAG)
-    }
-
-    private fun showImportUrlSheet() {
-        val sheet = ImportScriptUrlBottomSheet { url ->
-            downloadAndInstallFromUrl(url)
-        }
-        sheet.show(supportFragmentManager, ImportScriptUrlBottomSheet.TAG)
-    }
-
-    private fun downloadAndInstallFromUrl(url: String) {
-        binding.progressUpdate.visibility = View.VISIBLE
-        Toast.makeText(this, R.string.userscripts_installing, Toast.LENGTH_SHORT).show()
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            val code = try {
-                val req = Request.Builder().url(url).build()
-                httpClient.newCall(req).execute().use { resp ->
-                    if (resp.isSuccessful) resp.body?.string() else null
-                }
-            } catch (e: Exception) {
-                null
-            }
-
-            withContext(Dispatchers.Main) {
-                binding.progressUpdate.visibility = View.GONE
-                if (code.isNullOrBlank()) {
-                    Toast.makeText(this@UserScriptsActivity, "Failed to download userscript from URL", Toast.LENGTH_LONG).show()
-                    return@withContext
-                }
-
-                if (!code.contains("// ==UserScript==") || !code.contains("// ==/UserScript==")) {
-                    Toast.makeText(this@UserScriptsActivity, R.string.userscripts_invalid_meta, Toast.LENGTH_LONG).show()
-                    return@withContext
-                }
-
-                val id = manager.addScript(code, sourceUrl = url)
-                val installed = manager.getById(id)
-                Toast.makeText(
-                    this@UserScriptsActivity,
-                    getString(R.string.userscripts_installed_success, installed?.metadata?.name ?: "userscript"),
-                    Toast.LENGTH_SHORT
-                ).show()
-                loadScripts()
-            }
+    private fun loadScripts() {
+        lifecycleScope.launch {
+            val list = manager.getAll()
+            scripts.clear()
+            scripts.addAll(list)
         }
     }
 
     private fun importFromFileUri(uri: Uri) {
-        binding.progressUpdate.visibility = View.VISIBLE
         lifecycleScope.launch(Dispatchers.IO) {
-            val code = try {
-                contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            try {
+                val content = contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.bufferedReader().readText()
+                }
+                if (!content.isNullOrBlank()) {
+                    val item = manager.install(content)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@UserScriptsActivity, "Installed '${item.name}'", Toast.LENGTH_SHORT).show()
+                        loadScripts()
+                    }
+                }
             } catch (e: Exception) {
-                null
-            }
-
-            withContext(Dispatchers.Main) {
-                binding.progressUpdate.visibility = View.GONE
-                if (code.isNullOrBlank()) {
-                    Toast.makeText(this@UserScriptsActivity, "Failed to read file", Toast.LENGTH_SHORT).show()
-                    return@withContext
-                }
-
-                if (!code.contains("// ==UserScript==") || !code.contains("// ==/UserScript==")) {
-                    Toast.makeText(this@UserScriptsActivity, R.string.userscripts_invalid_meta, Toast.LENGTH_LONG).show()
-                    return@withContext
-                }
-
-                val id = manager.addScript(code)
-                val installed = manager.getById(id)
-                Toast.makeText(
-                    this@UserScriptsActivity,
-                    getString(R.string.userscripts_installed_success, installed?.metadata?.name ?: "userscript"),
-                    Toast.LENGTH_SHORT
-                ).show()
-                loadScripts()
-            }
-        }
-    }
-
-    private fun performUpdateAll() {
-        binding.progressUpdate.visibility = View.VISIBLE
-        lifecycleScope.launch(Dispatchers.IO) {
-            val results = manager.checkAndUpdateAll()
-            withContext(Dispatchers.Main) {
-                binding.progressUpdate.visibility = View.GONE
-                loadScripts()
-
-                if (results.isEmpty()) {
-                    Toast.makeText(this@UserScriptsActivity, R.string.userscripts_empty_title, Toast.LENGTH_SHORT).show()
-                    return@withContext
-                }
-
-                val updatedCount = results.count { it.second is UpdateResult.Updated }
-                val hasSources = results.any { it.second !is UpdateResult.NoSource }
-
-                when {
-                    updatedCount > 0 -> {
-                        Toast.makeText(
-                            this@UserScriptsActivity,
-                            getString(R.string.userscripts_updated_count, updatedCount, results.size),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                    hasSources -> {
-                        Toast.makeText(this@UserScriptsActivity, R.string.userscripts_up_to_date, Toast.LENGTH_SHORT).show()
-                    }
-                    else -> {
-                        Toast.makeText(this@UserScriptsActivity, R.string.userscripts_no_sources, Toast.LENGTH_SHORT).show()
-                    }
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserScriptsActivity, "Failed to import script: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
-    private fun loadScripts() {
-        val prefs = BrowserPreferences.getInstance(this)
-        val isBlocked = prefs.isGlobalScriptBlockingEnabled || !prefs.isJavaScriptEnabledGlobal
-        binding.cardScriptsBlockedWarning.visibility = if (isBlocked) View.VISIBLE else View.GONE
-        if (isBlocked) {
-            binding.tvToolbarSubtitle.text = getString(R.string.userscripts_disabled_scripts_blocked)
-        } else {
-            binding.tvToolbarSubtitle.text = getString(R.string.userscripts_toolbar_subtitle)
-        }
-
+    private fun fetchAndInstallScriptFromUrl(url: String) {
         lifecycleScope.launch(Dispatchers.IO) {
-            val items = AppDatabase.getInstance(this@UserScriptsActivity).userScriptDao().getAll()
-            withContext(Dispatchers.Main) {
-                adapter.updateList(items, isBlocked)
-                if (items.isEmpty()) {
-                    binding.rvUserScripts.visibility = View.GONE
-                    binding.layoutEmptyState.visibility = View.VISIBLE
+            try {
+                val req = Request.Builder().url(url).build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string()
+                if (resp.isSuccessful && !body.isNullOrBlank()) {
+                    val item = manager.install(body, downloadUrl = url)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@UserScriptsActivity, "Installed '${item.name}'", Toast.LENGTH_SHORT).show()
+                        loadScripts()
+                    }
                 } else {
-                    binding.rvUserScripts.visibility = View.VISIBLE
-                    binding.layoutEmptyState.visibility = View.GONE
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@UserScriptsActivity, "Download failed (HTTP ${resp.code})", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserScriptsActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
+}
 
-    private fun showDeleteConfirmDialog(script: UserScriptItem) {
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.userscripts_delete_confirm_title)
-            .setMessage(getString(R.string.userscripts_delete_confirm_msg, script.name))
-            .setPositiveButton(R.string.userscripts_delete) { _, _ ->
-                lifecycleScope.launch {
-                    manager.deleteScript(script.id)
-                    Toast.makeText(this@UserScriptsActivity, R.string.userscripts_deleted, Toast.LENGTH_SHORT).show()
-                    loadScripts()
+@Composable
+fun UserScriptsScreen(
+    scripts: List<UserScriptItem>,
+    isGlobalScriptBlocked: Boolean,
+    onBackClick: () -> Unit,
+    onToggleScript: (UserScriptItem, Boolean) -> Unit,
+    onEditScript: (UserScriptItem) -> Unit,
+    onDeleteScript: (UserScriptItem) -> Unit,
+    onAddClick: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            OnyxTopAppBar(
+                title = "User Scripts",
+                onBackClick = onBackClick
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddClick,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(imageVector = Icons.Default.Add, contentDescription = "Add Script")
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            if (isGlobalScriptBlocked) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
+                        .padding(14.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "JavaScript is blocked globally in Shields. Userscripts will not execute on websites.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+
+            if (scripts.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Code,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No userscripts installed yet",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 80.dp)
+                ) {
+                    items(scripts, key = { it.id }) { script ->
+                        OnyxCardContainer {
+                            UserScriptItemRow(
+                                script = script,
+                                onToggle = { enabled -> onToggleScript(script, enabled) },
+                                onEdit = { onEditScript(script) },
+                                onDelete = { onDeleteScript(script) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserScriptItemRow(
+    script: UserScriptItem,
+    onToggle: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onEdit)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = script.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (script.version.isNotBlank()) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "v${script.version}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            if (script.description.isNotBlank()) {
+                Text(
+                    text = script.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                    maxLines = 2
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        IconButton(onClick = onEdit) {
+            Icon(
+                imageVector = Icons.Default.Edit,
+                contentDescription = "Edit",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        IconButton(onClick = onDelete) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Delete",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Switch(
+            checked = script.isEnabled,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddScriptOptionsSheet(
+    onDismiss: () -> Unit,
+    onCreateNew: () -> Unit,
+    onImportFile: () -> Unit,
+    onImportUrl: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = "Add Userscript",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            OnyxPreferenceItem(
+                title = "Create New Script",
+                subtitle = "Write a Tampermonkey script in the code editor",
+                icon = Icons.Default.Code,
+                onClick = onCreateNew
+            )
+
+            OnyxPreferenceItem(
+                title = "Import from File (.user.js)",
+                subtitle = "Load a script file from device storage",
+                icon = Icons.Default.FileOpen,
+                onClick = onImportFile
+            )
+
+            OnyxPreferenceItem(
+                title = "Import from URL",
+                subtitle = "Download script from GreasyFork, GitHub, or direct link",
+                icon = Icons.Default.Language,
+                onClick = onImportUrl
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ImportUrlSheet(
+    onDismiss: () -> Unit,
+    onImport: (String) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var url by remember { mutableStateOf("") }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = "Import Script from URL",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                label = { Text("Script URL (e.g. https://.../script.user.js)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        if (url.isNotBlank()) {
+                            onImport(url.trim())
+                        }
+                    },
+                    enabled = url.isNotBlank()
+                ) {
+                    Text("Import")
+                }
+            }
+        }
     }
 }
