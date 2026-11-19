@@ -95,7 +95,6 @@ class SiteShieldBottomSheet(
                     BrowserPreferences.THEME_LIGHT -> false
                     else -> isSystemInDarkTheme()
                 }
-                val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
 
                 var isShieldsActive by remember { mutableStateOf(!prefs.isDomainWhitelisted(domain)) }
                 var isFingerprint by remember { mutableStateOf(prefs.isFingerprintProtectionEnabled) }
@@ -112,7 +111,7 @@ class SiteShieldBottomSheet(
                     }
                 }
 
-                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                OnyxTheme(darkTheme = isDark, isAmoled = false) {
                     SiteShieldSheetLayout(
                         domain = domain,
                         isHttps = currentUrl.startsWith("https://", ignoreCase = true),
