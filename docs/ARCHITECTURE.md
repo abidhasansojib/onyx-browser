@@ -242,7 +242,7 @@ Onyx Browser (`com.onyx.browser`) consists of a native Android presentation laye
   - `HomeScreenController`: Home shortcuts, tile grid editing, and home search bar interactions.
   - `FileChooserCoordinator`: Camera capture, temporary `FileProvider` URI lifecycle, and `ActivityResultLauncher` handling.
   - `WebContextMenuCoordinator`: WebView hit-test long-press context menus, image previews, and reverse image search.
-  - `PageExportCoordinator`: MHTML archives, headless PDFs, and system print service integration.
+  - `PageExportCoordinator`: Original format page saving/downloads, MHTML archives, headless PDFs, and system print service integration.
   - `TabCoordinator`: Tab lifecycle, multi-profile isolation, and LRU memory hibernation.
   - `PipController`: Picture-in-Picture auto-enter, dimension aspect ratios, and exit lifecycle.
   - `SearchController`: Omnibox suggestions, query formatting, and search transitions.

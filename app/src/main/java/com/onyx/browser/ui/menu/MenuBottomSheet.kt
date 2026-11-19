@@ -522,7 +522,7 @@ fun MenuSheetLayout(
                 )
 
                 MenuItemRow(
-                    title = "Save Page as MHTML",
+                    title = "Save this page",
                     icon = Icons.Default.Save,
                     onClick = onSavePageClick
                 )
