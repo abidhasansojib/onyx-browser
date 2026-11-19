@@ -24,8 +24,8 @@ import com.onyx.browser.web.SiteDataManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class AllSitesBottomSheet(
-    private val onSitesChanged: () -> Unit
+class AllSitesBottomSheet @JvmOverloads constructor(
+    private val onSitesChanged: () -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     companion object {

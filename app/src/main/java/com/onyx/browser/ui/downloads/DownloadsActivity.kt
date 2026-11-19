@@ -919,8 +919,13 @@ fun DownloadsScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     val isSelectionMode = selectedIds.isNotEmpty()
 
-    BackHandler(enabled = isSelectionMode) {
-        onClearSelection()
+    BackHandler(enabled = isSelectionMode || isSearchActive) {
+        if (isSelectionMode) {
+            onClearSelection()
+        } else {
+            isSearchActive = false
+            onSearchQueryChange("")
+        }
     }
 
     val totalCount = allDownloads.size

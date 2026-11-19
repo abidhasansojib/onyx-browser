@@ -9,9 +9,9 @@ import com.google.android.material.color.MaterialColors
 import com.onyx.browser.R
 import com.onyx.browser.databinding.BottomSheetDnsProviderPickerBinding
 
-class DnsProviderPickerBottomSheet(
-    private val currentProviderUrl: String,
-    private val onSelected: (String) -> Unit
+class DnsProviderPickerBottomSheet @JvmOverloads constructor(
+    private val currentProviderUrl: String = "",
+    private val onSelected: (String) -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetDnsProviderPickerBinding? = null

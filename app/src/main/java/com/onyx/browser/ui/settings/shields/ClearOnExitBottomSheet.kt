@@ -10,7 +10,7 @@ import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetClearOnExitBinding
 
-class ClearOnExitBottomSheet(
+class ClearOnExitBottomSheet @JvmOverloads constructor(
     private val onUpdated: () -> Unit = {}
 ) : BottomSheetDialogFragment() {
 

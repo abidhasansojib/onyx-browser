@@ -30,14 +30,18 @@ import java.net.URLEncoder
 /**
  * Bottom sheet that lets the user pick a reverse image search engine in Compose.
  */
-class ImageSearchPickerBottomSheet(
-    private val imageUrl: String,
-    private val onEngineSelected: (searchUrl: String, engineName: String) -> Unit
+class ImageSearchPickerBottomSheet @JvmOverloads constructor(
+    private val imageUrl: String = "",
+    private val onEngineSelected: ((searchUrl: String, engineName: String) -> Unit)? = null
 ) : BottomSheetDialogFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NORMAL, R.style.Theme_OnyxBrowser_BottomSheetDialog)
+        if (imageUrl.isBlank()) {
+            dismissAllowingStateLoss()
+            return
+        }
     }
 
     override fun onCreateView(
@@ -101,7 +105,7 @@ class ImageSearchPickerBottomSheet(
                     desc = "Visual match & object recognition",
                     onClick = {
                         val url = "https://lens.google.com/uploadbyurl?url=$encoded"
-                        onEngineSelected(url, "Google Lens")
+                        onEngineSelected?.invoke(url, "Google Lens")
                         dismiss()
                     }
                 )
@@ -111,7 +115,7 @@ class ImageSearchPickerBottomSheet(
                     desc = "Exact duplicate image finder",
                     onClick = {
                         val url = "https://tineye.com/search/?url=$encoded"
-                        onEngineSelected(url, "TinEye")
+                        onEngineSelected?.invoke(url, "TinEye")
                         dismiss()
                     }
                 )
@@ -121,7 +125,7 @@ class ImageSearchPickerBottomSheet(
                     desc = "High-precision face & scene search",
                     onClick = {
                         val url = "https://yandex.com/images/search?rpt=imageview&url=$encoded"
-                        onEngineSelected(url, "Yandex Images")
+                        onEngineSelected?.invoke(url, "Yandex Images")
                         dismiss()
                     }
                 )
@@ -131,7 +135,7 @@ class ImageSearchPickerBottomSheet(
                     desc = "Microsoft visual image lookup",
                     onClick = {
                         val url = "https://www.bing.com/images/search?view=detailv2&iss=sbi&FORM=SBIIDP&q=imgurl:$encoded"
-                        onEngineSelected(url, "Bing Visual Search")
+                        onEngineSelected?.invoke(url, "Bing Visual Search")
                         dismiss()
                     }
                 )

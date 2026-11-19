@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -213,6 +214,11 @@ fun BookmarksScreen(
     onAddBookmarkClick: () -> Unit
 ) {
     var isSearchActive by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = isSearchActive) {
+        isSearchActive = false
+        onSearchQueryChange("")
+    }
 
     Scaffold(
         topBar = {

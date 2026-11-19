@@ -16,8 +16,8 @@ import com.onyx.browser.R
 import com.onyx.browser.ui.components.AppAlertDialog
 import com.onyx.browser.ui.theme.OnyxTheme
 
-class ClearHistoryDialog(
-    private val onConfirmClear: () -> Unit
+class ClearHistoryDialog @JvmOverloads constructor(
+    private val onConfirmClear: () -> Unit = {}
 ) : DialogFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {

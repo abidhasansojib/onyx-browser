@@ -67,16 +67,24 @@ import com.onyx.browser.ui.components.SwitchPreference
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.web.SiteDataManager
 
-class SiteShieldBottomSheet(
-    private val currentUrl: String,
+class SiteShieldBottomSheet @JvmOverloads constructor(
+    private val currentUrl: String = "",
     private val pageBlockedCount: Int = -1,
     private val isIncognito: Boolean = false,
     private val sslCertificate: SslCertificate? = null,
-    private val onShieldSettingsChanged: () -> Unit
+    private val onShieldSettingsChanged: (() -> Unit)? = null
 ) : BottomSheetDialogFragment() {
 
     companion object {
         const val TAG = "SiteShieldBottomSheet"
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (currentUrl.isBlank()) {
+            dismissAllowingStateLoss()
+            return
+        }
     }
 
     override fun onCreateView(
@@ -121,31 +129,31 @@ class SiteShieldBottomSheet(
                         onShieldsToggle = { enabled ->
                             isShieldsActive = enabled
                             prefs.setDomainWhitelisted(domain, !enabled)
-                            onShieldSettingsChanged()
+                            onShieldSettingsChanged?.invoke()
                         },
                         isFingerprint = isFingerprint,
                         onFingerprintToggle = {
                             isFingerprint = it
                             prefs.isFingerprintProtectionEnabled = it
-                            onShieldSettingsChanged()
+                            onShieldSettingsChanged?.invoke()
                         },
                         isScriptBlocked = isScriptBlocked,
                         onScriptBlockedToggle = {
                             isScriptBlocked = it
                             prefs.setScriptBlockingForDomain(domain, it)
-                            onShieldSettingsChanged()
+                            onShieldSettingsChanged?.invoke()
                         },
                         isCosmeticBlocked = isCosmeticBlocked,
                         onCosmeticBlockedToggle = {
                             isCosmeticBlocked = it
                             prefs.isBlockElementEnabled = it
-                            onShieldSettingsChanged()
+                            onShieldSettingsChanged?.invoke()
                         },
                         isDesktopMode = isDesktopMode,
                         onDesktopModeToggle = { enabled ->
                             isDesktopMode = enabled
                             prefs.setSiteDesktopModeState(domain, if (enabled) SitePermissionState.ALLOWED else SitePermissionState.BLOCKED)
-                            onShieldSettingsChanged()
+                            onShieldSettingsChanged?.invoke()
                         },
                         onClearSiteDataClick = {
                             showClearDataDialog = true

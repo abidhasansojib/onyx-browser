@@ -15,9 +15,9 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetCreateCustomFilterBinding
 import kotlinx.coroutines.launch
 
-class CreateCustomFilterBottomSheet(
+class CreateCustomFilterBottomSheet @JvmOverloads constructor(
     private val existingFilter: CustomFilterItem? = null,
-    private val onFilterSaved: (CustomFilterItem) -> Unit
+    private val onFilterSaved: (CustomFilterItem) -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetCreateCustomFilterBinding? = null

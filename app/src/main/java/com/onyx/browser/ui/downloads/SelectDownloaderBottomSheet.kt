@@ -32,14 +32,18 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 
-class SelectDownloaderBottomSheet(
-    private val downloaders: List<ExternalDownloaderInfo>,
-    private val onDownloaderSelected: (ExternalDownloaderInfo) -> Unit
+class SelectDownloaderBottomSheet @JvmOverloads constructor(
+    private val downloaders: List<ExternalDownloaderInfo> = emptyList(),
+    private val onDownloaderSelected: ((ExternalDownloaderInfo) -> Unit)? = null
 ) : BottomSheetDialogFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NORMAL, R.style.Theme_OnyxBrowser_BottomSheetDialog)
+        if (downloaders.isEmpty()) {
+            dismissAllowingStateLoss()
+            return
+        }
     }
 
     override fun onCreateView(
@@ -108,7 +112,7 @@ class SelectDownloaderBottomSheet(
                         DownloaderRow(
                             downloader = downloader,
                             onClick = {
-                                onDownloaderSelected(downloader)
+                                onDownloaderSelected?.invoke(downloader)
                                 dismiss()
                             }
                         )

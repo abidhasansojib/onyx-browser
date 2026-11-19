@@ -15,9 +15,9 @@ import com.onyx.browser.data.model.SearchEngine
 import com.onyx.browser.databinding.BottomSheetAddSearchEngineBinding
 import java.util.UUID
 
-class AddEditSearchEngineBottomSheet(
+class AddEditSearchEngineBottomSheet @JvmOverloads constructor(
     private val existingEngine: SearchEngine? = null,
-    private val onSave: (SearchEngine) -> Unit
+    private val onSave: (SearchEngine) -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetAddSearchEngineBinding? = null

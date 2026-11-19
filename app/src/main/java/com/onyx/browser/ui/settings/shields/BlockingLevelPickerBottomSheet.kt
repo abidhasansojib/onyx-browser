@@ -10,9 +10,9 @@ import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetBlockingLevelPickerBinding
 
-class BlockingLevelPickerBottomSheet(
-    private val currentLevel: Int,
-    private val onSelected: (Int) -> Unit
+class BlockingLevelPickerBottomSheet @JvmOverloads constructor(
+    private val currentLevel: Int = BrowserPreferences.BLOCKING_STANDARD,
+    private val onSelected: (Int) -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetBlockingLevelPickerBinding? = null

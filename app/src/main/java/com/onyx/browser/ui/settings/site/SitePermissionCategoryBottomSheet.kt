@@ -16,9 +16,9 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.preferences.SitePermissionState
 import com.onyx.browser.databinding.BottomSheetSitePermissionCategoryBinding
 
-class SitePermissionCategoryBottomSheet(
-    private val categoryType: Int,
-    private val onPermissionChanged: () -> Unit
+class SitePermissionCategoryBottomSheet @JvmOverloads constructor(
+    private val categoryType: Int = CATEGORY_CAMERA,
+    private val onPermissionChanged: () -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     companion object {

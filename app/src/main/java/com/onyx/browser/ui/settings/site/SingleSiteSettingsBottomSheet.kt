@@ -22,9 +22,9 @@ import com.onyx.browser.web.SiteDataManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class SingleSiteSettingsBottomSheet(
-    private val rawDomain: String,
-    private val onSiteChanged: () -> Unit
+class SingleSiteSettingsBottomSheet @JvmOverloads constructor(
+    private val rawDomain: String = "",
+    private val onSiteChanged: () -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     companion object {
@@ -35,6 +35,14 @@ class SingleSiteSettingsBottomSheet(
     private val binding get() = _binding!!
     private lateinit var prefs: BrowserPreferences
     private lateinit var domain: String
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (rawDomain.isBlank()) {
+            dismissAllowingStateLoss()
+            return
+        }
+    }
 
     override fun getTheme(): Int = R.style.Theme_OnyxBrowser_BottomSheetDialog
 

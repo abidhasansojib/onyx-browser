@@ -31,7 +31,7 @@ import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.theme.OnyxTheme
 
-class ThemePickerBottomSheet(
+class ThemePickerBottomSheet @JvmOverloads constructor(
     private val onAppearanceChanged: (() -> Unit)? = null
 ) : BottomSheetDialogFragment() {
 

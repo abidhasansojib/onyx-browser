@@ -3,6 +3,7 @@ package com.onyx.browser.ui.settings.userscript
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
@@ -108,6 +109,10 @@ class UserScriptEditorActivity : ComponentActivity() {
             }
 
             OnyxTheme(darkTheme = isDark, isAmoled = false) {
+                BackHandler(enabled = codeText != originalCode) {
+                    showDiscardDialog = true
+                }
+
                 UserScriptEditorScreen(
                     title = if (scriptId > 0) "Edit Userscript" else "New Userscript",
                     code = codeText,

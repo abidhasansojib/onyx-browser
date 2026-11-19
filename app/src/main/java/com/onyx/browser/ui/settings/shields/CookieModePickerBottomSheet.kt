@@ -10,9 +10,9 @@ import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetCookieModePickerBinding
 
-class CookieModePickerBottomSheet(
-    private val currentMode: Int,
-    private val onSelected: (Int) -> Unit
+class CookieModePickerBottomSheet @JvmOverloads constructor(
+    private val currentMode: Int = BrowserPreferences.COOKIE_BLOCK_THIRD_PARTY,
+    private val onSelected: (Int) -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetCookieModePickerBinding? = null

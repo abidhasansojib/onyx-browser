@@ -85,13 +85,17 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-class TabSwitcherBottomSheet(
-    private val tabManager: TabCoordinator,
-    private val coroutineScope: CoroutineScope,
-    private val onTabSelected: (TabItem) -> Unit,
-    private val onNewTabRequested: (Boolean) -> Unit,
+class TabSwitcherBottomSheet @JvmOverloads constructor(
+    tabManagerParam: TabCoordinator? = TabCoordinator.activeInstance,
+    private val coroutineScope: CoroutineScope? = null,
+    private val onTabSelected: (TabItem) -> Unit = {},
+    private val onNewTabRequested: (Boolean) -> Unit = {},
     private val onSearchRequested: (() -> Unit)? = null
 ) : DialogFragment() {
+
+    private val tabManager: TabCoordinator by lazy {
+        tabManagerParam ?: TabCoordinator.activeInstance ?: error("TabCoordinator activeInstance is null")
+    }
 
     private var isDismissing = false
     private val undoToastHandler = Handler(Looper.getMainLooper())
@@ -109,6 +113,10 @@ class TabSwitcherBottomSheet(
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NORMAL, R.style.Theme_OnyxBrowser_TabSwitcher)
+        if (TabCoordinator.activeInstance == null && tabManagerParam == null) {
+            dismissAllowingStateLoss()
+            return
+        }
         isViewingIncognitoState.value = tabManager.activeTab.value?.isIncognito ?: false
     }
 
@@ -795,11 +803,11 @@ class TabSwitcherBottomSheet(
         }
 
         val coroutineScope = rememberCoroutineScope()
-        var dragOffsetX by remember { mutableFloatStateOf(0f) }
-        var cardAlpha by remember { mutableFloatStateOf(1f) }
-        var cardWidthPx by remember { mutableFloatStateOf(0f) }
-        var isDismissingTab by remember { mutableStateOf(false) }
-        var settleJob by remember { mutableStateOf<Job?>(null) }
+        var dragOffsetX by remember(tab.id) { mutableFloatStateOf(0f) }
+        var cardAlpha by remember(tab.id) { mutableFloatStateOf(1f) }
+        var cardWidthPx by remember(tab.id) { mutableFloatStateOf(0f) }
+        var isDismissingTab by remember(tab.id) { mutableStateOf(false) }
+        var settleJob by remember(tab.id) { mutableStateOf<Job?>(null) }
 
         val draggableState = rememberDraggableState { delta ->
             settleJob?.cancel()

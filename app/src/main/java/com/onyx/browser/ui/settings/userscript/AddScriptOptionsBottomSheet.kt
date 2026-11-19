@@ -8,10 +8,10 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
 import com.onyx.browser.databinding.BottomSheetAddScriptOptionsBinding
 
-class AddScriptOptionsBottomSheet(
-    private val onNewScript: () -> Unit,
-    private val onImportUrl: () -> Unit,
-    private val onImportFile: () -> Unit
+class AddScriptOptionsBottomSheet @JvmOverloads constructor(
+    private val onNewScript: () -> Unit = {},
+    private val onImportUrl: () -> Unit = {},
+    private val onImportFile: () -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetAddScriptOptionsBinding? = null

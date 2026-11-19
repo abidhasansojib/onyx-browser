@@ -24,9 +24,9 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
 import com.onyx.browser.ui.theme.OnyxTheme
 
-class DownloadManagerPickerBottomSheet(
-    private val currentSelection: Int,
-    private val onSelected: (Int) -> Unit
+class DownloadManagerPickerBottomSheet @JvmOverloads constructor(
+    private val currentSelection: Int = 0,
+    private val onSelected: (Int) -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     override fun onCreateView(

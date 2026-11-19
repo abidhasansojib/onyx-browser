@@ -36,18 +36,26 @@ import com.onyx.browser.ui.theme.OnyxTheme
 /**
  * Modern Material 3 permission request bottom sheet in Jetpack Compose.
  */
-class WebPermissionBottomSheet(
-    private val host: String,
-    private val permissionTitle: String,
-    private val permissionDesc: String,
-    private val iconResId: Int,
+class WebPermissionBottomSheet @JvmOverloads constructor(
+    private val host: String = "",
+    private val permissionTitle: String = "",
+    private val permissionDesc: String = "",
+    private val iconResId: Int = R.drawable.ic_shield,
     private val isHttps: Boolean = true,
-    private val onAllowedAlways: () -> Unit,
-    private val onAllowedOnce: () -> Unit,
-    private val onDenied: (permanently: Boolean) -> Unit
+    private val onAllowedAlways: () -> Unit = {},
+    private val onAllowedOnce: () -> Unit = {},
+    private val onDenied: (permanently: Boolean) -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     private var actionHandled = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (host.isEmpty()) {
+            dismissAllowingStateLoss()
+            return
+        }
+    }
 
     override fun getTheme(): Int = R.style.Theme_OnyxBrowser_BottomSheetDialog
 

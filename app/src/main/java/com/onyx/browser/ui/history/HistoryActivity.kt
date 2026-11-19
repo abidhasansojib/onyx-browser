@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -165,6 +166,11 @@ fun HistoryScreen(
     val context = LocalContext.current
     var isSearchActive by remember { mutableStateOf(false) }
     val isSearch = searchQuery.isNotBlank()
+
+    BackHandler(enabled = isSearchActive) {
+        isSearchActive = false
+        onSearchQueryChange("")
+    }
 
     // Group items into LinkedHashMap preserving reverse-chronological order
     val grouped = remember(historyItems) {

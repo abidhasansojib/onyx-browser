@@ -17,8 +17,8 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetAddFilterUrlBinding
 import kotlinx.coroutines.launch
 
-class AddFilterUrlBottomSheet(
-    private val onFilterAdded: (CustomFilterItem) -> Unit
+class AddFilterUrlBottomSheet @JvmOverloads constructor(
+    private val onFilterAdded: (CustomFilterItem) -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetAddFilterUrlBinding? = null

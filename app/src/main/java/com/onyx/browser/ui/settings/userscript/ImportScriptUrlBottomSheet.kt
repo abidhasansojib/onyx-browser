@@ -11,8 +11,8 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
 import com.onyx.browser.databinding.DialogImportScriptUrlBinding
 
-class ImportScriptUrlBottomSheet(
-    private val onUrlEntered: (String) -> Unit
+class ImportScriptUrlBottomSheet @JvmOverloads constructor(
+    private val onUrlEntered: (String) -> Unit = {}
 ) : BottomSheetDialogFragment() {
 
     private var _binding: DialogImportScriptUrlBinding? = null
