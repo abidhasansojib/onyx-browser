@@ -1093,6 +1093,42 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             sheet.show(supportFragmentManager, TabSwitcherBottomSheet.TAG)
         }
 
+        // Long-Press Tab Switcher: Quick Tab Actions Menu
+        binding.btnTabSwitcher.setOnLongClickListener { view ->
+            val popup = androidx.appcompat.widget.PopupMenu(this, view)
+            popup.menu.add(0, 1, 0, R.string.new_tab).setIcon(R.drawable.ic_add)
+            popup.menu.add(0, 2, 1, R.string.new_incognito_tab).setIcon(R.drawable.ic_incognito)
+            if (tabManager.activeTab.value != null && binding.homeLayout.root.visibility != View.VISIBLE) {
+                popup.menu.add(0, 3, 2, R.string.close_tab).setIcon(R.drawable.ic_close)
+            }
+            try {
+                val fieldMPopup = popup.javaClass.getDeclaredField("mPopup")
+                fieldMPopup.isAccessible = true
+                val mPopup = fieldMPopup.get(popup)
+                mPopup.javaClass.getMethod("setForceShowIcon", Boolean::class.java).invoke(mPopup, true)
+            } catch (_: Throwable) {}
+
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> {
+                        openNewTab(isIncognito = false)
+                        true
+                    }
+                    2 -> {
+                        openNewTab(isIncognito = true)
+                        true
+                    }
+                    3 -> {
+                        closeCurrentTab()
+                        true
+                    }
+                    else -> false
+                }
+            }
+            popup.show()
+            true
+        }
+
         // Three-Dot Menu Button
         binding.btnMenu.setOnClickListener {
             showMenuBottomSheet()
@@ -3113,6 +3149,19 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     fun openNewTab(isIncognito: Boolean = false) {
         val newTab = tabManager.createNewTab(url = "", isIncognito = isIncognito)
         displayTab(newTab)
+    }
+
+    fun closeCurrentTab() {
+        val currentTab = tabManager.activeTab.value ?: return
+        tabManager.closeTab(currentTab)
+        val nextTab = tabManager.activeTab.value
+        if (nextTab != null) {
+            displayTab(nextTab)
+        } else {
+            val newTab = tabManager.createNewTab(isIncognito = currentTab.isIncognito)
+            displayTab(newTab)
+        }
+        updateTabBadgeCount()
     }
 
     override fun onTrimMemory(level: Int) {

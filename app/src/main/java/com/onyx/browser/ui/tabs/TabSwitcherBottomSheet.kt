@@ -1,7 +1,13 @@
 package com.onyx.browser.ui.tabs
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.DialogInterface
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -12,10 +18,13 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -25,9 +34,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -73,9 +84,10 @@ class TabSwitcherBottomSheet(
     // State holders for Compose
     private val isViewingIncognitoState = mutableStateOf(false)
     private val undoMessageState = mutableStateOf<String?>(null)
+    private val snapshotRevision = mutableIntStateOf(0)
 
     fun refreshTabsList() {
-        // Compose automatically collects tabManager.normalTabs and incognitoTabs
+        snapshotRevision.intValue++
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,15 +100,35 @@ class TabSwitcherBottomSheet(
         super.onStart()
         dialog?.window?.apply {
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            setBackgroundDrawableResource(android.R.color.transparent)
-            val bgColor = ContextCompat.getColor(context, R.color.tab_switcher_bg)
+            val prefs = BrowserPreferences.getInstance(context)
+            val isDark = when (prefs.themeMode) {
+                BrowserPreferences.THEME_DARK -> true
+                BrowserPreferences.THEME_LIGHT -> false
+                else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            }
+            val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
+            val bgColor = if (isAmoled) 0xFF000000.toInt() else if (isDark) 0xFF121212.toInt() else 0xFFF1F3F4.toInt()
+            setBackgroundDrawable(ColorDrawable(bgColor))
             statusBarColor = bgColor
             navigationBarColor = bgColor
             WindowCompat.setDecorFitsSystemWindows(this, false)
             val controller = WindowCompat.getInsetsController(this, decorView)
-            val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            controller.isAppearanceLightStatusBars = !isNightMode
-            controller.isAppearanceLightNavigationBars = !isNightMode
+            controller.isAppearanceLightStatusBars = !isDark
+            controller.isAppearanceLightNavigationBars = !isDark
+        }
+    }
+
+    override fun onDismiss(dialog: DialogInterface) {
+        super.onDismiss(dialog)
+        if (!isDismissing) {
+            isDismissing = true
+            val currentActive = tabManager.activeTab.value
+            if (currentActive != null) {
+                onTabSelected(currentActive)
+            } else {
+                val newTab = tabManager.createNewTab(isIncognito = isViewingIncognitoState.value)
+                onTabSelected(newTab)
+            }
         }
     }
 
@@ -117,7 +149,14 @@ class TabSwitcherBottomSheet(
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                OnyxTheme {
+                val isDark = when (prefs.themeMode) {
+                    BrowserPreferences.THEME_DARK -> true
+                    BrowserPreferences.THEME_LIGHT -> false
+                    else -> isSystemInDarkTheme()
+                }
+                val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
+
+                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
                     TabSwitcherScreen()
                 }
             }
@@ -137,15 +176,18 @@ class TabSwitcherBottomSheet(
 
         var isViewingIncognito by isViewingIncognitoState
         val undoMessage by undoMessageState
+        val rev = snapshotRevision.intValue
 
         val currentTabs = if (isViewingIncognito) incognitoTabs else normalTabs
         val prefs = remember { BrowserPreferences.getInstance(context) }
         var overflowMenuExpanded by remember { mutableStateOf(false) }
+        var selectedTabForMenu by remember { mutableStateOf<TabItem?>(null) }
 
         Scaffold(
             topBar = {
                 TabSwitcherTopBar(
                     normalCount = normalTabs.size,
+                    incognitoCount = incognitoTabs.size,
                     isViewingIncognito = isViewingIncognito,
                     onToggleIncognito = { targetIncognito ->
                         if (targetIncognito != isViewingIncognito && !isDismissing) {
@@ -221,7 +263,7 @@ class TabSwitcherBottomSheet(
                     }
                 )
             },
-            containerColor = Color.Transparent
+            containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
             Box(
                 modifier = Modifier
@@ -241,12 +283,15 @@ class TabSwitcherBottomSheet(
                         items(currentTabs, key = { it.id }) { tab ->
                             val isLocked = tab.isIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked
                             val isActive = tab.id == activeTab?.id
+                            val snapshot = remember(tab.id, isLocked, rev) {
+                                if (isLocked) null else tabManager.getSnapshot(tab.id)
+                            }
 
                             TabCard(
                                 tab = tab,
                                 isActive = isActive,
                                 isLocked = isLocked,
-                                snapshot = if (isLocked) null else tabManager.getSnapshot(tab.id),
+                                snapshot = snapshot,
                                 onTabClick = {
                                     if (isDismissing) return@TabCard
                                     if (isLocked) {
@@ -261,6 +306,11 @@ class TabSwitcherBottomSheet(
                                         tabManager.selectTab(tab)
                                         onTabSelected(tab)
                                         dismissAllowingStateLoss()
+                                    }
+                                },
+                                onTabLongClick = {
+                                    if (!isDismissing && !isLocked) {
+                                        selectedTabForMenu = tab
                                     }
                                 },
                                 onCloseClick = {
@@ -311,6 +361,7 @@ class TabSwitcherBottomSheet(
                                     onClick = {
                                         val restoredBatch = tabManager.undoCloseTab()
                                         if (restoredBatch != null && restoredBatch.states.isNotEmpty()) {
+                                            refreshTabsList()
                                             val nextBatch = tabManager.peekLastClosedBatch(isViewingIncognitoState.value)
                                             if (nextBatch != null) {
                                                 showUndoToastForBatch(nextBatch)
@@ -332,6 +383,142 @@ class TabSwitcherBottomSheet(
                         }
                     }
                 }
+
+                // Tab Long-Press Context Menu ModalBottomSheet
+                selectedTabForMenu?.let { tab ->
+                    ModalBottomSheet(
+                        onDismissRequest = { selectedTabForMenu = null },
+                        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 6.dp
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .navigationBarsPadding()
+                                .padding(bottom = 16.dp)
+                        ) {
+                            Text(
+                                text = tab.title.ifBlank { stringResource(R.string.new_tab) },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+                            )
+                            if (tab.url.isNotBlank()) {
+                                Text(
+                                    text = tab.url,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
+                                )
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                            // Close Tab
+                            ListItem(
+                                headlineContent = { Text(stringResource(R.string.close_tab)) },
+                                leadingContent = {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    val t = tab
+                                    selectedTabForMenu = null
+                                    tabManager.closeTab(t)
+                                    showUndoToastForTab(t)
+                                }
+                            )
+
+                            // Close Other Tabs
+                            if (currentTabs.size > 1) {
+                                ListItem(
+                                    headlineContent = { Text(stringResource(R.string.close_other_tabs)) },
+                                    leadingContent = {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_delete),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    modifier = Modifier.clickable {
+                                        val t = tab
+                                        selectedTabForMenu = null
+                                        tabManager.closeOtherTabs(t)
+                                        showUndoToastWithMessage(getString(R.string.other_tabs_closed))
+                                    }
+                                )
+                            }
+
+                            // Duplicate Tab
+                            ListItem(
+                                headlineContent = { Text(stringResource(R.string.duplicate_tab)) },
+                                leadingContent = {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    val t = tab
+                                    selectedTabForMenu = null
+                                    tabManager.duplicateTab(t)
+                                    refreshTabsList()
+                                }
+                            )
+
+                            // Copy Link
+                            if (tab.url.isNotBlank()) {
+                                ListItem(
+                                    headlineContent = { Text(stringResource(R.string.copy_link)) },
+                                    leadingContent = {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentCopy,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    modifier = Modifier.clickable {
+                                        val url = tab.url
+                                        selectedTabForMenu = null
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
+                                        Toast.makeText(context, R.string.url_copied, Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+
+                                // Share Link
+                                ListItem(
+                                    headlineContent = { Text(stringResource(R.string.share)) },
+                                    leadingContent = {
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    modifier = Modifier.clickable {
+                                        val url = tab.url
+                                        selectedTabForMenu = null
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, url)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share)))
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -339,6 +526,7 @@ class TabSwitcherBottomSheet(
     @Composable
     private fun TabSwitcherTopBar(
         normalCount: Int,
+        incognitoCount: Int,
         isViewingIncognito: Boolean,
         onToggleIncognito: (Boolean) -> Unit,
         onSearchClick: () -> Unit,
@@ -407,12 +595,25 @@ class TabSwitcherBottomSheet(
                         .padding(horizontal = 14.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_incognito),
-                        contentDescription = stringResource(R.string.incognito_mode),
-                        tint = incognitoTint,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_incognito),
+                            contentDescription = stringResource(R.string.incognito_mode),
+                            tint = incognitoTint,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        if (incognitoCount > 0) {
+                            Text(
+                                text = if (incognitoCount > 99) "99+" else incognitoCount.toString(),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = incognitoTint
+                            )
+                        }
+                    }
                 }
             }
 
@@ -457,6 +658,7 @@ class TabSwitcherBottomSheet(
         }
     }
 
+    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun TabCard(
         tab: TabItem,
@@ -464,6 +666,7 @@ class TabSwitcherBottomSheet(
         isLocked: Boolean,
         snapshot: Bitmap?,
         onTabClick: () -> Unit,
+        onTabLongClick: () -> Unit,
         onCloseClick: () -> Unit
     ) {
         val accentColor = MaterialTheme.colorScheme.primary
@@ -473,8 +676,9 @@ class TabSwitcherBottomSheet(
         val closeColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
 
         val domain = remember(tab.url) {
-            try {
-                if (tab.url.isNotBlank()) Uri.parse(tab.url).host ?: tab.url else "New Tab"
+            if (tab.url.isBlank()) ""
+            else try {
+                Uri.parse(tab.url).host ?: tab.url
             } catch (_: Exception) {
                 tab.url
             }
@@ -491,7 +695,11 @@ class TabSwitcherBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp)
-                .clickable { onTabClick() }
+                .clip(RoundedCornerShape(16.dp))
+                .combinedClickable(
+                    onClick = onTabClick,
+                    onLongClick = onTabLongClick
+                )
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Tab Header
@@ -531,14 +739,14 @@ class TabSwitcherBottomSheet(
                     // Title & Domain
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isLocked) "Protected Tab" else tab.title.ifBlank { "New Tab" },
+                            text = if (isLocked) "Protected Tab" else tab.title.ifBlank { stringResource(R.string.new_tab) },
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = titleColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (!isLocked) {
+                        if (!isLocked && domain.isNotBlank()) {
                             Text(
                                 text = domain,
                                 style = MaterialTheme.typography.labelSmall,
@@ -552,13 +760,13 @@ class TabSwitcherBottomSheet(
                     // Close Button
                     IconButton(
                         onClick = onCloseClick,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close tab",
+                            contentDescription = stringResource(R.string.close_tab),
                             tint = closeColor,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }

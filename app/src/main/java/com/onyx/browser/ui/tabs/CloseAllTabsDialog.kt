@@ -6,13 +6,16 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.fragment.app.DialogFragment
 import com.onyx.browser.R
+import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
 import com.onyx.browser.ui.components.OnyxAlertDialog
 import com.onyx.browser.ui.theme.OnyxTheme
@@ -37,7 +40,15 @@ class CloseAllTabsDialog @JvmOverloads constructor(
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                OnyxTheme {
+                val prefs = remember { BrowserPreferences.getInstance(requireContext()) }
+                val isDark = when (prefs.themeMode) {
+                    BrowserPreferences.THEME_DARK -> true
+                    BrowserPreferences.THEME_LIGHT -> false
+                    else -> isSystemInDarkTheme()
+                }
+                val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
+
+                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
                     val tm = tabManager ?: TabCoordinator.activeInstance
                     val tabList = if (isIncognito) {
                         tm?.incognitoTabs?.value ?: emptyList()

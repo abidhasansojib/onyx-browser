@@ -45,6 +45,9 @@ class BrowserMenuCoordinator(
             currentUrl = activeTab?.url ?: ""
             currentTitle = activeTab?.title ?: ""
             isDesktopSiteEnabled = activeWebView?.isDesktopMode ?: false
+            onCloseTabClicked = {
+                this@BrowserMenuCoordinator.activity.closeCurrentTab()
+            }
             onDesktopSiteToggled = { _ ->
                 // Toggle desktop mode scoped to the active tab, with automatic mobile subdomain translation
                 activeWebView?.toggleDesktopMode()

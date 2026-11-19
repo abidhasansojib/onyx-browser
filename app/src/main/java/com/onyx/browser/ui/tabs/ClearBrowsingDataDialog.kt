@@ -12,6 +12,7 @@ import android.webkit.WebViewDatabase
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +33,7 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
+import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
 import com.onyx.browser.ui.theme.OnyxTheme
 import kotlinx.coroutines.Dispatchers
@@ -74,7 +76,15 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                OnyxTheme {
+                val prefs = remember { BrowserPreferences.getInstance(requireContext()) }
+                val isDark = when (prefs.themeMode) {
+                    BrowserPreferences.THEME_DARK -> true
+                    BrowserPreferences.THEME_LIGHT -> false
+                    else -> isSystemInDarkTheme()
+                }
+                val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
+
+                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
                     ClearBrowsingDataContent()
                 }
             }

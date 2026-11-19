@@ -1147,6 +1147,17 @@ class TabCoordinator(
         }
     }
 
+    fun closeOtherTabs(keepTab: TabItem) {
+        val list = if (keepTab.isIncognito) _incognitoTabs.value else _normalTabs.value
+        val toClose = list.filter { it.id != keepTab.id }
+        toClose.forEach { closeTab(it) }
+        setActiveTab(keepTab)
+    }
+
+    fun duplicateTab(tab: TabItem): TabItem {
+        return createNewTab(url = tab.url, isIncognito = tab.isIncognito)
+    }
+
     fun closeAllIncognitoTabs(canUndo: Boolean = true) {
         closeAllTabs(incognitoOnly = true, canUndo = canUndo)
     }

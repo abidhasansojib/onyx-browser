@@ -73,7 +73,9 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 
 ## 4. Tabs & Navigation Architecture
 
-- `[x]` **Visual Tab Switcher**: High-performance grid preview cards with live snapshots and domain labels.
+- `[x]` **Visual Tab Switcher**: High-performance Jetpack Compose grid preview cards with live snapshots, domain labels, snapshot revision caching for instant thumbnail updates, dark/light/AMOLED theme contrast matching, and biometric incognito access gates.
+- `[x]` **Tab Context Menu & Quick Tab Actions**: Long-pressing any tab card in the switcher opens a Material 3 sheet to Close tab, Close other tabs, Duplicate tab, Copy link, or Share link. Long-pressing the toolbar tab switcher button displays a fast popup menu to quickly spawn tabs or close the current tab. Browser main menu includes a dedicated "Close Tab" action for active pages.
+- `[x]` **Safe Tab Dismissal & WebView Synchronization**: Overridden dismissal lifecycle ensures closing active tabs in the switcher and dismissing via system back gestures cleanly synchronizes `MainActivity` to the current active tab or creates a fresh default tab, preventing ghost/destroyed WebView pointer leaks.
 - `[x]` **Swipe-to-Dismiss & Batch Undo**: Dismiss tabs with gestures; restore closed tabs with single or batch undo notifications.
 - `[x]` **Zero Unwanted Tab Auto-Creation**: Closing the last tab cleanly transitions to the home screen without forcing an empty placeholder tab.
 - `[x]` **Non-Destructive Navigation**: Hardware back button at history root minimizes the browser rather than terminating processes or losing tab state.

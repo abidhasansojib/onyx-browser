@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Download
@@ -100,6 +101,7 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
     var currentTitle: String = ""
     var isDesktopSiteEnabled: Boolean = false
 
+    var onCloseTabClicked: (() -> Unit)? = null
     var onDesktopSiteToggled: ((Boolean) -> Unit)? = null
     var onFindInPageClicked: (() -> Unit)? = null
     var onTranslateClicked: ((String) -> Unit)? = null
@@ -176,6 +178,10 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
                         },
                         onNewIncognitoTabClick = {
                             (activity as? MainActivity)?.openNewTab(isIncognito = true)
+                            dismiss()
+                        },
+                        onCloseTabClick = {
+                            onCloseTabClicked?.invoke()
                             dismiss()
                         },
                         onSiteShieldClick = {
@@ -280,6 +286,7 @@ fun MenuSheetLayout(
     onShareClick: () -> Unit,
     onNewTabClick: () -> Unit,
     onNewIncognitoTabClick: () -> Unit,
+    onCloseTabClick: () -> Unit,
     onSiteShieldClick: () -> Unit,
     onFindInPageClick: () -> Unit,
     isDesktop: Boolean,
@@ -389,6 +396,14 @@ fun MenuSheetLayout(
                 icon = Icons.Default.VisibilityOff,
                 onClick = onNewIncognitoTabClick
             )
+
+            if (!isHomePage && currentUrl.isNotBlank()) {
+                OnyxPreferenceItem(
+                    title = "Close Tab",
+                    icon = Icons.Default.Close,
+                    onClick = onCloseTabClick
+                )
+            }
 
             if (!isHomePage) {
                 OnyxPreferenceItem(
