@@ -86,6 +86,10 @@ import java.io.File
 
 class DownloadsActivity : ComponentActivity() {
 
+    companion object {
+        const val EXTRA_INSTALL_APK_PATH = "com.onyx.browser.extra.INSTALL_APK_PATH"
+    }
+
     private lateinit var viewModel: DownloadsViewModel
     private lateinit var preferences: BrowserPreferences
     private lateinit var database: AppDatabase
@@ -499,7 +503,7 @@ private fun DownloadItemRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            if (item.status == DownloadItem.STATUS_DOWNLOADING && item.fileSize > 0) {
+            if ((item.status == DownloadItem.STATUS_RUNNING || item.status == DownloadItem.STATUS_PENDING) && item.fileSize > 0) {
                 Spacer(modifier = Modifier.height(4.dp))
                 LinearProgressIndicator(
                     progress = { item.downloadedBytes.toFloat() / item.fileSize },

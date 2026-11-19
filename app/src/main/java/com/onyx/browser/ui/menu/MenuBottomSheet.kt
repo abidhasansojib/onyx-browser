@@ -91,6 +91,10 @@ import kotlinx.coroutines.withContext
 
 class MenuBottomSheet : BottomSheetDialogFragment() {
 
+    companion object {
+        const val TAG = "MenuBottomSheet"
+    }
+
     var isHomePage: Boolean = true
     var currentUrl: String = ""
     var currentTitle: String = ""

@@ -303,11 +303,11 @@ private fun UserAgentPickerSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val templates = listOf(
-        UserAgentManager.TEMPLATE_DEFAULT to "Default (Android Chrome)",
-        UserAgentManager.TEMPLATE_CHROME_DESKTOP to "Desktop (Chrome Windows)",
-        UserAgentManager.TEMPLATE_SAFARI_IOS to "Mobile (Safari iPhone)",
-        UserAgentManager.TEMPLATE_SAFARI_MACOS to "Desktop (Safari macOS)",
-        UserAgentManager.TEMPLATE_FIREFOX_DESKTOP to "Desktop (Firefox Windows)"
+        UserAgentManager.KEY_DEFAULT to "Default (Android Chrome)",
+        UserAgentManager.KEY_WINDOWS_CHROME to "Desktop (Chrome Windows)",
+        UserAgentManager.KEY_IPHONE to "Mobile (Safari iPhone)",
+        UserAgentManager.KEY_MACOS_SAFARI to "Desktop (Safari macOS)",
+        UserAgentManager.KEY_WINDOWS_FIREFOX to "Desktop (Firefox Windows)"
     )
 
     ModalBottomSheet(

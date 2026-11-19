@@ -36,7 +36,7 @@ class ClearHistoryDialog(
             setContent {
                 OnyxTheme {
                     OnyxAlertDialog(
-                        title = stringResource(R.string.clear_browsing_history),
+                        title = stringResource(R.string.confirm_clear_history),
                         onDismissRequest = { dismiss() },
                         confirmButtonText = stringResource(R.string.clear),
                         onConfirm = {

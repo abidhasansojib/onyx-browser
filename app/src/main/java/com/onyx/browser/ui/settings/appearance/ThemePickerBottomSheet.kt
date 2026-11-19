@@ -89,7 +89,7 @@ class ThemePickerBottomSheet(
                 )
 
                 Text(
-                    text = stringResource(R.string.theme),
+                    text = stringResource(R.string.theme_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface

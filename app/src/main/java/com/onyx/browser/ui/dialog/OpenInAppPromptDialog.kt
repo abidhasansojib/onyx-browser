@@ -289,12 +289,21 @@ class OpenInAppPromptDialog : DialogFragment() {
         private const val ARG_INTENT = "arg_intent"
         private const val ARG_APP_NAME = "arg_app_name"
 
-        fun newInstance(targetIntent: Intent, appName: String? = null): OpenInAppPromptDialog {
+        fun newInstance(
+            intent: Intent,
+            appName: String? = null,
+            onStayInOnyx: (() -> Unit)? = null,
+            onOpenInApp: (() -> Unit)? = null
+        ): OpenInAppPromptDialog {
             return OpenInAppPromptDialog().apply {
                 arguments = Bundle().apply {
-                    putParcelable(ARG_INTENT, targetIntent)
+                    putParcelable(ARG_INTENT, intent)
                     putString(ARG_APP_NAME, appName)
                 }
+                this.targetIntent = intent
+                this.appName = appName
+                this.onStayInOnyx = onStayInOnyx
+                this.onOpenInApp = onOpenInApp
             }
         }
     }

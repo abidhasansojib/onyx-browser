@@ -82,4 +82,12 @@ class HistoryViewModel @JvmOverloads constructor(
             }
         }
     }
+
+    fun clearAllHistory() {
+        val appContext = getApplication<Application>().applicationContext
+        viewModelScope.launch(Dispatchers.IO + NonCancellable) {
+            repository.clearAllHistory()
+            LocalFileLoader.cleanupAllPreviews(appContext)
+        }
+    }
 }

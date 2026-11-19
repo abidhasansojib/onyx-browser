@@ -97,7 +97,7 @@ class SiteShieldBottomSheet(
 
                 var isShieldsActive by remember { mutableStateOf(!prefs.isDomainWhitelisted(domain)) }
                 var isFingerprint by remember { mutableStateOf(prefs.isFingerprintProtectionEnabled) }
-                var isScriptBlocked by remember { mutableStateOf(prefs.isScriptBlockedForDomain(domain)) }
+                var isScriptBlocked by remember { mutableStateOf(prefs.isScriptBlockingEnabledForDomain(domain)) }
                 var isCosmeticBlocked by remember { mutableStateOf(prefs.isBlockElementEnabled) }
                 var showClearDataDialog by remember { mutableStateOf(false) }
 
@@ -121,7 +121,7 @@ class SiteShieldBottomSheet(
                         isScriptBlocked = isScriptBlocked,
                         onScriptBlockedToggle = {
                             isScriptBlocked = it
-                            prefs.setScriptBlockedForDomain(domain, it)
+                            prefs.setScriptBlockingForDomain(domain, it)
                             onShieldSettingsChanged()
                         },
                         isCosmeticBlocked = isCosmeticBlocked,

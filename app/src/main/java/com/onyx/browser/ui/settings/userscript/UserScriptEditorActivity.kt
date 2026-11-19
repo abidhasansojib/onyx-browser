@@ -50,6 +50,10 @@ class UserScriptEditorActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_SCRIPT_ID = "com.onyx.browser.extra.SCRIPT_ID"
+        const val EXTRA_SOURCE_URL = "com.onyx.browser.extra.SOURCE_URL"
+        const val EXTRA_SCRIPT_CODE = "com.onyx.browser.extra.SCRIPT_CODE"
+        @Volatile var pendingCodeToOpen: String? = null
+
         private const val DEFAULT_TEMPLATE = """// ==UserScript==
 // @name         New Userscript
 // @namespace    http://tampermonkey.net/
@@ -128,15 +132,30 @@ class UserScriptEditorActivity : ComponentActivity() {
     }
 
     private fun loadScript() {
+        val pending = pendingCodeToOpen
+        if (pending != null) {
+            pendingCodeToOpen = null
+            codeText = pending
+            originalCode = pending
+            return
+        }
+        val codeFromIntent = intent.getStringExtra(EXTRA_SCRIPT_CODE)
+        if (!codeFromIntent.isNullOrBlank()) {
+            codeText = codeFromIntent
+            originalCode = codeFromIntent
+            return
+        }
         if (scriptId > 0) {
-            lifecycleScope.launch {
-                val item = manager.getById(scriptId)
-                if (item != null) {
-                    codeText = item.sourceCode
-                    originalCode = item.sourceCode
-                } else {
-                    codeText = DEFAULT_TEMPLATE
-                    originalCode = DEFAULT_TEMPLATE
+            lifecycleScope.launch(Dispatchers.IO) {
+                val code = manager.readCodeFile(scriptId)
+                withContext(Dispatchers.Main) {
+                    if (code.isNotBlank()) {
+                        codeText = code
+                        originalCode = code
+                    } else {
+                        codeText = DEFAULT_TEMPLATE
+                        originalCode = DEFAULT_TEMPLATE
+                    }
                 }
             }
         } else {
@@ -151,16 +170,15 @@ class UserScriptEditorActivity : ComponentActivity() {
             return
         }
 
+        val sourceUrl = intent.getStringExtra(EXTRA_SOURCE_URL)
+
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val meta = UserScriptMetadata.parse(codeText)
                 if (scriptId > 0) {
-                    val existing = manager.getById(scriptId)
-                    if (existing != null) {
-                        manager.update(existing.copy(sourceCode = codeText, name = meta.name.ifBlank { existing.name }))
-                    }
+                    manager.updateScript(scriptId, codeText, sourceUrl)
                 } else {
-                    manager.install(codeText)
+                    manager.addScript(codeText, sourceUrl)
                 }
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@UserScriptEditorActivity, "Saved '${meta.name}'", Toast.LENGTH_SHORT).show()

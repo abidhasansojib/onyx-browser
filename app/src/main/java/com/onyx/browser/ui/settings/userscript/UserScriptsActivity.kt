@@ -121,7 +121,7 @@ class UserScriptsActivity : ComponentActivity() {
                     onBackClick = { finish() },
                     onToggleScript = { script, enabled ->
                         lifecycleScope.launch {
-                            manager.setEnabled(script.id, enabled)
+                            manager.toggleScript(script.id, enabled)
                             loadScripts()
                         }
                     },
@@ -174,7 +174,7 @@ class UserScriptsActivity : ComponentActivity() {
                         isDestructive = true,
                         onConfirm = {
                             lifecycleScope.launch {
-                                manager.delete(toDelete.id)
+                                manager.deleteScript(toDelete.id)
                                 loadScripts()
                                 scriptToDelete = null
                             }
@@ -194,7 +194,8 @@ class UserScriptsActivity : ComponentActivity() {
 
     private fun loadScripts() {
         lifecycleScope.launch {
-            val list = manager.getAll()
+            manager.reload()
+            val list = manager.scripts.map { it.script }
             scripts.clear()
             scripts.addAll(list)
         }
@@ -207,9 +208,9 @@ class UserScriptsActivity : ComponentActivity() {
                     stream.bufferedReader().readText()
                 }
                 if (!content.isNullOrBlank()) {
-                    val item = manager.install(content)
+                    val id = manager.addScript(content)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@UserScriptsActivity, "Installed '${item.name}'", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@UserScriptsActivity, "Installed userscript", Toast.LENGTH_SHORT).show()
                         loadScripts()
                     }
                 }
@@ -228,9 +229,9 @@ class UserScriptsActivity : ComponentActivity() {
                 val resp = httpClient.newCall(req).execute()
                 val body = resp.body?.string()
                 if (resp.isSuccessful && !body.isNullOrBlank()) {
-                    val item = manager.install(body, downloadUrl = url)
+                    val id = manager.addScript(body, sourceUrl = url)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@UserScriptsActivity, "Installed '${item.name}'", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@UserScriptsActivity, "Installed userscript", Toast.LENGTH_SHORT).show()
                         loadScripts()
                     }
                 } else {
@@ -419,7 +420,7 @@ private fun UserScriptItemRow(
         }
 
         Switch(
-            checked = script.isEnabled,
+            checked = script.enabled,
             onCheckedChange = onToggle,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,

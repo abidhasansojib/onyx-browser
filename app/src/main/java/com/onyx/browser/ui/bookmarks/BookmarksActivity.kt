@@ -171,9 +171,9 @@ class BookmarksActivity : ComponentActivity() {
                         onDismiss = { isAddEditOpen = false },
                         onSave = { title, url ->
                             if (editingBookmark != null) {
-                                viewModel.updateBookmark(editingBookmark!!.copy(title = title, url = url))
+                                viewModel.updateBookmark(editingBookmark!!.id, title, url) {}
                             } else {
-                                viewModel.addBookmark(title, url)
+                                viewModel.addBookmark(title, url) {}
                             }
                             isAddEditOpen = false
                         }

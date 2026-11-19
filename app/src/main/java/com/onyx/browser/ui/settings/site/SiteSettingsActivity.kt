@@ -2,7 +2,7 @@ package com.onyx.browser.ui.settings.site
 
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
@@ -56,7 +56,7 @@ import com.onyx.browser.web.SiteDataManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class SiteSettingsActivity : ComponentActivity() {
+class SiteSettingsActivity : AppCompatActivity() {
 
     private lateinit var prefs: BrowserPreferences
 
@@ -183,14 +183,14 @@ class SiteSettingsActivity : ComponentActivity() {
         micStatus = if (prefs.isMicEnabledGlobal) "Ask before accessing" else "Blocked globally"
         locationStatus = if (prefs.isLocationEnabledGlobal) "Ask before accessing" else "Blocked globally"
         notificationsStatus = if (prefs.isNotificationsEnabledGlobal) "Ask before accessing" else "Blocked globally"
-        sensorsStatus = if (prefs.isSensorsEnabledGlobal) "Allowed" else "Blocked"
-        clipboardStatus = if (prefs.isClipboardEnabledGlobal) "Ask before accessing" else "Blocked"
+        sensorsStatus = if (!prefs.isSensorsBlockedGlobal) "Allowed" else "Blocked"
+        clipboardStatus = if (!prefs.isClipboardBlockedGlobal) "Ask before accessing" else "Blocked"
         javascriptStatus = if (prefs.isJavaScriptEnabledGlobal) "Allowed (Recommended)" else "Blocked globally"
         popupsStatus = if (prefs.isPopupsBlockedGlobal) "Blocked (Recommended)" else "Allowed"
         autoplayStatus = if (prefs.isAutoplayBlockedGlobal) "Blocked" else "Allowed"
         imagesStatus = if (prefs.isImagesEnabledGlobal) "Allowed" else "Blocked"
-        soundStatus = if (prefs.isSoundEnabledGlobal) "Allowed" else "Blocked"
-        desktopStatus = if (prefs.isDesktopModeGlobal) "Desktop" else "Mobile (Default)"
+        soundStatus = if (!prefs.isSoundMutedGlobal) "Allowed" else "Blocked"
+        desktopStatus = if (prefs.isDesktopMode) "Desktop" else "Mobile (Default)"
         autoDownloadsStatus = if (prefs.isAutoDownloadsBlockedGlobal) "Blocked" else "Ask first"
         protectedContentStatus = if (prefs.isProtectedContentEnabledGlobal) "Allowed" else "Blocked"
     }
@@ -201,14 +201,14 @@ class SiteSettingsActivity : ComponentActivity() {
             "Microphone" -> prefs.isMicEnabledGlobal = (optionIndex == 0)
             "Location" -> prefs.isLocationEnabledGlobal = (optionIndex == 0)
             "Notifications" -> prefs.isNotificationsEnabledGlobal = (optionIndex == 0)
-            "Sensors" -> prefs.isSensorsEnabledGlobal = (optionIndex == 0)
-            "Clipboard" -> prefs.isClipboardEnabledGlobal = (optionIndex == 0)
+            "Sensors" -> prefs.isSensorsBlockedGlobal = (optionIndex != 0)
+            "Clipboard" -> prefs.isClipboardBlockedGlobal = (optionIndex != 0)
             "JavaScript" -> prefs.isJavaScriptEnabledGlobal = (optionIndex == 0)
             "Popups" -> prefs.isPopupsBlockedGlobal = (optionIndex == 0)
             "Autoplay" -> prefs.isAutoplayBlockedGlobal = (optionIndex == 1)
             "Images" -> prefs.isImagesEnabledGlobal = (optionIndex == 0)
-            "Sound" -> prefs.isSoundEnabledGlobal = (optionIndex == 0)
-            "Desktop" -> prefs.isDesktopModeGlobal = (optionIndex == 1)
+            "Sound" -> prefs.isSoundMutedGlobal = (optionIndex != 0)
+            "Desktop" -> prefs.isDesktopMode = (optionIndex == 1)
             "AutoDownloads" -> prefs.isAutoDownloadsBlockedGlobal = (optionIndex == 1)
             "ProtectedContent" -> prefs.isProtectedContentEnabledGlobal = (optionIndex == 0)
         }

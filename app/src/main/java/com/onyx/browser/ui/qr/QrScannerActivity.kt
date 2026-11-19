@@ -216,10 +216,14 @@ class QrScannerActivity : ComponentActivity() {
         }
 
         val resultIntent = Intent().apply {
-            putExtra("EXTRA_SCANNED_QR", value)
+            putExtra(RESULT_QR_VALUE, value)
         }
         setResult(Activity.RESULT_OK, resultIntent)
         finish()
+    }
+
+    companion object {
+        const val RESULT_QR_VALUE = "EXTRA_SCANNED_QR"
     }
 
     override fun onDestroy() {

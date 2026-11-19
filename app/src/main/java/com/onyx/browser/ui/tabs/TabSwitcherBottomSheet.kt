@@ -74,6 +74,10 @@ class TabSwitcherBottomSheet(
     private val isViewingIncognitoState = mutableStateOf(false)
     private val undoMessageState = mutableStateOf<String?>(null)
 
+    fun refreshTabsList() {
+        // Compose automatically collects tabManager.normalTabs and incognitoTabs
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NORMAL, R.style.Theme_OnyxBrowser_TabSwitcher)
@@ -319,7 +323,7 @@ class TabSwitcherBottomSheet(
                                     }
                                 ) {
                                     Text(
-                                        text = stringResource(R.string.undo_close_tab),
+                                        text = stringResource(R.string.undo),
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -358,7 +362,7 @@ class TabSwitcherBottomSheet(
             IconButton(onClick = onSearchClick) {
                 Icon(
                     imageVector = Icons.Default.Search,
-                    contentDescription = stringResource(R.string.search_hint),
+                    contentDescription = stringResource(R.string.search),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }

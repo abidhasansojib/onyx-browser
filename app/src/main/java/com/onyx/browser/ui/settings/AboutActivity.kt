@@ -10,7 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -63,7 +63,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class AboutActivity : ComponentActivity() {
+class AboutActivity : AppCompatActivity() {
 
     private var isCheckingUpdate by mutableStateOf(false)
     private var updateStatusText by mutableStateOf("Check for updates")

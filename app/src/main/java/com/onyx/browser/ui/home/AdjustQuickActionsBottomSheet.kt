@@ -132,7 +132,7 @@ class AdjustQuickActionsBottomSheet : BottomSheetDialogFragment() {
                                 Spacer(modifier = Modifier.width(16.dp))
 
                                 Text(
-                                    text = item.title,
+                                    text = stringResource(item.titleRes),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface,

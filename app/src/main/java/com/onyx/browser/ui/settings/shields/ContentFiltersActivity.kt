@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.R
+import com.onyx.browser.data.filter.CustomFilterItem
 import com.onyx.browser.data.filter.FilterListEntry
 import com.onyx.browser.data.filter.FilterListManager
 import com.onyx.browser.data.filter.FilterUpdateWorker
@@ -67,14 +68,23 @@ import com.onyx.browser.ui.components.OnyxCardContainer
 import com.onyx.browser.ui.components.OnyxRadioPreference
 import com.onyx.browser.ui.components.OnyxTopAppBar
 import com.onyx.browser.ui.theme.OnyxTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.UUID
+
+data class FilterListUiItem(
+    val entry: FilterListEntry,
+    val isEnabled: Boolean
+)
 
 class ContentFiltersActivity : ComponentActivity() {
 
     private lateinit var preferences: BrowserPreferences
-    private val allLists = mutableStateListOf<FilterListEntry>()
+    private val allLists = mutableStateListOf<FilterListUiItem>()
     private var searchQuery by mutableStateOf("")
     private var isUpdating by mutableStateOf(false)
     private var updateStatusText by mutableStateOf("")
@@ -83,7 +93,7 @@ class ContentFiltersActivity : ComponentActivity() {
     private var showIntervalDialog by mutableStateOf(false)
     private var showAddUrlSheet by mutableStateOf(false)
     private var showCreateCustomSheet by mutableStateOf(false)
-    private var entryToDelete by mutableStateOf<FilterListEntry?>(null)
+    private var entryToDelete by mutableStateOf<FilterListUiItem?>(null)
 
     private var recompileJob: Job? = null
     private var hasPendingRecompile = false
@@ -111,8 +121,8 @@ class ContentFiltersActivity : ComponentActivity() {
                     allLists
                 } else {
                     allLists.filter {
-                        it.title.contains(searchQuery, ignoreCase = true) ||
-                        it.subtitle.contains(searchQuery, ignoreCase = true)
+                        it.entry.title.contains(searchQuery, ignoreCase = true) ||
+                        it.entry.subtitle.contains(searchQuery, ignoreCase = true)
                     }
                 }
 
@@ -128,16 +138,16 @@ class ContentFiltersActivity : ComponentActivity() {
                     onAddViaUrlClick = { showAddUrlSheet = true },
                     onCreateCustomClick = { showCreateCustomSheet = true },
                     filterLists = filtered,
-                    onToggleFilter = { entry, enabled ->
-                        FilterListManager.setEnabled(this@ContentFiltersActivity, entry.id, enabled)
-                        val idx = allLists.indexOfFirst { it.id == entry.id }
+                    onToggleFilter = { item, enabled ->
+                        FilterListManager.setListEnabled(this@ContentFiltersActivity, item.entry.id, enabled)
+                        val idx = allLists.indexOfFirst { it.entry.id == item.entry.id }
                         if (idx >= 0) {
                             allLists[idx] = allLists[idx].copy(isEnabled = enabled)
                         }
                         scheduleRecompile()
                     },
-                    onDeleteFilter = { entry ->
-                        entryToDelete = entry
+                    onDeleteFilter = { item ->
+                        entryToDelete = item
                     }
                 )
 
@@ -164,7 +174,14 @@ class ContentFiltersActivity : ComponentActivity() {
                     AddFilterUrlSheet(
                         onDismiss = { showAddUrlSheet = false },
                         onAdd = { url, name ->
-                            FilterListManager.addCustomFilterUrl(this@ContentFiltersActivity, url, name)
+                            val newItem = CustomFilterItem(
+                                id = "custom_${UUID.randomUUID()}",
+                                name = name,
+                                url = url,
+                                isUrlType = true,
+                                isEnabled = true
+                            )
+                            preferences.addCustomFilter(newItem)
                             reloadLists()
                             scheduleRecompile()
                             showAddUrlSheet = false
@@ -176,7 +193,14 @@ class ContentFiltersActivity : ComponentActivity() {
                     CreateCustomRuleSheet(
                         onDismiss = { showCreateCustomSheet = false },
                         onSave = { ruleText, ruleName ->
-                            FilterListManager.saveCustomRule(this@ContentFiltersActivity, ruleText, ruleName)
+                            val newItem = CustomFilterItem(
+                                id = "custom_${UUID.randomUUID()}",
+                                name = ruleName,
+                                rules = ruleText,
+                                isUrlType = false,
+                                isEnabled = true
+                            )
+                            preferences.addCustomFilter(newItem)
                             reloadLists()
                             scheduleRecompile()
                             showCreateCustomSheet = false
@@ -185,14 +209,14 @@ class ContentFiltersActivity : ComponentActivity() {
                 }
 
                 if (entryToDelete != null) {
-                    val entry = entryToDelete!!
+                    val item = entryToDelete!!
                     OnyxAlertDialog(
                         title = "Remove filter list?",
-                        text = { Text("Are you sure you want to remove '${entry.title}'?") },
+                        text = { Text("Are you sure you want to remove '${item.entry.title}'?") },
                         confirmButtonText = "Remove",
                         isDestructive = true,
                         onConfirm = {
-                            FilterListManager.removeFilterList(this@ContentFiltersActivity, entry.id)
+                            preferences.deleteCustomFilter(item.entry.id)
                             reloadLists()
                             scheduleRecompile()
                             entryToDelete = null
@@ -206,7 +230,8 @@ class ContentFiltersActivity : ComponentActivity() {
 
     private fun reloadLists() {
         allLists.clear()
-        allLists.addAll(FilterListManager.getAllLists(this))
+        val lists = FilterListManager.getAllLists(this)
+        allLists.addAll(lists.map { FilterListUiItem(it, FilterListManager.isListEnabled(this, it.id)) })
         updateSubtitleDisplay()
     }
 
@@ -275,7 +300,9 @@ class ContentFiltersActivity : ComponentActivity() {
         super.onDestroy()
         if (hasPendingRecompile) {
             hasPendingRecompile = false
-            FilterListManager.recompileFilters(applicationContext)
+            CoroutineScope(Dispatchers.IO + NonCancellable).launch {
+                FilterListManager.recompileFilters(applicationContext)
+            }
         }
     }
 }
@@ -292,9 +319,9 @@ fun ContentFiltersScreen(
     onIntervalClick: () -> Unit,
     onAddViaUrlClick: () -> Unit,
     onCreateCustomClick: () -> Unit,
-    filterLists: List<FilterListEntry>,
-    onToggleFilter: (FilterListEntry, Boolean) -> Unit,
-    onDeleteFilter: (FilterListEntry) -> Unit
+    filterLists: List<FilterListUiItem>,
+    onToggleFilter: (FilterListUiItem, Boolean) -> Unit,
+    onDeleteFilter: (FilterListUiItem) -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -404,11 +431,11 @@ fun ContentFiltersScreen(
                 }
             }
 
-            items(filterLists, key = { it.id }) { entry ->
+            items(filterLists, key = { it.entry.id }) { item ->
                 FilterListCardItem(
-                    entry = entry,
-                    onToggle = { enabled -> onToggleFilter(entry, enabled) },
-                    onDelete = if (entry.isCustom) { { onDeleteFilter(entry) } } else null
+                    item = item,
+                    onToggle = { enabled -> onToggleFilter(item, enabled) },
+                    onDelete = if (item.entry.isCustom) { { onDeleteFilter(item) } } else null
                 )
             }
         }
@@ -417,10 +444,11 @@ fun ContentFiltersScreen(
 
 @Composable
 private fun FilterListCardItem(
-    entry: FilterListEntry,
+    item: FilterListUiItem,
     onToggle: (Boolean) -> Unit,
     onDelete: (() -> Unit)? = null
 ) {
+    val entry = item.entry
     OnyxCardContainer {
         Row(
             modifier = Modifier
@@ -431,30 +459,12 @@ private fun FilterListCardItem(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = entry.title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    if (entry.ruleCount > 0) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "${entry.ruleCount} rules",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = entry.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
                 if (entry.subtitle.isNotBlank()) {
                     Text(
@@ -480,7 +490,7 @@ private fun FilterListCardItem(
             }
 
             Switch(
-                checked = entry.isEnabled,
+                checked = item.isEnabled,
                 onCheckedChange = onToggle,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.onPrimary,

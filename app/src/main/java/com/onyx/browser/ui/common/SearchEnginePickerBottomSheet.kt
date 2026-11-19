@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -76,7 +77,7 @@ class SearchEnginePickerBottomSheet : BottomSheetDialogFragment() {
                 )
 
                 Text(
-                    text = stringResource(R.string.search_engine),
+                    text = stringResource(R.string.switch_search_engine),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -102,22 +103,8 @@ class SearchEnginePickerBottomSheet : BottomSheetDialogFragment() {
                                 .padding(horizontal = 12.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val iconRes = when (item.id) {
-                                SearchEngine.ID_GOOGLE -> R.drawable.ic_brand_google
-                                SearchEngine.ID_DUCKDUCKGO -> R.drawable.ic_duckduckgo
-                                SearchEngine.ID_BING -> R.drawable.ic_bing
-                                SearchEngine.ID_BRAVE -> R.drawable.ic_brave
-                                SearchEngine.ID_ECOSIA -> R.drawable.ic_ecosia
-                                SearchEngine.ID_QWANT -> R.drawable.ic_qwant
-                                SearchEngine.ID_STARTPAGE -> R.drawable.ic_startpage
-                                SearchEngine.ID_YANDEX -> R.drawable.ic_yandex
-                                SearchEngine.ID_BAIDU -> R.drawable.ic_baidu
-                                SearchEngine.ID_YAHOO -> R.drawable.ic_yahoo
-                                else -> R.drawable.ic_search
-                            }
-
                             Icon(
-                                painter = painterResource(iconRes),
+                                painter = painterResource(item.iconResId),
                                 contentDescription = null,
                                 tint = androidx.compose.ui.graphics.Color.Unspecified,
                                 modifier = Modifier.size(24.dp)

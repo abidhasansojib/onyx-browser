@@ -105,7 +105,7 @@ class EditShortcutDialog(
                     Spacer(modifier = Modifier.width(16.dp))
 
                     Text(
-                        text = stringResource(R.string.edit_shortcut_title),
+                        text = stringResource(R.string.edit_shortcut),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -118,7 +118,7 @@ class EditShortcutDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text(stringResource(R.string.shortcut_name_hint)) },
+                    label = { Text(stringResource(R.string.shortcut_title)) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
