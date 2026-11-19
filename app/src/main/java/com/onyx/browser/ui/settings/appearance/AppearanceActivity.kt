@@ -1,138 +1,292 @@
 package com.onyx.browser.ui.settings.appearance
 
 import android.content.Intent
-import android.content.res.Configuration
 import android.os.Bundle
-import android.view.View
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.ViewAgenda
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
-import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.ActivityAppearanceBinding
+import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.OnyxPreferenceItem
+import com.onyx.browser.ui.components.OnyxSwitchPreference
+import com.onyx.browser.ui.components.OnyxTopAppBar
 import com.onyx.browser.ui.theme.AccentColorManager
+import com.onyx.browser.ui.theme.OnyxTheme
 
-class AppearanceActivity : AppCompatActivity() {
+class AppearanceActivity : ComponentActivity() {
 
-    private lateinit var binding: ActivityAppearanceBinding
     private lateinit var preferences: BrowserPreferences
-    private var selectedThemeMode: Int = BrowserPreferences.THEME_SYSTEM
+    private var selectedThemeMode by mutableIntStateOf(BrowserPreferences.THEME_SYSTEM)
+    private var isForceDarkMode by mutableStateOf(false)
+    private var selectedAccentHex by mutableStateOf("#DC4B64")
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
-
-        // Edge-to-edge system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
-        @Suppress("DEPRECATION")
-        window.statusBarColor = canvasBg
-        @Suppress("DEPRECATION")
-        window.navigationBarColor = canvasBg
-
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        insetsController.isAppearanceLightStatusBars = !isNightMode
-        insetsController.isAppearanceLightNavigationBars = !isNightMode
-
-        binding = ActivityAppearanceBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
         preferences = BrowserPreferences.getInstance(this)
         selectedThemeMode = preferences.themeMode
+        isForceDarkMode = preferences.isForceDarkModeEnabled
+        selectedAccentHex = preferences.accentColorHex
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.appearanceRoot) { _, insets ->
-            val statusBarInsets = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
+        setContent {
+            val isDark = when (selectedThemeMode) {
+                BrowserPreferences.THEME_DARK -> true
+                BrowserPreferences.THEME_LIGHT -> false
+                else -> isSystemInDarkTheme()
+            }
+
+            val accentColor = try {
+                Color(android.graphics.Color.parseColor(selectedAccentHex))
+            } catch (_: Exception) {
+                null
+            }
+
+            OnyxTheme(darkTheme = isDark, isAmoled = isDark, accentColor = accentColor) {
+                AppearanceScreen(
+                    onBackClick = { finish() },
+                    selectedTheme = selectedThemeMode,
+                    onThemeSelect = { mode ->
+                        if (preferences.themeMode != mode) {
+                            preferences.themeMode = mode
+                            preferences.applyTheme()
+                            selectedThemeMode = mode
+                        }
+                    },
+                    selectedAccent = selectedAccentHex,
+                    onAccentSelect = { preset ->
+                        preferences.accentColorPreset = preset.id
+                        preferences.accentColorHex = preset.hex
+                        selectedAccentHex = preset.hex
+                    },
+                    onAddressBarSettingsClick = {
+                        startActivity(Intent(this, AddressBarSettingsActivity::class.java))
+                    },
+                    isForceDarkMode = isForceDarkMode,
+                    onForceDarkModeChange = { enabled ->
+                        isForceDarkMode = enabled
+                        preferences.isForceDarkModeEnabled = enabled
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AppearanceScreen(
+    onBackClick: () -> Unit,
+    selectedTheme: Int,
+    onThemeSelect: (Int) -> Unit,
+    selectedAccent: String,
+    onAccentSelect: (com.onyx.browser.ui.theme.AccentPreset) -> Unit,
+    onAddressBarSettingsClick: () -> Unit,
+    isForceDarkMode: Boolean,
+    onForceDarkModeChange: (Boolean) -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Scaffold(
+        topBar = {
+            OnyxTopAppBar(
+                title = "Appearance & Theme",
+                onBackClick = onBackClick
             )
-            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(scrollState)
+                .padding(bottom = 32.dp)
+        ) {
+            CategoryHeader("Theme Mode")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ThemeCard(
+                    title = "System",
+                    icon = Icons.Default.BrightnessAuto,
+                    isSelected = selectedTheme == BrowserPreferences.THEME_SYSTEM,
+                    onClick = { onThemeSelect(BrowserPreferences.THEME_SYSTEM) },
+                    modifier = Modifier.weight(1f)
+                )
 
-            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
-            binding.scrollView.updatePadding(bottom = navBarInsets.bottom)
-            insets
-        }
+                ThemeCard(
+                    title = "Dark",
+                    icon = Icons.Default.DarkMode,
+                    isSelected = selectedTheme == BrowserPreferences.THEME_DARK,
+                    onClick = { onThemeSelect(BrowserPreferences.THEME_DARK) },
+                    modifier = Modifier.weight(1f)
+                )
 
-        binding.toolbar.setNavigationOnClickListener { finish() }
+                ThemeCard(
+                    title = "Light",
+                    icon = Icons.Default.LightMode,
+                    isSelected = selectedTheme == BrowserPreferences.THEME_LIGHT,
+                    onClick = { onThemeSelect(BrowserPreferences.THEME_LIGHT) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
-        binding.appBarLayout.apply {
-            isLiftOnScroll = false
-            setLiftable(false)
-            setLifted(false)
-        }
+            CategoryHeader("Accent Color")
+            OnyxCardContainer {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AccentColorManager.PRESETS.forEach { preset ->
+                        val presetColor = Color(android.graphics.Color.parseColor(preset.hex))
+                        val isSelected = selectedAccent.equals(preset.hex, ignoreCase = true)
 
-        updateThemeSelection(selectedThemeMode)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(presetColor)
+                                .clickable { onAccentSelect(preset) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = preset.name,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
-        binding.optionSystem.setOnClickListener {
-            selectThemeMode(BrowserPreferences.THEME_SYSTEM)
-        }
+            CategoryHeader("Layout & Navigation")
+            OnyxCardContainer {
+                OnyxPreferenceItem(
+                    title = "Address Bar Customization",
+                    subtitle = "Adjust address bar position (Top / Bottom) and toolbar behavior",
+                    icon = Icons.Default.ViewAgenda,
+                    onClick = onAddressBarSettingsClick
+                )
+            }
 
-        binding.optionDark.setOnClickListener {
-            selectThemeMode(BrowserPreferences.THEME_DARK)
-        }
-
-        binding.optionLight.setOnClickListener {
-            selectThemeMode(BrowserPreferences.THEME_LIGHT)
-        }
-
-        binding.cardAddressBarCustomization.setOnClickListener {
-            startActivity(Intent(this, AddressBarSettingsActivity::class.java))
-        }
-
-        binding.switchForceDarkMode.isChecked = preferences.isForceDarkModeEnabled
-        binding.cardForceDarkMode.setOnClickListener {
-            val newState = !binding.switchForceDarkMode.isChecked
-            binding.switchForceDarkMode.isChecked = newState
-            preferences.isForceDarkModeEnabled = newState
+            CategoryHeader("Web Content")
+            OnyxCardContainer {
+                OnyxSwitchPreference(
+                    title = "Force Dark Mode for Web Contents",
+                    subtitle = "Automatically convert light websites to dark theme",
+                    checked = isForceDarkMode,
+                    onCheckedChange = onForceDarkModeChange
+                )
+            }
         }
     }
+}
 
-    private fun selectThemeMode(mode: Int) {
-        if (preferences.themeMode != mode) {
-            preferences.themeMode = mode
-            preferences.applyTheme()
-            selectedThemeMode = mode
-            updateThemeSelection(mode)
-            recreate()
+@Composable
+private fun ThemeCard(
+    title: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val activeColor = MaterialTheme.colorScheme.primary
+    val borderColor = if (isSelected) activeColor else MaterialTheme.colorScheme.outline
+    val strokeWidth = if (isSelected) 2.dp else 1.dp
+
+    Card(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(strokeWidth, borderColor)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(28.dp)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurface
+            )
         }
     }
+}
 
-    private fun updateThemeSelection(selectedTheme: Int) {
-        val defaultStroke = ContextCompat.getColor(this, R.color.settings_card_stroke)
-        val defaultIcon = ContextCompat.getColor(this, R.color.settings_title_text)
-        val activeColor = ContextCompat.getColor(this, R.color.primary)
-
-        val activeStrokeWidth = dpToPx(2f)
-        val defaultStrokeWidth = dpToPx(1f)
-
-        // System
-        val isSystem = selectedTheme == BrowserPreferences.THEME_SYSTEM
-        binding.ivCheckSystem.visibility = if (isSystem) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckSystem.setColorFilter(activeColor)
-        binding.optionSystem.strokeColor = if (isSystem) activeColor else defaultStroke
-        binding.optionSystem.strokeWidth = if (isSystem) activeStrokeWidth else defaultStrokeWidth
-        binding.ivIconSystem.setColorFilter(if (isSystem) activeColor else defaultIcon)
-
-        // Dark
-        val isDark = selectedTheme == BrowserPreferences.THEME_DARK
-        binding.ivCheckDark.visibility = if (isDark) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckDark.setColorFilter(activeColor)
-        binding.optionDark.strokeColor = if (isDark) activeColor else defaultStroke
-        binding.optionDark.strokeWidth = if (isDark) activeStrokeWidth else defaultStrokeWidth
-        binding.ivIconDark.setColorFilter(if (isDark) activeColor else defaultIcon)
-
-        // Light
-        val isLight = selectedTheme == BrowserPreferences.THEME_LIGHT
-        binding.ivCheckLight.visibility = if (isLight) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckLight.setColorFilter(activeColor)
-        binding.optionLight.strokeColor = if (isLight) activeColor else defaultStroke
-        binding.optionLight.strokeWidth = if (isLight) activeStrokeWidth else defaultStrokeWidth
-        binding.ivIconLight.setColorFilter(if (isLight) activeColor else defaultIcon)
-    }
-
-    private fun dpToPx(dp: Float): Int {
-        return (dp * resources.displayMetrics.density).toInt()
-    }
+@Composable
+private fun CategoryHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp)
+    )
 }

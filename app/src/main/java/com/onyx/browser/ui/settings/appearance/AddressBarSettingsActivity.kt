@@ -1,230 +1,286 @@
 package com.onyx.browser.ui.settings.appearance
 
-import android.content.res.ColorStateList
-import android.content.res.Configuration
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.view.View
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
-import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.ActivityAddressBarSettingsBinding
-import com.onyx.browser.ui.theme.AccentColorManager
+import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.OnyxSwitchPreference
+import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.theme.OnyxTheme
 
-class AddressBarSettingsActivity : AppCompatActivity() {
+class AddressBarSettingsActivity : ComponentActivity() {
 
-    private lateinit var binding: ActivityAddressBarSettingsBinding
     private lateinit var preferences: BrowserPreferences
+    private var isAddressBarAtBottom by mutableStateOf(false)
+    private var isHomeReplacedWithRefresh by mutableStateOf(false)
+    private var isAutoHideToolbar by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
-
-        // Edge-to-edge system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
-        @Suppress("DEPRECATION")
-        window.statusBarColor = canvasBg
-        @Suppress("DEPRECATION")
-        window.navigationBarColor = canvasBg
-
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        insetsController.isAppearanceLightStatusBars = !isNightMode
-        insetsController.isAppearanceLightNavigationBars = !isNightMode
-
-        binding = ActivityAddressBarSettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
         preferences = BrowserPreferences.getInstance(this)
+        isAddressBarAtBottom = preferences.isAddressBarAtBottom
+        isHomeReplacedWithRefresh = preferences.isHomeReplacedWithRefresh
+        isAutoHideToolbar = preferences.isAutoHideToolbarEnabled
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.addressBarSettingsRoot) { _, insets ->
-            val statusBarInsets = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
+        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
+
+        setContent {
+            val isDark = when (preferences.themeMode) {
+                BrowserPreferences.THEME_DARK -> true
+                BrowserPreferences.THEME_LIGHT -> false
+                else -> isSystemInDarkTheme()
+            }
+
+            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                AddressBarSettingsScreen(
+                    onBackClick = { finish() },
+                    isBottom = isAddressBarAtBottom,
+                    onPositionSelect = { atBottom ->
+                        isAddressBarAtBottom = atBottom
+                        preferences.isAddressBarAtBottom = atBottom
+                    },
+                    isHomeRefresh = isHomeReplacedWithRefresh,
+                    onHomeRefreshChange = { enabled ->
+                        isHomeReplacedWithRefresh = enabled
+                        preferences.isHomeReplacedWithRefresh = enabled
+                    },
+                    isAutoHide = isAutoHideToolbar,
+                    onAutoHideChange = { enabled ->
+                        isAutoHideToolbar = enabled
+                        preferences.isAutoHideToolbarEnabled = enabled
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AddressBarSettingsScreen(
+    onBackClick: () -> Unit,
+    isBottom: Boolean,
+    onPositionSelect: (Boolean) -> Unit,
+    isHomeRefresh: Boolean,
+    onHomeRefreshChange: (Boolean) -> Unit,
+    isAutoHide: Boolean,
+    onAutoHideChange: (Boolean) -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Scaffold(
+        topBar = {
+            OnyxTopAppBar(
+                title = "Address Bar Position",
+                onBackClick = onBackClick
             )
-            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(scrollState)
+                .padding(bottom = 32.dp)
+        ) {
+            CategoryHeader("Placement")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                AddressBarPositionCard(
+                    title = "Top",
+                    subtitle = "Classic desktop style",
+                    isAddressBarBottom = false,
+                    isSelected = !isBottom,
+                    onClick = { onPositionSelect(false) },
+                    modifier = Modifier.weight(1f)
+                )
 
-            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
-            binding.scrollView.updatePadding(bottom = navBarInsets.bottom)
-            insets
-        }
-
-        binding.toolbar.setNavigationOnClickListener { finish() }
-
-        binding.appBarLayout.apply {
-            isLiftOnScroll = false
-            setLiftable(false)
-            setLifted(false)
-        }
-
-        binding.switchReplaceHomeWithRefresh.isChecked = preferences.isHomeReplacedWithRefresh
-        binding.cardReplaceHomeWithRefresh.setOnClickListener {
-            val newState = !binding.switchReplaceHomeWithRefresh.isChecked
-            binding.switchReplaceHomeWithRefresh.isChecked = newState
-            preferences.isHomeReplacedWithRefresh = newState
-        }
-
-        // Dual-Choice Grid: Edit Address Bar Position (Top vs Bottom)
-        updateAddressBarPositionUI(preferences.isAddressBarAtBottom, animated = false)
-
-        binding.optTopAddressBar.setOnClickListener {
-            if (preferences.isAddressBarAtBottom) {
-                preferences.isAddressBarAtBottom = false
-                updateAddressBarPositionUI(isBottom = false, animated = true)
+                AddressBarPositionCard(
+                    title = "Bottom",
+                    subtitle = "One-hand thumb friendly",
+                    isAddressBarBottom = true,
+                    isSelected = isBottom,
+                    onClick = { onPositionSelect(true) },
+                    modifier = Modifier.weight(1f)
+                )
             }
-        }
 
-        binding.optBottomAddressBar.setOnClickListener {
-            if (!preferences.isAddressBarAtBottom) {
-                preferences.isAddressBarAtBottom = true
-                updateAddressBarPositionUI(isBottom = true, animated = true)
-            }
-        }
+            CategoryHeader("Toolbar Controls")
+            OnyxCardContainer {
+                OnyxSwitchPreference(
+                    title = "Replace Home with Refresh",
+                    subtitle = "Display reload action instead of home button on the address bar",
+                    checked = isHomeRefresh,
+                    onCheckedChange = onHomeRefreshChange
+                )
 
-        binding.switchAutoHideToolbar.isChecked = preferences.isAutoHideToolbarEnabled
-        binding.cardAutoHideToolbar.setOnClickListener {
-            val newState = !binding.switchAutoHideToolbar.isChecked
-            binding.switchAutoHideToolbar.isChecked = newState
-            preferences.isAutoHideToolbarEnabled = newState
-        }
-    }
-
-    private val springInterpolator = android.view.animation.PathInterpolator(0.22f, 1f, 0.36f, 1f)
-
-    private fun applySelectedOptionBackground(optionView: View, accentColor: Int) {
-        optionView.setBackgroundResource(R.drawable.bg_address_bar_option_selected)
-        val drawable = optionView.background?.mutate() as? GradientDrawable
-        drawable?.setStroke((1.5f * resources.displayMetrics.density).toInt(), accentColor)
-    }
-
-    private fun updateAddressBarPositionUI(isBottom: Boolean, animated: Boolean) {
-        val topOption = binding.optTopAddressBar
-        val bottomOption = binding.optBottomAddressBar
-        val topPill = binding.pillTopPreview
-        val bottomPill = binding.pillBottomPreview
-        val badgeTop = binding.badgeTopSelected
-        val radioTop = binding.radioTopUnselected
-        val badgeBottom = binding.badgeBottomSelected
-        val radioBottom = binding.radioBottomUnselected
-        val labelTop = binding.tvLabelTop
-        val labelBottom = binding.tvLabelBottom
-
-        val accentColor = AccentColorManager.getAccentColor(preferences)
-        badgeTop.backgroundTintList = ColorStateList.valueOf(accentColor)
-        badgeBottom.backgroundTintList = ColorStateList.valueOf(accentColor)
-
-        val titleColor = ContextCompat.getColor(this, R.color.settings_title_text)
-        val subtitleColor = ContextCompat.getColor(this, R.color.settings_subtitle_text)
-
-        val floatPx = -2f * resources.displayMetrics.density
-
-        if (animated) {
-            if (!isBottom) {
-                // Top selected
-                applySelectedOptionBackground(topOption, accentColor)
-                bottomOption.setBackgroundResource(R.drawable.bg_address_bar_option_unselected)
-                labelTop.setTextColor(titleColor)
-                labelBottom.setTextColor(subtitleColor)
-
-                topPill.animate()
-                    .translationY(floatPx)
-                    .setInterpolator(springInterpolator)
-                    .setDuration(300)
-                    .start()
-                bottomPill.animate()
-                    .translationY(0f)
-                    .setInterpolator(springInterpolator)
-                    .setDuration(300)
-                    .start()
-
-                badgeTop.visibility = View.VISIBLE
-                badgeTop.alpha = 0f
-                badgeTop.scaleX = 0.6f
-                badgeTop.scaleY = 0.6f
-                badgeTop.animate()
-                    .alpha(1f)
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .setInterpolator(springInterpolator)
-                    .setDuration(250)
-                    .start()
-                radioTop.visibility = View.GONE
-
-                badgeBottom.visibility = View.GONE
-                radioBottom.visibility = View.VISIBLE
-                radioBottom.alpha = 0f
-                radioBottom.animate().alpha(1f).setDuration(200).start()
-            } else {
-                // Bottom selected
-                topOption.setBackgroundResource(R.drawable.bg_address_bar_option_unselected)
-                applySelectedOptionBackground(bottomOption, accentColor)
-                labelTop.setTextColor(subtitleColor)
-                labelBottom.setTextColor(titleColor)
-
-                bottomPill.animate()
-                    .translationY(floatPx)
-                    .setInterpolator(springInterpolator)
-                    .setDuration(300)
-                    .start()
-                topPill.animate()
-                    .translationY(0f)
-                    .setInterpolator(springInterpolator)
-                    .setDuration(300)
-                    .start()
-
-                badgeBottom.visibility = View.VISIBLE
-                badgeBottom.alpha = 0f
-                badgeBottom.scaleX = 0.6f
-                badgeBottom.scaleY = 0.6f
-                badgeBottom.animate()
-                    .alpha(1f)
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .setInterpolator(springInterpolator)
-                    .setDuration(250)
-                    .start()
-                radioBottom.visibility = View.GONE
-
-                badgeTop.visibility = View.GONE
-                radioTop.visibility = View.VISIBLE
-                radioTop.alpha = 0f
-                radioTop.animate().alpha(1f).setDuration(200).start()
-            }
-        } else {
-            if (!isBottom) {
-                applySelectedOptionBackground(topOption, accentColor)
-                bottomOption.setBackgroundResource(R.drawable.bg_address_bar_option_unselected)
-                labelTop.setTextColor(titleColor)
-                labelBottom.setTextColor(subtitleColor)
-                topPill.translationY = floatPx
-                bottomPill.translationY = 0f
-                badgeTop.visibility = View.VISIBLE
-                badgeTop.alpha = 1f
-                badgeTop.scaleX = 1f
-                badgeTop.scaleY = 1f
-                radioTop.visibility = View.GONE
-                badgeBottom.visibility = View.GONE
-                radioBottom.visibility = View.VISIBLE
-            } else {
-                topOption.setBackgroundResource(R.drawable.bg_address_bar_option_unselected)
-                applySelectedOptionBackground(bottomOption, accentColor)
-                labelTop.setTextColor(subtitleColor)
-                labelBottom.setTextColor(titleColor)
-                bottomPill.translationY = floatPx
-                topPill.translationY = 0f
-                badgeBottom.visibility = View.VISIBLE
-                badgeBottom.alpha = 1f
-                badgeBottom.scaleX = 1f
-                badgeBottom.scaleY = 1f
-                radioBottom.visibility = View.GONE
-                badgeTop.visibility = View.GONE
-                radioTop.visibility = View.VISIBLE
+                OnyxSwitchPreference(
+                    title = "Auto-Hide Toolbar on Scroll",
+                    subtitle = "Dynamically collapse the address bar when scrolling down webpages",
+                    checked = isAutoHide,
+                    onCheckedChange = onAutoHideChange
+                )
             }
         }
     }
+}
+
+@Composable
+private fun AddressBarPositionCard(
+    title: String,
+    subtitle: String,
+    isAddressBarBottom: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val activeColor = MaterialTheme.colorScheme.primary
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) activeColor else MaterialTheme.colorScheme.outline,
+        animationSpec = spring(),
+        label = "borderColor"
+    )
+
+    Card(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Phone Miniature Preview
+            Box(
+                modifier = Modifier
+                    .width(72.dp)
+                    .height(110.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(4.dp)
+            ) {
+                // Mock web content
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.background)
+                )
+
+                // Mock Address bar representation
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(16.dp)
+                        .align(if (isAddressBarBottom) Alignment.BottomCenter else Alignment.TopCenter)
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(if (isSelected) activeColor else MaterialTheme.colorScheme.outline)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurface
+                )
+
+                if (isSelected) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(activeColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selected",
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CategoryHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp)
+    )
 }

@@ -1,218 +1,353 @@
 package com.onyx.browser.ui.settings
 
-import android.content.Intent
-import android.content.res.ColorStateList
-import android.content.res.Configuration
-import android.graphics.Color
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.ActivitySettingsBinding
-import com.onyx.browser.ui.common.SearchEngineIconHelper
-import com.onyx.browser.ui.theme.AccentColorManager
+import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.OnyxPreferenceItem
+import com.onyx.browser.ui.components.OnyxRadioPreference
+import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.update.AppUpdateManager
 import com.onyx.browser.web.UserAgentManager
 
-class SettingsActivity : AppCompatActivity() {
+class SettingsActivity : ComponentActivity() {
 
-    private lateinit var binding: ActivitySettingsBinding
     private lateinit var preferences: BrowserPreferences
-    private var lastThemeMode: Int = -1
+
+    private var currentSearchEngineName by mutableStateOf("")
+    private var currentThemeName by mutableStateOf("")
+    private var userAgentText by mutableStateOf("")
+    private var userScriptsStatus by mutableStateOf("")
+    private var aboutSubtitle by mutableStateOf("")
+    private var hasUpdateBadge by mutableStateOf(false)
+
+    private var showUaPicker by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
-
-        // Edge-to-edge system bars matching settings_canvas_bg
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
-        @Suppress("DEPRECATION")
-        window.statusBarColor = canvasBg
-        @Suppress("DEPRECATION")
-        window.navigationBarColor = canvasBg
-
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        insetsController.isAppearanceLightStatusBars = !isNightMode
-        insetsController.isAppearanceLightNavigationBars = !isNightMode
-
-        binding = ActivitySettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
         preferences = BrowserPreferences.getInstance(this)
-        lastThemeMode = preferences.themeMode
+        loadState()
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.settingsRoot) { _, insets ->
-            val statusBarInsets = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
 
-            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
-            binding.scrollView.updatePadding(bottom = navBarInsets.bottom)
-            insets
+        setContent {
+            val isDark = when (preferences.themeMode) {
+                BrowserPreferences.THEME_DARK -> true
+                BrowserPreferences.THEME_LIGHT -> false
+                else -> isSystemInDarkTheme()
+            }
+
+            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                SettingsScreen(
+                    onBackClick = { finish() },
+                    searchEngineName = currentSearchEngineName,
+                    onSearchEngineClick = { SettingsNavigator.navigate(this, SettingsDestination.SEARCH_ENGINE) },
+                    themeName = currentThemeName,
+                    onAppearanceClick = { SettingsNavigator.navigate(this, SettingsDestination.APPEARANCE) },
+                    onAutofillClick = { SettingsNavigator.navigate(this, SettingsDestination.AUTOFILL) },
+                    onVideoOptionsClick = { SettingsNavigator.navigate(this, SettingsDestination.VIDEO_PLAYBACK) },
+                    onDownloadSettingsClick = { SettingsNavigator.navigate(this, SettingsDestination.DOWNLOADS) },
+                    onAccessibilityClick = { SettingsNavigator.navigate(this, SettingsDestination.ACCESSIBILITY) },
+                    onShieldsClick = { SettingsNavigator.navigate(this, SettingsDestination.SHIELDS) },
+                    userAgentText = userAgentText,
+                    onUserAgentClick = { showUaPicker = true },
+                    onSitePermissionsClick = { SettingsNavigator.navigate(this, SettingsDestination.SITE_SETTINGS) },
+                    userScriptsStatus = userScriptsStatus,
+                    onUserScriptsClick = { SettingsNavigator.navigate(this, SettingsDestination.USER_SCRIPTS) },
+                    aboutSubtitle = aboutSubtitle,
+                    hasUpdateBadge = hasUpdateBadge,
+                    onAboutClick = { SettingsNavigator.navigate(this, SettingsDestination.ABOUT) }
+                )
+
+                if (showUaPicker) {
+                    UserAgentPickerSheet(
+                        currentTemplate = preferences.userAgentSpoofTemplate,
+                        onSelectTemplate = { template ->
+                            preferences.userAgentSpoofTemplate = template
+                            userAgentText = UserAgentManager.getDisplayName(template, preferences)
+                            showUaPicker = false
+                        },
+                        onDismiss = { showUaPicker = false }
+                    )
+                }
+            }
         }
-
-        // Down arrow navigation finishes activity
-        binding.toolbar.setNavigationOnClickListener { finish() }
-
-        // Pin top heading color statically to canvasBg (disable lift-on-scroll elevation tint)
-        binding.appBarLayout.apply {
-            isLiftOnScroll = false
-            setLiftable(false)
-            setLifted(false)
-            elevation = 0f
-            stateListAnimator = null
-            outlineProvider = null
-            statusBarForeground = null
-            setBackgroundColor(canvasBg)
-            backgroundTintList = ColorStateList.valueOf(canvasBg)
-        }
-        binding.toolbar.apply {
-            elevation = 0f
-            outlineProvider = null
-            setBackgroundColor(canvasBg)
-            backgroundTintList = ColorStateList.valueOf(canvasBg)
-        }
-
-        setupCategoryGeneral()
-        setupCategoryPrivacyAndSecurity()
-        setupCategoryAbout()
     }
 
     override fun onResume() {
         super.onResume()
-        updateSearchEngineDisplay()
-        updateThemeDisplay()
-        updateUaSpooferText()
-        updateUserScriptsStatus()
-        updateAboutRowStatus()
-        if (lastThemeMode != -1 && lastThemeMode != preferences.themeMode) {
-            lastThemeMode = preferences.themeMode
-            recreate()
-        }
+        loadState()
     }
 
-    private fun setupCategoryGeneral() {
-        // 1. Search engine
-        updateSearchEngineDisplay()
-        binding.settingSearchEngineRow.setOnClickListener {
-            SettingsNavigator.navigate(this, SettingsDestination.SEARCH_ENGINE)
+    private fun loadState() {
+        currentSearchEngineName = preferences.searchEngine.displayName
+        currentThemeName = when (preferences.themeMode) {
+            BrowserPreferences.THEME_DARK -> "Dark"
+            BrowserPreferences.THEME_LIGHT -> "Light"
+            else -> "System Default"
         }
-
-        // 2. Appearance (Full page activity)
-        updateThemeDisplay()
-        binding.settingAppearanceRow.setOnClickListener {
-            SettingsNavigator.navigate(this, SettingsDestination.APPEARANCE)
-        }
-
-        // 3. Auto fill & passwords
-        binding.settingAutofillRow.setOnClickListener {
-            SettingsNavigator.navigate(this, SettingsDestination.AUTOFILL)
-        }
-
-        // 4. Video Options
-        binding.settingVideoOptionsRow.setOnClickListener {
-            SettingsNavigator.navigate(this, SettingsDestination.VIDEO_PLAYBACK)
-        }
-
-        // 5. Download settings
-        binding.settingDownloadSettingsRow.setOnClickListener {
-            SettingsNavigator.navigate(this, SettingsDestination.DOWNLOADS)
-        }
-
-        // 6. Accessibility
-        binding.settingAccessibilityRow.setOnClickListener {
-            SettingsNavigator.navigate(this, SettingsDestination.ACCESSIBILITY)
-        }
-    }
-
-    private fun setupCategoryPrivacyAndSecurity() {
-        // 1. Privacy & shields
-        binding.settingShieldsRow.setOnClickListener {
-            SettingsNavigator.navigate(this, SettingsDestination.SHIELDS)
-        }
-
-        // 2. User agent spoofer
-        updateUaSpooferText()
-        binding.settingUaSpooferRow.setOnClickListener {
-            showUaSpooferDialog()
-        }
-
-        // 3. Site permissions
-        binding.settingSitePermissionsRow.setOnClickListener {
-            SettingsNavigator.navigate(this, SettingsDestination.SITE_SETTINGS)
-        }
-
-        // 4. UserScripts
-        updateUserScriptsStatus()
-        binding.settingUserScriptsRow.setOnClickListener {
-            SettingsNavigator.navigate(this, SettingsDestination.USER_SCRIPTS)
-        }
-    }
-
-    private fun updateUserScriptsStatus() {
-        if (preferences.isGlobalScriptBlockingEnabled) {
-            binding.tvUserScriptsStatus.text = getString(R.string.userscripts_disabled_scripts_blocked)
-            binding.tvUserScriptsStatus.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.red_danger))
+        userAgentText = UserAgentManager.getDisplayName(preferences.userAgentSpoofTemplate, preferences)
+        userScriptsStatus = if (preferences.isGlobalScriptBlockingEnabled) {
+            "Disabled (JavaScript blocked)"
         } else {
-            binding.tvUserScriptsStatus.text = getString(R.string.userscripts_desc)
-            binding.tvUserScriptsStatus.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.settings_subtitle_text))
+            "Manage custom userscripts & extensions"
         }
-    }
 
-    private fun setupCategoryAbout() {
-        // About Onyx
-        updateAboutRowStatus()
-        binding.settingAboutRow.setOnClickListener {
-            SettingsNavigator.navigate(this, SettingsDestination.ABOUT)
-        }
-    }
-
-    private fun updateAboutRowStatus() {
         val cachedUpdate = AppUpdateManager.getCachedUpdate(this)
         if (cachedUpdate != null) {
-            binding.tvAboutSubtitle.text = getString(R.string.update_available_about_desc, cachedUpdate.tagName)
-            binding.tvAboutSubtitle.setTextColor(AccentColorManager.getAccentColor(this))
-            binding.tvAboutBadge.visibility = android.view.View.VISIBLE
+            aboutSubtitle = "Update available: ${cachedUpdate.tagName}"
+            hasUpdateBadge = true
         } else {
-            binding.tvAboutSubtitle.setText(R.string.about_subtitle_default)
-            binding.tvAboutSubtitle.setTextColor(ContextCompat.getColor(this, R.color.settings_subtitle_text))
-            binding.tvAboutBadge.visibility = android.view.View.GONE
+            aboutSubtitle = "Version, release notes & update checker"
+            hasUpdateBadge = false
         }
     }
+}
 
-    private fun updateSearchEngineDisplay() {
-        val current = preferences.searchEngine
-        SearchEngineIconHelper.loadSearchEngineIcon(this, binding.ivCurrentSearchEngineIcon, current)
-        binding.tvCurrentSearchEngineName.text = current.displayName
-    }
+@Composable
+fun SettingsScreen(
+    onBackClick: () -> Unit,
+    searchEngineName: String,
+    onSearchEngineClick: () -> Unit,
+    themeName: String,
+    onAppearanceClick: () -> Unit,
+    onAutofillClick: () -> Unit,
+    onVideoOptionsClick: () -> Unit,
+    onDownloadSettingsClick: () -> Unit,
+    onAccessibilityClick: () -> Unit,
+    onShieldsClick: () -> Unit,
+    userAgentText: String,
+    onUserAgentClick: () -> Unit,
+    onSitePermissionsClick: () -> Unit,
+    userScriptsStatus: String,
+    onUserScriptsClick: () -> Unit,
+    aboutSubtitle: String,
+    hasUpdateBadge: Boolean,
+    onAboutClick: () -> Unit
+) {
+    val scrollState = rememberScrollState()
 
-    private fun updateThemeDisplay() {
-        val themeText = when (preferences.themeMode) {
-            BrowserPreferences.THEME_DARK -> getString(R.string.theme_dark)
-            BrowserPreferences.THEME_LIGHT -> getString(R.string.theme_light)
-            else -> getString(R.string.theme_system)
+    Scaffold(
+        topBar = {
+            OnyxTopAppBar(
+                title = "Settings",
+                onBackClick = onBackClick
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(scrollState)
+                .padding(bottom = 32.dp)
+        ) {
+            CategoryHeader("General")
+            OnyxCardContainer {
+                OnyxPreferenceItem(
+                    title = "Search Engine",
+                    subtitle = searchEngineName,
+                    icon = Icons.Default.Search,
+                    onClick = onSearchEngineClick
+                )
+
+                OnyxPreferenceItem(
+                    title = "Appearance & Theme",
+                    subtitle = themeName,
+                    icon = Icons.Default.Palette,
+                    onClick = onAppearanceClick
+                )
+
+                OnyxPreferenceItem(
+                    title = "Autofill & Passwords",
+                    subtitle = "System password manager and WebAuthn passkeys",
+                    icon = Icons.Default.Lock,
+                    onClick = onAutofillClick
+                )
+
+                OnyxPreferenceItem(
+                    title = "Video & Media Playback",
+                    subtitle = "Background playback and Picture-in-Picture",
+                    icon = Icons.Default.PlayCircle,
+                    onClick = onVideoOptionsClick
+                )
+
+                OnyxPreferenceItem(
+                    title = "Downloads Settings",
+                    subtitle = "Internal downloader and download behavior",
+                    icon = Icons.Default.Download,
+                    onClick = onDownloadSettingsClick
+                )
+
+                OnyxPreferenceItem(
+                    title = "Accessibility & Gestures",
+                    subtitle = "Pull to refresh, auto-hide toolbar, and biometric lock",
+                    icon = Icons.Default.Accessibility,
+                    onClick = onAccessibilityClick
+                )
+            }
+
+            CategoryHeader("Privacy & Security")
+            OnyxCardContainer {
+                OnyxPreferenceItem(
+                    title = "Shields & Privacy",
+                    subtitle = "Adblock-rust, tracker blocking, HTTPS, and DoH",
+                    icon = Icons.Default.Shield,
+                    onClick = onShieldsClick
+                )
+
+                OnyxPreferenceItem(
+                    title = "User-Agent Client",
+                    subtitle = userAgentText,
+                    icon = Icons.Default.Devices,
+                    onClick = onUserAgentClick
+                )
+
+                OnyxPreferenceItem(
+                    title = "Site Permissions",
+                    subtitle = "Camera, microphone, location, and data per site",
+                    icon = Icons.Default.Security,
+                    onClick = onSitePermissionsClick
+                )
+
+                OnyxPreferenceItem(
+                    title = "User Scripts",
+                    subtitle = userScriptsStatus,
+                    icon = Icons.Default.Code,
+                    onClick = onUserScriptsClick
+                )
+            }
+
+            CategoryHeader("About")
+            OnyxCardContainer {
+                OnyxPreferenceItem(
+                    title = "About Onyx Browser",
+                    subtitle = aboutSubtitle,
+                    icon = Icons.Default.Info,
+                    trailingContent = if (hasUpdateBadge) {
+                        {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "Update",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    } else null,
+                    onClick = onAboutClick
+                )
+            }
         }
-        binding.tvCurrentTheme.text = themeText
     }
+}
 
-    private fun updateUaSpooferText() {
-        binding.tvUaSpooferStatus.text = UserAgentManager.getDisplayName(
-            preferences.userAgentSpoofTemplate,
-            preferences
-        )
-    }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UserAgentPickerSheet(
+    currentTemplate: String,
+    onSelectTemplate: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    private fun showUaSpooferDialog() {
-        UserAgentPickerBottomSheet {
-            updateUaSpooferText()
-        }.show(supportFragmentManager, UserAgentPickerBottomSheet.TAG)
+    val templates = listOf(
+        UserAgentManager.TEMPLATE_DEFAULT to "Default (Android Chrome)",
+        UserAgentManager.TEMPLATE_CHROME_DESKTOP to "Desktop (Chrome Windows)",
+        UserAgentManager.TEMPLATE_SAFARI_IOS to "Mobile (Safari iPhone)",
+        UserAgentManager.TEMPLATE_SAFARI_MACOS to "Desktop (Safari macOS)",
+        UserAgentManager.TEMPLATE_FIREFOX_DESKTOP to "Desktop (Firefox Windows)"
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = "User-Agent Identity",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            templates.forEach { (template, name) ->
+                OnyxRadioPreference(
+                    title = name,
+                    selected = template == currentTemplate,
+                    onClick = { onSelectTemplate(template) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
+}
+
+@Composable
+private fun CategoryHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp)
+    )
 }
