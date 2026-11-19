@@ -80,6 +80,12 @@ When triggered for a build (after user confirms or explicitly requests Release o
 - **Current Golden Milestone / Role Model Reference**: Tag **`reference`** (commit `9a2ade9`) — verified working across WebAuthn passkeys (assertion signature verification with matching clientDataJSON, registration, autofill & password managers), adblocking & clickjack defusal, native video tap-to-show-controls, background audio/video playback, Picture-in-Picture (inline, fullscreen, cross-origin iframe, expand & 'X' close lifecycle), full-page appearance settings with refined "Address Bar position" dual-choice selector, robust clear-data-on-exit across minimize and Recents dismissal, unified context menu media downloads, and 12-hour automated upstream synchronization. Use this commit as the baseline reference if any future change regresses these subsystems.
 - AI agents are **strictly forbidden** from automatically bumping or declaring a "Golden Milestone / Role Model" reference in `AGENTS.md` or `docs/FEATURES.md` unless explicitly commanded by the user.
 
+### RULE 9: Professional Naming Standards (Strict Anti-Brand Prefix Rule)
+- **Mandate**: NEVER prefix new or refactored classes, interfaces, composables, functions, files, or drawables with the brand name `Onyx`.
+- **Reason**: The root package namespace (`com.onyx.browser.*`) already provides complete domain scoping. Prepending brand names to internal types (e.g., `OnyxWebView`, `OnyxTopAppBar`, `OnyxApplication`, `OnyxDialog`, `OnyxPreferenceItem`, `OnyxDownloadManager`) is redundant Hungarian-style notation and considered amateurish.
+- **Convention**: Always use clean, professional, Domain-Driven Design (DDD) naming conforming to idiomatic Android and Kotlin standards (e.g., `BrowserWebView`, `AppTopBar`, `BrowserApplication`, `AppDialog`, `PreferenceItem`, `DownloadEngineManager`). Follow architectural naming conventions seen in production mobile browsers (Chromium, Firefox Fenix, Brave Android).
+- **Reference**: Detailed migration paths and find-and-replace recipes are maintained in `FILE_RENAMING_GUIDE.txt`.
+
 ---
 
 ## 3. Step-by-Step Instructions for Working in this Project
@@ -117,7 +123,12 @@ Since local Gradle builds cannot be run, agents must perform rigorous static ver
    - Never stage scratch files, temporary Python scripts, or artifacts.
    - Use standard conventional commit format: `<type>(<scope>): <concise message>`.
 
-### 3.3 Component & Class Naming Conventions
+### 3.3 Component & Class Naming Conventions (Professional Naming Standard)
+
+> [!IMPORTANT]
+> **Strict Anti-Prefix Rule**: NEVER prefix new or refactored classes, composables, functions, or files with `Onyx`. Use descriptive, domain-specific names (`BrowserWebView`, `BrowserApplication`, `AppTopBar`, `PreferenceItem`, `CardContainer`, `DownloadEngineManager`).
+> Prepending marketing/brand names to internal symbols within the `com.onyx.browser.*` namespace is amateurish. All future contributions must adhere to clean Domain-Driven Design (DDD).
+
 Follow standardized architectural suffixes across all modules:
 
 | Component Type | Suffix Standard | Examples |
