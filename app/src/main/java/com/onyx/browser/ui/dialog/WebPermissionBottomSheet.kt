@@ -29,8 +29,8 @@ import androidx.compose.ui.unit.sp
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
-import com.onyx.browser.data.preferences.AccentColorManager
 import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 
 /**
