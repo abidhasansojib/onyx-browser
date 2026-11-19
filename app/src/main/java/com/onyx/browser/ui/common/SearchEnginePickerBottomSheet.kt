@@ -4,63 +4,165 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.onyx.browser.R
 import com.onyx.browser.data.model.SearchEngine
-import com.onyx.browser.databinding.BottomSheetSearchEnginePickerBinding
-import com.onyx.browser.databinding.ItemSearchEngineBinding
+import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.ui.theme.OnyxTheme
 
 class SearchEnginePickerBottomSheet : BottomSheetDialogFragment() {
-
-    private var _binding: BottomSheetSearchEnginePickerBinding? = null
-    private val binding get() = _binding!!
 
     var onSearchEngineSelected: ((SearchEngine) -> Unit)? = null
     private var currentEngine: SearchEngine = SearchEngine.GOOGLE
 
-    override fun onCreateView(i: LayoutInflater, c: ViewGroup?, s: Bundle?): View {
-        _binding = BottomSheetSearchEnginePickerBinding.inflate(i, c, false)
-        return binding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        val engines = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext()).getAllSearchEngines()
-        binding.rvSearchEngines.layoutManager = LinearLayoutManager(requireContext())
-        binding.rvSearchEngines.adapter = EngineAdapter(engines) { selected ->
-            onSearchEngineSelected?.invoke(selected)
-            dismiss()
-        }
-        binding.btnCancelSearchEngine.setOnClickListener { dismiss() }
-    }
-
-    fun setSelectedEngine(engine: SearchEngine) { currentEngine = engine }
-
-    private inner class EngineAdapter(
-        private val list: List<SearchEngine>,
-        private val onSelect: (SearchEngine) -> Unit
-    ) : RecyclerView.Adapter<EngineAdapter.ViewHolder>() {
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val b = ItemSearchEngineBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            return ViewHolder(b)
-        }
-        override fun onBindViewHolder(h: ViewHolder, pos: Int) = h.bind(list[pos])
-        override fun getItemCount() = list.size
-        inner class ViewHolder(private val b: ItemSearchEngineBinding) : RecyclerView.ViewHolder(b.root) {
-            fun bind(item: SearchEngine) {
-                b.tvEngineName.text = item.displayName
-                SearchEngineIconHelper.loadSearchEngineIcon(b.root.context, b.ivEngineIcon, item)
-                b.rbSelected.isChecked = (item.id == currentEngine.id)
-                b.root.setOnClickListener { onSelect(item) }
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    SearchEnginePickerContent()
+                }
             }
         }
     }
 
-    override fun onDestroyView() { super.onDestroyView(); _binding = null }
+    @Composable
+    private fun SearchEnginePickerContent() {
+        val context = LocalContext.current
+        val engines = remember { BrowserPreferences.getInstance(context).getAllSearchEngines() }
 
-    companion object { const val TAG = "SearchEnginePickerBottomSheet" }
+        Surface(
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+                    .navigationBarsPadding()
+            ) {
+                // Drag handle
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 16.dp)
+                        .size(width = 36.dp, height = 4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+
+                Text(
+                    text = stringResource(R.string.search_engine),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(engines) { item ->
+                        val isSelected = item.id == currentEngine.id
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    onSearchEngineSelected?.invoke(item)
+                                    dismiss()
+                                }
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val iconRes = when (item.id) {
+                                SearchEngine.ID_GOOGLE -> R.drawable.ic_brand_google
+                                SearchEngine.ID_DUCKDUCKGO -> R.drawable.ic_duckduckgo
+                                SearchEngine.ID_BING -> R.drawable.ic_bing
+                                SearchEngine.ID_BRAVE -> R.drawable.ic_brave
+                                SearchEngine.ID_ECOSIA -> R.drawable.ic_ecosia
+                                SearchEngine.ID_QWANT -> R.drawable.ic_qwant
+                                SearchEngine.ID_STARTPAGE -> R.drawable.ic_startpage
+                                SearchEngine.ID_YANDEX -> R.drawable.ic_yandex
+                                SearchEngine.ID_BAIDU -> R.drawable.ic_baidu
+                                SearchEngine.ID_YAHOO -> R.drawable.ic_yahoo
+                                else -> R.drawable.ic_search
+                            }
+
+                            Icon(
+                                painter = painterResource(iconRes),
+                                contentDescription = null,
+                                tint = androidx.compose.ui.graphics.Color.Unspecified,
+                                modifier = Modifier.size(24.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Text(
+                                text = item.displayName,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = {
+                                    onSearchEngineSelected?.invoke(item)
+                                    dismiss()
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                TextButton(
+                    onClick = { dismiss() },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        }
+    }
+
+    fun setSelectedEngine(engine: SearchEngine) {
+        currentEngine = engine
+    }
+
+    companion object {
+        const val TAG = "SearchEnginePickerBottomSheet"
+    }
 }
-
 
 typealias SearchEnginePickerDialog = SearchEnginePickerBottomSheet
