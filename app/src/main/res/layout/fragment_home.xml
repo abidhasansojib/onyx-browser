@@ -1,6 +1,125 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.compose.ui.platform.ComposeView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/composeHomeView"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent" />
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <!-- ── Guideline: hero section ends at 34% ───────────────────────── -->
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideCenter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintGuide_percent="0.34" />
+
+        <!-- ── Normal Mode: Onyx Logo ─────────────────────────────────────── -->
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/ivBrandLogo"
+            android:layout_width="180dp"
+            android:layout_height="58dp"
+            android:contentDescription="Onyx Browser"
+            app:srcCompat="@drawable/ic_logo_onyx"
+            app:tint="?attr/colorControlNormal"
+            app:layout_constraintBottom_toTopOf="@id/tvTagline"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_chainStyle="packed"
+            app:layout_constraintVertical_bias="0.75" />
+
+        <!-- ── Tagline ────────────────────────────────────────────────────── -->
+        <TextView
+            android:id="@+id/tvTagline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:letterSpacing="0.04"
+            android:text="@string/tagline_fast_and_private"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toTopOf="@id/guideCenter"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/ivBrandLogo" />
+
+        <!-- ── Incognito Header (shown when active tab is incognito) ──────── -->
+        <LinearLayout
+            android:id="@+id/incognitoHeader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@id/guideCenter"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:visibility="visible">
+
+            <!-- Incognito Hat + Glasses icon in tinted circle -->
+            <FrameLayout
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:background="@drawable/bg_circle_action">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/ivIncognitoLogo"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@string/incognito_mode"
+                    app:srcCompat="@drawable/ic_incognito"
+                    app:tint="?attr/colorControlNormal" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvIncognitoTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:letterSpacing="0.02"
+                android:text="@string/incognito_mode"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvIncognitoTagline"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:maxWidth="300dp"
+                android:text="@string/incognito_privacy_desc"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- ── Unified Shortcuts Grid ────────────────────────────────────── -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvShortcuts"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="36dp"
+            android:elevation="0dp"
+            android:nestedScrollingEnabled="false"
+            android:overScrollMode="never"
+            android:padding="6dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/guideCenter"
+            app:layout_constraintVertical_bias="0.0"
+            app:layout_constraintWidth_max="480dp" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.core.widget.NestedScrollView>

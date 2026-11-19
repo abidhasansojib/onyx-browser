@@ -17,8 +17,8 @@
 
     <FrameLayout
         android:id="@+id/flIconContainer"
-        android:layout_width="54dp"
-        android:layout_height="54dp"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
         android:background="@drawable/bg_box_tile">
 
         <androidx.appcompat.widget.AppCompatImageView

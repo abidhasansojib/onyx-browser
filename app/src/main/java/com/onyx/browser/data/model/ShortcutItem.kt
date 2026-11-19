@@ -110,10 +110,10 @@ data class ShortcutItem(
                     iconType = ICON_GITHUB
                 ),
                 ShortcutItem(
-                    id = "default_wiki",
-                    title = "Wikipedia",
-                    url = "https://www.wikipedia.org",
-                    iconType = ICON_WIKIPEDIA
+                    id = "default_facebook",
+                    title = "Facebook",
+                    url = "https://www.facebook.com",
+                    iconType = ICON_FACEBOOK
                 )
             )
         }
