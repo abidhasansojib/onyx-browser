@@ -23,8 +23,8 @@ import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.web.UserAgentManager
 import com.onyx.browser.web.UserAgentTemplate
 
-class UserAgentPickerBottomSheet(
-    private val onUserAgentChanged: (String) -> Unit
+class UserAgentPickerBottomSheet @JvmOverloads constructor(
+    private var onUserAgentChanged: ((String) -> Unit)? = null
 ) : BottomSheetDialogFragment() {
 
     companion object {
@@ -53,11 +53,34 @@ class UserAgentPickerBottomSheet(
         super.onViewCreated(view, savedInstanceState)
         preferences = BrowserPreferences.getInstance(requireContext())
 
+        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
+        if (isAmoled) {
+            binding.root.setBackgroundColor(0xFF000000.toInt())
+        }
+
         setupCustomCard()
         setupTemplatesList()
 
         binding.btnDismiss.setOnClickListener {
             dismiss()
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        dialog?.window?.let { window ->
+            val isDark = preferences.isDarkMode()
+            val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
+            val canvasColor = if (isAmoled) {
+                0xFF000000.toInt()
+            } else if (isDark) {
+                0xFF161616.toInt()
+            } else {
+                0xFFF1F3F4.toInt()
+            }
+            window.navigationBarColor = canvasColor
+            val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+            controller.isAppearanceLightNavigationBars = !isDark
         }
     }
 
@@ -70,6 +93,12 @@ class UserAgentPickerBottomSheet(
         binding.tvCustomActiveBadge.setTextColor(colorActive)
         binding.cardCustomUa.strokeColor = if (isCustomActive) colorActive else colorCardStroke
         binding.cardCustomUa.strokeWidth = dpToPx(if (isCustomActive) 2 else 1)
+
+        binding.cardCustomUa.setOnClickListener {
+            binding.etCustomUa.requestFocus()
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+            imm?.showSoftInput(binding.etCustomUa, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }
 
         binding.tilCustomUa.boxStrokeColor = colorActive
         binding.tilCustomUa.hintTextColor = ColorStateList.valueOf(colorActive)
@@ -86,6 +115,15 @@ class UserAgentPickerBottomSheet(
 
         binding.etCustomUa.addTextChangedListener {
             binding.tilCustomUa.error = null
+        }
+
+        binding.etCustomUa.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                binding.btnApplyCustomUa.performClick()
+                true
+            } else {
+                false
+            }
         }
 
         binding.btnPasteUa.setOnClickListener {
@@ -114,7 +152,7 @@ class UserAgentPickerBottomSheet(
 
             preferences.customUserAgent = customText
             preferences.userAgentSpoofTemplate = UserAgentManager.KEY_CUSTOM
-            onUserAgentChanged(UserAgentManager.KEY_CUSTOM)
+            onUserAgentChanged?.invoke(UserAgentManager.KEY_CUSTOM)
             Toast.makeText(requireContext(), "Custom User-Agent applied", Toast.LENGTH_SHORT).show()
             dismiss()
         }
@@ -126,7 +164,7 @@ class UserAgentPickerBottomSheet(
 
         val adapter = UserAgentAdapter(templates, preferences.userAgentSpoofTemplate) { selectedTemplate ->
             preferences.userAgentSpoofTemplate = selectedTemplate.key
-            onUserAgentChanged(selectedTemplate.key)
+            onUserAgentChanged?.invoke(selectedTemplate.key)
             Toast.makeText(requireContext(), "${selectedTemplate.title} applied", Toast.LENGTH_SHORT).show()
             dismiss()
         }

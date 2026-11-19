@@ -135,7 +135,7 @@ Follow standardized architectural suffixes across all modules:
 | :--- | :--- | :--- |
 | **Lifecycle & Navigation Orchestrators** | `*Coordinator` | `BrowserMenuCoordinator`, `WebContextMenuCoordinator`, `NavigationCoordinator`, `TabCoordinator`, `PageExportCoordinator`, `FileChooserCoordinator`, `WebChromeCoordinator` |
 | **Bound UI / View State Controllers** | `*Controller` | `ToolbarLayoutController`, `SearchController`, `FindInPageController`, `HomeScreenController`, `PipController` |
-| **Modal Sheets** | `*BottomSheet` | `MenuBottomSheet`, `SiteShieldBottomSheet`, `WebPermissionBottomSheet`, `ClearOnExitBottomSheet`, `InstallUserScriptBottomSheet`, `ThemePickerBottomSheet` |
+| **Modal Sheets** | `*BottomSheet` | `MenuBottomSheet`, `SiteShieldBottomSheet`, `WebPermissionBottomSheet`, `ClearOnExitBottomSheet`, `InstallUserScriptBottomSheet`, `ThemePickerBottomSheet`, `UserAgentPickerBottomSheet` |
 | **JavaScript Bridges** | `*Bridge` | `ShieldBridge`, `FormBridge`, `BlobBridge`, `TouchBridge`, `NotificationBridge`, `PasskeyWebAuthnBridge`, `RegexFindBridge` |
 | **Domain Preferences** | `*Preferences` | `AppearancePreferences`, `ShieldPreferences`, `MediaAndDownloadPreferences`, `SearchPreferences` |
 | **Data Repositories** | `*Repository` | `HistoryRepository`, `BookmarkRepository`, `DownloadRepository`, `SitePermissionRepository` |

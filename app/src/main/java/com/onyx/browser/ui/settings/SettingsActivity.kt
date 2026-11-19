@@ -1,7 +1,7 @@
 package com.onyx.browser.ui.settings
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -26,33 +26,28 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.components.PreferenceItem
-import com.onyx.browser.ui.components.RadioPreference
-import com.onyx.browser.ui.components.AppTopBar
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.update.AppUpdateManager
 import com.onyx.browser.web.UserAgentManager
 
-class SettingsActivity : ComponentActivity() {
+class SettingsActivity : AppCompatActivity() {
 
     private lateinit var preferences: BrowserPreferences
 
@@ -63,9 +58,8 @@ class SettingsActivity : ComponentActivity() {
     private var aboutSubtitle by mutableStateOf("")
     private var hasUpdateBadge by mutableStateOf(false)
 
-    private var showUaPicker by mutableStateOf(false)
-
     override fun onCreate(savedInstanceState: Bundle?) {
+        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -94,7 +88,11 @@ class SettingsActivity : ComponentActivity() {
                     onAccessibilityClick = { SettingsNavigator.navigate(this, SettingsDestination.ACCESSIBILITY) },
                     onShieldsClick = { SettingsNavigator.navigate(this, SettingsDestination.SHIELDS) },
                     userAgentText = userAgentText,
-                    onUserAgentClick = { showUaPicker = true },
+                    onUserAgentClick = {
+                        UserAgentPickerBottomSheet { selectedKey ->
+                            userAgentText = UserAgentManager.getDisplayName(selectedKey, preferences)
+                        }.show(supportFragmentManager, UserAgentPickerBottomSheet.TAG)
+                    },
                     onSitePermissionsClick = { SettingsNavigator.navigate(this, SettingsDestination.SITE_SETTINGS) },
                     userScriptsStatus = userScriptsStatus,
                     onUserScriptsClick = { SettingsNavigator.navigate(this, SettingsDestination.USER_SCRIPTS) },
@@ -102,18 +100,6 @@ class SettingsActivity : ComponentActivity() {
                     hasUpdateBadge = hasUpdateBadge,
                     onAboutClick = { SettingsNavigator.navigate(this, SettingsDestination.ABOUT) }
                 )
-
-                if (showUaPicker) {
-                    UserAgentPickerSheet(
-                        currentTemplate = preferences.userAgentSpoofTemplate,
-                        onSelectTemplate = { template ->
-                            preferences.userAgentSpoofTemplate = template
-                            userAgentText = UserAgentManager.getDisplayName(template, preferences)
-                            showUaPicker = false
-                        },
-                        onDismiss = { showUaPicker = false }
-                    )
-                }
             }
         }
     }
@@ -293,53 +279,6 @@ fun SettingsScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun UserAgentPickerSheet(
-    currentTemplate: String,
-    onSelectTemplate: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    val templates = listOf(
-        UserAgentManager.KEY_DEFAULT to "Default (Android Chrome)",
-        UserAgentManager.KEY_WINDOWS_CHROME to "Desktop (Chrome Windows)",
-        UserAgentManager.KEY_IPHONE to "Mobile (Safari iPhone)",
-        UserAgentManager.KEY_MACOS_SAFARI to "Desktop (Safari macOS)",
-        UserAgentManager.KEY_WINDOWS_FIREFOX to "Desktop (Firefox Windows)"
-    )
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
-        ) {
-            Text(
-                text = "User-Agent Identity",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            templates.forEach { (template, name) ->
-                RadioPreference(
-                    title = name,
-                    selected = template == currentTemplate,
-                    onClick = { onSelectTemplate(template) }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
 
 @Composable
 private fun CategoryHeader(title: String) {
