@@ -72,7 +72,7 @@ class EditShortcutDialog @JvmOverloads constructor(
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
+            tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(

@@ -55,7 +55,7 @@ class DownloadManagerPickerBottomSheet @JvmOverloads constructor(
         Surface(
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 4.dp,
+            tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(

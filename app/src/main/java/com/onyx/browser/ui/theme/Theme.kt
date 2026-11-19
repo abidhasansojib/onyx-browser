@@ -28,7 +28,8 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = DarkTextPrimary,
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = DarkTextSecondary,
-    outline = DarkOutline
+    outline = DarkOutline,
+    surfaceTint = androidx.compose.ui.graphics.Color.Transparent
 )
 
 private val AmoledColorScheme = darkColorScheme(
@@ -44,7 +45,8 @@ private val AmoledColorScheme = darkColorScheme(
     onSurface = DarkTextPrimary,
     surfaceVariant = AmoledSurfaceVariant,
     onSurfaceVariant = DarkTextSecondary,
-    outline = AmoledOutline
+    outline = AmoledOutline,
+    surfaceTint = androidx.compose.ui.graphics.Color.Transparent
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -60,7 +62,8 @@ private val LightColorScheme = lightColorScheme(
     onSurface = LightTextPrimary,
     surfaceVariant = LightSurfaceVariant,
     onSurfaceVariant = LightTextSecondary,
-    outline = LightOutline
+    outline = LightOutline,
+    surfaceTint = androidx.compose.ui.graphics.Color.Transparent
 )
 
 @Composable
@@ -92,7 +95,8 @@ fun OnyxTheme(
     val colorScheme = baseScheme.copy(
         primary = effectiveAccent,
         secondary = effectiveAccent,
-        primaryContainer = effectiveAccent.copy(alpha = 0.2f)
+        primaryContainer = effectiveAccent.copy(alpha = 0.2f),
+        surfaceTint = androidx.compose.ui.graphics.Color.Transparent
     )
 
     val view = LocalView.current

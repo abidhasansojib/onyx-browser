@@ -118,8 +118,8 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
 
         Surface(
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            color = MaterialTheme.colorScheme.background,
-            tonalElevation = 4.dp,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(

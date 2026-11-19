@@ -415,7 +415,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         onDismissRequest = { selectedTabForMenu = null },
                         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                         containerColor = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 6.dp
+                        tonalElevation = 0.dp
                     ) {
                         Column(
                             modifier = Modifier
@@ -658,7 +658,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                     modifier = Modifier.width(220.dp),
                     shape = RoundedCornerShape(14.dp),
                     containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 6.dp,
+                    tonalElevation = 0.dp,
                     shadowElevation = 12.dp,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {

@@ -188,7 +188,7 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            tonalElevation = 6.dp,
+            tonalElevation = 0.dp,
             shadowElevation = 12.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -251,7 +251,7 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                         shape = RoundedCornerShape(16.dp),
                         containerColor = MaterialTheme.colorScheme.surface,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                        tonalElevation = 6.dp,
+                        tonalElevation = 0.dp,
                         shadowElevation = 8.dp
                     ) {
                         timeRanges.forEachIndexed { index, text ->

@@ -1401,7 +1401,8 @@ fun DownloadItemOptionsMenuSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -1633,7 +1634,8 @@ fun DownloadDetailsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp
     ) {
         Column(
             modifier = Modifier

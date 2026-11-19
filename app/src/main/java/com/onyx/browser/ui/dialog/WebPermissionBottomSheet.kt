@@ -105,8 +105,8 @@ class WebPermissionBottomSheet @JvmOverloads constructor(
     private fun WebPermissionSheetContent() {
         Surface(
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            color = MaterialTheme.colorScheme.background,
-            tonalElevation = 6.dp,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -147,7 +147,7 @@ class WebPermissionBottomSheet @JvmOverloads constructor(
                 val cleanHost = host.removePrefix("https://").removePrefix("http://").removePrefix("www.")
                 Surface(
                     shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surface,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
                     modifier = Modifier.padding(horizontal = 8.dp)
                 ) {
@@ -190,7 +190,7 @@ class WebPermissionBottomSheet @JvmOverloads constructor(
                 // 4. Informational Security Card
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surface,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
