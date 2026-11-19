@@ -24,6 +24,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -645,28 +646,121 @@ class TabSwitcherBottomSheet(
 
                 DropdownMenu(
                     expanded = overflowMenuExpanded,
-                    onDismissRequest = onDismissOverflow
+                    onDismissRequest = onDismissOverflow,
+                    modifier = Modifier.width(220.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 6.dp,
+                    shadowElevation = 12.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.new_tab)) },
-                        onClick = onNewTabClick
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.new_incognito_tab)) },
-                        onClick = onNewIncognitoTabClick
-                    )
+                    // 1. New Tab
                     DropdownMenuItem(
                         text = {
                             Text(
-                                if (isViewingIncognito) stringResource(R.string.close_all_incognito_tabs)
-                                else stringResource(R.string.close_all_tabs)
+                                text = stringResource(R.string.new_tab),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_add),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                        modifier = Modifier.height(42.dp),
+                        onClick = onNewTabClick
+                    )
+
+                    // 2. New Incognito Tab
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = stringResource(R.string.new_incognito_tab),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_incognito),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                        modifier = Modifier.height(42.dp),
+                        onClick = onNewIncognitoTabClick
+                    )
+
+                    // Divider
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 3.dp),
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                    )
+
+                    // 3. Close All Tabs
+                    val closeAllTextColor = if (hasTabs) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    }
+                    val closeAllIconColor = if (hasTabs) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    }
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = if (isViewingIncognito) {
+                                    stringResource(R.string.close_all_incognito_tabs)
+                                } else {
+                                    stringResource(R.string.close_all_tabs)
+                                },
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                color = closeAllTextColor
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_tab_close),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = closeAllIconColor
                             )
                         },
                         enabled = hasTabs,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                        modifier = Modifier.height(42.dp),
                         onClick = onCloseAllTabsClick
                     )
+
+                    // 4. Delete Browsing Data
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.delete_browsing_data)) },
+                        text = {
+                            Text(
+                                text = stringResource(R.string.delete_browsing_data),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_delete),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                        modifier = Modifier.height(42.dp),
                         onClick = onClearBrowsingDataClick
                     )
                 }
