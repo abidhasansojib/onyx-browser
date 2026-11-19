@@ -189,7 +189,7 @@ onyx-browser/
 │   │   │   │   ├── common/         # Common UI dialogs and pickers
 │   │   │   │   ├── downloads/      # Download list UI and sheets
 │   │   │   │   ├── home/           # Homepage shortcuts and quick actions
-│   │   │   │   ├── menu/           # MenuBottomSheet, SiteShieldBottomSheet, ImageSearchPickerBottomSheet
+│   │   │   │   ├── menu/           # MenuBottomSheet, SiteShieldBottomSheet, ImageSearchPickerBottomSheet, ElementPickerManager
 │   │   │   │   ├── settings/       # Settings activities partitioned by feature domain
 │   │   │   │   │   ├── appearance/ # AppearanceActivity, AddressBarSettingsActivity, ThemePickerBottomSheet
 │   │   │   │   │   ├── shields/    # ShieldsActivity, ContentFiltersActivity, filter sheets

@@ -1351,6 +1351,9 @@ open class BrowserWebViewClient(
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
+        if (com.onyx.browser.ui.menu.ElementPickerManager.isPickerActive) {
+            com.onyx.browser.ui.menu.ElementPickerManager.resetPickerState()
+        }
         val onyxWv = view as? BrowserWebView
         if (onyxWv?.isLoadingSyntheticPage == true) {
             // This onPageStarted event was triggered by loading the synthetic error page.

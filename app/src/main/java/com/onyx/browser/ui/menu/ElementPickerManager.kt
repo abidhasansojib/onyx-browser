@@ -1,5 +1,6 @@
 package com.onyx.browser.ui.menu
 
+import android.os.Looper
 import android.webkit.WebView
 
 object ElementPickerManager {
@@ -14,7 +15,11 @@ object ElementPickerManager {
 
     private const val PICKER_SCRIPT = """
 (function() {
-    if (window.__onyx_picker_active) return;
+    if (window.__onyx_picker_active) {
+        if (typeof window.__onyx_picker_cleanup === 'function') {
+            try { window.__onyx_picker_cleanup(); } catch(_) {}
+        }
+    }
     window.__onyx_picker_active = true;
 
     // List of selected items: { element, selector, overlay, badge }
@@ -35,7 +40,7 @@ object ElementPickerManager {
     var bar = document.createElement('div');
     bar.id = '__onyx_picker_bar';
     bar.style.cssText =
-        'position: fixed !important; bottom: 20px !important; left: 50% !important; ' +
+        'position: fixed !important; bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important; left: 50% !important; ' +
         'transform: translateX(-50%) !important; z-index: 2147483647 !important; ' +
         'background: #202124 !important; color: #FFFFFF !important; ' +
         'padding: 8px 14px !important; border-radius: 28px !important; ' +
@@ -44,25 +49,74 @@ object ElementPickerManager {
         'display: flex !important; align-items: center !important; gap: 8px !important; ' +
         'font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif !important; ' +
         'font-size: 13px !important; white-space: nowrap !important; max-width: 95vw !important; ' +
-        'overflow-x: auto !important; -webkit-overflow-scrolling: touch !important;';
+        'overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; ' +
+        'pointer-events: auto !important; touch-action: manipulation !important;';
+
+    // Helper to test if element is part of the picker bar
+    function isBarElement(target) {
+        if (!target) return false;
+        try {
+            return target === bar || (bar && bar.contains(target));
+        } catch(_) {
+            return false;
+        }
+    }
+
+    // Stop events on the bar from propagating to page content
+    function stopBarEvent(e) {
+        if (e) {
+            e.stopPropagation();
+        }
+    }
+    bar.addEventListener('touchstart', stopBarEvent, { passive: true });
+    bar.addEventListener('touchmove', stopBarEvent, { passive: true });
+    bar.addEventListener('touchend', stopBarEvent, { passive: false });
+    bar.addEventListener('click', stopBarEvent);
 
     var infoSpan = document.createElement('span');
     infoSpan.id = '__onyx_picker_info';
     infoSpan.textContent = 'Tap elements to block';
     infoSpan.style.cssText =
         'overflow: hidden; text-overflow: ellipsis; max-width: 120px; flex-shrink: 1; ' +
-        'font-weight: 500; color: #E8EAED;';
+        'font-weight: 500; color: #E8EAED; user-select: none; -webkit-user-select: none;';
     bar.appendChild(infoSpan);
 
     function makeBtn(label, bg, color, border) {
         var b = document.createElement('button');
+        b.type = 'button';
         b.textContent = label;
         b.style.cssText =
-            'padding: 6px 12px; background: ' + bg + '; color: ' + color + '; ' +
-            'border: ' + (border || 'none') + '; border-radius: 16px; ' +
-            'font-size: 12px; font-weight: 500; cursor: pointer; flex-shrink: 0; outline: none; ' +
-            'user-select: none; -webkit-user-select: none; transition: background 0.15s, opacity 0.15s;';
+            'padding: 7px 13px !important; min-height: 36px !important; background: ' + bg + ' !important; color: ' + color + ' !important; ' +
+            'border: ' + (border || 'none') + ' !important; border-radius: 18px !important; ' +
+            'font-size: 12px !important; font-weight: 500 !important; cursor: pointer !important; flex-shrink: 0 !important; outline: none !important; ' +
+            'user-select: none !important; -webkit-user-select: none !important; ' +
+            'pointer-events: auto !important; touch-action: manipulation !important; ' +
+            'transition: background 0.15s, opacity 0.15s !important;';
         return b;
+    }
+
+    // Helper to bind touches and clicks reliably on mobile devices without synthetic delay or cancellation
+    function bindBtn(btn, action) {
+        var lastTrigger = 0;
+        function trigger(e) {
+            var now = Date.now();
+            if (now - lastTrigger < 350) {
+                if (e) {
+                    if (e.cancelable) e.preventDefault();
+                    e.stopPropagation();
+                }
+                return;
+            }
+            lastTrigger = now;
+            if (e) {
+                if (e.cancelable) e.preventDefault();
+                e.stopPropagation();
+            }
+            action();
+        }
+        btn.addEventListener('touchend', trigger, { passive: false });
+        btn.addEventListener('click', trigger, true);
+        btn.addEventListener('pointerup', trigger, true);
     }
 
     var cancelBtn  = makeBtn('Cancel', 'transparent', '#E8EAED', '1px solid #5F6368');
@@ -89,7 +143,7 @@ object ElementPickerManager {
         return str.replace(/([\u0000-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u009F])/g, '\\$1');
     }
 
-    var DYNAMIC_ID = /^[0-9]|[\:\.\[\]\{\}@,!%^&*()+=~|<>?/\\'"`;]/;
+    var DYNAMIC_ID = /[^a-zA-Z0-9_-]/;
     var NOISY_CLASS = /^(flex|grid|block|inline|relative|absolute|fixed|sticky|container|col-|row-|w-|h-|p-|m-|gap-|text-|bg-|border-|dark:|sm:|md:|lg:|xl:|css-|sc-)/;
 
     // ── Robust Selector Generator ─────────────────────────────────────────────
@@ -224,7 +278,7 @@ object ElementPickerManager {
 
     // ── Add or Toggle Element Selection ───────────────────────────────────────
     function toggleElementSelection(el) {
-        if (!el || el === overlayRoot || overlayRoot.contains(el) || el === bar || bar.contains(el)) return;
+        if (!el || el === overlayRoot || overlayRoot.contains(el) || isBarElement(el)) return;
 
         // Check if clicked element (or its ancestor/descendant) is already selected
         var existingIdx = -1;
@@ -289,11 +343,11 @@ object ElementPickerManager {
     }
 
     // ── Wider Button Action ───────────────────────────────────────────────────
-    widerBtn.onclick = function(e) {
-        e.preventDefault(); e.stopPropagation();
-        if (selectedItems.length === 0) return;
+    bindBtn(widerBtn, function() {
+        if (widerBtn.disabled || selectedItems.length === 0) return;
         var idx = (focusedIndex >= 0 && focusedIndex < selectedItems.length) ? focusedIndex : selectedItems.length - 1;
         var currentItem = selectedItems[idx];
+        if (!currentItem) return;
         var parent = currentItem.element.parentElement;
         if (parent && parent !== document.body && parent !== document.documentElement) {
             currentItem.element = parent;
@@ -301,12 +355,11 @@ object ElementPickerManager {
             updateOverlayPositions();
             updateBarState();
         }
-    };
+    });
 
     // ── Preview Button Action ─────────────────────────────────────────────────
-    previewBtn.onclick = function(e) {
-        e.preventDefault(); e.stopPropagation();
-        if (selectedItems.length === 0) return;
+    bindBtn(previewBtn, function() {
+        if (previewBtn.disabled || selectedItems.length === 0) return;
 
         isPreviewActive = !isPreviewActive;
         var existingPreview = document.getElementById('__onyx_preview_style');
@@ -332,12 +385,11 @@ object ElementPickerManager {
             overlayRoot.style.display = 'block';
             updateOverlayPositions();
         }
-    };
+    });
 
     // ── Block Button Action ───────────────────────────────────────────────────
-    blockBtn.onclick = function(e) {
-        e.preventDefault(); e.stopPropagation();
-        if (selectedItems.length === 0) return;
+    bindBtn(blockBtn, function() {
+        if (blockBtn.disabled || selectedItems.length === 0) return;
 
         var prev = document.getElementById('__onyx_preview_style');
         if (prev) prev.remove();
@@ -375,31 +427,45 @@ object ElementPickerManager {
         } catch(err) {}
 
         cleanup();
-    };
+    });
 
     // ── Cleanup ───────────────────────────────────────────────────────────────
     function cleanup() {
         window.__onyx_picker_active = false;
-        window.removeEventListener('scroll', updateOverlayPositions, true);
-        window.removeEventListener('resize', updateOverlayPositions);
-        document.removeEventListener('click', onDocClick, true);
-        document.removeEventListener('touchstart', onDocTouch, true);
+        window.__onyx_picker_cleanup = null;
 
-        var prev = document.getElementById('__onyx_preview_style');
-        if (prev) prev.remove();
+        try { window.removeEventListener('scroll', updateOverlayPositions, true); } catch(_) {}
+        try { window.removeEventListener('resize', updateOverlayPositions); } catch(_) {}
+        try { document.removeEventListener('click', onDocClick, true); } catch(_) {}
+        try { document.removeEventListener('touchstart', onDocTouchStart, true); } catch(_) {}
+        try { document.removeEventListener('touchmove', onDocTouchMove, true); } catch(_) {}
+        try { document.removeEventListener('touchend', onDocTouchEnd, true); } catch(_) {}
 
-        if (overlayRoot && overlayRoot.parentNode) overlayRoot.parentNode.removeChild(overlayRoot);
-        if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+        try {
+            var prev = document.getElementById('__onyx_preview_style');
+            if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+        } catch(_) {}
 
-        if (window.OnyxShieldBridge && window.OnyxShieldBridge.onPickerClosed) {
-            window.OnyxShieldBridge.onPickerClosed();
-        }
+        try {
+            if (overlayRoot && overlayRoot.parentNode) overlayRoot.parentNode.removeChild(overlayRoot);
+        } catch(_) {}
+
+        try {
+            if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+        } catch(_) {}
+
+        try {
+            if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.onPickerClosed === 'function') {
+                window.OnyxShieldBridge.onPickerClosed();
+            }
+        } catch(_) {}
     }
 
-    cancelBtn.onclick = function(e) {
-        e.preventDefault(); e.stopPropagation();
+    window.__onyx_picker_cleanup = cleanup;
+
+    bindBtn(cancelBtn, function() {
         cleanup();
-    };
+    });
 
     // ── Document Event Listeners ──────────────────────────────────────────────
     var touchStartX = 0;
@@ -407,6 +473,7 @@ object ElementPickerManager {
     var isTouchMoved = false;
 
     function onDocTouchStart(e) {
+        if (isBarElement(e.target)) return;
         if (!e.touches || e.touches.length === 0) return;
         var t = e.touches[0];
         touchStartX = t.clientX;
@@ -415,6 +482,7 @@ object ElementPickerManager {
     }
 
     function onDocTouchMove(e) {
+        if (isBarElement(e.target)) return;
         if (!e.touches || e.touches.length === 0) return;
         var t = e.touches[0];
         var dx = Math.abs(t.clientX - touchStartX);
@@ -425,24 +493,24 @@ object ElementPickerManager {
     }
 
     function onDocTouchEnd(e) {
+        if (isBarElement(e.target)) return;
         if (isTouchMoved) return;
         if (!e.changedTouches || e.changedTouches.length === 0) return;
         var t = e.changedTouches[0];
         var el = document.elementFromPoint(t.clientX, t.clientY);
-        if (el && !bar.contains(el)) {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleElementSelection(el);
-        }
+        if (!el || isBarElement(el)) return;
+        if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
+        toggleElementSelection(el);
     }
 
     function onDocClick(e) {
-        if (bar.contains(e.target)) return;
+        if (isBarElement(e.target)) return;
         // Suppress synthetic clicks on touch-capable screens to prevent double-toggle
         if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
             return;
         }
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         e.stopPropagation();
         toggleElementSelection(e.target);
     }
@@ -456,14 +524,24 @@ object ElementPickerManager {
 
     fun startPicker(webView: WebView) {
         isPickerActive = true
-        webView.evaluateJavascript(PICKER_SCRIPT, null)
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            webView.evaluateJavascript(PICKER_SCRIPT, null)
+        } else {
+            webView.post { webView.evaluateJavascript(PICKER_SCRIPT, null) }
+        }
     }
 
     fun cancelPicker(webView: WebView) {
         isPickerActive = false
         val cancelScript = """
 (function() {
+    try {
+        if (typeof window.__onyx_picker_cleanup === 'function') {
+            window.__onyx_picker_cleanup();
+        }
+    } catch(_) {}
     window.__onyx_picker_active = false;
+    window.__onyx_picker_cleanup = null;
     var root = document.getElementById('__onyx_picker_root');
     if (root && root.parentNode) root.parentNode.removeChild(root);
     var b = document.getElementById('__onyx_picker_bar');
@@ -474,6 +552,10 @@ object ElementPickerManager {
     if (oldH && oldH.parentNode) oldH.parentNode.removeChild(oldH);
 })();
 """
-        webView.evaluateJavascript(cancelScript, null)
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            webView.evaluateJavascript(cancelScript, null)
+        } else {
+            webView.post { webView.evaluateJavascript(cancelScript, null) }
+        }
     }
 }

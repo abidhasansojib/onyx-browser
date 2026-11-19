@@ -1065,6 +1065,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val activeTabId = tabManager.activeTab.value?.id
             val activeWebView = tabManager.getActiveWebView()
 
+            if (com.onyx.browser.ui.menu.ElementPickerManager.isPickerActive && activeWebView != null) {
+                com.onyx.browser.ui.menu.ElementPickerManager.cancelPicker(activeWebView)
+            }
+
             val sheet = TabSwitcherBottomSheet(
                 tabManager = tabManager,
                 coroutineScope = lifecycleScope,
@@ -1205,6 +1209,18 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         val previousTabId = currentDisplayedTabId
         val tabChanged = (previousTabId != tab.id)
         if (tabChanged) {
+            if (com.onyx.browser.ui.menu.ElementPickerManager.isPickerActive) {
+                if (previousTabId != null) {
+                    val outgoingWebView = tabManager.getWebView(previousTabId)
+                    if (outgoingWebView != null) {
+                        com.onyx.browser.ui.menu.ElementPickerManager.cancelPicker(outgoingWebView)
+                    } else {
+                        com.onyx.browser.ui.menu.ElementPickerManager.resetPickerState()
+                    }
+                } else {
+                    com.onyx.browser.ui.menu.ElementPickerManager.resetPickerState()
+                }
+            }
             if (previousTabId != null) {
                 val outgoingWebView = tabManager.getWebView(previousTabId)
                 if (outgoingWebView != null) {
