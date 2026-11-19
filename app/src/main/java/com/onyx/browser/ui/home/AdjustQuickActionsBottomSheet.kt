@@ -4,114 +4,204 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.onyx.browser.R
 import com.onyx.browser.data.model.QuickActionItem
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.DialogAdjustQuickActionsBinding
-import com.onyx.browser.databinding.ItemAdjustQuickActionBinding
+import com.onyx.browser.ui.theme.OnyxTheme
 import java.util.Collections
 
 class AdjustQuickActionsBottomSheet : BottomSheetDialogFragment() {
-
-    private var _binding: DialogAdjustQuickActionsBinding? = null
-    private val binding get() = _binding!!
-
-    private lateinit var preferences: BrowserPreferences
-    private val currentItems = mutableListOf<QuickActionItem>()
-    private lateinit var adapter: AdjustAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = DialogAdjustQuickActionsBinding.inflate(inflater, container, false)
-        return binding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        preferences = BrowserPreferences.getInstance(requireContext())
-
-        val currentOrder = preferences.getQuickActionOrder()
-        currentItems.clear()
-        currentItems.addAll(QuickActionItem.getOrderedItems(currentOrder))
-
-        adapter = AdjustAdapter()
-        binding.rvAdjustActions.layoutManager = LinearLayoutManager(requireContext())
-        binding.rvAdjustActions.adapter = adapter
-
-        binding.btnClose.setOnClickListener {
-            dismiss()
-        }
-
-        binding.btnDone.setOnClickListener {
-            saveAndDismiss()
-        }
-
-        binding.btnResetDefault.setOnClickListener {
-            currentItems.clear()
-            currentItems.addAll(QuickActionItem.getOrderedItems(QuickActionItem.DEFAULT_ORDER))
-            adapter.notifyDataSetChanged()
-            saveAndDismiss()
-        }
-    }
-
-    private fun saveAndDismiss() {
-        val newOrder = currentItems.map { it.id }
-        preferences.saveQuickActionOrder(newOrder)
-        dismiss()
-    }
-
-    inner class AdjustAdapter : RecyclerView.Adapter<AdjustAdapter.ViewHolder>() {
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val itemBinding = ItemAdjustQuickActionBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            return ViewHolder(itemBinding)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val item = currentItems[position]
-            holder.binding.ivIcon.setImageResource(item.iconRes)
-            holder.binding.tvTitle.setText(item.titleRes)
-
-            // Disable up arrow for first item
-            holder.binding.btnMoveUp.isEnabled = position > 0
-            holder.binding.btnMoveUp.alpha = if (position > 0) 1.0f else 0.3f
-
-            // Disable down arrow for last item
-            holder.binding.btnMoveDown.isEnabled = position < currentItems.size - 1
-            holder.binding.btnMoveDown.alpha = if (position < currentItems.size - 1) 1.0f else 0.3f
-
-            holder.binding.btnMoveUp.setOnClickListener {
-                if (position > 0) {
-                    Collections.swap(currentItems, position, position - 1)
-                    notifyItemMoved(position, position - 1)
-                    notifyItemRangeChanged(position - 1, 2)
-                    preferences.saveQuickActionOrder(currentItems.map { it.id })
-                }
-            }
-
-            holder.binding.btnMoveDown.setOnClickListener {
-                if (position < currentItems.size - 1) {
-                    Collections.swap(currentItems, position, position + 1)
-                    notifyItemMoved(position, position + 1)
-                    notifyItemRangeChanged(position, 2)
-                    preferences.saveQuickActionOrder(currentItems.map { it.id })
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    AdjustQuickActionsContent()
                 }
             }
         }
-
-        override fun getItemCount(): Int = currentItems.size
-
-        inner class ViewHolder(val binding: ItemAdjustQuickActionBinding) : RecyclerView.ViewHolder(binding.root)
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    @Composable
+    private fun AdjustQuickActionsContent() {
+        val prefs = remember { BrowserPreferences.getInstance(requireContext()) }
+        val currentOrder = remember { prefs.getQuickActionOrder() }
+        val itemsList = remember {
+            mutableStateListOf<QuickActionItem>().apply {
+                addAll(QuickActionItem.getOrderedItems(currentOrder))
+            }
+        }
+
+        Surface(
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+                    .navigationBarsPadding()
+            ) {
+                // Drag handle
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 16.dp)
+                        .size(width = 36.dp, height = 4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Customize Quick Actions",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    TextButton(
+                        onClick = {
+                            itemsList.clear()
+                            itemsList.addAll(QuickActionItem.getOrderedItems(QuickActionItem.DEFAULT_ORDER))
+                            prefs.saveQuickActionOrder(QuickActionItem.DEFAULT_ORDER)
+                            dismiss()
+                        }
+                    ) {
+                        Text("Reset")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    itemsIndexed(itemsList) { index, item ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(item.iconRes),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                Text(
+                                    text = item.title,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                // Move Up
+                                IconButton(
+                                    onClick = {
+                                        if (index > 0) {
+                                            Collections.swap(itemsList, index, index - 1)
+                                        }
+                                    },
+                                    enabled = index > 0
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowUpward,
+                                        contentDescription = "Move Up",
+                                        tint = if (index > 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                // Move Down
+                                IconButton(
+                                    onClick = {
+                                        if (index < itemsList.size - 1) {
+                                            Collections.swap(itemsList, index, index + 1)
+                                        }
+                                    },
+                                    enabled = index < itemsList.size - 1
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDownward,
+                                        contentDescription = "Move Down",
+                                        tint = if (index < itemsList.size - 1) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = { dismiss() }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            val newOrder = itemsList.map { it.id }
+                            prefs.saveQuickActionOrder(newOrder)
+                            dismiss()
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(R.string.save))
+                    }
+                }
+            }
+        }
     }
 
     companion object {

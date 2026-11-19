@@ -1,215 +1,390 @@
 package com.onyx.browser.ui.home
 
-import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.inputmethod.InputMethodManager
-import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.widget.AppCompatImageView
-import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.google.android.material.color.MaterialColors
 import com.onyx.browser.R
 import com.onyx.browser.data.model.ShortcutItem
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.BottomSheetManageShortcutsBinding
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
+import com.onyx.browser.ui.theme.OnyxTheme
 
 class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
-
-    private var _binding: BottomSheetManageShortcutsBinding? = null
-    private val binding get() = _binding!!
-
-    private lateinit var preferences: BrowserPreferences
-    private lateinit var adapter: ManageShortcutsAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = BottomSheetManageShortcutsBinding.inflate(inflater, container, false)
-        return binding.root
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    ManageShortcutsContent()
+                }
+            }
+        }
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        preferences = BrowserPreferences.getInstance(requireContext())
+    @Composable
+    private fun ManageShortcutsContent() {
+        val context = LocalContext.current
+        val prefs = remember { BrowserPreferences.getInstance(context) }
+        val shortcuts by prefs.shortcutsFlow.collectAsStateWithLifecycle(initialValue = prefs.getShortcuts())
 
-        adapter = ManageShortcutsAdapter(
-            onEditClick = { shortcut ->
-                showEditDialog(shortcut)
-            },
-            onDeleteClick = { shortcut ->
-                preferences.deleteShortcut(shortcut.id)
-                Toast.makeText(requireContext(), R.string.shortcut_deleted, Toast.LENGTH_SHORT).show()
-            }
-        )
+        var newTitle by remember { mutableStateOf("") }
+        var newUrl by remember { mutableStateOf("") }
+        var urlError by remember { mutableStateOf<String?>(null) }
 
-        binding.rvManageShortcuts.layoutManager = LinearLayoutManager(requireContext())
-        binding.rvManageShortcuts.adapter = adapter
+        val suggestedItems = remember {
+            listOf(
+                Triple("Google", "https://www.google.com", ShortcutItem.ICON_GOOGLE),
+                Triple("YouTube", "https://www.youtube.com", ShortcutItem.ICON_YOUTUBE),
+                Triple("GitHub", "https://github.com", ShortcutItem.ICON_GITHUB),
+                Triple("Wikipedia", "https://www.wikipedia.org", ShortcutItem.ICON_WIKIPEDIA),
+                Triple("Facebook", "https://www.facebook.com", ShortcutItem.ICON_FACEBOOK),
+                Triple("Reddit", "https://www.reddit.com", ShortcutItem.ICON_REDDIT),
+                Triple("X (Twitter)", "https://x.com", ShortcutItem.DEFAULT_ICON),
+                Triple("Instagram", "https://www.instagram.com", ShortcutItem.DEFAULT_ICON),
+                Triple("Amazon", "https://www.amazon.com", ShortcutItem.DEFAULT_ICON),
+                Triple("Netflix", "https://www.netflix.com", ShortcutItem.DEFAULT_ICON)
+            )
+        }
 
-        // ── Drag-to-reorder support ───────────────────────────────────────
-        val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
-            ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
+        Surface(
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            override fun onMove(
-                rv: RecyclerView,
-                vh: RecyclerView.ViewHolder,
-                target: RecyclerView.ViewHolder
-            ): Boolean {
-                val from = vh.bindingAdapterPosition
-                val to = target.bindingAdapterPosition
-                if (from != RecyclerView.NO_POSITION && to != RecyclerView.NO_POSITION) {
-                    adapter.moveItem(from, to)
-                }
-                return true
-            }
-
-            override fun onSwiped(vh: RecyclerView.ViewHolder, dir: Int) {
-                // Swipe-to-dismiss not used
-            }
-
-            override fun clearView(rv: RecyclerView, vh: RecyclerView.ViewHolder) {
-                super.clearView(rv, vh)
-                // Persist the new order after the drag gesture ends
-                preferences.saveShortcuts(adapter.getItems())
-            }
-        })
-        touchHelper.attachToRecyclerView(binding.rvManageShortcuts)
-        // Give the adapter a reference so drag handles can initiate drags
-        adapter.touchHelper = touchHelper
-
-        binding.btnClose.setOnClickListener {
-            dismiss()
-        }
-
-        binding.btnAddNewShortcut.setOnClickListener {
-            addNewShortcut()
-        }
-
-        binding.btnAdjustQuickActions.setOnClickListener {
-            // val adjustSheet = AdjustQuickActionsBottomSheet()
-            // adjustSheet.show(parentFragmentManager, AdjustQuickActionsBottomSheet.TAG)
-        }
-
-        // Populate suggested shortcuts horizontal row
-        populateSuggestedShortcuts()
-
-        lifecycleScope.launch {
-            preferences.shortcutsFlow.collectLatest { list ->
-                adapter.submitList(list)
-                binding.tvShortcutsCount.text = "MY SHORTCUTS (${list.size})"
-            }
-        }
-    }
-
-    private fun populateSuggestedShortcuts() {
-        val suggestedItems = listOf(
-            Triple("Google", "https://www.google.com", ShortcutItem.ICON_GOOGLE),
-            Triple("YouTube", "https://www.youtube.com", ShortcutItem.ICON_YOUTUBE),
-            Triple("GitHub", "https://github.com", ShortcutItem.ICON_GITHUB),
-            Triple("Wikipedia", "https://www.wikipedia.org", ShortcutItem.ICON_WIKIPEDIA),
-            Triple("Facebook", "https://www.facebook.com", ShortcutItem.ICON_FACEBOOK),
-            Triple("Reddit", "https://www.reddit.com", ShortcutItem.ICON_REDDIT),
-            Triple("X (Twitter)", "https://x.com", ShortcutItem.DEFAULT_ICON),
-            Triple("Instagram", "https://www.instagram.com", ShortcutItem.DEFAULT_ICON),
-            Triple("Amazon", "https://www.amazon.com", ShortcutItem.DEFAULT_ICON),
-            Triple("Netflix", "https://www.netflix.com", ShortcutItem.DEFAULT_ICON)
-        )
-        val inflater = LayoutInflater.from(requireContext())
-        suggestedItems.forEach { (title, url, iconType) ->
-            val itemView = inflater.inflate(R.layout.item_suggested_shortcut, binding.llSuggestedShortcuts, false)
-            val iv = itemView.findViewById<AppCompatImageView>(R.id.ivSuggestedIcon)
-            val tv = itemView.findViewById<TextView>(R.id.tvSuggestedTitle)
-            tv.text = title
-            // Map icon type to drawable
-            val iconRes = when (iconType) {
-                ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
-                ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
-                ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
-                ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
-                ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
-                ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
-                else -> R.drawable.ic_web
-            }
-            iv.setImageResource(iconRes)
-            if (iconType == ShortcutItem.DEFAULT_ICON) {
-                iv.imageTintList = android.content.res.ColorStateList.valueOf(
-                    MaterialColors.getColor(iv, android.R.attr.textColorSecondary)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+                    .navigationBarsPadding()
+            ) {
+                // Drag handle
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 16.dp)
+                        .size(width = 36.dp, height = 4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
                 )
-            }
-            itemView.setOnClickListener {
-                val existing = preferences.getShortcuts()
-                if (existing.any { it.url == url }) {
-                    Toast.makeText(requireContext(), "Already in shortcuts", Toast.LENGTH_SHORT).show()
-                } else {
-                    preferences.addShortcut(ShortcutItem(title = title, url = url, iconType = iconType))
-                    Toast.makeText(requireContext(), "$title added", Toast.LENGTH_SHORT).show()
+
+                Text(
+                    text = "Manage Shortcuts",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Add New Shortcut Section
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            text = "Add Shortcut",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        OutlinedTextField(
+                            value = newTitle,
+                            onValueChange = { newTitle = it },
+                            label = { Text("Name (optional)") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedTextField(
+                            value = newUrl,
+                            onValueChange = {
+                                newUrl = it
+                                urlError = null
+                            },
+                            label = { Text("URL (e.g. example.com)") },
+                            isError = urlError != null,
+                            supportingText = urlError?.let { { Text(it) } },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Button(
+                            onClick = {
+                                val trimmedUrl = newUrl.trim()
+                                if (trimmedUrl.isBlank()) {
+                                    urlError = "URL cannot be empty"
+                                    return@Button
+                                }
+
+                                val validUrl = if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+                                    "https://$trimmedUrl"
+                                } else {
+                                    trimmedUrl
+                                }
+
+                                val finalTitle = newTitle.trim().ifBlank {
+                                    try {
+                                        android.net.Uri.parse(validUrl).host?.removePrefix("www.") ?: validUrl
+                                    } catch (_: Exception) {
+                                        validUrl
+                                    }
+                                }
+
+                                prefs.addShortcut(ShortcutItem(title = finalTitle, url = validUrl))
+                                newTitle = ""
+                                newUrl = ""
+                                Toast.makeText(context, "$finalTitle added", Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Add")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Suggestions Section
+                Text(
+                    text = "SUGGESTIONS",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(suggestedItems) { (title, url, iconType) ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    val existing = prefs.getShortcuts()
+                                    if (existing.any { it.url == url }) {
+                                        Toast.makeText(context, "Already in shortcuts", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        prefs.addShortcut(ShortcutItem(title = title, url = url, iconType = iconType))
+                                        Toast.makeText(context, "$title added", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val iconRes = when (iconType) {
+                                    ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
+                                    ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
+                                    ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
+                                    ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
+                                    ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
+                                    ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
+                                    else -> R.drawable.ic_web
+                                }
+
+                                Icon(
+                                    painter = painterResource(iconRes),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+
+                                Spacer(modifier = Modifier.width(6.dp))
+
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // My Shortcuts Header
+                Text(
+                    text = "MY SHORTCUTS (${shortcuts.size})",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Shortcuts List
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(shortcuts, key = { it.id }) { item ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val first = item.title.trim().firstOrNull()?.uppercase()
+                                    if (first != null && first.matches(Regex("[A-Za-z0-9]"))) {
+                                        Text(
+                                            text = first,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    } else {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_web),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.title,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = item.url,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        showEditDialog(item)
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        prefs.deleteShortcut(item.id)
+                                        Toast.makeText(context, R.string.shortcut_deleted, Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                TextButton(
+                    onClick = { dismiss() },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(stringResource(R.string.close))
                 }
             }
-            binding.llSuggestedShortcuts.addView(itemView)
         }
-    }
-
-    private fun addNewShortcut() {
-        val title = binding.etNewTitle.text?.toString()?.trim() ?: ""
-        var url = binding.etNewUrl.text?.toString()?.trim() ?: ""
-
-        if (url.isBlank()) {
-            binding.etNewUrl.error = getString(R.string.shortcut_url_hint)
-            binding.etNewUrl.requestFocus()
-            return
-        }
-
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "https://$url"
-        }
-
-        val displayTitle = if (title.isNotBlank()) title else {
-            try {
-                java.net.URI(url).host?.removePrefix("www.") ?: url
-            } catch (_: Exception) {
-                url
-            }
-        }
-
-        val iconType = ShortcutItem.inferIconType(url)
-        val newItem = ShortcutItem(
-            title = displayTitle,
-            url = url,
-            iconType = iconType
-        )
-
-        preferences.addShortcut(newItem)
-        binding.etNewTitle.text?.clear()
-        binding.etNewUrl.text?.clear()
-        binding.etNewUrl.error = null
-
-        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-        imm?.hideSoftInputFromWindow(binding.root.windowToken, 0)
-
-        Toast.makeText(requireContext(), R.string.shortcut_added, Toast.LENGTH_SHORT).show()
     }
 
     private fun showEditDialog(shortcut: ShortcutItem) {
         val dialog = EditShortcutDialog(shortcut) { updated ->
-            preferences.updateShortcut(updated)
+            val prefs = BrowserPreferences.getInstance(requireContext())
+            prefs.updateShortcut(updated)
             Toast.makeText(requireContext(), R.string.shortcut_updated, Toast.LENGTH_SHORT).show()
         }
         dialog.show(parentFragmentManager, EditShortcutDialog.TAG)
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     companion object {

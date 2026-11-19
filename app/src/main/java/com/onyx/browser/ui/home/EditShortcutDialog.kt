@@ -1,27 +1,35 @@
 package com.onyx.browser.ui.home
 
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.Window
-import androidx.core.widget.doAfterTextChanged
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.fragment.app.DialogFragment
-import com.google.android.material.color.MaterialColors
 import com.onyx.browser.R
 import com.onyx.browser.data.model.ShortcutItem
-import com.onyx.browser.databinding.DialogEditShortcutBinding
+import com.onyx.browser.ui.theme.OnyxTheme
 
 class EditShortcutDialog(
     private val shortcut: ShortcutItem,
     private val onShortcutSaved: (ShortcutItem) -> Unit
 ) : DialogFragment() {
-
-    private var _binding: DialogEditShortcutBinding? = null
-    private val binding get() = _binding!!
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,8 +42,158 @@ class EditShortcutDialog(
         savedInstanceState: Bundle?
     ): View {
         dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        _binding = DialogEditShortcutBinding.inflate(inflater, container, false)
-        return binding.root
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    EditShortcutContent()
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun EditShortcutContent() {
+        var title by remember { mutableStateOf(shortcut.title) }
+        var url by remember { mutableStateOf(shortcut.url) }
+        var urlError by remember { mutableStateOf<String?>(null) }
+
+        val firstLetter = remember(title) {
+            title.trim().firstOrNull()?.uppercase()
+        }
+
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                // Header with Preview Icon
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (firstLetter != null && firstLetter.matches(Regex("[A-Za-z0-9]"))) {
+                            Text(
+                                text = firstLetter,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_web),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Text(
+                        text = stringResource(R.string.edit_shortcut_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Title Input
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text(stringResource(R.string.shortcut_name_hint)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // URL Input
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = {
+                        url = it
+                        urlError = null
+                    },
+                    label = { Text(stringResource(R.string.shortcut_url_hint)) },
+                    isError = urlError != null,
+                    supportingText = urlError?.let { { Text(it) } },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = { dismiss() }) {
+                        Text(
+                            text = stringResource(R.string.cancel),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            val trimmedUrl = url.trim()
+                            if (trimmedUrl.isBlank()) {
+                                urlError = "URL cannot be empty"
+                                return@Button
+                            }
+
+                            val validUrl = if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+                                "https://$trimmedUrl"
+                            } else {
+                                trimmedUrl
+                            }
+
+                            val finalTitle = title.trim().ifBlank {
+                                try {
+                                    android.net.Uri.parse(validUrl).host?.removePrefix("www.") ?: validUrl
+                                } catch (_: Exception) {
+                                    validUrl
+                                }
+                            }
+
+                            val updated = shortcut.copy(
+                                title = finalTitle,
+                                url = validUrl
+                            )
+                            onShortcutSaved(updated)
+                            dismiss()
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(R.string.save))
+                    }
+                }
+            }
+        }
     }
 
     override fun onStart() {
@@ -47,146 +205,6 @@ class EditShortcutDialog(
             window.setLayout(targetWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
             window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         }
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-        binding.etEditTitle.setText(shortcut.title)
-        binding.etEditUrl.setText(shortcut.url)
-
-        updateLivePreview(shortcut.title, shortcut.url)
-
-        binding.etEditTitle.doAfterTextChanged {
-            updateLivePreview(it?.toString().orEmpty(), binding.etEditUrl.text?.toString().orEmpty())
-        }
-
-        binding.etEditUrl.doAfterTextChanged {
-            binding.tilUrl.error = null
-            updateLivePreview(binding.etEditTitle.text?.toString().orEmpty(), it?.toString().orEmpty())
-        }
-
-        binding.btnCancelEdit.setOnClickListener {
-            dismiss()
-        }
-
-        binding.btnSaveEdit.setOnClickListener {
-            val newTitle = binding.etEditTitle.text?.toString()?.trim() ?: ""
-            var newUrl = binding.etEditUrl.text?.toString()?.trim() ?: ""
-
-            if (newUrl.isBlank()) {
-                binding.tilUrl.error = getString(R.string.shortcut_url_hint)
-                binding.etEditUrl.requestFocus()
-                return@setOnClickListener
-            }
-            binding.tilUrl.error = null
-
-            if (!newUrl.startsWith("http://") && !newUrl.startsWith("https://") && !newUrl.startsWith("onyx://")) {
-                newUrl = "https://$newUrl"
-            }
-
-            val iconType = ShortcutItem.inferIconType(newUrl)
-            val updated = shortcut.copy(
-                title = if (newTitle.isNotBlank()) newTitle else {
-                    try {
-                        java.net.URI(newUrl).host?.removePrefix("www.") ?: newUrl
-                    } catch (_: Exception) {
-                        newUrl
-                    }
-                },
-                url = newUrl,
-                iconType = iconType
-            )
-
-            onShortcutSaved(updated)
-            dismiss()
-        }
-    }
-
-    private fun updateLivePreview(title: String, url: String) {
-        val inferUrl = if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("onyx://")) {
-            "https://$url"
-        } else {
-            url
-        }
-        val iconType = ShortcutItem.inferIconType(inferUrl)
-
-        binding.ivPreviewIcon.clearColorFilter()
-        binding.ivPreviewIcon.imageTintList = null
-
-        val textColorPrimary = MaterialColors.getColor(binding.root, android.R.attr.textColorPrimary, Color.WHITE)
-        val textColorSecondary = MaterialColors.getColor(binding.root, android.R.attr.textColorSecondary, Color.LTGRAY)
-
-        when (iconType) {
-            ShortcutItem.ICON_GOOGLE -> {
-                binding.ivPreviewIcon.visibility = View.VISIBLE
-                binding.tvPreviewLetterBadge.visibility = View.GONE
-                binding.ivPreviewIcon.setImageResource(R.drawable.ic_engine_google)
-            }
-            ShortcutItem.ICON_YOUTUBE -> {
-                binding.ivPreviewIcon.visibility = View.VISIBLE
-                binding.tvPreviewLetterBadge.visibility = View.GONE
-                binding.ivPreviewIcon.setImageResource(R.drawable.ic_brand_youtube)
-            }
-            ShortcutItem.ICON_GITHUB -> {
-                binding.ivPreviewIcon.visibility = View.VISIBLE
-                binding.tvPreviewLetterBadge.visibility = View.GONE
-                binding.ivPreviewIcon.setImageResource(R.drawable.ic_brand_github)
-            }
-            ShortcutItem.ICON_WIKIPEDIA -> {
-                binding.ivPreviewIcon.visibility = View.VISIBLE
-                binding.tvPreviewLetterBadge.visibility = View.GONE
-                binding.ivPreviewIcon.setImageResource(R.drawable.ic_brand_wikipedia)
-            }
-            ShortcutItem.ICON_FACEBOOK -> {
-                binding.ivPreviewIcon.visibility = View.VISIBLE
-                binding.tvPreviewLetterBadge.visibility = View.GONE
-                binding.ivPreviewIcon.setImageResource(R.drawable.ic_brand_facebook)
-            }
-            ShortcutItem.ICON_REDDIT -> {
-                binding.ivPreviewIcon.visibility = View.VISIBLE
-                binding.tvPreviewLetterBadge.visibility = View.GONE
-                binding.ivPreviewIcon.setImageResource(R.drawable.ic_brand_reddit)
-            }
-            ShortcutItem.ICON_BOOKMARKS -> {
-                binding.ivPreviewIcon.visibility = View.VISIBLE
-                binding.tvPreviewLetterBadge.visibility = View.GONE
-                binding.ivPreviewIcon.setImageResource(R.drawable.ic_bookmark)
-                binding.ivPreviewIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
-            }
-            ShortcutItem.ICON_HISTORY -> {
-                binding.ivPreviewIcon.visibility = View.VISIBLE
-                binding.tvPreviewLetterBadge.visibility = View.GONE
-                binding.ivPreviewIcon.setImageResource(R.drawable.ic_history)
-                binding.ivPreviewIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
-            }
-            ShortcutItem.ICON_DOWNLOADS -> {
-                binding.ivPreviewIcon.visibility = View.VISIBLE
-                binding.tvPreviewLetterBadge.visibility = View.GONE
-                binding.ivPreviewIcon.setImageResource(R.drawable.ic_download)
-                binding.ivPreviewIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
-            }
-            else -> {
-                val letter = title.trim().firstOrNull()?.uppercase()
-                    ?: inferUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.").firstOrNull()?.uppercase()
-                if (letter != null && letter.matches(Regex("[A-Za-z0-9]"))) {
-                    binding.ivPreviewIcon.visibility = View.GONE
-                    binding.tvPreviewLetterBadge.visibility = View.VISIBLE
-                    binding.tvPreviewLetterBadge.text = letter
-                    binding.tvPreviewLetterBadge.setTextColor(textColorPrimary)
-                } else {
-                    binding.ivPreviewIcon.visibility = View.VISIBLE
-                    binding.tvPreviewLetterBadge.visibility = View.GONE
-                    binding.ivPreviewIcon.setImageResource(R.drawable.ic_web)
-                    binding.ivPreviewIcon.imageTintList = ColorStateList.valueOf(textColorSecondary)
-                }
-            }
-        }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     companion object {
