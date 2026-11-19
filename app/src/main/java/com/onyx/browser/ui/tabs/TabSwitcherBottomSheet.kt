@@ -1,40 +1,62 @@
 package com.onyx.browser.ui.tabs
 
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.animation.AccelerateInterpolator
-import android.view.animation.DecelerateInterpolator
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
-import android.view.Gravity
-import android.widget.PopupWindow
-import androidx.core.view.ViewCompat
+import androidx.biometric.BiometricPrompt
+import androidx.compose.animation.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.DialogFragment
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.button.MaterialButtonToggleGroup
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.onyx.browser.R
-import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.TabItem
-import com.onyx.browser.databinding.BottomSheetTabSwitcherBinding
-import com.onyx.browser.databinding.PopupTabSwitcherMenuBinding
+import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
+import com.onyx.browser.ui.common.BiometricAuthHelper
+import com.onyx.browser.ui.theme.OnyxTheme
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 
 class TabSwitcherBottomSheet(
     private val tabManager: TabCoordinator,
@@ -44,18 +66,18 @@ class TabSwitcherBottomSheet(
     private val onSearchRequested: (() -> Unit)? = null
 ) : DialogFragment() {
 
-    private var _binding: BottomSheetTabSwitcherBinding? = null
-    private val binding get() = _binding
-
-    private lateinit var adapter: TabsAdapter
-    private var isViewingIncognito = false
     private var isDismissing = false
     private val undoToastHandler = Handler(Looper.getMainLooper())
     private var undoDismissRunnable: Runnable? = null
 
+    // State holders for Compose
+    private val isViewingIncognitoState = mutableStateOf(false)
+    private val undoMessageState = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NORMAL, R.style.Theme_OnyxBrowser_TabSwitcher)
+        isViewingIncognitoState.value = tabManager.activeTab.value?.isIncognito ?: false
     }
 
     override fun onStart() {
@@ -63,7 +85,7 @@ class TabSwitcherBottomSheet(
         dialog?.window?.apply {
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             setBackgroundDrawableResource(android.R.color.transparent)
-            val bgColor = androidx.core.content.ContextCompat.getColor(context, R.color.tab_switcher_bg)
+            val bgColor = ContextCompat.getColor(context, R.color.tab_switcher_bg)
             statusBarColor = bgColor
             navigationBarColor = bgColor
             WindowCompat.setDecorFitsSystemWindows(this, false)
@@ -79,430 +101,635 @@ class TabSwitcherBottomSheet(
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = BottomSheetTabSwitcherBinding.inflate(inflater, container, false)
-        return _binding!!.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        val b = _binding ?: return
         isDismissing = false
-
-        isViewingIncognito = tabManager.activeTab.value?.isIncognito ?: false
-
-        // Apply Window Insets for topBar and bottomBar
-        ViewCompat.setOnApplyWindowInsetsListener(b.root) { _, insets ->
-            val currentBinding = _binding ?: return@setOnApplyWindowInsetsListener insets
-            val statusBars = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-
-            currentBinding.tabSwitcherTopBar.setPadding(
-                currentBinding.tabSwitcherTopBar.paddingLeft,
-                statusBars.top,
-                currentBinding.tabSwitcherTopBar.paddingRight,
-                currentBinding.tabSwitcherTopBar.paddingBottom
-            )
-            currentBinding.bottomBar.setPadding(
-                currentBinding.bottomBar.paddingLeft,
-                currentBinding.bottomBar.paddingTop,
-                currentBinding.bottomBar.paddingRight,
-                navBars.bottom
-            )
-            insets
-        }
-
-        val accentColor = com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(requireContext())
-        b.fabNewTab.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
-        b.fabNewTab.imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
-        b.btnUndoCloseTab.setTextColor(accentColor)
-
-        setupRecyclerView(b)
-        setupTopControls(b)
-        setupBottomControls(b)
-        observeTabs()
-    }
-
-    private fun setupRecyclerView(b: BottomSheetTabSwitcherBinding) {
-        val context = context ?: return
-        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
-        adapter = TabsAdapter(
-            onTabClicked = { tab ->
-                if (isDismissing) return@TabsAdapter
-                if (tab.isIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
-                    promptBiometricAuth {
-                        isDismissing = true
-                        tabManager.selectTab(tab)
-                        onTabSelected(tab)
-                        dismissAllowingStateLoss()
-                    }
-                } else {
-                    isDismissing = true
-                    tabManager.selectTab(tab)
-                    onTabSelected(tab)
-                    dismissAllowingStateLoss()
-                }
-            },
-            onTabClosed = { tab ->
-                if (isDismissing) return@TabsAdapter
-                tabManager.closeTab(tab)
-                showUndoToastForTab(tab)
-            },
-            getSnapshot = { tabId ->
-                tabManager.getSnapshot(tabId)
-            },
-            isTabLocked = { tab ->
-                tab.isIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked
-            }
-        )
-
-        val spanCount = if (resources.configuration.screenWidthDp >= 600) 3 else 2
-        b.rvTabs.layoutManager = GridLayoutManager(requireContext(), spanCount)
-        b.rvTabs.adapter = adapter
-
-        // Swipe-to-dismiss gesture support
-        val swipeHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
-            override fun onMove(
-                recyclerView: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder,
-                target: RecyclerView.ViewHolder
-            ): Boolean = false
-
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                if (isDismissing) return
-                val position = viewHolder.bindingAdapterPosition
-                if (position != RecyclerView.NO_POSITION && position < adapter.currentList.size) {
-                    val tab = adapter.currentList[position]
-                    tabManager.closeTab(tab)
-                    showUndoToastForTab(tab)
-                }
-            }
-        })
-        swipeHelper.attachToRecyclerView(b.rvTabs)
-    }
-
-    private fun setupTopControls(b: BottomSheetTabSwitcherBinding) {
-        b.btnSearchTabSwitcher.setOnClickListener {
-            if (isDismissing) return@setOnClickListener
-            isDismissing = true
-            dismissAllowingStateLoss()
-            onSearchRequested?.invoke()
-        }
-
-        b.btnNormalTabs.setOnClickListener {
-            if (isViewingIncognito && !isDismissing) {
-                dismissUndoToast(animate = false)
-                isViewingIncognito = false
-                updateTabModePillUI()
-                refreshTabsList()
-            }
-        }
-
-        b.btnIncognitoTabs.setOnClickListener {
-            if (!isViewingIncognito && !isDismissing) {
-                val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
-                if (prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
-                    promptBiometricAuth {
-                        dismissUndoToast(animate = false)
-                        isViewingIncognito = true
-                        updateTabModePillUI()
-                        refreshTabsList()
-                    }
-                } else {
-                    dismissUndoToast(animate = false)
-                    isViewingIncognito = true
-                    updateTabModePillUI()
-                    refreshTabsList()
-                }
-            }
-        }
-
-        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(requireContext())
-        if (isViewingIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
-            isViewingIncognito = false
-            updateTabModePillUI()
+        val prefs = BrowserPreferences.getInstance(requireContext())
+        if (isViewingIncognitoState.value && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
+            isViewingIncognitoState.value = false
             promptBiometricAuth {
-                isViewingIncognito = true
-                updateTabModePillUI()
-                refreshTabsList()
+                isViewingIncognitoState.value = true
             }
-        } else {
-            updateTabModePillUI()
         }
 
-        b.btnTabSwitcherOverflow.setOnClickListener { v ->
-            if (!isDismissing) {
-                showOverflowMenu(v)
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    TabSwitcherScreen()
+                }
             }
         }
     }
 
-    private fun updateTabModePillUI() {
-        val b = _binding ?: return
-        val normalCount = tabManager.normalTabs.value.size
-        b.tvNormalTabCount.text = if (normalCount > 99) "99+" else normalCount.toString()
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun TabSwitcherScreen() {
+        val context = LocalContext.current
+        val configuration = LocalConfiguration.current
+        val spanCount = if (configuration.screenWidthDp >= 600) 3 else 2
 
-        val context = context ?: return
-        val normalActive = !isViewingIncognito
-        val accentColor = com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(context)
-        val selectedPillDrawable = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-            cornerRadius = 10f * context.resources.displayMetrics.density
-            setColor(accentColor)
+        val normalTabs by tabManager.normalTabs.collectAsStateWithLifecycle()
+        val incognitoTabs by tabManager.incognitoTabs.collectAsStateWithLifecycle()
+        val activeTab by tabManager.activeTab.collectAsStateWithLifecycle()
+
+        var isViewingIncognito by isViewingIncognitoState
+        val undoMessage by undoMessageState
+
+        val currentTabs = if (isViewingIncognito) incognitoTabs else normalTabs
+        val prefs = remember { BrowserPreferences.getInstance(context) }
+        var overflowMenuExpanded by remember { mutableStateOf(false) }
+
+        Scaffold(
+            topBar = {
+                TabSwitcherTopBar(
+                    normalCount = normalTabs.size,
+                    isViewingIncognito = isViewingIncognito,
+                    onToggleIncognito = { targetIncognito ->
+                        if (targetIncognito != isViewingIncognito && !isDismissing) {
+                            if (targetIncognito) {
+                                if (prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
+                                    promptBiometricAuth {
+                                        dismissUndoToast(animate = false)
+                                        isViewingIncognito = true
+                                    }
+                                } else {
+                                    dismissUndoToast(animate = false)
+                                    isViewingIncognito = true
+                                }
+                            } else {
+                                dismissUndoToast(animate = false)
+                                isViewingIncognito = false
+                            }
+                        }
+                    },
+                    onSearchClick = {
+                        if (!isDismissing) {
+                            isDismissing = true
+                            dismissAllowingStateLoss()
+                            onSearchRequested?.invoke()
+                        }
+                    },
+                    onOverflowClick = { overflowMenuExpanded = true },
+                    overflowMenuExpanded = overflowMenuExpanded,
+                    onDismissOverflow = { overflowMenuExpanded = false },
+                    onNewTabClick = {
+                        overflowMenuExpanded = false
+                        if (!isDismissing) {
+                            isDismissing = true
+                            onNewTabRequested(false)
+                            dismissAllowingStateLoss()
+                        }
+                    },
+                    onNewIncognitoTabClick = {
+                        overflowMenuExpanded = false
+                        if (!isDismissing) {
+                            isDismissing = true
+                            onNewTabRequested(true)
+                            dismissAllowingStateLoss()
+                        }
+                    },
+                    onCloseAllTabsClick = {
+                        overflowMenuExpanded = false
+                        if (!isDismissing) confirmCloseAllTabs()
+                    },
+                    onClearBrowsingDataClick = {
+                        overflowMenuExpanded = false
+                        if (!isDismissing) showClearBrowsingDataDialog()
+                    },
+                    hasTabs = currentTabs.isNotEmpty()
+                )
+            },
+            bottomBar = {
+                TabSwitcherBottomBar(
+                    hasTabs = currentTabs.isNotEmpty(),
+                    isViewingIncognito = isViewingIncognito,
+                    onClearDataClick = {
+                        if (!isDismissing) showClearBrowsingDataDialog()
+                    },
+                    onNewTabClick = {
+                        if (!isDismissing) {
+                            isDismissing = true
+                            onNewTabRequested(isViewingIncognito)
+                            dismissAllowingStateLoss()
+                        }
+                    },
+                    onCloseAllTabsClick = {
+                        if (!isDismissing) confirmCloseAllTabs()
+                    }
+                )
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                if (currentTabs.isEmpty()) {
+                    EmptyTabsView(isViewingIncognito = isViewingIncognito)
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(spanCount),
+                        contentPadding = PaddingValues(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(currentTabs, key = { it.id }) { tab ->
+                            val isLocked = tab.isIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked
+                            val isActive = tab.id == activeTab?.id
+
+                            TabCard(
+                                tab = tab,
+                                isActive = isActive,
+                                isLocked = isLocked,
+                                snapshot = if (isLocked) null else tabManager.getSnapshot(tab.id),
+                                onTabClick = {
+                                    if (isDismissing) return@TabCard
+                                    if (isLocked) {
+                                        promptBiometricAuth {
+                                            isDismissing = true
+                                            tabManager.selectTab(tab)
+                                            onTabSelected(tab)
+                                            dismissAllowingStateLoss()
+                                        }
+                                    } else {
+                                        isDismissing = true
+                                        tabManager.selectTab(tab)
+                                        onTabSelected(tab)
+                                        dismissAllowingStateLoss()
+                                    }
+                                },
+                                onCloseClick = {
+                                    if (isDismissing) return@TabCard
+                                    tabManager.closeTab(tab)
+                                    showUndoToastForTab(tab)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Floating Undo Toast
+                AnimatedVisibility(
+                    visible = undoMessage != null,
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
+                ) {
+                    undoMessage?.let { msg ->
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shadowElevation = 6.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = msg,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                TextButton(
+                                    onClick = {
+                                        val restoredBatch = tabManager.undoCloseTab()
+                                        if (restoredBatch != null && restoredBatch.states.isNotEmpty()) {
+                                            val nextBatch = tabManager.peekLastClosedBatch(isViewingIncognitoState.value)
+                                            if (nextBatch != null) {
+                                                showUndoToastForBatch(nextBatch)
+                                            } else {
+                                                dismissUndoToast(animate = true)
+                                            }
+                                        } else {
+                                            dismissUndoToast(animate = true)
+                                        }
+                                    }
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.undo_close_tab),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun TabSwitcherTopBar(
+        normalCount: Int,
+        isViewingIncognito: Boolean,
+        onToggleIncognito: (Boolean) -> Unit,
+        onSearchClick: () -> Unit,
+        onOverflowClick: () -> Unit,
+        overflowMenuExpanded: Boolean,
+        onDismissOverflow: () -> Unit,
+        onNewTabClick: () -> Unit,
+        onNewIncognitoTabClick: () -> Unit,
+        onCloseAllTabsClick: () -> Unit,
+        onClearBrowsingDataClick: () -> Unit,
+        hasTabs: Boolean
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(onClick = onSearchClick) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = stringResource(R.string.search_hint),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            // Normal / Incognito Pill Toggle
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    .padding(3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Normal Tabs Button
+                val normalBg = if (!isViewingIncognito) MaterialTheme.colorScheme.primary else Color.Transparent
+                val normalText = if (!isViewingIncognito) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(normalBg)
+                        .clickable { onToggleIncognito(false) }
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (normalCount > 99) "99+" else normalCount.toString(),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = normalText
+                    )
+                }
+
+                // Incognito Tabs Button
+                val incognitoBg = if (isViewingIncognito) MaterialTheme.colorScheme.primary else Color.Transparent
+                val incognitoTint = if (isViewingIncognito) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(incognitoBg)
+                        .clickable { onToggleIncognito(true) }
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_incognito),
+                        contentDescription = stringResource(R.string.incognito_mode),
+                        tint = incognitoTint,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            // Overflow Menu
+            Box {
+                IconButton(onClick = onOverflowClick) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More options",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = overflowMenuExpanded,
+                    onDismissRequest = onDismissOverflow
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.new_tab)) },
+                        onClick = onNewTabClick
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.new_incognito_tab)) },
+                        onClick = onNewIncognitoTabClick
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (isViewingIncognito) stringResource(R.string.close_all_incognito_tabs)
+                                else stringResource(R.string.close_all_tabs)
+                            )
+                        },
+                        enabled = hasTabs,
+                        onClick = onCloseAllTabsClick
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.delete_browsing_data)) },
+                        onClick = onClearBrowsingDataClick
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun TabCard(
+        tab: TabItem,
+        isActive: Boolean,
+        isLocked: Boolean,
+        snapshot: Bitmap?,
+        onTabClick: () -> Unit,
+        onCloseClick: () -> Unit
+    ) {
+        val accentColor = MaterialTheme.colorScheme.primary
+        val outlineColor = if (isActive) accentColor else MaterialTheme.colorScheme.outlineVariant
+        val headerColor = if (isActive) accentColor else MaterialTheme.colorScheme.surfaceVariant
+        val titleColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+        val closeColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+
+        val domain = remember(tab.url) {
+            try {
+                if (tab.url.isNotBlank()) Uri.parse(tab.url).host ?: tab.url else "New Tab"
+            } catch (_: Exception) {
+                tab.url
+            }
         }
 
-        val mutedColor = androidx.core.content.ContextCompat.getColor(context, R.color.tab_close_icon)
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = androidx.compose.foundation.BorderStroke(
+                width = if (isActive) 2.5.dp else 1.dp,
+                color = outlineColor
+            ),
+            shadowElevation = if (isActive) 4.dp else 1.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .clickable { onTabClick() }
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Tab Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(headerColor)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Favicon / Lock Icon
+                    if (isLocked) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = closeColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else if (tab.isIncognito) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_incognito),
+                            contentDescription = null,
+                            tint = closeColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_web),
+                            contentDescription = null,
+                            tint = closeColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
 
-        if (normalActive) {
-            // Normal tab button selected: dynamic accent pill + white tab box
-            b.btnNormalTabs.background = selectedPillDrawable
-            b.boxTabCount.setBackgroundResource(R.drawable.bg_tab_count_box)
-            b.tvNormalTabCount.setTextColor(android.graphics.Color.WHITE)
+                    Spacer(modifier = Modifier.width(6.dp))
 
-            // Incognito tab unselected: rounded ripple + subtle muted icon
-            b.btnIncognitoTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
-            b.ivIncognitoToggle.setColorFilter(mutedColor)
-        } else {
-            // Incognito tab button selected: dynamic accent pill + white fedora/glasses icon
-            b.btnIncognitoTabs.background = selectedPillDrawable
-            b.ivIncognitoToggle.setColorFilter(android.graphics.Color.WHITE)
+                    // Title & Domain
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isLocked) "Protected Tab" else tab.title.ifBlank { "New Tab" },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = titleColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (!isLocked) {
+                            Text(
+                                text = domain,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = titleColor.copy(alpha = 0.75f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
 
-            // Normal tab unselected: rounded ripple + subtle muted tab box
-            b.btnNormalTabs.setBackgroundResource(R.drawable.bg_tab_pill_unselected)
-            val boxDrawable = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.bg_tab_count_box)?.mutate()
-            if (boxDrawable != null) {
-                androidx.core.graphics.drawable.DrawableCompat.setTint(boxDrawable, mutedColor)
-                b.boxTabCount.background = boxDrawable
+                    // Close Button
+                    IconButton(
+                        onClick = onCloseClick,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close tab",
+                            tint = closeColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                // Tab Content / Thumbnail
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLocked) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Locked",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        }
+                    } else if (snapshot != null) {
+                        Image(
+                            bitmap = snapshot.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_onyx_emblem),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
             }
-            b.tvNormalTabCount.setTextColor(mutedColor)
+        }
+    }
+
+    @Composable
+    private fun EmptyTabsView(isViewingIncognito: Boolean) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                painter = painterResource(
+                    if (isViewingIncognito) R.drawable.ic_incognito else R.drawable.ic_onyx_emblem
+                ),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                modifier = Modifier.size(64.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = if (isViewingIncognito) stringResource(R.string.incognito_tabs) else "No tabs open",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = if (isViewingIncognito) stringResource(R.string.incognito_privacy_desc) else "Tap + to open a new tab",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
+    @Composable
+    private fun TabSwitcherBottomBar(
+        hasTabs: Boolean,
+        isViewingIncognito: Boolean,
+        onClearDataClick: () -> Unit,
+        onNewTabClick: () -> Unit,
+        onCloseAllTabsClick: () -> Unit
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 3.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Clear History / Browsing Data
+                IconButton(onClick = onClearDataClick) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_brush),
+                        contentDescription = stringResource(R.string.delete_browsing_data),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // New Tab FAB
+                FloatingActionButton(
+                    onClick = onNewTabClick,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = CircleShape,
+                    modifier = Modifier.size(54.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = stringResource(R.string.new_tab),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                // Close All Tabs
+                IconButton(
+                    onClick = onCloseAllTabsClick,
+                    enabled = hasTabs
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_delete),
+                        contentDescription = if (isViewingIncognito) stringResource(R.string.close_all_incognito_tabs) else stringResource(R.string.close_all_tabs),
+                        tint = if (hasTabs) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    )
+                }
+            }
         }
     }
 
     private fun promptBiometricAuth(onSuccess: (() -> Unit)? = null) {
         val context = context ?: return
-        val executor = androidx.core.content.ContextCompat.getMainExecutor(context)
-        val biometricPrompt = androidx.biometric.BiometricPrompt(this, executor,
-            object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+        val executor = ContextCompat.getMainExecutor(context)
+        val biometricPrompt = BiometricPrompt(this, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
                     tabManager.isIncognitoUnlocked = true
-                    if (isDismissing || _binding == null) return
+                    if (isDismissing) return
                     onSuccess?.invoke() ?: run {
-                        isViewingIncognito = true
-                        updateTabModePillUI()
-                        refreshTabsList()
+                        isViewingIncognitoState.value = true
                     }
                 }
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
-                    if (isDismissing || _binding == null) return
-                    isViewingIncognito = false
-                    updateTabModePillUI()
-                    refreshTabsList()
+                    if (isDismissing) return
+                    isViewingIncognitoState.value = false
                 }
                 override fun onAuthenticationFailed() {
                     super.onAuthenticationFailed()
-                    // Allow user retry on biometric prompt UI
                 }
             })
 
-        val promptInfo = com.onyx.browser.ui.common.BiometricAuthHelper.createPromptInfo(
+        val promptInfo = BiometricAuthHelper.createPromptInfo(
             title = "Unlock Incognito Tabs",
             subtitle = "Confirm identity to access private tabs"
         )
         biometricPrompt.authenticate(promptInfo)
-    }
-
-    private fun observeTabs() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    tabManager.normalTabs.collectLatest { list ->
-                        if (isDismissing || _binding == null) return@collectLatest
-                        updateTabModePillUI()
-                        if (!isViewingIncognito) {
-                            renderTabs(list)
-                        }
-                    }
-                }
-                launch {
-                    tabManager.incognitoTabs.collectLatest { list ->
-                        if (isDismissing || _binding == null) return@collectLatest
-                        updateTabModePillUI()
-                        if (isViewingIncognito) {
-                            renderTabs(list)
-                        }
-                    }
-                }
-                launch {
-                    tabManager.activeTab.collectLatest { active ->
-                        if (isDismissing || _binding == null) return@collectLatest
-                        adapter.activeTabId = active?.id
-                        adapter.notifyDataSetChanged()
-                    }
-                }
-            }
-        }
-    }
-
-    fun refreshTabsList() {
-        if (isDismissing || _binding == null) return
-        updateTabModePillUI()
-        val list = if (isViewingIncognito) {
-            tabManager.incognitoTabs.value
-        } else {
-            tabManager.normalTabs.value
-        }
-        renderTabs(list)
-    }
-
-    private fun renderTabs(list: List<TabItem>) {
-        if (isDismissing) return
-        val b = _binding ?: return
-        adapter.activeTabId = tabManager.activeTab.value?.id
-        adapter.submitList(ArrayList(list)) {
-            val currentBinding = _binding ?: return@submitList
-            val isEmpty = list.isEmpty()
-            currentBinding.emptyTabsView.visibility = if (isEmpty) View.VISIBLE else View.GONE
-            currentBinding.rvTabs.visibility = if (isEmpty) View.GONE else View.VISIBLE
-
-            // Update bottom bar close all tabs button state and accessibility description
-            currentBinding.btnCloseAllTabs.isEnabled = !isEmpty
-            currentBinding.btnCloseAllTabs.isClickable = !isEmpty
-            currentBinding.btnCloseAllTabs.alpha = if (isEmpty) 0.40f else 1.0f
-            currentBinding.btnCloseAllTabs.contentDescription = if (isViewingIncognito) {
-                getString(R.string.close_all_incognito_tabs)
-            } else {
-                getString(R.string.close_all_tabs)
-            }
-
-            // Background watermark is ONLY shown when viewing incognito tabs AND tabs exist in the grid.
-            // When there are no tabs (isEmpty == true), emptyTabsView displays the single central incognito icon,
-            // completely eliminating the duplicate incognito logo.
-            currentBinding.ivIncognitoBackground.visibility = if (isViewingIncognito && !isEmpty) View.VISIBLE else View.GONE
-
-            if (isEmpty) {
-                if (isViewingIncognito) {
-                    currentBinding.ivEmptyIcon.setImageResource(R.drawable.ic_incognito)
-                    currentBinding.ivEmptyIcon.alpha = 0.40f
-                    currentBinding.tvEmptyTitle.text = getString(R.string.incognito_tabs)
-                    currentBinding.tvEmptySubtitle.text = getString(R.string.incognito_privacy_desc)
-                } else {
-                    currentBinding.ivEmptyIcon.setImageResource(R.drawable.ic_onyx_emblem)
-                    currentBinding.ivEmptyIcon.alpha = 0.22f
-                    currentBinding.tvEmptyTitle.text = "No tabs open"
-                    currentBinding.tvEmptySubtitle.text = "Tap + to open a new tab"
-                }
-            }
-        }
-    }
-
-    private fun showOverflowMenu(anchor: View) {
-        val context = context ?: return
-        val inflater = LayoutInflater.from(context)
-        val menuBinding = PopupTabSwitcherMenuBinding.inflate(inflater)
-
-        val density = context.resources.displayMetrics.density
-        val popupWidth = (220 * density).toInt()
-
-        val tabList = if (isViewingIncognito) {
-            tabManager.incognitoTabs.value
-        } else {
-            tabManager.normalTabs.value
-        }
-        val hasTabs = tabList.isNotEmpty()
-
-        menuBinding.tvCloseAllTabs.text = if (isViewingIncognito) {
-            getString(R.string.close_all_incognito_tabs)
-        } else {
-            getString(R.string.close_all_tabs)
-        }
-
-        menuBinding.itemCloseAllTabs.isEnabled = hasTabs
-        menuBinding.itemCloseAllTabs.isClickable = hasTabs
-        menuBinding.itemCloseAllTabs.alpha = if (hasTabs) 1.0f else 0.40f
-
-        val popup = PopupWindow(
-            menuBinding.root,
-            popupWidth,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            true
-        ).apply {
-            isOutsideTouchable = true
-            isFocusable = true
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            elevation = 24f
-        }
-
-        menuBinding.itemNewTab.setOnClickListener {
-            popup.dismiss()
-            if (!isDismissing) {
-                isDismissing = true
-                onNewTabRequested(false)
-                dismissAllowingStateLoss()
-            }
-        }
-
-        menuBinding.itemNewIncognitoTab.setOnClickListener {
-            popup.dismiss()
-            if (!isDismissing) {
-                isDismissing = true
-                onNewTabRequested(true)
-                dismissAllowingStateLoss()
-            }
-        }
-
-        menuBinding.itemCloseAllTabs.setOnClickListener {
-            popup.dismiss()
-            if (!isDismissing) confirmCloseAllTabs()
-        }
-
-        menuBinding.itemClearBrowsingData.setOnClickListener {
-            popup.dismiss()
-            if (!isDismissing) showClearBrowsingDataDialog()
-        }
-
-        val anchorWidth = if (anchor.width > 0) anchor.width else (44 * density).toInt()
-        val xOffset = anchorWidth - popupWidth
-        val yOffset = (4 * density).toInt()
-        popup.showAsDropDown(anchor, xOffset, yOffset)
-    }
-
-    private fun setupBottomControls(b: BottomSheetTabSwitcherBinding) {
-        // Left Button: Clear Browsing Data (Brush icon)
-        b.btnClearHistory.setOnClickListener {
-            if (!isDismissing) showClearBrowsingDataDialog()
-        }
-
-        // Center Button: New Tab
-        b.fabNewTab.setOnClickListener {
-            if (isDismissing) return@setOnClickListener
-            isDismissing = true
-            onNewTabRequested(isViewingIncognito)
-            dismissAllowingStateLoss()
-        }
-
-        // Right Button: Close All Open Tabs in current mode
-        b.btnCloseAllTabs.setOnClickListener {
-            if (!isDismissing) confirmCloseAllTabs()
-        }
-
-        // Undo Button: Restore last closed tab or batch of tabs
-        b.btnUndoCloseTab.setOnClickListener {
-            val restoredBatch = tabManager.undoCloseTab()
-            if (restoredBatch != null && restoredBatch.states.isNotEmpty()) {
-                refreshTabsList()
-                val nextBatch = tabManager.peekLastClosedBatch(isViewingIncognito)
-                if (nextBatch != null) {
-                    showUndoToastForBatch(nextBatch)
-                } else {
-                    dismissUndoToast(animate = true)
-                }
-            } else {
-                dismissUndoToast(animate = true)
-            }
-        }
     }
 
     private fun showUndoToastForTab(tab: TabItem) {
@@ -511,7 +738,7 @@ class TabSwitcherBottomSheet(
             rawTitle
         } else if (tab.url.isNotBlank()) {
             try {
-                val host = android.net.Uri.parse(tab.url).host
+                val host = Uri.parse(tab.url).host
                 if (!host.isNullOrBlank()) host else tab.url
             } catch (_: Exception) {
                 tab.url
@@ -531,38 +758,8 @@ class TabSwitcherBottomSheet(
     }
 
     private fun showUndoToastWithMessage(message: String) {
-        val b = _binding ?: return
-        val context = context ?: return
-
         undoDismissRunnable?.let { undoToastHandler.removeCallbacks(it) }
-
-        b.tvUndoToastMessage.text = message
-
-        val density = context.resources.displayMetrics.density
-        if (b.layoutUndoToast.visibility != View.VISIBLE) {
-            b.layoutUndoToast.alpha = 0f
-            b.layoutUndoToast.translationY = 32f * density
-            b.layoutUndoToast.visibility = View.VISIBLE
-            b.layoutUndoToast.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(220)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        } else {
-            b.layoutUndoToast.animate()
-                .scaleX(1.02f)
-                .scaleY(1.02f)
-                .setDuration(90)
-                .withEndAction {
-                    _binding?.layoutUndoToast?.animate()
-                        ?.scaleX(1f)
-                        ?.scaleY(1f)
-                        ?.setDuration(90)
-                        ?.start()
-                }
-                .start()
-        }
+        undoMessageState.value = message
 
         val runnable = Runnable {
             dismissUndoToast(animate = true)
@@ -576,29 +773,8 @@ class TabSwitcherBottomSheet(
             undoToastHandler.removeCallbacks(it)
             undoDismissRunnable = null
         }
-        val b = _binding ?: return
-        if (b.layoutUndoToast.visibility != View.VISIBLE) return
-
-        val density = b.root.context.resources.displayMetrics.density
-        if (animate && isAdded) {
-            b.layoutUndoToast.animate()
-                .alpha(0f)
-                .translationY(32f * density)
-                .setDuration(180)
-                .setInterpolator(AccelerateInterpolator())
-                .withEndAction {
-                    _binding?.layoutUndoToast?.visibility = View.GONE
-                    _binding?.layoutUndoToast?.translationY = 0f
-                    _binding?.layoutUndoToast?.alpha = 1f
-                    tabManager.finalizeAllClosedTabs()
-                }
-                .start()
-        } else {
-            b.layoutUndoToast.visibility = View.GONE
-            b.layoutUndoToast.translationY = 0f
-            b.layoutUndoToast.alpha = 1f
-            tabManager.finalizeAllClosedTabs()
-        }
+        undoMessageState.value = null
+        tabManager.finalizeAllClosedTabs()
     }
 
     private fun showClearBrowsingDataDialog() {
@@ -606,15 +782,13 @@ class TabSwitcherBottomSheet(
         if (fm.isStateSaved || fm.isDestroyed) return
         val dialog = ClearBrowsingDataDialog(
             tabManager = tabManager,
-            onDataCleared = {
-                refreshTabsList()
-            }
+            onDataCleared = {}
         )
         dialog.show(fm, ClearBrowsingDataDialog.TAG)
     }
 
     private fun confirmCloseAllTabs() {
-        val tabList = if (isViewingIncognito) {
+        val tabList = if (isViewingIncognitoState.value) {
             tabManager.incognitoTabs.value
         } else {
             tabManager.normalTabs.value
@@ -628,10 +802,9 @@ class TabSwitcherBottomSheet(
         if (fm.isStateSaved || fm.isDestroyed) return
         val dialog = CloseAllTabsDialog(
             tabManager = tabManager,
-            isIncognito = isViewingIncognito,
+            isIncognito = isViewingIncognitoState.value,
             onTabsClosed = { count ->
-                refreshTabsList()
-                val batch = tabManager.peekLastClosedBatch(isViewingIncognito)
+                val batch = tabManager.peekLastClosedBatch(isViewingIncognitoState.value)
                 if (batch != null) {
                     showUndoToastForBatch(batch)
                 }
@@ -645,9 +818,7 @@ class TabSwitcherBottomSheet(
         undoDismissRunnable?.let { undoToastHandler.removeCallbacks(it) }
         undoDismissRunnable = null
         dismissUndoToast(animate = false)
-        _binding?.rvTabs?.adapter = null
         super.onDestroyView()
-        _binding = null
     }
 
     companion object {

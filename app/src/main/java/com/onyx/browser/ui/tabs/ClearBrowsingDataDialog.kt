@@ -9,14 +9,31 @@ import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebViewDatabase
-import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
-import com.onyx.browser.databinding.DialogClearBrowsingDataBinding
 import com.onyx.browser.ui.browser.TabCoordinator
+import com.onyx.browser.ui.theme.OnyxTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -27,9 +44,6 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
     private var tabManager: TabCoordinator? = TabCoordinator.activeInstance,
     private var onDataCleared: () -> Unit = {}
 ) : DialogFragment() {
-
-    private var _binding: DialogClearBrowsingDataBinding? = null
-    private val binding get() = _binding
 
     private fun getCutoffTime(selectedIndex: Int): Long {
         val now = System.currentTimeMillis()
@@ -57,103 +71,49 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
         savedInstanceState: Bundle?
     ): View {
         dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        _binding = DialogClearBrowsingDataBinding.inflate(inflater, container, false)
-        return _binding!!.root
-    }
-
-    override fun onStart() {
-        super.onStart()
-        dialog?.window?.let { window ->
-            val displayMetrics = resources.displayMetrics
-            val maxAllowedWidth = (440 * displayMetrics.density).toInt()
-            val targetWidth = (displayMetrics.widthPixels * 0.92).toInt().coerceAtMost(maxAllowedWidth)
-            window.setLayout(targetWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    ClearBrowsingDataContent()
+                }
+            }
         }
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        val b = _binding ?: return
-
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun ClearBrowsingDataContent() {
+        val context = LocalContext.current
         val timeRanges = listOf(
-            getString(R.string.time_range_last_15_mins),
-            getString(R.string.time_range_last_hour),
-            getString(R.string.time_range_last_24_hours),
-            getString(R.string.time_range_last_7_days),
-            getString(R.string.time_range_last_4_weeks),
-            getString(R.string.time_range_all_time)
+            stringResource(R.string.time_range_last_15_mins),
+            stringResource(R.string.time_range_last_hour),
+            stringResource(R.string.time_range_last_24_hours),
+            stringResource(R.string.time_range_last_7_days),
+            stringResource(R.string.time_range_last_4_weeks),
+            stringResource(R.string.time_range_all_time)
         )
 
-        val adapter = ArrayAdapter(requireContext(), R.layout.item_dropdown_time_range, timeRanges)
-        b.actvTimeRange.setAdapter(adapter)
+        var selectedTimeRangeIndex by remember { mutableIntStateOf(2) } // Default 24 hours
+        var timeRangeDropdownExpanded by remember { mutableStateOf(false) }
 
-        // Default to Last 24 hours (index 2)
-        var selectedIndex = 2
-        b.actvTimeRange.setText(timeRanges[selectedIndex], false)
-        updatePreview(selectedIndex)
+        var clearHistory by remember { mutableStateOf(true) }
+        var clearTabs by remember { mutableStateOf(false) }
+        var clearCookies by remember { mutableStateOf(false) }
+        var clearCache by remember { mutableStateOf(false) }
 
-        b.actvTimeRange.setOnItemClickListener { _, _, position, _ ->
-            selectedIndex = position
-            updatePreview(selectedIndex)
-        }
+        var historyCount by remember { mutableIntStateOf(0) }
+        var historyExample by remember { mutableStateOf("") }
+        var tabsCount by remember { mutableIntStateOf(0) }
+        var tabsExample by remember { mutableStateOf("") }
 
-        // Setup granular checkbox toggle rows
-        b.rowHistory.setOnClickListener {
-            b.cbClearHistory.isChecked = !b.cbClearHistory.isChecked
-            updateClearButtonState()
-        }
-        b.cbClearHistory.setOnCheckedChangeListener { _, _ -> updateClearButtonState() }
+        var isClearing by remember { mutableStateOf(false) }
 
-        b.rowTabs.setOnClickListener {
-            b.cbClearTabs.isChecked = !b.cbClearTabs.isChecked
-            updateClearButtonState()
-        }
-        b.cbClearTabs.setOnCheckedChangeListener { _, _ -> updateClearButtonState() }
+        // Update previews when selectedTimeRangeIndex changes
+        LaunchedEffect(selectedTimeRangeIndex) {
+            val cutoff = getCutoffTime(selectedTimeRangeIndex)
+            val database = AppDatabase.getInstance(context)
 
-        b.rowCookies.setOnClickListener {
-            b.cbClearCookies.isChecked = !b.cbClearCookies.isChecked
-            updateClearButtonState()
-        }
-        b.cbClearCookies.setOnCheckedChangeListener { _, _ -> updateClearButtonState() }
-
-        b.rowCache.setOnClickListener {
-            b.cbClearCache.isChecked = !b.cbClearCache.isChecked
-            updateClearButtonState()
-        }
-        b.cbClearCache.setOnCheckedChangeListener { _, _ -> updateClearButtonState() }
-
-        updateClearButtonState()
-
-        b.btnCancel.setOnClickListener {
-            dismissAllowingStateLoss()
-        }
-
-        b.btnClearData.setOnClickListener {
-            performClearData(
-                selectedIndex = selectedIndex,
-                clearHistory = b.cbClearHistory.isChecked,
-                clearTabs = b.cbClearTabs.isChecked,
-                clearCookies = b.cbClearCookies.isChecked,
-                clearCache = b.cbClearCache.isChecked
-            )
-        }
-    }
-
-    private fun updateClearButtonState() {
-        val b = _binding ?: return
-        val hasSelection = b.cbClearHistory.isChecked || b.cbClearTabs.isChecked ||
-                           b.cbClearCookies.isChecked || b.cbClearCache.isChecked
-        b.btnClearData.isEnabled = hasSelection
-        b.btnClearData.alpha = if (hasSelection) 1.0f else 0.5f
-    }
-
-    private fun updatePreview(selectedIndex: Int) {
-        val cutoff = getCutoffTime(selectedIndex)
-        val ctx = context ?: return
-        val database = AppDatabase.getInstance(ctx)
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            // 1. Browsing history sites count and examples
             val historyItems = withContext(Dispatchers.IO) {
                 try {
                     if (cutoff == 0L) {
@@ -166,7 +126,7 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                 }
             }
 
-            val count = historyItems.size
+            historyCount = historyItems.size
             val distinctHosts = historyItems.mapNotNull { item ->
                 try {
                     URI(item.url).host?.removePrefix("www.")
@@ -175,17 +135,12 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                 }
             }.distinct().take(3)
 
-            val exampleString = if (distinctHosts.isNotEmpty()) {
+            historyExample = if (distinctHosts.isNotEmpty()) {
                 "e.g. " + distinctHosts.joinToString(", ")
             } else {
                 "None recorded in this period"
             }
 
-            val b = _binding ?: return@launch
-            b.tvHistoryCount.text = getString(R.string.browsing_history_preview, count, "")
-            b.tvHistoryExample.text = exampleString
-
-            // 2. Open tabs count and examples
             val tm = tabManager ?: TabCoordinator.activeInstance
             val normalTabs = tm?.normalTabs?.value ?: emptyList()
             val incognitoTabs = tm?.incognitoTabs?.value ?: emptyList()
@@ -197,16 +152,223 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                 allTabs.filter { it.createdAt >= cutoff }
             }
 
-            val tabsCount = matchingTabs.size
+            tabsCount = matchingTabs.size
             val tabTitles = matchingTabs.map { it.title.ifBlank { "New Tab" } }.take(2)
-            val tabExampleString = if (tabTitles.isNotEmpty()) {
+            tabsExample = if (tabTitles.isNotEmpty()) {
                 "e.g. " + tabTitles.joinToString(", ")
             } else {
                 "None opened in this period"
             }
+        }
 
-            b.tvTabsCount.text = getString(R.string.open_tabs_preview, tabsCount, "")
-            b.tvTabsExample.text = tabExampleString
+        val hasSelection = clearHistory || clearTabs || clearCookies || clearCache
+
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = stringResource(R.string.delete_browsing_data),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Time Range Selector
+                Text(
+                    text = "Time range",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                ExposedDropdownMenuBox(
+                    expanded = timeRangeDropdownExpanded,
+                    onExpandedChange = { timeRangeDropdownExpanded = !timeRangeDropdownExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = timeRanges[selectedTimeRangeIndex],
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = timeRangeDropdownExpanded)
+                        },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = timeRangeDropdownExpanded,
+                        onDismissRequest = { timeRangeDropdownExpanded = false }
+                    ) {
+                        timeRanges.forEachIndexed { index, text ->
+                            DropdownMenuItem(
+                                text = { Text(text) },
+                                onClick = {
+                                    selectedTimeRangeIndex = index
+                                    timeRangeDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // History Row
+                ClearDataItemRow(
+                    title = "Browsing history",
+                    subtitle = stringResource(R.string.browsing_history_preview, historyCount, ""),
+                    example = historyExample,
+                    checked = clearHistory,
+                    onCheckedChange = { clearHistory = it }
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // Tabs Row
+                ClearDataItemRow(
+                    title = "Open tabs",
+                    subtitle = stringResource(R.string.open_tabs_preview, tabsCount, ""),
+                    example = tabsExample,
+                    checked = clearTabs,
+                    onCheckedChange = { clearTabs = it }
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // Cookies Row
+                ClearDataItemRow(
+                    title = stringResource(R.string.clear_data_cookies),
+                    subtitle = stringResource(R.string.clear_data_cookies_desc),
+                    example = null,
+                    checked = clearCookies,
+                    onCheckedChange = { clearCookies = it }
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // Cache Row
+                ClearDataItemRow(
+                    title = stringResource(R.string.clear_data_cache),
+                    subtitle = stringResource(R.string.clear_data_cache_desc),
+                    example = null,
+                    checked = clearCache,
+                    onCheckedChange = { clearCache = it }
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Buttons Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = { dismissAllowingStateLoss() },
+                        enabled = !isClearing
+                    ) {
+                        Text(
+                            text = stringResource(R.string.cancel),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            isClearing = true
+                            performClearData(
+                                selectedIndex = selectedTimeRangeIndex,
+                                clearHistory = clearHistory,
+                                clearTabs = clearTabs,
+                                clearCookies = clearCookies,
+                                clearCache = clearCache
+                            )
+                        },
+                        enabled = hasSelection && !isClearing,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (isClearing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onError
+                            )
+                        } else {
+                            Text(stringResource(R.string.clear_data))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun ClearDataItemRow(
+        title: String,
+        subtitle: String,
+        example: String?,
+        checked: Boolean,
+        onCheckedChange: (Boolean) -> Unit
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onCheckedChange(!checked) }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = MaterialTheme.colorScheme.primary
+                )
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (!example.isNullOrBlank()) {
+                    Text(
+                        text = example,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
         }
     }
 
@@ -329,17 +491,15 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                             wv.clearCache(true)
                             wv.clearFormData()
                             wv.clearSslPreferences()
-                            // Reset OAuth grace period so cookie state is re-evaluated cleanly
                             wv.lastOAuthInteractionTimestamp = 0L
                         }
                     } catch (_: Exception) {}
                 }
 
-                // If cookies were cleared, re-apply cookie settings to restore first-party acceptance
                 if (clearCookies) {
                     try {
-                        android.webkit.CookieManager.getInstance().setAcceptCookie(true)
-                        android.webkit.CookieManager.getInstance().flush()
+                        CookieManager.getInstance().setAcceptCookie(true)
+                        CookieManager.getInstance().flush()
                     } catch (_: Exception) {}
                 }
 
@@ -358,9 +518,14 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    override fun onStart() {
+        super.onStart()
+        dialog?.window?.let { window ->
+            val displayMetrics = resources.displayMetrics
+            val maxAllowedWidth = (440 * displayMetrics.density).toInt()
+            val targetWidth = (displayMetrics.widthPixels * 0.92).toInt().coerceAtMost(maxAllowedWidth)
+            window.setLayout(targetWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
     }
 
     companion object {

@@ -14,38 +14,49 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.os.bundleOf
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.MainActivity
 import com.onyx.browser.R
-import com.onyx.browser.databinding.BottomSheetContextMenuBinding
 import com.onyx.browser.download.DownloadHandler
+import com.onyx.browser.ui.theme.OnyxTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Context menu bottom sheet inspired by Brave / Chromium (Screenshot /storage/emulated/0/1.png).
- *
- * Header Card:
- *  - Website icon on left (favicon / letter badge)
- *  - Website title on top, under it the URL
- *  - Inline action buttons on right: Share · Copy · Edit (pencil icon)
- *
- * Image Context Features:
- *  - Preview thumbnail card (tap to open high-res preview)
- *  - "Preview image" action row
- *  - "Open image in new tab"
- *  - "Save image"
- *  - "Search by image" (Reverse search: Google Lens, TinEye, Yandex, Bing)
- *  - "Copy image URL"
- *  - "Share image"
+ * Context menu bottom sheet rewritten in Jetpack Compose & Material 3.
  */
 class ContextMenuBottomSheet : BottomSheetDialogFragment() {
-
-    private var _binding: BottomSheetContextMenuBinding? = null
-    private val binding get() = _binding!!
 
     private val isIncognito: Boolean
         get() = arguments?.getBoolean(ARG_IS_INCOGNITO, false) ?: false
@@ -81,247 +92,460 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = BottomSheetContextMenuBinding.inflate(inflater, container, false)
-        return binding.root
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    ContextMenuSheetContent()
+                }
+            }
+        }
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
+    @Composable
+    private fun ContextMenuSheetContent() {
         val url = arguments?.getString(ARG_URL)
         val imageUrl = arguments?.getString(ARG_IMAGE_URL)
         val videoUrl = arguments?.getString(ARG_VIDEO_URL)
         val linkText = arguments?.getString(ARG_LINK_TEXT)
-        val isIncognito = arguments?.getBoolean(ARG_IS_INCOGNITO, false) ?: false
+        val incognito = arguments?.getBoolean(ARG_IS_INCOGNITO, false) ?: false
+
         val isImage = !imageUrl.isNullOrBlank()
         val isVideo = !videoUrl.isNullOrBlank()
         val isLink = !url.isNullOrBlank() && !isVideo
+        val effectiveVideoUrl = videoUrl ?: if (url?.let { isLikelyVideoUrl(it) } == true) url else null
 
         val displayUrl = url ?: imageUrl ?: videoUrl ?: ""
 
-        // ── 1. Compact Header Card (Favicon + Title + URL + Share/Copy/Edit) ──
-        setupHeaderCard(displayUrl, linkText, isImage, isVideo)
+        var imageBitmap by remember { mutableStateOf<Bitmap?>(null) }
+        var isImageLoading by remember { mutableStateOf(isImage) }
 
-        // Action buttons inside the compact card
-        val targetForActions = url ?: imageUrl ?: videoUrl ?: ""
-        binding.btnShare.setOnClickListener {
-            if (targetForActions.isNotBlank()) {
-                shareUrl(targetForActions)
+        LaunchedEffect(imageUrl) {
+            if (!imageUrl.isNullOrBlank()) {
+                isImageLoading = true
+                loadImageAsync(imageUrl) { bmp ->
+                    imageBitmap = bmp
+                    isImageLoading = false
+                }
             }
-            dismiss()
         }
 
-        binding.btnCopyUrl.setOnClickListener {
-            if (targetForActions.isNotBlank()) {
-                copyToClipboard(
-                    when {
-                        isImage -> "Image URL"
-                        isVideo -> "Video URL"
-                        else -> "Link"
+        Surface(
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .navigationBarsPadding()
+            ) {
+                // Drag handle
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 12.dp)
+                        .size(width = 36.dp, height = 4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+
+                // Header Card
+                ContextMenuHeaderCard(
+                    rawUrl = displayUrl,
+                    linkText = linkText,
+                    isImage = isImage,
+                    isVideo = isVideo,
+                    onShareClick = {
+                        if (displayUrl.isNotBlank()) shareUrl(displayUrl)
+                        dismiss()
                     },
-                    targetForActions
+                    onCopyClick = {
+                        if (displayUrl.isNotBlank()) {
+                            val label = when {
+                                isImage -> "Image URL"
+                                isVideo -> "Video URL"
+                                else -> "Link"
+                            }
+                            copyToClipboard(label, displayUrl)
+                        }
+                        dismiss()
+                    },
+                    onEditClick = {
+                        if (displayUrl.isNotBlank()) onEditUrl?.invoke(displayUrl)
+                        dismiss()
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Image Preview Card (if image)
+                if (isImage && imageUrl != null) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { openFullPreview(imageUrl) }
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            if (isImageLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+                            } else if (imageBitmap != null) {
+                                Image(
+                                    bitmap = imageBitmap!!.asImageBitmap(),
+                                    contentDescription = "Image preview",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_image),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Link Actions
+                if (isLink && url != null) {
+                    ContextMenuItem(
+                        icon = Icons.Default.OpenInNew,
+                        text = "Open in new tab",
+                        onClick = {
+                            onOpenInNewTab?.invoke(url)
+                            dismiss()
+                        }
+                    )
+
+                    if (!incognito) {
+                        ContextMenuItem(
+                            iconRes = R.drawable.ic_incognito,
+                            text = "Open in incognito tab",
+                            onClick = {
+                                onOpenInIncognitoTab?.invoke(url)
+                                dismiss()
+                            }
+                        )
+                    }
+
+                    ContextMenuItem(
+                        icon = Icons.Default.ContentCopy,
+                        text = "Copy link address",
+                        onClick = {
+                            copyToClipboard("Link address", url)
+                            dismiss()
+                        }
+                    )
+
+                    if (!linkText.isNullOrBlank()) {
+                        ContextMenuItem(
+                            icon = Icons.Default.ContentCopy,
+                            text = "Copy link text",
+                            onClick = {
+                                copyToClipboard("Link text", linkText)
+                                dismiss()
+                            }
+                        )
+                    }
+
+                    ContextMenuItem(
+                        icon = Icons.Default.Download,
+                        text = "Download link",
+                        onClick = {
+                            if (onDownloadUrl != null) {
+                                onDownloadUrl?.invoke(url, "")
+                            } else {
+                                downloadMedia(url, "download")
+                            }
+                            dismiss()
+                        }
+                    )
+
+                    ContextMenuItem(
+                        icon = Icons.Default.Share,
+                        text = "Share link",
+                        onClick = {
+                            shareUrl(url)
+                            dismiss()
+                        }
+                    )
+                }
+
+                // Image Actions
+                if (isImage && imageUrl != null) {
+                    ContextMenuItem(
+                        icon = Icons.Default.Fullscreen,
+                        text = "Preview image",
+                        onClick = { openFullPreview(imageUrl) }
+                    )
+
+                    ContextMenuItem(
+                        icon = Icons.Default.OpenInNew,
+                        text = "Open image in new tab",
+                        onClick = {
+                            onOpenInNewTab?.invoke(imageUrl)
+                            dismiss()
+                        }
+                    )
+
+                    ContextMenuItem(
+                        icon = Icons.Default.Download,
+                        text = "Save image",
+                        onClick = {
+                            val mime = resolveImageMimeType(imageUrl)
+                            if (onDownloadUrl != null) {
+                                onDownloadUrl?.invoke(imageUrl, mime)
+                            } else {
+                                downloadMedia(imageUrl, "image")
+                            }
+                            dismiss()
+                        }
+                    )
+
+                    ContextMenuItem(
+                        icon = Icons.Default.Search,
+                        text = "Search by image",
+                        onClick = { showImageSearchPicker(imageUrl) }
+                    )
+
+                    ContextMenuItem(
+                        icon = Icons.Default.ContentCopy,
+                        text = "Copy image URL",
+                        onClick = {
+                            copyToClipboard("Image URL", imageUrl)
+                            dismiss()
+                        }
+                    )
+
+                    ContextMenuItem(
+                        icon = Icons.Default.Share,
+                        text = "Share image",
+                        onClick = {
+                            shareUrl(imageUrl)
+                            dismiss()
+                        }
+                    )
+                }
+
+                // Video Actions
+                if (!effectiveVideoUrl.isNullOrBlank()) {
+                    val vUrl = effectiveVideoUrl
+
+                    ContextMenuItem(
+                        icon = Icons.Default.OpenInNew,
+                        text = "Open video in new tab",
+                        onClick = {
+                            onOpenInNewTab?.invoke(vUrl)
+                            dismiss()
+                        }
+                    )
+
+                    ContextMenuItem(
+                        icon = Icons.Default.Download,
+                        text = "Save video",
+                        onClick = {
+                            val mime = resolveVideoMimeType(vUrl)
+                            if (onDownloadUrl != null) {
+                                onDownloadUrl?.invoke(vUrl, mime)
+                            } else {
+                                downloadMedia(vUrl, "video")
+                            }
+                            dismiss()
+                        }
+                    )
+
+                    ContextMenuItem(
+                        icon = Icons.Default.ContentCopy,
+                        text = "Copy video link",
+                        onClick = {
+                            copyToClipboard("Video link", vUrl)
+                            dismiss()
+                        }
+                    )
+
+                    ContextMenuItem(
+                        icon = Icons.Default.Share,
+                        text = "Share video",
+                        onClick = {
+                            shareUrl(vUrl)
+                            dismiss()
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+    }
+
+    @Composable
+    private fun ContextMenuHeaderCard(
+        rawUrl: String,
+        linkText: String?,
+        isImage: Boolean,
+        isVideo: Boolean,
+        onShareClick: () -> Unit,
+        onCopyClick: () -> Unit,
+        onEditClick: () -> Unit
+    ) {
+        val host = remember(rawUrl) {
+            try {
+                Uri.parse(rawUrl).host?.removePrefix("www.") ?: rawUrl
+            } catch (_: Exception) {
+                rawUrl
+            }
+        }
+
+        val displayTitle = remember(rawUrl, linkText, isImage, isVideo) {
+            when {
+                !linkText.isNullOrBlank() -> linkText
+                isImage -> "Image"
+                isVideo -> "Video"
+                host.isNotBlank() -> host.replaceFirstChar { it.uppercase() }
+                else -> rawUrl
+            }
+        }
+
+        val firstLetter = remember(displayTitle) {
+            displayTitle.trim().firstOrNull()?.uppercase()
+        }
+
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Favicon letter badge
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (firstLetter != null && firstLetter.matches(Regex("[A-Za-z0-9]"))) {
+                        Text(
+                            text = firstLetter,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_web),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Title & URL
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = displayTitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = rawUrl,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Inline Actions
+                IconButton(onClick = onShareClick, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                IconButton(onClick = onCopyClick, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copy",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                IconButton(onClick = onEditClick, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun ContextMenuItem(
+        text: String,
+        onClick: () -> Unit,
+        icon: ImageVector? = null,
+        iconRes: Int? = null
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onClick() }
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(22.dp)
+                )
+            } else if (iconRes != null) {
+                Icon(
+                    painter = painterResource(iconRes),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(22.dp)
                 )
             }
-            dismiss()
-        }
 
-        binding.btnEditUrl.setOnClickListener {
-            if (targetForActions.isNotBlank()) {
-                onEditUrl?.invoke(targetForActions)
-            }
-            dismiss()
-        }
+            Spacer(modifier = Modifier.width(16.dp))
 
-        // ── 2. Link Actions ──────────────────────────────────────────────────
-        if (isLink) {
-            val link = url!!
-            binding.itemOpenNewTab.visibility = View.VISIBLE
-            binding.itemOpenNewTab.setOnClickListener {
-                onOpenInNewTab?.invoke(link)
-                dismiss()
-            }
-
-            if (isIncognito) {
-                binding.itemOpenIncognitoTab.visibility = View.GONE
-            } else {
-                binding.itemOpenIncognitoTab.visibility = View.VISIBLE
-                binding.itemOpenIncognitoTab.setOnClickListener {
-                    onOpenInIncognitoTab?.invoke(link)
-                    dismiss()
-                }
-            }
-
-            binding.itemCopyLinkAddress.visibility = View.VISIBLE
-            binding.itemCopyLinkAddress.setOnClickListener {
-                copyToClipboard("Link address", link)
-                dismiss()
-            }
-
-            if (!linkText.isNullOrBlank()) {
-                binding.itemCopyLinkText.visibility = View.VISIBLE
-                binding.itemCopyLinkText.setOnClickListener {
-                    copyToClipboard("Link text", linkText)
-                    dismiss()
-                }
-            }
-
-            binding.itemDownloadLink.visibility = View.VISIBLE
-            binding.itemDownloadLink.setOnClickListener {
-                if (onDownloadUrl != null) {
-                    onDownloadUrl?.invoke(link, "")
-                } else {
-                    downloadMedia(link, "download")
-                }
-                dismiss()
-            }
-
-            binding.itemShareLink.visibility = View.VISIBLE
-            binding.itemShareLink.setOnClickListener {
-                shareUrl(link)
-                dismiss()
-            }
-        }
-
-        // ── 3. Image Actions & Preview ───────────────────────────────────────
-        if (isImage) {
-            val img = imageUrl!!
-
-            // Show preview card and tap-to-expand
-            binding.cardImagePreview.visibility = View.VISIBLE
-            binding.cardImagePreview.setOnClickListener {
-                openFullPreview(img)
-            }
-            loadThumbnail(img)
-
-            // "Preview image" row
-            binding.itemPreviewImage.visibility = View.VISIBLE
-            binding.itemPreviewImage.setOnClickListener {
-                openFullPreview(img)
-            }
-
-            // "Open image in new tab"
-            binding.itemOpenImageNewTab.visibility = View.VISIBLE
-            binding.itemOpenImageNewTab.setOnClickListener {
-                onOpenInNewTab?.invoke(img)
-                dismiss()
-            }
-
-            // "Save image"
-            binding.itemSaveImage.visibility = View.VISIBLE
-            binding.itemSaveImage.setOnClickListener {
-                val mime = resolveImageMimeType(img)
-                if (onDownloadUrl != null) {
-                    onDownloadUrl?.invoke(img, mime)
-                } else {
-                    downloadMedia(img, "image")
-                }
-                dismiss()
-            }
-
-            // "Search by image" (Google Lens, TinEye, Yandex, Bing)
-            binding.itemSearchByImage.visibility = View.VISIBLE
-            binding.itemSearchByImage.setOnClickListener {
-                showImageSearchPicker(img)
-            }
-
-            // "Copy image URL"
-            binding.itemCopyImageUrl.visibility = View.VISIBLE
-            binding.itemCopyImageUrl.setOnClickListener {
-                copyToClipboard("Image URL", img)
-                dismiss()
-            }
-
-            // "Share image"
-            binding.itemShareImage.visibility = View.VISIBLE
-            binding.itemShareImage.setOnClickListener {
-                shareUrl(img)
-                dismiss()
-            }
-        }
-
-        // ── 4. Video Actions ─────────────────────────────────────────────────
-        val effectiveVideoUrl = videoUrl ?: if (url?.let { isLikelyVideoUrl(it) } == true) url else null
-
-        if (!effectiveVideoUrl.isNullOrBlank()) {
-            val vUrl = effectiveVideoUrl
-
-            binding.itemOpenVideoNewTab.visibility = View.VISIBLE
-            binding.itemOpenVideoNewTab.setOnClickListener {
-                onOpenInNewTab?.invoke(vUrl)
-                dismiss()
-            }
-
-            binding.itemSaveVideo.visibility = View.VISIBLE
-            binding.itemSaveVideo.setOnClickListener {
-                val mime = resolveVideoMimeType(vUrl)
-                if (onDownloadUrl != null) {
-                    onDownloadUrl?.invoke(vUrl, mime)
-                } else {
-                    downloadMedia(vUrl, "video")
-                }
-                dismiss()
-            }
-
-            binding.itemCopyVideoUrl.visibility = View.VISIBLE
-            binding.itemCopyVideoUrl.setOnClickListener {
-                copyToClipboard("Video link", vUrl)
-                dismiss()
-            }
-
-            binding.itemShareVideo.visibility = View.VISIBLE
-            binding.itemShareVideo.setOnClickListener {
-                shareUrl(vUrl)
-                dismiss()
-            }
-        }
-    }
-
-    private fun setupHeaderCard(rawUrl: String, linkText: String?, isImage: Boolean, isVideo: Boolean = false) {
-        val host = try {
-            Uri.parse(rawUrl).host?.removePrefix("www.") ?: rawUrl
-        } catch (_: Exception) {
-            rawUrl
-        }
-
-        val displayTitle = when {
-            !linkText.isNullOrBlank() -> linkText
-            isImage -> "Image"
-            isVideo -> "Video"
-            host.isNotBlank() -> host.replaceFirstChar { it.uppercase() }
-            else -> rawUrl
-        }
-
-        binding.tvContextTitle.text = displayTitle
-        binding.tvContextUrl.text = rawUrl
-
-        val letter = displayTitle.trim().firstOrNull()?.uppercase()
-        if (letter != null && letter.matches(Regex("[A-Za-z0-9]"))) {
-            binding.tvFaviconLetter.text = letter
-            binding.tvFaviconLetter.visibility = View.VISIBLE
-            binding.ivFaviconFallback.visibility = View.GONE
-        } else {
-            binding.tvFaviconLetter.visibility = View.GONE
-            binding.ivFaviconFallback.visibility = View.VISIBLE
-        }
-
-        com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
-            context = requireContext(),
-            imageView = binding.ivFavicon,
-            urlOrHost = rawUrl,
-            fallbackLetterView = binding.flFaviconFallback,
-            isCircular = true
-        )
-    }
-
-    private fun loadThumbnail(imageUrl: String) {
-        binding.pbImageLoading.visibility = View.VISIBLE
-        loadImageAsync(imageUrl, maxWidth = 800, maxHeight = 800) { bmp ->
-            if (_binding != null) {
-                binding.pbImageLoading.visibility = View.GONE
-                if (bmp != null) {
-                    binding.ivImagePreview.setImageBitmap(bmp)
-                }
-            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 
@@ -508,16 +732,11 @@ class ContextMenuBottomSheet : BottomSheetDialogFragment() {
             }
 
             withContext(Dispatchers.Main) {
-                if (_binding != null && isAdded && !isDetached) {
+                if (isAdded && !isDetached) {
                     onLoaded(bitmap)
                 }
             }
         }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     companion object {

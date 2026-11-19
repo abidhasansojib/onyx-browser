@@ -6,20 +6,22 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.Window
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.stringResource
 import androidx.fragment.app.DialogFragment
 import com.onyx.browser.R
-import com.onyx.browser.databinding.DialogConfirmCloseAllTabsBinding
 import com.onyx.browser.ui.browser.TabCoordinator
+import com.onyx.browser.ui.components.OnyxAlertDialog
+import com.onyx.browser.ui.theme.OnyxTheme
 
 class CloseAllTabsDialog @JvmOverloads constructor(
     private var tabManager: TabCoordinator? = null,
     private var isIncognito: Boolean = false,
     private var onTabsClosed: ((closedCount: Int) -> Unit)? = null
 ) : DialogFragment() {
-
-    private var _binding: DialogConfirmCloseAllTabsBinding? = null
-    private val binding get() = _binding!!
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,47 +34,59 @@ class CloseAllTabsDialog @JvmOverloads constructor(
         savedInstanceState: Bundle?
     ): View {
         dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        _binding = DialogConfirmCloseAllTabsBinding.inflate(inflater, container, false)
-        return binding.root
-    }
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    val tm = tabManager ?: TabCoordinator.activeInstance
+                    val tabList = if (isIncognito) {
+                        tm?.incognitoTabs?.value ?: emptyList()
+                    } else {
+                        tm?.normalTabs?.value ?: emptyList()
+                    }
+                    val count = tabList.size
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
+                    val title = if (isIncognito) {
+                        stringResource(R.string.close_all_incognito_tabs_title)
+                    } else {
+                        stringResource(R.string.close_all_tabs_title)
+                    }
 
-        val tm = tabManager ?: TabCoordinator.activeInstance
-        val tabList = if (isIncognito) {
-            tm?.incognitoTabs?.value ?: emptyList()
-        } else {
-            tm?.normalTabs?.value ?: emptyList()
-        }
-        val count = tabList.size
+                    val message = if (isIncognito) {
+                        stringResource(R.string.close_all_incognito_tabs_desc, count)
+                    } else if (count == 1) {
+                        stringResource(R.string.close_single_tab_desc)
+                    } else {
+                        stringResource(R.string.close_all_tabs_desc, count)
+                    }
 
-        if (isIncognito) {
-            binding.tvDialogTitle.text = getString(R.string.close_all_incognito_tabs_title)
-            binding.tvDialogMessage.text = getString(R.string.close_all_incognito_tabs_desc, count)
-        } else {
-            binding.tvDialogTitle.text = getString(R.string.close_all_tabs_title)
-            binding.tvDialogMessage.text = if (count == 1) {
-                getString(R.string.close_single_tab_desc)
-            } else {
-                getString(R.string.close_all_tabs_desc, count)
+                    val confirmText = if (isIncognito) {
+                        stringResource(R.string.close_all_incognito_tabs)
+                    } else {
+                        stringResource(R.string.close_all_tabs)
+                    }
+
+                    OnyxAlertDialog(
+                        title = title,
+                        onDismissRequest = { dismissAllowingStateLoss() },
+                        confirmButtonText = confirmText,
+                        onConfirm = {
+                            tm?.closeAllTabs(incognitoOnly = isIncognito, canUndo = true)
+                            onTabsClosed?.invoke(count)
+                            dismissAllowingStateLoss()
+                        },
+                        dismissButtonText = stringResource(R.string.cancel),
+                        isDestructive = true,
+                        text = {
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
+                }
             }
-        }
-
-        binding.tvTabCountPill.text = if (count == 1) {
-            getString(R.string.single_tab_to_be_closed_count)
-        } else {
-            getString(R.string.tabs_to_be_closed_count, count)
-        }
-
-        binding.btnCancelCloseTabs.setOnClickListener {
-            dismissAllowingStateLoss()
-        }
-
-        binding.btnConfirmCloseTabs.setOnClickListener {
-            tm?.closeAllTabs(incognitoOnly = isIncognito, canUndo = true)
-            onTabsClosed?.invoke(count)
-            dismissAllowingStateLoss()
         }
     }
 
@@ -84,11 +98,6 @@ class CloseAllTabsDialog @JvmOverloads constructor(
             val targetWidth = (displayMetrics.widthPixels * 0.90).toInt().coerceAtMost(maxAllowedWidth)
             window.setLayout(targetWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     companion object {

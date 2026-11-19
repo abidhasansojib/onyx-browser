@@ -12,24 +12,43 @@ import android.text.format.Formatter
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.webkit.URLUtil
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
-import com.onyx.browser.databinding.BottomSheetDownloadPromptBinding
 import com.onyx.browser.download.DownloadHandler
+import com.onyx.browser.ui.theme.OnyxTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
-
-    private var _binding: BottomSheetDownloadPromptBinding? = null
-    private val binding get() = _binding!!
 
     private var fileUrl: String = ""
     private var userAgent: String = ""
@@ -79,192 +98,324 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = BottomSheetDownloadPromptBinding.inflate(inflater, container, false)
-        return binding.root
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    DownloadPromptContent()
+                }
+            }
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setupUI()
         checkNotificationPermission()
     }
 
-    private fun setupUI() {
-        // Close Button
-        binding.btnClose.setOnClickListener {
-            dismiss()
+    @Composable
+    private fun DownloadPromptContent() {
+        val context = LocalContext.current
+        var fileName by remember { mutableStateOf(initialFileName) }
+
+        val ext = remember(fileName) {
+            fileName.substringAfterLast('.', "").uppercase().ifBlank { "FILE" }
         }
 
-        // File Details
-        binding.etFileName.setText(initialFileName)
-
-        val ext = initialFileName.substringAfterLast('.', "").uppercase()
-        binding.tvFileExtension.text = if (ext.isNotBlank()) ext else "FILE"
-
-        val sizeText = if (contentLength > 0) {
-            Formatter.formatFileSize(requireContext(), contentLength)
-        } else {
-            getString(R.string.file_size_unknown)
+        val sizeText = remember(contentLength) {
+            if (contentLength > 0) {
+                Formatter.formatFileSize(context, contentLength)
+            } else {
+                context.getString(R.string.file_size_unknown)
+            }
         }
-        binding.tvFileSize.text = sizeText
 
-        val resolvedMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(initialFileName, mimeType)
-        binding.tvMimeType.text = if (resolvedMime.isNotBlank()) resolvedMime else "application/octet-stream"
-
-        binding.btnClearFileName.setOnClickListener {
-            binding.etFileName.text?.clear()
-            binding.etFileName.requestFocus()
+        val resolvedMime = remember(fileName, mimeType) {
+            val m = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(fileName, mimeType)
+            if (m.isNotBlank()) m else "application/octet-stream"
         }
 
         val isBlobOrData = fileUrl.startsWith("data:", ignoreCase = true) || fileUrl.startsWith("blob:", ignoreCase = true)
-
-        // Website Details
-        if (isBlobOrData) {
-            val displayUrl = referer.ifBlank { "Locally generated data" }
-            val host = try {
-                if (referer.isNotBlank()) Uri.parse(referer).host ?: referer else "Locally generated"
+        val displayUrl = if (isBlobOrData) referer.ifBlank { "Locally generated data" } else fileUrl
+        val displayHost = remember(displayUrl) {
+            try {
+                if (displayUrl.isNotBlank()) Uri.parse(displayUrl).host ?: displayUrl else "Locally generated"
             } catch (_: Exception) {
-                "Locally generated"
-            }
-            binding.tvDomain.text = host
-            binding.tvUrl.text = displayUrl
-
-            binding.btnCopyUrl.setOnClickListener {
-                val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("URL", displayUrl)
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(requireContext(), R.string.url_copied, Toast.LENGTH_SHORT).show()
-            }
-
-            // In-memory blobs and data URIs cannot be accessed by external downloader apps
-            binding.btnDownloadExternal.visibility = View.GONE
-        } else {
-            val host = try {
-                Uri.parse(fileUrl).host ?: fileUrl
-            } catch (_: Exception) {
-                fileUrl
-            }
-            binding.tvDomain.text = host
-            binding.tvUrl.text = fileUrl
-
-            binding.btnCopyUrl.setOnClickListener {
-                val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("URL", fileUrl)
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(requireContext(), R.string.url_copied, Toast.LENGTH_SHORT).show()
-            }
-
-            binding.btnDownloadExternal.visibility = View.VISIBLE
-        }
-
-        // Action 1: Default Downloader
-        binding.btnDownloadDefault.setOnClickListener {
-            val chosenName = binding.etFileName.text?.toString()?.trim() ?: initialFileName
-            val finalFileName = if (chosenName.isNotBlank()) chosenName else initialFileName
-
-            if (fileUrl.startsWith("data:", ignoreCase = true)) {
-                DownloadHandler.handleDataUriDownload(
-                    context = requireContext().applicationContext,
-                    coroutineScope = downloadScope,
-                    dataUri = fileUrl,
-                    contentDisposition = contentDisposition,
-                    mimeType = mimeType,
-                    suggestedFileName = finalFileName,
-                    originalPageUrl = referer
-                )
-                dismiss()
-                return@setOnClickListener
-            }
-
-            if (fileUrl.startsWith("blob:", ignoreCase = true)) {
-                val mainAct = (activity as? com.onyx.browser.MainActivity) ?: com.onyx.browser.MainActivity.currentInstance?.get()
-                if (mainAct != null) {
-                    DownloadHandler.handleBlobUriDownload(
-                        activity = mainAct,
-                        coroutineScope = downloadScope,
-                        blobUrl = fileUrl,
-                        contentDisposition = contentDisposition,
-                        mimeType = mimeType,
-                        referer = referer,
-                        suggestedFileName = finalFileName
-                    )
-                } else {
-                    Toast.makeText(requireContext(), "Cannot download blob without active webpage", Toast.LENGTH_SHORT).show()
-                }
-                dismiss()
-                return@setOnClickListener
-            }
-
-            checkStorageAndDownload {
-                val targetMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(finalFileName, mimeType)
-                DownloadHandler.startSystemDownload(
-                    context = requireContext().applicationContext,
-                    coroutineScope = downloadScope,
-                    url = fileUrl,
-                    userAgent = userAgent,
-                    fileName = finalFileName,
-                    mimeType = targetMime,
-                    contentLength = contentLength,
-                    cookies = cookies,
-                    referer = referer
-                )
-                dismiss()
+                displayUrl
             }
         }
 
-        // Action 2: External Downloader (1DM, 1DM+, ADM, FDM, etc.)
-        binding.btnDownloadExternal.setOnClickListener {
-            val chosenName = binding.etFileName.text?.toString()?.trim() ?: initialFileName
-            val finalFileName = if (chosenName.isNotBlank()) chosenName else initialFileName
+        Surface(
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp)
+                    .navigationBarsPadding()
+            ) {
+                // Drag handle
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 16.dp)
+                        .size(width = 36.dp, height = 4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
 
-            val targetMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(finalFileName, mimeType)
-            val downloaders = ExternalDownloaderHelper.getInstalledDownloaders(requireContext(), fileUrl, targetMime)
-            when {
-                downloaders.isEmpty() -> {
-                    // No external downloader found -> Show option to install or use default
-                    MaterialAlertDialogBuilder(requireContext())
-                        .setTitle(R.string.no_external_downloader_found)
-                        .setMessage(R.string.no_external_downloader_message)
-                        .setPositiveButton(R.string.get_from_play_store) { _, _ ->
-                            ExternalDownloaderHelper.openPlayStoreForDownloaders(requireContext())
+                // Header Info: Extension Badge, File Size & MIME
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(52.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = ext.take(4),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         }
-                        .setNeutralButton(R.string.use_default_downloader) { _, _ ->
-                            checkStorageAndDownload {
-                                DownloadHandler.startSystemDownload(
-                                    context = requireContext().applicationContext,
-                                    coroutineScope = downloadScope,
-                                    url = fileUrl,
-                                    userAgent = userAgent,
-                                    fileName = finalFileName,
-                                    mimeType = targetMime,
-                                    contentLength = contentLength,
-                                    cookies = cookies,
-                                    referer = referer
-                                )
-                                dismiss()
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = sizeText,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = resolvedMime,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Editable File Name
+                OutlinedTextField(
+                    value = fileName,
+                    onValueChange = { fileName = it },
+                    label = { Text("File name") },
+                    trailingIcon = {
+                        if (fileName.isNotEmpty()) {
+                            IconButton(onClick = { fileName = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear")
                             }
                         }
-                        .setNegativeButton(R.string.cancel, null)
-                        .show()
-                }
-                downloaders.size == 1 -> {
-                    // Exactly ONE is available -> Use it directly without asking!
-                    val single = downloaders.first()
-                    launchExternalDownloader(single, finalFileName)
-                }
-                else -> {
-                    // Multiple available -> Give option to select between them!
-                    val sheet = SelectDownloaderBottomSheet(downloaders) { selected ->
-                        launchExternalDownloader(selected, finalFileName)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Source URL Card
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = displayHost,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = displayUrl,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        IconButton(onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("URL", displayUrl)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, R.string.url_copied, Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy URL",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
-                    sheet.show(parentFragmentManager, SelectDownloaderBottomSheet.TAG)
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Actions
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Default Download Button
+                    Button(
+                        onClick = {
+                            val finalFileName = fileName.trim().ifBlank { initialFileName }
+                            startDownload(finalFileName)
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.download))
+                    }
+
+                    // External Downloader Button (if not blob/data URI)
+                    if (!isBlobOrData) {
+                        OutlinedButton(
+                            onClick = {
+                                val finalFileName = fileName.trim().ifBlank { initialFileName }
+                                handleExternalDownload(finalFileName)
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.download_external))
+                        }
+                    }
+
+                    // Cancel
+                    TextButton(
+                        onClick = { dismiss() },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = stringResource(R.string.cancel),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
+    }
 
-        // Action 3: Cancel
-        binding.btnCancel.setOnClickListener {
+    private fun startDownload(finalFileName: String) {
+        if (fileUrl.startsWith("data:", ignoreCase = true)) {
+            DownloadHandler.handleDataUriDownload(
+                context = requireContext().applicationContext,
+                coroutineScope = downloadScope,
+                dataUri = fileUrl,
+                contentDisposition = contentDisposition,
+                mimeType = mimeType,
+                suggestedFileName = finalFileName,
+                originalPageUrl = referer
+            )
             dismiss()
+            return
+        }
+
+        if (fileUrl.startsWith("blob:", ignoreCase = true)) {
+            val mainAct = (activity as? com.onyx.browser.MainActivity) ?: com.onyx.browser.MainActivity.currentInstance?.get()
+            if (mainAct != null) {
+                DownloadHandler.handleBlobUriDownload(
+                    activity = mainAct,
+                    coroutineScope = downloadScope,
+                    blobUrl = fileUrl,
+                    contentDisposition = contentDisposition,
+                    mimeType = mimeType,
+                    referer = referer,
+                    suggestedFileName = finalFileName
+                )
+            } else {
+                Toast.makeText(requireContext(), "Cannot download blob without active webpage", Toast.LENGTH_SHORT).show()
+            }
+            dismiss()
+            return
+        }
+
+        checkStorageAndDownload {
+            val targetMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(finalFileName, mimeType)
+            DownloadHandler.startSystemDownload(
+                context = requireContext().applicationContext,
+                coroutineScope = downloadScope,
+                url = fileUrl,
+                userAgent = userAgent,
+                fileName = finalFileName,
+                mimeType = targetMime,
+                contentLength = contentLength,
+                cookies = cookies,
+                referer = referer
+            )
+            dismiss()
+        }
+    }
+
+    private fun handleExternalDownload(finalFileName: String) {
+        val targetMime = com.onyx.browser.download.FileUtils.resolveMimeTypeForDownload(finalFileName, mimeType)
+        val downloaders = ExternalDownloaderHelper.getInstalledDownloaders(requireContext(), fileUrl, targetMime)
+        when {
+            downloaders.isEmpty() -> {
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.no_external_downloader_found)
+                    .setMessage(R.string.no_external_downloader_message)
+                    .setPositiveButton(R.string.get_from_play_store) { _, _ ->
+                        ExternalDownloaderHelper.openPlayStoreForDownloaders(requireContext())
+                    }
+                    .setNeutralButton(R.string.use_default_downloader) { _, _ ->
+                        checkStorageAndDownload {
+                            DownloadHandler.startSystemDownload(
+                                context = requireContext().applicationContext,
+                                coroutineScope = downloadScope,
+                                url = fileUrl,
+                                userAgent = userAgent,
+                                fileName = finalFileName,
+                                mimeType = targetMime,
+                                contentLength = contentLength,
+                                cookies = cookies,
+                                referer = referer
+                            )
+                            dismiss()
+                        }
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
+            downloaders.size == 1 -> {
+                val single = downloaders.first()
+                launchExternalDownloader(single, finalFileName)
+            }
+            else -> {
+                val sheet = SelectDownloaderBottomSheet(downloaders) { selected ->
+                    launchExternalDownloader(selected, finalFileName)
+                }
+                sheet.show(parentFragmentManager, SelectDownloaderBottomSheet.TAG)
+            }
         }
     }
 
@@ -305,11 +456,6 @@ class DownloadPromptBottomSheet : BottomSheetDialogFragment() {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     companion object {
