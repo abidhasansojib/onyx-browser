@@ -205,7 +205,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         }
 
     var accentColorPreset: String
-        get() = prefs.getString(KEY_ACCENT_COLOR_PRESET, ACCENT_PRESET_CRIMSON) ?: ACCENT_PRESET_CRIMSON
+        get() = prefs.getString(KEY_ACCENT_COLOR_PRESET, ACCENT_PRESET_ORANGE) ?: ACCENT_PRESET_ORANGE
         set(value) {
             prefs.edit().putString(KEY_ACCENT_COLOR_PRESET, value).apply()
         }
@@ -2735,7 +2735,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val THEME_LIGHT = 2
         const val THEME_DYNAMIC = 0 // Legacy alias to THEME_SYSTEM
 
-        const val DEFAULT_ACCENT_HEX = "#DC4B64"
+        const val DEFAULT_ACCENT_HEX = "#FF5C38"
         const val KEY_ACCENT_COLOR_PRESET = "pref_accent_color_preset"
         const val KEY_ACCENT_COLOR_HEX = "pref_accent_color_hex"
 

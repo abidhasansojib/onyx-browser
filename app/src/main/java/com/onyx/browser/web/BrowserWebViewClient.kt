@@ -2022,8 +2022,9 @@ open class BrowserWebViewClient(
                     cachedErrorPageTemplate = template
                 }
                 val errorJsonB64 = error.toBase64Json()
-                val accentHex = try { BrowserPreferences.getInstance(context).accentColorHex } catch (_: Exception) { "#DC4B64" }
+                val accentHex = try { BrowserPreferences.getInstance(context).accentColorHex } catch (_: Exception) { "#FF5C38" }
                 val populatedHtml = template.replace("{{ERROR_JSON_B64}}", errorJsonB64)
+                    .replace("#FF5C38", accentHex)
                     .replace("#DC4B64", accentHex)
                 val baseUrl = "https://onyx.browser/"
                 view?.loadDataWithBaseURL(

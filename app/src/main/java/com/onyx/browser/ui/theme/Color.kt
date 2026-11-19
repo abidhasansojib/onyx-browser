@@ -2,9 +2,9 @@ package com.onyx.browser.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Onyx Brand Primary & Accents (Coral Pink)
-val OnyxPrimary = Color(0xFFDC4B64)
-val OnyxPrimaryVariant = Color(0xFFC73A53)
+// Onyx Brand Primary & Accents (Orange #FF5C38)
+val OnyxPrimary = Color(0xFFFF5C38)
+val OnyxPrimaryVariant = Color(0xFFE04A27)
 val OnyxOnPrimary = Color(0xFFFFFFFF)
 
 // Light Palette

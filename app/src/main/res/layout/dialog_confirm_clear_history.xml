@@ -60,7 +60,7 @@
             android:textColor="?android:attr/textColorSecondary"
             android:textSize="15sp" />
 
-        <!-- Action Buttons: Cancel on Left (#35363A), Clear on Right (#DC4B64) -->
+        <!-- Action Buttons: Cancel on Left (#35363A), Clear on Right (#FF5C38) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

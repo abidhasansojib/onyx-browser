@@ -624,7 +624,7 @@ object LocalFileLoader {
 
         val rawStream = openInputStream(context, uri)
         if (rawStream == null) {
-            val accentHex = try { BrowserPreferences.getInstance(context).accentColorHex } catch (_: Exception) { "#DC4B64" }
+            val accentHex = try { BrowserPreferences.getInstance(context).accentColorHex } catch (_: Exception) { "#FF5C38" }
             val errorHtml = """
                 <!DOCTYPE html>
                 <html>
@@ -905,7 +905,7 @@ object LocalFileLoader {
      * Displays a clean, styled Material error card inside the WebView.
      */
     fun showErrorPage(webView: BrowserWebView, pathOrUrl: String, errorDescription: String) {
-        val accentHex = try { BrowserPreferences.getInstance(webView.context).accentColorHex } catch (_: Exception) { "#DC4B64" }
+        val accentHex = try { BrowserPreferences.getInstance(webView.context).accentColorHex } catch (_: Exception) { "#FF5C38" }
         val errorHtml = """
             <!DOCTYPE html>
             <html>

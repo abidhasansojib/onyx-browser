@@ -21,8 +21,8 @@ data class AccentPreset(
 object AccentColorManager {
 
     val PRESETS = listOf(
-        AccentPreset(BrowserPreferences.ACCENT_PRESET_CRIMSON, "Crimson", "#DC4B64", R.style.ThemeOverlay_Onyx_Accent_Crimson),
         AccentPreset(BrowserPreferences.ACCENT_PRESET_ORANGE, "Orange", "#FF5C38", R.style.ThemeOverlay_Onyx_Accent_Orange),
+        AccentPreset(BrowserPreferences.ACCENT_PRESET_CRIMSON, "Crimson", "#DC4B64", R.style.ThemeOverlay_Onyx_Accent_Crimson),
         AccentPreset(BrowserPreferences.ACCENT_PRESET_AMBER, "Amber", "#F59E0B", R.style.ThemeOverlay_Onyx_Accent_Amber),
         AccentPreset(BrowserPreferences.ACCENT_PRESET_GREEN, "Green", "#10C888", R.style.ThemeOverlay_Onyx_Accent_Green),
         AccentPreset(BrowserPreferences.ACCENT_PRESET_CYAN, "Cyan", "#06B6D4", R.style.ThemeOverlay_Onyx_Accent_Cyan),

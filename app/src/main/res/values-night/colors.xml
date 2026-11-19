@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Onyx Primary & Accents (Dark Mode: Coral Pink #DC4B64) -->
-    <color name="primary">#DC4B64</color>
-    <color name="primary_variant">#C73A53</color>
+    <!-- Onyx Primary & Accents (Dark Mode: Orange #FF5C38) -->
+    <color name="primary">#FF5C38</color>
+    <color name="primary_variant">#E04A27</color>
     <color name="on_primary">#FFFFFF</color>
-    <color name="secondary">#DC4B64</color>
+    <color name="secondary">#FF5C38</color>
     <color name="on_secondary">#FFFFFF</color>
 
     <!-- Search Widget Colors (Dark Theme - Chrome / Pixel Stadium Pill) -->
@@ -22,7 +22,7 @@
 
     <!-- Tab Switcher (Dark Theme: Quetta-inspired Theme) -->
     <color name="tab_switcher_bg">#131314</color>
-    <color name="tab_switcher_accent">#DC4B64</color>
+    <color name="tab_switcher_accent">#FF5C38</color>
     <color name="tab_pill_container_bg">#202022</color>
     <color name="tab_pill_stroke">#2E3033</color>
     <color name="tab_card_bg">#1D1E20</color>
@@ -40,7 +40,7 @@
     <color name="dialog_close_all_tabs_bg">#282A2D</color>
     <color name="dialog_search_engine_bg">#282A2D</color>
     <color name="btn_cancel_bg">#35363A</color>
-    <color name="btn_clear_bg">#DC4B64</color>
+    <color name="btn_clear_bg">#FF5C38</color>
     <color name="btn_apply_text">#1C1C1E</color>
     <color name="google_blue">#8AB4F8</color>
     <color name="green_success">#81C995</color>

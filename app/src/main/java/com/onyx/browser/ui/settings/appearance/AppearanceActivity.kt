@@ -60,7 +60,7 @@ class AppearanceActivity : ComponentActivity() {
     private lateinit var preferences: BrowserPreferences
     private var selectedThemeMode by mutableIntStateOf(BrowserPreferences.THEME_SYSTEM)
     private var isForceDarkMode by mutableStateOf(false)
-    private var selectedAccentHex by mutableStateOf("#DC4B64")
+    private var selectedAccentHex by mutableStateOf(BrowserPreferences.DEFAULT_ACCENT_HEX)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
