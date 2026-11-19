@@ -11,11 +11,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -29,11 +31,15 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.fragment.app.DialogFragment
 import com.onyx.browser.R
+import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class OpenInAppPromptDialog : DialogFragment() {
@@ -70,7 +76,21 @@ class OpenInAppPromptDialog : DialogFragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                OnyxTheme {
+                val prefs = remember { BrowserPreferences.getInstance(requireContext()) }
+                val isDark = when (prefs.themeMode) {
+                    BrowserPreferences.THEME_DARK -> true
+                    BrowserPreferences.THEME_LIGHT -> false
+                    else -> isSystemInDarkTheme()
+                }
+                val accentColor = remember(prefs.accentColorHex, prefs.accentColorPreset) {
+                    try {
+                        androidx.compose.ui.graphics.Color(AccentColorManager.getAccentColor(prefs))
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+
+                OnyxTheme(darkTheme = isDark, isAmoled = false, accentColor = accentColor) {
                     OpenInAppPromptContent()
                 }
             }
@@ -137,75 +157,111 @@ class OpenInAppPromptDialog : DialogFragment() {
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
             tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                // 1. Centered Hero Icon Squircle
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            RoundedCornerShape(16.dp)
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
                     if (iconBitmap != null) {
                         Image(
                             bitmap = iconBitmap.asImageBitmap(),
                             contentDescription = displayTargetName,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
                         )
                     } else {
                         Icon(
                             painter = painterResource(R.drawable.ic_external),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(28.dp)
                         )
                     }
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Text(
-                        text = titleText,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
+                // 2. Centered Title
                 Text(
-                    text = stringResource(R.string.open_in_app_prompt_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = titleText,
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
                 )
 
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 3. Centered Description / Warning
+                Text(
+                    text = stringResource(R.string.open_in_app_prompt_desc),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+
+                // 4. Target App & URL Info Card
                 if (!targetUrl.isNullOrBlank() || (!resolvedName.isNullOrBlank() && !isRawPackageName)) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = displayTargetName,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_link),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
                             )
-                            if (!targetUrl.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.height(2.dp))
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = targetUrl,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    text = displayTargetName,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                if (!targetUrl.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = targetUrl,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
@@ -213,26 +269,40 @@ class OpenInAppPromptDialog : DialogFragment() {
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // 5. Action Buttons (Stay in Onyx on Left, Open app on Right)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(
+                    // Left: Stay in Onyx
+                    Button(
                         onClick = {
                             actionTaken = true
                             onStayInOnyx?.invoke()
                             dismissAllowingStateLoss()
-                        }
+                        },
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
                     ) {
                         Text(
                             text = stringResource(R.string.stay_in_onyx),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
+                    // Right: Open App
                     Button(
                         onClick = {
                             actionTaken = true
@@ -250,9 +320,29 @@ class OpenInAppPromptDialog : DialogFragment() {
                             }
                             dismissAllowingStateLoss()
                         },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
                     ) {
-                        Text(stringResource(R.string.open_in_app_action))
+                        Icon(
+                            painter = painterResource(R.drawable.ic_external),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.open_in_app_action),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -266,6 +356,13 @@ class OpenInAppPromptDialog : DialogFragment() {
         }
     }
 
+    override fun onDismiss(dialog: DialogInterface) {
+        super.onDismiss(dialog)
+        if (!actionTaken) {
+            onStayInOnyx?.invoke()
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         dialog?.window?.let { window ->
@@ -273,6 +370,7 @@ class OpenInAppPromptDialog : DialogFragment() {
             val maxAllowedWidth = (400 * displayMetrics.density).toInt()
             val targetWidth = (displayMetrics.widthPixels * 0.90).toInt().coerceAtMost(maxAllowedWidth)
             window.setLayout(targetWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         }
     }
 
