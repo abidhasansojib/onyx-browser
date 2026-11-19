@@ -4,18 +4,26 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Download
@@ -29,16 +37,23 @@ import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,6 +61,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.data.preferences.SitePermissionState
 import com.onyx.browser.ui.components.AppAlertDialog
 import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.components.PreferenceItem
@@ -158,13 +174,18 @@ class SiteSettingsActivity : AppCompatActivity() {
                 }
 
                 if (activeCategorySheet != null) {
+                    val category = activeCategorySheet!!
                     PermissionCategorySheet(
-                        category = activeCategorySheet!!,
+                        category = category,
+                        selectedIndex = getSelectedOptionIndex(category),
+                        prefs = prefs,
                         onDismiss = { activeCategorySheet = null },
                         onOptionSelected = {
-                            handleCategoryOptionChange(activeCategorySheet!!, it)
+                            handleCategoryOptionChange(category, it)
                             loadStatuses()
-                            activeCategorySheet = null
+                        },
+                        onExceptionsChanged = {
+                            loadStatuses()
                         }
                     )
                 }
@@ -193,6 +214,26 @@ class SiteSettingsActivity : AppCompatActivity() {
         desktopStatus = if (prefs.isDesktopMode) "Desktop" else "Mobile (Default)"
         autoDownloadsStatus = if (prefs.isAutoDownloadsBlockedGlobal) "Blocked" else "Ask first"
         protectedContentStatus = if (prefs.isProtectedContentEnabledGlobal) "Allowed" else "Blocked"
+    }
+
+    private fun getSelectedOptionIndex(category: String): Int {
+        return when (category) {
+            "Camera" -> if (prefs.isCameraEnabledGlobal) 0 else 1
+            "Microphone" -> if (prefs.isMicEnabledGlobal) 0 else 1
+            "Location" -> if (prefs.isLocationEnabledGlobal) 0 else 1
+            "Notifications" -> if (prefs.isNotificationsEnabledGlobal) 0 else 1
+            "Sensors" -> if (!prefs.isSensorsBlockedGlobal) 0 else 1
+            "Clipboard" -> if (!prefs.isClipboardBlockedGlobal) 0 else 1
+            "JavaScript" -> if (prefs.isJavaScriptEnabledGlobal) 0 else 1
+            "Popups" -> if (prefs.isPopupsBlockedGlobal) 0 else 1
+            "Autoplay" -> if (prefs.isAutoplayBlockedGlobal) 1 else 0
+            "Images" -> if (prefs.isImagesEnabledGlobal) 0 else 1
+            "Sound" -> if (!prefs.isSoundMutedGlobal) 0 else 1
+            "Desktop" -> if (prefs.isDesktopMode) 1 else 0
+            "AutoDownloads" -> if (prefs.isAutoDownloadsBlockedGlobal) 1 else 0
+            "ProtectedContent" -> if (prefs.isProtectedContentEnabledGlobal) 0 else 1
+            else -> 0
+        }
     }
 
     private fun handleCategoryOptionChange(category: String, optionIndex: Int) {
@@ -426,10 +467,14 @@ fun SiteSettingsScreen(
 @Composable
 private fun PermissionCategorySheet(
     category: String,
+    selectedIndex: Int,
+    prefs: BrowserPreferences,
     onDismiss: () -> Unit,
-    onOptionSelected: (Int) -> Unit
+    onOptionSelected: (Int) -> Unit,
+    onExceptionsChanged: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var currentSelectedIndex by remember(selectedIndex) { mutableIntStateOf(selectedIndex) }
 
     val options = when (category) {
         "Camera", "Microphone", "Location", "Notifications", "Clipboard" -> listOf("Ask first (Recommended)", "Blocked globally")
@@ -442,6 +487,14 @@ private fun PermissionCategorySheet(
         else -> listOf("Allowed", "Blocked")
     }
 
+    val scrollState = rememberScrollState()
+
+    var desktopExceptions by remember { mutableStateOf(prefs.desktopDomains) }
+    var mobileExceptions by remember { mutableStateOf(prefs.mobileDomains) }
+    var showAddExceptionDialog by remember { mutableStateOf(false) }
+    var newDomainInput by remember { mutableStateOf("") }
+    var newDomainModeDesktop by remember { mutableStateOf(true) }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -451,9 +504,10 @@ private fun PermissionCategorySheet(
             modifier = Modifier
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 32.dp)
+                .verticalScroll(scrollState)
         ) {
             Text(
-                text = "$category Permission",
+                text = if (category == "Desktop") "Desktop Site Mode" else "$category Permission",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -463,12 +517,201 @@ private fun PermissionCategorySheet(
             options.forEachIndexed { index, option ->
                 RadioPreference(
                     title = option,
-                    selected = index == 0,
-                    onClick = { onOptionSelected(index) }
+                    selected = index == currentSelectedIndex,
+                    onClick = {
+                        currentSelectedIndex = index
+                        onOptionSelected(index)
+                    }
                 )
             }
 
+            if (category == "Desktop") {
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Site Exceptions",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    TextButton(onClick = { showAddExceptionDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Add exception")
+                    }
+                }
+
+                if (desktopExceptions.isNotEmpty()) {
+                    CategoryHeader(title = "ALWAYS DESKTOP")
+                    CardContainer {
+                        desktopExceptions.sorted().forEach { domain ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = domain,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Desktop mode forced",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    prefs.setSiteDesktopModeState(domain, SitePermissionState.ASK)
+                                    desktopExceptions = prefs.desktopDomains
+                                    mobileExceptions = prefs.mobileDomains
+                                    onExceptionsChanged()
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Remove exception",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (mobileExceptions.isNotEmpty()) {
+                    CategoryHeader(title = "ALWAYS MOBILE")
+                    CardContainer {
+                        mobileExceptions.sorted().forEach { domain ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = domain,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Mobile layout forced",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    prefs.setSiteDesktopModeState(domain, SitePermissionState.ASK)
+                                    desktopExceptions = prefs.desktopDomains
+                                    mobileExceptions = prefs.mobileDomains
+                                    onExceptionsChanged()
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Remove exception",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (desktopExceptions.isEmpty() && mobileExceptions.isEmpty()) {
+                    Text(
+                        text = "No site exceptions configured",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        if (showAddExceptionDialog) {
+            AppAlertDialog(
+                title = "Add Desktop Exception",
+                confirmButtonText = "Add",
+                onConfirm = {
+                    val clean = prefs.cleanDomain(newDomainInput.trim())
+                    if (clean.isNotBlank()) {
+                        val state = if (newDomainModeDesktop) SitePermissionState.ALLOWED else SitePermissionState.BLOCKED
+                        prefs.setSiteDesktopModeState(clean, state)
+                        desktopExceptions = prefs.desktopDomains
+                        mobileExceptions = prefs.mobileDomains
+                        onExceptionsChanged()
+                    }
+                    showAddExceptionDialog = false
+                    newDomainInput = ""
+                },
+                onDismissRequest = {
+                    showAddExceptionDialog = false
+                    newDomainInput = ""
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = "Enter a website domain to override the global desktop site setting:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = newDomainInput,
+                            onValueChange = { newDomainInput = it },
+                            placeholder = { Text("example.com") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { newDomainModeDesktop = true }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = newDomainModeDesktop,
+                                onClick = { newDomainModeDesktop = true }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Always Desktop",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { newDomainModeDesktop = false }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = !newDomainModeDesktop,
+                                onClick = { newDomainModeDesktop = false }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Always Mobile",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            )
         }
     }
 }

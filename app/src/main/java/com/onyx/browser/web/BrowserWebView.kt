@@ -710,6 +710,7 @@ class BrowserWebView @JvmOverloads constructor(
     }
 
     fun onSiteSettingsChanged() {
+        resetDesktopModeExplicitOverride()
         applyUserAgentForUrl(this.url ?: "", forceRefreshLayout = true)
     }
 
@@ -884,7 +885,14 @@ class BrowserWebView @JvmOverloads constructor(
         if (forceRefreshLayout) {
             val current = this.url
             if (urlString.isNotBlank() && !isSyntheticOrDataUrl(urlString) && current != urlString) {
-                this.loadUrl(urlString)
+                try {
+                    settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                    this.loadUrl(urlString)
+                } finally {
+                    post {
+                        settings.cacheMode = WebSettings.LOAD_DEFAULT
+                    }
+                }
             } else if (!current.isNullOrBlank() && !isSyntheticOrDataUrl(current)) {
                 try {
                     settings.cacheMode = WebSettings.LOAD_NO_CACHE

@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
+import com.onyx.browser.data.preferences.SitePermissionState
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.components.AppAlertDialog
 import com.onyx.browser.ui.components.CardContainer
@@ -100,6 +101,7 @@ class SiteShieldBottomSheet(
                 var isFingerprint by remember { mutableStateOf(prefs.isFingerprintProtectionEnabled) }
                 var isScriptBlocked by remember { mutableStateOf(prefs.isScriptBlockingEnabledForDomain(domain)) }
                 var isCosmeticBlocked by remember { mutableStateOf(prefs.isBlockElementEnabled) }
+                var isDesktopMode by remember { mutableStateOf(prefs.getEffectiveDesktopMode(domain)) }
                 var showClearDataDialog by remember { mutableStateOf(false) }
 
                 val userscriptManager = remember { com.onyx.browser.userscript.UserScriptManager.getInstance(requireContext()) }
@@ -138,6 +140,12 @@ class SiteShieldBottomSheet(
                         onCosmeticBlockedToggle = {
                             isCosmeticBlocked = it
                             prefs.isBlockElementEnabled = it
+                            onShieldSettingsChanged()
+                        },
+                        isDesktopMode = isDesktopMode,
+                        onDesktopModeToggle = { enabled ->
+                            isDesktopMode = enabled
+                            prefs.setSiteDesktopModeState(domain, if (enabled) SitePermissionState.ALLOWED else SitePermissionState.BLOCKED)
                             onShieldSettingsChanged()
                         },
                         onClearSiteDataClick = {
@@ -188,6 +196,8 @@ fun SiteShieldSheetLayout(
     onScriptBlockedToggle: (Boolean) -> Unit,
     isCosmeticBlocked: Boolean,
     onCosmeticBlockedToggle: (Boolean) -> Unit,
+    isDesktopMode: Boolean,
+    onDesktopModeToggle: (Boolean) -> Unit,
     onClearSiteDataClick: () -> Unit,
     onOpenUserScripts: () -> Unit = {},
     onOpenSettings: () -> Unit,
@@ -327,6 +337,14 @@ fun SiteShieldSheetLayout(
                 checked = isCosmeticBlocked,
                 onCheckedChange = onCosmeticBlockedToggle,
                 enabled = isShieldsActive
+            )
+
+            SwitchPreference(
+                title = "Desktop Site",
+                subtitle = "Request the desktop version of this website",
+                iconResId = R.drawable.ic_desktop,
+                checked = isDesktopMode,
+                onCheckedChange = onDesktopModeToggle
             )
 
             PreferenceItem(
