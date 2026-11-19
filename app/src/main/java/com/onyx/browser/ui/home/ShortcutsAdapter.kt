@@ -107,36 +107,6 @@ class ShortcutsAdapter(
                     binding.ivShortcutIcon.setImageResource(R.drawable.ic_add)
                     binding.ivShortcutIcon.imageTintList = ColorStateList.valueOf(textColorPrimary)
                 }
-                ShortcutItem.ICON_GOOGLE -> {
-                    binding.ivShortcutIcon.visibility = View.VISIBLE
-                    binding.tvLetterBadge.visibility = View.GONE
-                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_engine_google)
-                }
-                ShortcutItem.ICON_YOUTUBE -> {
-                    binding.ivShortcutIcon.visibility = View.VISIBLE
-                    binding.tvLetterBadge.visibility = View.GONE
-                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_brand_youtube)
-                }
-                ShortcutItem.ICON_GITHUB -> {
-                    binding.ivShortcutIcon.visibility = View.VISIBLE
-                    binding.tvLetterBadge.visibility = View.GONE
-                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_brand_github)
-                }
-                ShortcutItem.ICON_WIKIPEDIA -> {
-                    binding.ivShortcutIcon.visibility = View.VISIBLE
-                    binding.tvLetterBadge.visibility = View.GONE
-                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_brand_wikipedia)
-                }
-                ShortcutItem.ICON_FACEBOOK -> {
-                    binding.ivShortcutIcon.visibility = View.VISIBLE
-                    binding.tvLetterBadge.visibility = View.GONE
-                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_brand_facebook)
-                }
-                ShortcutItem.ICON_REDDIT -> {
-                    binding.ivShortcutIcon.visibility = View.VISIBLE
-                    binding.tvLetterBadge.visibility = View.GONE
-                    binding.ivShortcutIcon.setImageResource(R.drawable.ic_brand_reddit)
-                }
                 ShortcutItem.ICON_BOOKMARKS -> {
                     binding.ivShortcutIcon.visibility = View.VISIBLE
                     binding.tvLetterBadge.visibility = View.GONE

@@ -93,36 +93,6 @@ class ManageShortcutsAdapter(
             binding.ivManageIcon.imageTintList = null
 
             when (item.iconType) {
-                ShortcutItem.ICON_GOOGLE -> {
-                    binding.ivManageIcon.visibility = View.VISIBLE
-                    binding.tvManageLetter.visibility = View.GONE
-                    binding.ivManageIcon.setImageResource(R.drawable.ic_engine_google)
-                }
-                ShortcutItem.ICON_YOUTUBE -> {
-                    binding.ivManageIcon.visibility = View.VISIBLE
-                    binding.tvManageLetter.visibility = View.GONE
-                    binding.ivManageIcon.setImageResource(R.drawable.ic_brand_youtube)
-                }
-                ShortcutItem.ICON_GITHUB -> {
-                    binding.ivManageIcon.visibility = View.VISIBLE
-                    binding.tvManageLetter.visibility = View.GONE
-                    binding.ivManageIcon.setImageResource(R.drawable.ic_brand_github)
-                }
-                ShortcutItem.ICON_WIKIPEDIA -> {
-                    binding.ivManageIcon.visibility = View.VISIBLE
-                    binding.tvManageLetter.visibility = View.GONE
-                    binding.ivManageIcon.setImageResource(R.drawable.ic_brand_wikipedia)
-                }
-                ShortcutItem.ICON_FACEBOOK -> {
-                    binding.ivManageIcon.visibility = View.VISIBLE
-                    binding.tvManageLetter.visibility = View.GONE
-                    binding.ivManageIcon.setImageResource(R.drawable.ic_brand_facebook)
-                }
-                ShortcutItem.ICON_REDDIT -> {
-                    binding.ivManageIcon.visibility = View.VISIBLE
-                    binding.tvManageLetter.visibility = View.GONE
-                    binding.ivManageIcon.setImageResource(R.drawable.ic_brand_reddit)
-                }
                 ShortcutItem.ICON_BOOKMARKS -> {
                     binding.ivManageIcon.visibility = View.VISIBLE
                     binding.tvManageLetter.visibility = View.GONE
@@ -153,6 +123,16 @@ class ManageShortcutsAdapter(
                         binding.tvManageLetter.visibility = View.GONE
                         binding.ivManageIcon.setImageResource(R.drawable.ic_web)
                     }
+
+                    com.onyx.browser.data.favicon.FaviconManager.loadFavicon(
+                        context = binding.root.context,
+                        imageView = binding.ivManageIcon,
+                        urlOrHost = item.url,
+                        fallbackLetterView = binding.tvManageLetter,
+                        isCircular = false,
+                        isRounded = true,
+                        cornerRadiusRatio = 0.22f
+                    )
                 }
             }
 

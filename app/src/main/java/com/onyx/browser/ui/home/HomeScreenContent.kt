@@ -163,15 +163,6 @@ fun HomeScreenContent(
                 items(displayShortcuts, key = { it.id }) { item ->
                     val isAddSentinel = item.id == ShortcutItem.ID_ADD_SHORTCUT || item.url == ShortcutItem.URL_ADD_SHORTCUT
                     val isSystem = item.isSystemShortcut
-                    val brandIcon = when (item.iconType) {
-                        ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
-                        ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
-                        ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
-                        ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
-                        ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
-                        ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
-                        else -> null
-                    }
                     val favicon = if (!isAddSentinel && !isSystem) rememberFavicon(item.url) else null
 
                     Column(
@@ -242,7 +233,7 @@ fun HomeScreenContent(
                                         )
                                     }
 
-                                    // 3. Website Shortcuts with Live Cached Favicons
+                                    // 3. Dynamic Live Cached Website Favicons
                                     favicon != null -> {
                                         Image(
                                             bitmap = favicon,
@@ -254,17 +245,7 @@ fun HomeScreenContent(
                                         )
                                     }
 
-                                    // 4. Fallback for Static Brand Icons (Google, YouTube, etc.)
-                                    brandIcon != null -> {
-                                        Icon(
-                                            painter = painterResource(brandIcon),
-                                            contentDescription = item.title,
-                                            tint = Color.Unspecified,
-                                            modifier = Modifier.size(26.dp)
-                                        )
-                                    }
-
-                                    // 5. Fallback for unstyled websites (first letter or web globe)
+                                    // 4. Fallback for unstyled websites (first letter or web globe)
                                     else -> {
                                         val firstLetter = item.title.trim().firstOrNull()?.uppercase()
                                         if (firstLetter != null && firstLetter.matches(Regex("[A-Za-z0-9]"))) {

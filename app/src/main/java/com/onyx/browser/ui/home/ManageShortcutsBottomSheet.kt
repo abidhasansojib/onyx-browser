@@ -211,15 +211,6 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(suggestedItems) { (title, url, iconType) ->
-                        val brandIcon = when (iconType) {
-                            ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
-                            ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
-                            ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
-                            ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
-                            ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
-                            ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
-                            else -> null
-                        }
                         val favicon = rememberFavicon(url)
 
                         Surface(
@@ -250,14 +241,6 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                             modifier = Modifier
                                                 .size(18.dp)
                                                 .clip(CircleShape)
-                                        )
-                                    }
-                                    brandIcon != null -> {
-                                        Icon(
-                                            painter = painterResource(brandIcon),
-                                            contentDescription = null,
-                                            tint = Color.Unspecified,
-                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                     else -> {
@@ -304,15 +287,6 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                 ) {
                     items(shortcuts, key = { it.id }) { item ->
                         val isSystem = item.isSystemShortcut
-                        val brandIcon = when (item.iconType) {
-                            ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
-                            ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
-                            ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
-                            ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
-                            ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
-                            ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
-                            else -> null
-                        }
                         val favicon = if (!isSystem) rememberFavicon(item.url) else null
 
                         Surface(
@@ -332,7 +306,7 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                         .clip(if (isSystem) RoundedCornerShape(10.dp) else CircleShape)
                                         .background(
                                             if (isSystem) MaterialTheme.colorScheme.primaryContainer
-                                            else MaterialTheme.colorScheme.surfaceVariant
+                                             else MaterialTheme.colorScheme.surfaceVariant
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -366,14 +340,6 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                                 modifier = Modifier
                                                     .size(20.dp)
                                                     .clip(CircleShape)
-                                            )
-                                        }
-                                        brandIcon != null -> {
-                                            Icon(
-                                                painter = painterResource(brandIcon),
-                                                contentDescription = null,
-                                                tint = Color.Unspecified,
-                                                modifier = Modifier.size(20.dp)
                                             )
                                         }
                                         else -> {

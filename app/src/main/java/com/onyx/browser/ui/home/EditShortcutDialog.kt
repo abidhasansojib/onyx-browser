@@ -66,15 +66,6 @@ class EditShortcutDialog @JvmOverloads constructor(
         }
 
         val isSystem = shortcut.isSystemShortcut
-        val brandIcon = when (shortcut.iconType) {
-            ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
-            ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
-            ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
-            ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
-            ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
-            ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
-            else -> null
-        }
         val favicon = if (!isSystem) rememberFavicon(url) else null
 
         Surface(
@@ -133,14 +124,6 @@ class EditShortcutDialog @JvmOverloads constructor(
                                     modifier = Modifier
                                         .size(26.dp)
                                         .clip(CircleShape)
-                                )
-                            }
-                            brandIcon != null -> {
-                                Icon(
-                                    painter = painterResource(brandIcon),
-                                    contentDescription = null,
-                                    tint = ComposeColor.Unspecified,
-                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                             else -> {
