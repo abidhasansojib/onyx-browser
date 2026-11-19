@@ -125,7 +125,70 @@
             };
         }
 
-        // ── 2. Metadata Extraction ──────────────────────────────────────────
+        // ── 2. Metadata & Artwork Extraction (Enhanced with Clint Area Picker) ──
+        function absoluteUrl(src) {
+            if (!src || typeof src !== 'string') return '';
+            if (src.indexOf('data:image/') === 0) return src.length <= 1000000 ? src : '';
+            try {
+                var url = new URL(src, document.baseURI);
+                return (url.protocol === 'http:' || url.protocol === 'https:') ? url.href : '';
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function artworkArea(item) {
+            var best = 0;
+            String(item.sizes || '').split(/\s+/).forEach(function (size) {
+                var parts = size.toLowerCase().split('x');
+                var area = (parseInt(parts[0], 10) || 0) * (parseInt(parts[1], 10) || 0);
+                if (area > best) best = area;
+            });
+            return best;
+        }
+
+        function pickBestArtwork(artworkList) {
+            if (!artworkList || !artworkList.length) return '';
+            var valid = Array.prototype.slice.call(artworkList).filter(function(item) {
+                return item && absoluteUrl(item.src);
+            });
+            if (!valid.length) return '';
+            valid.sort(function(a, b) { return artworkArea(b) - artworkArea(a); });
+            return absoluteUrl(valid[0].src);
+        }
+
+        function fallbackArtwork(elem) {
+            if (elem instanceof HTMLVideoElement && elem.poster) {
+                var p = absoluteUrl(elem.poster);
+                if (p) return p;
+            }
+            var selectors = [
+                'meta[property="og:image"]',
+                'meta[name="twitter:image"]',
+                'link[rel="apple-touch-icon"]',
+                'link[rel="icon"]'
+            ];
+            for (var i = 0; i < selectors.length; i++) {
+                try {
+                    var el = document.querySelector(selectors[i]);
+                    var href = el ? (el.getAttribute('content') || el.getAttribute('href') || '') : '';
+                    var resolved = absoluteUrl(href);
+                    if (resolved) return resolved;
+                } catch (_) {}
+            }
+            return '';
+        }
+
+        function extractArtwork(elem) {
+            try {
+                if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.artwork) {
+                    var picked = pickBestArtwork(navigator.mediaSession.metadata.artwork);
+                    if (picked) return picked;
+                }
+            } catch (_) {}
+            return fallbackArtwork(elem);
+        }
+
         function extractTitle() {
             try {
                 if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.title) {
@@ -146,21 +209,6 @@
                 if (ytChan && ytChan.textContent) return ytChan.textContent.trim();
                 return (location.hostname || '').replace(/^www\./, '');
             } catch (_) { return (location.hostname || '').replace(/^www\./, ''); }
-        }
-
-        function extractArtwork(elem) {
-            try {
-                if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.artwork && navigator.mediaSession.metadata.artwork.length > 0) {
-                    var arts = navigator.mediaSession.metadata.artwork;
-                    return arts[arts.length - 1].src || arts[0].src || '';
-                }
-                if (elem instanceof HTMLVideoElement && elem.poster) {
-                    return elem.poster;
-                }
-                var ogImg = document.querySelector('meta[property="og:image"]');
-                if (ogImg && ogImg.content) return ogImg.content;
-            } catch (_) {}
-            return '';
         }
 
         // ── 3. Video Bounds Tracking ────────────────────────────────────────
@@ -476,11 +524,13 @@
             if (e.target instanceof HTMLMediaElement && !e.target.paused) reportMediaProgress(e.target);
         }, true);
 
-        // ── 8. Hook navigator.mediaSession metadata & action handlers ────────
+        // ── 8. Hook navigator.mediaSession (Metadata & setPositionState) ────────
         var mediaSessionHandlers = window.__onyx_media_session_handlers || {};
         window.__onyx_media_session_handlers = mediaSessionHandlers;
+
         if (navigator.mediaSession) {
             try {
+                // Action Handlers
                 if (navigator.mediaSession.setActionHandler) {
                     var origSetActionHandler = navigator.mediaSession.setActionHandler.bind(navigator.mediaSession);
                     navigator.mediaSession.setActionHandler = function(action, handler) {
@@ -492,6 +542,42 @@
                         return origSetActionHandler(action, handler);
                     };
                 }
+
+                // Dynamic Position State Hook (Spotify / Web Audio / Bandcamp)
+                if (navigator.mediaSession.setPositionState) {
+                    var origSetPositionState = navigator.mediaSession.setPositionState.bind(navigator.mediaSession);
+                    navigator.mediaSession.setPositionState = function(state) {
+                        if (state && typeof state === 'object' && window.OnyxMediaBridge) {
+                            var dur = (typeof state.duration === 'number' && isFinite(state.duration)) ? state.duration : 0;
+                            var pos = (typeof state.position === 'number' && isFinite(state.position)) ? state.position : 0;
+                            window.OnyxMediaBridge.onMediaProgress(pos, dur);
+                        }
+                        return origSetPositionState(state);
+                    };
+                }
+
+                // In-Place Property Setters on MediaMetadata.prototype
+                if (window.MediaMetadata && window.MediaMetadata.prototype) {
+                    ['title', 'artist', 'album', 'artwork'].forEach(function(prop) {
+                        var desc = Object.getOwnPropertyDescriptor(window.MediaMetadata.prototype, prop);
+                        if (desc && desc.set) {
+                            Object.defineProperty(window.MediaMetadata.prototype, prop, {
+                                configurable: true,
+                                enumerable: desc.enumerable,
+                                get: desc.get,
+                                set: function(val) {
+                                    desc.set.call(this, val);
+                                    if (window.OnyxMediaBridge && navigator.mediaSession && navigator.mediaSession.metadata === this) {
+                                        var art = extractArtwork(null);
+                                        window.OnyxMediaBridge.onMediaMetadata(this.title || '', this.artist || '', art);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+
+                // MediaSession.prototype.metadata setter
                 var metaDesc = Object.getOwnPropertyDescriptor(MediaSession.prototype, 'metadata');
                 if (metaDesc && metaDesc.set) {
                     var origMetadataSetter = metaDesc.set;
@@ -503,7 +589,7 @@
                         set: function(val) {
                             origMetadataSetter.call(this, val);
                             if (val && window.OnyxMediaBridge) {
-                                var art = (val.artwork && val.artwork.length > 0) ? (val.artwork[val.artwork.length - 1].src || val.artwork[0].src || '') : '';
+                                var art = pickBestArtwork(val.artwork) || fallbackArtwork(null);
                                 window.OnyxMediaBridge.onMediaMetadata(val.title || '', val.artist || '', art);
                             }
                         },

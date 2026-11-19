@@ -245,7 +245,7 @@ class MediaPlaybackService : Service() {
         if (!title.isNullOrBlank()) currentTitle = title
         if (!artist.isNullOrBlank()) currentArtist = artist
 
-        if (!artworkUrl.isNullOrBlank() && artworkUrl != currentArtworkUrl) {
+        if (!artworkUrl.isNullOrBlank() && (artworkUrl != currentArtworkUrl || currentArtworkBitmap == null)) {
             currentArtworkUrl = artworkUrl
             loadArtworkAsync(artworkUrl)
         }
@@ -387,17 +387,27 @@ class MediaPlaybackService : Service() {
         artworkJob = serviceScope.launch {
             val bitmap = withContext(Dispatchers.IO) {
                 try {
-                    val url = URL(urlStr)
-                    val conn = (url.openConnection() as HttpURLConnection).apply {
-                        connectTimeout = 4000
-                        readTimeout = 4000
-                        doInput = true
+                    val original = if (urlStr.startsWith("data:image/", ignoreCase = true)) {
+                        val commaIndex = urlStr.indexOf(',')
+                        if (commaIndex != -1) {
+                            val base64Data = urlStr.substring(commaIndex + 1)
+                            val decodedBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+                            BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+                        } else null
+                    } else {
+                        val url = URL(urlStr)
+                        val conn = (url.openConnection() as HttpURLConnection).apply {
+                            connectTimeout = 4000
+                            readTimeout = 4000
+                            doInput = true
+                        }
+                        conn.connect()
+                        val input = conn.inputStream
+                        val decoded = BitmapFactory.decodeStream(input)
+                        input.close()
+                        conn.disconnect()
+                        decoded
                     }
-                    conn.connect()
-                    val input = conn.inputStream
-                    val original = BitmapFactory.decodeStream(input)
-                    input.close()
-                    conn.disconnect()
 
                     // Scale down to max 512x512 to preserve memory
                     if (original != null && (original.width > 512 || original.height > 512)) {

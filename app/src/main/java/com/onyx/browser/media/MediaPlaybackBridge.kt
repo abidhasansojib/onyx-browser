@@ -304,7 +304,10 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         val cleanArtist = sanitizeMediaText(artist, "Onyx Browser") ?: "Onyx Browser"
         currentTitle = cleanTitle
         currentArtist = cleanArtist
-        currentArtworkUrl = sanitizeArtworkUrl(artworkUrl)
+        val cleanArtwork = sanitizeArtworkUrl(artworkUrl)
+        if (!cleanArtwork.isNullOrBlank()) {
+            currentArtworkUrl = cleanArtwork
+        }
 
         mainHandler.post {
             onMediaStateListener?.invoke(isPlaying, isVideo, lastVideoWidth, lastVideoHeight)
@@ -335,15 +338,17 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     fun onMediaProgress(positionSec: Double, durationSec: Double) {
         val newPositionMs = (positionSec * 1000).toLong().coerceAtLeast(0L)
         val newDurationMs = (durationSec * 1000).toLong().coerceAtLeast(0L)
+        val isSeekJump = Math.abs(newPositionMs - currentPositionMs) > 2500L
         currentPositionMs = newPositionMs
         currentDurationMs = newDurationMs
 
-        // Throttle: only forward progress to the service at most once every 3 seconds.
+        // Throttle: only forward progress to the service at most once every 3 seconds,
+        // unless a scrub/seek jump was detected.
         // JS timeupdate fires every ~250ms — dispatching startService() on every tick causes
         // main-thread binder IPC jank. The MediaSession playback state already tracks live
         // position via the elapsed-realtime clock set in updatePlaybackState().
         val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastProgressDispatchMs < PROGRESS_DISPATCH_THROTTLE_MS) return
+        if (!isSeekJump && (now - lastProgressDispatchMs < PROGRESS_DISPATCH_THROTTLE_MS)) return
         lastProgressDispatchMs = now
 
         mainHandler.post {
@@ -484,25 +489,25 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaMetadata(title: String?, artist: String?, artworkUrl: String?) {
-        val cleanTitle = sanitizeMediaText(title)
-        val cleanArtist = sanitizeMediaText(artist)
+        val cleanTitle = sanitizeMediaText(title, currentTitle) ?: currentTitle
+        val cleanArtist = sanitizeMediaText(artist, currentArtist) ?: currentArtist
         val cleanArtwork = sanitizeArtworkUrl(artworkUrl)
 
-        if (cleanTitle != null) currentTitle = cleanTitle
-        if (cleanArtist != null) currentArtist = cleanArtist
-        if (cleanArtwork != null) currentArtworkUrl = cleanArtwork
+        currentTitle = cleanTitle
+        currentArtist = cleanArtist
+        if (!cleanArtwork.isNullOrBlank()) {
+            currentArtworkUrl = cleanArtwork
+        }
 
         mainHandler.post {
-            if (isBackgroundPlayActive && isAudioOrVideoPlaying) {
-                MediaPlaybackService.updateMetadata(
-                    context,
-                    currentTitle,
-                    currentArtist,
-                    currentArtworkUrl,
-                    currentPositionMs,
-                    currentDurationMs
-                )
-            }
+            MediaPlaybackService.updateMetadata(
+                context,
+                currentTitle,
+                currentArtist,
+                currentArtworkUrl,
+                currentPositionMs,
+                currentDurationMs
+            )
         }
     }
 }
