@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -71,7 +72,7 @@ fun HomeScreenContent(
             .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(36.dp))
+        Spacer(modifier = Modifier.height(72.dp))
 
         // Branding / Hero Section
         if (isIncognito) {
@@ -85,13 +86,13 @@ fun HomeScreenContent(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                        .background(colorResource(R.color.shortcut_tile_bg)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_incognito),
                         contentDescription = stringResource(R.string.incognito_mode),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(40.dp)
                     )
                 }
@@ -142,7 +143,7 @@ fun HomeScreenContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         // Shortcuts Grid Container
         Box(
@@ -186,16 +187,12 @@ fun HomeScreenContent(
                     ) {
                         Surface(
                             shape = when {
-                                isSystem -> RoundedCornerShape(16.dp) // Option B: Squircle for System Tools
-                                else -> CircleShape                   // Circular for Websites & Add
+                                isSystem || isAddSentinel -> RoundedCornerShape(16.dp)
+                                else -> CircleShape
                             },
-                            color = when {
-                                isAddSentinel -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                isSystem -> MaterialTheme.colorScheme.primaryContainer // Distinct tonal background
-                                else -> MaterialTheme.colorScheme.surfaceVariant
-                            },
-                            tonalElevation = if (isSystem) 3.dp else 1.dp,
-                            shadowElevation = if (isAddSentinel) 0.dp else 2.dp,
+                            color = colorResource(R.color.shortcut_tile_bg),
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp,
                             modifier = Modifier.size(54.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -205,7 +202,7 @@ fun HomeScreenContent(
                                         Icon(
                                             imageVector = Icons.Default.Add,
                                             contentDescription = "Add shortcut",
-                                            tint = MaterialTheme.colorScheme.primary,
+                                            tint = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.size(24.dp)
                                         )
                                     }
@@ -228,7 +225,7 @@ fun HomeScreenContent(
                                         Icon(
                                             painter = painterResource(sysIconRes),
                                             contentDescription = item.title,
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            tint = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.size(24.dp)
                                         )
                                     }
@@ -253,14 +250,14 @@ fun HomeScreenContent(
                                                 text = firstLetter,
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSurface
                                             )
                                         } else {
                                             Icon(
                                                 painter = painterResource(R.drawable.ic_web),
                                                 contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(22.dp)
+                                                tint = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.size(24.dp)
                                             )
                                         }
                                     }

@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -88,10 +89,7 @@ class EditShortcutDialog @JvmOverloads constructor(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(if (isSystem) RoundedCornerShape(14.dp) else CircleShape)
-                            .background(
-                                if (isSystem) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            ),
+                            .background(colorResource(R.color.shortcut_tile_bg)),
                         contentAlignment = Alignment.Center
                     ) {
                         when {
@@ -112,7 +110,7 @@ class EditShortcutDialog @JvmOverloads constructor(
                                 Icon(
                                     painter = painterResource(sysRes),
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -132,13 +130,13 @@ class EditShortcutDialog @JvmOverloads constructor(
                                         text = firstLetter,
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 } else {
                                     Icon(
                                         painter = painterResource(R.drawable.ic_web),
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
