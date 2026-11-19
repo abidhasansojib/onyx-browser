@@ -154,9 +154,21 @@ class TouchBridge {
                 var __scrollableTarget = null;
                 var __directionLocked = false;
 
+                function isErudaExpanded() {
+                    try {
+                        if (window.eruda && window.eruda._isInit) {
+                            var dt = window.eruda._devTools || (typeof window.eruda.get === 'function' ? window.eruda.get() : null);
+                            if (dt && typeof dt._isShow === 'boolean') {
+                                return dt._isShow;
+                            }
+                        }
+                    } catch (_) {}
+                    return !!window.__onyx_eruda_visible;
+                }
+
                 function isErudaOrDevTools(el, path) {
                     try {
-                        if (window.__onyx_eruda_visible) return true;
+                        if (isErudaExpanded()) return true;
                         if (path && path.length > 0) {
                             for (var i = 0; i < path.length; i++) {
                                 var n = path[i];
@@ -287,6 +299,17 @@ class TouchBridge {
                         var path = (e.composedPath && typeof e.composedPath === 'function') ? e.composedPath() : null;
                         var el = document.elementFromPoint(t.clientX, t.clientY);
 
+                        // Self-healing synchronization: if Eruda visibility state changed without an event
+                        var isExpanded = isErudaExpanded();
+                        if (window.__onyx_last_reported_dt_visible !== isExpanded) {
+                            window.__onyx_last_reported_dt_visible = isExpanded;
+                            window.__onyx_eruda_visible = isExpanded;
+                            postTouchMsg({ type: 'devtools_visibility', expanded: isExpanded });
+                            if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.onDevToolsVisibilityChanged === 'function') {
+                                window.OnyxTouchBridge.onDevToolsVisibilityChanged(isExpanded);
+                            }
+                        }
+
                         // Cache nearest scrollable parent for use in touchmove
                         __scrollableTarget = findScrollableParent(el, path);
 
@@ -370,8 +393,8 @@ class TouchBridge {
                                 bridge.setPullToRefreshAllowed(false);
                             }
                         } else {
-                            // Swiping DOWN — block if an inner scrollable container is mid-scroll or if DevTools
-                            if (window.__onyx_eruda_visible || (__scrollableTarget && __scrollableTarget.scrollTop > 0)) {
+                            // Swiping DOWN — block if an inner scrollable container is mid-scroll or if DevTools panel is expanded
+                            if (isErudaExpanded() || (__scrollableTarget && __scrollableTarget.scrollTop > 0)) {
                                 if (!postTouchMsg({ type: 'ptr', allowed: false })) {
                                     bridge.setPullToRefreshAllowed(false);
                                 }
@@ -383,13 +406,17 @@ class TouchBridge {
                 document.addEventListener('touchend', function() {
                     __directionLocked = false;
                     __scrollableTarget = null;
-                    if (window.__onyx_eruda_visible) return;
+                    if (isErudaExpanded()) return;
+                    if (!postTouchMsg({ type: 'ptr', allowed: true })) {
+                        if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                        }
+                    }
                     setTimeout(function() {
-                        if (window.__onyx_eruda_visible) return;
+                        if (isErudaExpanded()) return;
                         if (!postTouchMsg({ type: 'cleared' })) {
                             if (window.OnyxTouchBridge) {
                                 window.OnyxTouchBridge.onTouchCleared();
-                                window.OnyxTouchBridge.setPullToRefreshAllowed(true);
                             }
                         }
                     }, 800);
@@ -398,11 +425,15 @@ class TouchBridge {
                 document.addEventListener('touchcancel', function() {
                     __directionLocked = false;
                     __scrollableTarget = null;
-                    if (window.__onyx_eruda_visible) return;
+                    if (isErudaExpanded()) return;
+                    if (!postTouchMsg({ type: 'ptr', allowed: true })) {
+                        if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                        }
+                    }
                     if (!postTouchMsg({ type: 'cleared' })) {
                         if (window.OnyxTouchBridge) {
                             window.OnyxTouchBridge.onTouchCleared();
-                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
                         }
                     }
                 }, { passive: true });

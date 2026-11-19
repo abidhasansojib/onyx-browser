@@ -186,8 +186,69 @@ object DevToolsManager {
     private fun buildInitScript(erudaCode: String, themeName: String, displaySize: Int): String = """
         (function() {
             try {
-                // Guard: if already initialized, do nothing
-                if (window.eruda && window.eruda._isInit) return 'already_init';
+                function notifyDevToolsVisibility(expanded) {
+                    window.__onyx_eruda_visible = !!expanded;
+                    try {
+                        if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                            window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'devtools_visibility', expanded: !!expanded }));
+                            window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: !expanded }));
+                        } else if (window.OnyxTouchBridge) {
+                            if (typeof window.OnyxTouchBridge.onDevToolsVisibilityChanged === 'function') {
+                                window.OnyxTouchBridge.onDevToolsVisibilityChanged(!!expanded);
+                            }
+                            if (typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                                window.OnyxTouchBridge.setPullToRefreshAllowed(!expanded);
+                            }
+                        }
+                    } catch (_) {}
+                }
+                window.__onyx_notify_devtools = notifyDevToolsVisibility;
+
+                function attachDevToolsSync() {
+                    try {
+                        var dt = (window.eruda && window.eruda._devTools) || (window.eruda && typeof window.eruda.get === 'function' ? window.eruda.get() : null);
+                        if (dt && !dt._onyx_sync_attached) {
+                            dt._onyx_sync_attached = true;
+                            if (typeof dt.on === 'function') {
+                                dt.on('show', function() { notifyDevToolsVisibility(true); });
+                                dt.on('hide', function() { notifyDevToolsVisibility(false); });
+                            }
+                            var origDtShow = dt.show;
+                            dt.show = function() {
+                                var ret = origDtShow.apply(this, arguments);
+                                notifyDevToolsVisibility(true);
+                                return ret;
+                            };
+                            var origDtHide = dt.hide;
+                            dt.hide = function() {
+                                var ret = origDtHide.apply(this, arguments);
+                                notifyDevToolsVisibility(false);
+                                return ret;
+                            };
+                        }
+                        if (window.eruda && !window.eruda._onyx_sync_attached) {
+                            window.eruda._onyx_sync_attached = true;
+                            var origErudaShow = window.eruda.show;
+                            window.eruda.show = function() {
+                                var ret = origErudaShow.apply(this, arguments);
+                                notifyDevToolsVisibility(true);
+                                return ret;
+                            };
+                            var origErudaHide = window.eruda.hide;
+                            window.eruda.hide = function() {
+                                var ret = origErudaHide.apply(this, arguments);
+                                notifyDevToolsVisibility(false);
+                                return ret;
+                            };
+                        }
+                    } catch (_) {}
+                }
+
+                // Guard: if already initialized, ensure sync hooks are attached and return
+                if (window.eruda && window.eruda._isInit) {
+                    attachDevToolsSync();
+                    return 'already_init';
+                }
 
                 // Inject Eruda engine
                 $erudaCode
@@ -203,31 +264,8 @@ object DevToolsManager {
                     }
                 });
 
-                // Synchronize Eruda show/hide with Pull-To-Refresh gating
-                try {
-                    function notifyDevToolsVisibility(expanded) {
-                        window.__onyx_eruda_visible = expanded;
-                        try {
-                            if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
-                                window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'devtools_visibility', expanded: expanded }));
-                                window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: !expanded }));
-                            } else if (window.OnyxTouchBridge) {
-                                if (typeof window.OnyxTouchBridge.onDevToolsVisibilityChanged === 'function') {
-                                    window.OnyxTouchBridge.onDevToolsVisibilityChanged(expanded);
-                                }
-                                if (typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                                    window.OnyxTouchBridge.setPullToRefreshAllowed(!expanded);
-                                }
-                            }
-                        } catch (_) {}
-                    }
-                    window.eruda.on('show', function() {
-                        notifyDevToolsVisibility(true);
-                    });
-                    window.eruda.on('hide', function() {
-                        notifyDevToolsVisibility(false);
-                    });
-                } catch (_) {}
+                // Attach robust visibility sync hooks
+                attachDevToolsSync();
 
                 // Replay pre-buffered console logs into Eruda Console panel
                 try {
@@ -279,14 +317,14 @@ object DevToolsManager {
             (function() {
                 try {
                     function notifyDevToolsVisibility(expanded) {
-                        window.__onyx_eruda_visible = expanded;
+                        window.__onyx_eruda_visible = !!expanded;
                         try {
                             if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
-                                window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'devtools_visibility', expanded: expanded }));
+                                window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'devtools_visibility', expanded: !!expanded }));
                                 window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: !expanded }));
                             } else if (window.OnyxTouchBridge) {
                                 if (typeof window.OnyxTouchBridge.onDevToolsVisibilityChanged === 'function') {
-                                    window.OnyxTouchBridge.onDevToolsVisibilityChanged(expanded);
+                                    window.OnyxTouchBridge.onDevToolsVisibilityChanged(!!expanded);
                                 }
                                 if (typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
                                     window.OnyxTouchBridge.setPullToRefreshAllowed(!expanded);
@@ -296,7 +334,9 @@ object DevToolsManager {
                     }
 
                     if (window.eruda && window.eruda._isInit) {
-                        if (window.__onyx_eruda_visible) {
+                        var dt = (window.eruda && window.eruda._devTools) || (window.eruda && typeof window.eruda.get === 'function' ? window.eruda.get() : null);
+                        var isCurrentlyShowing = (dt && typeof dt._isShow === 'boolean') ? dt._isShow : !!window.__onyx_eruda_visible;
+                        if (isCurrentlyShowing) {
                             window.eruda.hide();
                             notifyDevToolsVisibility(false);
                             return 'hidden';

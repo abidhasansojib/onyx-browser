@@ -191,6 +191,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         // Multi-touch pinch-to-zoom safety hook: disarm pull-to-refresh while multi-touching
         if (ev.pointerCount > 1) {
             binding.swipeRefreshLayout.isEnabled = false
+        } else if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+            val wv = tabManager.getActiveWebView()
+            if (wv?.isDevToolsExpanded != true && binding.homeLayout.root.visibility != View.VISIBLE) {
+                binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
+            }
         } else if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
             val wv = tabManager.getActiveWebView()
             binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && (wv?.isDevToolsExpanded != true) && binding.homeLayout.root.visibility != View.VISIBLE
@@ -1487,7 +1492,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         val tabId = webView.tabId
         webView.touchBridge.onDevToolsVisibilityChanged = { expanded ->
             webView.isDevToolsExpanded = expanded
-            if (currentDisplayedTabId == tabId) {
+            if (currentDisplayedTabId == tabId || tabManager.getActiveWebView()?.tabId == tabId) {
                 binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && !expanded && binding.homeLayout.root.visibility != View.VISIBLE
             }
         }
