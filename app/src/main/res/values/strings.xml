@@ -482,8 +482,8 @@
     <string name="update_available_subtitle">%1$s is ready to install</string>
     <string name="update_available_about_desc">Update available (%1$s) • Tap to view</string>
 
-    <string name="about_contact_dev">Contact Developer</string>
-    <string name="about_contact_dev_desc">@abidhasansojib on Telegram</string>
+    <string name="about_contact_dev">Telegram Support</string>
+    <string name="about_contact_dev_desc">Chat via Telegram</string>
     <string name="about_report_bug">Report Bug</string>
     <string name="about_report_bug_desc">Open an issue on GitHub</string>
     <string name="copied_to_clipboard">%1$s copied to clipboard</string>
