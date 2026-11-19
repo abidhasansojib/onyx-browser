@@ -2986,6 +2986,12 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             lastNightMode = newNightMode
             maybeDeferNightModeRecreate(isPip)
         }
+        tabManager.getAllWebViews().forEach { webView ->
+            if (webView.isDesktopMode) {
+                val newScale = com.onyx.browser.web.DesktopModeManager.calculateDesktopScalePercent(this)
+                webView.setInitialScale(newScale)
+            }
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

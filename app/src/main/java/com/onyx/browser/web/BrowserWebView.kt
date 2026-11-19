@@ -881,12 +881,11 @@ class BrowserWebView @JvmOverloads constructor(
         
         settings.userAgentString = targetUa
         
-        val shouldRefresh = forceRefreshLayout || (modeChanged && this.url?.isNotBlank() == true && !isSyntheticOrDataUrl(this.url))
-        if (shouldRefresh) {
+        if (forceRefreshLayout) {
             val current = this.url
             if (urlString.isNotBlank() && !isSyntheticOrDataUrl(urlString) && current != urlString) {
                 this.loadUrl(urlString)
-            } else {
+            } else if (!current.isNullOrBlank() && !isSyntheticOrDataUrl(current)) {
                 try {
                     settings.cacheMode = WebSettings.LOAD_NO_CACHE
                     this.reload()

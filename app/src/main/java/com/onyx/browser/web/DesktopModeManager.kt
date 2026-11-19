@@ -1,6 +1,7 @@
 package com.onyx.browser.web
 
 import android.content.Context
+import android.os.Build
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.webkit.UserAgentMetadata
@@ -59,13 +60,15 @@ object DesktopModeManager {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA)) return
 
         try {
-            val defaultMetadata = defaultUserAgentMetadata
-                ?: try {
-                    WebSettingsCompat.getUserAgentMetadata(settings).also { defaultUserAgentMetadata = it }
+            if (defaultUserAgentMetadata == null && !isDesktopMode) {
+                try {
+                    defaultUserAgentMetadata = WebSettingsCompat.getUserAgentMetadata(settings)
                 } catch (_: Throwable) {
                     null
                 }
+            }
 
+            val defaultMetadata = defaultUserAgentMetadata
             val sourceMetadata = defaultMetadata ?: try {
                 WebSettingsCompat.getUserAgentMetadata(settings)
             } catch (_: Throwable) {
@@ -101,16 +104,25 @@ object DesktopModeManager {
                     .setModel("")
                     .build()
             } else {
-                val mobileBrands = sanitizeBrands(sourceMetadata?.brandVersionList, context)
-                val builder = if (sourceMetadata != null) {
+                val mobileBrands = sanitizeBrands(defaultMetadata?.brandVersionList ?: sourceMetadata?.brandVersionList, context)
+                val builder = if (defaultMetadata != null) {
+                    UserAgentMetadata.Builder(defaultMetadata)
+                } else if (sourceMetadata != null) {
                     UserAgentMetadata.Builder(sourceMetadata)
                 } else {
                     UserAgentMetadata.Builder()
                 }
 
+                val arch = if (Build.SUPPORTED_64_BIT_ABIS.isNotEmpty()) "arm64" else "arm"
+                val bitness = if (Build.SUPPORTED_64_BIT_ABIS.isNotEmpty()) 64 else 32
+
                 builder.setBrandVersionList(mobileBrands)
                     .setMobile(true)
                     .setPlatform("Android")
+                    .setPlatformVersion(Build.VERSION.RELEASE)
+                    .setArchitecture(arch)
+                    .setBitness(bitness)
+                    .setModel(Build.MODEL)
                     .build()
             }
 
