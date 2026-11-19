@@ -71,9 +71,17 @@ fun OnyxTheme(
     accentColor: androidx.compose.ui.graphics.Color? = null,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val effectiveAccent = accentColor ?: androidx.compose.runtime.remember(context) {
+        try {
+            androidx.compose.ui.graphics.Color(AccentColorManager.getAccentColor(context))
+        } catch (_: Exception) {
+            OnyxPrimary
+        }
+    }
+
     val baseScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         isAmoled && darkTheme -> AmoledColorScheme
@@ -81,14 +89,11 @@ fun OnyxTheme(
         else -> LightColorScheme
     }
 
-    val colorScheme = if (accentColor != null) {
-        baseScheme.copy(
-            primary = accentColor,
-            secondary = accentColor
-        )
-    } else {
-        baseScheme
-    }
+    val colorScheme = baseScheme.copy(
+        primary = effectiveAccent,
+        secondary = effectiveAccent,
+        primaryContainer = effectiveAccent.copy(alpha = 0.2f)
+    )
 
     val view = LocalView.current
     if (!view.isInEditMode) {

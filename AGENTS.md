@@ -230,6 +230,8 @@ onyx-browser/
 2. **Resource & Color Consistency**:
    - Always pair color resources between `res/values/colors.xml` and `res/values-night/colors.xml`.
    - Use theme attributes (`?attr/colorControlNormal`, `?attr/colorPrimary`) for icon tints and surface backgrounds.
+   - Compose theming (`OnyxTheme`) must dynamically resolve `accentColor` via `AccentColorManager.getAccentColor(context)` by default to ensure settings-driven accent colors propagate across all Compose screens and dialogs without hardcoding `#DC4B64`.
+   - Tab Switcher UI Consistency: Bottom action bar must blend seamlessly with the canvas background (avoiding elevated surface shelf artifacts) and utilize solid 44dp x 44dp rounded squircles (`surfaceVariant` container background) for secondary actions (`ic_delete` for clear browsing data/history, `ic_tab_close` for close all tabs) alongside a 48dp circular accent-tinted FAB for new tabs (`ic_add` with white tint).
    - Resource shrinking (`isShrinkResources = true`) is enabled for Release and Prerelease builds. All native icons (`ic_*`), background shapes (`bg_*`), vector silhouettes (`vector_*`), and manifest configs (`res/xml/*`) are strictly protected via `res/raw/keep.xml` (`tools:shrinkMode="safe"`); never delete or rename keep rules that safeguard runtime resources.
 3. **Database & Persistence Security**:
    - All persistent Room database operations must route through SQLCipher AES-256 encryption via `OnyxDatabase`.

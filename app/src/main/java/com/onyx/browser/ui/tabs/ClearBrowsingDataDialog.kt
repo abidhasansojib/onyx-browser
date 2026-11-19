@@ -35,6 +35,7 @@ import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -83,8 +84,11 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                     else -> isSystemInDarkTheme()
                 }
                 val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
+                val accentColor = remember(prefs.accentColorHex, prefs.accentColorPreset) {
+                    androidx.compose.ui.graphics.Color(AccentColorManager.getAccentColor(prefs))
+                }
 
-                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled, accentColor = accentColor) {
                     ClearBrowsingDataContent()
                 }
             }

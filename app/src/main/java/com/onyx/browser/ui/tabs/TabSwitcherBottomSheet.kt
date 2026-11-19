@@ -66,6 +66,7 @@ import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
 import com.onyx.browser.ui.common.BiometricAuthHelper
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 import kotlinx.coroutines.CoroutineScope
 
@@ -107,7 +108,7 @@ class TabSwitcherBottomSheet(
                 else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             }
             val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
-            val bgColor = if (isAmoled) 0xFF000000.toInt() else if (isDark) 0xFF121212.toInt() else 0xFFF1F3F4.toInt()
+            val bgColor = if (isAmoled) 0xFF000000.toInt() else if (isDark) 0xFF161616.toInt() else 0xFFF1F3F4.toInt()
             setBackgroundDrawable(ColorDrawable(bgColor))
             statusBarColor = bgColor
             navigationBarColor = bgColor
@@ -155,8 +156,11 @@ class TabSwitcherBottomSheet(
                     else -> isSystemInDarkTheme()
                 }
                 val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
+                val accentColor = remember(prefs.accentColorHex, prefs.accentColorPreset) {
+                    androidx.compose.ui.graphics.Color(AccentColorManager.getAccentColor(prefs))
+                }
 
-                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled, accentColor = accentColor) {
                     TabSwitcherScreen()
                 }
             }
@@ -862,52 +866,85 @@ class TabSwitcherBottomSheet(
         onNewTabClick: () -> Unit,
         onCloseAllTabsClick: () -> Unit
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 3.dp,
-            modifier = Modifier.fillMaxWidth()
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 6.dp)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                    .height(56.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Clear History / Browsing Data
-                IconButton(onClick = onClearDataClick) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_brush),
-                        contentDescription = stringResource(R.string.delete_browsing_data),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // New Tab FAB
-                FloatingActionButton(
-                    onClick = onNewTabClick,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = CircleShape,
-                    modifier = Modifier.size(54.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = stringResource(R.string.new_tab),
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                // Close All Tabs
-                IconButton(
-                    onClick = onCloseAllTabsClick,
-                    enabled = hasTabs
+                // Clear History / Browsing Data — Solid squircle button (44dp x 44dp, radius 12dp)
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable(onClick = onClearDataClick),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_delete),
-                        contentDescription = if (isViewingIncognito) stringResource(R.string.close_all_incognito_tabs) else stringResource(R.string.close_all_tabs),
-                        tint = if (hasTabs) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                        contentDescription = stringResource(R.string.delete_browsing_data),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                // New Tab FAB — Solid circular FAB (48dp x 48dp) with primary accent color
+                FloatingActionButton(
+                    onClick = onNewTabClick,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White,
+                    shape = CircleShape,
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 2.dp,
+                        pressedElevation = 4.dp
+                    ),
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_add),
+                        contentDescription = stringResource(R.string.new_tab),
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                // Close All Tabs — Solid squircle button (44dp x 44dp, radius 12dp)
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (hasTabs) MaterialTheme.colorScheme.surfaceVariant
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                        )
+                        .then(
+                            if (hasTabs) Modifier.clickable(onClick = onCloseAllTabsClick)
+                            else Modifier
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_tab_close),
+                        contentDescription = if (isViewingIncognito) {
+                            stringResource(R.string.close_all_incognito_tabs)
+                        } else {
+                            stringResource(R.string.close_all_tabs)
+                        },
+                        tint = if (hasTabs) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        },
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }

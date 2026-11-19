@@ -18,6 +18,7 @@ import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
 import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class CloseAllTabsDialog @JvmOverloads constructor(
@@ -47,8 +48,11 @@ class CloseAllTabsDialog @JvmOverloads constructor(
                     else -> isSystemInDarkTheme()
                 }
                 val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK
+                val accentColor = remember(prefs.accentColorHex, prefs.accentColorPreset) {
+                    androidx.compose.ui.graphics.Color(AccentColorManager.getAccentColor(prefs))
+                }
 
-                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                OnyxTheme(darkTheme = isDark, isAmoled = isAmoled, accentColor = accentColor) {
                     val tm = tabManager ?: TabCoordinator.activeInstance
                     val tabList = if (isIncognito) {
                         tm?.incognitoTabs?.value ?: emptyList()
