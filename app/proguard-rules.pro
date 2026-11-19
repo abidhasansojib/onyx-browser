@@ -212,3 +212,9 @@
 -keep class com.onyx.browser.data.filter.FilterUpdateWorker { *; }
 
 
+
+# ------------------------------------------------------------------------------
+# 13. Jetpack Compose & Material 3
+# ------------------------------------------------------------------------------
+-keep class androidx.compose.** { *; }
+-dontwarn androidx.compose.**
