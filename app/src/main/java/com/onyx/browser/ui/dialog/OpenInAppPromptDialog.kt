@@ -11,17 +11,32 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import android.content.res.ColorStateList
-import androidx.core.widget.ImageViewCompat
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.fragment.app.DialogFragment
-import com.google.android.material.color.MaterialColors
 import com.onyx.browser.R
-import com.onyx.browser.databinding.DialogOpenInAppPromptBinding
+import com.onyx.browser.ui.theme.OnyxTheme
 
 class OpenInAppPromptDialog : DialogFragment() {
-
-    private var _binding: DialogOpenInAppPromptBinding? = null
-    private val binding get() = _binding
 
     var targetIntent: Intent? = null
     var appName: String? = null
@@ -52,17 +67,22 @@ class OpenInAppPromptDialog : DialogFragment() {
         savedInstanceState: Bundle?
     ): View {
         dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        _binding = DialogOpenInAppPromptBinding.inflate(inflater, container, false)
-        return _binding!!.root
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    OpenInAppPromptContent()
+                }
+            }
+        }
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        val b = _binding ?: return
-        val ctx = context ?: return
-
+    @Composable
+    private fun OpenInAppPromptContent() {
+        val context = LocalContext.current
         val intent = targetIntent
-        val pm = ctx.packageManager
+        val pm = context.packageManager
+
         var resolvedIcon: Drawable? = null
         var resolvedName = appName
 
@@ -89,39 +109,21 @@ class OpenInAppPromptDialog : DialogFragment() {
             }
         }
 
-        // Setup Header Icon (Real App Icon or Themed Vector Fallback)
-        if (resolvedIcon != null) {
-            b.ivDialogIcon.setImageDrawable(resolvedIcon)
-            b.ivDialogIcon.imageTintList = null
-            ImageViewCompat.setImageTintList(b.ivDialogIcon, null)
-            b.ivDialogIcon.colorFilter = null
-            val iconSize = (36 * resources.displayMetrics.density).toInt()
-            b.ivDialogIcon.layoutParams.width = iconSize
-            b.ivDialogIcon.layoutParams.height = iconSize
-        } else {
-            b.ivDialogIcon.setImageResource(R.drawable.ic_external)
-            val primaryColor = MaterialColors.getColor(
-                b.ivDialogIcon,
-                com.google.android.material.R.attr.colorPrimary
-            )
-            val tintList = ColorStateList.valueOf(primaryColor)
-            b.ivDialogIcon.imageTintList = tintList
-            ImageViewCompat.setImageTintList(b.ivDialogIcon, tintList)
-            val iconSize = (26 * resources.displayMetrics.density).toInt()
-            b.ivDialogIcon.layoutParams.width = iconSize
-            b.ivDialogIcon.layoutParams.height = iconSize
+        val iconBitmap = remember(resolvedIcon) {
+            try {
+                resolvedIcon?.toBitmap()
+            } catch (_: Exception) {
+                null
+            }
         }
 
-        // Setup Dynamic Title & Subtitle (Avoid exposing raw Java/Android package identifiers to users)
         val isRawPackageName = resolvedName?.contains(".") == true && !resolvedName.contains(" ")
-        if (!resolvedName.isNullOrBlank() && !isRawPackageName) {
-            b.tvDialogTitle.text = getString(R.string.open_in_specific_app_title, resolvedName)
+        val titleText = if (!resolvedName.isNullOrBlank() && !isRawPackageName) {
+            stringResource(R.string.open_in_specific_app_title, resolvedName)
         } else {
-            b.tvDialogTitle.text = getString(R.string.open_in_app_prompt_title)
+            stringResource(R.string.open_in_app_prompt_title)
         }
-        b.tvDialogMessage.text = getString(R.string.open_in_app_prompt_desc)
 
-        // Setup Target URL / App Info Card
         val targetUrl = intent?.dataString
             ?: intent?.data?.toString()
             ?: intent?.`package`?.let { "package:$it" }
@@ -129,45 +131,131 @@ class OpenInAppPromptDialog : DialogFragment() {
         val displayTargetName = if (!resolvedName.isNullOrBlank() && !isRawPackageName) {
             resolvedName
         } else {
-            getString(R.string.open_in_app_action)
+            stringResource(R.string.open_in_app_action)
         }
 
-        if (!targetUrl.isNullOrBlank() || (!resolvedName.isNullOrBlank() && !isRawPackageName)) {
-            b.targetAppCard.visibility = View.VISIBLE
-            b.tvTargetAppName.text = displayTargetName
-            if (!targetUrl.isNullOrBlank()) {
-                b.tvTargetUrl.visibility = View.VISIBLE
-                b.tvTargetUrl.text = targetUrl
-            } else {
-                b.tvTargetUrl.visibility = View.GONE
-            }
-        } else {
-            b.targetAppCard.visibility = View.GONE
-        }
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (iconBitmap != null) {
+                        Image(
+                            bitmap = iconBitmap.asImageBitmap(),
+                            contentDescription = displayTargetName,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_external),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
 
-        // Action: Stay In Onyx
-        b.btnStayInOnyx.setOnClickListener {
-            actionTaken = true
-            onStayInOnyx?.invoke()
-            dismissAllowingStateLoss()
-        }
+                    Spacer(modifier = Modifier.width(16.dp))
 
-        // Action: Open in app
-        b.btnOpenInApp.setOnClickListener {
-            actionTaken = true
-            if (intent != null) {
-                try {
-                    requireContext().startActivity(intent)
-                    onOpenInApp?.invoke()
-                } catch (_: ActivityNotFoundException) {
-                    Toast.makeText(requireContext(), "No application found to handle this request", Toast.LENGTH_SHORT).show()
-                    onStayInOnyx?.invoke()
-                } catch (e: Exception) {
-                    Toast.makeText(requireContext(), "Could not open app: ${e.message}", Toast.LENGTH_SHORT).show()
-                    onStayInOnyx?.invoke()
+                    Text(
+                        text = titleText,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = stringResource(R.string.open_in_app_prompt_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (!targetUrl.isNullOrBlank() || (!resolvedName.isNullOrBlank() && !isRawPackageName)) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = displayTargetName,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (!targetUrl.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = targetUrl,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = {
+                            actionTaken = true
+                            onStayInOnyx?.invoke()
+                            dismissAllowingStateLoss()
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(R.string.stay_in_onyx),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            actionTaken = true
+                            if (intent != null) {
+                                try {
+                                    context.startActivity(intent)
+                                    onOpenInApp?.invoke()
+                                } catch (_: ActivityNotFoundException) {
+                                    Toast.makeText(context, "No application found to handle this request", Toast.LENGTH_SHORT).show()
+                                    onStayInOnyx?.invoke()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Could not open app: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    onStayInOnyx?.invoke()
+                                }
+                            }
+                            dismissAllowingStateLoss()
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(R.string.open_in_app_action))
+                    }
                 }
             }
-            dismissAllowingStateLoss()
         }
     }
 
@@ -188,11 +276,6 @@ class OpenInAppPromptDialog : DialogFragment() {
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
-
     fun showSafely(manager: androidx.fragment.app.FragmentManager) {
         if (manager.isStateSaved || manager.isDestroyed) return
         if (manager.findFragmentByTag(TAG) != null) return
@@ -206,20 +289,13 @@ class OpenInAppPromptDialog : DialogFragment() {
         private const val ARG_INTENT = "arg_intent"
         private const val ARG_APP_NAME = "arg_app_name"
 
-        fun newInstance(
-            intent: Intent,
-            appName: String? = null,
-            onStayInOnyx: (() -> Unit)? = null,
-            onOpenInApp: (() -> Unit)? = null
-        ) = OpenInAppPromptDialog().apply {
-            arguments = Bundle().apply {
-                putParcelable(ARG_INTENT, intent)
-                putString(ARG_APP_NAME, appName)
+        fun newInstance(targetIntent: Intent, appName: String? = null): OpenInAppPromptDialog {
+            return OpenInAppPromptDialog().apply {
+                arguments = Bundle().apply {
+                    putParcelable(ARG_INTENT, targetIntent)
+                    putString(ARG_APP_NAME, appName)
+                }
             }
-            this.targetIntent = intent
-            this.appName = appName
-            this.onStayInOnyx = onStayInOnyx
-            this.onOpenInApp = onOpenInApp
         }
     }
 }

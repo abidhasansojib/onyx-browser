@@ -4,11 +4,32 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.BottomSheetThemePickerBinding
+import com.onyx.browser.ui.theme.OnyxTheme
 
 class ThemePickerBottomSheet(
     private val onAppearanceChanged: (() -> Unit)? = null
@@ -18,13 +39,6 @@ class ThemePickerBottomSheet(
     constructor(currentTheme: Int, onThemeSelected: (Int) -> Unit) : this({
         onThemeSelected(currentTheme)
     })
-
-    private var _binding: BottomSheetThemePickerBinding? = null
-    private val binding get() = _binding!!
-
-    private lateinit var preferences: BrowserPreferences
-    private var selectedThemeMode: Int = BrowserPreferences.THEME_SYSTEM
-    private var initialThemeMode: Int = BrowserPreferences.THEME_SYSTEM
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,101 +50,218 @@ class ThemePickerBottomSheet(
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = BottomSheetThemePickerBinding.inflate(inflater, container, false)
-        return binding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        preferences = BrowserPreferences.getInstance(requireContext())
-
-        selectedThemeMode = preferences.themeMode
-        initialThemeMode = selectedThemeMode
-
-        updateThemeSelection(selectedThemeMode)
-
-        // Theme Mode Clicks — automatically confirm, apply, and dismiss
-        binding.optionSystem.setOnClickListener {
-            selectThemeMode(BrowserPreferences.THEME_SYSTEM)
-        }
-
-        binding.optionDark.setOnClickListener {
-            selectThemeMode(BrowserPreferences.THEME_DARK)
-        }
-
-        binding.optionLight.setOnClickListener {
-            selectThemeMode(BrowserPreferences.THEME_LIGHT)
-        }
-
-        binding.switchForceDarkMode.isChecked = preferences.isForceDarkModeEnabled
-        binding.cardForceDarkMode.setOnClickListener {
-            val newState = !binding.switchForceDarkMode.isChecked
-            binding.switchForceDarkMode.isChecked = newState
-            preferences.isForceDarkModeEnabled = newState
-        }
-
-        binding.btnDismiss.setOnClickListener {
-            dismiss()
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                OnyxTheme {
+                    ThemePickerContent()
+                }
+            }
         }
     }
 
-    private fun selectThemeMode(mode: Int) {
-        selectedThemeMode = mode
-        updateThemeSelection(mode)
-        if (mode != initialThemeMode) {
-            preferences.themeMode = mode
-            preferences.applyTheme()
+    @Composable
+    private fun ThemePickerContent() {
+        val prefs = remember { BrowserPreferences.getInstance(requireContext()) }
+        var selectedMode by remember { mutableIntStateOf(prefs.themeMode) }
+        var forceDark by remember { mutableStateOf(prefs.isForceDarkModeEnabled) }
+
+        Surface(
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .navigationBarsPadding()
+            ) {
+                // Drag handle
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 16.dp)
+                        .size(width = 36.dp, height = 4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+
+                Text(
+                    text = stringResource(R.string.theme),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Theme Options Row (System, Dark, Light)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ThemeOptionCard(
+                        title = "System",
+                        icon = Icons.Default.PhoneAndroid,
+                        isSelected = selectedMode == BrowserPreferences.THEME_SYSTEM,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            selectThemeMode(prefs, BrowserPreferences.THEME_SYSTEM)
+                        }
+                    )
+
+                    ThemeOptionCard(
+                        title = "Dark",
+                        icon = Icons.Default.DarkMode,
+                        isSelected = selectedMode == BrowserPreferences.THEME_DARK,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            selectThemeMode(prefs, BrowserPreferences.THEME_DARK)
+                        }
+                    )
+
+                    ThemeOptionCard(
+                        title = "Light",
+                        icon = Icons.Default.LightMode,
+                        isSelected = selectedMode == BrowserPreferences.THEME_LIGHT,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            selectThemeMode(prefs, BrowserPreferences.THEME_LIGHT)
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Force Dark Mode Switch Card
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable {
+                            val newState = !forceDark
+                            forceDark = newState
+                            prefs.isForceDarkModeEnabled = newState
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Force dark mode for web",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Inverts light web pages when dark theme is active",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Switch(
+                            checked = forceDark,
+                            onCheckedChange = { newState ->
+                                forceDark = newState
+                                prefs.isForceDarkModeEnabled = newState
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Dismiss Button
+                TextButton(
+                    onClick = { dismiss() },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun ThemeOptionCard(
+        title: String,
+        icon: ImageVector,
+        isSelected: Boolean,
+        modifier: Modifier = Modifier,
+        onClick: () -> Unit
+    ) {
+        val accent = MaterialTheme.colorScheme.primary
+        val outline = if (isSelected) accent else MaterialTheme.colorScheme.outlineVariant
+        val bg = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = bg,
+            border = androidx.compose.foundation.BorderStroke(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = outline
+            ),
+            modifier = modifier
+                .clip(RoundedCornerShape(16.dp))
+                .clickable { onClick() }
+        ) {
+            Column(
+                modifier = Modifier.padding(vertical = 16.dp, horizontal = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(if (isSelected) accent else MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) accent else MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+
+    private fun selectThemeMode(prefs: BrowserPreferences, mode: Int) {
+        if (mode != prefs.themeMode) {
+            prefs.themeMode = mode
+            prefs.applyTheme()
             onAppearanceChanged?.invoke()
         }
         dismiss()
-    }
-
-    private fun updateThemeSelection(selectedTheme: Int) {
-        val defaultStroke = ContextCompat.getColor(requireContext(), R.color.settings_card_stroke)
-        val defaultIcon = ContextCompat.getColor(requireContext(), R.color.settings_title_text)
-        val activeColor = ContextCompat.getColor(requireContext(), R.color.primary)
-
-        val activeStrokeWidth = dpToPx(2f)
-        val defaultStrokeWidth = dpToPx(1f)
-
-        // System
-        val isSystem = selectedTheme == BrowserPreferences.THEME_SYSTEM
-        binding.ivCheckSystem.visibility = if (isSystem) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckSystem.setColorFilter(activeColor)
-        binding.optionSystem.strokeColor = if (isSystem) activeColor else defaultStroke
-        binding.optionSystem.strokeWidth = if (isSystem) activeStrokeWidth else defaultStrokeWidth
-        binding.ivIconSystem.setColorFilter(if (isSystem) activeColor else defaultIcon)
-
-        // Dark
-        val isDark = selectedTheme == BrowserPreferences.THEME_DARK
-        binding.ivCheckDark.visibility = if (isDark) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckDark.setColorFilter(activeColor)
-        binding.optionDark.strokeColor = if (isDark) activeColor else defaultStroke
-        binding.optionDark.strokeWidth = if (isDark) activeStrokeWidth else defaultStrokeWidth
-        binding.ivIconDark.setColorFilter(if (isDark) activeColor else defaultIcon)
-
-        // Light
-        val isLight = selectedTheme == BrowserPreferences.THEME_LIGHT
-        binding.ivCheckLight.visibility = if (isLight) View.VISIBLE else View.INVISIBLE
-        binding.ivCheckLight.setColorFilter(activeColor)
-        binding.optionLight.strokeColor = if (isLight) activeColor else defaultStroke
-        binding.optionLight.strokeWidth = if (isLight) activeStrokeWidth else defaultStrokeWidth
-        binding.ivIconLight.setColorFilter(if (isLight) activeColor else defaultIcon)
-    }
-
-    private fun dpToPx(dp: Float): Int {
-        return (dp * resources.displayMetrics.density).toInt()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     companion object {
         const val TAG = "ThemePickerSheet"
     }
 }
-
 
 typealias ThemePickerSheet = ThemePickerBottomSheet
