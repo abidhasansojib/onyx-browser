@@ -188,6 +188,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (ev.actionMasked == MotionEvent.ACTION_DOWN && ::pipController.isInitialized) {
             pipController.onFullscreenUserInteraction()
         }
+        // Multi-touch pinch-to-zoom safety hook: disarm pull-to-refresh while multi-touching
+        if (ev.pointerCount > 1) {
+            binding.swipeRefreshLayout.isEnabled = false
+        } else if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
+            val wv = tabManager.getActiveWebView()
+            binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && (wv?.isDevToolsActive != true) && binding.homeLayout.root.visibility != View.VISIBLE
+        }
         return super.dispatchTouchEvent(ev)
     }
 
@@ -771,10 +778,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 wv?.reload() 
             }
         }
-        // Reduce pull-to-refresh sensitivity: require a longer drag before triggering.
-        // Default trigger distance is ~64dp; 120dp feels deliberate without being sluggish.
-        val triggerDp = (120 * resources.displayMetrics.density).toInt()
+        // Fluid, responsive pull-to-refresh trigger distance (76dp matching modern Chrome & Clint).
+        val triggerDp = (76 * resources.displayMetrics.density).toInt()
         binding.swipeRefreshLayout.setDistanceToTriggerSync(triggerDp)
+        updateSwipeRefreshTheme()
+        updateSwipeRefreshOffset()
 
         binding.swipeRefreshLayout.setOnChildScrollUpCallback { _, _ ->
             // Block pull-to-refresh if disabled in settings
@@ -792,11 +800,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (isReelOrFeedUrl(url)) return@setOnChildScrollUpCallback true
 
             // Top-Zone Touch Gating:
-            // Pull-to-refresh must strictly originate from the top zone of the web content (top 33%).
-            // Swipes initiated in the middle or bottom of the screen (e.g. inside inner feeds,
+            // Pull-to-refresh comfortably originates from the top half of the web content (top 50%).
+            // Swipes initiated in the bottom half of the screen (e.g. inside inner feeds,
             // scrollable divs, modals, code blocks, or floating panels) must never trigger reload.
             val density = resources.displayMetrics.density
-            val maxTopTouchPx = (webView.height * 0.33f).coerceAtLeast(120 * density)
+            val maxTopTouchPx = (webView.height * 0.50f).coerceAtLeast(160 * density)
             if (webView.touchDownY > maxTopTouchPx) {
                 return@setOnChildScrollUpCallback true
             }
@@ -905,6 +913,37 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (::browserViewModel.isInitialized) {
             browserViewModel.refreshPreferences()
         }
+        binding.topBar.post { updateSwipeRefreshOffset() }
+    }
+
+    fun updateSwipeRefreshOffset() {
+        val density = resources.displayMetrics.density
+        val topBarHeight = if (lastKnownTopBarHeight > 0) lastKnownTopBarHeight else binding.topBar.height
+        val statusBarHeight = binding.root.rootWindowInsets?.let { insets ->
+            WindowInsetsCompat.toWindowInsetsCompat(insets, binding.root)
+                .getInsets(WindowInsetsCompat.Type.statusBars()).top
+        } ?: (24 * density).toInt()
+
+        val startOffset = if (preferences.isAddressBarAtBottom) {
+            statusBarHeight + (8 * density).toInt()
+        } else {
+            (if (topBarHeight > 0) topBarHeight else (56 * density).toInt()) + (8 * density).toInt()
+        }
+        val endOffset = startOffset + (56 * density).toInt()
+
+        binding.swipeRefreshLayout.setProgressViewOffset(false, startOffset, endOffset)
+    }
+
+    fun updateSwipeRefreshTheme() {
+        val typedValue = android.util.TypedValue()
+        theme.resolveAttribute(com.google.android.material.R.attr.colorSurface, typedValue, true)
+        val surfaceColor = typedValue.data
+
+        theme.resolveAttribute(androidx.appcompat.R.attr.colorPrimary, typedValue, true)
+        val primaryColor = typedValue.data
+
+        binding.swipeRefreshLayout.setProgressBackgroundColorSchemeColor(surfaceColor)
+        binding.swipeRefreshLayout.setColorSchemeColors(primaryColor)
     }
 
     private fun setupTopToolbar() {
@@ -2844,6 +2883,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         // 5. Sync pull to refresh, autofill & force dark settings
         binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
+        updateSwipeRefreshTheme()
+        updateSwipeRefreshOffset()
         tabManager.getAllWebViews().forEach {
             it.syncAutofillSettings()
             it.applyForceDark()

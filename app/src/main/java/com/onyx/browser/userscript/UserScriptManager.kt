@@ -26,6 +26,7 @@ data class ParsedUserScript(
     val script: UserScriptItem,
     val metadata: UserScriptMetadata,
     var requiresContent: String = "",
+    var resourcesContent: String = "{}",
     val code: String
 )
 
@@ -37,6 +38,20 @@ sealed class UpdateResult {
 }
 
 class UserScriptManager private constructor(private val context: Context) {
+
+    interface ValueChangeListener {
+        fun onValueChanged(scriptId: Long, key: String, oldValue: String?, newValue: String?)
+    }
+
+    private val valueChangeListeners = java.util.concurrent.CopyOnWriteArrayList<ValueChangeListener>()
+
+    fun addValueChangeListener(listener: ValueChangeListener) {
+        valueChangeListeners.add(listener)
+    }
+
+    fun removeValueChangeListener(listener: ValueChangeListener) {
+        valueChangeListeners.remove(listener)
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val httpClient = OkHttpClient.Builder()
@@ -55,6 +70,8 @@ class UserScriptManager private constructor(private val context: Context) {
     }
 
     private fun codeFile(id: Long) = File(scriptDir, "$id.user.js")
+    private fun requiresFile(id: Long) = File(scriptDir, "$id.requires.js")
+    private fun resourcesFile(id: Long) = File(scriptDir, "$id.resources.json")
 
     fun readCodeFile(id: Long): String {
         val f = codeFile(id)
@@ -67,6 +84,32 @@ class UserScriptManager private constructor(private val context: Context) {
 
     private fun deleteCodeFile(id: Long) {
         codeFile(id).delete()
+    }
+
+    fun readRequiresFile(id: Long): String {
+        val f = requiresFile(id)
+        return if (f.exists()) f.readText() else ""
+    }
+
+    private fun writeRequiresFile(id: Long, content: String) {
+        requiresFile(id).writeText(content)
+    }
+
+    private fun deleteRequiresFile(id: Long) {
+        requiresFile(id).delete()
+    }
+
+    fun readResourcesFile(id: Long): String {
+        val f = resourcesFile(id)
+        return if (f.exists()) f.readText() else "{}"
+    }
+
+    private fun writeResourcesFile(id: Long, json: String) {
+        resourcesFile(id).writeText(json)
+    }
+
+    private fun deleteResourcesFile(id: Long) {
+        resourcesFile(id).delete()
     }
 
     @Volatile
@@ -92,9 +135,14 @@ class UserScriptManager private constructor(private val context: Context) {
             val code = readCodeFile(row.id)
             if (code.isBlank()) return@mapNotNull null
             try {
+                val meta = UserScriptMetadata.parse(code)
+                val reqContent = readRequiresFile(row.id)
+                val resContent = readResourcesFile(row.id)
                 ParsedUserScript(
                     script = row,
-                    metadata = UserScriptMetadata.parse(code),
+                    metadata = meta,
+                    requiresContent = reqContent,
+                    resourcesContent = resContent,
                     code = code
                 )
             } catch (e: Exception) {
@@ -103,9 +151,22 @@ class UserScriptManager private constructor(private val context: Context) {
             }
         }
 
-        loaded.forEach { resolveRequires(it) }
         scripts = loaded
         _hasNativeScripts.value = loaded.any { it.script.enabled && it.metadata.requiresNativeBridge }
+
+        // Asynchronously resolve and cache any missing requires or resources on disk
+        loaded.forEach { parsed ->
+            if (parsed.metadata.requires.isNotEmpty() && parsed.requiresContent.isBlank()) {
+                scope.launch {
+                    resolveRequires(parsed)
+                }
+            }
+            if (parsed.metadata.resources.isNotEmpty() && (parsed.resourcesContent.isBlank() || parsed.resourcesContent == "{}")) {
+                scope.launch {
+                    resolveResources(parsed)
+                }
+            }
+        }
     }
 
     private fun resolveRequires(parsed: ParsedUserScript) {
@@ -127,7 +188,42 @@ class UserScriptManager private constructor(private val context: Context) {
                 Log.w(TAG, "Failed to fetch @require $url", e)
             }
         }
-        parsed.requiresContent = sb.toString()
+        val result = sb.toString()
+        parsed.requiresContent = result
+        if (result.isNotBlank()) {
+            writeRequiresFile(parsed.script.id, result)
+        }
+    }
+
+    private fun resolveResources(parsed: ParsedUserScript) {
+        if (parsed.metadata.resources.isEmpty()) return
+        val resMap = JSONObject()
+        parsed.metadata.resources.forEach { res ->
+            try {
+                val resp = httpClient.newCall(Request.Builder().url(res.url).build()).execute()
+                val bytes = resp.body?.bytes()
+                val contentType = resp.header("Content-Type") ?: "application/octet-stream"
+                resp.close()
+                if (bytes != null && bytes.isNotEmpty()) {
+                    val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                    val item = JSONObject().apply {
+                        put("mime", contentType)
+                        put("base64", base64)
+                        if (contentType.startsWith("text/") || contentType.contains("javascript") || contentType.contains("json")) {
+                            put("text", String(bytes, Charsets.UTF_8))
+                        }
+                    }
+                    resMap.put(res.name, item)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to fetch @resource ${res.name} from ${res.url}", e)
+            }
+        }
+        val json = resMap.toString()
+        parsed.resourcesContent = json
+        if (json.isNotBlank() && json != "{}") {
+            writeResourcesFile(parsed.script.id, json)
+        }
     }
 
     fun getMatchingScripts(url: String, runAt: RunAt): List<ParsedUserScript> {
@@ -170,15 +266,20 @@ class UserScriptManager private constructor(private val context: Context) {
                 .replace("__SCRIPT_ID__", parsed.script.id.toString())
                 .replace("__GM_TOKEN__", JSONObject.quote(token))
                 .replace("__GM_INFO__", buildGmInfo(parsed))
+                .replace("__GM_RESOURCES__", if (parsed.resourcesContent.isNotBlank()) parsed.resourcesContent else "{}")
 
             buildString {
                 append("(function(){\n")
+                if (parsed.metadata.noFrames) {
+                    append("if (window.self !== window.top) return;\n")
+                }
                 append("var unsafeWindow = window;\n")
                 append("var {")
                 append("GM, GM_info, GM_getValue, GM_setValue, GM_deleteValue, ")
                 append("GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, ")
                 append("GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, ")
-                append("GM_setClipboard, GM_log, GM_notification, GM_download")
+                append("GM_setClipboard, GM_log, GM_notification, GM_download, ")
+                append("GM_getResourceText, GM_getResourceURL, GM_addValueChangeListener, GM_removeValueChangeListener")
                 append("} = ").append(shimTemplate).append(";\n")
                 append("var _scope = Object.create(unsafeWindow);\n")
                 append("_scope.unsafeWindow = unsafeWindow;\n")
@@ -201,25 +302,48 @@ class UserScriptManager private constructor(private val context: Context) {
                 append("_scope.GM_setClipboard = GM_setClipboard;\n")
                 append("_scope.GM_log = GM_log;\n")
                 append("_scope.GM_notification = GM_notification;\n")
-                append("(function(GM, GM_info, unsafeWindow, GM_getValue, GM_setValue, GM_deleteValue, GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, GM_setClipboard, GM_log, GM_notification, GM_download){\n")
+                append("_scope.GM_getResourceText = GM_getResourceText;\n")
+                append("_scope.GM_getResourceURL = GM_getResourceURL;\n")
+                append("_scope.GM_addValueChangeListener = GM_addValueChangeListener;\n")
+                append("_scope.GM_removeValueChangeListener = GM_removeValueChangeListener;\n")
+                append("(function(GM, GM_info, unsafeWindow, GM_getValue, GM_setValue, GM_deleteValue, GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, GM_setClipboard, GM_log, GM_notification, GM_download, GM_getResourceText, GM_getResourceURL, GM_addValueChangeListener, GM_removeValueChangeListener){\n")
                 if (parsed.requiresContent.isNotEmpty()) append(parsed.requiresContent).append('\n')
+                append("""
+                try {
+                    for (var __k in _scope) {
+                        if (Object.prototype.hasOwnProperty.call(_scope, __k)) {
+                            try { if (!(__k in unsafeWindow)) unsafeWindow[__k] = _scope[__k]; } catch (_) {}
+                            try { if (!(__k in window)) window[__k] = _scope[__k]; } catch (_) {}
+                        }
+                    }
+                } catch (_) {}
+                """.trimIndent()).append('\n')
+                append("var _t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();\n")
                 append(parsed.code).append("\n")
-                append("}).call(_scope, GM, GM_info, unsafeWindow, GM_getValue, GM_setValue, GM_deleteValue, GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, GM_setClipboard, GM_log, GM_notification, GM_download);\n")
+                append("var _t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();\n")
+                append("if (_t1 - _t0 > 500) { console.warn('Onyx: Userscript took ' + Math.round(_t1 - _t0) + 'ms to execute'); }\n")
+                append("}).call(_scope, GM, GM_info, unsafeWindow, GM_getValue, GM_setValue, GM_deleteValue, GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, GM_setClipboard, GM_log, GM_notification, GM_download, GM_getResourceText, GM_getResourceURL, GM_addValueChangeListener, GM_removeValueChangeListener);\n")
                 append("})();\n")
                 append("\n//# sourceURL=onyx-userscript-").append(parsed.script.id).append(".user.js\n")
             }
         } else {
-            // Unprivileged / Page-World script (@grant none or omitted grants):
+            // Unprivileged / Page-World script (@grant none or @unwrap):
             // Runs directly in the host page's context for 100% compatibility with site internals (e.g. YouTube ytplayer/ytcfg).
             val gmInfoJson = buildGmInfo(parsed)
             buildString {
                 append("(function(){\n")
+                if (parsed.metadata.noFrames) {
+                    append("if (window.self !== window.top) return;\n")
+                }
                 append("var unsafeWindow = window;\n")
                 append("var GM_info = ").append(gmInfoJson).append(";\n")
                 append("var GM = { info: GM_info };\n")
                 append("(function(GM, GM_info, unsafeWindow){\n")
                 if (parsed.requiresContent.isNotEmpty()) append(parsed.requiresContent).append('\n')
+                append("var _t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();\n")
                 append(parsed.code).append("\n")
+                append("var _t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();\n")
+                append("if (_t1 - _t0 > 500) { console.warn('Onyx: Userscript took ' + Math.round(_t1 - _t0) + 'ms to execute'); }\n")
                 append("}).call(window, GM, GM_info, unsafeWindow);\n")
                 append("})();\n")
                 append("\n//# sourceURL=onyx-userscript-").append(parsed.script.id).append(".user.js\n")
@@ -357,6 +481,8 @@ class UserScriptManager private constructor(private val context: Context) {
         valueDao.deleteAllForScript(id)
         userScriptDao.deleteById(id)
         deleteCodeFile(id)
+        deleteRequiresFile(id)
+        deleteResourcesFile(id)
         reload()
     }
 
@@ -416,11 +542,19 @@ class UserScriptManager private constructor(private val context: Context) {
     fun gmGetValue(scriptId: Long, key: String): String? = valueDao.getValue(scriptId, key)
 
     fun gmSetValue(scriptId: Long, key: String, value: String) {
+        val oldValue = valueDao.getValue(scriptId, key)
         valueDao.setValue(UserScriptValueItem(scriptId, key, value))
+        if (oldValue != value) {
+            valueChangeListeners.forEach { runCatching { it.onValueChanged(scriptId, key, oldValue, value) } }
+        }
     }
 
     fun gmDeleteValue(scriptId: Long, key: String) {
+        val oldValue = valueDao.getValue(scriptId, key)
         valueDao.deleteValue(scriptId, key)
+        if (oldValue != null) {
+            valueChangeListeners.forEach { runCatching { it.onValueChanged(scriptId, key, oldValue, null) } }
+        }
     }
 
     fun gmListValues(scriptId: Long): List<String> = valueDao.listKeys(scriptId)

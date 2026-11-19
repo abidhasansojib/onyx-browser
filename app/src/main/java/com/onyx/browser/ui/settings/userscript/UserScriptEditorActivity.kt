@@ -35,6 +35,16 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.data.preferences.BrowserPreferences
@@ -193,6 +203,43 @@ class UserScriptEditorActivity : ComponentActivity() {
     }
 }
 
+private val JS_KEYWORD_REGEX = Regex("""\b(function|var|let|const|return|async|await|if|else|for|while|try|catch|finally|throw|new|typeof|instanceof|class|extends|import|export|from|default|true|false|null|undefined|this)\b""")
+private val GM_API_REGEX = Regex("""\b(GM(_\w+)?|GM\.\w+)\b""")
+private val STRING_REGEX = Regex("""("(\\"|[^"])*"|'(\\'|[^'])*'|`(\\`|[^`])*`)""")
+private val COMMENT_REGEX = Regex("""(//.*|/\*[\s\S]*?\*/)""")
+private val META_TAG_REGEX = Regex("""//\s*@[\w:-]+""")
+
+class JsSyntaxVisualTransformation(
+    private val keywordColor: Color,
+    private val gmColor: Color = Color(0xFFAB47BC),
+    private val stringColor: Color = Color(0xFF4CAF50),
+    private val commentColor: Color = Color(0xFF888888),
+    private val metaTagColor: Color = Color(0xFFFF9800)
+) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val raw = text.text
+        val annotated = buildAnnotatedString {
+            append(raw)
+            STRING_REGEX.findAll(raw).forEach { match ->
+                addStyle(SpanStyle(color = stringColor), match.range.first, match.range.last + 1)
+            }
+            COMMENT_REGEX.findAll(raw).forEach { match ->
+                addStyle(SpanStyle(color = commentColor), match.range.first, match.range.last + 1)
+            }
+            META_TAG_REGEX.findAll(raw).forEach { match ->
+                addStyle(SpanStyle(color = metaTagColor, fontWeight = FontWeight.Bold), match.range.first, match.range.last + 1)
+            }
+            JS_KEYWORD_REGEX.findAll(raw).forEach { match ->
+                addStyle(SpanStyle(color = keywordColor, fontWeight = FontWeight.SemiBold), match.range.first, match.range.last + 1)
+            }
+            GM_API_REGEX.findAll(raw).forEach { match ->
+                addStyle(SpanStyle(color = gmColor, fontWeight = FontWeight.Bold), match.range.first, match.range.last + 1)
+            }
+        }
+        return TransformedText(annotated, OffsetMapping.Identity)
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserScriptEditorScreen(
@@ -202,6 +249,10 @@ fun UserScriptEditorScreen(
     onBackClick: () -> Unit,
     onSaveClick: () -> Unit
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val syntaxTransformation = remember(primaryColor) { JsSyntaxVisualTransformation(primaryColor) }
+    val lineCount = remember(code) { code.lines().size }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -246,6 +297,7 @@ fun UserScriptEditorScreen(
             OutlinedTextField(
                 value = code,
                 onValueChange = onCodeChange,
+                visualTransformation = syntaxTransformation,
                 textStyle = TextStyle(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 13.sp,
@@ -259,9 +311,22 @@ fun UserScriptEditorScreen(
                     unfocusedIndicatorColor = Color.Transparent
                 ),
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxWidth()
                     .padding(8.dp)
             )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Lines: $lineCount | Characters: ${code.length}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

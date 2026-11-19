@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -134,7 +135,9 @@ class UserScriptsActivity : ComponentActivity() {
                     onDeleteScript = { script ->
                         scriptToDelete = script
                     },
-                    onAddClick = { showAddOptionsSheet = true }
+                    onAddClick = { showAddOptionsSheet = true },
+                    onCheckUpdates = { checkForUpdates() },
+                    onExportScripts = { exportAllScripts() }
                 )
 
                 if (showAddOptionsSheet) {
@@ -246,6 +249,75 @@ class UserScriptsActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun exportAllScripts() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val all = manager.scripts
+            if (all.isEmpty()) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserScriptsActivity, "No userscripts to export", Toast.LENGTH_SHORT).show()
+                }
+                return@launch
+            }
+            try {
+                val array = org.json.JSONArray()
+                for (parsed in all) {
+                    val obj = org.json.JSONObject().apply {
+                        put("id", parsed.script.id)
+                        put("name", parsed.metadata.name)
+                        put("version", parsed.metadata.version)
+                        put("sourceUrl", parsed.script.sourceUrl)
+                        put("code", parsed.code)
+                        val keys = manager.gmListValues(parsed.script.id)
+                        val valuesObj = org.json.JSONObject()
+                        for (k in keys) {
+                            val v = manager.gmGetValue(parsed.script.id, k)
+                            valuesObj.put(k, v)
+                        }
+                        put("values", valuesObj)
+                    }
+                    array.put(obj)
+                }
+                val json = array.toString(2)
+                withContext(Dispatchers.Main) {
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/json"
+                        putExtra(Intent.EXTRA_TEXT, json)
+                        putExtra(Intent.EXTRA_SUBJECT, "Onyx Userscripts Backup")
+                    }
+                    startActivity(Intent.createChooser(sendIntent, "Export Userscripts"))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserScriptsActivity, "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun checkForUpdates() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@UserScriptsActivity, "Checking for userscript updates...", Toast.LENGTH_SHORT).show()
+            }
+            try {
+                val results = manager.checkAndUpdateAll()
+                val updated = results.count { it.second is com.onyx.browser.userscript.UpdateResult.Updated }
+                withContext(Dispatchers.Main) {
+                    if (updated > 0) {
+                        Toast.makeText(this@UserScriptsActivity, "Updated $updated script(s)", Toast.LENGTH_SHORT).show()
+                        loadScripts()
+                    } else {
+                        Toast.makeText(this@UserScriptsActivity, "All scripts are up to date", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserScriptsActivity, "Check failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -256,13 +328,33 @@ fun UserScriptsScreen(
     onToggleScript: (UserScriptItem, Boolean) -> Unit,
     onEditScript: (UserScriptItem) -> Unit,
     onDeleteScript: (UserScriptItem) -> Unit,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onCheckUpdates: () -> Unit,
+    onExportScripts: () -> Unit
 ) {
     Scaffold(
         topBar = {
             OnyxTopAppBar(
                 title = "User Scripts",
-                onBackClick = onBackClick
+                onBackClick = onBackClick,
+                actions = {
+                    if (scripts.isNotEmpty()) {
+                        IconButton(onClick = onCheckUpdates) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Check for updates",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        IconButton(onClick = onExportScripts) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Export Scripts",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                    }
+                }
             )
         },
         floatingActionButton = {

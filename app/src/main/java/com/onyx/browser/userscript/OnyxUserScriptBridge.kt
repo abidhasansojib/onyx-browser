@@ -86,8 +86,22 @@ class OnyxUserScriptBridge(
         }
     }
 
+    private val valueChangeListener = object : UserScriptManager.ValueChangeListener {
+        override fun onValueChanged(scriptId: Long, key: String, oldValue: String?, newValue: String?) {
+            val hasMatchingToken = tokens.values.any { it.scriptId == scriptId }
+            if (!hasMatchingToken) return
+            val oldValStr = if (oldValue != null) JSONObject.quote(oldValue) else "null"
+            val newValStr = if (newValue != null) JSONObject.quote(newValue) else "null"
+            val js = "window.__onyxGM && window.__onyxGM.notifyValueChanged($scriptId, ${JSONObject.quote(key)}, $oldValStr, $newValStr);"
+            scope.launch(Dispatchers.Main) {
+                webView.evaluateJavascript(js, null)
+            }
+        }
+    }
+
     init {
         OnyxDownloadManager.addEventListener(downloadListener)
+        manager.addValueChangeListener(valueChangeListener)
     }
 
     private val httpClient = OkHttpClient.Builder()
@@ -112,6 +126,7 @@ class OnyxUserScriptBridge(
     fun destroy() {
         clearTokens()
         OnyxDownloadManager.removeEventListener(downloadListener)
+        manager.removeValueChangeListener(valueChangeListener)
         scope.cancel()
     }
 
@@ -244,22 +259,29 @@ class OnyxUserScriptBridge(
     private fun isConnectAllowed(scriptId: Long, token: String, url: String): Boolean {
         val connects = manager.getById(scriptId)?.metadata?.connects ?: return false
         if (connects.isEmpty() || connects.any { it == "*" }) return true
-        val host = try {
-            URI(url).host?.lowercase() ?: return false
-        } catch (_: Exception) {
-            return false
-        }
+
+        val host = runCatching { URI(url).host?.lowercase() }.getOrNull()
+            ?: runCatching { Uri.parse(url).host?.lowercase() }.getOrNull()
+            ?: return false
+
         val targetUrl = tokens[token]?.targetUrl.orEmpty()
-        val pageHost = try {
-            Uri.parse(targetUrl).host?.lowercase()
-        } catch (_: Exception) {
-            null
-        }
-        if (pageHost != null && host == pageHost) return true
-        return connects.any { entry ->
-            val e = entry.lowercase()
-            e == host || host == e.removePrefix("*.") || host.endsWith(".$e") ||
-                    (e.startsWith("*.") && host.endsWith(e.substring(1)))
+        val pageHost = runCatching { Uri.parse(targetUrl).host?.lowercase() }.getOrNull()
+
+        if (pageHost != null && (host == pageHost || host.endsWith(".$pageHost"))) return true
+
+        return connects.any { rawEntry ->
+            val entry = rawEntry.trim().lowercase()
+            when {
+                entry == "*" -> true
+                entry == "self" -> pageHost != null && (host == pageHost || host.endsWith(".$pageHost"))
+                entry == "localhost" && (host == "localhost" || host == "127.0.0.1" || host == "::1") -> true
+                entry == "127.0.0.1" && (host == "127.0.0.1" || host == "localhost") -> true
+                entry.startsWith("*.") -> {
+                    val base = entry.removePrefix("*.")
+                    host == base || host.endsWith(".$base")
+                }
+                else -> host == entry || host.endsWith(".$entry")
+            }
         }
     }
 

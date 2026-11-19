@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Https
 import androidx.compose.material.icons.filled.Lock
@@ -101,11 +102,20 @@ class SiteShieldBottomSheet(
                 var isCosmeticBlocked by remember { mutableStateOf(prefs.isBlockElementEnabled) }
                 var showClearDataDialog by remember { mutableStateOf(false) }
 
+                val userscriptManager = remember { com.onyx.browser.userscript.UserScriptManager.getInstance(requireContext()) }
+                val activeScriptCount = remember(currentUrl) {
+                    userscriptManager.scripts.count {
+                        it.script.enabled && com.onyx.browser.userscript.UserScriptUrlMatcher.matches(currentUrl, it.metadata.matches, it.metadata.includes) &&
+                                !com.onyx.browser.userscript.UserScriptUrlMatcher.isExcluded(currentUrl, it.metadata.excludes)
+                    }
+                }
+
                 OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
                     SiteShieldSheetLayout(
                         domain = domain,
                         isHttps = currentUrl.startsWith("https://", ignoreCase = true),
                         blockedCount = pageBlockedCount.coerceAtLeast(0),
+                        activeScriptCount = activeScriptCount,
                         isShieldsActive = isShieldsActive,
                         onShieldsToggle = { enabled ->
                             isShieldsActive = enabled
@@ -132,6 +142,10 @@ class SiteShieldBottomSheet(
                         },
                         onClearSiteDataClick = {
                             showClearDataDialog = true
+                        },
+                        onOpenUserScripts = {
+                            startActivity(Intent(requireContext(), com.onyx.browser.ui.settings.userscript.UserScriptsActivity::class.java))
+                            dismiss()
                         },
                         onOpenSettings = {
                             startActivity(Intent(requireContext(), com.onyx.browser.ui.settings.site.SiteSettingsActivity::class.java))
@@ -165,6 +179,7 @@ fun SiteShieldSheetLayout(
     domain: String,
     isHttps: Boolean,
     blockedCount: Int,
+    activeScriptCount: Int = 0,
     isShieldsActive: Boolean,
     onShieldsToggle: (Boolean) -> Unit,
     isFingerprint: Boolean,
@@ -174,6 +189,7 @@ fun SiteShieldSheetLayout(
     isCosmeticBlocked: Boolean,
     onCosmeticBlockedToggle: (Boolean) -> Unit,
     onClearSiteDataClick: () -> Unit,
+    onOpenUserScripts: () -> Unit = {},
     onOpenSettings: () -> Unit,
     onDoneClick: () -> Unit
 ) {
@@ -311,6 +327,13 @@ fun SiteShieldSheetLayout(
                 checked = isCosmeticBlocked,
                 onCheckedChange = onCosmeticBlockedToggle,
                 enabled = isShieldsActive
+            )
+
+            OnyxPreferenceItem(
+                title = "User Scripts",
+                subtitle = if (activeScriptCount > 0) "$activeScriptCount active on this site" else "Manage userscripts",
+                icon = Icons.Default.Code,
+                onClick = onOpenUserScripts
             )
 
             OnyxPreferenceItem(

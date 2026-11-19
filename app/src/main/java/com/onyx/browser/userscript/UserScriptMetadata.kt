@@ -6,6 +6,11 @@ enum class RunAt {
     DOCUMENT_IDLE
 }
 
+data class UserScriptResource(
+    val name: String,
+    val url: String
+)
+
 /**
  * Parsed `// ==UserScript== ... // ==/UserScript==` metadata block for Tampermonkey/Violentmonkey scripts.
  */
@@ -21,17 +26,24 @@ data class UserScriptMetadata(
     val grants: List<String>,
     val requires: List<String>,
     val connects: List<String>,
+    val resources: List<UserScriptResource> = emptyList(),
     val runAt: RunAt,
-    val noFrames: Boolean,
-    val updateUrl: String,
-    val downloadUrl: String
+    val noFrames: Boolean = false,
+    val unwrap: Boolean = false,
+    val updateUrl: String = "",
+    val downloadUrl: String = ""
 ) {
     /** Explicit grants only; `none` (or omitted grants) gives no native capability. */
     fun allowsApi(api: String): Boolean =
         grants.none { it.equals("none", ignoreCase = true) } && grants.any {
             it.equals("GM_$api", ignoreCase = true) || it.equals("GM.$api", ignoreCase = true) ||
                     (api.equals("xmlhttpRequest", ignoreCase = true) &&
-                            (it.equals("GM.xmlHttpRequest", ignoreCase = true) || it.equals("GM_xmlhttpRequest", ignoreCase = true)))
+                            (it.equals("GM.xmlHttpRequest", ignoreCase = true) || it.equals("GM_xmlhttpRequest", ignoreCase = true))) ||
+                    (api.equals("getResourceUrl", ignoreCase = true) &&
+                            (it.equals("GM.getResourceURL", ignoreCase = true) || it.equals("GM_getResourceURL", ignoreCase = true) ||
+                             it.equals("GM.getResourceUrl", ignoreCase = true) || it.equals("GM_getResourceUrl", ignoreCase = true))) ||
+                    (api.equals("getResourceText", ignoreCase = true) &&
+                            (it.equals("GM.getResourceText", ignoreCase = true) || it.equals("GM_getResourceText", ignoreCase = true)))
         }
 
     val requiresNativeBridge: Boolean
@@ -40,25 +52,26 @@ data class UserScriptMetadata(
     /**
      * Determines whether the userscript should execute within an isolated execution world scope.
      * Following the Tampermonkey standard:
-     * - Scripts with `@grant none` (or no grants) run directly in the host page's world.
+     * - Scripts with `@grant none` (or no grants) or `@unwrap` run directly in the host page's world.
      * - Scripts requesting `GM_*` grants execute within an isolated scope sandbox with `unsafeWindow`.
      */
     val isIsolatedWorld: Boolean
-        get() = grants.none { it.equals("none", ignoreCase = true) } &&
+        get() = !unwrap && grants.none { it.equals("none", ignoreCase = true) } &&
                 (requiresNativeBridge || grants.any { it.startsWith("GM", ignoreCase = true) })
 
     companion object {
         private val NATIVE_APIS = listOf(
             "getValue", "setValue", "deleteValue", "listValues", "xmlhttpRequest",
             "download", "registerMenuCommand", "unregisterMenuCommand", "openInTab",
-            "setClipboard", "notification", "log"
+            "setClipboard", "notification", "log", "getResourceText", "getResourceUrl",
+            "getResourceURL", "addValueChangeListener", "removeValueChangeListener"
         )
 
         const val DEFAULT_NAME = "Unnamed script"
 
         private val BLOCK_REGEX =
             Regex("""//\s*==UserScript==\s*\n(.*?)//\s*==/UserScript==""", RegexOption.DOT_MATCHES_ALL)
-        private val LINE_REGEX = Regex("""//\s*@([\w-]+)(?:\s+(.*))?""")
+        private val LINE_REGEX = Regex("""//\s*@([\w-]+)(?::[\w-]+)?(?:\s+(.*))?""")
 
         fun parse(code: String): UserScriptMetadata {
             val block = BLOCK_REGEX.find(code)?.groupValues?.get(1).orEmpty()
@@ -84,6 +97,14 @@ data class UserScriptMetadata(
                 else -> RunAt.DOCUMENT_IDLE
             }
 
+            val resources = mutableListOf<UserScriptResource>()
+            tags["resource"]?.forEach { entry ->
+                val parts = entry.trim().split(Regex("""\s+"""), limit = 2)
+                if (parts.size == 2 && parts[0].isNotBlank() && parts[1].isNotBlank()) {
+                    resources.add(UserScriptResource(parts[0].trim(), parts[1].trim()))
+                }
+            }
+
             return UserScriptMetadata(
                 name = first("name").ifEmpty { DEFAULT_NAME },
                 namespace = first("namespace"),
@@ -96,8 +117,10 @@ data class UserScriptMetadata(
                 grants = all("grant"),
                 requires = all("require"),
                 connects = all("connect"),
+                resources = resources,
                 runAt = runAt,
                 noFrames = tags.containsKey("noframes"),
+                unwrap = tags.containsKey("unwrap"),
                 updateUrl = first("updateurl"),
                 downloadUrl = first("downloadurl")
             )

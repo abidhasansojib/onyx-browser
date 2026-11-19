@@ -1,5 +1,5 @@
 // Onyx Browser Userscript GM API Shim (Tampermonkey / Violentmonkey compatible)
-// Templated per-script: __SCRIPT_ID__, __GM_TOKEN__, and __GM_INFO__ are substituted at inject time.
+// Templated per-script: __SCRIPT_ID__, __GM_TOKEN__, __GM_INFO__, and __GM_RESOURCES__ are substituted at inject time.
 (function () {
     if (typeof globalThis === 'undefined') {
         try {
@@ -7,6 +7,38 @@
                 (typeof self !== 'undefined' ? self : window);
         } catch (e) {}
     }
+
+    // SPA Dynamic Navigation: notify userscripts of URL changes via HTML5 History API
+    (function () {
+        if (window.__onyxSpaHookInstalled) return;
+        window.__onyxSpaHookInstalled = true;
+        var _lastUrl = location.href;
+        function _notifyUrlChange() {
+            if (location.href !== _lastUrl) {
+                _lastUrl = location.href;
+                try {
+                    window.dispatchEvent(new CustomEvent('onyx:urlchange', { detail: { url: location.href } }));
+                } catch (_) {}
+            }
+        }
+        var _pushState = history.pushState;
+        if (_pushState) {
+            history.pushState = function () {
+                var ret = _pushState.apply(this, arguments);
+                _notifyUrlChange();
+                return ret;
+            };
+        }
+        var _replaceState = history.replaceState;
+        if (_replaceState) {
+            history.replaceState = function () {
+                var ret = _replaceState.apply(this, arguments);
+                _notifyUrlChange();
+                return ret;
+            };
+        }
+        window.addEventListener('popstate', _notifyUrlChange);
+    })();
 
     (function () {
         var Orig = window.Response;
@@ -26,6 +58,7 @@
     var SCRIPT_ID = __SCRIPT_ID__;
     var GM_TOKEN = __GM_TOKEN__;
     var GM_INFO = __GM_INFO__;
+    var __resources = __GM_RESOURCES__;
 
     var hub = window.__onyxGM;
     if (!hub) {
@@ -33,7 +66,23 @@
             xhrCallbacks: {},
             downloadCallbacks: {},
             menuCallbacks: {},
+            valListeners: {},
             seq: 0,
+            valSeq: 0,
+            notifyValueChanged: function (scriptId, key, oldValue, newValue) {
+                for (var id in this.valListeners) {
+                    var entry = this.valListeners[id];
+                    if (entry && (entry.scriptId === scriptId || entry.scriptId == null) && entry.name === key) {
+                        try {
+                            var oldVal = oldValue != null ? JSON.parse(oldValue) : undefined;
+                            var newVal = newValue != null ? JSON.parse(newValue) : undefined;
+                            entry.cb(key, oldVal, newVal, false);
+                        } catch (e) {
+                            console.error('onyx GM valueChange callback error', e);
+                        }
+                    }
+                }
+            },
             handleXhr: function (reqId, eventName, payload) {
                 var self = this;
                 setTimeout(function () {
@@ -131,17 +180,27 @@
     }
 
     function GM_setValue(key, value) {
-        if (!bridge) return;
-        try {
-            bridge.gmSetValue(GM_TOKEN, key, JSON.stringify(value));
-        } catch (e) {}
+        var oldVal = GM_getValue(key);
+        if (bridge) {
+            try {
+                bridge.gmSetValue(GM_TOKEN, key, JSON.stringify(value));
+            } catch (e) {}
+        }
+        if (hub && hub.notifyValueChanged) {
+            hub.notifyValueChanged(SCRIPT_ID, key, JSON.stringify(oldVal), JSON.stringify(value));
+        }
     }
 
     function GM_deleteValue(key) {
-        if (!bridge) return;
-        try {
-            bridge.gmDeleteValue(GM_TOKEN, key);
-        } catch (e) {}
+        var oldVal = GM_getValue(key);
+        if (bridge) {
+            try {
+                bridge.gmDeleteValue(GM_TOKEN, key);
+            } catch (e) {}
+        }
+        if (hub && hub.notifyValueChanged) {
+            hub.notifyValueChanged(SCRIPT_ID, key, JSON.stringify(oldVal), null);
+        }
     }
 
     function GM_listValues() {
@@ -252,6 +311,24 @@
             details = detailsOrUrl || {};
         }
 
+        if (typeof details.url === 'string' && (details.url.indexOf('blob:') === 0 || details.url.indexOf('data:') === 0)) {
+            try {
+                var a = document.createElement('a');
+                a.href = details.url;
+                a.download = details.name || 'download';
+                a.style.display = 'none';
+                (document.body || document.documentElement).appendChild(a);
+                a.click();
+                setTimeout(function () {
+                    a.parentNode && a.parentNode.removeChild(a);
+                    if (details.onload) details.onload();
+                }, 100);
+            } catch (dlErr) {
+                if (details.onerror) details.onerror({ error: 'download_error', details: String(dlErr) });
+            }
+            return { abort: function () {} };
+        }
+
         var reqId = SCRIPT_ID + ':dl:' + (++hub.seq);
         hub.downloadCallbacks[reqId] = {
             onload: details.onload,
@@ -285,6 +362,34 @@
                 try { if (bridge && bridge.gmAbortDownload) bridge.gmAbortDownload(GM_TOKEN, reqId); } catch (e) {}
             }
         };
+    }
+
+    function GM_getResourceText(name) {
+        var r = __resources && __resources[name];
+        if (!r) return undefined;
+        if (r.text !== undefined) return r.text;
+        if (r.base64) {
+            try { return decodeURIComponent(escape(atob(r.base64))); }
+            catch (_) { return atob(r.base64); }
+        }
+        return undefined;
+    }
+
+    function GM_getResourceURL(name) {
+        var r = __resources && __resources[name];
+        if (!r) return undefined;
+        var mime = r.mime || 'application/octet-stream';
+        return 'data:' + mime + ';base64,' + (r.base64 || '');
+    }
+
+    function GM_addValueChangeListener(name, callback) {
+        var id = ++hub.valSeq;
+        hub.valListeners[id] = { scriptId: SCRIPT_ID, name: name, cb: callback };
+        return id;
+    }
+
+    function GM_removeValueChangeListener(id) {
+        delete hub.valListeners[id];
     }
 
     function GM_registerMenuCommand(caption, fn) {
@@ -344,7 +449,12 @@
         openInTab: GM_openInTab,
         setClipboard: GM_setClipboard,
         notification: GM_notification,
-        log: GM_log
+        log: GM_log,
+        getResourceText: GM_getResourceText,
+        getResourceUrl: GM_getResourceURL,
+        getResourceURL: GM_getResourceURL,
+        addValueChangeListener: GM_addValueChangeListener,
+        removeValueChangeListener: GM_removeValueChangeListener
     };
 
     return {
@@ -364,6 +474,10 @@
         GM_openInTab: GM_openInTab,
         GM_setClipboard: GM_setClipboard,
         GM_notification: GM_notification,
-        GM_log: GM_log
+        GM_log: GM_log,
+        GM_getResourceText: GM_getResourceText,
+        GM_getResourceURL: GM_getResourceURL,
+        GM_addValueChangeListener: GM_addValueChangeListener,
+        GM_removeValueChangeListener: GM_removeValueChangeListener
     };
 })();
