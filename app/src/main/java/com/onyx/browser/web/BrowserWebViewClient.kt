@@ -1383,6 +1383,7 @@ open class BrowserWebViewClient(
             }
             onyxWv?.clearSyntheticState()
             onyxWv?.clearUserScriptState()
+            onyxWv?.isDevToolsExpanded = false
             onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)
             injectUserScripts(view, url, com.onyx.browser.userscript.RunAt.DOCUMENT_START)

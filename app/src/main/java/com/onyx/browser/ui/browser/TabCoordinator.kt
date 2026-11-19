@@ -101,8 +101,17 @@ class TabCoordinator(
 
     private val webViewPool = mutableMapOf<String, BrowserWebView>()
     private val incognitoStateBundles = java.util.concurrent.ConcurrentHashMap<String, Bundle>()
+    private val tabDesktopModeStates = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    private val tabDesktopModeExplicitToggles = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     var isIncognitoUnlocked: Boolean = false
     var onTabClosedListener: ((TabItem) -> Unit)? = null
+
+    fun recordTabDesktopMode(tabId: String, enabled: Boolean) {
+        tabDesktopModeStates[tabId] = enabled
+        tabDesktopModeExplicitToggles[tabId] = true
+    }
+
+    fun getTabDesktopMode(tabId: String): Boolean? = tabDesktopModeStates[tabId]
 
     val maxLiveWebViews: Int by lazy {
         try {
@@ -454,9 +463,16 @@ class TabCoordinator(
             webView = BrowserWebView(context).apply {
                 tabId = tab.id
                 setIncognitoMode(tab.isIncognito)
-                val parentWv = tab.parentId?.let { webViewPool[it] }
-                if (parentWv != null && parentWv.isDesktopModeExplicitlyToggled) {
-                    setDesktopMode(parentWv.isDesktopMode, tab.url)
+                val savedDesktopMode = tabDesktopModeStates[tab.id]
+                val wasExplicit = tabDesktopModeExplicitToggles[tab.id] == true
+                if (savedDesktopMode != null && wasExplicit) {
+                    setDesktopMode(savedDesktopMode, tab.url)
+                } else {
+                    val parentWv = tab.parentId?.let { webViewPool[it] }
+                    if (parentWv != null && parentWv.isDesktopModeExplicitlyToggled) {
+                        setDesktopMode(parentWv.isDesktopMode, tab.url)
+                        recordTabDesktopMode(tab.id, parentWv.isDesktopMode)
+                    }
                 }
             }
             webViewPool[tab.id] = webView
@@ -1051,6 +1067,8 @@ class TabCoordinator(
 
         // Retrieve webview before destruction and extract candidate URLs
         val webView = webViewPool.remove(tab.id)
+        tabDesktopModeStates.remove(tab.id)
+        tabDesktopModeExplicitToggles.remove(tab.id)
         val candidateUrls = extractCandidateUrls(tab, webView)
         autoclearTabData(candidateUrls, setOf(tab.id), isIncognito = tab.isIncognito)
 
@@ -1155,7 +1173,13 @@ class TabCoordinator(
     }
 
     fun duplicateTab(tab: TabItem): TabItem {
-        return createNewTab(url = tab.url, isIncognito = tab.isIncognito)
+        val newTab = createNewTab(url = tab.url, isIncognito = tab.isIncognito, parentId = tab.id)
+        val saved = tabDesktopModeStates[tab.id]
+        if (saved != null) {
+            tabDesktopModeStates[newTab.id] = saved
+            tabDesktopModeExplicitToggles[newTab.id] = tabDesktopModeExplicitToggles[tab.id] ?: true
+        }
+        return newTab
     }
 
     fun closeAllIncognitoTabs(canUndo: Boolean = true) {

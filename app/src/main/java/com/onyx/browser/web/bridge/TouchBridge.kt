@@ -3,6 +3,8 @@ package com.onyx.browser.web.bridge
 import com.onyx.browser.web.BrowserWebView
 
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.webkit.JavaScriptReplyProxy
@@ -42,9 +44,18 @@ class TouchBridge {
     var isPullToRefreshAllowed: Boolean = true
         private set
 
+    var onDevToolsVisibilityChanged: ((Boolean) -> Unit)? = null
+
     @JavascriptInterface
     fun setPullToRefreshAllowed(allowed: Boolean) {
         isPullToRefreshAllowed = allowed
+    }
+
+    @JavascriptInterface
+    fun onDevToolsVisibilityChanged(expanded: Boolean) {
+        Handler(Looper.getMainLooper()).post {
+            onDevToolsVisibilityChanged?.invoke(expanded)
+        }
     }
 
     @JavascriptInterface
@@ -77,6 +88,7 @@ class TouchBridge {
      * UI-thread event delivery without exposing Java reflection objects on window.
      */
     fun createWebMessageListener(): WebViewCompat.WebMessageListener {
+        val mainHandler = Handler(Looper.getMainLooper())
         return WebViewCompat.WebMessageListener { _: WebView, message: WebMessageCompat, _: Uri, _: Boolean, _: JavaScriptReplyProxy ->
             val data = message.data ?: return@WebMessageListener
             try {
@@ -84,6 +96,12 @@ class TouchBridge {
                 when (json.optString("type")) {
                     "ptr" -> {
                         isPullToRefreshAllowed = json.optBoolean("allowed", true)
+                    }
+                    "devtools_visibility" -> {
+                        val expanded = json.optBoolean("expanded", false)
+                        mainHandler.post {
+                            onDevToolsVisibilityChanged?.invoke(expanded)
+                        }
                     }
                     "touched" -> {
                         lastTouchedElement = TouchedElement(

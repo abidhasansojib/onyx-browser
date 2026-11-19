@@ -205,21 +205,27 @@ object DevToolsManager {
 
                 // Synchronize Eruda show/hide with Pull-To-Refresh gating
                 try {
+                    function notifyDevToolsVisibility(expanded) {
+                        window.__onyx_eruda_visible = expanded;
+                        try {
+                            if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                                window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'devtools_visibility', expanded: expanded }));
+                                window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: !expanded }));
+                            } else if (window.OnyxTouchBridge) {
+                                if (typeof window.OnyxTouchBridge.onDevToolsVisibilityChanged === 'function') {
+                                    window.OnyxTouchBridge.onDevToolsVisibilityChanged(expanded);
+                                }
+                                if (typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                                    window.OnyxTouchBridge.setPullToRefreshAllowed(!expanded);
+                                }
+                            }
+                        } catch (_) {}
+                    }
                     window.eruda.on('show', function() {
-                        window.__onyx_eruda_visible = true;
-                        if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
-                            window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: false }));
-                        } else if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                            window.OnyxTouchBridge.setPullToRefreshAllowed(false);
-                        }
+                        notifyDevToolsVisibility(true);
                     });
                     window.eruda.on('hide', function() {
-                        window.__onyx_eruda_visible = false;
-                        if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
-                            window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: true }));
-                        } else if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
-                        }
+                        notifyDevToolsVisibility(false);
                     });
                 } catch (_) {}
 
@@ -272,28 +278,31 @@ object DevToolsManager {
         val toggleScript = """
             (function() {
                 try {
+                    function notifyDevToolsVisibility(expanded) {
+                        window.__onyx_eruda_visible = expanded;
+                        try {
+                            if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                                window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'devtools_visibility', expanded: expanded }));
+                                window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: !expanded }));
+                            } else if (window.OnyxTouchBridge) {
+                                if (typeof window.OnyxTouchBridge.onDevToolsVisibilityChanged === 'function') {
+                                    window.OnyxTouchBridge.onDevToolsVisibilityChanged(expanded);
+                                }
+                                if (typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                                    window.OnyxTouchBridge.setPullToRefreshAllowed(!expanded);
+                                }
+                            }
+                        } catch (_) {}
+                    }
+
                     if (window.eruda && window.eruda._isInit) {
                         if (window.__onyx_eruda_visible) {
                             window.eruda.hide();
-                            window.__onyx_eruda_visible = false;
-                            try {
-                                if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
-                                    window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: true }));
-                                } else if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                                    window.OnyxTouchBridge.setPullToRefreshAllowed(true);
-                                }
-                            } catch (_) {}
+                            notifyDevToolsVisibility(false);
                             return 'hidden';
                         } else {
                             window.eruda.show();
-                            window.__onyx_eruda_visible = true;
-                            try {
-                                if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
-                                    window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: false }));
-                                } else if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                                    window.OnyxTouchBridge.setPullToRefreshAllowed(false);
-                                }
-                            } catch (_) {}
+                            notifyDevToolsVisibility(true);
                             return 'shown';
                         }
                     }
@@ -302,14 +311,7 @@ object DevToolsManager {
 
                     if (window.eruda && window.eruda._isInit) {
                         window.eruda.show();
-                        window.__onyx_eruda_visible = true;
-                        try {
-                            if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
-                                window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: false }));
-                            } else if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                                window.OnyxTouchBridge.setPullToRefreshAllowed(false);
-                            }
-                        } catch (_) {}
+                        notifyDevToolsVisibility(true);
                         return 'shown';
                     }
                     return 'failed';
@@ -361,6 +363,17 @@ object DevToolsManager {
                 // After auto-reinject, keep panel hidden — user taps Eruda icon to open
                 try {
                     window.__onyx_eruda_visible = false;
+                    if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                        window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'devtools_visibility', expanded: false }));
+                        window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: true }));
+                    } else if (window.OnyxTouchBridge) {
+                        if (typeof window.OnyxTouchBridge.onDevToolsVisibilityChanged === 'function') {
+                            window.OnyxTouchBridge.onDevToolsVisibilityChanged(false);
+                        }
+                        if (typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                        }
+                    }
                 } catch (_) {}
             })();
         """
@@ -435,6 +448,17 @@ object DevToolsManager {
                     }
                     window.__onyx_eruda_visible = false;
                     window.__onyx_eruda_init_attempted = false;
+                    if (window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function') {
+                        window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'devtools_visibility', expanded: false }));
+                        window.onyxTouchBridge.postMessage(JSON.stringify({ type: 'ptr', allowed: true }));
+                    } else if (window.OnyxTouchBridge) {
+                        if (typeof window.OnyxTouchBridge.onDevToolsVisibilityChanged === 'function') {
+                            window.OnyxTouchBridge.onDevToolsVisibilityChanged(false);
+                        }
+                        if (typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
+                        }
+                    }
                 } catch (_) {}
             })();
         """.trimIndent(), null)

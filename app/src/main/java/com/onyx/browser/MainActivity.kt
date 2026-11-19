@@ -193,7 +193,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             binding.swipeRefreshLayout.isEnabled = false
         } else if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
             val wv = tabManager.getActiveWebView()
-            binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && (wv?.isDevToolsActive != true) && binding.homeLayout.root.visibility != View.VISIBLE
+            binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && (wv?.isDevToolsExpanded != true) && binding.homeLayout.root.visibility != View.VISIBLE
         }
         return super.dispatchTouchEvent(ev)
     }
@@ -792,8 +792,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             val webView = tabManager.getActiveWebView() ?: return@setOnChildScrollUpCallback true
             if (webView.canScrollVertically(-1) || webView.scrollY > 0) return@setOnChildScrollUpCallback true
 
-            // Block pull-to-refresh if DevTools is active
-            if (webView.isDevToolsActive) return@setOnChildScrollUpCallback true
+            // Block pull-to-refresh if DevTools panel is open/expanded
+            if (webView.isDevToolsExpanded) return@setOnChildScrollUpCallback true
 
             // Block pull-to-refresh on immersive reels, shorts, and video feeds
             val url = (webView.url ?: "").lowercase()
@@ -1362,7 +1362,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         updateIncognitoUI(tab.isIncognito)
 
         val webView = tabManager.getOrCreateWebView(tab)
-        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && !webView.isDevToolsActive
+        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && !webView.isDevToolsExpanded && binding.homeLayout.root.visibility != View.VISIBLE
         attachWebViewToContainer(webView)
         if (!inPip) {
             updatePipParams()
@@ -1469,6 +1469,12 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
     private fun setupWebViewClients(webView: BrowserWebView) {
         val tabId = webView.tabId
+        webView.touchBridge.onDevToolsVisibilityChanged = { expanded ->
+            webView.isDevToolsExpanded = expanded
+            if (currentDisplayedTabId == tabId) {
+                binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && !expanded && binding.homeLayout.root.visibility != View.VISIBLE
+            }
+        }
         if (::toolbarLayoutDelegate.isInitialized) {
             toolbarLayoutDelegate.attachWebViewScrollAutoHide(
                 webView = webView,
@@ -2918,7 +2924,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         // 5. Sync pull to refresh, autofill & force dark settings
-        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
+        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && (wv?.isDevToolsExpanded != true) && binding.homeLayout.root.visibility != View.VISIBLE
         updateSwipeRefreshTheme()
         updateSwipeRefreshOffset()
         tabManager.getAllWebViews().forEach {

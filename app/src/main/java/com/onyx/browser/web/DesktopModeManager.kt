@@ -155,21 +155,23 @@ object DesktopModeManager {
      * Document-Start script injected into every page via [androidx.webkit.WebViewCompat.addDocumentStartJavaScript].
      *
      * Intercepts mobile `<meta name="viewport">` elements as the HTML parser attaches them to the DOM,
-     * rewriting them to desktop width (980px) and calculated zoom-out scale before layout calculation occurs.
+     * rewriting them to desktop width (980px) before layout calculation occurs.
      * Also spoofs `navigator.userAgentData` (Client Hints) and `navigator.platform` for desktop parity.
      */
-    val DESKTOP_VIEWPORT_SCRIPT = """
+    val DESKTOP_VIEWPORT_SCRIPT: String
+        get() {
+            val ver = UserAgentManager.getSystemChromiumVersion(null)
+            val major = ver.substringBefore(".")
+            return """
         (function() {
             var host = (location.hostname || '').toLowerCase();
             var href = (location.href || '').toLowerCase();
             var ref = (document.referrer || '').toLowerCase();
             var path = (location.pathname || '').toLowerCase();
             if (/fbsbx\.com|accountkit\.com|arkose|funcaptcha|matchkey|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
-                path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
+                (host.indexOf('facebook.com') !== -1 && (path.indexOf('/checkpoint/') !== -1 || href.indexOf('checkpoint') !== -1)) ||
                 path.indexOf('/captcha/') !== -1 || path.indexOf('/challenge/') !== -1 || path.indexOf('/fc/') !== -1 ||
-                href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 || href.indexOf('/captcha/') !== -1 ||
-                href.indexOf('/login/') !== -1 || href.indexOf('/auth/') !== -1 || href.indexOf('lsd=') !== -1 ||
-                href.indexOf('jazoest=') !== -1 || href.indexOf('datr=') !== -1) {
+                href.indexOf('/checkpoint/') !== -1 || href.indexOf('/challenge/') !== -1 || href.indexOf('/captcha/') !== -1) {
                 return;
             }
 
@@ -190,8 +192,8 @@ object DesktopModeManager {
                 try {
                     if (navigator.userAgentData) {
                         var desktopBrands = [
-                            { brand: 'Chromium', version: '131' },
-                            { brand: 'Google Chrome', version: '131' },
+                            { brand: 'Chromium', version: '$major' },
+                            { brand: 'Google Chrome', version: '$major' },
                             { brand: 'Not_A Brand', version: '24' }
                         ];
                         var desktopUaData = {
@@ -206,7 +208,7 @@ object DesktopModeManager {
                                     architecture: 'x86',
                                     bitness: '64',
                                     model: '',
-                                    uaFullVersion: '131.0.0.0',
+                                    uaFullVersion: '$ver',
                                     fullVersionList: desktopBrands
                                 });
                             },
@@ -235,20 +237,15 @@ object DesktopModeManager {
                 var TARGET_DESKTOP_WIDTH = $DEFAULT_DESKTOP_WIDTH;
 
                 function computeDesktopViewportContent() {
-                    var screenW = (window.screen && window.screen.width) ? window.screen.width : 390;
-                    if (window.innerWidth && window.innerHeight && window.innerWidth > window.innerHeight && screenW < window.screen.height) {
-                        screenW = window.screen.height;
-                    }
-                    var scale = Math.min(1.0, screenW / TARGET_DESKTOP_WIDTH);
-                    scale = Math.round(scale * 1000) / 1000;
-                    return 'width=' + TARGET_DESKTOP_WIDTH + ', initial-scale=' + scale + ', minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes';
+                    return 'width=' + TARGET_DESKTOP_WIDTH + ', minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes';
                 }
 
                 function enforceMetaViewport(metaNode) {
                     if (!metaNode) return;
                     try {
                         var desiredContent = computeDesktopViewportContent();
-                        if (metaNode.getAttribute('content') !== desiredContent) {
+                        var current = metaNode.getAttribute('content') || '';
+                        if (current.indexOf('width=' + TARGET_DESKTOP_WIDTH) === -1) {
                             metaNode.setAttribute('content', desiredContent);
                         }
                     } catch (e) {}
@@ -319,7 +316,8 @@ object DesktopModeManager {
                 }, { once: true });
             }
         })();
-    """.trimIndent()
+            """.trimIndent()
+        }
 
     /**
      * Executes post-load reinforcement to guarantee desktop viewport attributes and overview
@@ -330,13 +328,7 @@ object DesktopModeManager {
             (function() {
                 try {
                     var TARGET_DESKTOP_WIDTH = $DEFAULT_DESKTOP_WIDTH;
-                    var screenW = (window.screen && window.screen.width) ? window.screen.width : 390;
-                    if (window.innerWidth && window.innerHeight && window.innerWidth > window.innerHeight && screenW < window.screen.height) {
-                        screenW = window.screen.height;
-                    }
-                    var scale = Math.min(1.0, screenW / TARGET_DESKTOP_WIDTH);
-                    scale = Math.round(scale * 1000) / 1000;
-                    var desiredContent = 'width=' + TARGET_DESKTOP_WIDTH + ', initial-scale=' + scale + ', minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes';
+                    var desiredContent = 'width=' + TARGET_DESKTOP_WIDTH + ', minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes';
 
                     var meta = document.querySelector('meta[name="viewport"]');
                     if (!meta) {
@@ -345,8 +337,11 @@ object DesktopModeManager {
                         meta.setAttribute('content', desiredContent);
                         var head = document.head || document.getElementsByTagName('head')[0] || document.documentElement;
                         if (head) head.appendChild(meta);
-                    } else if (meta.getAttribute('content') !== desiredContent) {
-                        meta.setAttribute('content', desiredContent);
+                    } else {
+                        var current = meta.getAttribute('content') || '';
+                        if (current.indexOf('width=' + TARGET_DESKTOP_WIDTH) === -1) {
+                            meta.setAttribute('content', desiredContent);
+                        }
                     }
                 } catch (e) {}
             })();

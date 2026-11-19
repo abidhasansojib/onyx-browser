@@ -48,9 +48,9 @@ class BrowserMenuCoordinator(
             onCloseTabClicked = {
                 this@BrowserMenuCoordinator.activity.closeCurrentTab()
             }
-            onDesktopSiteToggled = { _ ->
-                // Toggle desktop mode scoped to the active tab, with automatic mobile subdomain translation
-                activeWebView?.toggleDesktopMode()
+            onDesktopSiteToggled = { enabled ->
+                // Set desktop mode explicitly scoped to the active tab, with automatic mobile subdomain translation
+                activeWebView?.setDesktopMode(enabled)
             }
             onFindInPageClicked = {
                 this@BrowserMenuCoordinator.activity.showFindInPage()
@@ -244,20 +244,24 @@ class BrowserMenuCoordinator(
                 when (status) {
                     "shown" -> {
                         webView.isDevToolsActive = true
+                        webView.isDevToolsExpanded = true
                         binding.swipeRefreshLayout.isEnabled = false
                     }
                     "hidden" -> {
-                        webView.isDevToolsActive = false
-                        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
+                        webView.isDevToolsActive = true
+                        webView.isDevToolsExpanded = false
+                        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && binding.homeLayout.root.visibility != View.VISIBLE
                     }
                     "failed" -> {
                         webView.isDevToolsActive = false
-                        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
+                        webView.isDevToolsExpanded = false
+                        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && binding.homeLayout.root.visibility != View.VISIBLE
                         Toast.makeText(activity, "Unable to load developer tools", Toast.LENGTH_SHORT).show()
                     }
                     "error" -> {
                         webView.isDevToolsActive = false
-                        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
+                        webView.isDevToolsExpanded = false
+                        binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && binding.homeLayout.root.visibility != View.VISIBLE
                         Toast.makeText(activity, "Developer tools encountered an error", Toast.LENGTH_SHORT).show()
                     }
                     else -> {}

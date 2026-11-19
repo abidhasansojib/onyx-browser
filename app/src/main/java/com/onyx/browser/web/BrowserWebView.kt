@@ -79,15 +79,17 @@ class BrowserWebView @JvmOverloads constructor(
      * When true, this tab renders in full desktop mode (desktop UA, desktop client hints,
      * 980px layout viewport, auto overview scale).
      */
+    @Volatile
     var isDesktopMode: Boolean = false
-        private set
+        internal set
 
     /**
      * Tracks whether desktop mode was explicitly toggled on this tab via the menu.
      * If true, this tab respects the user's manual toggle over default site rules.
      */
+    @Volatile
     var isDesktopModeExplicitlyToggled: Boolean = false
-        private set
+        internal set
     @Volatile private var lastAppliedSpoofTemplate: String? = null
     
     val touchBridge = TouchBridge()
@@ -152,6 +154,7 @@ class BrowserWebView @JvmOverloads constructor(
         findListener = listener
     }
     var isDevToolsActive: Boolean = false
+    var isDevToolsExpanded: Boolean = false
     val sessionSslBypasses: MutableSet<String> = mutableSetOf()
 
     val userScriptManager by lazy { com.onyx.browser.userscript.UserScriptManager.getInstance(context) }
@@ -619,7 +622,7 @@ class BrowserWebView @JvmOverloads constructor(
                 host == "m.aliexpress.com" -> "www.aliexpress.com"
                 host == "m.imdb.com" -> "www.imdb.com"
                 host == "m.gsmarena.com" -> "www.gsmarena.com"
-                host.startsWith("m.") && host.count { it == '.' } >= 2 -> "www." + host.removePrefix("m.")
+                host.startsWith("m.") && host.count { it == '.' } >= 2 -> host.removePrefix("m.")
                 else -> host
             }
             if (newHost != host) {
@@ -634,6 +637,8 @@ class BrowserWebView @JvmOverloads constructor(
 
     /**
      * Resolves desktop URLs to their mobile counterparts when disabling desktop mode.
+     * Note: Only known services that provide dedicated mobile subdomains are mapped.
+     * Arbitrary domains starting with 'www.' are never altered to prevent DNS resolution errors.
      */
     fun resolveMobileUrl(urlString: String): String {
         if (urlString.isBlank() || isSyntheticOrDataUrl(urlString)) return urlString
@@ -645,14 +650,11 @@ class BrowserWebView @JvmOverloads constructor(
                 host == "www.facebook.com" || host == "facebook.com" -> "m.facebook.com"
                 host.endsWith(".wikipedia.org") && !host.contains(".m.wikipedia.org") ->
                     host.replace(".wikipedia.org", ".m.wikipedia.org")
-                host == "twitter.com" || host == "www.twitter.com" -> "mobile.twitter.com"
-                host == "x.com" || host == "www.x.com" -> "mobile.twitter.com"
                 host == "www.reddit.com" || host == "reddit.com" -> "m.reddit.com"
                 host == "www.aliexpress.com" || host == "aliexpress.com" -> "m.aliexpress.com"
                 host == "www.twitch.tv" || host == "twitch.tv" -> "m.twitch.tv"
                 host == "www.imdb.com" || host == "imdb.com" -> "m.imdb.com"
                 host == "www.gsmarena.com" || host == "gsmarena.com" -> "m.gsmarena.com"
-                host.startsWith("www.") -> "m." + host.removePrefix("www.")
                 else -> host
             }
             if (newHost != host) {
@@ -686,6 +688,7 @@ class BrowserWebView @JvmOverloads constructor(
     fun setDesktopMode(enabled: Boolean, pageUrl: String? = null) {
         isDesktopMode = enabled
         isDesktopModeExplicitlyToggled = true
+        (context as? com.onyx.browser.MainActivity)?.tabManager?.recordTabDesktopMode(tabId, enabled)
         val currentUrl = pageUrl?.takeIf { it.isNotBlank() } ?: (url ?: "")
         val targetUrl = if (enabled) resolveDesktopUrl(currentUrl) else resolveMobileUrl(currentUrl)
         applyUserAgentForUrl(targetUrl, forceRefreshLayout = true)
@@ -707,7 +710,6 @@ class BrowserWebView @JvmOverloads constructor(
     }
 
     fun onSiteSettingsChanged() {
-        resetDesktopModeExplicitOverride()
         applyUserAgentForUrl(this.url ?: "", forceRefreshLayout = true)
     }
 
@@ -840,7 +842,11 @@ class BrowserWebView @JvmOverloads constructor(
                 desktopUserAgent
             }
         } else {
-            getBaseUserAgent(prefs)
+            if (prefs.userAgentSpoofTemplate in UserAgentManager.DESKTOP_KEYS) {
+                UserAgentManager.getEffectiveMobileUserAgent(context)
+            } else {
+                getBaseUserAgent(prefs)
+            }
         }
 
         val scalePercent = if (wantsDesktop) {
@@ -859,7 +865,10 @@ class BrowserWebView @JvmOverloads constructor(
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
 
-        if (wantsDesktop != lastAppliedDesktopMode || spoofTemplate != lastAppliedSpoofTemplate) {
+        val modeChanged = lastAppliedDesktopMode != null && wantsDesktop != lastAppliedDesktopMode
+        val spoofChanged = spoofTemplate != lastAppliedSpoofTemplate
+
+        if (modeChanged || spoofChanged || lastAppliedDesktopMode == null) {
             DesktopModeManager.applyClientHintsMetadata(
                 settings = settings,
                 isDesktopMode = wantsDesktop,
@@ -872,12 +881,20 @@ class BrowserWebView @JvmOverloads constructor(
         
         settings.userAgentString = targetUa
         
-        if (forceRefreshLayout) {
+        val shouldRefresh = forceRefreshLayout || (modeChanged && this.url?.isNotBlank() == true && !isSyntheticOrDataUrl(this.url))
+        if (shouldRefresh) {
             val current = this.url
             if (urlString.isNotBlank() && !isSyntheticOrDataUrl(urlString) && current != urlString) {
                 this.loadUrl(urlString)
             } else {
-                this.reload()
+                try {
+                    settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                    this.reload()
+                } finally {
+                    post {
+                        settings.cacheMode = WebSettings.LOAD_DEFAULT
+                    }
+                }
             }
         }
     }
@@ -912,6 +929,7 @@ class BrowserWebView @JvmOverloads constructor(
             evaluateJavascript("try { " + com.onyx.browser.web.translate.PageTranslateManager.cleanupScript + " } catch(e){}", null)
             clearUserScriptState()
             userScriptBridge.destroy()
+            touchBridge.onDevToolsVisibilityChanged = null
             stopLoading()
             clearHistory()
             (parent as? ViewGroup)?.removeView(this)
