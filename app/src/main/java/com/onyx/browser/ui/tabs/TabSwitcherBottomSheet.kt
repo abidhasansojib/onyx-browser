@@ -86,7 +86,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 class TabSwitcherBottomSheet @JvmOverloads constructor(
-    private val tabManagerParam: TabCoordinator? = TabCoordinator.activeInstance,
+    tabManager: TabCoordinator? = TabCoordinator.activeInstance,
     private val coroutineScope: CoroutineScope? = null,
     private val onTabSelected: (TabItem) -> Unit = {},
     private val onNewTabRequested: (Boolean) -> Unit = {},
@@ -94,7 +94,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
 ) : DialogFragment() {
 
     private val tabManager: TabCoordinator by lazy {
-        tabManagerParam ?: TabCoordinator.activeInstance ?: error("TabCoordinator activeInstance is null")
+        tabManager ?: TabCoordinator.activeInstance ?: error("TabCoordinator activeInstance is null")
     }
 
     private var isDismissing = false
@@ -113,11 +113,11 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NORMAL, R.style.Theme_OnyxBrowser_TabSwitcher)
-        if (TabCoordinator.activeInstance == null && tabManagerParam == null) {
+        if (TabCoordinator.activeInstance == null) {
             dismissAllowingStateLoss()
             return
         }
-        isViewingIncognitoState.value = tabManager.activeTab.value?.isIncognito ?: false
+        isViewingIncognitoState.value = this.tabManager.activeTab.value?.isIncognito ?: false
     }
 
     override fun onStart() {

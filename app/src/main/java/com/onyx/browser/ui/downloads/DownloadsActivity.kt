@@ -60,6 +60,8 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
+import com.onyx.browser.R
 import com.onyx.browser.ui.components.SearchTopAppBar
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
