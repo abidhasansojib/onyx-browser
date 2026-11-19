@@ -92,7 +92,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             }
             val playingId = currentPlayingTabId
             val playingWv = currentPlayingWebView?.get()
-            val playingWvTabId = (playingWv as? com.onyx.browser.web.OnyxWebView)?.tabId
+            val playingWvTabId = (playingWv as? com.onyx.browser.web.BrowserWebView)?.tabId
 
             if (playingId == tabId || playingWvTabId == tabId || (!isAudioOrVideoPlaying && !isVideoPlaying && playingId == null)) {
                 resetMediaPlayback(context)
@@ -153,7 +153,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onVideoPresenceChanged(hasVideo: Boolean, src: String?, width: Int, height: Int) {
-        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        val myTabId = (webView as? com.onyx.browser.web.BrowserWebView)?.tabId?.takeIf { it.isNotBlank() }
         if (hasVideo) {
             if (myTabId != null) {
                 currentVideoPresentTabId = myTabId
@@ -177,7 +177,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         if (now - lastPipRequestTimestamp < 1500L) {
             return
         }
-        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId
+        val myTabId = (webView as? com.onyx.browser.web.BrowserWebView)?.tabId
         if (!isVideoPresent && !isVideoAvailableForTab(myTabId)) {
             return
         }
@@ -211,7 +211,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         // Ignore PiP-sized viewport bounds so pre-PiP inline video rect stays intact
         if (isCurrentlyInPip) return
         if (right - left < 16f || bottom - top < 16f) return
-        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        val myTabId = (webView as? com.onyx.browser.web.BrowserWebView)?.tabId?.takeIf { it.isNotBlank() }
         if (myTabId != null && currentPlayingTabId != null && currentPlayingTabId != myTabId) {
             return
         }
@@ -228,7 +228,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     @JavascriptInterface
     fun onVideoDimensionsChanged(width: Int, height: Int) {
         if (width <= 0 || height <= 0) return
-        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        val myTabId = (webView as? com.onyx.browser.web.BrowserWebView)?.tabId?.takeIf { it.isNotBlank() }
         if (myTabId != null && currentPlayingTabId != null && currentPlayingTabId != myTabId) {
             return
         }
@@ -267,7 +267,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
         videoWidth: Int,
         videoHeight: Int
     ) {
-        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        val myTabId = (webView as? com.onyx.browser.web.BrowserWebView)?.tabId?.takeIf { it.isNotBlank() }
         if (isVideo) {
             if (myTabId != null) {
                 currentVideoPresentTabId = myTabId
@@ -357,7 +357,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     fun onMediaPlaying(title: String?, artist: String?, isVideo: Boolean) {
         pendingEndedRunnable?.let { mainHandler.removeCallbacks(it) }
         isExplicitUserPause = false
-        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        val myTabId = (webView as? com.onyx.browser.web.BrowserWebView)?.tabId?.takeIf { it.isNotBlank() }
         if (isVideo) {
             if (myTabId != null) {
                 currentVideoPresentTabId = myTabId
@@ -434,7 +434,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
             return
         }
 
-        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        val myTabId = (webView as? com.onyx.browser.web.BrowserWebView)?.tabId?.takeIf { it.isNotBlank() }
         if (myTabId != null && currentPlayingTabId == myTabId) {
             isAudioOrVideoPlaying = false
             isVideoPlaying = false
@@ -453,7 +453,7 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
 
     @JavascriptInterface
     fun onMediaEnded() {
-        val myTabId = (webView as? com.onyx.browser.web.OnyxWebView)?.tabId?.takeIf { it.isNotBlank() }
+        val myTabId = (webView as? com.onyx.browser.web.BrowserWebView)?.tabId?.takeIf { it.isNotBlank() }
         mainHandler.post {
             isAudioOrVideoPlaying = false
             isVideoPlaying = false

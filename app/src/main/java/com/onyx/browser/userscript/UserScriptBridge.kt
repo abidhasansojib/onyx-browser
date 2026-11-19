@@ -7,10 +7,10 @@ import android.net.Uri
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.widget.Toast
+import com.onyx.browser.download.DownloadEngineManager
 import com.onyx.browser.download.DownloadHandler
 import com.onyx.browser.download.DownloadTask
-import com.onyx.browser.download.OnyxDownloadManager
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,8 +31,8 @@ import java.util.concurrent.TimeUnit
  * JavaScript interface bridge backing the userscript GM_* APIs.
  * Registered on WebView as `window.onyxGM`.
  */
-class OnyxUserScriptBridge(
-    private val webView: OnyxWebView,
+class UserScriptBridge(
+    private val webView: BrowserWebView,
     private val manager: UserScriptManager
 ) {
     data class ScriptSession(
@@ -51,7 +51,7 @@ class OnyxUserScriptBridge(
     private val activeDownloads = ConcurrentHashMap<String, Long>()
     private val downloadSessions = ConcurrentHashMap<Long, DownloadSession>()
 
-    private val downloadListener = object : OnyxDownloadManager.DownloadEventListener {
+    private val downloadListener = object : DownloadEngineManager.DownloadEventListener {
         override fun onProgress(task: DownloadTask) {
             val session = downloadSessions[task.id] ?: return
             val payload = JSONObject().apply {
@@ -100,7 +100,7 @@ class OnyxUserScriptBridge(
     }
 
     init {
-        OnyxDownloadManager.addEventListener(downloadListener)
+        DownloadEngineManager.addEventListener(downloadListener)
         manager.addValueChangeListener(valueChangeListener)
     }
 
@@ -125,7 +125,7 @@ class OnyxUserScriptBridge(
 
     fun destroy() {
         clearTokens()
-        OnyxDownloadManager.removeEventListener(downloadListener)
+        DownloadEngineManager.removeEventListener(downloadListener)
         manager.removeValueChangeListener(valueChangeListener)
         scope.cancel()
     }
@@ -362,7 +362,7 @@ class OnyxUserScriptBridge(
                 }
 
                 withContext(Dispatchers.Main) {
-                    val downloadId = OnyxDownloadManager.enqueueDownload(
+                    val downloadId = DownloadEngineManager.enqueueDownload(
                         context = webView.context,
                         url = url,
                         fileName = fileName,
@@ -386,7 +386,7 @@ class OnyxUserScriptBridge(
     fun gmAbortDownload(token: String, reqId: String) {
         val downloadId = activeDownloads.remove(reqId) ?: return
         downloadSessions.remove(downloadId)
-        OnyxDownloadManager.cancelDownload(downloadId)
+        DownloadEngineManager.cancelDownload(downloadId)
     }
 
     private fun deliverDownloadError(token: String, reqId: String, message: String) {
@@ -463,7 +463,7 @@ class OnyxUserScriptBridge(
 
     companion object {
         const val JS_INTERFACE_NAME = "onyxGM"
-        private const val TAG = "OnyxUserScriptBridge"
+        private const val TAG = "UserScriptBridge"
 
         fun isWebUrl(url: String): Boolean {
             val scheme = runCatching { URI(url.trim()).scheme }.getOrNull() ?: return false
@@ -471,3 +471,6 @@ class OnyxUserScriptBridge(
         }
     }
 }
+
+typealias OnyxUserScriptBridge = UserScriptBridge
+

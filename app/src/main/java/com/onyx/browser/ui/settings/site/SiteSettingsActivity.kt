@@ -46,11 +46,11 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxAlertDialog
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxRadioPreference
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.RadioPreference
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.web.SiteDataManager
 import kotlinx.coroutines.Dispatchers
@@ -144,7 +144,7 @@ class SiteSettingsActivity : AppCompatActivity() {
                         "Clear all cookies and browsing data for $configuredCount sites on this device? All site permission exceptions will also be reset."
                     }
 
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = "Clear Site Data",
                         text = { Text(message) },
                         confirmButtonText = "Clear Data",
@@ -287,7 +287,7 @@ fun SiteSettingsScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Site Settings",
                 onBackClick = onBackClick
             )
@@ -302,16 +302,16 @@ fun SiteSettingsScreen(
                 .padding(bottom = 32.dp)
         ) {
             CategoryHeader("All Sites & Storage")
-            OnyxCardContainer {
+            CardContainer {
                 val subtitle = if (allSitesCount == 0) "Manage saved data and exceptions" else "$allSitesCount sites with custom permissions"
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "All Sites",
                     subtitle = subtitle,
                     icon = Icons.Default.Storage,
                     onClick = onAllSitesClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Clear All Cookies & Site Data",
                     subtitle = "Wipe all stored cookies, local storage, and exceptions",
                     icon = Icons.Default.DeleteSweep,
@@ -320,29 +320,29 @@ fun SiteSettingsScreen(
             }
 
             CategoryHeader("Hardware & Sensors")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "Camera",
                     subtitle = cameraStatus,
                     icon = Icons.Default.CameraAlt,
                     onClick = onCameraClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Microphone",
                     subtitle = micStatus,
                     icon = Icons.Default.Mic,
                     onClick = onMicClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Location",
                     subtitle = locationStatus,
                     icon = Icons.Default.LocationOn,
                     onClick = onLocationClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Motion & Sensors",
                     subtitle = sensorsStatus,
                     icon = Icons.Default.Sensors,
@@ -351,43 +351,43 @@ fun SiteSettingsScreen(
             }
 
             CategoryHeader("Content & Permissions")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "Notifications",
                     subtitle = notificationsStatus,
                     icon = Icons.Default.Notifications,
                     onClick = onNotificationsClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Clipboard Access",
                     subtitle = clipboardStatus,
                     icon = Icons.Default.ContentPaste,
                     onClick = onClipboardClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Popups and Redirects",
                     subtitle = popupsStatus,
                     icon = Icons.Default.OpenInBrowser,
                     onClick = onPopupsClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Video Autoplay",
                     subtitle = autoplayStatus,
                     icon = Icons.Default.Videocam,
                     onClick = onAutoplayClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Images",
                     subtitle = imagesStatus,
                     icon = Icons.Default.Image,
                     onClick = onImagesClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Sound",
                     subtitle = soundStatus,
                     icon = Icons.Default.Audiotrack,
@@ -396,22 +396,22 @@ fun SiteSettingsScreen(
             }
 
             CategoryHeader("Web Technology & Browsing")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "JavaScript Execution",
                     subtitle = javascriptStatus,
                     icon = Icons.Default.Javascript,
                     onClick = onJavascriptClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Desktop Site Mode",
                     subtitle = desktopStatus,
                     icon = Icons.Default.DesktopWindows,
                     onClick = onDesktopClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Automatic Downloads",
                     subtitle = autoDownloadsStatus,
                     icon = Icons.Default.Download,
@@ -461,7 +461,7 @@ private fun PermissionCategorySheet(
             )
 
             options.forEachIndexed { index, option ->
-                OnyxRadioPreference(
+                RadioPreference(
                     title = option,
                     selected = index == 0,
                     onClick = { onOptionSelected(index) }

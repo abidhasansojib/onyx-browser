@@ -20,6 +20,7 @@
 -keep public class * extends androidx.lifecycle.ViewModel
 
 # Core Application & Activities
+-keep class com.onyx.browser.BrowserApplication { *; }
 -keep class com.onyx.browser.OnyxApplication { *; }
 -keep class com.onyx.browser.MainActivity { *; }
 -keep class com.onyx.browser.ui.** { *; }
@@ -90,6 +91,9 @@
 -keep class com.onyx.browser.privacy.** { *; }
 
 # Preserve custom WebView and WebChrome clients
+-keep class com.onyx.browser.web.BrowserWebView { *; }
+-keep class com.onyx.browser.web.BrowserWebViewClient { *; }
+-keep class com.onyx.browser.web.BrowserWebChromeClient { *; }
 -keep class com.onyx.browser.web.OnyxWebView { *; }
 -keep class com.onyx.browser.web.OnyxWebViewClient { *; }
 -keep class com.onyx.browser.web.OnyxWebChromeClient { *; }

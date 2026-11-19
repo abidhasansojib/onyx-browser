@@ -86,7 +86,7 @@ object DownloadNotificationHelper {
         val pauseIntent = getServicePendingIntent(
             context,
             task.notificationId * 4 + 1,
-            Intent(context, OnyxDownloadService::class.java).apply {
+            Intent(context, DownloadForegroundService::class.java).apply {
                 action = ACTION_PAUSE
                 putExtra(EXTRA_TASK_ID, task.id)
             },
@@ -96,7 +96,7 @@ object DownloadNotificationHelper {
         val cancelIntent = getServicePendingIntent(
             context,
             task.notificationId * 4 + 2,
-            Intent(context, OnyxDownloadService::class.java).apply {
+            Intent(context, DownloadForegroundService::class.java).apply {
                 action = ACTION_CANCEL
                 putExtra(EXTRA_TASK_ID, task.id)
             },
@@ -139,7 +139,7 @@ object DownloadNotificationHelper {
         val resumeIntent = getServicePendingIntent(
             context,
             task.notificationId * 4 + 3,
-            Intent(context, OnyxDownloadService::class.java).apply {
+            Intent(context, DownloadForegroundService::class.java).apply {
                 action = ACTION_RESUME
                 putExtra(EXTRA_TASK_ID, task.id)
             },
@@ -149,7 +149,7 @@ object DownloadNotificationHelper {
         val cancelIntent = getServicePendingIntent(
             context,
             task.notificationId * 4 + 2,
-            Intent(context, OnyxDownloadService::class.java).apply {
+            Intent(context, DownloadForegroundService::class.java).apply {
                 action = ACTION_CANCEL
                 putExtra(EXTRA_TASK_ID, task.id)
             },
@@ -293,7 +293,7 @@ object DownloadNotificationHelper {
         val retryIntent = getServicePendingIntent(
             context,
             task.notificationId * 4 + 3,
-            Intent(context, OnyxDownloadService::class.java).apply {
+            Intent(context, DownloadForegroundService::class.java).apply {
                 action = ACTION_RETRY
                 putExtra(EXTRA_TASK_ID, task.id)
             },

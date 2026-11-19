@@ -11,7 +11,7 @@ import com.onyx.browser.ui.menu.ImagePreviewDialog
 import com.onyx.browser.ui.menu.ImageSearchPickerBottomSheet
 import com.onyx.browser.download.DownloadHandler
 import com.onyx.browser.web.bridge.FormPostRegistry
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 import org.json.JSONObject
 import org.json.JSONTokener
 
@@ -28,13 +28,13 @@ class WebContextMenuCoordinator(
     private val onEditUrlInSearchBar: (url: String) -> Unit
 ) {
 
-    fun attachToWebView(webView: OnyxWebView) {
+    fun attachToWebView(webView: BrowserWebView) {
         webView.setOnLongClickListener {
             showCustomContextMenu(webView, webView.hitTestResult)
         }
     }
 
-    fun showCustomContextMenu(webView: OnyxWebView, hitResult: WebView.HitTestResult): Boolean {
+    fun showCustomContextMenu(webView: BrowserWebView, hitResult: WebView.HitTestResult): Boolean {
         val touched = webView.touchBridge.lastTouchedElement
         val hitType = hitResult.type
         val hitExtra = hitResult.extra
@@ -195,7 +195,7 @@ class WebContextMenuCoordinator(
     }
 
     fun showContextMenuForElement(
-        webView: OnyxWebView,
+        webView: BrowserWebView,
         linkUrl: String? = null,
         imageUrl: String? = null,
         videoUrl: String? = null,

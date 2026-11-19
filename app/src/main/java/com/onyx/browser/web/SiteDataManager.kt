@@ -92,7 +92,7 @@ object SiteDataManager {
                 withContext(Dispatchers.Main) {
                     val webStorage = if (isIncognito && WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
                         try {
-                            ProfileStore.getInstance().getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)?.webStorage ?: WebStorage.getInstance()
+                            ProfileStore.getInstance().getProfile(BrowserWebView.INCOGNITO_PROFILE_NAME)?.webStorage ?: WebStorage.getInstance()
                         } catch (_: Throwable) {
                             WebStorage.getInstance()
                         }
@@ -108,7 +108,7 @@ object SiteDataManager {
                 // 2. Purge CookieManager
                 val cookieManager = if (isIncognito && WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
                     try {
-                        ProfileStore.getInstance().getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)?.cookieManager ?: CookieManager.getInstance()
+                        ProfileStore.getInstance().getProfile(BrowserWebView.INCOGNITO_PROFILE_NAME)?.cookieManager ?: CookieManager.getInstance()
                     } catch (_: Throwable) {
                         CookieManager.getInstance()
                     }

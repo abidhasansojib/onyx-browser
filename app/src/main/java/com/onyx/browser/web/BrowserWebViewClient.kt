@@ -39,7 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.ByteArrayInputStream
 
-class OnyxWebViewClient(
+open class BrowserWebViewClient(
     private val context: Context,
     private val coroutineScope: CoroutineScope,
     private val onUrlChanged: (String) -> Unit,
@@ -92,7 +92,7 @@ class OnyxWebViewClient(
 
     fun isMediaUrl(url: String): Boolean = PrivacyUrlSanitizer.isMediaUrl(url)
 
-    private fun isPopupAd(url: String, onyxWv: OnyxWebView?): Boolean {
+    private fun isPopupAd(url: String, onyxWv: BrowserWebView?): Boolean {
         if (!preferences.isAdBlockEnabled) return false
         if (url.isBlank() || url == "about:blank") return false
 
@@ -669,7 +669,7 @@ class OnyxWebViewClient(
 
     private fun recordBlockedRequest(view: WebView?) {
         preferences.incrementBlockedRequests()
-        (view as? OnyxWebView)?.incrementPageBlockedCount()
+        (view as? BrowserWebView)?.incrementPageBlockedCount()
     }
 
     override fun shouldInterceptRequest(
@@ -692,10 +692,10 @@ class OnyxWebViewClient(
             // Track current page URL and check main frame document against ad/domain blocklists
             if (request.isForMainFrame) {
                 if (!isSyntheticOrDataUrl(url)) {
-                    (view as? OnyxWebView)?.hasActiveMediaSubresource = false
+                    (view as? BrowserWebView)?.hasActiveMediaSubresource = false
                     currentPageUrl = url
                     pendingMainFrameUrl = url
-                    (view as? OnyxWebView)?.let {
+                    (view as? BrowserWebView)?.let {
                         it.pendingMainFrameUrl = url
                     }
                 }
@@ -706,7 +706,7 @@ class OnyxWebViewClient(
                     if (url.startsWith("file:///android_asset/", ignoreCase = true) || url.startsWith("file:///android_res/", ignoreCase = true)) {
                         return null
                     }
-                    val onyxWv = view as? OnyxWebView
+                    val onyxWv = view as? BrowserWebView
                     if (url.startsWith("file://", ignoreCase = true) && LocalFileLoader.isSensitiveOrRestrictedPath(context, url)) {
                         if (!LocalFileLoader.isAuthorizedPreviewForTab(onyxWv?.tabId, url)) {
                             return WebResourceResponse(
@@ -739,7 +739,7 @@ class OnyxWebViewClient(
 
                     if (preferences.isAdBlockEnabled && !isWhitelisted) {
                         val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
-                        val onyxWv = view as? OnyxWebView
+                        val onyxWv = view as? BrowserWebView
                         // Only the first navigation of a not-yet-displayed popup is checked as a popup ad.
                         // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
                         // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave), UNLESS it is a child popup tab.
@@ -791,7 +791,7 @@ class OnyxWebViewClient(
                     return null
                 }
                 if (url.startsWith("file://", ignoreCase = true) || url.startsWith("content://", ignoreCase = true)) {
-                    val onyxWv = view as? OnyxWebView
+                    val onyxWv = view as? BrowserWebView
                     if (url.startsWith("file://", ignoreCase = true) && LocalFileLoader.isSensitiveOrRestrictedPath(context, url)) {
                         if (!LocalFileLoader.isAuthorizedPreviewForTab(onyxWv?.tabId, url)) {
                             return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", EMPTY_403_NO_HEADERS, EmptyInputStream)
@@ -808,7 +808,7 @@ class OnyxWebViewClient(
                 getHeaderCaseInsensitive(headers, "Referer")
                     ?: requestOrigin
                     ?: currentPageUrl.takeIf { it.isNotBlank() }
-                    ?: (view as? OnyxWebView)?.url?.takeIf { it.isNotBlank() }
+                    ?: (view as? BrowserWebView)?.url?.takeIf { it.isNotBlank() }
                     ?: (view as? WebView)?.url?.takeIf { it.isNotBlank() }
                     ?: ""
             }
@@ -820,7 +820,7 @@ class OnyxWebViewClient(
 
             val interceptContext = InterceptRequestContext(
                 view = view,
-                onyxWebView = view as? OnyxWebView,
+                onyxWebView = view as? BrowserWebView,
                 request = request,
                 requestUrl = url,
                 requestHost = reqDomain,
@@ -843,10 +843,10 @@ class OnyxWebViewClient(
 
     override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
         val didCrash = detail?.didCrash() ?: false
-        android.util.Log.e("OnyxWebViewClient", "WebView render process exited: didCrash=$didCrash")
+        android.util.Log.e("BrowserWebViewClient", "WebView render process exited: didCrash=$didCrash")
 
         try {
-            val onyxWv = view as? OnyxWebView
+            val onyxWv = view as? BrowserWebView
             val tabId = onyxWv?.tabId
             if (tabId != null && tabId.isNotBlank()) {
                 val parent = onyxWv.parent as? android.view.ViewGroup
@@ -855,7 +855,7 @@ class OnyxWebViewClient(
                 onyxWv.destroy()
             }
         } catch (t: Throwable) {
-            android.util.Log.e("OnyxWebViewClient", "Error handling onRenderProcessGone", t)
+            android.util.Log.e("BrowserWebViewClient", "Error handling onRenderProcessGone", t)
         }
 
         // Return true to prevent host application termination by the OS
@@ -902,7 +902,7 @@ class OnyxWebViewClient(
                 }
                 pendingMainFrameUrl = url
                 isMainFrameDocumentLoaded = false
-                (view as? OnyxWebView)?.let {
+                (view as? BrowserWebView)?.let {
                     it.pendingMainFrameUrl = url
                     it.isMainFrameDocumentLoaded = false
                     it.applyUserAgentForUrl(url)
@@ -916,7 +916,7 @@ class OnyxWebViewClient(
                     host.contains("login") || host.contains("auth") || host.contains("checkpoint")
 
             if (isAuthOrMeta) {
-                (view as? OnyxWebView)?.let { wv ->
+                (view as? BrowserWebView)?.let { wv ->
                     wv.lastOAuthInteractionTimestamp = System.currentTimeMillis()
                     try {
                         wv.cookieManager.setAcceptCookie(true)
@@ -967,7 +967,7 @@ class OnyxWebViewClient(
 
                 if (preferences.isAdBlockEnabled && !isWhitelisted) {
                     val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
-                    val onyxWv = view as? OnyxWebView
+                    val onyxWv = view as? BrowserWebView
                     // Popup-ad heuristics apply only to the first navigation of a popup window that has
                     // not been shown yet. Once a tab is displayed it behaves like any normal tab.
                     val isPendingPopup = onyxWv?.isPopupPendingDisplay == true
@@ -1035,7 +1035,7 @@ class OnyxWebViewClient(
                 }
 
                 // If this is a pending popup window and it's NOT an ad, safely display it!
-                if (view is OnyxWebView && view.isPopupPendingDisplay) {
+                if (view is BrowserWebView && view.isPopupPendingDisplay) {
                     val onyxWv = view
                     if (!isPopupAd(url, onyxWv)) {
                         val tabId = onyxWv.tabId
@@ -1049,7 +1049,7 @@ class OnyxWebViewClient(
 
             // Block navigation to sensitive or restricted private app/system filesystem paths
             if (scheme == "file") {
-                val onyxWv = view as? OnyxWebView
+                val onyxWv = view as? BrowserWebView
                 if (LocalFileLoader.isSensitiveOrRestrictedPath(context, url)) {
                     if (!LocalFileLoader.isAuthorizedPreviewForTab(onyxWv?.tabId, url)) {
                         return true // Abort navigation!
@@ -1093,7 +1093,7 @@ class OnyxWebViewClient(
                         return false
                     }
                     if (tryOpenAppForHttpLink(view, uri, url)) {
-                        val onyxWv = view as? OnyxWebView
+                        val onyxWv = view as? BrowserWebView
                         if (onyxWv != null && onyxWv.isPopupTab && (onyxWv.isPopupPendingDisplay || !onyxWv.canGoBack())) {
                             onyxWv.post {
                                 tabActionCallback?.closeTab(onyxWv.tabId)
@@ -1107,7 +1107,7 @@ class OnyxWebViewClient(
 
             // External app URL schemes (tg://, whatsapp://, tel:, mailto:, sms:, geo:, intent:, market:, etc.)
             val handled = dispatchExternalScheme(view, uri, url, scheme)
-            val onyxWv = view as? OnyxWebView
+            val onyxWv = view as? BrowserWebView
             if (handled && onyxWv != null && onyxWv.isPopupTab && (onyxWv.isPopupPendingDisplay || !onyxWv.canGoBack())) {
                 onyxWv.post {
                     tabActionCallback?.closeTab(onyxWv.tabId)
@@ -1184,7 +1184,7 @@ class OnyxWebViewClient(
                 isOAuthOrLoginProvider(pageDomain) || isOAuthOrLoginUrl(url) ||
                 pageDomain.contains("login") || pageDomain.contains("auth") || pageDomain.contains("checkpoint")
 
-        if ((view as? OnyxWebView)?.isDesktopModeEnabledForCurrentPage() == true) {
+        if ((view as? BrowserWebView)?.isDesktopModeEnabledForCurrentPage() == true) {
             DesktopModeManager.enforceDesktopViewport(view)
         }
 
@@ -1340,18 +1340,18 @@ class OnyxWebViewClient(
         }
 
         // Re-adjust Desktop Viewport after full page and sub-resources load
-        if ((view as? OnyxWebView)?.isDesktopModeEnabledForCurrentPage() == true) {
+        if ((view as? BrowserWebView)?.isDesktopModeEnabledForCurrentPage() == true) {
             DesktopModeManager.enforceDesktopViewport(view)
         }
     }
 
     private fun isSyntheticOrDataUrl(url: String?): Boolean {
-        return OnyxWebView.isSyntheticOrDataUrl(url)
+        return BrowserWebView.isSyntheticOrDataUrl(url)
     }
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
-        val onyxWv = view as? OnyxWebView
+        val onyxWv = view as? BrowserWebView
         if (onyxWv?.isLoadingSyntheticPage == true) {
             // This onPageStarted event was triggered by loading the synthetic error page.
             // Reset the flag but preserve currentSyntheticState and lastFailingUrl.
@@ -1541,7 +1541,7 @@ class OnyxWebViewClient(
 
     override fun onPageFinished(view: WebView?, url: String?) {
         super.onPageFinished(view, url)
-        val onyxWv = view as? OnyxWebView
+        val onyxWv = view as? BrowserWebView
         if (!url.isNullOrBlank()) {
             val isSyntheticError = onyxWv?.currentSyntheticState != null
             val isSyntheticData = isSyntheticOrDataUrl(url)
@@ -1578,7 +1578,7 @@ class OnyxWebViewClient(
 
             if (isFinishedAuthOrMeta) {
                 try {
-                    val activeCm = (view as? OnyxWebView)?.cookieManager ?: CookieManager.getInstance()
+                    val activeCm = (view as? BrowserWebView)?.cookieManager ?: CookieManager.getInstance()
                     activeCm.flush()
                 } catch (_: Exception) {}
             }
@@ -1599,7 +1599,7 @@ class OnyxWebViewClient(
                 // hydration (React/Vue/Angular) to complete without frame drops or missing target elements.
                 val targetUrl = effectiveUrl
                 view?.postDelayed({
-                    val activeWv = view as? OnyxWebView
+                    val activeWv = view as? BrowserWebView
                     if (activeWv != null && !activeWv.isLoadingSyntheticPage && (activeWv.url == targetUrl || activeWv.originalUrl == targetUrl)) {
                         injectUserScripts(view, targetUrl, com.onyx.browser.userscript.RunAt.DOCUMENT_IDLE)
                     }
@@ -1930,13 +1930,13 @@ class OnyxWebViewClient(
         val host = try { Uri.parse(failingUrl).host } catch (_: Exception) { null }
 
         // Phase 5: Check session-scoped SSL bypass
-        if (!host.isNullOrBlank() && (view as? OnyxWebView)?.sessionSslBypasses?.contains(host) == true) {
+        if (!host.isNullOrBlank() && (view as? BrowserWebView)?.sessionSslBypasses?.contains(host) == true) {
             handler?.proceed()
             return
         }
 
-        // Store handler in OnyxWebView so OnyxErrorBridge.proceedSsl() can bypass if user clicks it
-        (view as? OnyxWebView)?.pendingSslHandler = handler
+        // Store handler in BrowserWebView so WebErrorBridge.proceedSsl() can bypass if user clicks it
+        (view as? BrowserWebView)?.pendingSslHandler = handler
 
         try { view?.stopLoading() } catch (_: Throwable) {}
         val isHsts = preferences.httpsUpgradeMode == BrowserPreferences.HTTPS_MODE_STRICT
@@ -1945,7 +1945,7 @@ class OnyxWebViewClient(
     }
 
     private fun isMainFrameSslError(view: WebView?, failingUrl: String): Boolean {
-        val onyxWv = view as? OnyxWebView
+        val onyxWv = view as? BrowserWebView
         val isDocLoaded = isMainFrameDocumentLoaded || (onyxWv?.isMainFrameDocumentLoaded == true)
 
         // If the main document has already completed loading, any incoming SSL error
@@ -2007,7 +2007,7 @@ class OnyxWebViewClient(
     }
 
     private fun loadCustomErrorPage(view: WebView?, error: SyntheticNavigationState) {
-        val onyxWv = view as? OnyxWebView
+        val onyxWv = view as? BrowserWebView
         onyxWv?.isLoadingSyntheticPage = true
         onyxWv?.lastFailingUrl = error.failingUrl
         onyxWv?.currentSyntheticState = error
@@ -2049,7 +2049,7 @@ class OnyxWebViewClient(
     }
 
     private fun injectUserScripts(view: WebView?, url: String, runAt: com.onyx.browser.userscript.RunAt) {
-        val onyxWv = view as? OnyxWebView ?: return
+        val onyxWv = view as? BrowserWebView ?: return
         if (isSyntheticOrDataUrl(url) || onyxWv.isLoadingSyntheticPage) return
 
         val pageDomain = try {
@@ -2163,3 +2163,6 @@ class OnyxWebViewClient(
         return null
     }
 }
+
+typealias OnyxWebViewClient = BrowserWebViewClient
+

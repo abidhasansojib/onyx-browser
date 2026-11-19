@@ -18,7 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
-class OnyxApplication : Application() {
+class BrowserApplication : Application() {
 
     lateinit var appContainer: AppContainer
         private set
@@ -54,7 +54,7 @@ class OnyxApplication : Application() {
             val prefs = BrowserPreferences.getInstance(this)
             prefs.applyTheme()
         } catch (t: Throwable) {
-            Log.e("OnyxApplication", "Failed to apply theme in onCreate", t)
+            Log.e("BrowserApplication", "Failed to apply theme in onCreate", t)
         }
 
         // Initialize Room Database
@@ -71,7 +71,7 @@ class OnyxApplication : Application() {
         try {
             AppDatabase.getInstance(this)
         } catch (t: Throwable) {
-            Log.e("OnyxApplication", "Failed to initialize AppDatabase in onCreate", t)
+            Log.e("BrowserApplication", "Failed to initialize AppDatabase in onCreate", t)
         }
 
         // Check if there was pending data clearance from interrupted exit
@@ -81,7 +81,7 @@ class OnyxApplication : Application() {
                 com.onyx.browser.privacy.ClearDataOnExitHelper.clearAllBrowsingDataSync(this)
             }
         } catch (t: Throwable) {
-            Log.e("OnyxApplication", "Failed to run clear-on-exit recovery in onCreate", t)
+            Log.e("BrowserApplication", "Failed to run clear-on-exit recovery in onCreate", t)
         }
 
         // Initialize AdBlockEngine in background thread with pre-compiled filters
@@ -89,14 +89,14 @@ class OnyxApplication : Application() {
             try {
                 com.onyx.browser.web.AssetScriptLoader.preloadAll(applicationContext)
             } catch (t: Throwable) {
-                Log.w("OnyxApplication", "Failed to preload asset scripts in background", t)
+                Log.w("BrowserApplication", "Failed to preload asset scripts in background", t)
             }
             try {
                 com.onyx.browser.data.filter.FilterListManager.autoEnableRegionalListsForLocale(applicationContext)
                 AdBlockEngine.initialize(applicationContext)
                 com.onyx.browser.data.filter.FilterListManager.ensureDefaultFiltersCached(applicationContext)
             } catch (t: Throwable) {
-                Log.e("OnyxApplication", "Failed to initialize AdBlockEngine in background", t)
+                Log.e("BrowserApplication", "Failed to initialize AdBlockEngine in background", t)
             }
             try {
                 com.onyx.browser.web.LocalFileLoader.cleanupAllPreviews(applicationContext)
@@ -107,14 +107,14 @@ class OnyxApplication : Application() {
         try {
             com.onyx.browser.web.adblock.AdBlockServiceWorkerHelper.initialize(this)
         } catch (t: Throwable) {
-            Log.e("OnyxApplication", "Failed to initialize ServiceWorker interception", t)
+            Log.e("BrowserApplication", "Failed to initialize ServiceWorker interception", t)
         }
 
         // Initialize Incognito tabs notification channel
         try {
             com.onyx.browser.incognito.IncognitoNotificationHelper.initChannel(this)
         } catch (t: Throwable) {
-            Log.e("OnyxApplication", "Failed to initialize Incognito notification channel", t)
+            Log.e("BrowserApplication", "Failed to initialize Incognito notification channel", t)
         }
 
         // Enable Chromium WebView remote debugging via chrome://inspect or edge://inspect over USB (Prerelease/Debug builds)
@@ -122,7 +122,7 @@ class OnyxApplication : Application() {
             try {
                 android.webkit.WebView.setWebContentsDebuggingEnabled(true)
             } catch (t: Throwable) {
-                Log.e("OnyxApplication", "Failed to enable WebContentsDebugging", t)
+                Log.e("BrowserApplication", "Failed to enable WebContentsDebugging", t)
             }
         }
 
@@ -130,18 +130,18 @@ class OnyxApplication : Application() {
         try {
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.START_SAFE_BROWSING)) {
                 androidx.webkit.WebViewCompat.startSafeBrowsing(this) { success ->
-                    Log.d("OnyxApplication", "Safe Browsing initialized: $success")
+                    Log.d("BrowserApplication", "Safe Browsing initialized: $success")
                 }
             }
         } catch (t: Throwable) {
-            Log.e("OnyxApplication", "Failed to initialize Safe Browsing", t)
+            Log.e("BrowserApplication", "Failed to initialize Safe Browsing", t)
         }
 
         // Schedule periodic background filter update worker (24h interval, Wi-Fi only, battery not low)
         try {
             scheduleFilterUpdateWork()
         } catch (t: Throwable) {
-            Log.e("OnyxApplication", "Failed to schedule filter update worker", t)
+            Log.e("BrowserApplication", "Failed to schedule filter update worker", t)
         }
     }
 
@@ -168,16 +168,16 @@ class OnyxApplication : Application() {
                 startUpConfig,
                 object : WebViewOutcomeReceiver<WebViewStartUpResult, WebViewStartupException> {
                     override fun onResult(result: WebViewStartUpResult) {
-                        Log.i("OnyxApplication", "Chromium runtime pre-warmed successfully off main thread")
+                        Log.i("BrowserApplication", "Chromium runtime pre-warmed successfully off main thread")
                     }
 
                     override fun onError(error: WebViewStartupException) {
-                        Log.w("OnyxApplication", "Chromium runtime async pre-warm completed with fallback: ${error.message}")
+                        Log.w("BrowserApplication", "Chromium runtime async pre-warm completed with fallback: ${error.message}")
                     }
                 }
             )
         } catch (t: Throwable) {
-            Log.w("OnyxApplication", "Chromium async pre-warm not available on this device: ${t.message}")
+            Log.w("BrowserApplication", "Chromium async pre-warm not available on this device: ${t.message}")
         }
     }
 
@@ -199,7 +199,7 @@ class OnyxApplication : Application() {
                 }
             }
         } catch (t: Throwable) {
-            Log.e("OnyxApplication", "Error during onTrimMemory", t)
+            Log.e("BrowserApplication", "Error during onTrimMemory", t)
         }
     }
 
@@ -210,8 +210,10 @@ class OnyxApplication : Application() {
             com.onyx.browser.web.adblock.AdBlockDomainManager.clearCache()
             com.onyx.browser.ui.browser.TabCoordinator.activeInstance?.onTrimMemory(android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
         } catch (t: Throwable) {
-            Log.e("OnyxApplication", "Error during onLowMemory", t)
+            Log.e("BrowserApplication", "Error during onLowMemory", t)
         }
     }
 }
+
+typealias OnyxApplication = BrowserApplication
 

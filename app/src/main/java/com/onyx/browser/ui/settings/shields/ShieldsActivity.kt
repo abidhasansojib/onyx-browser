@@ -37,11 +37,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxRadioPreference
-import com.onyx.browser.ui.components.OnyxSwitchPreference
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.RadioPreference
+import com.onyx.browser.ui.components.SwitchPreference
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.settings.userscript.UserScriptsActivity
 import com.onyx.browser.ui.theme.OnyxTheme
 
@@ -376,7 +376,7 @@ fun ShieldsScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Shields & Privacy",
                 onBackClick = onBackClick
             )
@@ -391,8 +391,8 @@ fun ShieldsScreen(
                 .padding(bottom = 32.dp)
         ) {
             CategoryHeader("Trackers & Ads")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Onyx Shields (AdBlock)",
                     subtitle = "Block ads, malicious trackers, and popups natively via Brave adblock-rust",
                     icon = Icons.Default.Shield,
@@ -400,20 +400,20 @@ fun ShieldsScreen(
                     onCheckedChange = onAdBlockChange
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Blocking Level",
                     subtitle = blockingLevelText,
                     onClick = onBlockingLevelClick
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Defuse Anti-Adblock Detection",
                     subtitle = "Neutralize adblocker detection scripts across websites",
                     checked = isAntiAdblock,
                     onCheckedChange = onAntiAdblockChange
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Content Filter Lists & Rules",
                     subtitle = "Manage EasyList, EasyPrivacy, uBlock filters, and custom rules",
                     icon = Icons.Default.FilterList,
@@ -422,22 +422,22 @@ fun ShieldsScreen(
             }
 
             CategoryHeader("Connections & HTTPS")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Auto-Redirect AMP Pages",
                     subtitle = "Bypass Google AMP cache to load canonical websites directly",
                     checked = isAmpRedirect,
                     onCheckedChange = onAmpRedirectChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "De-AMP Tracking Links",
                     subtitle = "Strip click-tracking query parameters from outgoing URLs",
                     checked = isTrackingRedirect,
                     onCheckedChange = onTrackingRedirectChange
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "HTTPS Upgrade Mode",
                     subtitle = httpsModeText,
                     icon = Icons.Default.Https,
@@ -446,15 +446,15 @@ fun ShieldsScreen(
             }
 
             CategoryHeader("Scripts & Extensions")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Block All JavaScript",
                     subtitle = "Disable JavaScript execution globally (can break interactive web pages)",
                     checked = isGlobalScriptBlocked,
                     onCheckedChange = onGlobalScriptBlockedChange
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "User Scripts Manager",
                     subtitle = "Inject custom Tampermonkey & Violentmonkey scripts into web pages",
                     icon = Icons.Default.Code,
@@ -463,21 +463,21 @@ fun ShieldsScreen(
             }
 
             CategoryHeader("Cookies & Data Retention")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "Cookie Blocking Policy",
                     subtitle = cookieModeText,
                     onClick = onCookieModeClick
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Auto-Clear Cookies on App Close",
                     subtitle = "Discard temporary session cookies when exiting the browser",
                     checked = isCookieAutoclear,
                     onCheckedChange = onCookieAutoclearChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Clear Data on Exit",
                     subtitle = "Wipe history, cache, cookies, and tabs when exiting the browser",
                     checked = isClearOnExit,
@@ -486,8 +486,8 @@ fun ShieldsScreen(
             }
 
             CategoryHeader("Fingerprinting & Device Protection")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Fingerprinting Protection",
                     subtitle = "Randomize canvas, audio context, and hardware sensor signatures",
                     icon = Icons.Default.Security,
@@ -495,14 +495,14 @@ fun ShieldsScreen(
                     onCheckedChange = onFingerprintChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Language Fingerprint Protection",
                     subtitle = "Standardize navigator.languages to mask regional device identity",
                     checked = isFingerprintLang,
                     onCheckedChange = onFingerprintLangChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "WebRTC IP Leak Protection",
                     subtitle = "Prevent local and public IP discovery during WebRTC calls",
                     checked = isWebRtc,
@@ -511,15 +511,15 @@ fun ShieldsScreen(
             }
 
             CategoryHeader("Element Blocking")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Cosmetic Element Blocking",
                     subtitle = "Collapse ad placeholders and empty banners cleanly",
                     checked = isBlockElement,
                     onCheckedChange = onBlockElementChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Element Blocking in Private Tabs",
                     subtitle = "Apply cosmetic hides in incognito browsing sessions",
                     checked = isElementInPrivate,
@@ -528,8 +528,8 @@ fun ShieldsScreen(
             }
 
             CategoryHeader("Social Media Trackers & Logins")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Block Social Trackers",
                     subtitle = "Block third-party social buttons and cross-site telemetry",
                     checked = isSocialMedia,
@@ -537,28 +537,28 @@ fun ShieldsScreen(
                 )
 
                 if (isSocialMedia) {
-                    OnyxSwitchPreference(
+                    SwitchPreference(
                         title = "Allow Google Sign-In",
                         subtitle = "Permit Google authentication dialogs on external sites",
                         checked = isGoogleSignIn,
                         onCheckedChange = onGoogleSignInChange
                     )
 
-                    OnyxSwitchPreference(
+                    SwitchPreference(
                         title = "Allow Facebook Logins",
                         subtitle = "Permit Facebook login SDK dialogs",
                         checked = isFacebook,
                         onCheckedChange = onFacebookChange
                     )
 
-                    OnyxSwitchPreference(
+                    SwitchPreference(
                         title = "Allow Twitter / X Embeds",
                         subtitle = "Display embedded tweets in articles",
                         checked = isTwitter,
                         onCheckedChange = onTwitterChange
                     )
 
-                    OnyxSwitchPreference(
+                    SwitchPreference(
                         title = "Allow LinkedIn Embeds",
                         subtitle = "Display embedded LinkedIn posts",
                         checked = isLinkedIn,
@@ -568,8 +568,8 @@ fun ShieldsScreen(
             }
 
             CategoryHeader("Secure DNS (DNS over HTTPS)")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Enable Secure DNS",
                     subtitle = "Encrypt domain queries with DNS over HTTPS (DoH)",
                     icon = Icons.Default.Dns,
@@ -578,7 +578,7 @@ fun ShieldsScreen(
                 )
 
                 if (isSecureDns) {
-                    OnyxPreferenceItem(
+                    PreferenceItem(
                         title = "DNS Provider",
                         subtitle = dnsProviderText,
                         onClick = onDnsProviderClick
@@ -587,15 +587,15 @@ fun ShieldsScreen(
             }
 
             CategoryHeader("Privacy Flags")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Block 'Open in App' Banners",
                     subtitle = "Defuse annoying prompts asking to open native apps like Reddit or Quora",
                     checked = isBlockAppBanner,
                     onCheckedChange = onBlockAppBannerChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Send 'Do Not Track' Request",
                     subtitle = "Include DNT: 1 header with outgoing HTTP requests",
                     checked = isDoNotTrack,
@@ -636,7 +636,7 @@ private fun SingleChoiceBottomSheet(
             )
 
             options.forEachIndexed { index, option ->
-                OnyxRadioPreference(
+                RadioPreference(
                     title = option,
                     selected = index == selectedIndex,
                     onClick = { onSelect(index) }

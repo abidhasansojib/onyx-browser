@@ -28,10 +28,10 @@ import androidx.fragment.app.FragmentActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.common.BiometricAuthHelper
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxSwitchPreference
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.SwitchPreference
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.ui.widget.SearchWidgetManager
 import com.onyx.browser.ui.widget.SearchWidgetProvider
@@ -193,7 +193,7 @@ fun AccessibilitySettingsScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Accessibility & Gestures",
                 onBackClick = onBackClick
             )
@@ -208,15 +208,15 @@ fun AccessibilitySettingsScreen(
                 .padding(bottom = 32.dp)
         ) {
             CategoryHeader("Home & Widgets")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "Pin Search Widget",
                     subtitle = "Add Onyx quick search bar to your Android home screen",
                     icon = Icons.Default.Widgets,
                     onClick = onPinWidgetClick
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Add to Home Screen in Menu",
                     subtitle = "Show shortcut option in browser menu for quick access",
                     checked = isAddToHomeScreen,
@@ -225,22 +225,22 @@ fun AccessibilitySettingsScreen(
             }
 
             CategoryHeader("Browsing Controls & Gestures")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Scroll to Top Button",
                     subtitle = "Quickly jump back to page top with floating indicator",
                     checked = isScrollToTop,
                     onCheckedChange = onScrollToTopChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Auto-Hide Address Bar",
                     subtitle = "Collapse address bar when scrolling down web pages",
                     checked = isAutoHideToolbar,
                     onCheckedChange = onAutoHideToolbarChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Pull to Refresh",
                     subtitle = "Swipe down from top of webpage to reload",
                     checked = isPullToRefresh,
@@ -249,8 +249,8 @@ fun AccessibilitySettingsScreen(
             }
 
             CategoryHeader("Visual & Display")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Force Dark Mode for Web Contents",
                     subtitle = "Invert background and colors on websites without dark theme",
                     checked = isForceDarkMode,
@@ -259,8 +259,8 @@ fun AccessibilitySettingsScreen(
             }
 
             CategoryHeader("Privacy & Lock")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Biometric Incognito Protection",
                     subtitle = "Require fingerprint or screen lock to open private tabs",
                     checked = isBiometric,

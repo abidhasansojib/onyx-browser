@@ -44,10 +44,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxRadioPreference
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.RadioPreference
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.update.AppUpdateManager
 import com.onyx.browser.web.UserAgentManager
@@ -173,7 +173,7 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Settings",
                 onBackClick = onBackClick
             )
@@ -188,43 +188,43 @@ fun SettingsScreen(
                 .padding(bottom = 32.dp)
         ) {
             CategoryHeader("General")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "Search Engine",
                     subtitle = searchEngineName,
                     icon = Icons.Default.Search,
                     onClick = onSearchEngineClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Appearance & Theme",
                     subtitle = themeName,
                     icon = Icons.Default.Palette,
                     onClick = onAppearanceClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Autofill & Passwords",
                     subtitle = "System password manager and WebAuthn passkeys",
                     icon = Icons.Default.Lock,
                     onClick = onAutofillClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Video & Media Playback",
                     subtitle = "Background playback and Picture-in-Picture",
                     icon = Icons.Default.PlayCircle,
                     onClick = onVideoOptionsClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Downloads Settings",
                     subtitle = "Internal downloader and download behavior",
                     icon = Icons.Default.Download,
                     onClick = onDownloadSettingsClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Accessibility & Gestures",
                     subtitle = "Pull to refresh, auto-hide toolbar, and biometric lock",
                     icon = Icons.Default.Accessibility,
@@ -233,29 +233,29 @@ fun SettingsScreen(
             }
 
             CategoryHeader("Privacy & Security")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "Shields & Privacy",
                     subtitle = "Adblock-rust, tracker blocking, HTTPS, and DoH",
                     icon = Icons.Default.Shield,
                     onClick = onShieldsClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "User-Agent Client",
                     subtitle = userAgentText,
                     icon = Icons.Default.Devices,
                     onClick = onUserAgentClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Site Permissions",
                     subtitle = "Camera, microphone, location, and data per site",
                     icon = Icons.Default.Security,
                     onClick = onSitePermissionsClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "User Scripts",
                     subtitle = userScriptsStatus,
                     icon = Icons.Default.Code,
@@ -264,8 +264,8 @@ fun SettingsScreen(
             }
 
             CategoryHeader("About")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "About Onyx Browser",
                     subtitle = aboutSubtitle,
                     icon = Icons.Default.Info,
@@ -329,7 +329,7 @@ private fun UserAgentPickerSheet(
             )
 
             templates.forEach { (template, name) ->
-                OnyxRadioPreference(
+                RadioPreference(
                     title = name,
                     selected = template == currentTemplate,
                     onClick = { onSelectTemplate(template) }

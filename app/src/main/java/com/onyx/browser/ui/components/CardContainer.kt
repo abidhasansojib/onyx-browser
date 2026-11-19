@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun OnyxCardContainer(
+fun CardContainer(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -29,3 +29,10 @@ fun OnyxCardContainer(
         content = content
     )
 }
+
+@Composable
+fun OnyxCardContainer(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) = CardContainer(modifier, content)
+

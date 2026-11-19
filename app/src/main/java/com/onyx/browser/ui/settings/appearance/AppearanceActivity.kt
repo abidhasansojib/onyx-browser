@@ -48,10 +48,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxSwitchPreference
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.SwitchPreference
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 
@@ -130,7 +130,7 @@ fun AppearanceScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Appearance & Theme",
                 onBackClick = onBackClick
             )
@@ -177,7 +177,7 @@ fun AppearanceScreen(
             }
 
             CategoryHeader("Accent Color")
-            OnyxCardContainer {
+            CardContainer {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -211,8 +211,8 @@ fun AppearanceScreen(
             }
 
             CategoryHeader("Layout & Navigation")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "Address Bar Customization",
                     subtitle = "Adjust address bar position (Top / Bottom) and toolbar behavior",
                     icon = Icons.Default.ViewAgenda,
@@ -221,8 +221,8 @@ fun AppearanceScreen(
             }
 
             CategoryHeader("Web Content")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Force Dark Mode for Web Contents",
                     subtitle = "Automatically convert light websites to dark theme",
                     checked = isForceDarkMode,

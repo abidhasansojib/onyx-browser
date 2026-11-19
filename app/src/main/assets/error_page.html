@@ -541,7 +541,7 @@
 
     // ── Actions & Native Bridge ──────────────────────────────────────────────
     function execAction(action) {
-      const bridge = window.OnyxErrorBridge;
+      const bridge = window.WebErrorBridge || window.WebErrorBridge;
       switch (action) {
         case 'reload':
           try {
@@ -627,15 +627,17 @@
 
     document.getElementById('btnProceedSsl').addEventListener('click', (e) => {
       e.preventDefault();
-      if (window.OnyxErrorBridge && window.OnyxErrorBridge.proceedSsl) {
-        window.OnyxErrorBridge.proceedSsl();
+      const b = window.WebErrorBridge || window.WebErrorBridge;
+      if (b && b.proceedSsl) {
+        b.proceedSsl();
       }
     });
 
     document.getElementById('btnAllowShields').addEventListener('click', (e) => {
       e.preventDefault();
-      if (window.OnyxErrorBridge && window.OnyxErrorBridge.allowSiteShield) {
-        window.OnyxErrorBridge.allowSiteShield(data.domain);
+      const b = window.WebErrorBridge || window.WebErrorBridge;
+      if (b && b.allowSiteShield) {
+        b.allowSiteShield(data.domain);
       }
     });
   </script>

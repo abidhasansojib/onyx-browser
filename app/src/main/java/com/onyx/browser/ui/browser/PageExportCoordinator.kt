@@ -21,7 +21,7 @@ import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.DownloadItem
 import com.onyx.browser.download.DownloadNotificationHelper
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,7 +38,7 @@ class PageExportCoordinator(
     private val coroutineScope: CoroutineScope
 ) {
 
-    fun showSavePageDialog(webView: OnyxWebView, title: String) {
+    fun showSavePageDialog(webView: BrowserWebView, title: String) {
         val options = arrayOf(
             activity.getString(R.string.save_as_web_archive),
             activity.getString(R.string.save_as_pdf),
@@ -57,7 +57,7 @@ class PageExportCoordinator(
             .show()
     }
 
-    fun saveCurrentPageAsMhtml(webView: OnyxWebView, title: String) {
+    fun saveCurrentPageAsMhtml(webView: BrowserWebView, title: String) {
         try {
             Toast.makeText(activity, R.string.saving_web_archive, Toast.LENGTH_SHORT).show()
             val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
@@ -78,7 +78,7 @@ class PageExportCoordinator(
         }
     }
 
-    fun saveCurrentPageAsPdfDirect(webView: OnyxWebView, title: String) {
+    fun saveCurrentPageAsPdfDirect(webView: BrowserWebView, title: String) {
         try {
             Toast.makeText(activity, R.string.generating_pdf, Toast.LENGTH_SHORT).show()
             val cleanTitle = title.replace(Regex("[^a-zA-Z0-9.-]"), "_").take(50).ifBlank { "page" }
@@ -111,7 +111,7 @@ class PageExportCoordinator(
         }
     }
 
-    fun printCurrentPageSystem(webView: OnyxWebView, title: String) {
+    fun printCurrentPageSystem(webView: BrowserWebView, title: String) {
         try {
             val printManager = activity.getSystemService(Context.PRINT_SERVICE) as? PrintManager
             if (printManager == null) {

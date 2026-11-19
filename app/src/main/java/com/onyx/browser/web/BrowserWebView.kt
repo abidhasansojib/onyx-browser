@@ -38,7 +38,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
 @SuppressLint("SetJavaScriptEnabled")
-class OnyxWebView @JvmOverloads constructor(
+class BrowserWebView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
@@ -155,7 +155,7 @@ class OnyxWebView @JvmOverloads constructor(
     val sessionSslBypasses: MutableSet<String> = mutableSetOf()
 
     val userScriptManager by lazy { com.onyx.browser.userscript.UserScriptManager.getInstance(context) }
-    val userScriptBridge by lazy { com.onyx.browser.userscript.OnyxUserScriptBridge(this, userScriptManager) }
+    val userScriptBridge by lazy { com.onyx.browser.userscript.UserScriptBridge(this, userScriptManager) }
     val userScriptMenuCommands = LinkedHashMap<String, String>()
 
     fun registerUserScriptMenuCommand(caption: String, fnId: String) {
@@ -358,10 +358,9 @@ class OnyxWebView @JvmOverloads constructor(
 
         // Universal Error Page Bridge
         try {
-            addJavascriptInterface(
-                com.onyx.browser.web.error.OnyxErrorBridge(this, activity),
-                "OnyxErrorBridge"
-            )
+            val errorBridge = com.onyx.browser.web.error.WebErrorBridge(this, activity)
+            addJavascriptInterface(errorBridge, "WebErrorBridge")
+            addJavascriptInterface(errorBridge, "OnyxErrorBridge")
         } catch (_: Exception) {}
 
         // Blob Downloads Bridge (Modern WebMessageListener with @JavascriptInterface fallback)
@@ -420,10 +419,9 @@ class OnyxWebView @JvmOverloads constructor(
         // Native DOM Translation Bridge (CSP-immune page translation)
         try {
             val translateScope = (activity as? LifecycleOwner)?.lifecycleScope ?: webViewScope
-            addJavascriptInterface(
-                com.onyx.browser.web.translate.OnyxTranslateBridge(this, translateScope),
-                com.onyx.browser.web.translate.OnyxTranslateBridge.INTERFACE_NAME
-            )
+            val translateBridge = com.onyx.browser.web.translate.PageTranslateBridge(this, translateScope)
+            addJavascriptInterface(translateBridge, com.onyx.browser.web.translate.PageTranslateBridge.INTERFACE_NAME)
+            addJavascriptInterface(translateBridge, "OnyxTranslateBridge")
         } catch (_: Exception) {}
 
         // W3C Web Notifications Bridge (backed by per-site and global permissions)
@@ -441,7 +439,7 @@ class OnyxWebView @JvmOverloads constructor(
 
         // Custom Userscript Bridge (Tampermonkey/Violentmonkey GM_* APIs)
         try {
-            addJavascriptInterface(userScriptBridge, com.onyx.browser.userscript.OnyxUserScriptBridge.JS_INTERFACE_NAME)
+            addJavascriptInterface(userScriptBridge, com.onyx.browser.userscript.UserScriptBridge.JS_INTERFACE_NAME)
         } catch (_: Exception) {}
 
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
@@ -537,7 +535,7 @@ class OnyxWebView @JvmOverloads constructor(
                     WebViewCompat.setProfile(this, Profile.DEFAULT_PROFILE_NAME)
                 }
             } catch (e: Throwable) {
-                android.util.Log.e("OnyxWebView", "Failed to set profile (incognito=$incognito)", e)
+                android.util.Log.e("BrowserWebView", "Failed to set profile (incognito=$incognito)", e)
             }
         }
         if (incognito) {
@@ -571,7 +569,7 @@ class OnyxWebView @JvmOverloads constructor(
     internal fun applyCookieSettings() {
         try {
             val currentUrl = pendingMainFrameUrl?.takeIf { it.isNotBlank() } ?: url ?: ""
-            val isStreaming = OnyxWebViewClient.isStreamingOrMediaPage(currentUrl) || hasActiveMediaSubresource
+            val isStreaming = BrowserWebViewClient.isStreamingOrMediaPage(currentUrl) || hasActiveMediaSubresource
             if (isIncognito) {
                 // Incognito: always accept first-party cookies so login works.
                 // Enable third-party cookies during active OAuth/auth flows (Facebook, Arkose,
@@ -788,7 +786,7 @@ class OnyxWebView @JvmOverloads constructor(
     }
 
     /**
-     * Called on every page navigation (from OnyxWebViewClient.onPageStarted).
+     * Called on every page navigation (from BrowserWebViewClient.onPageStarted).
      * Applies the correct UA (desktop or mobile) for the new URL's domain —
      * this is the core mechanism that makes desktop mode per-domain.
      *
@@ -954,5 +952,7 @@ class OnyxWebView @JvmOverloads constructor(
         super.loadUrl(url, additionalHttpHeaders)
     }
 }
+
+typealias OnyxWebView = BrowserWebView
 
 

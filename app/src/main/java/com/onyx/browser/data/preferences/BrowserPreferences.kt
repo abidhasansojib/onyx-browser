@@ -261,7 +261,7 @@ class BrowserPreferences private constructor(private val context: Context) {
 
     /**
      * When enabled, http:// main-frame navigations are automatically upgraded to https://.
-     * Implemented in OnyxWebViewClient.shouldOverrideUrlLoading.
+     * Implemented in BrowserWebViewClient.shouldOverrideUrlLoading.
      */
     var isHttpsUpgradeEnabled: Boolean
         get() = httpsUpgradeMode != HTTPS_MODE_DISABLED

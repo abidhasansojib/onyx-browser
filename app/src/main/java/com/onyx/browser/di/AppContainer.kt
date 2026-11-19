@@ -1,7 +1,7 @@
 package com.onyx.browser.di
 
 import android.content.Context
-import com.onyx.browser.OnyxApplication
+import com.onyx.browser.BrowserApplication
 import com.onyx.browser.core.common.DefaultDispatcherProvider
 import com.onyx.browser.core.common.DispatcherProvider
 import com.onyx.browser.data.favicon.FaviconManager
@@ -76,4 +76,4 @@ class DefaultAppContainer(context: Context) : AppContainer {
 }
 
 val Context.appContainer: AppContainer
-    get() = (applicationContext as OnyxApplication).appContainer
+    get() = (applicationContext as BrowserApplication).appContainer

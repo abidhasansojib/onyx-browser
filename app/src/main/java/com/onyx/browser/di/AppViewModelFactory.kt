@@ -3,7 +3,7 @@ package com.onyx.browser.di
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.onyx.browser.OnyxApplication
+import com.onyx.browser.BrowserApplication
 import com.onyx.browser.data.repository.BookmarkRepository
 import com.onyx.browser.data.repository.DownloadRepository
 import com.onyx.browser.data.repository.HistoryRepository
@@ -13,11 +13,11 @@ import com.onyx.browser.ui.viewmodel.DownloadsViewModel
 import com.onyx.browser.ui.viewmodel.HistoryViewModel
 
 /**
- * Reflection-free ViewModel factory for Onyx Browser presentation ViewModels.
+ * Reflection-free ViewModel factory for presentation ViewModels.
  */
-class OnyxViewModelFactory @JvmOverloads constructor(
+class AppViewModelFactory @JvmOverloads constructor(
     private val application: Application,
-    private val container: AppContainer? = (application as? OnyxApplication)?.appContainer
+    private val container: AppContainer? = (application as? BrowserApplication)?.appContainer
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -44,3 +44,6 @@ class OnyxViewModelFactory @JvmOverloads constructor(
         }
     }
 }
+
+typealias OnyxViewModelFactory = AppViewModelFactory
+

@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
-object OnyxDownloadManager {
+object DownloadEngineManager {
 
     interface DownloadEventListener {
         fun onProgress(task: DownloadTask) {}
@@ -137,7 +137,7 @@ object OnyxDownloadManager {
         emitSnapshot()
 
         // Start Foreground Service
-        val serviceIntent = Intent(app, OnyxDownloadService::class.java)
+        val serviceIntent = Intent(app, DownloadForegroundService::class.java)
         ContextCompat.startForegroundService(app, serviceIntent)
 
         val prefs = BrowserPreferences.getInstance(app)
@@ -207,7 +207,7 @@ object OnyxDownloadManager {
             return
         }
 
-        val serviceIntent = Intent(app, OnyxDownloadService::class.java)
+        val serviceIntent = Intent(app, DownloadForegroundService::class.java)
         ContextCompat.startForegroundService(app, serviceIntent)
 
         startTaskExecution(task)
@@ -260,7 +260,7 @@ object OnyxDownloadManager {
         activeTasks[item.id] = task
         emitSnapshot()
 
-        val serviceIntent = Intent(app, OnyxDownloadService::class.java)
+        val serviceIntent = Intent(app, DownloadForegroundService::class.java)
         ContextCompat.startForegroundService(app, serviceIntent)
 
         startTaskExecution(task)
@@ -302,7 +302,7 @@ object OnyxDownloadManager {
     fun getTask(taskId: Long): DownloadTask? = activeTasks[taskId]
 
     /**
-     * Returns true if any download task is currently running or pending in OnyxDownloadManager.
+     * Returns true if any download task is currently running or pending in DownloadEngineManager.
      */
     fun hasActiveDownloads(): Boolean {
         return activeTasks.values.any {
@@ -312,7 +312,7 @@ object OnyxDownloadManager {
     }
 
     /**
-     * Checks whether any downloads are actively in progress across both OnyxDownloadManager
+     * Checks whether any downloads are actively in progress across both DownloadEngineManager
      * and the Android system DownloadManager service.
      */
     fun isAnyDownloadActive(context: Context): Boolean {
@@ -422,3 +422,6 @@ object OnyxDownloadManager {
         return if (clean.isBlank()) "download_${System.currentTimeMillis()}" else clean
     }
 }
+
+typealias OnyxDownloadManager = DownloadEngineManager
+

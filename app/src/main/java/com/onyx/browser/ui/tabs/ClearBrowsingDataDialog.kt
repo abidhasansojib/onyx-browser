@@ -435,7 +435,7 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                     if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
                         try {
                             val store = androidx.webkit.ProfileStore.getInstance()
-                            val incognitoProfile = store.getProfile(com.onyx.browser.web.OnyxWebView.INCOGNITO_PROFILE_NAME)
+                            val incognitoProfile = store.getProfile(com.onyx.browser.web.BrowserWebView.INCOGNITO_PROFILE_NAME)
                             if (incognitoProfile != null) {
                                 incognitoProfile.cookieManager.removeAllCookies(null)
                                 incognitoProfile.cookieManager.flush()

@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OnyxTopAppBar(
+fun AppTopBar(
     title: String,
     modifier: Modifier = Modifier,
     onBackClick: (() -> Unit)? = null,
@@ -50,3 +50,12 @@ fun OnyxTopAppBar(
         modifier = modifier
     )
 }
+
+@Composable
+fun OnyxTopAppBar(
+    title: String,
+    modifier: Modifier = Modifier,
+    onBackClick: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {}
+) = AppTopBar(title, modifier, onBackClick, actions)
+

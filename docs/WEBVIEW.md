@@ -7,7 +7,7 @@ This document provides a technical guide on Android WebView integration, archite
 ## 1. Overview & WebView Fundamentals in Onyx
 
 ### 1.1 Full Browser vs. Embedded WebView
-In simple utility apps, `WebView` typically displays static content (e.g., terms of service or help pages). In Onyx Browser, `OnyxWebView` functions as a full-fledged browser rendering engine:
+In simple utility apps, `WebView` typically displays static content (e.g., terms of service or help pages). In Onyx Browser, `BrowserWebView` functions as a full-fledged browser rendering engine:
 - Manages multi-tab navigation, address bar coordination, tab switching, and window management.
 - Coordinates between native Android views (XML ViewBinding) and the underlying Chromium Blink engine.
 - Implements strict security boundaries, tracking protection, and isolated multi-profile sessions.
@@ -25,7 +25,7 @@ Onyx integrates the modern Jetpack WebKit library (`androidx.webkit:webkit:1.12.
 
 ## 2. WebSettings & Hardened Configuration Standards
 
-All WebViews in Onyx Browser are configured through `OnyxWebView.configureSettings()`.
+All WebViews in Onyx Browser are configured through `BrowserWebView.configureSettings()`.
 
 ### 2.1 Core Settings
 ```kotlin
@@ -112,12 +112,12 @@ To ensure zero stutter and native 120Hz frame rates:
   // Restoring saved tab
   webView.restoreState(bundle)
   ```
-- **Synthetic Navigation Guards**: When an error page is displayed, `OnyxWebView.reload()` re-requests the actual failing URL (`lastFailingUrl`) instead of reloading the synthetic error document.
+- **Synthetic Navigation Guards**: When an error page is displayed, `BrowserWebView.reload()` re-requests the actual failing URL (`lastFailingUrl`) instead of reloading the synthetic error document.
 
 ### 3.4 Progressive Hydration & DSD Safety Net (`com.onyx.browser.web.adblock.DsdHydrationFix`)
 Websites using Declarative Shadow DOM (DSD) progressive hydration patterns commonly render with `<body dsd-pending>` and stylesheet rules hiding unhydrated content (`[dsd-pending] { display: none !important; }`). When adblocking or tracking protection blocks any script in the bootstrap/telemetry pipeline, the removal callback fails to execute, leaving the page completely blank.
 
-Onyx Browser guards against this in `OnyxWebViewClient.onPageFinished` via `DsdHydrationFix.applyFix()`:
+Onyx Browser guards against this in `BrowserWebViewClient.onPageFinished` via `DsdHydrationFix.applyFix()`:
 - Recursively removes `dsd-pending` from `document.documentElement`, `document.body`, light DOM nodes, and open shadow roots.
 - Executes an immediate pass and a deferred 800ms backstop pass to ensure all server-rendered content is visible to the user.
 
@@ -129,7 +129,7 @@ Onyx Browser guards against this in `OnyxWebViewClient.onPageFinished` via `DsdH
 To support modern web applications (OAuth popups, payment processors, multi-window apps):
 1. `settings.setSupportMultipleWindows(true)` is enabled.
 2. `settings.javaScriptCanOpenWindowsAutomatically = false` prevents automatic popups from executing without routing through native callbacks.
-3. Link clicks with `target="_blank"` or JavaScript `window.open()` trigger `OnyxWebChromeClient.onCreateWindow`.
+3. Link clicks with `target="_blank"` or JavaScript `window.open()` trigger `BrowserWebChromeClient.onCreateWindow`.
 
 ### 4.2 User Gesture Gate Enforcement
 To prevent malicious ad scripts from spamming background popup tabs:
@@ -142,7 +142,7 @@ override fun onCreateWindow(
 ): Boolean {
     // Require a recent human touch/click gesture, with a 1500ms touch window
     // fallback for OAuth/payment async flows where Blink clears isUserGesture
-    val recentTouch = (view as? OnyxWebView)?.isWithinRecentTouchWindow() ?: false
+    val recentTouch = (view as? BrowserWebView)?.isWithinRecentTouchWindow() ?: false
     if ((!isUserGesture && !recentTouch) || resultMsg == null) {
         return false // Reject automatic ad popups
     }
@@ -253,7 +253,7 @@ On Android 8.0+ (API 26+), Onyx dynamically manages Chromium renderer process pr
 - **Background Media Tab Protection**: Tabs actively playing background audio or video retain `RENDERER_PRIORITY_IMPORTANT, waiveWhenNotVisible = false` to guarantee continuous, uninterrupted playback.
 
 ### 6.5 Subresource Interception Allocations & Fast-Path Optimization
-During typical web browsing on ad-heavy websites, `OnyxWebViewClient.shouldInterceptRequest` and `AdBlockServiceWorkerHelper` intercept between 50 and 150 tracker and advertisement subresources per page load.
+During typical web browsing on ad-heavy websites, `BrowserWebViewClient.shouldInterceptRequest` and `AdBlockServiceWorkerHelper` intercept between 50 and 150 tracker and advertisement subresources per page load.
 1. **`Content-Length: 0` Stream Pipe Termination**:
    - Android WebView does not automatically deduce the stream length when wrapping an empty `InputStream`. Without an explicit `Content-Length`, Blink's C++ `ResourceLoader` reads the stream in chunks until EOF (`-1`), keeping subresource connection pipes and worker threads allocated unnecessarily.
    - Supplying explicit `"Content-Length": "0"` informs Blink immediately that no body payload follows, allowing the browser engine to close the subresource stream pipe in 0ms.
@@ -265,12 +265,12 @@ During typical web browsing on ad-heavy websites, `OnyxWebViewClient.shouldInter
 ### 6.6 Memory Pressure Handlers (`ComponentCallbacks2.onTrimMemory`)
 To prevent the Android Low Memory Killer (LMK) from killing Onyx during heavy device multitasking or low-RAM events:
 1. **`ComponentCallbacks2.onTrimMemory` Lifecycle Handling**:
-   - Implemented in `OnyxApplication`, `MainActivity`, and `TabCoordinator`.
+   - Implemented in `BrowserApplication`, `MainActivity`, and `TabCoordinator`.
    - On `TRIM_MEMORY_UI_HIDDEN` (app backgrounded): Tab switcher bitmap thumbnails are evicted from Dalvik/ART heap, all active normal tab states are persisted to disk, and background tabs idle for over 15 minutes are hibernated.
    - On `TRIM_MEMORY_RUNNING_CRITICAL` or `TRIM_MEMORY_COMPLETE`: In-memory rule caches in `AdBlockEngine` (`requestDecisionCache`, `checkUrlCache`, `exceptionsCache`, `genericHideCache`) and CNAME alias caches in `AdBlockDomainManager` are flushed. Normal background tabs (strictly preserving any tab actively playing media) are hibernated to disk, freeing native Chromium buffers and GPU textures.
    - On `TRIM_MEMORY_RUNNING_LOW` or `TRIM_MEMORY_MODERATE`: In-memory thumbnail LRU cache is trimmed to 50% capacity.
 
 ### 6.7 Chromium Runtime Async Pre-Warming (`WebViewCompat.startUpWebView`)
 To eliminate the 200–400ms main-thread hitch caused by loading `libwebviewchromium.so`, spawning Chromium sandbox processes, and initializing the V8 JavaScript engine during cold launch:
-- In `OnyxApplication.onCreate()`, `preWarmChromiumRuntimeAsync()` leverages `androidx.webkit:webkit:1.16.0+`'s `WebViewCompat.startUpWebView`.
+- In `BrowserApplication.onCreate()`, `preWarmChromiumRuntimeAsync()` leverages `androidx.webkit:webkit:1.16.0+`'s `WebViewCompat.startUpWebView`.
 - Offloads Chromium C++ native runtime and sandbox initialization to a dedicated background worker thread (`OnyxChromiumPreWarm`), priming the webview subsystem concurrently while the application initializes databases and UI resources.

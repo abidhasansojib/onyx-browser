@@ -48,7 +48,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxAlertDialog
+import com.onyx.browser.ui.components.AppAlertDialog
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.userscript.UserScriptManager
 import com.onyx.browser.userscript.UserScriptMetadata
@@ -125,7 +125,7 @@ class UserScriptEditorActivity : ComponentActivity() {
                 )
 
                 if (showDiscardDialog) {
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = "Discard unsaved changes?",
                         text = { Text("You have unsaved edits in this script.") },
                         confirmButtonText = "Discard",

@@ -1,7 +1,7 @@
 package com.onyx.browser.web.bridge
 
-import com.onyx.browser.web.OnyxWebView
-import com.onyx.browser.web.OnyxWebViewClient
+import com.onyx.browser.web.BrowserWebView
+import com.onyx.browser.web.BrowserWebViewClient
 import com.onyx.browser.web.adblock.AdBlockDomainManager
 
 import android.content.Context
@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  */
 class ShieldBridge(
     private val context: Context,
-    private val webViewRef: java.lang.ref.WeakReference<OnyxWebView>? = null
+    private val webViewRef: java.lang.ref.WeakReference<BrowserWebView>? = null
 ) {
 
     private val preferences = BrowserPreferences.getInstance(context)
@@ -98,14 +98,14 @@ class ShieldBridge(
     fun isStreamingSite(domainOrUrl: String?): Boolean {
         val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return false
         val clean = preferences.cleanDomain(target)
-        return OnyxWebViewClient.isStreamingOrMediaPage(target) || OnyxWebViewClient.isMediaOrStreamingHost(clean)
+        return BrowserWebViewClient.isStreamingOrMediaPage(target) || BrowserWebViewClient.isMediaOrStreamingHost(clean)
     }
 
     @JavascriptInterface
     fun isBettingOrAdUrl(url: String?): Boolean {
         val target = url?.takeIf { it.isNotBlank() } ?: return false
         val clean = preferences.cleanDomain(target)
-        return OnyxWebViewClient.isBettingOrAdUrl(target, clean)
+        return BrowserWebViewClient.isBettingOrAdUrl(target, clean)
     }
 
     @JavascriptInterface
@@ -423,7 +423,7 @@ class ShieldBridge(
         val effectiveType = resourceType?.takeIf { it.isNotBlank() }?.lowercase() ?: "other"
         val isXhrCheck = effectiveType == "xhr" || effectiveType == "xmlhttprequest"
         if (isXhrCheck) {
-            // Let media streams and VAST/VMAP ad tags flow through to OnyxWebViewClient.shouldInterceptRequest
+            // Let media streams and VAST/VMAP ad tags flow through to BrowserWebViewClient.shouldInterceptRequest
             // so media uses RESOURCE_TYPE_MEDIA and VAST tags receive HTTP 200 empty <VAST/> XML instead of JS TypeError.
             if (isMediaStreamPath(u) || isVastAdTagUrl(u)) return false
         }
@@ -454,7 +454,7 @@ class ShieldBridge(
         }
 
         // If a $redirect surrogate exists (e.g., noopjson, noopvast-2.0, noopjs, google-ima.js),
-        // do not reject in the JS fetch/XHR proxy — allow OnyxWebViewClient.shouldInterceptRequest
+        // do not reject in the JS fetch/XHR proxy — allow BrowserWebViewClient.shouldInterceptRequest
         // to intercept and serve the surrogate with HTTP 200 OK.
         if (isXhrCheck && !engineResult.redirectData.isNullOrBlank()) {
             return false

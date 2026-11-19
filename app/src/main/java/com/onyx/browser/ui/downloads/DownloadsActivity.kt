@@ -75,8 +75,8 @@ import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.DownloadItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.download.FileUtils
-import com.onyx.browser.ui.components.OnyxAlertDialog
-import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.ui.viewmodel.DownloadsViewModel
 import com.onyx.browser.web.LocalFileLoader
@@ -138,7 +138,7 @@ class DownloadsActivity : ComponentActivity() {
 
                 if (itemToDelete != null) {
                     val toDelete = itemToDelete!!
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = "Delete download?",
                         text = { Text("Are you sure you want to delete '${toDelete.fileName}'? This will remove the file from storage and history.") },
                         confirmButtonText = "Delete",
@@ -154,7 +154,7 @@ class DownloadsActivity : ComponentActivity() {
                 if (itemDetailsToShow != null) {
                     val details = itemDetailsToShow!!
                     val sizeFormatted = Formatter.formatFileSize(this, details.fileSize)
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = "File Details",
                         text = {
                             Column {
@@ -420,7 +420,7 @@ fun DownloadsScreen(
                         .padding(bottom = 32.dp)
                 ) {
                     items(downloads, key = { it.id }) { item ->
-                        OnyxCardContainer {
+                        CardContainer {
                             DownloadItemRow(
                                 item = item,
                                 onClick = { onItemClick(item) },

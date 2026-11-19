@@ -9,7 +9,7 @@ import com.onyx.browser.MainActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityMainBinding
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 
 /**
  * Delegate responsible for address bar ConstraintSet layout transitions (Top vs. Bottom),
@@ -296,7 +296,7 @@ class ToolbarLayoutController(
     }
 
     fun attachWebViewScrollAutoHide(
-        webView: OnyxWebView,
+        webView: BrowserWebView,
         isTargetActiveTab: () -> Boolean,
         isInPipMode: () -> Boolean,
         hasCustomVideoView: () -> Boolean

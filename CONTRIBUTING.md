@@ -46,7 +46,7 @@ The project consists of two Gradle modules and a native Rust engine:
 | Component | Responsibility |
 | :--- | :--- |
 | `:app` | Android application module (`com.onyx.browser`): Native XML UI, ViewModels, hardened Chromium WebView, SQLCipher database, and userscript engine. |
-| `:core:common` | Multi-module utilities (`DispatcherProvider`, `DefaultDispatcherProvider`, and `OnyxResult`). |
+| `:core:common` | Multi-module utilities (`DispatcherProvider`, `DefaultDispatcherProvider`, and `ResultState`). |
 | `rust_engine/` | Native Rust NDK bridge (`libadblock_bridge.so`) compiling Brave `adblock-rust` with JNI bindings for `AdBlockEngine`. |
 | `gradle/libs.versions.toml` | Centralized Gradle Version Catalog for dependencies and plugins. |
 
@@ -55,7 +55,7 @@ The project consists of two Gradle modules and a native Rust engine:
 ```text
 com.onyx.browser
 ├── MainActivity.kt        # Primary activity, toolbar coordinator, and window orchestration
-├── OnyxApplication.kt     # App entry point, DI container init, SQLCipher setup
+├── BrowserApplication.kt     # App entry point, DI container init, SQLCipher setup
 ├── autofill/              # System AutofillManager & Credential Manager passkey helpers
 ├── data/                  # Room database, SQLCipher keys, models, repositories, preferences
 ├── di/                    # Dependency injection (AppContainer, ViewModelFactory)

@@ -6,15 +6,15 @@ import android.net.Uri
 import android.provider.Settings
 import android.webkit.JavascriptInterface
 import com.onyx.browser.MainActivity
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 
 /**
  * JavaScript interface that bridges synthetic error page actions (reload, network settings,
  * search, go back, SSL session bypass, Wayback Machine archive lookups, shields bypass)
  * directly to native Android browser methods.
  */
-class OnyxErrorBridge(
-    private val webView: OnyxWebView,
+class WebErrorBridge(
+    private val webView: BrowserWebView,
     private val activity: Activity?
 ) {
 
@@ -22,7 +22,7 @@ class OnyxErrorBridge(
         if (webView.isLoadingSyntheticPage) return true
         if (webView.currentSyntheticState == null) return false
         val url = webView.url ?: ""
-        return OnyxWebView.isSyntheticOrDataUrl(url) ||
+        return BrowserWebView.isSyntheticOrDataUrl(url) ||
                 url.startsWith("https://onyx.browser/", ignoreCase = true) ||
                 url.startsWith("file:///android_asset/error_page.html", ignoreCase = true)
     }
@@ -37,7 +37,7 @@ class OnyxErrorBridge(
         webView.post {
             if (!isSyntheticErrorPageActive()) return@post
             val target = when {
-                !targetUrl.isNullOrBlank() && !OnyxWebView.isSyntheticOrDataUrl(targetUrl) -> targetUrl
+                !targetUrl.isNullOrBlank() && !BrowserWebView.isSyntheticOrDataUrl(targetUrl) -> targetUrl
                 !webView.currentSyntheticState?.failingUrl.isNullOrBlank() -> webView.currentSyntheticState?.failingUrl
                 !webView.lastFailingUrl.isNullOrBlank() -> webView.lastFailingUrl
                 else -> null
@@ -195,7 +195,7 @@ class OnyxErrorBridge(
             }
             webView.pendingSslHandler?.proceed()
             webView.clearSyntheticState()
-            if (currentUrl.isNotBlank() && !OnyxWebView.isSyntheticOrDataUrl(currentUrl)) {
+            if (currentUrl.isNotBlank() && !BrowserWebView.isSyntheticOrDataUrl(currentUrl)) {
                 val mainAct = activity as? MainActivity
                 if (mainAct != null) {
                     mainAct.performSearchOrLoad(currentUrl)
@@ -208,3 +208,6 @@ class OnyxErrorBridge(
         }
     }
 }
+
+typealias OnyxErrorBridge = WebErrorBridge
+

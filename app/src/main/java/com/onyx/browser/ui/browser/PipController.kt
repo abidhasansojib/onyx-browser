@@ -36,7 +36,7 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.ActivityMainBinding
 import com.onyx.browser.media.MediaPlaybackBridge
 import com.onyx.browser.web.MediaPlaybackManager
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 import org.json.JSONObject
 
 /**
@@ -47,8 +47,8 @@ class PipController(
     private val activity: Activity,
     private val binding: ActivityMainBinding,
     private val preferences: BrowserPreferences,
-    private val getActiveWebView: () -> OnyxWebView?,
-    private val getMediaTargetWebView: () -> OnyxWebView?,
+    private val getActiveWebView: () -> BrowserWebView?,
+    private val getMediaTargetWebView: () -> BrowserWebView?,
     private val onHideUiForPip: () -> Unit,
     private val onRestoreUiFromPip: (isCustomVideo: Boolean) -> Unit
 ) {

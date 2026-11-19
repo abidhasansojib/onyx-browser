@@ -64,10 +64,10 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.data.model.UserScriptItem
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxAlertDialog
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.userscript.UserScriptManager
 import kotlinx.coroutines.Dispatchers
@@ -170,7 +170,7 @@ class UserScriptsActivity : ComponentActivity() {
 
                 if (scriptToDelete != null) {
                     val toDelete = scriptToDelete!!
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = "Delete userscript?",
                         text = { Text("Are you sure you want to delete '${toDelete.name}'?") },
                         confirmButtonText = "Delete",
@@ -334,7 +334,7 @@ fun UserScriptsScreen(
 ) {
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "User Scripts",
                 onBackClick = onBackClick,
                 actions = {
@@ -426,7 +426,7 @@ fun UserScriptsScreen(
                         .padding(bottom = 80.dp)
                 ) {
                     items(scripts, key = { it.id }) { script ->
-                        OnyxCardContainer {
+                        CardContainer {
                             UserScriptItemRow(
                                 script = script,
                                 onToggle = { enabled -> onToggleScript(script, enabled) },
@@ -552,21 +552,21 @@ private fun AddScriptOptionsSheet(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            OnyxPreferenceItem(
+            PreferenceItem(
                 title = "Create New Script",
                 subtitle = "Write a Tampermonkey script in the code editor",
                 icon = Icons.Default.Code,
                 onClick = onCreateNew
             )
 
-            OnyxPreferenceItem(
+            PreferenceItem(
                 title = "Import from File (.user.js)",
                 subtitle = "Load a script file from device storage",
                 icon = Icons.Default.FileOpen,
                 onClick = onImportFile
             )
 
-            OnyxPreferenceItem(
+            PreferenceItem(
                 title = "Import from URL",
                 subtitle = "Download script from GreasyFork, GitHub, or direct link",
                 icon = Icons.Default.Language,

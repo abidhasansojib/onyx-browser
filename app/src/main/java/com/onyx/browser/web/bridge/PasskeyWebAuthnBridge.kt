@@ -1,7 +1,7 @@
 package com.onyx.browser.web.bridge
 
 import com.onyx.browser.web.AssetScriptLoader
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 
 import android.app.Activity
 import android.net.Uri
@@ -398,7 +398,7 @@ class PasskeyWebAuthnBridge(
             return
         }
         mainHandler.post {
-            if ((webView as? OnyxWebView)?.isIncognito == true) {
+            if ((webView as? BrowserWebView)?.isIncognito == true) {
                 sendSuccess(callbackId, "{}")
                 return@post
             }
@@ -449,7 +449,7 @@ class PasskeyWebAuthnBridge(
         callbackIdForError: String?
     ): OriginContext? {
         val rawTopUrl = webView.url?.takeIf { it.isNotBlank() }
-            ?: (webView as? OnyxWebView)?.pendingMainFrameUrl
+            ?: (webView as? BrowserWebView)?.pendingMainFrameUrl
             ?: ""
         val topOrigin = normalizeSecureWebOrigin(rawTopUrl)
         val normalizedCaller = normalizeSecureWebOrigin(callerOrigin)

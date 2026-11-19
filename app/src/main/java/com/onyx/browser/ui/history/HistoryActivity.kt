@@ -53,8 +53,8 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxAlertDialog
-import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.ui.viewmodel.HistoryViewModel
 import java.text.SimpleDateFormat
@@ -111,7 +111,7 @@ class HistoryActivity : ComponentActivity() {
                 )
 
                 if (showClearAllDialog) {
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = "Clear browsing history?",
                         text = { Text("This will delete all browsing history records from your encrypted database.") },
                         confirmButtonText = "Clear History",
@@ -255,7 +255,7 @@ fun HistoryScreen(
                     }
 
                     items(items, key = { it.id }) { item ->
-                        OnyxCardContainer {
+                        CardContainer {
                             HistoryItemRow(
                                 item = item,
                                 onClick = { onItemClick(item) },

@@ -15,7 +15,7 @@ import com.onyx.browser.ui.menu.MenuBottomSheet
 import com.onyx.browser.ui.menu.SiteShieldBottomSheet
 import com.onyx.browser.web.DevToolsManager
 import com.onyx.browser.web.LocalFileLoader
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 import com.onyx.browser.web.translate.PageTranslateManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -97,7 +97,7 @@ class BrowserMenuCoordinator(
         }
     }
 
-    fun showLanguageSelectionDialog(webView: OnyxWebView? = activity.getActiveWebView()) {
+    fun showLanguageSelectionDialog(webView: BrowserWebView? = activity.getActiveWebView()) {
         if (activity.isFinishing || activity.isDestroyed) return
         val dialog = LanguageSelectionDialog { code, name ->
             currentTranslateTargetCode = code

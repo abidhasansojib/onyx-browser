@@ -1,6 +1,6 @@
 package com.onyx.browser.web.bridge
 
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 
 import android.webkit.JavascriptInterface
 import android.webkit.WebView

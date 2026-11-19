@@ -1,6 +1,6 @@
 package com.onyx.browser.download
 
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 import com.onyx.browser.web.bridge.FormPostRegistry
 import com.onyx.browser.web.bridge.BlobBridge
 import com.onyx.browser.web.bridge.FormBridge
@@ -926,7 +926,7 @@ object DownloadHandler {
         }
         val formPost = FormPostRegistry.takeClaimed(url)
 
-        com.onyx.browser.download.OnyxDownloadManager.enqueueDownload(
+        com.onyx.browser.download.DownloadEngineManager.enqueueDownload(
             context = context,
             url = url,
             fileName = cleanFileName,

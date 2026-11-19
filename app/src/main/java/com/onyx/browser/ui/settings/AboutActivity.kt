@@ -50,10 +50,10 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxAlertDialog
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.update.AppUpdateManager
 import com.onyx.browser.update.AppUpdatePromptHelper
@@ -95,7 +95,7 @@ class AboutActivity : AppCompatActivity() {
                 )
 
                 if (showUpToDateDialog) {
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = getString(R.string.app_up_to_date),
                         text = {
                             Text(getString(R.string.app_up_to_date_desc, "v$currentVersionTag"))
@@ -192,7 +192,7 @@ fun AboutScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "About Onyx",
                 onBackClick = onBackClick
             )
@@ -262,8 +262,8 @@ fun AboutScreen(
 
             // Updates Section
             CategoryHeader(title = "Updates")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "Check for Updates",
                     subtitle = updateStatus,
                     icon = Icons.Default.Refresh,
@@ -283,12 +283,12 @@ fun AboutScreen(
 
             // App & System Section
             CategoryHeader(title = "Application & System")
-            OnyxCardContainer {
+            CardContainer {
                 val osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
                 val deviceModel = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
                 val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "Universal"
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Application Architecture",
                     subtitle = "100% Jetpack Compose • $abi",
                     icon = Icons.Default.Info,
@@ -296,14 +296,14 @@ fun AboutScreen(
                     onClick = { onCopyText("Architecture", "Jetpack Compose • $abi") }
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Operating System",
                     subtitle = "$osVersion • $deviceModel",
                     showChevron = false,
                     onClick = { onCopyText("OS Version", "$osVersion • $deviceModel") }
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "WebView Engine",
                     subtitle = getWebViewSummary(),
                     showChevron = false,
@@ -313,22 +313,22 @@ fun AboutScreen(
 
             // Community & Support
             CategoryHeader(title = "Community & Support")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "Telegram Channel",
                     subtitle = "Chat with developer & community",
                     icon = Icons.AutoMirrored.Filled.OpenInNew,
                     onClick = { onOpenUrl("https://t.me/abidhasansojib") }
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "GitHub Repository",
                     subtitle = "Source code, releases & star the repo",
                     icon = Icons.AutoMirrored.Filled.OpenInNew,
                     onClick = { onOpenUrl("https://github.com/abidhasansojib/onyx-browser") }
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Report an Issue",
                     subtitle = "Submit bugs or feature requests",
                     icon = Icons.AutoMirrored.Filled.OpenInNew,

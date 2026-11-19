@@ -22,7 +22,7 @@ import androidx.webkit.ProfileStore
 import androidx.webkit.WebViewFeature
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.TabItem
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,7 +54,7 @@ class TabCoordinator(
             if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return
             try {
                 val store = ProfileStore.getInstance()
-                val incognitoProfile = store.getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
+                val incognitoProfile = store.getProfile(BrowserWebView.INCOGNITO_PROFILE_NAME)
                 if (incognitoProfile != null) {
                     try {
                         incognitoProfile.cookieManager.removeAllCookies(null)
@@ -64,7 +64,7 @@ class TabCoordinator(
                         incognitoProfile.webStorage.deleteAllData()
                     } catch (_: Throwable) {}
                     try {
-                        store.deleteProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
+                        store.deleteProfile(BrowserWebView.INCOGNITO_PROFILE_NAME)
                     } catch (e: Throwable) {
                         android.util.Log.w("TabManager", "deleteProfile failed: ${e.message}")
                     }
@@ -99,7 +99,7 @@ class TabCoordinator(
         setActiveTab(null)
     }
 
-    private val webViewPool = mutableMapOf<String, OnyxWebView>()
+    private val webViewPool = mutableMapOf<String, BrowserWebView>()
     private val incognitoStateBundles = java.util.concurrent.ConcurrentHashMap<String, Bundle>()
     var isIncognitoUnlocked: Boolean = false
     var onTabClosedListener: ((TabItem) -> Unit)? = null
@@ -199,10 +199,10 @@ class TabCoordinator(
         }
     }
 
-    fun saveTabState(tabId: String, webView: OnyxWebView) {
+    fun saveTabState(tabId: String, webView: BrowserWebView) {
         val tab = getTabById(tabId) ?: return
         val currentUrl = webView.url
-        if (currentUrl.isNullOrBlank() || OnyxWebView.isSyntheticOrDataUrl(currentUrl)) return
+        if (currentUrl.isNullOrBlank() || BrowserWebView.isSyntheticOrDataUrl(currentUrl)) return
 
         try {
             val bundle = Bundle()
@@ -218,7 +218,7 @@ class TabCoordinator(
         } catch (_: Throwable) {}
     }
 
-    fun restoreTabState(tabId: String, webView: OnyxWebView): Boolean {
+    fun restoreTabState(tabId: String, webView: BrowserWebView): Boolean {
         val tab = getTabById(tabId) ?: return false
         if (tab.isIncognito) {
             val bundle = incognitoStateBundles[tabId] ?: return false
@@ -309,7 +309,7 @@ class TabCoordinator(
      * Proactively captures a crisp, memory-optimized thumbnail of the given WebView.
      * Uses hardware PixelCopy with synchronous Canvas fallback.
      */
-    fun captureTabSnapshot(tabId: String, webView: OnyxWebView?, onCaptured: ((Bitmap) -> Unit)? = null) {
+    fun captureTabSnapshot(tabId: String, webView: BrowserWebView?, onCaptured: ((Bitmap) -> Unit)? = null) {
         if (webView == null || webView.width <= 0 || webView.height <= 0) return
         val w = webView.width
         val h = webView.height
@@ -359,7 +359,7 @@ class TabCoordinator(
 
     private fun fallbackCanvasCapture(
         tabId: String,
-        webView: OnyxWebView,
+        webView: BrowserWebView,
         targetW: Int,
         targetH: Int,
         scale: Float,
@@ -422,7 +422,7 @@ class TabCoordinator(
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return
         try {
             val store = ProfileStore.getInstance()
-            val incognitoProfile = store.getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
+            val incognitoProfile = store.getProfile(BrowserWebView.INCOGNITO_PROFILE_NAME)
             if (incognitoProfile != null) {
                 try {
                     incognitoProfile.cookieManager.removeAllCookies(null)
@@ -438,7 +438,7 @@ class TabCoordinator(
                     wv.destroySafely()
                 }
                 try {
-                    store.deleteProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
+                    store.deleteProfile(BrowserWebView.INCOGNITO_PROFILE_NAME)
                 } catch (e: Throwable) {
                     android.util.Log.w("TabManager", "deleteProfile failed: ${e.message}")
                 }
@@ -448,10 +448,10 @@ class TabCoordinator(
         }
     }
 
-    fun getOrCreateWebView(tab: TabItem): OnyxWebView {
+    fun getOrCreateWebView(tab: TabItem): BrowserWebView {
         var webView = webViewPool[tab.id]
         if (webView == null) {
-            webView = OnyxWebView(context).apply {
+            webView = BrowserWebView(context).apply {
                 tabId = tab.id
                 setIncognitoMode(tab.isIncognito)
                 val parentWv = tab.parentId?.let { webViewPool[it] }
@@ -465,12 +465,12 @@ class TabCoordinator(
         return webView
     }
 
-    fun getActiveWebView(): OnyxWebView? {
+    fun getActiveWebView(): BrowserWebView? {
         val current = _activeTab.value ?: return null
         return webViewPool[current.id]
     }
 
-    fun getWebView(tabId: String): OnyxWebView? = webViewPool[tabId]
+    fun getWebView(tabId: String): BrowserWebView? = webViewPool[tabId]
 
     /**
      * Handles a crashed or terminated render process for a tab.
@@ -487,7 +487,7 @@ class TabCoordinator(
     }
 
     /** Returns all WebViews currently in the pool (live tabs). */
-    fun getAllWebViews(): List<OnyxWebView> = webViewPool.values.toList()
+    fun getAllWebViews(): List<BrowserWebView> = webViewPool.values.toList()
 
     fun getTabById(tabId: String): TabItem? {
         return _normalTabs.value.firstOrNull { it.id == tabId }
@@ -720,7 +720,7 @@ class TabCoordinator(
 
     private fun getPurgeDomains(host: String): Set<String> = com.onyx.browser.web.SiteDataManager.getPurgeDomains(host)
 
-    private fun extractCandidateUrls(tab: TabItem, webView: OnyxWebView?): List<String> {
+    private fun extractCandidateUrls(tab: TabItem, webView: BrowserWebView?): List<String> {
         val urls = linkedSetOf<String>()
         if (tab.url.isNotBlank()) urls.add(tab.url)
         webView?.url?.let { if (it.isNotBlank()) urls.add(it) }
@@ -819,7 +819,7 @@ class TabCoordinator(
                 try {
                     withContext(Dispatchers.Main) {
                         val webStorage = if (isIncognito && WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
-                            try { ProfileStore.getInstance().getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)?.webStorage ?: WebStorage.getInstance() } catch (_: Throwable) { WebStorage.getInstance() }
+                            try { ProfileStore.getInstance().getProfile(BrowserWebView.INCOGNITO_PROFILE_NAME)?.webStorage ?: WebStorage.getInstance() } catch (_: Throwable) { WebStorage.getInstance() }
                         } else {
                             WebStorage.getInstance()
                         }
@@ -832,7 +832,7 @@ class TabCoordinator(
 
                 // 5. Purge CookieManager
                 val cookieManager = if (isIncognito && WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
-                    try { ProfileStore.getInstance().getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)?.cookieManager ?: CookieManager.getInstance() } catch (_: Throwable) { CookieManager.getInstance() }
+                    try { ProfileStore.getInstance().getProfile(BrowserWebView.INCOGNITO_PROFILE_NAME)?.cookieManager ?: CookieManager.getInstance() } catch (_: Throwable) { CookieManager.getInstance() }
                 } else {
                     CookieManager.getInstance()
                 }

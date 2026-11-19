@@ -27,7 +27,7 @@ object PageTranslateManager {
 
     /**
      * JavaScript that performs DOM traversal, preserves original text and whitespace,
-     * tags text nodes into XML batches, and delegates network translation to OnyxTranslateBridge.
+     * tags text nodes into XML batches, and delegates network translation to PageTranslateBridge.
      * Also initializes a MutationObserver to translate dynamically loaded search results (infinite scroll).
      */
     fun getTranslateScript(targetLang: String): String {
@@ -158,8 +158,9 @@ object PageTranslateManager {
                         }
 
                         if (batchCount >= 45 || batchXml.length >= 3000) {
-                            if (window.OnyxTranslateBridge && window.OnyxTranslateBridge.translateBatch) {
-                                window.OnyxTranslateBridge.translateBatch(batchId, batchXml, targetLang, isInitial);
+                            var bridge = window.PageTranslateBridge || window.PageTranslateBridge;
+                            if (bridge && bridge.translateBatch) {
+                                bridge.translateBatch(batchId, batchXml, targetLang, isInitial);
                                 totalDispatched++;
                             }
                             batchXml = '';
@@ -169,16 +170,18 @@ object PageTranslateManager {
                     }
 
                     if (batchCount > 0) {
-                        if (window.OnyxTranslateBridge && window.OnyxTranslateBridge.translateBatch) {
-                            window.OnyxTranslateBridge.translateBatch(batchId, batchXml, targetLang, isInitial);
+                        var bridge = window.PageTranslateBridge || window.PageTranslateBridge;
+                        if (bridge && bridge.translateBatch) {
+                            bridge.translateBatch(batchId, batchXml, targetLang, isInitial);
                             totalDispatched++;
                         }
                     }
 
                     if (totalDispatched === 0 && isInitial) {
                         state.isTranslating = false;
-                        if (window.OnyxTranslateBridge && window.OnyxTranslateBridge.onTranslationFinished) {
-                            window.OnyxTranslateBridge.onTranslationFinished();
+                        var bridge = window.PageTranslateBridge || window.PageTranslateBridge;
+                        if (bridge && bridge.onTranslationFinished) {
+                            bridge.onTranslationFinished();
                         }
                     }
                 }
@@ -221,8 +224,9 @@ object PageTranslateManager {
                     var allNodes = collectTextNodes(document.body || document.documentElement);
                     if (allNodes.length === 0) {
                         state.isTranslating = false;
-                        if (window.OnyxTranslateBridge && window.OnyxTranslateBridge.onTranslationFinished) {
-                            window.OnyxTranslateBridge.onTranslationFinished();
+                        var bridge = window.PageTranslateBridge || window.PageTranslateBridge;
+                        if (bridge && bridge.onTranslationFinished) {
+                            bridge.onTranslationFinished();
                         }
                         return 'empty';
                     }

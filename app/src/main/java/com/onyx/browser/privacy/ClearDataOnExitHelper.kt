@@ -11,7 +11,7 @@ import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
 import com.onyx.browser.web.LocalFileLoader
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -117,7 +117,7 @@ object ClearDataOnExitHelper {
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
                     try {
                         val store = ProfileStore.getInstance()
-                        val incognitoProfile = store.getProfile(OnyxWebView.INCOGNITO_PROFILE_NAME)
+                        val incognitoProfile = store.getProfile(BrowserWebView.INCOGNITO_PROFILE_NAME)
                         if (incognitoProfile != null) {
                             incognitoProfile.cookieManager.removeAllCookies(null)
                             incognitoProfile.cookieManager.flush()

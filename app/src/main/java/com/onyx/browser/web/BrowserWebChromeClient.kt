@@ -9,7 +9,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 
-class OnyxWebChromeClient(
+open class BrowserWebChromeClient(
     private val onProgressChangedCallback: (Int) -> Unit,
     private val onTitleReceivedCallback: (String) -> Unit,
     private val onIconReceivedCallback: ((Bitmap?) -> Unit)? = null,
@@ -68,7 +68,7 @@ class OnyxWebChromeClient(
             onFileChooserCallback?.invoke(filePathCallback, fileChooserParams)
                 ?: super.onShowFileChooser(webView, filePathCallback, fileChooserParams)
         } catch (t: Throwable) {
-            android.util.Log.e("OnyxWebChromeClient", "Error in onShowFileChooser", t)
+            android.util.Log.e("BrowserWebChromeClient", "Error in onShowFileChooser", t)
             false
         }
     }
@@ -84,7 +84,7 @@ class OnyxWebChromeClient(
                 super.onGeolocationPermissionsShowPrompt(origin, callback)
             }
         } catch (e: Exception) {
-            android.util.Log.e("OnyxWebChromeClient", "Error in onGeolocationPermissionsShowPrompt", e)
+            android.util.Log.e("BrowserWebChromeClient", "Error in onGeolocationPermissionsShowPrompt", e)
             try { callback?.invoke(origin, false, false) } catch (_: Exception) {}
         }
     }
@@ -97,7 +97,7 @@ class OnyxWebChromeClient(
                 super.onGeolocationPermissionsHidePrompt()
             }
         } catch (e: Exception) {
-            android.util.Log.e("OnyxWebChromeClient", "Error in onGeolocationPermissionsHidePrompt", e)
+            android.util.Log.e("BrowserWebChromeClient", "Error in onGeolocationPermissionsHidePrompt", e)
         }
     }
 
@@ -109,7 +109,7 @@ class OnyxWebChromeClient(
                 super.onPermissionRequest(request)
             }
         } catch (e: Exception) {
-            android.util.Log.e("OnyxWebChromeClient", "Error in onPermissionRequest", e)
+            android.util.Log.e("BrowserWebChromeClient", "Error in onPermissionRequest", e)
             try { request?.deny() } catch (_: Exception) {}
         }
     }
@@ -122,7 +122,7 @@ class OnyxWebChromeClient(
                 super.onPermissionRequestCanceled(request)
             }
         } catch (e: Exception) {
-            android.util.Log.e("OnyxWebChromeClient", "Error in onPermissionRequestCanceled", e)
+            android.util.Log.e("BrowserWebChromeClient", "Error in onPermissionRequestCanceled", e)
         }
     }
 
@@ -171,7 +171,7 @@ class OnyxWebChromeClient(
             }
             // If DevTools (Eruda) is open in the active WebView, forward messages live into its panel.
             // This bridges Chromium's native console with Eruda's UI panel.
-            // Note: consoleMessage doesn't carry a WebView reference, so we rely on the OnyxWebView
+            // Note: consoleMessage doesn't carry a WebView reference, so we rely on the BrowserWebView
             // subclass which always has DevTools forwarded via the patched console methods in
             // DevToolsManager.consoleBufferScript. This fallback catches messages from synchronous
             // scripts or native WebCore sources that bypass the patched console object.
@@ -179,3 +179,6 @@ class OnyxWebChromeClient(
         return super.onConsoleMessage(consoleMessage)
     }
 }
+
+typealias OnyxWebChromeClient = BrowserWebChromeClient
+

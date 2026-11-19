@@ -44,9 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxSwitchPreference
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.SwitchPreference
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class AddressBarSettingsActivity : ComponentActivity() {
@@ -112,7 +112,7 @@ fun AddressBarSettingsScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Address Bar Position",
                 onBackClick = onBackClick
             )
@@ -153,15 +153,15 @@ fun AddressBarSettingsScreen(
             }
 
             CategoryHeader("Toolbar Controls")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Replace Home with Refresh",
                     subtitle = "Display reload action instead of home button on the address bar",
                     checked = isHomeRefresh,
                     onCheckedChange = onHomeRefreshChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Auto-Hide Toolbar on Scroll",
                     subtitle = "Dynamically collapse the address bar when scrolling down webpages",
                     checked = isAutoHide,

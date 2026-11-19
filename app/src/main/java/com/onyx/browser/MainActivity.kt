@@ -91,9 +91,9 @@ import com.onyx.browser.ui.tabs.TabSwitcherBottomSheet
 import com.onyx.browser.download.DownloadHandler
 import com.onyx.browser.web.bridge.FormPostRegistry
 import com.onyx.browser.web.LocalFileLoader
-import com.onyx.browser.web.OnyxWebChromeClient
-import com.onyx.browser.web.OnyxWebView
-import com.onyx.browser.web.OnyxWebViewClient
+import com.onyx.browser.web.BrowserWebChromeClient
+import com.onyx.browser.web.BrowserWebView
+import com.onyx.browser.web.BrowserWebViewClient
 import com.onyx.browser.data.filter.FilterListManager
 import com.onyx.browser.download.DownloadNotificationHelper
 import com.onyx.browser.media.MediaPlaybackBridge
@@ -135,7 +135,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
     private lateinit var findInPageController: FindInPageController
     private lateinit var searchController: SearchController
 
-    fun getActiveWebView(): OnyxWebView? = if (::tabManager.isInitialized) tabManager.getActiveWebView() else null
+    fun getActiveWebView(): BrowserWebView? = if (::tabManager.isInitialized) tabManager.getActiveWebView() else null
 
     lateinit var pipController: PipController
     val customVideoView: View?
@@ -218,8 +218,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         const val EXTRA_FROM_DOWNLOADS = "com.onyx.browser.extra.FROM_DOWNLOADS"
     }
 
-    private fun getMediaTargetWebView(): OnyxWebView? {
-        val playingWv = MediaPlaybackBridge.currentPlayingWebView?.get() as? OnyxWebView
+    private fun getMediaTargetWebView(): BrowserWebView? {
+        val playingWv = MediaPlaybackBridge.currentPlayingWebView?.get() as? BrowserWebView
         if (playingWv != null) return playingWv
         val playingId = MediaPlaybackBridge.currentPlayingTabId
         if (!playingId.isNullOrBlank()) {
@@ -591,7 +591,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         lastThemeMode = preferences.themeMode
         lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         lastAccentColor = preferences.accentColorHex
-        com.onyx.browser.download.OnyxDownloadManager.init(this)
+        com.onyx.browser.download.DownloadEngineManager.init(this)
         pageExportManager = PageExportCoordinator(this, lifecycleScope)
         navigationCoordinator = NavigationCoordinator(this, preferences)
         webChromeCoordinator = WebChromeCoordinator(this, preferences)
@@ -817,7 +817,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         val database = AppDatabase.getInstance(this)
-        val suggestionRepository = (application as? OnyxApplication)?.appContainer?.searchSuggestionRepository
+        val suggestionRepository = (application as? BrowserApplication)?.appContainer?.searchSuggestionRepository
             ?: SearchSuggestionRepository(database.historyDao(), database.bookmarkDao())
         searchController = SearchController(
             activity = this,
@@ -1319,7 +1319,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             browserViewModel.updateNavigationState(canGoBack = false, canGoForward = false, isDesktopMode = false)
         }
 
-        val child = if (binding.webViewContainer.childCount > 0) binding.webViewContainer.getChildAt(0) as? OnyxWebView else null
+        val child = if (binding.webViewContainer.childCount > 0) binding.webViewContainer.getChildAt(0) as? BrowserWebView else null
         val isPlayingChild = preferences.isBackgroundPlayEnabled && (child?.tabId == MediaPlaybackBridge.currentPlayingTabId)
         if (!isPlayingChild) {
             child?.onPause()
@@ -1414,10 +1414,10 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
-    private fun attachWebViewToContainer(webView: OnyxWebView) {
+    private fun attachWebViewToContainer(webView: BrowserWebView) {
         if (webView.parent != binding.webViewContainer) {
             val currentChild = if (binding.webViewContainer.childCount > 0) {
-                binding.webViewContainer.getChildAt(0) as? OnyxWebView
+                binding.webViewContainer.getChildAt(0) as? BrowserWebView
             } else null
             val isPlayingCurrent = preferences.isBackgroundPlayEnabled && (currentChild?.tabId == MediaPlaybackBridge.currentPlayingTabId)
             if (!isPlayingCurrent) {
@@ -1467,7 +1467,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
-    private fun setupWebViewClients(webView: OnyxWebView) {
+    private fun setupWebViewClients(webView: BrowserWebView) {
         val tabId = webView.tabId
         if (::toolbarLayoutDelegate.isInitialized) {
             toolbarLayoutDelegate.attachWebViewScrollAutoHide(
@@ -1478,7 +1478,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             )
         }
 
-        val client = OnyxWebViewClient(
+        val client = BrowserWebViewClient(
             context = this,
             coroutineScope = lifecycleScope,
             onUrlChanged = { newUrl ->
@@ -1566,7 +1566,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 }
             },
             onPageCommitVisibleCallback = { view, _ ->
-                if (view is OnyxWebView && view.tabId == currentDisplayedTabId && tabManager.activeTab.value?.id == tabId) {
+                if (view is BrowserWebView && view.tabId == currentDisplayedTabId && tabManager.activeTab.value?.id == tabId) {
                     val activeTab = tabManager.activeTab.value
                     if (activeTab != null) {
                         view.postDelayed({
@@ -1592,9 +1592,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         webView.webViewClient = client
 
-        webView.webChromeClient = OnyxWebChromeClient(
+        webView.webChromeClient = BrowserWebChromeClient(
             onProgressChangedCallback = { progress ->
-                if (currentDisplayedTabId != tabId || isInPipMode()) return@OnyxWebChromeClient
+                if (currentDisplayedTabId != tabId || isInPipMode()) return@BrowserWebChromeClient
                 if (::browserViewModel.isInitialized) {
                     browserViewModel.updateLoadingState(isLoading = progress < 100, progress = progress)
                 }
@@ -1654,14 +1654,14 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             },
             onCreateWindowCallback = { sourceWebView, isDialog, isUserGesture, resultMsg ->
                 // Check per-domain and global popup blocking preferences
-                val parentUrl = (sourceWebView as? OnyxWebView)?.url ?: ""
+                val parentUrl = (sourceWebView as? BrowserWebView)?.url ?: ""
                 val parentDomain = preferences.cleanDomain(parentUrl)
                 val popupPerm = if (parentDomain.isNotBlank()) preferences.isWebPopupsAllowed(parentDomain) else null
-                val recentTouch = (sourceWebView as? OnyxWebView)?.isWithinRecentTouchWindow() ?: false
+                val recentTouch = (sourceWebView as? BrowserWebView)?.isWithinRecentTouchWindow() ?: false
 
-                val isStreamingOrMedia = OnyxWebViewClient.isStreamingOrMediaPage(parentUrl) ||
-                        OnyxWebViewClient.isMediaOrStreamingHost(parentDomain) ||
-                        MediaPlaybackBridge.isVideoAvailableForTab((sourceWebView as? OnyxWebView)?.tabId)
+                val isStreamingOrMedia = BrowserWebViewClient.isStreamingOrMediaPage(parentUrl) ||
+                        BrowserWebViewClient.isMediaOrStreamingHost(parentDomain) ||
+                        MediaPlaybackBridge.isVideoAvailableForTab((sourceWebView as? BrowserWebView)?.tabId)
 
                 val isAdBlockActive = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(parentDomain)
 
@@ -1671,7 +1671,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     null -> {
                         if (isStreamingOrMedia && isAdBlockActive) {
                             // Only real user-gesture popups on media pages. They open hidden and are
-                            // vetted by OnyxWebViewClient.isPopupAd, which drops cross-site clickjack
+                            // vetted by BrowserWebViewClient.isPopupAd, which drops cross-site clickjack
                             // popunders while same-site windows (e.g. download forms) still open.
                             isUserGesture
                         } else {
@@ -1683,7 +1683,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 if (!allowPopups || resultMsg == null) {
                     false
                 } else {
-                    val parentTab = (sourceWebView as? OnyxWebView)?.tabId?.let { tabManager.getTabById(it) }
+                    val parentTab = (sourceWebView as? BrowserWebView)?.tabId?.let { tabManager.getTabById(it) }
                         ?: tabManager.activeTab.value
                     val isIncognito = parentTab?.isIncognito ?: false
                     val newTab = tabManager.createNewTab(
@@ -1695,7 +1695,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                     newWebView.isPopupPendingDisplay = true
                     newWebView.isPopupTab = true
                     newWebView.lastOAuthInteractionTimestamp = System.currentTimeMillis()
-                    (sourceWebView as? OnyxWebView)?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
+                    (sourceWebView as? BrowserWebView)?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
                     if (!isIncognito) {
                         try {
                             newWebView.cookieManager.setAcceptThirdPartyCookies(newWebView, true)
@@ -1747,7 +1747,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 }
             },
             onCloseWindowCallback = { closingWebView ->
-                val targetTabId = (closingWebView as? OnyxWebView)?.tabId
+                val targetTabId = (closingWebView as? BrowserWebView)?.tabId
                 val tabToClose = targetTabId?.let { tabManager.getTabById(it) } ?: tabManager.activeTab.value
                 if (tabToClose != null) {
                     tabManager.closeTab(tabToClose)
@@ -1796,7 +1796,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
-    fun showCustomContextMenu(webView: OnyxWebView, hitResult: WebView.HitTestResult): Boolean {
+    fun showCustomContextMenu(webView: BrowserWebView, hitResult: WebView.HitTestResult): Boolean {
         return if (::webContextMenuController.isInitialized) {
             webContextMenuController.showCustomContextMenu(webView, hitResult)
         } else {
@@ -2300,7 +2300,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
     }
 
-    fun showLanguageSelectionDialog(webView: OnyxWebView? = getActiveWebView()) {
+    fun showLanguageSelectionDialog(webView: BrowserWebView? = getActiveWebView()) {
         if (::browserMenuCoordinator.isInitialized) {
             browserMenuCoordinator.showLanguageSelectionDialog(webView)
         }
@@ -2501,7 +2501,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         })
     }
 
-    fun handleErrorPageBack(webView: OnyxWebView): Boolean {
+    fun handleErrorPageBack(webView: BrowserWebView): Boolean {
         val activeTab = tabManager.activeTab.value
         val steps = findPreviousValidHistoryStep(webView)
 
@@ -2536,7 +2536,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         return true
     }
 
-    private fun findPreviousValidLocalPreviewStep(webView: OnyxWebView, currentFileUrl: String): Int? {
+    private fun findPreviousValidLocalPreviewStep(webView: BrowserWebView, currentFileUrl: String): Int? {
         val list = try { webView.copyBackForwardList() } catch (_: Throwable) { return null }
         val currentIndex = list.currentIndex
         if (currentIndex <= 0) return null
@@ -2551,7 +2551,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (itemUrl.isBlank() ||
                 itemUrl == "about:blank" ||
                 itemUrl.startsWith("about:blank", ignoreCase = true) ||
-                OnyxWebView.isSyntheticOrDataUrl(itemUrl) ||
+                BrowserWebView.isSyntheticOrDataUrl(itemUrl) ||
                 itemUrl.startsWith("https://onyx.browser/", ignoreCase = true) ||
                 itemUrl.startsWith("file:///android_asset/error_page.html", ignoreCase = true)
             ) {
@@ -2568,7 +2568,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         return null
     }
 
-    private fun findPreviousValidHistoryStep(webView: OnyxWebView): Int? {
+    private fun findPreviousValidHistoryStep(webView: BrowserWebView): Int? {
         val list = try { webView.copyBackForwardList() } catch (_: Throwable) { return null }
         val currentIndex = list.currentIndex
         if (currentIndex <= 0) return null
@@ -2587,7 +2587,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (itemUrl.isBlank() ||
                 itemUrl == "about:blank" ||
                 itemUrl.startsWith("about:blank", ignoreCase = true) ||
-                OnyxWebView.isSyntheticOrDataUrl(itemUrl) ||
+                BrowserWebView.isSyntheticOrDataUrl(itemUrl) ||
                 itemUrl.startsWith("https://onyx.browser/", ignoreCase = true) ||
                 itemUrl.startsWith("file:///android_asset/error_page.html", ignoreCase = true)
             ) {

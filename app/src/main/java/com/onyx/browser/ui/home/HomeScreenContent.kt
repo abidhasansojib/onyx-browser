@@ -122,7 +122,7 @@ fun HomeScreenContent(
                 modifier = Modifier.padding(vertical = 24.dp)
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_logo_onyx),
+                    painter = painterResource(R.drawable.ic_app_logo),
                     contentDescription = "Onyx Browser",
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier

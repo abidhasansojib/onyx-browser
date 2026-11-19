@@ -342,14 +342,14 @@ object AdBlockDocumentStart {
 
                 var rType = resourceType || 'other';
                 if (rType === 'xhr') {
-                    // Let VAST/VMAP ad tags pass through to OnyxWebViewClient.shouldInterceptRequest
+                    // Let VAST/VMAP ad tags pass through to BrowserWebViewClient.shouldInterceptRequest
                     // so network egress is blocked while video players receive valid HTTP 200 <VAST/> XML.
                     if (vastTagPattern.test(resolvedUrl) && !nonXmlExtPattern.test(resolvedUrl)) {
                         return false;
                     }
                 }
 
-                // Synthetic ad-test probes (matches OnyxWebViewClient.shouldInterceptRequest)
+                // Synthetic ad-test probes (matches BrowserWebViewClient.shouldInterceptRequest)
                 if (resolvedUrl.indexOf('pr_advertising_ads_banner') !== -1 ||
                     resolvedUrl.indexOf('ymatuhin.ru') !== -1 ||
                     resolvedUrl.indexOf('/fakepage.html') !== -1 ||

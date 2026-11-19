@@ -10,7 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 @Composable
-fun OnyxAlertDialog(
+fun AppAlertDialog(
     title: String,
     onDismissRequest: () -> Unit,
     confirmButtonText: String,
@@ -56,3 +56,28 @@ fun OnyxAlertDialog(
         modifier = modifier
     )
 }
+
+@Composable
+fun AppDialog(
+    title: String,
+    onDismissRequest: () -> Unit,
+    confirmButtonText: String,
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier,
+    dismissButtonText: String? = "Cancel",
+    isDestructive: Boolean = false,
+    text: @Composable (() -> Unit)? = null
+) = AppAlertDialog(title, onDismissRequest, confirmButtonText, onConfirm, modifier, dismissButtonText, isDestructive, text)
+
+@Composable
+fun OnyxAlertDialog(
+    title: String,
+    onDismissRequest: () -> Unit,
+    confirmButtonText: String,
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier,
+    dismissButtonText: String? = "Cancel",
+    isDestructive: Boolean = false,
+    text: @Composable (() -> Unit)? = null
+) = AppAlertDialog(title, onDismissRequest, confirmButtonText, onConfirm, modifier, dismissButtonText, isDestructive, text)
+

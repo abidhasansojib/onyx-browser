@@ -228,7 +228,7 @@
     </queries>
 
     <application
-        android:name=".OnyxApplication"
+        android:name=".BrowserApplication"
         android:allowBackup="false"
         android:hardwareAccelerated="true"
         android:largeHeap="true"
@@ -472,9 +472,9 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
-        <!-- Onyx Multi-Threaded Internal Download Foreground Service -->
+        <!-- Multi-Threaded Internal Download Foreground Service -->
         <service
-            android:name=".download.OnyxDownloadService"
+            android:name=".download.DownloadForegroundService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 

@@ -59,10 +59,10 @@ import androidx.compose.ui.unit.sp
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxAlertDialog
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxSwitchPreference
+import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.SwitchPreference
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.web.SiteDataManager
 
@@ -155,7 +155,7 @@ class SiteShieldBottomSheet(
                     )
 
                     if (showClearDataDialog) {
-                        OnyxAlertDialog(
+                        AppAlertDialog(
                             title = "Clear data for $domain?",
                             text = { Text("Cookies, cache, and local storage for this domain will be removed.") },
                             confirmButtonText = "Clear",
@@ -260,7 +260,7 @@ fun SiteShieldSheetLayout(
         }
 
         // Master Shields Card with Counter
-        OnyxCardContainer {
+        CardContainer {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -305,8 +305,8 @@ fun SiteShieldSheetLayout(
             modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 4.dp)
         )
 
-        OnyxCardContainer {
-            OnyxSwitchPreference(
+        CardContainer {
+            SwitchPreference(
                 title = "Fingerprint Protection",
                 subtitle = "Randomize canvas, WebGL, and audio hardware signatures",
                 checked = isFingerprint,
@@ -314,14 +314,14 @@ fun SiteShieldSheetLayout(
                 enabled = isShieldsActive
             )
 
-            OnyxSwitchPreference(
+            SwitchPreference(
                 title = "Block JavaScript",
                 subtitle = "Prevent scripts from running on $domain",
                 checked = isScriptBlocked,
                 onCheckedChange = onScriptBlockedToggle
             )
 
-            OnyxSwitchPreference(
+            SwitchPreference(
                 title = "Cosmetic Element Hiding",
                 subtitle = "Collapse empty ad slots and banners",
                 checked = isCosmeticBlocked,
@@ -329,14 +329,14 @@ fun SiteShieldSheetLayout(
                 enabled = isShieldsActive
             )
 
-            OnyxPreferenceItem(
+            PreferenceItem(
                 title = "User Scripts",
                 subtitle = if (activeScriptCount > 0) "$activeScriptCount active on this site" else "Manage userscripts",
                 icon = Icons.Default.Code,
                 onClick = onOpenUserScripts
             )
 
-            OnyxPreferenceItem(
+            PreferenceItem(
                 title = "Clear Cookies & Storage",
                 subtitle = "Purge saved login sessions and cached data for this site",
                 icon = Icons.Default.DeleteSweep,

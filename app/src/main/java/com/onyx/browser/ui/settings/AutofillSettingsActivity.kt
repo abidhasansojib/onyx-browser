@@ -28,10 +28,10 @@ import androidx.core.view.WindowCompat
 import com.onyx.browser.autofill.ActivePasswordManagerInfo
 import com.onyx.browser.autofill.AutofillHelper
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxSwitchPreference
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.SwitchPreference
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class AutofillSettingsActivity : ComponentActivity() {
@@ -127,7 +127,7 @@ fun AutofillSettingsScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Autofill & Passwords",
                 onBackClick = onBackClick
             )
@@ -142,7 +142,7 @@ fun AutofillSettingsScreen(
                 .padding(bottom = 32.dp)
         ) {
             CategoryHeader("Password Manager & Credential Providers")
-            OnyxCardContainer {
+            CardContainer {
                 val title = if (manager != null) "${manager.appName} Active" else "No Autofill Service Selected"
                 val subtitle = if (manager != null) {
                     "${manager.appName} is configured as your active Android password manager."
@@ -150,21 +150,21 @@ fun AutofillSettingsScreen(
                     "Choose Bitwarden, Proton Pass, 1Password, KeePassDX, or your preferred manager."
                 }
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = title,
                     subtitle = subtitle,
                     icon = Icons.Default.Lock,
                     onClick = onOpenPasswordManager
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Change Autofill Service",
                     subtitle = "Configure Android system autofill provider in settings",
                     icon = Icons.Default.Settings,
                     onClick = onChangeAutofillService
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Configure Passkey Providers",
                     subtitle = "Manage FIDO2 passkeys & Credential Manager settings",
                     icon = Icons.Default.Key,
@@ -173,22 +173,22 @@ fun AutofillSettingsScreen(
             }
 
             CategoryHeader("Web Autofill & Credentials")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Autofill Forms & Credentials",
                     subtitle = "Automatically fill saved addresses, payment methods, and logins",
                     checked = isAutofillForms,
                     onCheckedChange = onAutofillFormsChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Ask to Save Passwords",
                     subtitle = "Prompt to save entered passwords to your active password manager",
                     checked = isSavePasswords,
                     onCheckedChange = onSavePasswordsChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Passkeys Support",
                     subtitle = "Enable passwordless WebAuthn / FIDO2 authentication on supported sites",
                     checked = isPasskeys,

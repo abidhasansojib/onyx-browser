@@ -3,12 +3,12 @@ package com.onyx.browser.web
 import com.onyx.browser.data.model.TabItem
 
 /**
- * Thin callback interface so [OnyxWebViewClient] can trigger tab-level actions
+ * Thin callback interface so [BrowserWebViewClient] can trigger tab-level actions
  * without holding a direct reference to [com.onyx.browser.MainActivity].
  *
- * Previously [OnyxWebViewClient] walked the Context wrapper chain via
+ * Previously [BrowserWebViewClient] walked the Context wrapper chain via
  * `findMainActivity()` to call MainActivity directly — a circular dependency.
- * [MainActivity] implements this interface and passes itself to [OnyxWebViewClient]
+ * [MainActivity] implements this interface and passes itself to [BrowserWebViewClient]
  * as the constructor parameter, breaking the cycle cleanly.
  */
 interface TabActionCallback {

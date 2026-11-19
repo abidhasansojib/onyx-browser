@@ -28,11 +28,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxRadioPreference
-import com.onyx.browser.ui.components.OnyxSwitchPreference
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.RadioPreference
+import com.onyx.browser.ui.components.SwitchPreference
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class DownloadSettingsActivity : ComponentActivity() {
@@ -107,7 +107,7 @@ fun DownloadSettingsScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Downloads Settings",
                 onBackClick = onBackClick
             )
@@ -122,14 +122,14 @@ fun DownloadSettingsScreen(
                 .padding(bottom = 32.dp)
         ) {
             CategoryHeader("Download Engine")
-            OnyxCardContainer {
-                OnyxPreferenceItem(
+            CardContainer {
+                PreferenceItem(
                     title = "Default Downloader",
                     subtitle = currentBehaviorText,
                     onClick = onBehaviorClick
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Download over Wi-Fi only",
                     subtitle = "Pause or prevent downloads when connected to mobile data",
                     checked = isWifiOnly,
@@ -169,7 +169,7 @@ fun DownloadBehaviorBottomSheet(
             )
 
             options.forEachIndexed { index, option ->
-                OnyxRadioPreference(
+                RadioPreference(
                     title = option,
                     selected = index == selectedIndex,
                     onClick = { onOptionSelected(index) }

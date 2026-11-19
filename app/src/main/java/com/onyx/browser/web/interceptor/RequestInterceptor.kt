@@ -3,14 +3,14 @@ package com.onyx.browser.web.interceptor
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 
 /**
  * Immutable snapshot of a WebView resource request passing through the interception pipeline.
  */
 data class InterceptRequestContext(
     val view: WebView?,
-    val onyxWebView: OnyxWebView?,
+    val onyxWebView: BrowserWebView?,
     val request: WebResourceRequest,
     val requestUrl: String,
     val requestHost: String,

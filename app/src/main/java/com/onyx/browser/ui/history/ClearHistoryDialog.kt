@@ -13,7 +13,7 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.fragment.app.DialogFragment
 import com.onyx.browser.R
-import com.onyx.browser.ui.components.OnyxAlertDialog
+import com.onyx.browser.ui.components.AppAlertDialog
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class ClearHistoryDialog(
@@ -35,7 +35,7 @@ class ClearHistoryDialog(
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 OnyxTheme {
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = stringResource(R.string.confirm_clear_history),
                         onDismissRequest = { dismiss() },
                         confirmButtonText = stringResource(R.string.clear),
@@ -53,7 +53,7 @@ class ClearHistoryDialog(
                                 if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
                                     try {
                                         val store = androidx.webkit.ProfileStore.getInstance()
-                                        val incognitoProfile = store.getProfile(com.onyx.browser.web.OnyxWebView.INCOGNITO_PROFILE_NAME)
+                                        val incognitoProfile = store.getProfile(com.onyx.browser.web.BrowserWebView.INCOGNITO_PROFILE_NAME)
                                         if (incognitoProfile != null) {
                                             incognitoProfile.cookieManager.removeAllCookies(null)
                                             incognitoProfile.cookieManager.flush()

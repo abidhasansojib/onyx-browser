@@ -279,13 +279,13 @@ object LocalFileLoader {
     }
 
     /**
-     * Asynchronously resolves, decodes, and loads a local document into the given OnyxWebView.
+     * Asynchronously resolves, decodes, and loads a local document into the given BrowserWebView.
      * All disk/ContentResolver I/O executes strictly on [Dispatchers.IO] to guarantee
      * an unblocked, 60fps UI thread.
      */
     fun loadLocalFile(
         context: Context,
-        webView: OnyxWebView,
+        webView: BrowserWebView,
         rawUriOrPath: String,
         onTitleResolved: ((String) -> Unit)? = null
     ) {
@@ -904,7 +904,7 @@ object LocalFileLoader {
     /**
      * Displays a clean, styled Material error card inside the WebView.
      */
-    fun showErrorPage(webView: OnyxWebView, pathOrUrl: String, errorDescription: String) {
+    fun showErrorPage(webView: BrowserWebView, pathOrUrl: String, errorDescription: String) {
         val accentHex = try { BrowserPreferences.getInstance(webView.context).accentColorHex } catch (_: Exception) { "#DC4B64" }
         val errorHtml = """
             <!DOCTYPE html>

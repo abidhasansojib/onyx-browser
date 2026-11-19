@@ -63,10 +63,10 @@ import com.onyx.browser.data.filter.FilterListEntry
 import com.onyx.browser.data.filter.FilterListManager
 import com.onyx.browser.data.filter.FilterUpdateWorker
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxAlertDialog
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxRadioPreference
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.RadioPreference
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -210,7 +210,7 @@ class ContentFiltersActivity : ComponentActivity() {
 
                 if (entryToDelete != null) {
                     val item = entryToDelete!!
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = "Remove filter list?",
                         text = { Text("Are you sure you want to remove '${item.entry.title}'?") },
                         confirmButtonText = "Remove",
@@ -325,7 +325,7 @@ fun ContentFiltersScreen(
 ) {
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Content Filters",
                 onBackClick = onBackClick,
                 actions = {
@@ -449,7 +449,7 @@ private fun FilterListCardItem(
     onDelete: (() -> Unit)? = null
 ) {
     val entry = item.entry
-    OnyxCardContainer {
+    CardContainer {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -518,7 +518,7 @@ private fun UpdateIntervalDialog(
         168 to "Every 7 days (1 week)"
     )
 
-    OnyxAlertDialog(
+    AppAlertDialog(
         title = "Auto-Update Interval",
         confirmButtonText = "Close",
         dismissButtonText = null,
@@ -527,7 +527,7 @@ private fun UpdateIntervalDialog(
         text = {
             Column {
                 intervals.forEach { (hours, label) ->
-                    OnyxRadioPreference(
+                    RadioPreference(
                         title = label,
                         selected = hours == currentHours,
                         onClick = { onSelectHours(hours) }

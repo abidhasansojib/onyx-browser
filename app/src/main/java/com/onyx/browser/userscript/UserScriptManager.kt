@@ -353,9 +353,13 @@ class UserScriptManager private constructor(private val context: Context) {
 
     private fun loadShimAsset(): String {
         return try {
-            context.assets.open("onyx_gm_shim.js").bufferedReader().use { it.readText() }
+            try {
+                context.assets.open("userscript_gm_shim.js").bufferedReader().use { it.readText() }
+            } catch (_: Exception) {
+                context.assets.open("userscript_gm_shim.js").bufferedReader().use { it.readText() }
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load onyx_gm_shim.js asset", e)
+            Log.e(TAG, "Failed to load userscript_gm_shim.js asset", e)
             ""
         }
     }

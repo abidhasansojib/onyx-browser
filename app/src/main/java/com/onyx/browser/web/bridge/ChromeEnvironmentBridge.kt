@@ -142,8 +142,8 @@ object ChromeEnvironmentBridge {
                     // Note: _OnyxPasskeyBridge is excluded from bridgeNames so passkeys remain functional on login pages.
                     // It is already hidden from window reflection (Object.getOwnPropertyNames, Reflect.ownKeys) via bridgePattern below.
                     var bridgeNames = [
-                        'OnyxShieldBridge', 'OnyxMediaBridge', 'OnyxErrorBridge',
-                        'OnyxBlobBridge', 'OnyxTouchBridge', 'OnyxTranslateBridge',
+                        'OnyxShieldBridge', 'OnyxMediaBridge', 'OnyxErrorBridge', 'WebErrorBridge',
+                        'OnyxBlobBridge', 'OnyxTouchBridge', 'OnyxTranslateBridge', 'PageTranslateBridge',
                         'OnyxNotificationBridge', 'OnyxFormBridge',
                         '__onyx_shields_active', '__onyxAdBlockEnabled',
                         '__onyxTouchInitialized', '_origFetch', '_origXHR'

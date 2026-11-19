@@ -12,7 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
 import com.onyx.browser.R
 import com.onyx.browser.databinding.ActivityMainBinding
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 
 /**
  * Encapsulates the Find-in-Page search bar lifecycle, query input,
@@ -21,7 +21,7 @@ import com.onyx.browser.web.OnyxWebView
 class FindInPageController(
     private val activity: Activity,
     private val binding: ActivityMainBinding,
-    private val getActiveWebView: () -> OnyxWebView?
+    private val getActiveWebView: () -> BrowserWebView?
 ) {
 
     var isRegexFindEnabled: Boolean = false

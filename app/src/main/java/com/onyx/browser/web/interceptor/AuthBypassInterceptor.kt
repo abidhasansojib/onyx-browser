@@ -6,8 +6,8 @@ import android.webkit.WebView
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.nativebridge.AdBlockEngine
 import com.onyx.browser.web.adblock.AdBlockDomainManager
-import com.onyx.browser.web.OnyxWebView
-import com.onyx.browser.web.OnyxWebViewClient
+import com.onyx.browser.web.BrowserWebView
+import com.onyx.browser.web.BrowserWebViewClient
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 
@@ -16,7 +16,7 @@ import java.nio.charset.StandardCharsets
  * without calling [InterceptorChain.proceed]) for:
  * - Bot challenges and CAPTCHA verification endpoints (Cloudflare Turnstile, Arkose, reCAPTCHA, hCaptcha)
  * - OAuth, SSO, identity, and payment providers (Google, Apple, Microsoft, GitHub, Stripe, PayPal, Meta)
- * - Active OAuth grace period subresources ([OnyxWebView.isWithinOAuthGracePeriod])
+ * - Active OAuth grace period subresources ([BrowserWebView.isWithinOAuthGracePeriod])
  * - Partitioned media streams and HLS/DASH segments ([PrivacyUrlSanitizer.isMediaUrl])
  */
 class AuthBypassInterceptor(
@@ -58,7 +58,7 @@ class AuthBypassInterceptor(
 
         val isMediaSubresource = resourceType == "media" ||
                 PrivacyUrlSanitizer.isMediaUrl(url) ||
-                OnyxWebViewClient.isMediaOrStreamingHost(reqDomain)
+                BrowserWebViewClient.isMediaOrStreamingHost(reqDomain)
 
         // Ensure active auth, CAPTCHA iframes, and media streams retain cross-site cookies
         if (isMetaContext || isCaptchaResource || isOAuthResource) {
@@ -73,8 +73,8 @@ class AuthBypassInterceptor(
         } else if (isMediaSubresource || resourceType == "sub_frame") {
             if (isMediaSubresource ||
                 (resourceType == "sub_frame" && (
-                        OnyxWebViewClient.isStreamingOrMediaPage(url) ||
-                        OnyxWebViewClient.isStreamingOrMediaPage(pageUrl)
+                        BrowserWebViewClient.isStreamingOrMediaPage(url) ||
+                        BrowserWebViewClient.isStreamingOrMediaPage(pageUrl)
                 ))
             ) {
                 onyxWebView?.hasActiveMediaSubresource = true

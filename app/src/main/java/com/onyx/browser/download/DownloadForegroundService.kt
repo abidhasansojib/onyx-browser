@@ -16,7 +16,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-class OnyxDownloadService : Service() {
+class DownloadForegroundService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private lateinit var notificationManager: NotificationManager
@@ -37,16 +37,16 @@ class OnyxDownloadService : Service() {
             val taskId = it.getLongExtra(DownloadNotificationHelper.EXTRA_TASK_ID, -1L)
             when (it.action) {
                 DownloadNotificationHelper.ACTION_PAUSE -> {
-                    if (taskId != -1L) OnyxDownloadManager.pauseDownload(taskId)
+                    if (taskId != -1L) DownloadEngineManager.pauseDownload(taskId)
                 }
                 DownloadNotificationHelper.ACTION_RESUME -> {
-                    if (taskId != -1L) OnyxDownloadManager.resumeDownload(taskId)
+                    if (taskId != -1L) DownloadEngineManager.resumeDownload(taskId)
                 }
                 DownloadNotificationHelper.ACTION_CANCEL -> {
-                    if (taskId != -1L) OnyxDownloadManager.cancelDownload(taskId)
+                    if (taskId != -1L) DownloadEngineManager.cancelDownload(taskId)
                 }
                 DownloadNotificationHelper.ACTION_RETRY -> {
-                    if (taskId != -1L) OnyxDownloadManager.retryDownload(taskId)
+                    if (taskId != -1L) DownloadEngineManager.retryDownload(taskId)
                 }
             }
         }
@@ -78,7 +78,7 @@ class OnyxDownloadService : Service() {
 
     private fun observeDownloadTasks() {
         serviceScope.launch {
-            OnyxDownloadManager.snapshotsFlow.collectLatest { snapshots ->
+            DownloadEngineManager.snapshotsFlow.collectLatest { snapshots ->
                 val activeOrPaused = snapshots.values.filter {
                     it.status == DownloadTask.STATUS_RUNNING ||
                     it.status == DownloadTask.STATUS_PAUSED ||
@@ -98,15 +98,15 @@ class OnyxDownloadService : Service() {
                     }
                     stopSelf()
                 } else {
-                    val primaryTask = activeOrPaused.firstOrNull()?.let { OnyxDownloadManager.getTask(it.id) }
+                    val primaryTask = activeOrPaused.firstOrNull()?.let { DownloadEngineManager.getTask(it.id) }
                     if (primaryTask != null) {
                         // Cancel any standalone notification for primary task to prevent duplicates
                         notificationManager.cancel(primaryTask.notificationId)
 
                         val primaryNotification = if (primaryTask.status == DownloadTask.STATUS_PAUSED) {
-                            DownloadNotificationHelper.buildPausedNotification(this@OnyxDownloadService, primaryTask)
+                            DownloadNotificationHelper.buildPausedNotification(this@DownloadForegroundService, primaryTask)
                         } else {
-                            DownloadNotificationHelper.buildRunningNotification(this@OnyxDownloadService, primaryTask)
+                            DownloadNotificationHelper.buildRunningNotification(this@DownloadForegroundService, primaryTask)
                         }
 
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -122,11 +122,11 @@ class OnyxDownloadService : Service() {
 
                         // For any additional concurrent downloads (index 1..n), post separate notifications
                         for (i in 1 until activeOrPaused.size) {
-                            val additional = OnyxDownloadManager.getTask(activeOrPaused[i].id) ?: continue
+                            val additional = DownloadEngineManager.getTask(activeOrPaused[i].id) ?: continue
                             val notif = if (additional.status == DownloadTask.STATUS_PAUSED) {
-                                DownloadNotificationHelper.buildPausedNotification(this@OnyxDownloadService, additional)
+                                DownloadNotificationHelper.buildPausedNotification(this@DownloadForegroundService, additional)
                             } else {
-                                DownloadNotificationHelper.buildRunningNotification(this@OnyxDownloadService, additional)
+                                DownloadNotificationHelper.buildRunningNotification(this@DownloadForegroundService, additional)
                             }
                             notificationManager.notify(additional.notificationId, notif)
                         }
@@ -149,3 +149,6 @@ class OnyxDownloadService : Service() {
         private const val FOREGROUND_NOTIFICATION_ID = 8801
     }
 }
+
+typealias OnyxDownloadService = DownloadForegroundService
+

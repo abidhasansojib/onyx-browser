@@ -33,7 +33,7 @@ Onyx Browser (`com.onyx.browser`) consists of a native Android presentation laye
 
 ## 2. Core Subsystems
 
-### 2.1. Ad-Blocking Subsystem (`OnyxWebViewClient` & `AdBlockEngine`)
+### 2.1. Ad-Blocking Subsystem (`BrowserWebViewClient` & `AdBlockEngine`)
 
 - **Pure Filter-List Evaluation & Kotlin LRU Decision Cache**:
   - Popunder, ad, tracker, and clickjack blocking decisions are driven 100% by filter lists (54 compiled Brave filter lists + EasyList) evaluated in native `adblock-rust`.
@@ -60,7 +60,7 @@ Onyx Browser (`com.onyx.browser`) consists of a native Android presentation laye
 
 - **Surrogate Redirect (`$redirect`) & URL Rewrite (`$rewrite`) Handling**:
   - Evaluates `$redirect` surrogate targets and `data:` `$rewrite` rules with credentialed-CORS headers (`Access-Control-Allow-Origin: <Origin>` + `Access-Control-Allow-Credentials: true`). Script and XHR resources serve safe surrogates (`google-analytics_analytics.js`, `googletagmanager_gtm.js`, `adsbygoogle.js`, `google-ima.js`, `noopjson`, `noopvast`, `noopjs`) with HTTP 200 OK.
-  - Document-start `fetch` / `XMLHttpRequest` proxies delegate to `ShieldBridge.isUrlBlocked` first and allow `$redirect` and VAST/VMAP requests through to `OnyxWebViewClient.shouldInterceptRequest`.
+  - Document-start `fetch` / `XMLHttpRequest` proxies delegate to `ShieldBridge.isUrlBlocked` first and allow `$redirect` and VAST/VMAP requests through to `BrowserWebViewClient.shouldInterceptRequest`.
 
 - **CSP Directives Extraction & MSE Worker Preservation**:
   - Queries `engine.get_csp_directives(&request)` to enforce Content Security Policies declared by filter rules. `ShieldBridge.getCspDirectives` strips `<meta>`-invalid directives (`sandbox`, `frame-ancestors`, `report-uri`) and rewrites `worker-src 'none'` to `worker-src blob:` so in-memory MSE `blob:` Web Workers (`hls.js`, `dash.js`) continue demuxing video streams.
@@ -80,11 +80,11 @@ Onyx Browser (`com.onyx.browser`) consists of a native Android presentation laye
   - *Capture-Phase Clickjack Annihilation (`AdBlockDocumentStart.kt`)*: Intercepts touches on empty invisible clickjack traps (`clickjack` classes/IDs, empty `opacity: 0` max-z-index shields, empty full-player `target="_blank"` anchors) without matching player controls or synthetically toggling playback.
   - *Google IMA SDK Surrogate & Fallback Alignment*: Blocked `ima3.js` scripts return HTTP 403 (`script.onerror` fallback), `$redirect=google-ima.js` rules serve Brave's full IMA surrogate, and `@@||imasdk.googleapis.com` whitelist exceptions load normally.
   - *HTML5 Video In-Stream Ad Skipper*: Monitors active ad-playback states (`.jw-flag-ads video`, `.vjs-ad-playing video`, `.ad-showing video`, `.videoAdUi video`). Automatically mutes ad audio, accelerates playback rate to 16x, jumps to the end of ad duration, and clicks explicit ad-skip buttons.
-  - *Cross-Domain Redirect Interception (`OnyxWebViewClient`)*: `shouldOverrideUrlLoading` intercepts cross-domain navigations away from media/streaming pages to known ad/betting networks.
+  - *Cross-Domain Redirect Interception (`BrowserWebViewClient`)*: `shouldOverrideUrlLoading` intercepts cross-domain navigations away from media/streaming pages to known ad/betting networks.
   - *VAST/VMAP Empty XML Synthesis*: XHR/fetch requests matching VAST or VMAP ad tags return valid empty `<VAST version="3.0"/>` XML (`text/xml; charset=utf-8`) with HTTP 200 OK and CORS headers.
 
 - **Trusted Types CSP Immunity for Brave Scriptlets**:
-  - On sites serving `require-trusted-types-for 'script'` CSP (such as YouTube), `AdBlockDocumentStart.kt` and `OnyxWebViewClient.kt` create an early Trusted Types policy (`onyx-shield-policy`) with fallback to DOM `<script>` injection, ensuring scriptlets execute reliably.
+  - On sites serving `require-trusted-types-for 'script'` CSP (such as YouTube), `AdBlockDocumentStart.kt` and `BrowserWebViewClient.kt` create an early Trusted Types policy (`onyx-shield-policy`) with fallback to DOM `<script>` injection, ensuring scriptlets execute reliably.
 
 - **Declarative Shadow DOM (DSD) Progressive Hydration Safety Net (`DsdHydrationFix`)**:
   - In `com.onyx.browser.web.adblock.DsdHydrationFix`, removes `dsd-pending` attributes across root documents and open shadow roots on `onPageFinished`, preventing blank pages when progressive hydration scripts are blocked by tracker filters.
@@ -93,7 +93,7 @@ Onyx Browser (`com.onyx.browser`) consists of a native Android presentation laye
 
 ### 2.2. Media & Playback Subsystem (`MediaPlaybackManager`, `MediaPlaybackBridge`, and `MediaPlaybackService`)
 
-- **Transparent Video Poster (`OnyxWebChromeClient`)**:
+- **Transparent Video Poster (`BrowserWebChromeClient`)**:
   - Overrides `getDefaultVideoPoster()` to return a cached 1×1 transparent ARGB_8888 bitmap, removing Android WebView's default dark-gray box with embedded play arrow.
 
 - **Muted Looping & Decorative Visual Filtering (`isQualifyingMedia`)**:
@@ -143,7 +143,7 @@ Onyx Browser (`com.onyx.browser`) consists of a native Android presentation laye
 ### 2.3. Chromium Multi-Profile Isolation (Normal vs. Incognito)
 
 - **Profile Partitioning**:
-  - `OnyxWebView` assigns profile-scoped cookie jars and WebStorage via `ProfileStore.getOrCreateProfile("incognito")` and `WebViewCompat.setProfile()`. Normal and incognito tabs maintain isolated cookies, localStorage, IndexedDB, and cache.
+  - `BrowserWebView` assigns profile-scoped cookie jars and WebStorage via `ProfileStore.getOrCreateProfile("incognito")` and `WebViewCompat.setProfile()`. Normal and incognito tabs maintain isolated cookies, localStorage, IndexedDB, and cache.
 
 - **Deferred Cookie Configuration**:
   - `applyCookieSettings()` executes strictly after profile assignment, preventing incognito tabs from binding to the default profile.
@@ -185,7 +185,7 @@ Onyx Browser (`com.onyx.browser`) consists of a native Android presentation laye
   - Explicit `MediaPlaybackService.stop(applicationContext)` in `MainActivity.onDestroy()` and `onTaskRemoved()` in `MediaPlaybackService` prevent orphaned foreground services.
 
 - **Renderer Crash Self-Healing**:
-  - `OnyxWebViewClient.onRenderProcessGone` catches renderer process terminations and OOM kills. Delegates to `TabCoordinator.handleRendererCrash(tabId)` to evict the crashed WebView and recreate a fresh instance with restored state.
+  - `BrowserWebViewClient.onRenderProcessGone` catches renderer process terminations and OOM kills. Delegates to `TabCoordinator.handleRendererCrash(tabId)` to evict the crashed WebView and recreate a fresh instance with restored state.
 
 - **BroadcastReceiver Asynchronous Execution (`goAsync`)**:
   - Receivers performing Room writes or profile purges (`DownloadCompleteReceiver`, `IncognitoNotificationReceiver`) invoke `goAsync()` and dispatch work to `CoroutineScope(Dispatchers.IO)`.
@@ -232,7 +232,7 @@ Onyx Browser (`com.onyx.browser`) consists of a native Android presentation laye
   - `BrowserUiState` defines the immutable state for browser chrome (`activeTab`, tab counts, loading state, navigation availability, shields stats, address bar position).
   - `BrowserViewModel` coordinates `TabCoordinator` state flows and `BrowserPreferences.blockedRequestsFlow` within `viewModelScope`.
   - `HistoryViewModel`, `BookmarksViewModel`, and `DownloadsViewModel` accept constructor-injected repositories from `AppContainer`.
-  - `OnyxViewModelFactory` (`com.onyx.browser.di`) constructs ViewModels deterministically with repositories supplied from `AppContainer`.
+  - `AppViewModelFactory` (`com.onyx.browser.di`) constructs ViewModels deterministically with repositories supplied from `AppContainer`.
 
 - **MainActivity UI Coordinators & Controllers (`com.onyx.browser.ui.browser`)**:
   - `ToolbarLayoutController`: Address bar ConstraintSet transitions (Top vs. Bottom), Edge-to-Edge insets, and scroll auto-hide.

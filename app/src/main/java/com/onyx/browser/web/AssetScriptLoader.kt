@@ -32,7 +32,7 @@ object AssetScriptLoader {
 
     /**
      * Pre-loads all registered JavaScript assets into memory.
-     * Safe to invoke from a background I/O thread during [com.onyx.browser.OnyxApplication.onCreate].
+     * Safe to invoke from a background I/O thread during [com.onyx.browser.BrowserApplication.onCreate].
      */
     fun preloadAll(context: Context) {
         val appCtx = context.applicationContext ?: context

@@ -17,7 +17,7 @@ import androidx.fragment.app.DialogFragment
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
-import com.onyx.browser.ui.components.OnyxAlertDialog
+import com.onyx.browser.ui.components.AppAlertDialog
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class CloseAllTabsDialog @JvmOverloads constructor(
@@ -77,7 +77,7 @@ class CloseAllTabsDialog @JvmOverloads constructor(
                         stringResource(R.string.close_all_tabs)
                     }
 
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = title,
                         onDismissRequest = { dismissAllowingStateLoss() },
                         confirmButtonText = confirmText,

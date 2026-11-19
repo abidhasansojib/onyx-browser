@@ -18,7 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun OnyxRadioPreference(
+fun RadioPreference(
     title: String,
     selected: Boolean,
     onClick: () -> Unit,
@@ -63,3 +63,13 @@ fun OnyxRadioPreference(
         }
     }
 }
+
+@Composable
+fun OnyxRadioPreference(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null
+) = RadioPreference(title, selected, onClick, modifier, subtitle)
+

@@ -7,7 +7,7 @@ import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.widget.Toast
 import com.onyx.browser.MainActivity
-import com.onyx.browser.web.OnyxWebView
+import com.onyx.browser.web.BrowserWebView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,8 +30,8 @@ import java.util.regex.Pattern
  * (completely immune to webpage Content Security Policy restrictions),
  * and dispatches translated strings back to the WebView to update DOM text nodes in real time.
  */
-class OnyxTranslateBridge(
-    private val webView: OnyxWebView,
+class PageTranslateBridge(
+    private val webView: BrowserWebView,
     private val coroutineScope: CoroutineScope
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -40,7 +40,7 @@ class OnyxTranslateBridge(
     private var lastToastTime = 0L
 
     companion object {
-        const val INTERFACE_NAME = "OnyxTranslateBridge"
+        const val INTERFACE_NAME = "PageTranslateBridge"
 
         private val HTTP_CLIENT: OkHttpClient by lazy {
             OkHttpClient.Builder()
@@ -204,3 +204,6 @@ class OnyxTranslateBridge(
             .replace("&amp;", "&")
     }
 }
+
+typealias OnyxTranslateBridge = PageTranslateBridge
+

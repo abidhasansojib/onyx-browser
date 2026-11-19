@@ -57,9 +57,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.onyx.browser.data.model.SearchEngine
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxAlertDialog
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.ui.widget.SearchWidgetProvider
 import java.util.UUID
@@ -135,7 +135,7 @@ class SearchEngineSettingsActivity : ComponentActivity() {
 
                 if (engineToDelete != null) {
                     val toDelete = engineToDelete!!
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = "Delete search engine?",
                         text = {
                             Text("Are you sure you want to delete '${toDelete.displayName}'?")
@@ -175,7 +175,7 @@ fun SearchEngineSettingsScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Search Engines",
                 onBackClick = onBackClick,
                 actions = {
@@ -199,7 +199,7 @@ fun SearchEngineSettingsScreen(
                 .padding(bottom = 32.dp)
         ) {
             CategoryHeader("Standard Search Engines")
-            OnyxCardContainer {
+            CardContainer {
                 SearchEngine.BUILT_IN.forEach { engine ->
                     SearchEngineRow(
                         engine = engine,
@@ -210,7 +210,7 @@ fun SearchEngineSettingsScreen(
             }
 
             CategoryHeader("Custom Search Engines")
-            OnyxCardContainer {
+            CardContainer {
                 if (customEngines.isEmpty()) {
                     Box(
                         modifier = Modifier

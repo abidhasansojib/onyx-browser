@@ -806,7 +806,7 @@ class TabSwitcherBottomSheet(
                         )
                     } else {
                         Icon(
-                            painter = painterResource(R.drawable.ic_onyx_emblem),
+                            painter = painterResource(R.drawable.ic_app_emblem),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
                             modifier = Modifier.size(48.dp)
@@ -828,7 +828,7 @@ class TabSwitcherBottomSheet(
         ) {
             Icon(
                 painter = painterResource(
-                    if (isViewingIncognito) R.drawable.ic_incognito else R.drawable.ic_onyx_emblem
+                    if (isViewingIncognito) R.drawable.ic_incognito else R.drawable.ic_app_emblem
                 ),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),

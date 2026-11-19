@@ -31,9 +31,9 @@ import androidx.core.view.WindowCompat
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.media.MediaPlaybackBridge
 import com.onyx.browser.media.MediaPlaybackService
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxSwitchPreference
-import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.SwitchPreference
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class VideoSettingsActivity : ComponentActivity() {
@@ -177,7 +177,7 @@ fun VideoSettingsScreen(
 
     Scaffold(
         topBar = {
-            OnyxTopAppBar(
+            AppTopBar(
                 title = "Video & Media Playback",
                 onBackClick = onBackClick
             )
@@ -192,15 +192,15 @@ fun VideoSettingsScreen(
                 .padding(bottom = 32.dp)
         ) {
             CategoryHeader("Playback Mode")
-            OnyxCardContainer {
-                OnyxSwitchPreference(
+            CardContainer {
+                SwitchPreference(
                     title = "Background Audio / Video Playback",
                     subtitle = "Continue playing media when minimizing the app or locking the screen",
                     checked = isBackgroundPlay,
                     onCheckedChange = onBackgroundPlayChange
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Picture-in-Picture (PiP)",
                     subtitle = "Automatically pop out video into a floating window when navigating home",
                     checked = isPip,

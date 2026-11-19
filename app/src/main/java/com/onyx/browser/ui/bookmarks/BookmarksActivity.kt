@@ -67,8 +67,8 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.ui.components.OnyxAlertDialog
-import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.ui.viewmodel.BookmarksViewModel
 
@@ -182,7 +182,7 @@ class BookmarksActivity : ComponentActivity() {
 
                 if (bookmarkToDelete != null) {
                     val toDelete = bookmarkToDelete!!
-                    OnyxAlertDialog(
+                    AppAlertDialog(
                         title = "Delete bookmark?",
                         text = { Text("Are you sure you want to delete '${toDelete.title}'?") },
                         confirmButtonText = "Delete",
@@ -309,7 +309,7 @@ fun BookmarksScreen(
                     .padding(bottom = 80.dp)
             ) {
                 items(bookmarks, key = { it.id }) { item ->
-                    OnyxCardContainer {
+                    CardContainer {
                         BookmarkItemRow(
                             item = item,
                             onClick = { onItemClick(item) },

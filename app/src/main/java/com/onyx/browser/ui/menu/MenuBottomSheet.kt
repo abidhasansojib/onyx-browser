@@ -77,9 +77,9 @@ import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
-import com.onyx.browser.ui.components.OnyxCardContainer
-import com.onyx.browser.ui.components.OnyxPreferenceItem
-import com.onyx.browser.ui.components.OnyxSwitchPreference
+import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.SwitchPreference
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.settings.SettingsActivity
@@ -348,7 +348,7 @@ fun MenuSheetLayout(
         if (!isHomePage && currentUrl.isNotBlank()) {
             val domain = Uri.parse(currentUrl).host?.removePrefix("www.") ?: "Webpage"
             // Page Header Card
-            OnyxCardContainer {
+            CardContainer {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -384,21 +384,21 @@ fun MenuSheetLayout(
         }
 
         // Standard Menu Actions
-        OnyxCardContainer {
-            OnyxPreferenceItem(
+        CardContainer {
+            PreferenceItem(
                 title = "New Tab",
                 icon = Icons.Default.Add,
                 onClick = onNewTabClick
             )
 
-            OnyxPreferenceItem(
+            PreferenceItem(
                 title = "New Incognito Tab",
                 icon = Icons.Default.VisibilityOff,
                 onClick = onNewIncognitoTabClick
             )
 
             if (!isHomePage && currentUrl.isNotBlank()) {
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Close Tab",
                     icon = Icons.Default.Close,
                     onClick = onCloseTabClick
@@ -406,13 +406,13 @@ fun MenuSheetLayout(
             }
 
             if (!isHomePage) {
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Find in Page",
                     icon = Icons.Default.FindInPage,
                     onClick = onFindInPageClick
                 )
 
-                OnyxSwitchPreference(
+                SwitchPreference(
                     title = "Desktop Site",
                     subtitle = "Request desktop version of this website",
                     icon = Icons.Default.Computer,
@@ -420,20 +420,20 @@ fun MenuSheetLayout(
                     onCheckedChange = onDesktopToggle
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Translate Webpage",
                     icon = Icons.Default.Translate,
                     onClick = onTranslateClick
                 )
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Save Page as MHTML",
                     icon = Icons.Default.Save,
                     onClick = onSavePageClick
                 )
 
                 if (isAddToHomeScreenVisible) {
-                    OnyxPreferenceItem(
+                    PreferenceItem(
                         title = "Add to Home Screen",
                         icon = Icons.Default.AddCircleOutline,
                         onClick = onAddToHomeScreenClick
@@ -441,14 +441,14 @@ fun MenuSheetLayout(
                 }
 
                 if (isBlockElementVisible) {
-                    OnyxPreferenceItem(
+                    PreferenceItem(
                         title = "Block Element on Page",
                         icon = Icons.Default.Build,
                         onClick = onBlockElementClick
                     )
                 }
 
-                OnyxPreferenceItem(
+                PreferenceItem(
                     title = "Developer Tools",
                     subtitle = "Open in-page Eruda debugging console",
                     icon = Icons.Default.Code,
@@ -456,7 +456,7 @@ fun MenuSheetLayout(
                 )
             }
 
-            OnyxPreferenceItem(
+            PreferenceItem(
                 title = "Settings",
                 icon = Icons.Default.Settings,
                 onClick = onSettingsClick

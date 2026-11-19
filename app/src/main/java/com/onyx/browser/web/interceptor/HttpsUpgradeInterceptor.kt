@@ -9,7 +9,7 @@ import com.onyx.browser.web.EmptyInputStream
  * mixed-content media streams and local/private network addresses.
  *
  * Note: Top-level main-frame HTTP -> HTTPS navigation upgrades are performed in
- * `OnyxWebViewClient.shouldOverrideUrlLoading` because Android WebView's
+ * `BrowserWebViewClient.shouldOverrideUrlLoading` because Android WebView's
  * `shouldInterceptRequest` does not follow synthetic 3xx redirects.
  */
 class HttpsUpgradeInterceptor(
