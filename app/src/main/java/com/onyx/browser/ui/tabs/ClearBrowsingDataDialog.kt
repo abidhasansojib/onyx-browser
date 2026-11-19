@@ -10,7 +10,11 @@ import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebViewDatabase
 import android.widget.Toast
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -23,12 +27,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.R
@@ -179,131 +187,190 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             tonalElevation = 6.dp,
+            shadowElevation = 12.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .padding(24.dp)
                     .verticalScroll(rememberScrollState())
             ) {
+                // Dialog Title
                 Text(
                     text = stringResource(R.string.delete_browsing_data),
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 21.sp),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Time Range Selector
+                // Time Range Label
                 Text(
                     text = "Time range",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 16.dp)
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                ExposedDropdownMenuBox(
-                    expanded = timeRangeDropdownExpanded,
-                    onExpandedChange = { timeRangeDropdownExpanded = !timeRangeDropdownExpanded }
+                // Time Range Spinner Dropdown
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp)
                 ) {
-                    OutlinedTextField(
-                        value = timeRanges[selectedTimeRangeIndex],
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = timeRangeDropdownExpanded)
-                        },
-                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                        shape = RoundedCornerShape(12.dp),
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
-                    )
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                            .clickable { timeRangeDropdownExpanded = true }
+                            .padding(horizontal = 16.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = timeRanges[selectedTimeRangeIndex],
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-                    ExposedDropdownMenu(
+                    DropdownMenu(
                         expanded = timeRangeDropdownExpanded,
-                        onDismissRequest = { timeRangeDropdownExpanded = false }
+                        onDismissRequest = { timeRangeDropdownExpanded = false },
+                        modifier = Modifier.widthIn(min = 260.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        tonalElevation = 6.dp,
+                        shadowElevation = 8.dp
                     ) {
                         timeRanges.forEachIndexed { index, text ->
                             DropdownMenuItem(
-                                text = { Text(text) },
+                                text = {
+                                    Text(
+                                        text = text,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
+                                        fontWeight = if (index == selectedTimeRangeIndex) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (index == selectedTimeRangeIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
                                 onClick = {
                                     selectedTimeRangeIndex = index
                                     timeRangeDropdownExpanded = false
-                                }
+                                },
+                                modifier = Modifier.height(44.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // Options Card with Granular Checkboxes
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    elevation = CardDefaults.cardElevation(0.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // 1. Browsing History Option
+                        ClearDataItemRow(
+                            iconRes = R.drawable.ic_history,
+                            title = stringResource(R.string.browsing_history_preview, historyCount, ""),
+                            subtitle = historyExample,
+                            checked = clearHistory,
+                            onCheckedChange = { clearHistory = it }
+                        )
 
-                // History Row
-                ClearDataItemRow(
-                    title = "Browsing history",
-                    subtitle = stringResource(R.string.browsing_history_preview, historyCount, ""),
-                    example = historyExample,
-                    checked = clearHistory,
-                    onCheckedChange = { clearHistory = it }
-                )
+                        HorizontalDivider(
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                        )
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        // 2. Open Tabs Option
+                        ClearDataItemRow(
+                            iconRes = R.drawable.ic_tabs,
+                            title = stringResource(R.string.open_tabs_preview, tabsCount, ""),
+                            subtitle = tabsExample,
+                            checked = clearTabs,
+                            onCheckedChange = { clearTabs = it }
+                        )
 
-                // Tabs Row
-                ClearDataItemRow(
-                    title = "Open tabs",
-                    subtitle = stringResource(R.string.open_tabs_preview, tabsCount, ""),
-                    example = tabsExample,
-                    checked = clearTabs,
-                    onCheckedChange = { clearTabs = it }
-                )
+                        HorizontalDivider(
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                        )
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        // 3. Cookies and Site Data Option
+                        ClearDataItemRow(
+                            iconRes = R.drawable.ic_shield_lock,
+                            title = stringResource(R.string.clear_data_cookies),
+                            subtitle = stringResource(R.string.clear_data_cookies_desc),
+                            checked = clearCookies,
+                            onCheckedChange = { clearCookies = it }
+                        )
 
-                // Cookies Row
-                ClearDataItemRow(
-                    title = stringResource(R.string.clear_data_cookies),
-                    subtitle = stringResource(R.string.clear_data_cookies_desc),
-                    example = null,
-                    checked = clearCookies,
-                    onCheckedChange = { clearCookies = it }
-                )
+                        HorizontalDivider(
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                        )
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        // 4. Cached Images and Files Option
+                        ClearDataItemRow(
+                            iconRes = R.drawable.ic_broom,
+                            title = stringResource(R.string.clear_data_cache),
+                            subtitle = stringResource(R.string.clear_data_cache_desc),
+                            checked = clearCache,
+                            onCheckedChange = { clearCache = it }
+                        )
+                    }
+                }
 
-                // Cache Row
-                ClearDataItemRow(
-                    title = stringResource(R.string.clear_data_cache),
-                    subtitle = stringResource(R.string.clear_data_cache_desc),
-                    example = null,
-                    checked = clearCache,
-                    onCheckedChange = { clearCache = it }
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Buttons Row
+                // Dialog Buttons: Cancel & Clear Data
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 22.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(
+                    // Cancel Button
+                    Button(
                         onClick = { dismissAllowingStateLoss() },
-                        enabled = !isClearing
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        enabled = !isClearing,
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
                     ) {
                         Text(
                             text = stringResource(R.string.cancel),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
 
+                    // Clear Data Button
                     Button(
                         onClick = {
                             isClearing = true
@@ -315,21 +382,30 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                                 clearCache = clearCache
                             )
                         },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
                         enabled = hasSelection && !isClearing,
+                        shape = RoundedCornerShape(24.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
+                            disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.38f)
+                        )
                     ) {
                         if (isClearing) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onError
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
                         } else {
-                            Text(stringResource(R.string.clear_data))
+                            Text(
+                                text = stringResource(R.string.clear_data),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
@@ -339,9 +415,9 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
 
     @Composable
     private fun ClearDataItemRow(
+        @DrawableRes iconRes: Int,
         title: String,
         subtitle: String,
-        example: String?,
         checked: Boolean,
         onCheckedChange: (Boolean) -> Unit
     ) {
@@ -349,39 +425,47 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onCheckedChange(!checked) }
-                .padding(vertical = 8.dp),
+                .padding(start = 14.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .padding(end = 12.dp)
+                    .size(22.dp)
+            )
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
             Checkbox(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 colors = CheckboxDefaults.colors(
-                    checkedColor = MaterialTheme.colorScheme.primary
+                    checkedColor = MaterialTheme.colorScheme.primary,
+                    uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (!example.isNullOrBlank()) {
-                    Text(
-                        text = example,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
-            }
         }
     }
 
