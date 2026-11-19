@@ -9,6 +9,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,10 +27,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -37,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
@@ -74,6 +83,19 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
         val context = LocalContext.current
         val prefs = remember { BrowserPreferences.getInstance(context) }
         val shortcuts by prefs.shortcutsFlow.collectAsStateWithLifecycle(initialValue = prefs.getShortcuts())
+        val haptic = LocalHapticFeedback.current
+
+        var localShortcutsList by remember(shortcuts) { mutableStateOf(shortcuts) }
+
+        LaunchedEffect(shortcuts) {
+            if (localShortcutsList.map { it.id } != shortcuts.map { it.id }) {
+                localShortcutsList = shortcuts
+            }
+        }
+
+        var draggedRowId by remember { mutableStateOf<String?>(null) }
+        var dragRowOffsetY by remember { mutableStateOf(0f) }
+        val rowBounds = remember { mutableStateMapOf<String, Rect>() }
 
         var newTitle by remember { mutableStateOf("") }
         var newUrl by remember { mutableStateOf("") }
@@ -253,7 +275,7 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                             contentScale = ContentScale.Fit,
                                             modifier = Modifier
                                                 .size(18.dp)
-                                                .clip(CircleShape)
+                                                .clip(RoundedCornerShape(4.dp))
                                         )
                                     }
                                     else -> {
@@ -298,15 +320,73 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                         .weight(1f, fill = false),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(shortcuts, key = { it.id }) { item ->
+                    items(localShortcutsList, key = { it.id }) { item ->
                         val isSystem = item.isSystemShortcut
                         val favicon = if (!isSystem) rememberFavicon(item.url) else null
+                        val isRowDragging = draggedRowId == item.id
 
                         Surface(
                             shape = RoundedCornerShape(14.dp),
                             color = MaterialTheme.colorScheme.surface,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onGloballyPositioned { coords ->
+                                    rowBounds[item.id] = coords.boundsInRoot()
+                                }
+                                .zIndex(if (isRowDragging) 10f else 1f)
+                                .graphicsLayer {
+                                    if (isRowDragging) {
+                                        translationY = dragRowOffsetY
+                                        scaleX = 1.02f
+                                        scaleY = 1.02f
+                                        shadowElevation = 16f
+                                    }
+                                }
+                                .pointerInput(item.id) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            draggedRowId = item.id
+                                            dragRowOffsetY = 0f
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        },
+                                        onDrag = { change, dragAmount ->
+                                            change.consume()
+                                            dragRowOffsetY += dragAmount.y
+                                            val origBounds = rowBounds[item.id]
+                                            if (origBounds != null) {
+                                                val currentCenterY = origBounds.center.y + dragRowOffsetY
+                                                val targetItem = localShortcutsList.firstOrNull { other ->
+                                                    other.id != item.id && (rowBounds[other.id]?.let { currentCenterY in it.top..it.bottom } == true)
+                                                }
+                                                if (targetItem != null) {
+                                                    val fromIdx = localShortcutsList.indexOfFirst { it.id == item.id }
+                                                    val toIdx = localShortcutsList.indexOfFirst { it.id == targetItem.id }
+                                                    if (fromIdx != -1 && toIdx != -1 && fromIdx != toIdx) {
+                                                        val targetBounds = rowBounds[targetItem.id]
+                                                        if (targetBounds != null) {
+                                                            dragRowOffsetY -= (targetBounds.top - origBounds.top)
+                                                            val updated = localShortcutsList.toMutableList()
+                                                            val moved = updated.removeAt(fromIdx)
+                                                            updated.add(toIdx, moved)
+                                                            localShortcutsList = updated
+                                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            prefs.saveShortcuts(localShortcutsList)
+                                            draggedRowId = null
+                                            dragRowOffsetY = 0f
+                                        },
+                                        onDragCancel = {
+                                            draggedRowId = null
+                                            dragRowOffsetY = 0f
+                                        }
+                                    )
+                                }
                         ) {
                             Row(
                                 modifier = Modifier
@@ -314,10 +394,19 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_more_vert),
+                                    contentDescription = "Reorder",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .padding(end = 4.dp)
+                                )
+
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
-                                        .clip(if (isSystem) RoundedCornerShape(10.dp) else CircleShape)
+                                        .clip(RoundedCornerShape(10.dp))
                                         .background(colorResource(R.color.shortcut_tile_bg)),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -350,7 +439,7 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                                 contentScale = ContentScale.Fit,
                                                 modifier = Modifier
                                                     .size(20.dp)
-                                                    .clip(CircleShape)
+                                                    .clip(RoundedCornerShape(4.dp))
                                             )
                                         }
                                         else -> {
