@@ -5,72 +5,112 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.res.Configuration
-import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.view.View
 import android.webkit.WebView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
-import androidx.lifecycle.lifecycleScope
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.onyx.browser.BuildConfig
 import com.onyx.browser.R
-import com.onyx.browser.databinding.ActivityAboutBinding
+import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.ui.components.OnyxAlertDialog
+import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.OnyxPreferenceItem
+import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.update.AppUpdateManager
 import com.onyx.browser.update.AppUpdatePromptHelper
 import com.onyx.browser.update.UpdateCheckResult
-import com.onyx.browser.update.UpdateInfo
-import com.onyx.browser.ui.theme.AccentColorManager
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class AboutActivity : AppCompatActivity() {
+class AboutActivity : ComponentActivity() {
 
-    private lateinit var binding: ActivityAboutBinding
-    private var isCheckingUpdate = false
+    private var isCheckingUpdate by mutableStateOf(false)
+    private var updateStatusText by mutableStateOf("Check for updates")
+    private var showUpToDateDialog by mutableStateOf(false)
+    private var currentVersionTag by mutableStateOf("")
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
-
-        // Enable edge-to-edge transparent system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
 
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        insetsController.isAppearanceLightStatusBars = !isNightMode
-        insetsController.isAppearanceLightNavigationBars = !isNightMode
+        val prefs = BrowserPreferences.getInstance(this)
+        val isAmoled = prefs.themeMode == BrowserPreferences.THEME_DARK && prefs.isAmoledMode()
 
-        binding = ActivityAboutBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContent {
+            val isDark = when (prefs.themeMode) {
+                BrowserPreferences.THEME_DARK -> true
+                BrowserPreferences.THEME_LIGHT -> false
+                else -> isSystemInDarkTheme()
+            }
 
-        // Apply WindowInsets to avoid collision with status bar and navigation bar
-        ViewCompat.setOnApplyWindowInsetsListener(binding.aboutRoot) { _, insets ->
-            val statusBarInsets = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                AboutScreen(
+                    onBackClick = { finish() },
+                    isChecking = isCheckingUpdate,
+                    updateStatus = updateStatusText,
+                    onCheckUpdateClick = { performUpdateCheck(manual = true) },
+                    onCopyText = { label, text -> copyToClipboard(label, text) },
+                    onOpenUrl = { url -> openUrl(url) }
+                )
 
-            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
-            binding.scrollView.updatePadding(bottom = navBarInsets.bottom)
-            insets
+                if (showUpToDateDialog) {
+                    OnyxAlertDialog(
+                        title = getString(R.string.app_up_to_date),
+                        text = {
+                            Text(getString(R.string.app_up_to_date_desc, "v$currentVersionTag"))
+                        },
+                        confirmButtonText = "OK",
+                        dismissButtonText = null,
+                        onConfirm = { showUpToDateDialog = false },
+                        onDismissRequest = { showUpToDateDialog = false }
+                    )
+                }
+            }
         }
 
-        binding.toolbar.setNavigationOnClickListener { finish() }
-
-        setupAppInfo()
-        setupUpdateChecker()
-        setupLinks()
+        // Silent background check on open
+        performUpdateCheck(manual = false)
     }
 
     override fun onResume() {
@@ -78,154 +118,43 @@ class AboutActivity : AppCompatActivity() {
         AppUpdatePromptHelper.handleResumeInstall(this)
     }
 
-    private fun setupAppInfo() {
-        val versionName = AppUpdateManager.getInstalledVersionName(this)
-        val packageInfo = try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
-            } else {
-                @Suppress("DEPRECATION")
-                packageManager.getPackageInfo(packageName, 0)
-            }
-        } catch (_: Exception) {
-            null
-        }
-
-        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            packageInfo?.longVersionCode ?: 1L
-        } else {
-            @Suppress("DEPRECATION")
-            packageInfo?.versionCode?.toLong() ?: 1L
-        }
-
-        val versionText = "$versionName (Build $versionCode)"
-        binding.tvHeaderVersionBadge.text = "v$versionName"
-        binding.tvAppVersion.text = versionText
-
-        val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "Universal"
-        val buildType = if (AppUpdateManager.isPrerelease(this)) "Prerelease" else "Release"
-        binding.tvAppBuildType.text = "$buildType • $abi"
-
-        binding.rowAppVersion.setOnClickListener {
-            copyToClipboard(getString(R.string.about_app_version), versionText)
-        }
-
-        // Package Name
-        binding.tvPackageName.text = packageName
-        binding.rowPackageName.setOnClickListener {
-            copyToClipboard(getString(R.string.about_package_name), packageName)
-        }
-
-        // Operating System
-        val osVersionName = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        val deviceModel = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
-        binding.tvOsVersion.text = osVersionName
-        binding.tvDeviceModel.text = deviceModel
-
-        binding.rowOsVersion.setOnClickListener {
-            copyToClipboard(getString(R.string.about_os_version), "$osVersionName • $deviceModel")
-        }
-
-        // WebView Engine
-        val webViewPackage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WebView.getCurrentWebViewPackage()
-        } else {
-            null
-        }
-
-        val webViewVersion = webViewPackage?.versionName ?: run {
-            try {
-                packageManager.getPackageInfo("com.google.android.webview", 0).versionName
-            } catch (_: Exception) {
-                try {
-                    packageManager.getPackageInfo("com.android.chrome", 0).versionName
-                } catch (_: Exception) {
-                    "Unknown"
-                }
-            }
-        }
-        val webViewName = webViewPackage?.packageName ?: "Android System WebView"
-        binding.tvWebViewVersion.text = webViewVersion
-        binding.tvWebViewPackage.text = webViewName
-
-        binding.rowWebViewVersion.setOnClickListener {
-            copyToClipboard(getString(R.string.about_webview_version), "$webViewVersion ($webViewName)")
-        }
-    }
-
-    private fun setupUpdateChecker() {
-        binding.rowCheckUpdates.setOnClickListener {
-            performUpdateCheck(manual = true)
-        }
-
-        // Automatically perform a non-blocking check when viewing About screen
-        performUpdateCheck(manual = false)
-    }
-
     private fun performUpdateCheck(manual: Boolean) {
         if (isCheckingUpdate) return
         isCheckingUpdate = true
-
-        binding.pbCheckingUpdate.visibility = View.VISIBLE
-        binding.ivUpdateChevron.visibility = View.GONE
-        binding.tvUpdateStatus.setText(R.string.checking_for_updates)
+        updateStatusText = getString(R.string.checking_for_updates)
 
         lifecycleScope.launch {
-            val result = AppUpdateManager.checkForUpdate(this@AboutActivity)
+            val result = withContext(Dispatchers.IO) {
+                AppUpdateManager.checkForUpdate(this@AboutActivity)
+            }
 
-            withContext(Dispatchers.Main) {
-                isCheckingUpdate = false
-                binding.pbCheckingUpdate.visibility = View.GONE
-                binding.ivUpdateChevron.visibility = View.VISIBLE
+            isCheckingUpdate = false
 
-                when (result) {
-                    is UpdateCheckResult.Available -> {
-                        binding.tvUpdateStatus.text = "${getString(R.string.update_available)} (${result.updateInfo.tagName})"
-                        AppUpdatePromptHelper.showUpdateAvailableDialog(this@AboutActivity, result.updateInfo)
+            when (result) {
+                is UpdateCheckResult.Available -> {
+                    updateStatusText = "${getString(R.string.update_available)} (${result.updateInfo.tagName})"
+                    AppUpdatePromptHelper.showUpdateAvailableDialog(this@AboutActivity, result.updateInfo)
+                }
+                is UpdateCheckResult.UpToDate -> {
+                    updateStatusText = getString(R.string.app_up_to_date)
+                    currentVersionTag = result.currentVersion
+                    if (manual) {
+                        showUpToDateDialog = true
                     }
-                    is UpdateCheckResult.UpToDate -> {
-                        binding.tvUpdateStatus.setText(R.string.app_up_to_date)
-                        if (manual) {
-                            MaterialAlertDialogBuilder(this@AboutActivity)
-                                .setTitle(R.string.app_up_to_date)
-                                .setMessage(getString(R.string.app_up_to_date_desc, "v${result.currentVersion}"))
-                                .setPositiveButton(android.R.string.ok, null)
-                                .show()
-                        }
+                }
+                is UpdateCheckResult.RateLimited -> {
+                    updateStatusText = "Rate limit reached"
+                    if (manual) {
+                        Toast.makeText(this@AboutActivity, result.message, Toast.LENGTH_SHORT).show()
                     }
-                    is UpdateCheckResult.RateLimited -> {
-                        binding.tvUpdateStatus.text = "Check limit reached"
-                        if (manual) {
-                            MaterialAlertDialogBuilder(this@AboutActivity)
-                                .setTitle("Update Check")
-                                .setMessage(result.message)
-                                .setPositiveButton(R.string.view_on_github) { _, _ ->
-                                    openUrl("https://github.com/abidhasansojib/onyx-browser/releases")
-                                }
-                                .setNegativeButton(R.string.cancel, null)
-                                .show()
-                        }
-                    }
-                    is UpdateCheckResult.Error -> {
-                        binding.tvUpdateStatus.setText(R.string.check_for_updates_desc)
-                        if (manual) {
-                            Toast.makeText(this@AboutActivity, result.message, Toast.LENGTH_SHORT).show()
-                        }
+                }
+                is UpdateCheckResult.Error -> {
+                    updateStatusText = getString(R.string.check_for_updates_desc)
+                    if (manual) {
+                        Toast.makeText(this@AboutActivity, result.message, Toast.LENGTH_SHORT).show()
                     }
                 }
             }
-        }
-    }
-
-    private fun setupLinks() {
-        // Contact Developer (Telegram)
-        binding.rowContactDeveloper.setOnClickListener {
-            openUrl("https://t.me/abidhasansojib")
-        }
-
-        // Report Bug (GitHub Issues)
-        binding.rowReportBug.setOnClickListener {
-            openUrl("https://github.com/abidhasansojib/onyx-browser/issues")
         }
     }
 
@@ -244,4 +173,188 @@ class AboutActivity : AppCompatActivity() {
             Toast.makeText(this, "Could not open link: $url", Toast.LENGTH_SHORT).show()
         }
     }
+}
+
+private fun BrowserPreferences.isAmoledMode(): Boolean {
+    return false
+}
+
+@Composable
+fun AboutScreen(
+    onBackClick: () -> Unit,
+    isChecking: Boolean,
+    updateStatus: String,
+    onCheckUpdateClick: () -> Unit,
+    onCopyText: (String, String) -> Unit,
+    onOpenUrl: (String) -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Scaffold(
+        topBar = {
+            OnyxTopAppBar(
+                title = "About Onyx",
+                onBackClick = onBackClick
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(scrollState)
+                .padding(bottom = 32.dp)
+        ) {
+            // App Branding Header
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.mipmap.ic_launcher),
+                        contentDescription = "Onyx Logo",
+                        modifier = Modifier.size(56.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "Onyx Browser",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Text(
+                    text = "Fast, private & lightweight browser for Android",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "Native Compose Edition",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            // Updates Section
+            CategoryHeader(title = "Updates")
+            OnyxCardContainer {
+                OnyxPreferenceItem(
+                    title = "Check for Updates",
+                    subtitle = updateStatus,
+                    icon = Icons.Default.Refresh,
+                    showChevron = !isChecking,
+                    trailingContent = if (isChecking) {
+                        {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    } else null,
+                    onClick = onCheckUpdateClick
+                )
+            }
+
+            // App & System Section
+            CategoryHeader(title = "Application & System")
+            OnyxCardContainer {
+                val osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+                val deviceModel = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
+                val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "Universal"
+
+                OnyxPreferenceItem(
+                    title = "Application Architecture",
+                    subtitle = "100% Jetpack Compose • $abi",
+                    icon = Icons.Default.Info,
+                    showChevron = false,
+                    onClick = { onCopyText("Architecture", "Jetpack Compose • $abi") }
+                )
+
+                OnyxPreferenceItem(
+                    title = "Operating System",
+                    subtitle = "$osVersion • $deviceModel",
+                    showChevron = false,
+                    onClick = { onCopyText("OS Version", "$osVersion • $deviceModel") }
+                )
+
+                OnyxPreferenceItem(
+                    title = "WebView Engine",
+                    subtitle = getWebViewSummary(),
+                    showChevron = false,
+                    onClick = { onCopyText("WebView Engine", getWebViewSummary()) }
+                )
+            }
+
+            // Community & Support
+            CategoryHeader(title = "Community & Support")
+            OnyxCardContainer {
+                OnyxPreferenceItem(
+                    title = "Telegram Channel",
+                    subtitle = "Chat with developer & community",
+                    icon = Icons.AutoMirrored.Filled.OpenInNew,
+                    onClick = { onOpenUrl("https://t.me/abidhasansojib") }
+                )
+
+                OnyxPreferenceItem(
+                    title = "GitHub Repository",
+                    subtitle = "Source code, releases & star the repo",
+                    icon = Icons.AutoMirrored.Filled.OpenInNew,
+                    onClick = { onOpenUrl("https://github.com/abidhasansojib/onyx-browser") }
+                )
+
+                OnyxPreferenceItem(
+                    title = "Report an Issue",
+                    subtitle = "Submit bugs or feature requests",
+                    icon = Icons.AutoMirrored.Filled.OpenInNew,
+                    onClick = { onOpenUrl("https://github.com/abidhasansojib/onyx-browser/issues") }
+                )
+            }
+        }
+    }
+}
+
+private fun getWebViewSummary(): String {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val pkg = WebView.getCurrentWebViewPackage()
+        "${pkg?.versionName ?: "System"} (${pkg?.packageName ?: "Android System WebView"})"
+    } else {
+        "Android System WebView"
+    }
+}
+
+@Composable
+private fun CategoryHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp)
+    )
 }
