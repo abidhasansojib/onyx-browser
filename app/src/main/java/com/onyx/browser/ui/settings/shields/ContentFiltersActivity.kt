@@ -1,115 +1,212 @@
 package com.onyx.browser.ui.settings.shields
 
-import android.content.res.Configuration
-import android.graphics.Color
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddLink
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
-import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.R
 import com.onyx.browser.data.filter.FilterListEntry
 import com.onyx.browser.data.filter.FilterListManager
+import com.onyx.browser.data.filter.FilterUpdateWorker
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.ActivityContentFiltersBinding
-import com.onyx.browser.databinding.ItemContentFilterBinding
-import com.onyx.browser.ui.theme.AccentColorManager
-import kotlinx.coroutines.Dispatchers
+import com.onyx.browser.ui.components.OnyxAlertDialog
+import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.OnyxRadioPreference
+import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.theme.OnyxTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-class ContentFiltersActivity : AppCompatActivity() {
+class ContentFiltersActivity : ComponentActivity() {
 
-    private lateinit var binding: ActivityContentFiltersBinding
-    private lateinit var adapter: ContentFilterAdapter
     private lateinit var preferences: BrowserPreferences
-    private var allLists: List<FilterListEntry> = emptyList()
-    private var filteredLists: MutableList<FilterListEntry> = mutableListOf()
+    private val allLists = mutableStateListOf<FilterListEntry>()
+    private var searchQuery by mutableStateOf("")
+    private var isUpdating by mutableStateOf(false)
+    private var updateStatusText by mutableStateOf("")
+    private var subtitleText by mutableStateOf("")
+
+    private var showIntervalDialog by mutableStateOf(false)
+    private var showAddUrlSheet by mutableStateOf(false)
+    private var showCreateCustomSheet by mutableStateOf(false)
+    private var entryToDelete by mutableStateOf<FilterListEntry?>(null)
+
     private var recompileJob: Job? = null
+    private var hasPendingRecompile = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
-
-        // Enable edge-to-edge transparent system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
-
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        insetsController.isAppearanceLightStatusBars = !isNightMode
-        insetsController.isAppearanceLightNavigationBars = !isNightMode
-
-        binding = ActivityContentFiltersBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        // Apply WindowInsets to avoid collision with status bar, camera hole, and navigation bar
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
-            val statusBarInsets = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-
-            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
-            val defaultBottomPadding = (24 * resources.displayMetrics.density).toInt()
-            binding.rvContentFilters.updatePadding(bottom = navBarInsets.bottom + defaultBottomPadding)
-            insets
-        }
 
         preferences = BrowserPreferences.getInstance(this)
-        // Auto update is always enabled
         preferences.isFilterAutoUpdateEnabled = true
 
-        binding.toolbar.setNavigationOnClickListener { finish() }
-
-        // Setup update button (Logo): single tap updates, long click selects auto-update interval
-        binding.btnUpdateFilters.setOnClickListener {
-            performUpdateFilters()
-        }
-        binding.btnUpdateFilters.setOnLongClickListener {
-            showUpdateIntervalDialog()
-            true
-        }
-
-        // Action Buttons: + Add filter via URL & Create custom filters
-        binding.btnAddFilterViaUrl.setOnClickListener {
-            AddFilterUrlBottomSheet {
-                reloadLists()
-            }.show(supportFragmentManager, "add_filter_url")
-        }
-
-        binding.btnCreateCustomFilter.setOnClickListener {
-            CreateCustomFilterBottomSheet {
-                reloadLists()
-            }.show(supportFragmentManager, "create_custom_filter")
-        }
-
-        binding.etSearchFilter.doAfterTextChanged {
-            applyFilter()
-        }
-
-        adapter = ContentFilterAdapter(filteredLists)
-        binding.rvContentFilters.layoutManager = LinearLayoutManager(this)
-        binding.rvContentFilters.adapter = adapter
-
         reloadLists()
+
+        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
+
+        setContent {
+            val isDark = when (preferences.themeMode) {
+                BrowserPreferences.THEME_DARK -> true
+                BrowserPreferences.THEME_LIGHT -> false
+                else -> isSystemInDarkTheme()
+            }
+
+            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                val filtered = if (searchQuery.isBlank()) {
+                    allLists
+                } else {
+                    allLists.filter {
+                        it.title.contains(searchQuery, ignoreCase = true) ||
+                        it.subtitle.contains(searchQuery, ignoreCase = true)
+                    }
+                }
+
+                ContentFiltersScreen(
+                    onBackClick = { finish() },
+                    subtitle = subtitleText,
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { searchQuery = it },
+                    isUpdating = isUpdating,
+                    updateStatus = updateStatusText,
+                    onUpdateClick = { performUpdateFilters() },
+                    onIntervalClick = { showIntervalDialog = true },
+                    onAddViaUrlClick = { showAddUrlSheet = true },
+                    onCreateCustomClick = { showCreateCustomSheet = true },
+                    filterLists = filtered,
+                    onToggleFilter = { entry, enabled ->
+                        FilterListManager.setEnabled(this@ContentFiltersActivity, entry.id, enabled)
+                        val idx = allLists.indexOfFirst { it.id == entry.id }
+                        if (idx >= 0) {
+                            allLists[idx] = allLists[idx].copy(isEnabled = enabled)
+                        }
+                        scheduleRecompile()
+                    },
+                    onDeleteFilter = { entry ->
+                        entryToDelete = entry
+                    }
+                )
+
+                if (showIntervalDialog) {
+                    UpdateIntervalDialog(
+                        currentHours = if (preferences.isFilterAutoUpdateEnabled) preferences.filterAutoUpdateIntervalHours else 0,
+                        onSelectHours = { hours ->
+                            if (hours == 0) {
+                                preferences.filterAutoUpdateIntervalHours = 0
+                                preferences.isFilterAutoUpdateEnabled = false
+                            } else {
+                                preferences.filterAutoUpdateIntervalHours = hours
+                                preferences.isFilterAutoUpdateEnabled = true
+                            }
+                            FilterUpdateWorker.schedule(this@ContentFiltersActivity, forceReschedule = true)
+                            updateSubtitleDisplay()
+                            showIntervalDialog = false
+                        },
+                        onDismiss = { showIntervalDialog = false }
+                    )
+                }
+
+                if (showAddUrlSheet) {
+                    AddFilterUrlSheet(
+                        onDismiss = { showAddUrlSheet = false },
+                        onAdd = { url, name ->
+                            FilterListManager.addCustomFilterUrl(this@ContentFiltersActivity, url, name)
+                            reloadLists()
+                            scheduleRecompile()
+                            showAddUrlSheet = false
+                        }
+                    )
+                }
+
+                if (showCreateCustomSheet) {
+                    CreateCustomRuleSheet(
+                        onDismiss = { showCreateCustomSheet = false },
+                        onSave = { ruleText, ruleName ->
+                            FilterListManager.saveCustomRule(this@ContentFiltersActivity, ruleText, ruleName)
+                            reloadLists()
+                            scheduleRecompile()
+                            showCreateCustomSheet = false
+                        }
+                    )
+                }
+
+                if (entryToDelete != null) {
+                    val entry = entryToDelete!!
+                    OnyxAlertDialog(
+                        title = "Remove filter list?",
+                        text = { Text("Are you sure you want to remove '${entry.title}'?") },
+                        confirmButtonText = "Remove",
+                        isDestructive = true,
+                        onConfirm = {
+                            FilterListManager.removeFilterList(this@ContentFiltersActivity, entry.id)
+                            reloadLists()
+                            scheduleRecompile()
+                            entryToDelete = null
+                        },
+                        onDismissRequest = { entryToDelete = null }
+                    )
+                }
+            }
+        }
     }
 
     private fun reloadLists() {
-        allLists = FilterListManager.getAllLists(this)
-        applyFilter()
+        allLists.clear()
+        allLists.addAll(FilterListManager.getAllLists(this))
         updateSubtitleDisplay()
     }
 
@@ -126,130 +223,50 @@ class ContentFiltersActivity : AppCompatActivity() {
             else -> "Every ${hours}h"
         }
         val lastUpdated = FilterListManager.getLastUpdatedFormatted(this)
-        binding.tvSubtitle.text = "Auto-update: $intervalLabel • Updated: $lastUpdated"
-    }
-
-    private fun showUpdateIntervalDialog() {
-        val intervals = listOf(
-            0 to "Manual updates only (Disabled)",
-            6 to "Every 6 hours",
-            12 to "Every 12 hours",
-            24 to "Every 1 day (24 hours)",
-            72 to "Every 3 days",
-            168 to "Every 7 days (1 week)"
-        )
-        val currentHours = if (preferences.isFilterAutoUpdateEnabled) preferences.filterAutoUpdateIntervalHours else 0
-        val currentIndex = intervals.indexOfFirst { it.first == currentHours }.let {
-            if (it >= 0) it else 3 // default to 24h
-        }
-
-        val labels = intervals.map { it.second }.toTypedArray()
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.filter_auto_update_period_title)
-            .setSingleChoiceItems(labels, currentIndex) { dialog, which ->
-                val selectedHours = intervals[which].first
-                if (selectedHours == 0) {
-                    preferences.filterAutoUpdateIntervalHours = 0
-                    preferences.isFilterAutoUpdateEnabled = false
-                } else {
-                    preferences.filterAutoUpdateIntervalHours = selectedHours
-                    preferences.isFilterAutoUpdateEnabled = true
-                }
-                com.onyx.browser.data.filter.FilterUpdateWorker.schedule(this, forceReschedule = true)
-                updateSubtitleDisplay()
-                Toast.makeText(
-                    this,
-                    "Auto-update set to ${intervals[which].second.lowercase()}",
-                    Toast.LENGTH_SHORT
-                ).show()
-                dialog.dismiss()
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-    }
-
-    private fun applyFilter() {
-        val query = binding.etSearchFilter.text?.toString()?.trim()?.lowercase() ?: ""
-        filteredLists.clear()
-
-        for (entry in allLists) {
-            val matchesQuery = query.isEmpty() ||
-                    entry.title.lowercase().contains(query) ||
-                    entry.subtitle.lowercase().contains(query)
-
-            if (matchesQuery) {
-                filteredLists.add(entry)
-            }
-        }
-        adapter.notifyDataSetChanged()
+        subtitleText = "Auto-update: $intervalLabel • Updated: $lastUpdated"
     }
 
     private fun performUpdateFilters() {
-        binding.btnUpdateFilters.isEnabled = false
-        binding.btnUpdateFilters.animate().rotationBy(360f).setDuration(600).start()
-        binding.progressUpdate.visibility = View.VISIBLE
-        binding.tvUpdateStatus.visibility = View.VISIBLE
-        binding.tvUpdateStatus.text = getString(R.string.updating_filters)
+        if (isUpdating) return
+        isUpdating = true
+        updateStatusText = getString(R.string.updating_filters)
 
         lifecycleScope.launch {
             val result = FilterListManager.updateAllFilters(this@ContentFiltersActivity) { current, total, name ->
-                binding.tvUpdateStatus.text = "Updating $current of $total: $name"
+                updateStatusText = "Updating $current of $total: $name"
             }
 
-            binding.btnUpdateFilters.isEnabled = true
-            binding.progressUpdate.visibility = View.GONE
-            binding.tvUpdateStatus.visibility = View.GONE
+            isUpdating = false
+            updateStatusText = ""
             updateSubtitleDisplay()
+            reloadLists()
 
             if (result.isSuccess) {
                 val rulesCount = result.getOrNull() ?: 0
-                Toast.makeText(
-                    this@ContentFiltersActivity,
-                    getString(R.string.filters_updated, rulesCount),
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(this@ContentFiltersActivity, getString(R.string.filters_updated, rulesCount), Toast.LENGTH_LONG).show()
             } else {
-                Toast.makeText(
-                    this@ContentFiltersActivity,
-                    getString(R.string.filters_update_failed),
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast.makeText(this@ContentFiltersActivity, getString(R.string.filters_update_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
-
-    private var hasPendingRecompile = false
 
     private fun scheduleRecompile() {
         recompileJob?.cancel()
         hasPendingRecompile = true
         recompileJob = lifecycleScope.launch {
-            delay(500) // Debounce toggles
+            delay(500)
             hasPendingRecompile = false
-            if (isFinishing || isDestroyed) {
-                FilterListManager.recompileFilters(applicationContext)
-                return@launch
-            }
-            binding.progressUpdate.visibility = View.VISIBLE
-            binding.tvUpdateStatus.visibility = View.VISIBLE
-            binding.tvUpdateStatus.text = getString(R.string.updating_filters)
+            isUpdating = true
+            updateStatusText = "Recompiling filters..."
             val rulesCount = FilterListManager.recompileFilters(this@ContentFiltersActivity) { current, total, name ->
-                if (!isFinishing && !isDestroyed) {
-                    binding.tvUpdateStatus.text = "Downloading $current of $total: $name"
-                }
+                updateStatusText = "Downloading $current of $total: $name"
             }
-            if (!isFinishing && !isDestroyed) {
-                binding.progressUpdate.visibility = View.GONE
-                binding.tvUpdateStatus.visibility = View.GONE
-                updateSubtitleDisplay()
-                if (rulesCount > 0) {
-                    Toast.makeText(
-                        this@ContentFiltersActivity,
-                        getString(R.string.filters_updated, rulesCount),
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+            isUpdating = false
+            updateStatusText = ""
+            updateSubtitleDisplay()
+            reloadLists()
+            if (rulesCount > 0) {
+                Toast.makeText(this@ContentFiltersActivity, getString(R.string.filters_updated, rulesCount), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -258,95 +275,393 @@ class ContentFiltersActivity : AppCompatActivity() {
         super.onDestroy()
         if (hasPendingRecompile) {
             hasPendingRecompile = false
-            val appCtx = applicationContext
-            lifecycleScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
-                FilterListManager.recompileFilters(appCtx)
+            FilterListManager.recompileFilters(applicationContext)
+        }
+    }
+}
+
+@Composable
+fun ContentFiltersScreen(
+    onBackClick: () -> Unit,
+    subtitle: String,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    isUpdating: Boolean,
+    updateStatus: String,
+    onUpdateClick: () -> Unit,
+    onIntervalClick: () -> Unit,
+    onAddViaUrlClick: () -> Unit,
+    onCreateCustomClick: () -> Unit,
+    filterLists: List<FilterListEntry>,
+    onToggleFilter: (FilterListEntry, Boolean) -> Unit,
+    onDeleteFilter: (FilterListEntry) -> Unit
+) {
+    Scaffold(
+        topBar = {
+            OnyxTopAppBar(
+                title = "Content Filters",
+                onBackClick = onBackClick,
+                actions = {
+                    if (isUpdating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .padding(end = 8.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        IconButton(onClick = onUpdateClick) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Update Filters",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                    }
+                }
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(bottom = 32.dp)
+        ) {
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .clickable(onClick = onIntervalClick)
+                            .padding(vertical = 4.dp)
+                    )
+
+                    if (isUpdating && updateStatus.isNotBlank()) {
+                        Text(
+                            text = updateStatus,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = onSearchQueryChange,
+                        placeholder = { Text("Search filter lists...") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onAddViaUrlClick,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AddLink,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Add via URL", maxLines = 1)
+                        }
+
+                        OutlinedButton(
+                            onClick = onCreateCustomClick,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Custom Rule", maxLines = 1)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
+            items(filterLists, key = { it.id }) { entry ->
+                FilterListCardItem(
+                    entry = entry,
+                    onToggle = { enabled -> onToggleFilter(entry, enabled) },
+                    onDelete = if (entry.isCustom) { { onDeleteFilter(entry) } } else null
+                )
             }
         }
     }
+}
 
-    inner class ContentFilterAdapter(
-        private val items: List<FilterListEntry>
-    ) : RecyclerView.Adapter<ContentFilterAdapter.ViewHolder>() {
+@Composable
+private fun FilterListCardItem(
+    entry: FilterListEntry,
+    onToggle: (Boolean) -> Unit,
+    onDelete: (() -> Unit)? = null
+) {
+    OnyxCardContainer {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = entry.title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
 
-        inner class ViewHolder(val itemBinding: ItemContentFilterBinding) :
-            RecyclerView.ViewHolder(itemBinding.root)
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val inflater = LayoutInflater.from(parent.context)
-            val itemBinding = ItemContentFilterBinding.inflate(inflater, parent, false)
-            return ViewHolder(itemBinding)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val item = items[position]
-            val binding = holder.itemBinding
-
-            binding.tvFilterTitle.text = item.title
-            binding.tvFilterSubtitle.text = item.subtitle
-
-            // Custom Filter UI elements
-            if (item.isCustom) {
-                binding.tvCustomBadge.visibility = View.VISIBLE
-                binding.btnDeleteFilter.visibility = View.VISIBLE
-
-                binding.btnDeleteFilter.setOnClickListener {
-                    MaterialAlertDialogBuilder(this@ContentFiltersActivity)
-                        .setTitle(R.string.delete_custom_filter_title)
-                        .setMessage(getString(R.string.delete_custom_filter_confirm, item.title))
-                        .setPositiveButton(R.string.delete) { _, _ ->
-                            preferences.deleteCustomFilter(item.id)
-                            scheduleRecompile()
-                            reloadLists()
-                            Toast.makeText(
-                                this@ContentFiltersActivity,
-                                getString(R.string.custom_filter_deleted, item.title),
-                                Toast.LENGTH_SHORT
-                            ).show()
+                    if (entry.ruleCount > 0) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "${entry.ruleCount} rules",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        .setNegativeButton(R.string.cancel, null)
-                        .show()
-                }
-
-                // If manual rule filter, tapping opens editor
-                if (!item.isUrlType) {
-                    binding.root.setOnClickListener {
-                        val existing = preferences.getCustomFilters().firstOrNull { it.id == item.id }
-                        CreateCustomFilterBottomSheet(existing) {
-                            reloadLists()
-                        }.show(supportFragmentManager, "edit_custom_filter")
-                    }
-                } else {
-                    binding.root.setOnClickListener {
-                        val newState = !binding.switchFilter.isChecked
-                        binding.switchFilter.isChecked = newState
-                        FilterListManager.setListEnabled(this@ContentFiltersActivity, item.id, newState)
-                        scheduleRecompile()
                     }
                 }
-            } else {
-                binding.tvCustomBadge.visibility = View.GONE
-                binding.btnDeleteFilter.visibility = View.GONE
 
-                binding.root.setOnClickListener {
-                    val newState = !binding.switchFilter.isChecked
-                    binding.switchFilter.isChecked = newState
-                    FilterListManager.setListEnabled(this@ContentFiltersActivity, item.id, newState)
-                    scheduleRecompile()
+                if (entry.subtitle.isNotBlank()) {
+                    Text(
+                        text = entry.subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
                 }
             }
 
-            val isEnabled = FilterListManager.isListEnabled(this@ContentFiltersActivity, item.id)
-            binding.switchFilter.isChecked = isEnabled
+            Spacer(modifier = Modifier.width(8.dp))
 
-            // Ensure switch directly triggers toggle without triggering row click listener
-            binding.switchFilter.setOnClickListener {
-                val newState = binding.switchFilter.isChecked
-                FilterListManager.setListEnabled(this@ContentFiltersActivity, item.id, newState)
-                scheduleRecompile()
+            if (onDelete != null) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Switch(
+                checked = entry.isEnabled,
+                onCheckedChange = onToggle,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun UpdateIntervalDialog(
+    currentHours: Int,
+    onSelectHours: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val intervals = listOf(
+        0 to "Manual updates only (Disabled)",
+        6 to "Every 6 hours",
+        12 to "Every 12 hours",
+        24 to "Every 1 day (24 hours)",
+        72 to "Every 3 days",
+        168 to "Every 7 days (1 week)"
+    )
+
+    OnyxAlertDialog(
+        title = "Auto-Update Interval",
+        confirmButtonText = "Close",
+        dismissButtonText = null,
+        onConfirm = onDismiss,
+        onDismissRequest = onDismiss,
+        text = {
+            Column {
+                intervals.forEach { (hours, label) ->
+                    OnyxRadioPreference(
+                        title = label,
+                        selected = hours == currentHours,
+                        onClick = { onSelectHours(hours) }
+                    )
+                }
             }
         }
+    )
+}
 
-        override fun getItemCount(): Int = items.size
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddFilterUrlSheet(
+    onDismiss: () -> Unit,
+    onAdd: (url: String, name: String) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var url by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = "Add Filter via URL",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Filter List Name (Optional)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                label = { Text("Filter List URL (e.g. https://.../rules.txt)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        if (url.isNotBlank()) {
+                            onAdd(url.trim(), name.trim())
+                        }
+                    },
+                    enabled = url.isNotBlank()
+                ) {
+                    Text("Add")
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CreateCustomRuleSheet(
+    onDismiss: () -> Unit,
+    onSave: (ruleText: String, ruleName: String) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var name by remember { mutableStateOf("") }
+    var ruleText by remember { mutableStateOf("") }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = "Create Custom Rule",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Rule Name (e.g. My Custom AdBlock)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = ruleText,
+                onValueChange = { ruleText = it },
+                label = { Text("Filter Rule syntax (e.g. ||ads.example.com^)") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        if (ruleText.isNotBlank()) {
+                            onSave(ruleText.trim(), name.trim())
+                        }
+                    },
+                    enabled = ruleText.isNotBlank()
+                ) {
+                    Text("Save Rule")
+                }
+            }
+        }
     }
 }
