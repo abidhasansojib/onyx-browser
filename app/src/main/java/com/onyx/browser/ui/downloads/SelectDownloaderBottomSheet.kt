@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.R
+import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class SelectDownloaderBottomSheet(
@@ -47,7 +50,17 @@ class SelectDownloaderBottomSheet(
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                OnyxTheme {
+                val prefs = remember { BrowserPreferences.getInstance(requireContext()) }
+                val isDark = when (prefs.themeMode) {
+                    BrowserPreferences.THEME_DARK -> true
+                    BrowserPreferences.THEME_LIGHT -> false
+                    else -> isSystemInDarkTheme()
+                }
+                val accentColor = remember(prefs.accentColorHex, prefs.accentColorPreset) {
+                    androidx.compose.ui.graphics.Color(AccentColorManager.getAccentColor(prefs))
+                }
+
+                OnyxTheme(darkTheme = isDark, isAmoled = false, accentColor = accentColor) {
                     SelectDownloaderContent()
                 }
             }
