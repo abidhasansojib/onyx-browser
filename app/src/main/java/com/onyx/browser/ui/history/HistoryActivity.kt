@@ -58,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import com.onyx.browser.ui.components.SearchTopAppBar
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -203,53 +204,35 @@ fun HistoryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    if (isSearchActive) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = onSearchQueryChange,
-                            placeholder = { Text(stringResource(R.string.search_history)) },
-                            singleLine = true,
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { onSearchQueryChange("") }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = stringResource(R.string.clear),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    } else {
+            if (isSearchActive) {
+                SearchTopAppBar(
+                    query = searchQuery,
+                    onQueryChange = onSearchQueryChange,
+                    onCloseSearch = {
+                        isSearchActive = false
+                        onSearchQueryChange("")
+                    },
+                    placeholder = stringResource(R.string.search_history)
+                )
+            } else {
+                TopAppBar(
+                    title = {
                         Text(
                             text = stringResource(R.string.history),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold
                         )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (isSearchActive) {
-                            isSearchActive = false
-                            onSearchQueryChange("")
-                        } else {
-                            onBackClick()
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.back),
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
                         }
-                    }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            tint = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                },
-                actions = {
-                    if (!isSearchActive) {
+                    },
+                    actions = {
                         IconButton(onClick = { isSearchActive = true }) {
                             Icon(
                                 imageVector = Icons.Default.Search,
@@ -265,12 +248,12 @@ fun HistoryScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                         }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
                 )
-            )
+            }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->

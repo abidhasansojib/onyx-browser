@@ -63,13 +63,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
+import com.onyx.browser.R
 import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.components.AppAlertDialog
 import com.onyx.browser.ui.components.CardContainer
+import com.onyx.browser.ui.components.SearchTopAppBar
 import com.onyx.browser.ui.theme.OnyxTheme
 import com.onyx.browser.ui.viewmodel.BookmarksViewModel
 
@@ -222,55 +225,48 @@ fun BookmarksScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    if (isSearchActive) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = onSearchQueryChange,
-                            placeholder = { Text("Search bookmarks...") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    } else {
+            if (isSearchActive) {
+                SearchTopAppBar(
+                    query = searchQuery,
+                    onQueryChange = onSearchQueryChange,
+                    onCloseSearch = {
+                        isSearchActive = false
+                        onSearchQueryChange("")
+                    },
+                    placeholder = stringResource(R.string.search_bookmarks_hint)
+                )
+            } else {
+                TopAppBar(
+                    title = {
                         Text(
                             text = "Bookmarks",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold
                         )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (isSearchActive) {
-                            isSearchActive = false
-                            onSearchQueryChange("")
-                        } else {
-                            onBackClick()
-                        }
-                    }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                },
-                actions = {
-                    if (!isSearchActive) {
-                        IconButton(onClick = { isSearchActive = true }) {
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
                             Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.back),
                                 tint = MaterialTheme.colorScheme.onBackground
                             )
                         }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    },
+                    actions = {
+                        IconButton(onClick = { isSearchActive = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = stringResource(R.string.search),
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
                 )
-            )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(

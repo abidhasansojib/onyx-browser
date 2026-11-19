@@ -60,6 +60,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.onyx.browser.ui.components.SearchTopAppBar
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -981,50 +982,41 @@ fun DownloadsScreen(
                         containerColor = MaterialTheme.colorScheme.background
                     )
                 )
+            } else if (isSearchActive) {
+                SearchTopAppBar(
+                    query = searchQuery,
+                    onQueryChange = onSearchQueryChange,
+                    onCloseSearch = {
+                        isSearchActive = false
+                        onSearchQueryChange("")
+                    },
+                    placeholder = stringResource(R.string.search_downloads_hint)
+                )
             } else {
                 TopAppBar(
                     title = {
-                        if (isSearchActive) {
-                            OutlinedTextField(
-                                value = searchQuery,
-                                onValueChange = onSearchQueryChange,
-                                placeholder = { Text("Search downloads...") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        } else {
-                            Text(
-                                text = "Downloads",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
+                        Text(
+                            text = "Downloads",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     },
                     navigationIcon = {
-                        IconButton(onClick = {
-                            if (isSearchActive) {
-                                isSearchActive = false
-                                onSearchQueryChange("")
-                            } else {
-                                onBackClick()
-                            }
-                        }) {
+                        IconButton(onClick = onBackClick) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.back),
                                 tint = MaterialTheme.colorScheme.onBackground
                             )
                         }
                     },
                     actions = {
-                        if (!isSearchActive) {
-                            IconButton(onClick = { isSearchActive = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "Search",
-                                    tint = MaterialTheme.colorScheme.onBackground
-                                )
-                            }
+                        IconButton(onClick = { isSearchActive = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = stringResource(R.string.search),
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
                         }
                         IconButton(onClick = onOpenSystemDownloads) {
                             Icon(
