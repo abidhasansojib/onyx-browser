@@ -879,7 +879,7 @@ class BrowserWebView @JvmOverloads constructor(
 
         val spoofTemplate = prefs.userAgentSpoofTemplate
 
-        if (scalePercent != lastAppliedScalePercent) {
+        if (forceRefreshLayout || scalePercent != lastAppliedScalePercent) {
             setInitialScale(scalePercent)
             lastAppliedScalePercent = scalePercent
         }

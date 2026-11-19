@@ -116,11 +116,14 @@ class ShieldBridge(
     @JavascriptInterface
     fun isDesktopModeActive(): Boolean {
         val wv = webViewRef?.get()
+        if (wv != null) {
+            return wv.isDesktopModeEnabledForCurrentPage()
+        }
         val target = wv?.url ?: wv?.pendingMainFrameUrl
         if (!target.isNullOrBlank()) {
             return preferences.getEffectiveDesktopMode(target)
         }
-        return wv?.isDesktopMode ?: preferences.isDesktopMode
+        return preferences.isDesktopMode
     }
 
     @JavascriptInterface
@@ -128,9 +131,14 @@ class ShieldBridge(
         val wv = webViewRef?.get()
         val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: wv?.url ?: wv?.pendingMainFrameUrl
         if (!target.isNullOrBlank()) {
-            return preferences.getEffectiveDesktopMode(target)
+            val key = preferences.getCanonicalDesktopKey(target)
+            if (key.isNotBlank()) {
+                val siteState = preferences.getSiteDesktopModeState(key)
+                if (siteState == com.onyx.browser.data.preferences.SitePermissionState.ALLOWED) return true
+                if (siteState == com.onyx.browser.data.preferences.SitePermissionState.BLOCKED) return false
+            }
         }
-        return wv?.isDesktopMode ?: preferences.isDesktopMode
+        return wv?.isDesktopMode ?: (!target.isNullOrBlank() && preferences.getEffectiveDesktopMode(target)) ?: preferences.isDesktopMode
     }
 
     @JavascriptInterface
