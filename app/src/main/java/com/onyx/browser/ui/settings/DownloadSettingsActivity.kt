@@ -1,23 +1,47 @@
 package com.onyx.browser.ui.settings
 
-import android.content.res.ColorStateList
-import android.content.res.Configuration
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
-import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.ActivityDownloadSettingsBinding
-import com.onyx.browser.ui.theme.AccentColorManager
+import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.OnyxPreferenceItem
+import com.onyx.browser.ui.components.OnyxRadioPreference
+import com.onyx.browser.ui.components.OnyxSwitchPreference
+import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.theme.OnyxTheme
 
-class DownloadSettingsActivity : AppCompatActivity() {
+class DownloadSettingsActivity : ComponentActivity() {
 
-    private lateinit var binding: ActivityDownloadSettingsBinding
     private lateinit var preferences: BrowserPreferences
+
+    private var downloadBehavior by mutableIntStateOf(0)
+    private var isDownloadWifiOnly by mutableStateOf(false)
+    private var showBehaviorPicker by mutableStateOf(false)
 
     private val downloadOptions = arrayOf(
         "Ask before download",
@@ -26,82 +50,144 @@ class DownloadSettingsActivity : AppCompatActivity() {
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
-
-        // Edge-to-edge system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
-        window.statusBarColor = canvasBg
-        window.navigationBarColor = canvasBg
-
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        insetsController.isAppearanceLightStatusBars = !isNightMode
-        insetsController.isAppearanceLightNavigationBars = !isNightMode
-
-        binding = ActivityDownloadSettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
         preferences = BrowserPreferences.getInstance(this)
+        downloadBehavior = preferences.downloadManagerBehavior.coerceIn(0, 2)
+        isDownloadWifiOnly = preferences.isDownloadWifiOnly
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.downloadSettingsRoot) { _, insets ->
-            val statusBarInsets = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
 
-            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
-            binding.scrollView.updatePadding(bottom = navBarInsets.bottom)
-            insets
-        }
-
-        binding.toolbar.setNavigationOnClickListener { finish() }
-
-        // Pin top heading color statically to canvasBg (disable lift-on-scroll elevation tint)
-        binding.appBarLayout.apply {
-            isLiftOnScroll = false
-            setLiftable(false)
-            setLifted(false)
-            elevation = 0f
-            stateListAnimator = null
-            outlineProvider = null
-            statusBarForeground = null
-            setBackgroundColor(canvasBg)
-            backgroundTintList = ColorStateList.valueOf(canvasBg)
-        }
-        binding.toolbar.apply {
-            elevation = 0f
-            outlineProvider = null
-            setBackgroundColor(canvasBg)
-            backgroundTintList = ColorStateList.valueOf(canvasBg)
-        }
-
-        setupDownloadControls()
-    }
-
-    private fun setupDownloadControls() {
-        fun updateLabel() {
-            val idx = preferences.downloadManagerBehavior.coerceIn(0, 2)
-            binding.tvCurrentDownloadManager.text = downloadOptions[idx]
-        }
-
-        updateLabel()
-
-        binding.settingDownloadManagerRow.setOnClickListener {
-            val currentIndex = preferences.downloadManagerBehavior.coerceIn(0, 2)
-            val sheet = DownloadManagerPickerBottomSheet(currentIndex) { which ->
-                preferences.downloadManagerBehavior = which
-                updateLabel()
+        setContent {
+            val isDark = when (preferences.themeMode) {
+                BrowserPreferences.THEME_DARK -> true
+                BrowserPreferences.THEME_LIGHT -> false
+                else -> isSystemInDarkTheme()
             }
-            sheet.show(supportFragmentManager, DownloadManagerPickerBottomSheet.TAG)
-        }
 
-        binding.settingDownloadWifiOnlySwitch.isChecked = preferences.isDownloadWifiOnly
-        binding.settingDownloadWifiOnlyRow.setOnClickListener {
-            val newState = !binding.settingDownloadWifiOnlySwitch.isChecked
-            binding.settingDownloadWifiOnlySwitch.isChecked = newState
-            preferences.isDownloadWifiOnly = newState
+            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                DownloadSettingsScreen(
+                    onBackClick = { finish() },
+                    currentBehaviorText = downloadOptions[downloadBehavior],
+                    onBehaviorClick = { showBehaviorPicker = true },
+                    isWifiOnly = isDownloadWifiOnly,
+                    onWifiOnlyChange = { enabled ->
+                        isDownloadWifiOnly = enabled
+                        preferences.isDownloadWifiOnly = enabled
+                    }
+                )
+
+                if (showBehaviorPicker) {
+                    DownloadBehaviorBottomSheet(
+                        selectedIndex = downloadBehavior,
+                        options = downloadOptions,
+                        onOptionSelected = { idx ->
+                            downloadBehavior = idx
+                            preferences.downloadManagerBehavior = idx
+                            showBehaviorPicker = false
+                        },
+                        onDismissRequest = { showBehaviorPicker = false }
+                    )
+                }
+            }
         }
     }
+}
+
+@Composable
+fun DownloadSettingsScreen(
+    onBackClick: () -> Unit,
+    currentBehaviorText: String,
+    onBehaviorClick: () -> Unit,
+    isWifiOnly: Boolean,
+    onWifiOnlyChange: (Boolean) -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Scaffold(
+        topBar = {
+            OnyxTopAppBar(
+                title = "Downloads Settings",
+                onBackClick = onBackClick
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(scrollState)
+                .padding(bottom = 32.dp)
+        ) {
+            CategoryHeader("Download Engine")
+            OnyxCardContainer {
+                OnyxPreferenceItem(
+                    title = "Default Downloader",
+                    subtitle = currentBehaviorText,
+                    onClick = onBehaviorClick
+                )
+
+                OnyxSwitchPreference(
+                    title = "Download over Wi-Fi only",
+                    subtitle = "Pause or prevent downloads when connected to mobile data",
+                    checked = isWifiOnly,
+                    onCheckedChange = onWifiOnlyChange
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DownloadBehaviorBottomSheet(
+    selectedIndex: Int,
+    options: Array<String>,
+    onOptionSelected: (Int) -> Unit,
+    onDismissRequest: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = null
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 20.dp, vertical = 24.dp)
+        ) {
+            Text(
+                text = "Choose Downloader",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            options.forEachIndexed { index, option ->
+                OnyxRadioPreference(
+                    title = option,
+                    selected = index == selectedIndex,
+                    onClick = { onOptionSelected(index) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun CategoryHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp)
+    )
 }

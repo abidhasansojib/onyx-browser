@@ -2,8 +2,6 @@ package com.onyx.browser.ui.settings
 
 import android.app.AppOpsManager
 import android.content.Context
-import android.content.res.ColorStateList
-import android.content.res.Configuration
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -11,126 +9,94 @@ import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
-import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.ActivityVideoSettingsBinding
-import com.onyx.browser.ui.theme.AccentColorManager
+import com.onyx.browser.media.MediaPlaybackBridge
+import com.onyx.browser.media.MediaPlaybackService
+import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.OnyxSwitchPreference
+import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.theme.OnyxTheme
 
-class VideoSettingsActivity : AppCompatActivity() {
+class VideoSettingsActivity : ComponentActivity() {
 
-    private lateinit var binding: ActivityVideoSettingsBinding
     private lateinit var preferences: BrowserPreferences
     private var pendingPipEnable: Boolean = false
 
+    private var isBackgroundPlayEnabled by mutableStateOf(false)
+    private var isPipEnabled by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
-
-        // Edge-to-edge system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
-        window.statusBarColor = canvasBg
-        window.navigationBarColor = canvasBg
-
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        insetsController.isAppearanceLightStatusBars = !isNightMode
-        insetsController.isAppearanceLightNavigationBars = !isNightMode
-
-        binding = ActivityVideoSettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
         preferences = BrowserPreferences.getInstance(this)
+        isBackgroundPlayEnabled = preferences.isBackgroundPlayEnabled
+        updatePipSwitchState()
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.videoSettingsRoot) { _, insets ->
-            val statusBarInsets = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
 
-            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
-            binding.scrollView.updatePadding(bottom = navBarInsets.bottom)
-            insets
+        setContent {
+            val isDark = when (preferences.themeMode) {
+                BrowserPreferences.THEME_DARK -> true
+                BrowserPreferences.THEME_LIGHT -> false
+                else -> isSystemInDarkTheme()
+            }
+
+            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                VideoSettingsScreen(
+                    onBackClick = { finish() },
+                    isBackgroundPlay = isBackgroundPlayEnabled,
+                    onBackgroundPlayChange = { enabled ->
+                        isBackgroundPlayEnabled = enabled
+                        preferences.isBackgroundPlayEnabled = enabled
+                        if (!enabled) {
+                            MediaPlaybackService.stopNotificationOnly(this)
+                        }
+                    },
+                    isPip = isPipEnabled,
+                    onPipChange = { enabled ->
+                        if (enabled) {
+                            if (!isPipPermissionAllowed()) {
+                                Toast.makeText(this, "Please enable Picture-in-Picture permission", Toast.LENGTH_SHORT).show()
+                                pendingPipEnable = true
+                                openPipSystemSettings()
+                            } else {
+                                preferences.isPipEnabled = true
+                                isPipEnabled = true
+                            }
+                        } else {
+                            preferences.isPipEnabled = false
+                            isPipEnabled = false
+                            MediaPlaybackBridge.isVideoPlaying = false
+                        }
+                    }
+                )
+            }
         }
-
-        binding.toolbar.setNavigationOnClickListener { finish() }
-
-        // Pin top heading color statically to canvasBg (disable lift-on-scroll elevation tint)
-        binding.appBarLayout.apply {
-            isLiftOnScroll = false
-            setLiftable(false)
-            setLifted(false)
-            elevation = 0f
-            stateListAnimator = null
-            outlineProvider = null
-            statusBarForeground = null
-            setBackgroundColor(canvasBg)
-            backgroundTintList = ColorStateList.valueOf(canvasBg)
-        }
-        binding.toolbar.apply {
-            elevation = 0f
-            outlineProvider = null
-            setBackgroundColor(canvasBg)
-            backgroundTintList = ColorStateList.valueOf(canvasBg)
-        }
-
-        setupPlaybackControls()
     }
 
     override fun onResume() {
         super.onResume()
         updatePipSwitchState()
-    }
-
-    private fun setupPlaybackControls() {
-        // Background play switch
-        binding.settingBackgroundPlaySwitch.isChecked = preferences.isBackgroundPlayEnabled
-        binding.settingBackgroundPlayRow.setOnClickListener {
-            val newState = !binding.settingBackgroundPlaySwitch.isChecked
-            binding.settingBackgroundPlaySwitch.isChecked = newState
-            preferences.isBackgroundPlayEnabled = newState
-            if (!newState) {
-                com.onyx.browser.media.MediaPlaybackService.stopNotificationOnly(this)
-            }
-        }
-
-        binding.settingBackgroundPlaySwitch.setOnClickListener {
-            binding.settingBackgroundPlayRow.performClick()
-        }
-
-        // Picture-in-picture switch
-        binding.settingPipSwitch.isChecked = preferences.isPipEnabled && isPipPermissionAllowed()
-        binding.settingPipRow.setOnClickListener {
-            val willEnable = !binding.settingPipSwitch.isChecked
-            if (willEnable) {
-                if (!isPipPermissionAllowed()) {
-                    Toast.makeText(this, "Please enable Picture-in-Picture permission", Toast.LENGTH_SHORT).show()
-                    pendingPipEnable = true
-                    openPipSystemSettings()
-                } else {
-                    preferences.isPipEnabled = true
-                    binding.settingPipSwitch.isChecked = true
-                }
-            } else {
-                preferences.isPipEnabled = false
-                binding.settingPipSwitch.isChecked = false
-                com.onyx.browser.media.MediaPlaybackBridge.isVideoPlaying = false
-            }
-        }
-        binding.settingPipSwitch.setOnClickListener {
-            binding.settingPipRow.performClick()
-        }
-
-        binding.settingPipRow.setOnLongClickListener {
-            openPipSystemSettings()
-            true
-        }
     }
 
     private fun updatePipSwitchState() {
@@ -146,7 +112,7 @@ class VideoSettingsActivity : AppCompatActivity() {
         } else if (preferences.isPipEnabled && !hasPipPerm) {
             preferences.isPipEnabled = false
         }
-        binding.settingPipSwitch.isChecked = preferences.isPipEnabled && hasPipPerm
+        isPipEnabled = preferences.isPipEnabled && hasPipPerm
     }
 
     private fun isPipPermissionAllowed(): Boolean {
@@ -197,4 +163,61 @@ class VideoSettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "Could not open system settings", Toast.LENGTH_SHORT).show()
         }
     }
+}
+
+@Composable
+fun VideoSettingsScreen(
+    onBackClick: () -> Unit,
+    isBackgroundPlay: Boolean,
+    onBackgroundPlayChange: (Boolean) -> Unit,
+    isPip: Boolean,
+    onPipChange: (Boolean) -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Scaffold(
+        topBar = {
+            OnyxTopAppBar(
+                title = "Video & Media Playback",
+                onBackClick = onBackClick
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(scrollState)
+                .padding(bottom = 32.dp)
+        ) {
+            CategoryHeader("Playback Mode")
+            OnyxCardContainer {
+                OnyxSwitchPreference(
+                    title = "Background Audio / Video Playback",
+                    subtitle = "Continue playing media when minimizing the app or locking the screen",
+                    checked = isBackgroundPlay,
+                    onCheckedChange = onBackgroundPlayChange
+                )
+
+                OnyxSwitchPreference(
+                    title = "Picture-in-Picture (PiP)",
+                    subtitle = "Automatically pop out video into a floating window when navigating home",
+                    checked = isPip,
+                    onCheckedChange = onPipChange
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp)
+    )
 }

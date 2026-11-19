@@ -1,204 +1,283 @@
 package com.onyx.browser.ui.settings
 
-import android.content.res.ColorStateList
-import android.content.res.Configuration
 import android.os.Bundle
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
+import androidx.fragment.app.FragmentActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.preferences.BrowserPreferences
-import com.onyx.browser.databinding.ActivityAccessibilitySettingsBinding
-import com.onyx.browser.ui.theme.AccentColorManager
+import com.onyx.browser.ui.common.BiometricAuthHelper
+import com.onyx.browser.ui.components.OnyxCardContainer
+import com.onyx.browser.ui.components.OnyxPreferenceItem
+import com.onyx.browser.ui.components.OnyxSwitchPreference
+import com.onyx.browser.ui.components.OnyxTopAppBar
+import com.onyx.browser.ui.theme.OnyxTheme
+import com.onyx.browser.ui.widget.SearchWidgetManager
+import com.onyx.browser.ui.widget.SearchWidgetProvider
 
-class AccessibilitySettingsActivity : AppCompatActivity() {
+class AccessibilitySettingsActivity : FragmentActivity() {
 
-    private lateinit var binding: ActivityAccessibilitySettingsBinding
     private lateinit var preferences: BrowserPreferences
 
+    private var isAddToHomeScreenEnabled by mutableStateOf(false)
+    private var isScrollToTopEnabled by mutableStateOf(false)
+    private var isAutoHideToolbarEnabled by mutableStateOf(false)
+    private var isPullToRefreshEnabled by mutableStateOf(false)
+    private var isForceDarkModeEnabled by mutableStateOf(false)
+    private var isBiometricIncognitoEnabled by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        AccentColorManager.applyThemeOverlay(this)
         super.onCreate(savedInstanceState)
-
-        // Edge-to-edge system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val canvasBg = ContextCompat.getColor(this, R.color.settings_canvas_bg)
-        window.statusBarColor = canvasBg
-        window.navigationBarColor = canvasBg
-
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        insetsController.isAppearanceLightStatusBars = !isNightMode
-        insetsController.isAppearanceLightNavigationBars = !isNightMode
-
-        binding = ActivityAccessibilitySettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
         preferences = BrowserPreferences.getInstance(this)
+        loadPreferencesState()
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.accessibilitySettingsRoot) { _, insets ->
-            val statusBarInsets = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+        val isAmoled = preferences.themeMode == BrowserPreferences.THEME_DARK
 
-            binding.appBarLayout.updatePadding(top = statusBarInsets.top)
-            binding.scrollView.updatePadding(bottom = navBarInsets.bottom)
-            insets
+        setContent {
+            val isDark = when (preferences.themeMode) {
+                BrowserPreferences.THEME_DARK -> true
+                BrowserPreferences.THEME_LIGHT -> false
+                else -> isSystemInDarkTheme()
+            }
+
+            OnyxTheme(darkTheme = isDark, isAmoled = isAmoled) {
+                AccessibilitySettingsScreen(
+                    onBackClick = { finish() },
+                    isAddToHomeScreen = isAddToHomeScreenEnabled,
+                    onAddToHomeScreenChange = { enabled ->
+                        isAddToHomeScreenEnabled = enabled
+                        preferences.isAddToHomeScreenEnabled = enabled
+                    },
+                    isScrollToTop = isScrollToTopEnabled,
+                    onScrollToTopChange = { enabled ->
+                        isScrollToTopEnabled = enabled
+                        preferences.isScrollToTopEnabled = enabled
+                    },
+                    isAutoHideToolbar = isAutoHideToolbarEnabled,
+                    onAutoHideToolbarChange = { enabled ->
+                        isAutoHideToolbarEnabled = enabled
+                        preferences.isAutoHideToolbarEnabled = enabled
+                    },
+                    isPullToRefresh = isPullToRefreshEnabled,
+                    onPullToRefreshChange = { enabled ->
+                        isPullToRefreshEnabled = enabled
+                        preferences.isPullToRefreshEnabled = enabled
+                    },
+                    isForceDarkMode = isForceDarkModeEnabled,
+                    onForceDarkModeChange = { enabled ->
+                        isForceDarkModeEnabled = enabled
+                        preferences.isForceDarkModeEnabled = enabled
+                    },
+                    isBiometric = isBiometricIncognitoEnabled,
+                    onBiometricRowClick = { handleBiometricToggle() },
+                    onPinWidgetClick = { SearchWidgetManager.requestPinSearchWidget(this) }
+                )
+            }
         }
-
-        binding.toolbar.setNavigationOnClickListener { finish() }
-
-        // Pin top heading color statically to canvasBg (disable lift-on-scroll elevation tint)
-        binding.appBarLayout.apply {
-            isLiftOnScroll = false
-            setLiftable(false)
-            setLifted(false)
-            elevation = 0f
-            stateListAnimator = null
-            outlineProvider = null
-            statusBarForeground = null
-            setBackgroundColor(canvasBg)
-            backgroundTintList = ColorStateList.valueOf(canvasBg)
-        }
-        binding.toolbar.apply {
-            elevation = 0f
-            outlineProvider = null
-            setBackgroundColor(canvasBg)
-            backgroundTintList = ColorStateList.valueOf(canvasBg)
-        }
-
-        setupAccessibilityControls()
     }
 
     override fun onResume() {
         super.onResume()
-        binding.settingAddToHomeScreenSwitch.isChecked = preferences.isAddToHomeScreenEnabled
-        binding.settingScrollToTopSwitch.isChecked = preferences.isScrollToTopEnabled
-        binding.settingAutoHideToolbarSwitch.isChecked = preferences.isAutoHideToolbarEnabled
-        binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
-        binding.settingPullToRefreshSwitch.isChecked = preferences.isPullToRefreshEnabled
-        binding.settingForceDarkModeSwitch.isChecked = preferences.isForceDarkModeEnabled
-        com.onyx.browser.ui.widget.SearchWidgetProvider.updateAllWidgets(this)
+        loadPreferencesState()
+        SearchWidgetProvider.updateAllWidgets(this)
     }
 
-    private fun setupAccessibilityControls() {
-        // Search Widget Pinning
-        binding.settingSearchWidgetRow.setOnClickListener {
-            com.onyx.browser.ui.widget.SearchWidgetManager.requestPinSearchWidget(this)
-        }
+    private fun loadPreferencesState() {
+        isAddToHomeScreenEnabled = preferences.isAddToHomeScreenEnabled
+        isScrollToTopEnabled = preferences.isScrollToTopEnabled
+        isAutoHideToolbarEnabled = preferences.isAutoHideToolbarEnabled
+        isPullToRefreshEnabled = preferences.isPullToRefreshEnabled
+        isForceDarkModeEnabled = preferences.isForceDarkModeEnabled
+        isBiometricIncognitoEnabled = preferences.isBiometricIncognitoEnabled
+    }
 
-        // Add to Home Screen in Menu Toggle
-        binding.settingAddToHomeScreenSwitch.isChecked = preferences.isAddToHomeScreenEnabled
-        binding.settingAddToHomeScreenRow.setOnClickListener {
-            val newState = !binding.settingAddToHomeScreenSwitch.isChecked
-            binding.settingAddToHomeScreenSwitch.isChecked = newState
-            preferences.isAddToHomeScreenEnabled = newState
-        }
+    private fun handleBiometricToggle() {
+        val currentlyEnabled = preferences.isBiometricIncognitoEnabled
+        val executor = ContextCompat.getMainExecutor(this)
 
-        // Scroll to Top Button
-        binding.settingScrollToTopSwitch.isChecked = preferences.isScrollToTopEnabled
-        binding.settingScrollToTopRow.setOnClickListener {
-            val newState = !binding.settingScrollToTopSwitch.isChecked
-            binding.settingScrollToTopSwitch.isChecked = newState
-            preferences.isScrollToTopEnabled = newState
-        }
-
-        // Auto-Hide Address Bar
-        binding.settingAutoHideToolbarSwitch.isChecked = preferences.isAutoHideToolbarEnabled
-        binding.settingAutoHideToolbarRow.setOnClickListener {
-            val newState = !binding.settingAutoHideToolbarSwitch.isChecked
-            binding.settingAutoHideToolbarSwitch.isChecked = newState
-            preferences.isAutoHideToolbarEnabled = newState
-        }
-
-        // Pull to Refresh Toggle
-        binding.settingPullToRefreshSwitch.isChecked = preferences.isPullToRefreshEnabled
-        binding.settingPullToRefreshRow.setOnClickListener {
-            val newState = !binding.settingPullToRefreshSwitch.isChecked
-            binding.settingPullToRefreshSwitch.isChecked = newState
-            preferences.isPullToRefreshEnabled = newState
-        }
-
-        // Force Dark Mode for Web Contents
-        binding.settingForceDarkModeSwitch.isChecked = preferences.isForceDarkModeEnabled
-        binding.settingForceDarkModeRow.setOnClickListener {
-            val newState = !binding.settingForceDarkModeSwitch.isChecked
-            binding.settingForceDarkModeSwitch.isChecked = newState
-            preferences.isForceDarkModeEnabled = newState
-        }
-
-        // Biometric Incognito Protection
-        binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
-        binding.settingBiometricRow.setOnClickListener {
-            val currentlyEnabled = preferences.isBiometricIncognitoEnabled
-            val executor = androidx.core.content.ContextCompat.getMainExecutor(this)
-
-            if (!currentlyEnabled) {
-                // User wants to enable -> authenticate for setup
-                if (com.onyx.browser.ui.common.BiometricAuthHelper.canAuthenticate(this)) {
-                    val prompt = androidx.biometric.BiometricPrompt(
-                        this,
-                        executor,
-                        object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
-                            override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
-                                super.onAuthenticationSucceeded(result)
-                                preferences.isBiometricIncognitoEnabled = true
-                                binding.settingBiometricSwitch.isChecked = true
-                                Toast.makeText(this@AccessibilitySettingsActivity, "Biometric Incognito Protection enabled", Toast.LENGTH_SHORT).show()
-                            }
-
-                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                                super.onAuthenticationError(errorCode, errString)
-                                binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
-                            }
-
-                            override fun onAuthenticationFailed() {
-                                super.onAuthenticationFailed()
-                            }
-                        }
-                    )
-                    val promptInfo = com.onyx.browser.ui.common.BiometricAuthHelper.createPromptInfo(
-                        title = "Biometric Incognito Setup",
-                        subtitle = "Confirm fingerprint or screen lock to enable"
-                    )
-                    prompt.authenticate(promptInfo)
-                } else {
-                    Toast.makeText(this, "Please set up a screen lock or fingerprint in Android Settings first", Toast.LENGTH_LONG).show()
-                }
-            } else {
-                // User wants to disable -> authenticate first
+        if (!currentlyEnabled) {
+            if (BiometricAuthHelper.canAuthenticate(this)) {
                 val prompt = androidx.biometric.BiometricPrompt(
                     this,
                     executor,
                     object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
                         override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
                             super.onAuthenticationSucceeded(result)
-                            preferences.isBiometricIncognitoEnabled = false
-                            binding.settingBiometricSwitch.isChecked = false
-                            Toast.makeText(this@AccessibilitySettingsActivity, "Biometric Incognito Protection disabled", Toast.LENGTH_SHORT).show()
+                            preferences.isBiometricIncognitoEnabled = true
+                            isBiometricIncognitoEnabled = true
+                            Toast.makeText(this@AccessibilitySettingsActivity, "Biometric Incognito Protection enabled", Toast.LENGTH_SHORT).show()
                         }
 
                         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                             super.onAuthenticationError(errorCode, errString)
-                            binding.settingBiometricSwitch.isChecked = preferences.isBiometricIncognitoEnabled
-                        }
-
-                        override fun onAuthenticationFailed() {
-                            super.onAuthenticationFailed()
+                            isBiometricIncognitoEnabled = preferences.isBiometricIncognitoEnabled
                         }
                     }
                 )
-                val promptInfo = com.onyx.browser.ui.common.BiometricAuthHelper.createPromptInfo(
-                    title = "Confirm Identity",
-                    subtitle = "Confirm identity to disable Biometric Incognito Protection"
+                val promptInfo = BiometricAuthHelper.createPromptInfo(
+                    title = "Biometric Incognito Setup",
+                    subtitle = "Confirm fingerprint or screen lock to enable"
                 )
                 prompt.authenticate(promptInfo)
+            } else {
+                Toast.makeText(this, "Please set up a screen lock or fingerprint in Android Settings first", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            val prompt = androidx.biometric.BiometricPrompt(
+                this,
+                executor,
+                object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                        super.onAuthenticationSucceeded(result)
+                        preferences.isBiometricIncognitoEnabled = false
+                        isBiometricIncognitoEnabled = false
+                        Toast.makeText(this@AccessibilitySettingsActivity, "Biometric Incognito Protection disabled", Toast.LENGTH_SHORT).show()
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        super.onAuthenticationError(errorCode, errString)
+                        isBiometricIncognitoEnabled = preferences.isBiometricIncognitoEnabled
+                    }
+                }
+            )
+            val promptInfo = BiometricAuthHelper.createPromptInfo(
+                title = "Confirm Identity",
+                subtitle = "Confirm identity to disable Biometric Incognito Protection"
+            )
+            prompt.authenticate(promptInfo)
+        }
+    }
+}
+
+@Composable
+fun AccessibilitySettingsScreen(
+    onBackClick: () -> Unit,
+    isAddToHomeScreen: Boolean,
+    onAddToHomeScreenChange: (Boolean) -> Unit,
+    isScrollToTop: Boolean,
+    onScrollToTopChange: (Boolean) -> Unit,
+    isAutoHideToolbar: Boolean,
+    onAutoHideToolbarChange: (Boolean) -> Unit,
+    isPullToRefresh: Boolean,
+    onPullToRefreshChange: (Boolean) -> Unit,
+    isForceDarkMode: Boolean,
+    onForceDarkModeChange: (Boolean) -> Unit,
+    isBiometric: Boolean,
+    onBiometricRowClick: () -> Unit,
+    onPinWidgetClick: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Scaffold(
+        topBar = {
+            OnyxTopAppBar(
+                title = "Accessibility & Gestures",
+                onBackClick = onBackClick
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(scrollState)
+                .padding(bottom = 32.dp)
+        ) {
+            CategoryHeader("Home & Widgets")
+            OnyxCardContainer {
+                OnyxPreferenceItem(
+                    title = "Pin Search Widget",
+                    subtitle = "Add Onyx quick search bar to your Android home screen",
+                    icon = Icons.Default.Widgets,
+                    onClick = onPinWidgetClick
+                )
+
+                OnyxSwitchPreference(
+                    title = "Add to Home Screen in Menu",
+                    subtitle = "Show shortcut option in browser menu for quick access",
+                    checked = isAddToHomeScreen,
+                    onCheckedChange = onAddToHomeScreenChange
+                )
+            }
+
+            CategoryHeader("Browsing Controls & Gestures")
+            OnyxCardContainer {
+                OnyxSwitchPreference(
+                    title = "Scroll to Top Button",
+                    subtitle = "Quickly jump back to page top with floating indicator",
+                    checked = isScrollToTop,
+                    onCheckedChange = onScrollToTopChange
+                )
+
+                OnyxSwitchPreference(
+                    title = "Auto-Hide Address Bar",
+                    subtitle = "Collapse address bar when scrolling down web pages",
+                    checked = isAutoHideToolbar,
+                    onCheckedChange = onAutoHideToolbarChange
+                )
+
+                OnyxSwitchPreference(
+                    title = "Pull to Refresh",
+                    subtitle = "Swipe down from top of webpage to reload",
+                    checked = isPullToRefresh,
+                    onCheckedChange = onPullToRefreshChange
+                )
+            }
+
+            CategoryHeader("Visual & Display")
+            OnyxCardContainer {
+                OnyxSwitchPreference(
+                    title = "Force Dark Mode for Web Contents",
+                    subtitle = "Invert background and colors on websites without dark theme",
+                    checked = isForceDarkMode,
+                    onCheckedChange = onForceDarkModeChange
+                )
+            }
+
+            CategoryHeader("Privacy & Lock")
+            OnyxCardContainer {
+                OnyxSwitchPreference(
+                    title = "Biometric Incognito Protection",
+                    subtitle = "Require fingerprint or screen lock to open private tabs",
+                    checked = isBiometric,
+                    onCheckedChange = { onBiometricRowClick() }
+                )
             }
         }
     }
+}
+
+@Composable
+private fun CategoryHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp)
+    )
 }
