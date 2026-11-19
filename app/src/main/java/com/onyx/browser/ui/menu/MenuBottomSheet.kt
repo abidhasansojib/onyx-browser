@@ -11,56 +11,39 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.onyx.browser.MainActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.BookmarkItem
+import com.onyx.browser.data.preferences.AccentColorManager
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
-import com.onyx.browser.ui.components.CardContainer
-import com.onyx.browser.ui.components.PreferenceItem
-import com.onyx.browser.ui.components.SwitchPreference
 import com.onyx.browser.ui.downloads.DownloadsActivity
 import com.onyx.browser.ui.history.HistoryActivity
 import com.onyx.browser.ui.settings.SettingsActivity
@@ -96,10 +79,26 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
     private val roleRequestLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
     ) {
-        if (isDefaultBrowser()) {
-            Toast.makeText(requireContext(), "Onyx set as default browser", Toast.LENGTH_SHORT).show()
+        val ctx = context
+        if (ctx != null && isDefaultBrowser()) {
+            Toast.makeText(ctx, "Onyx set as default browser", Toast.LENGTH_SHORT).show()
         }
-        dismiss()
+        dismissAllowingStateLoss()
+    }
+
+    override fun getTheme(): Int = R.style.Theme_OnyxBrowser_BottomSheetDialog
+
+    override fun onStart() {
+        super.onStart()
+        dialog?.let { d ->
+            val bottomSheet = d.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheet?.let { sheet ->
+                sheet.setBackgroundResource(android.R.color.transparent)
+                val behavior = BottomSheetBehavior.from(sheet)
+                behavior.state = BottomSheetBehavior.STATE_EXPANDED
+                behavior.skipCollapsed = true
+            }
+        }
     }
 
     override fun onCreateView(
@@ -116,6 +115,13 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
                     BrowserPreferences.THEME_LIGHT -> false
                     else -> isSystemInDarkTheme()
                 }
+                val accentColor = remember(prefs.accentColorHex, prefs.accentColorPreset) {
+                    try {
+                        Color(AccentColorManager.getAccentColor(prefs))
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
 
                 var isBookmarked by remember { mutableStateOf(false) }
                 val db = AppDatabase.getInstance(requireContext())
@@ -131,7 +137,7 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
                     }
                 }
 
-                OnyxTheme(darkTheme = isDark, isAmoled = false) {
+                OnyxTheme(darkTheme = isDark, isAmoled = false, accentColor = accentColor) {
                     MenuSheetLayout(
                         isHomePage = isHomePage,
                         currentUrl = currentUrl,
@@ -139,6 +145,7 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
                         isBookmarked = isBookmarked,
                         isDefaultBrowser = isDefault,
                         cachedUpdate = cachedUpdate,
+                        translateTargetLanguageName = prefs.targetTranslateLanguageName.ifBlank { "English" },
                         onUpdateClick = {
                             val act = activity as? AppCompatActivity
                             dismiss()
@@ -203,6 +210,10 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
                             onTranslateClicked?.invoke(prefs.targetTranslateLanguage)
                             dismiss()
                         },
+                        onTranslateSettingsClick = {
+                            (activity as? MainActivity)?.browserMenuCoordinator?.showLanguageSelectionDialog()
+                            dismiss()
+                        },
                         onSavePageClick = {
                             onSavePageClicked?.invoke()
                             dismiss()
@@ -233,14 +244,16 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
 
     private fun isDefaultBrowser(): Boolean {
         return try {
+            val ctx = context ?: return false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val roleManager = requireContext().getSystemService(RoleManager::class.java)
-                roleManager?.isRoleHeld(RoleManager.ROLE_BROWSER) == true
-            } else {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))
-                val resolveInfo = requireContext().packageManager.resolveActivity(intent, 0)
-                resolveInfo?.activityInfo?.packageName == requireContext().packageName
+                val roleManager = ctx.getSystemService(RoleManager::class.java)
+                if (roleManager?.isRoleHeld(RoleManager.ROLE_BROWSER) == true) {
+                    return true
+                }
             }
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))
+            val resolveInfo = ctx.packageManager.resolveActivity(intent, 0)
+            resolveInfo?.activityInfo?.packageName == ctx.packageName
         } catch (_: Exception) {
             false
         }
@@ -271,12 +284,12 @@ class MenuBottomSheet : BottomSheetDialogFragment() {
         for (intent in fallbackIntents) {
             try {
                 startActivity(intent)
-                dismiss()
+                dismissAllowingStateLoss()
                 return
             } catch (_: Exception) {
             }
         }
-        dismiss()
+        dismissAllowingStateLoss()
     }
 
     private fun openBookmarks() {
@@ -331,6 +344,7 @@ fun MenuSheetLayout(
     isBookmarked: Boolean,
     isDefaultBrowser: Boolean = true,
     cachedUpdate: UpdateInfo? = null,
+    translateTargetLanguageName: String = "English",
     onUpdateClick: (() -> Unit)? = null,
     onSetDefaultBrowserClick: (() -> Unit)? = null,
     onToggleBookmark: () -> Unit,
@@ -340,12 +354,13 @@ fun MenuSheetLayout(
     onShareClick: () -> Unit,
     onNewTabClick: () -> Unit,
     onNewIncognitoTabClick: () -> Unit,
-    onCloseTabClick: () -> Unit,
+    onCloseTabClick: (() -> Unit)? = null,
     onSiteShieldClick: () -> Unit,
     onFindInPageClick: () -> Unit,
     isDesktop: Boolean,
     onDesktopToggle: (Boolean) -> Unit,
     onTranslateClick: () -> Unit,
+    onTranslateSettingsClick: () -> Unit,
     onSavePageClick: () -> Unit,
     isAddToHomeScreenVisible: Boolean,
     onAddToHomeScreenClick: () -> Unit,
@@ -358,7 +373,7 @@ fun MenuSheetLayout(
 
     Surface(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.background,
         tonalElevation = 0.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -367,67 +382,97 @@ fun MenuSheetLayout(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .verticalScroll(scrollState)
-                .padding(vertical = 12.dp)
+                .padding(top = 8.dp, bottom = 16.dp)
         ) {
             // Drag handle
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(top = 4.dp, bottom = 12.dp)
-                    .size(width = 36.dp, height = 4.dp)
+                    .padding(bottom = 12.dp)
+                    .size(width = 32.dp, height = 4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.outlineVariant)
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
             )
 
-            // Update Available Banner
+            // Update Available Banner (if update available)
             if (cachedUpdate != null) {
-                CardContainer {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onUpdateClick?.invoke() }
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_refresh),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(26.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.update_available_title),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = stringResource(R.string.update_available_subtitle, cachedUpdate.tagName),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.primary)
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.update),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
+                UpdateBannerCard(
+                    cachedUpdate = cachedUpdate,
+                    onClick = { onUpdateClick?.invoke() }
+                )
             }
 
-            // Webpage Site Header Card (only shown when visiting an active website)
-            if (!isHomePage && currentUrl.isNotBlank()) {
+            // Top Shortcuts Quick Bar (Bookmarks, History, Downloads, Share)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                QuickActionItem(
+                    iconRes = if (!isHomePage && isBookmarked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border,
+                    label = stringResource(R.string.bookmarks),
+                    isActive = !isHomePage && isBookmarked,
+                    onClick = if (!isHomePage) onToggleBookmark else onBookmarksClick,
+                    modifier = Modifier.weight(1f)
+                )
+
+                QuickActionItem(
+                    iconRes = R.drawable.ic_history,
+                    label = stringResource(R.string.history),
+                    onClick = onHistoryClick,
+                    modifier = Modifier.weight(1f)
+                )
+
+                QuickActionItem(
+                    iconRes = R.drawable.ic_download,
+                    label = stringResource(R.string.downloads),
+                    onClick = onDownloadsClick,
+                    modifier = Modifier.weight(1f)
+                )
+
+                QuickActionItem(
+                    iconRes = R.drawable.ic_share,
+                    label = stringResource(R.string.share),
+                    onClick = onShareClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+            )
+
+            if (isHomePage) {
+                // ── HOMEPAGE MENU (Reference: a.jpg) ──
+                if (!isDefaultBrowser) {
+                    DefaultBrowserBannerCard(
+                        onClick = { onSetDefaultBrowserClick?.invoke() }
+                    )
+                }
+
+                MenuRowItem(
+                    iconRes = R.drawable.ic_add,
+                    title = stringResource(R.string.new_tab),
+                    onClick = onNewTabClick
+                )
+
+                MenuRowItem(
+                    iconRes = R.drawable.ic_incognito,
+                    title = stringResource(R.string.new_incognito_tab),
+                    onClick = onNewIncognitoTabClick
+                )
+
+                MenuRowItem(
+                    iconRes = R.drawable.ic_settings,
+                    title = stringResource(R.string.settings),
+                    onClick = onSettingsClick
+                )
+            } else {
+                // ── WEBPAGE MENU (Reference: b.jpg) ──
                 val domain = remember(currentUrl) {
                     try {
                         Uri.parse(currentUrl).host?.removePrefix("www.") ?: currentUrl
@@ -435,326 +480,392 @@ fun MenuSheetLayout(
                         currentUrl
                     }
                 }
-                CardContainer {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_web),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = domain,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+
+                WebsiteHeaderCard(
+                    domain = domain,
+                    onShieldClick = onSiteShieldClick,
+                    onShareClick = onShareClick
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                MenuRowItem(
+                    iconRes = R.drawable.ic_add,
+                    title = stringResource(R.string.new_tab),
+                    onClick = onNewTabClick
+                )
+
+                MenuRowItem(
+                    iconRes = R.drawable.ic_incognito,
+                    title = stringResource(R.string.new_incognito_tab),
+                    onClick = onNewIncognitoTabClick
+                )
+
+                if (onCloseTabClick != null) {
+                    MenuRowItem(
+                        iconRes = R.drawable.ic_close,
+                        title = stringResource(R.string.close_tab),
+                        onClick = onCloseTabClick
+                    )
+                }
+
+                MenuRowItem(
+                    iconRes = R.drawable.ic_translate,
+                    title = "Translate to $translateTargetLanguageName",
+                    trailing = {
                         IconButton(
-                            onClick = onSiteShieldClick,
-                            modifier = Modifier.size(36.dp)
+                            onClick = onTranslateSettingsClick,
+                            modifier = Modifier.size(38.dp)
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_shield_lock),
-                                contentDescription = "Shields",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        IconButton(
-                            onClick = onShareClick,
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_share),
-                                contentDescription = "Share",
+                                painter = painterResource(R.drawable.ic_settings),
+                                contentDescription = stringResource(R.string.settings),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
-                    }
-                }
-            }
-
-            // Top Shortcuts Quick Bar (Bookmarks, History, Downloads, Share)
-            CardContainer {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    QuickActionButton(
-                        iconRes = if (!isHomePage && isBookmarked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border,
-                        label = if (!isHomePage && isBookmarked) "Bookmarked" else stringResource(R.string.bookmarks),
-                        isActive = !isHomePage && isBookmarked,
-                        onClick = if (!isHomePage) onToggleBookmark else onBookmarksClick
-                    )
-
-                    QuickActionButton(
-                        iconRes = R.drawable.ic_history,
-                        label = stringResource(R.string.history),
-                        onClick = onHistoryClick
-                    )
-
-                    QuickActionButton(
-                        iconRes = R.drawable.ic_download,
-                        label = stringResource(R.string.downloads),
-                        onClick = onDownloadsClick
-                    )
-
-                    QuickActionButton(
-                        iconRes = R.drawable.ic_share,
-                        label = stringResource(R.string.share),
-                        onClick = onShareClick
-                    )
-                }
-            }
-
-            // Set as Default Browser Banner (Shown on Homepage when not default browser)
-            if (isHomePage && !isDefaultBrowser) {
-                CardContainer {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSetDefaultBrowserClick?.invoke() }
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_shield_lock),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.set_as_default_browser),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = stringResource(R.string.set_default_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Icon(
-                            painter = painterResource(R.drawable.ic_external),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-
-            // Tabs & Navigation Section
-            CategoryHeader("Navigation")
-            CardContainer {
-                PreferenceItem(
-                    title = stringResource(R.string.new_tab),
-                    iconResId = R.drawable.ic_add,
-                    showChevron = false,
-                    onClick = onNewTabClick
+                    },
+                    onClick = onTranslateClick
                 )
+
+                MenuRowItem(
+                    iconRes = R.drawable.ic_search,
+                    title = stringResource(R.string.find_in_page),
+                    onClick = onFindInPageClick
+                )
+
+                MenuRowItem(
+                    iconRes = R.drawable.ic_desktop,
+                    title = stringResource(R.string.desktop_site),
+                    trailing = {
+                        Switch(
+                            checked = isDesktop,
+                            onCheckedChange = { onDesktopToggle(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
+                    },
+                    onClick = { onDesktopToggle(!isDesktop) }
+                )
+
+                MenuRowItem(
+                    iconRes = R.drawable.ic_download,
+                    title = stringResource(R.string.save_this_page),
+                    onClick = onSavePageClick
+                )
+
+                MenuRowItem(
+                    iconRes = R.drawable.ic_terminal_outline,
+                    title = stringResource(R.string.developer_tools),
+                    subtitle = stringResource(R.string.developer_tools_subtitle),
+                    onClick = onDevToolsClick
+                )
+
+                if (isBlockElementVisible) {
+                    MenuRowItem(
+                        iconRes = R.drawable.ic_block_element,
+                        title = stringResource(R.string.block_element),
+                        onClick = onBlockElementClick
+                    )
+                }
+
+                if (isAddToHomeScreenVisible) {
+                    MenuRowItem(
+                        iconRes = R.drawable.ic_add_to_home_screen,
+                        title = stringResource(R.string.add_to_home_screen),
+                        onClick = onAddToHomeScreenClick
+                    )
+                }
 
                 HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
                 )
 
-                PreferenceItem(
-                    title = stringResource(R.string.new_incognito_tab),
-                    iconResId = R.drawable.ic_incognito,
-                    showChevron = false,
-                    onClick = onNewIncognitoTabClick
-                )
-
-                if (!isHomePage && currentUrl.isNotBlank()) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                    )
-
-                    PreferenceItem(
-                        title = stringResource(R.string.close_tab),
-                        iconResId = R.drawable.ic_close,
-                        showChevron = false,
-                        onClick = onCloseTabClick
-                    )
-                }
-            }
-
-            // Webpage-specific Actions (Page Actions & Tools)
-            if (!isHomePage) {
-                CategoryHeader("Page Actions")
-                CardContainer {
-                    SwitchPreference(
-                        title = stringResource(R.string.desktop_site),
-                        subtitle = "Request desktop version",
-                        iconResId = R.drawable.ic_desktop,
-                        checked = isDesktop,
-                        onCheckedChange = onDesktopToggle
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                    )
-
-                    PreferenceItem(
-                        title = stringResource(R.string.find_in_page),
-                        iconResId = R.drawable.ic_search,
-                        showChevron = false,
-                        onClick = onFindInPageClick
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                    )
-
-                    PreferenceItem(
-                        title = "Translate Webpage",
-                        iconResId = R.drawable.ic_translate,
-                        showChevron = false,
-                        onClick = onTranslateClick
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                    )
-
-                    PreferenceItem(
-                        title = stringResource(R.string.save_this_page),
-                        subtitle = "Save as original, MHTML, or PDF",
-                        iconResId = R.drawable.ic_download,
-                        showChevron = false,
-                        onClick = onSavePageClick
-                    )
-
-                    if (isAddToHomeScreenVisible) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                        )
-
-                        PreferenceItem(
-                            title = stringResource(R.string.add_to_home_screen),
-                            iconResId = R.drawable.ic_add_to_home_screen,
-                            showChevron = false,
-                            onClick = onAddToHomeScreenClick
-                        )
-                    }
-                }
-
-                CategoryHeader("Developer & Tools")
-                CardContainer {
-                    if (isBlockElementVisible) {
-                        PreferenceItem(
-                            title = stringResource(R.string.block_element),
-                            iconResId = R.drawable.ic_block_element,
-                            showChevron = false,
-                            onClick = onBlockElementClick
-                        )
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                        )
-                    }
-
-                    PreferenceItem(
-                        title = stringResource(R.string.developer_tools),
-                        subtitle = stringResource(R.string.developer_tools_subtitle),
-                        iconResId = R.drawable.ic_terminal_outline,
-                        showChevron = false,
-                        onClick = onDevToolsClick
-                    )
-                }
-            }
-
-            // Settings Section
-            CategoryHeader(stringResource(R.string.settings))
-            CardContainer {
-                PreferenceItem(
+                MenuRowItem(
+                    iconRes = R.drawable.ic_settings,
                     title = stringResource(R.string.settings),
-                    subtitle = "Preferences, privacy, shields & appearance",
-                    iconResId = R.drawable.ic_settings,
-                    showChevron = true,
                     onClick = onSettingsClick
                 )
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
 
 @Composable
-private fun CategoryHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 4.dp)
-    )
-}
-
-@Composable
-private fun QuickActionButton(
+private fun QuickActionItem(
     iconRes: Int,
     label: String,
     isActive: Boolean = false,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .padding(vertical = 8.dp, horizontal = 4.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(50.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(
-                    if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                    else colorResource(R.color.shortcut_tile_bg)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = label,
-                tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = label,
+            tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(26.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
             fontWeight = FontWeight.Medium,
-            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            maxLines = 1
+            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+private fun WebsiteHeaderCard(
+    domain: String,
+    onShieldClick: () -> Unit,
+    onShareClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable(onClick = onShieldClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_web),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(20.dp)
+            )
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Text(
+                text = domain,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+                    .clickable(onClick = onShieldClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_shield_lock),
+                    contentDescription = "Shields",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+                    .clickable(onClick = onShareClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_share),
+                    contentDescription = "Share",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuRowItem(
+    iconRes: Int,
+    title: String,
+    subtitle: String? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(if (subtitle != null) 54.dp else 48.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        if (trailing != null) {
+            trailing()
+        }
+    }
+}
+
+@Composable
+private fun DefaultBrowserBannerCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_shield_lock),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.set_as_default_browser),
+                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.set_default_desc),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Icon(
+                painter = painterResource(R.drawable.ic_external),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun UpdateBannerCard(
+    cachedUpdate: UpdateInfo,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_refresh),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(26.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.update_available_title),
+                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.update_available_subtitle, cachedUpdate.tagName),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.update),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
