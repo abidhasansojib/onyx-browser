@@ -9,7 +9,7 @@ val OnyxOnPrimary = Color(0xFFFFFFFF)
 
 // Light Palette
 val LightBackground = Color(0xFFF1F3F4)
-val LightSurface = Color(0xFFFFFFFF)
+val LightSurface = Color(0xFFF7F7F8)
 val LightSurfaceVariant = Color(0xFFE8EAED)
 val LightTextPrimary = Color(0xFF202124)
 val LightTextSecondary = Color(0xFF5F6368)

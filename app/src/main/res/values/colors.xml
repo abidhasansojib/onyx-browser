@@ -8,8 +8,8 @@
     <color name="on_secondary">#FFFFFF</color>
 
     <!-- Google Light Theme Colors (matches google.com and Chrome Light) -->
-    <color name="background_light">#FFFFFF</color>
-    <color name="surface_light">#FFFFFF</color>
+    <color name="background_light">#F7F7F8</color>
+    <color name="surface_light">#F7F7F8</color>
     <color name="surface_variant_light">#F1F3F4</color>
     <color name="text_primary_light">#202124</color>
     <color name="text_secondary_light">#5F6368</color>
@@ -27,7 +27,7 @@
     <color name="on_primary_dark">#FFFFFF</color>
 
     <!-- Homepage & Box-Type Colors matching Quetta reference design -->
-    <color name="homepage_bg">#FFFFFF</color>
+    <color name="homepage_bg">#F7F7F8</color>
     <color name="top_bar_box_color">#F1F3F4</color>
     <color name="shortcut_tile_bg">#F1F3F4</color>
     <color name="popup_menu_stroke">#DFE1E5</color>
@@ -41,13 +41,13 @@
     <color name="google_blue">#1A73E8</color>
 
     <!-- Search Widget Colors (Light Theme - Chrome / Pixel Stadium Pill) -->
-    <color name="widget_background">#FFFFFF</color>
+    <color name="widget_background">#F7F7F8</color>
     <color name="widget_stroke">#DFE1E5</color>
     <color name="widget_text">#5F6368</color>
     <color name="widget_icon">#5F6368</color>
     <color name="widget_container_bg">#F1F3F4</color>
     <color name="widget_container_stroke">#DFE1E5</color>
-    <color name="widget_surface_bg">#FFFFFF</color>
+    <color name="widget_surface_bg">#F7F7F8</color>
     <color name="widget_surface_stroke">#DFE1E5</color>
     <color name="widget_badge_bg">#F1F3F4</color>
     <color name="widget_badge_stroke">#E0E2E6</color>
@@ -58,23 +58,23 @@
     <color name="tab_switcher_accent">#DC4B64</color>
     <color name="tab_pill_container_bg">#E8EAED</color>
     <color name="tab_pill_stroke">#DADCE0</color>
-    <color name="tab_card_bg">#FFFFFF</color>
+    <color name="tab_card_bg">#F7F7F8</color>
     <color name="tab_card_stroke">#DADCE0</color>
     <color name="tab_card_header_bg">#F8F9FA</color>
     <color name="tab_text_primary">#202124</color>
     <color name="tab_close_icon">#5F6368</color>
 
     <!-- Dialog Prompts & Action Button Colors — Light mode uses white surface -->
-    <color name="dialog_clear_data_bg">#FFFFFF</color>
-    <color name="dialog_close_all_tabs_bg">#FFFFFF</color>
-    <color name="dialog_search_engine_bg">#FFFFFF</color>
+    <color name="dialog_clear_data_bg">#F7F7F8</color>
+    <color name="dialog_close_all_tabs_bg">#F7F7F8</color>
+    <color name="dialog_search_engine_bg">#F7F7F8</color>
     <color name="btn_cancel_bg">#E8EAED</color>
     <color name="btn_clear_bg">#DC4B64</color>
     <color name="btn_apply_text">#FFFFFF</color>
 
     <!-- Settings Screen — Light mode uses clean white canvas -->
     <color name="settings_canvas_bg">#F1F3F4</color>
-    <color name="settings_card_bg">#FFFFFF</color>
+    <color name="settings_card_bg">#F7F7F8</color>
     <color name="settings_card_stroke">#E0E2E6</color>
     <!-- Settings text colors — light mode -->
     <color name="settings_title_text">#202124</color>

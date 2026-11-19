@@ -892,7 +892,7 @@ object LocalFileLoader {
                   white-space: pre-wrap;
                 }
                 @media (prefers-color-scheme: light) {
-                  body { background: #FFFFFF; color: #202124; }
+                  body { background: #F7F7F8; color: #202124; }
                 }
               </style>
             </head>
@@ -923,7 +923,7 @@ object LocalFileLoader {
                   margin: 0;
                 }
                 @media (prefers-color-scheme: light) {
-                  body { background: #FFFFFF; color: #202124; }
+                  body { background: #F7F7F8; color: #202124; }
                   code { background: #F1F3F4 !important; color: $accentHex !important; }
                   .card { background: #F8F9FA !important; border-color: #DFE1E5 !important; }
                 }
