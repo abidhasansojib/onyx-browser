@@ -18,12 +18,21 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -46,7 +55,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -69,6 +80,9 @@ import com.onyx.browser.ui.common.BiometricAuthHelper
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 class TabSwitcherBottomSheet(
     private val tabManager: TabCoordinator,
@@ -688,133 +702,250 @@ class TabSwitcherBottomSheet(
             }
         }
 
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            border = androidx.compose.foundation.BorderStroke(
-                width = if (isActive) 2.5.dp else 1.dp,
-                color = outlineColor
-            ),
-            shadowElevation = if (isActive) 4.dp else 1.dp,
+        val coroutineScope = rememberCoroutineScope()
+        var dragOffsetX by remember { mutableFloatStateOf(0f) }
+        var cardAlpha by remember { mutableFloatStateOf(1f) }
+        var cardWidthPx by remember { mutableFloatStateOf(0f) }
+        var isDismissingTab by remember { mutableStateOf(false) }
+        var settleJob by remember { mutableStateOf<Job?>(null) }
+
+        val draggableState = rememberDraggableState { delta ->
+            settleJob?.cancel()
+            dragOffsetX += delta
+            val width = if (cardWidthPx > 0f) cardWidthPx else 300f
+            cardAlpha = (1f - (abs(dragOffsetX) / width).coerceIn(0f, 0.7f))
+        }
+
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .combinedClickable(
-                    onClick = onTabClick,
-                    onLongClick = onTabLongClick
-                )
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Tab Header
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(headerColor)
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Favicon / Lock Icon
-                    if (isLocked) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = closeColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    } else if (tab.isIncognito) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_incognito),
-                            contentDescription = null,
-                            tint = closeColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    } else {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_web),
-                            contentDescription = null,
-                            tint = closeColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                .onSizeChanged { size ->
+                    cardWidthPx = size.width.toFloat()
+                }
+                .graphicsLayer {
+                    translationX = dragOffsetX
+                    alpha = cardAlpha
+                }
+                .draggable(
+                    state = draggableState,
+                    orientation = Orientation.Horizontal,
+                    enabled = !isDismissingTab,
+                    onDragStarted = {
+                        settleJob?.cancel()
+                    },
+                    onDragStopped = { velocity ->
+                        if (isDismissingTab) return@draggable
+                        val width = if (cardWidthPx > 0f) cardWidthPx else 300f
+                        val dismissThreshold = width * 0.35f
+                        val flingThreshold = 800f
 
-                    Spacer(modifier = Modifier.width(6.dp))
+                        val shouldDismiss = (abs(dragOffsetX) > dismissThreshold) ||
+                                (abs(velocity) > flingThreshold && abs(dragOffsetX) > 20f)
 
-                    // Title & Domain
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (isLocked) "Protected Tab" else tab.title.ifBlank { stringResource(R.string.new_tab) },
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = titleColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (!isLocked && domain.isNotBlank()) {
-                            Text(
-                                text = domain,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = titleColor.copy(alpha = 0.75f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        if (shouldDismiss) {
+                            isDismissingTab = true
+                            val targetOffset = if (velocity > flingThreshold) {
+                                width * 1.25f
+                            } else if (velocity < -flingThreshold) {
+                                -width * 1.25f
+                            } else if (dragOffsetX > 0) {
+                                width * 1.25f
+                            } else {
+                                -width * 1.25f
+                            }
+
+                            settleJob = coroutineScope.launch {
+                                launch {
+                                    animate(
+                                        initialValue = cardAlpha,
+                                        targetValue = 0f,
+                                        animationSpec = tween(
+                                            durationMillis = 180,
+                                            easing = LinearEasing
+                                        )
+                                    ) { value, _ ->
+                                        cardAlpha = value
+                                    }
+                                }
+                                animate(
+                                    initialValue = dragOffsetX,
+                                    targetValue = targetOffset,
+                                    initialVelocity = velocity,
+                                    animationSpec = tween(
+                                        durationMillis = 180,
+                                        easing = FastOutLinearInEasing
+                                    )
+                                ) { value, _ ->
+                                    dragOffsetX = value
+                                }
+                                onCloseClick()
+                            }
+                        } else {
+                            settleJob = coroutineScope.launch {
+                                launch {
+                                    animate(
+                                        initialValue = cardAlpha,
+                                        targetValue = 1f,
+                                        animationSpec = spring(
+                                            stiffness = Spring.StiffnessMediumLow
+                                        )
+                                    ) { value, _ ->
+                                        cardAlpha = value
+                                    }
+                                }
+                                animate(
+                                    initialValue = dragOffsetX,
+                                    targetValue = 0f,
+                                    initialVelocity = velocity,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                ) { value, _ ->
+                                    dragOffsetX = value
+                                }
+                            }
                         }
                     }
-
-                    // Close Button
-                    IconButton(
-                        onClick = onCloseClick,
-                        modifier = Modifier.size(32.dp)
+                )
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (isActive) 2.5.dp else 1.dp,
+                    color = outlineColor
+                ),
+                shadowElevation = if (isActive) 4.dp else 1.dp,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
+                    .combinedClickable(
+                        onClick = {
+                            if (!isDismissingTab) onTabClick()
+                        },
+                        onLongClick = {
+                            if (!isDismissingTab) onTabLongClick()
+                        }
+                    )
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Tab Header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(headerColor)
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.close_tab),
-                            tint = closeColor,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-
-                // Tab Content / Thumbnail
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isLocked) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
+                        // Favicon / Lock Icon
+                        if (isLocked) {
                             Icon(
                                 imageVector = Icons.Default.Lock,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(32.dp)
+                                tint = closeColor,
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Locked",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        } else if (tab.isIncognito) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_incognito),
+                                contentDescription = null,
+                                tint = closeColor,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_web),
+                                contentDescription = null,
+                                tint = closeColor,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
-                    } else if (snapshot != null) {
-                        Image(
-                            bitmap = snapshot.asImageBitmap(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_app_emblem),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
-                            modifier = Modifier.size(48.dp)
-                        )
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        // Title & Domain
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isLocked) "Protected Tab" else tab.title.ifBlank { stringResource(R.string.new_tab) },
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = titleColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (!isLocked && domain.isNotBlank()) {
+                                Text(
+                                    text = domain,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = titleColor.copy(alpha = 0.75f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        // Close Button
+                        IconButton(
+                            onClick = {
+                                if (!isDismissingTab) {
+                                    isDismissingTab = true
+                                    onCloseClick()
+                                }
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.close_tab),
+                                tint = closeColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Tab Content / Thumbnail
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isLocked) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Locked",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                        } else if (snapshot != null) {
+                            Image(
+                                bitmap = snapshot.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_app_emblem),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
                     }
                 }
             }
