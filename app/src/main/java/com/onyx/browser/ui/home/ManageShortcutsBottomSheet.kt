@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -208,6 +211,17 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(suggestedItems) { (title, url, iconType) ->
+                        val brandIcon = when (iconType) {
+                            ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
+                            ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
+                            ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
+                            ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
+                            ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
+                            ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
+                            else -> null
+                        }
+                        val favicon = if (brandIcon == null) rememberFavicon(url) else null
+
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -227,22 +241,34 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val iconRes = when (iconType) {
-                                    ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
-                                    ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
-                                    ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
-                                    ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
-                                    ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
-                                    ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
-                                    else -> R.drawable.ic_web
+                                when {
+                                    brandIcon != null -> {
+                                        Icon(
+                                            painter = painterResource(brandIcon),
+                                            contentDescription = null,
+                                            tint = Color.Unspecified,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    favicon != null -> {
+                                        Image(
+                                            bitmap = favicon,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .size(18.dp)
+                                                .clip(CircleShape)
+                                        )
+                                    }
+                                    else -> {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_web),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
-
-                                Icon(
-                                    painter = painterResource(iconRes),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
 
                                 Spacer(modifier = Modifier.width(6.dp))
 
@@ -277,6 +303,18 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(shortcuts, key = { it.id }) { item ->
+                        val isSystem = item.isSystemShortcut
+                        val brandIcon = when (item.iconType) {
+                            ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
+                            ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
+                            ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
+                            ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
+                            ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
+                            ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
+                            else -> null
+                        }
+                        val favicon = if (!isSystem && brandIcon == null) rememberFavicon(item.url) else null
+
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
@@ -291,25 +329,71 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                        .clip(if (isSystem) RoundedCornerShape(10.dp) else CircleShape)
+                                        .background(
+                                            if (isSystem) MaterialTheme.colorScheme.primaryContainer
+                                            else MaterialTheme.colorScheme.surfaceVariant
+                                        ),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    val first = item.title.trim().firstOrNull()?.uppercase()
-                                    if (first != null && first.matches(Regex("[A-Za-z0-9]"))) {
-                                        Text(
-                                            text = first,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    } else {
-                                        Icon(
-                                            painter = painterResource(R.drawable.ic_web),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(18.dp)
-                                        )
+                                    when {
+                                        isSystem -> {
+                                            val sysRes = when (item.iconType) {
+                                                ShortcutItem.ICON_BOOKMARKS -> R.drawable.ic_bookmark
+                                                ShortcutItem.ICON_HISTORY -> R.drawable.ic_history
+                                                ShortcutItem.ICON_DOWNLOADS -> R.drawable.ic_download
+                                                ShortcutItem.ICON_QR_SCAN -> R.drawable.ic_qr_code
+                                                else -> when {
+                                                    item.url.contains("bookmarks") -> R.drawable.ic_bookmark
+                                                    item.url.contains("history") -> R.drawable.ic_history
+                                                    item.url.contains("downloads") -> R.drawable.ic_download
+                                                    item.url.contains("qr") -> R.drawable.ic_qr_code
+                                                    else -> R.drawable.ic_bookmark
+                                                }
+                                            }
+                                            Icon(
+                                                painter = painterResource(sysRes),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                        brandIcon != null -> {
+                                            Icon(
+                                                painter = painterResource(brandIcon),
+                                                contentDescription = null,
+                                                tint = Color.Unspecified,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        favicon != null -> {
+                                            Image(
+                                                bitmap = favicon,
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Fit,
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .clip(CircleShape)
+                                            )
+                                        }
+                                        else -> {
+                                            val first = item.title.trim().firstOrNull()?.uppercase()
+                                            if (first != null && first.matches(Regex("[A-Za-z0-9]"))) {
+                                                Text(
+                                                    text = first,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            } else {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.ic_web),
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
 

@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -161,6 +162,17 @@ fun HomeScreenContent(
             ) {
                 items(displayShortcuts, key = { it.id }) { item ->
                     val isAddSentinel = item.id == ShortcutItem.ID_ADD_SHORTCUT || item.url == ShortcutItem.URL_ADD_SHORTCUT
+                    val isSystem = item.isSystemShortcut
+                    val brandIcon = when (item.iconType) {
+                        ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
+                        ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
+                        ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
+                        ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
+                        ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
+                        ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
+                        else -> null
+                    }
+                    val favicon = if (!isAddSentinel && !isSystem && brandIcon == null) rememberFavicon(item.url) else null
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -182,42 +194,78 @@ fun HomeScreenContent(
                             )
                     ) {
                         Surface(
-                            shape = CircleShape,
-                            color = if (isAddSentinel) {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
+                            shape = when {
+                                isSystem -> RoundedCornerShape(16.dp) // Option B: Squircle for System Tools
+                                else -> CircleShape                   // Circular for Websites & Add
                             },
+                            color = when {
+                                isAddSentinel -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                isSystem -> MaterialTheme.colorScheme.primaryContainer // Distinct tonal background
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            tonalElevation = if (isSystem) 3.dp else 1.dp,
                             shadowElevation = if (isAddSentinel) 0.dp else 2.dp,
                             modifier = Modifier.size(54.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                if (isAddSentinel) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = "Add shortcut",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                } else {
-                                    val iconRes = when (item.iconType) {
-                                        ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
-                                        ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
-                                        ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
-                                        ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
-                                        ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
-                                        ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
-                                        else -> null
+                                when {
+                                    // 1. Add Shortcut Sentinel Button
+                                    isAddSentinel -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Add shortcut",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
                                     }
 
-                                    if (iconRes != null) {
+                                    // 2. System Browser Tools (Bookmarks, History, Downloads, QR)
+                                    isSystem -> {
+                                        val sysIconRes = when (item.iconType) {
+                                            ShortcutItem.ICON_BOOKMARKS -> R.drawable.ic_bookmark
+                                            ShortcutItem.ICON_HISTORY -> R.drawable.ic_history
+                                            ShortcutItem.ICON_DOWNLOADS -> R.drawable.ic_download
+                                            ShortcutItem.ICON_QR_SCAN -> R.drawable.ic_qr_code
+                                            else -> when {
+                                                item.url.contains("bookmarks") -> R.drawable.ic_bookmark
+                                                item.url.contains("history") -> R.drawable.ic_history
+                                                item.url.contains("downloads") -> R.drawable.ic_download
+                                                item.url.contains("qr") -> R.drawable.ic_qr_code
+                                                else -> R.drawable.ic_bookmark
+                                            }
+                                        }
                                         Icon(
-                                            painter = painterResource(iconRes),
-                                            contentDescription = null,
+                                            painter = painterResource(sysIconRes),
+                                            contentDescription = item.title,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+
+                                    // 3. Fallback for Static Brand Icons (Google, YouTube, etc.)
+                                    brandIcon != null -> {
+                                        Icon(
+                                            painter = painterResource(brandIcon),
+                                            contentDescription = item.title,
                                             tint = Color.Unspecified,
                                             modifier = Modifier.size(26.dp)
                                         )
-                                    } else {
+                                    }
+
+                                    // 4. Website Shortcuts with Live Cached Favicons
+                                    favicon != null -> {
+                                        Image(
+                                            bitmap = favicon,
+                                            contentDescription = item.title,
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(CircleShape)
+                                        )
+                                    }
+
+                                    // 5. Fallback for unstyled websites (first letter or web globe)
+                                    else -> {
                                         val firstLetter = item.title.trim().firstOrNull()?.uppercase()
                                         if (firstLetter != null && firstLetter.matches(Regex("[A-Za-z0-9]"))) {
                                             Text(

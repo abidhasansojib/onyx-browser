@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -15,6 +16,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.painterResource
@@ -26,9 +29,9 @@ import com.onyx.browser.R
 import com.onyx.browser.data.model.ShortcutItem
 import com.onyx.browser.ui.theme.OnyxTheme
 
-class EditShortcutDialog(
-    private val shortcut: ShortcutItem,
-    private val onShortcutSaved: (ShortcutItem) -> Unit
+class EditShortcutDialog @JvmOverloads constructor(
+    private var shortcut: ShortcutItem = ShortcutItem(title = "", url = ""),
+    private var onShortcutSaved: ((ShortcutItem) -> Unit)? = null
 ) : DialogFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,6 +65,18 @@ class EditShortcutDialog(
             title.trim().firstOrNull()?.uppercase()
         }
 
+        val isSystem = shortcut.isSystemShortcut
+        val brandIcon = when (shortcut.iconType) {
+            ShortcutItem.ICON_GOOGLE -> R.drawable.ic_brand_google
+            ShortcutItem.ICON_YOUTUBE -> R.drawable.ic_brand_youtube
+            ShortcutItem.ICON_GITHUB -> R.drawable.ic_brand_github
+            ShortcutItem.ICON_WIKIPEDIA -> R.drawable.ic_brand_wikipedia
+            ShortcutItem.ICON_FACEBOOK -> R.drawable.ic_brand_facebook
+            ShortcutItem.ICON_REDDIT -> R.drawable.ic_brand_reddit
+            else -> null
+        }
+        val favicon = if (!isSystem && brandIcon == null) rememberFavicon(url) else null
+
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
@@ -81,24 +96,70 @@ class EditShortcutDialog(
                     Box(
                         modifier = Modifier
                             .size(48.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                            .clip(if (isSystem) RoundedCornerShape(14.dp) else CircleShape)
+                            .background(
+                                if (isSystem) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (firstLetter != null && firstLetter.matches(Regex("[A-Za-z0-9]"))) {
-                            Text(
-                                text = firstLetter,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        } else {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_web),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(24.dp)
-                            )
+                        when {
+                            isSystem -> {
+                                val sysRes = when (shortcut.iconType) {
+                                    ShortcutItem.ICON_BOOKMARKS -> R.drawable.ic_bookmark
+                                    ShortcutItem.ICON_HISTORY -> R.drawable.ic_history
+                                    ShortcutItem.ICON_DOWNLOADS -> R.drawable.ic_download
+                                    ShortcutItem.ICON_QR_SCAN -> R.drawable.ic_qr_code
+                                    else -> when {
+                                        shortcut.url.contains("bookmarks") -> R.drawable.ic_bookmark
+                                        shortcut.url.contains("history") -> R.drawable.ic_history
+                                        shortcut.url.contains("downloads") -> R.drawable.ic_download
+                                        shortcut.url.contains("qr") -> R.drawable.ic_qr_code
+                                        else -> R.drawable.ic_bookmark
+                                    }
+                                }
+                                Icon(
+                                    painter = painterResource(sysRes),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            brandIcon != null -> {
+                                Icon(
+                                    painter = painterResource(brandIcon),
+                                    contentDescription = null,
+                                    tint = ComposeColor.Unspecified,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            favicon != null -> {
+                                Image(
+                                    bitmap = favicon,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(CircleShape)
+                                )
+                            }
+                            else -> {
+                                if (firstLetter != null && firstLetter.matches(Regex("[A-Za-z0-9]"))) {
+                                    Text(
+                                        text = firstLetter,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_web),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -184,7 +245,7 @@ class EditShortcutDialog(
                                 title = finalTitle,
                                 url = validUrl
                             )
-                            onShortcutSaved(updated)
+                            onShortcutSaved?.invoke(updated)
                             dismiss()
                         },
                         shape = RoundedCornerShape(12.dp)
