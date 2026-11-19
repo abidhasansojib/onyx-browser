@@ -41,7 +41,7 @@ import com.onyx.browser.MainActivity
 import com.onyx.browser.R
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.BookmarkItem
-import com.onyx.browser.data.preferences.AccentColorManager
+import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.bookmarks.BookmarksActivity
 import com.onyx.browser.ui.downloads.DownloadsActivity

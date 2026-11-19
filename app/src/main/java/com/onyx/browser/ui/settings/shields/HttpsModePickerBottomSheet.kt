@@ -11,7 +11,7 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.databinding.BottomSheetHttpsModePickerBinding
 
 class HttpsModePickerBottomSheet @JvmOverloads constructor(
-    private val currentMode: Int = BrowserPreferences.HTTPS_UPGRADE_ALL,
+    private val currentMode: Int = BrowserPreferences.HTTPS_MODE_WHEN_POSSIBLE,
     private val onSelected: (Int) -> Unit = {}
 ) : BottomSheetDialogFragment() {
 

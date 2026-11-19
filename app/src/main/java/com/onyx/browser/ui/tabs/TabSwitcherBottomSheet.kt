@@ -86,7 +86,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 class TabSwitcherBottomSheet @JvmOverloads constructor(
-    tabManagerParam: TabCoordinator? = TabCoordinator.activeInstance,
+    private val tabManagerParam: TabCoordinator? = TabCoordinator.activeInstance,
     private val coroutineScope: CoroutineScope? = null,
     private val onTabSelected: (TabItem) -> Unit = {},
     private val onNewTabRequested: (Boolean) -> Unit = {},
