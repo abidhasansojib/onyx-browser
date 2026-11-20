@@ -48,7 +48,7 @@ class UserScriptBridge(
         val targetUrl: String
     )
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val tokens = ConcurrentHashMap<String, ScriptSession>()
     private val activeCalls = ConcurrentHashMap<String, Call>()
     private val inFlightConnectPrompts = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
@@ -246,7 +246,9 @@ class UserScriptBridge(
         listedInConnect: Boolean
     ): Boolean {
         val normalizedHost = host.trim().lowercase()
-        manager.getConnectDecision(scriptId, normalizedHost)?.let { return it }
+        withContext(Dispatchers.IO) {
+            manager.getConnectDecision(scriptId, normalizedHost)
+        }?.let { return it }
 
         val key = "$scriptId:$normalizedHost"
         val newDeferred = CompletableDeferred<Boolean>()

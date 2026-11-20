@@ -3,6 +3,7 @@ package com.onyx.browser.userscript
 import com.onyx.browser.web.AssetScriptLoader
 import android.content.Context
 import android.net.Uri
+import android.os.Looper
 import android.util.Log
 import com.onyx.browser.data.local.AppDatabase
 import com.onyx.browser.data.model.UserScriptItem
@@ -17,6 +18,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -85,6 +87,7 @@ class UserScriptManager private constructor(private val context: Context) {
 
     private val userScriptDao get() = database.userScriptDao()
     private val valueDao get() = database.userScriptValueDao()
+    private val valuesCache = ConcurrentHashMap<Long, ConcurrentHashMap<String, String>>()
 
     private val scriptDir: File by lazy {
         File(context.filesDir, "userscripts").apply { mkdirs() }
@@ -173,6 +176,15 @@ class UserScriptManager private constructor(private val context: Context) {
         }
 
         scripts = loaded
+        loaded.forEach { parsed ->
+            runCatching {
+                val map = ConcurrentHashMap<String, String>()
+                valueDao.getAllForScript(parsed.script.id).forEach { item ->
+                    map[item.key] = item.value
+                }
+                valuesCache[parsed.script.id] = map
+            }
+        }
         _hasNativeScripts.value = loaded.any { it.script.enabled && it.metadata.requiresNativeBridge }
         notifyScriptsChanged()
 
@@ -568,6 +580,7 @@ class UserScriptManager private constructor(private val context: Context) {
     }
 
     suspend fun deleteScript(id: Long) = withContext(Dispatchers.IO) {
+        valuesCache.remove(id)
         valueDao.deleteAllForScript(id)
         userScriptDao.deleteById(id)
         deleteCodeFile(id)
@@ -648,15 +661,39 @@ class UserScriptManager private constructor(private val context: Context) {
     // endregion
 
     // region GM values
-    fun gmGetValue(scriptId: Long, key: String): String? = valueDao.getValue(scriptId, key)
+    private fun getOrLoadValuesMap(scriptId: Long): ConcurrentHashMap<String, String> {
+        valuesCache[scriptId]?.let { return it }
+        val map = ConcurrentHashMap<String, String>()
+        val items = try {
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                runBlocking(Dispatchers.IO) { valueDao.getAllForScript(scriptId) }
+            } else {
+                valueDao.getAllForScript(scriptId)
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+        items.forEach { map[it.key] = it.value }
+        return valuesCache.putIfAbsent(scriptId, map) ?: map
+    }
+
+    fun gmGetValue(scriptId: Long, key: String): String? = getOrLoadValuesMap(scriptId)[key]
     fun gmGetValue(scriptKey: String, key: String): String? {
         val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return null
         return gmGetValue(id, key)
     }
 
     fun gmSetValue(scriptId: Long, key: String, value: String) {
-        val oldValue = valueDao.getValue(scriptId, key)
-        valueDao.setValue(UserScriptValueItem(scriptId, key, value))
+        val map = getOrLoadValuesMap(scriptId)
+        val oldValue = map.put(key, value)
+        val item = UserScriptValueItem(scriptId, key, value)
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            scope.launch(Dispatchers.IO) {
+                runCatching { valueDao.setValue(item) }
+            }
+        } else {
+            runCatching { valueDao.setValue(item) }
+        }
         if (oldValue != value) {
             valueChangeListeners.forEach { runCatching { it.onValueChanged(scriptId, key, oldValue, value) } }
         }
@@ -667,8 +704,15 @@ class UserScriptManager private constructor(private val context: Context) {
     }
 
     fun gmDeleteValue(scriptId: Long, key: String) {
-        val oldValue = valueDao.getValue(scriptId, key)
-        valueDao.deleteValue(scriptId, key)
+        val map = getOrLoadValuesMap(scriptId)
+        val oldValue = map.remove(key)
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            scope.launch(Dispatchers.IO) {
+                runCatching { valueDao.deleteValue(scriptId, key) }
+            }
+        } else {
+            runCatching { valueDao.deleteValue(scriptId, key) }
+        }
         if (oldValue != null) {
             valueChangeListeners.forEach { runCatching { it.onValueChanged(scriptId, key, oldValue, null) } }
         }
@@ -679,7 +723,7 @@ class UserScriptManager private constructor(private val context: Context) {
     }
 
     fun gmListValues(scriptId: Long): List<String> =
-        valueDao.listKeys(scriptId).filterNot { it.startsWith(CONNECT_DECISION_KEY_PREFIX) }
+        getOrLoadValuesMap(scriptId).keys.filterNot { it.startsWith(CONNECT_DECISION_KEY_PREFIX) }
     fun gmListValues(scriptKey: String): List<String> {
         val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return emptyList()
         return gmListValues(id)
@@ -692,7 +736,7 @@ class UserScriptManager private constructor(private val context: Context) {
     fun getConnectDecision(scriptId: Long, host: String): Boolean? {
         val normalized = host.trim().lowercase()
         if (normalized.isEmpty()) return null
-        return when (valueDao.getValue(scriptId, "$CONNECT_DECISION_KEY_PREFIX$normalized")) {
+        return when (getOrLoadValuesMap(scriptId)["$CONNECT_DECISION_KEY_PREFIX$normalized"]) {
             "allow" -> true
             "deny" -> false
             else -> null
@@ -703,7 +747,16 @@ class UserScriptManager private constructor(private val context: Context) {
         val normalized = host.trim().lowercase()
         if (normalized.isEmpty()) return
         val key = "$CONNECT_DECISION_KEY_PREFIX$normalized"
-        valueDao.setValue(UserScriptValueItem(scriptId, key, if (allow) "allow" else "deny"))
+        val value = if (allow) "allow" else "deny"
+        getOrLoadValuesMap(scriptId)[key] = value
+        val item = UserScriptValueItem(scriptId, key, value)
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            scope.launch(Dispatchers.IO) {
+                runCatching { valueDao.setValue(item) }
+            }
+        } else {
+            runCatching { valueDao.setValue(item) }
+        }
     }
     // endregion
 
