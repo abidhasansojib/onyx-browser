@@ -928,7 +928,17 @@ open class BrowserWebViewClient(
             if (isForMainFrame && preferences.isAutoRedirectTrackingUrlsEnabled &&
                 (scheme == "http" || scheme == "https")) {
                 if (!isAuthOrMeta) {
-                    val cleaned = stripTrackingParams(url)
+                    var cleaned = stripTrackingParams(url)
+                    if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(host)) {
+                        val nativeRewrite = AdBlockEngine.getRewrittenUrl(
+                            url = cleaned,
+                            sourceUrl = currentPageUrl.ifBlank { cleaned },
+                            resourceType = AdBlockEngine.RESOURCE_TYPE_MAIN_FRAME
+                        )
+                        if (!nativeRewrite.isNullOrBlank()) {
+                            cleaned = nativeRewrite
+                        }
+                    }
                     if (cleaned != url) {
                         view?.post { view.loadUrl(cleaned) }
                         return true
@@ -1477,6 +1487,8 @@ open class BrowserWebViewClient(
                                 val wrappedScriptlet = """
                                     (function() {
                                         try {
+                                            if (window.__onyx_scriptlets_applied_for === location.href) return;
+                                            window.__onyx_scriptlets_applied_for = location.href;
                                             var _code = atob('$b64');
                                             var _tt = null;
                                             if (window.trustedTypes && typeof window.trustedTypes.createPolicy === 'function') {

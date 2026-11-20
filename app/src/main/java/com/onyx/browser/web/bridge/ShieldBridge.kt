@@ -299,6 +299,41 @@ class ShieldBridge(
             }
     }
 
+    /**
+     * Batched single-roundtrip payload for document_start shield injection.
+     * Combines domain cosmetic CSS (including promoted :style() rules), +js() scriptlets,
+     * and $csp directives into a single JSON string to avoid 3 separate bridge & JNI calls.
+     */
+    @JavascriptInterface
+    fun getDocumentStartPayload(pageUrl: String?): String {
+        if (!preferences.isAdBlockEnabled) return ""
+        val url = pageUrl?.takeIf { it.isNotBlank() } ?: return ""
+        val domain = preferences.cleanDomain(url)
+        if (preferences.isDomainWhitelisted(domain)) return ""
+
+        val d = domain.lowercase()
+        val isMetaOrCaptcha = d == "facebook.com" || d.endsWith(".facebook.com") ||
+                d == "fb.com" || d.endsWith(".fb.com") ||
+                d == "messenger.com" || d.endsWith(".messenger.com") ||
+                d == "instagram.com" || d.endsWith(".instagram.com") ||
+                d.contains("arkose") || d.contains("recaptcha") ||
+                d.contains("hcaptcha") || d.contains("turnstile") || d.contains("funcaptcha")
+        if (isMetaOrCaptcha) return ""
+
+        val cosmeticEnabled = preferences.isCosmeticFilteringEnabled
+        val css = if (cosmeticEnabled) com.onyx.browser.nativebridge.AdBlockEngine.getCosmeticCss(url) else ""
+        val script = if (cosmeticEnabled) com.onyx.browser.nativebridge.AdBlockEngine.getScriptletJs(url) else ""
+        val csp = getCspDirectives(url)
+
+        if (css.isEmpty() && script.isEmpty() && csp.isEmpty()) return ""
+
+        return org.json.JSONObject().apply {
+            put("css", css)
+            put("script", script)
+            put("csp", csp)
+        }.toString()
+    }
+
     @JavascriptInterface
     fun getCustomBlockedCss(pageUrl: String?): String {
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return ""

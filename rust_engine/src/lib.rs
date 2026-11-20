@@ -1,7 +1,9 @@
 #![allow(deprecated)]
 
+use adblock::cosmetic_filter_cache::ProceduralOrActionFilter;
 use adblock::engine::Engine;
 use adblock::lists::{FilterSet, ParseOptions};
+use adblock::regex_manager::RegexManagerDiscardPolicy;
 use adblock::request::Request;
 use adblock::resources::Resource;
 use arc_swap::ArcSwapOption;
@@ -12,8 +14,142 @@ use std::collections::HashSet;
 use std::panic::catch_unwind;
 use std::ptr;
 use std::sync::Arc;
+use std::time::Duration;
 
 static ENGINE: ArcSwapOption<Engine> = ArcSwapOption::const_empty();
+static RESOURCES: ArcSwapOption<Vec<Resource>> = ArcSwapOption::const_empty();
+
+fn configure_engine(engine: &mut Engine) {
+    engine.set_regex_discard_policy(RegexManagerDiscardPolicy {
+        cleanup_interval: Duration::from_secs(30),
+        discard_unused_secs: Duration::from_secs(180),
+    });
+    let res_guard = RESOURCES.load();
+    if let Some(ref res) = *res_guard {
+        engine.use_resources(res.as_ref().clone());
+    }
+}
+
+/// Normalizes uBlock Origin / AdGuard filter rule options into adblock-rust compatible syntax
+/// so rules with `denyallow=`, `reason=`, `~popup`, `empty`, `mp4`, `fetch`, `strict3p`,
+/// `strict1p`, `ehide`, `shide`, and `inline-script` are compiled rather than dropped.
+fn normalize_filter_rules(rules_str: &str) -> String {
+    let mut out = String::with_capacity(rules_str.len());
+
+    for raw_line in rules_str.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() || line.starts_with('!') || line.starts_with('[') {
+            out.push_str(line);
+            out.push('\n');
+            continue;
+        }
+
+        // Cosmetic / scriptlet / HTML filters pass through untouched
+        if line.contains("##")
+            || line.contains("#@#")
+            || line.contains("#?#")
+            || line.contains("#$#")
+            || line.contains("#%#")
+        {
+            out.push_str(line);
+            out.push('\n');
+            continue;
+        }
+
+        let Some(dollar_idx) = line.rfind('$') else {
+            out.push_str(line);
+            out.push('\n');
+            continue;
+        };
+
+        let pattern_part = &line[..dollar_idx];
+        let options_part = &line[dollar_idx + 1..];
+        if options_part.is_empty() {
+            out.push_str(line);
+            out.push('\n');
+            continue;
+        }
+
+        let raw_opts: Vec<&str> = options_part.split(',').collect();
+        let has_explicit_script = raw_opts.iter().any(|&o| o == "script" || o == "~script");
+        let mut normalized_opts: Vec<String> = Vec::with_capacity(raw_opts.len());
+        let mut drop_rule = false;
+
+        for opt in raw_opts {
+            let trimmed = opt.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            match trimmed {
+                "popup" | "popunder" => normalized_opts.push("doc".to_string()),
+                "~popup" | "~popunder" => {
+                    // adblock-rust excludes FROM_DOCUMENT by default on network rules
+                }
+                "elemhide" | "ehide" | "genericblock" | "shide" | "specifichide" => {
+                    normalized_opts.push("generichide".to_string());
+                }
+                "empty" => normalized_opts.push("redirect=nooptext".to_string()),
+                "mp4" => normalized_opts.push("redirect=noopmp4-1s".to_string()),
+                "fetch" => normalized_opts.push("xhr".to_string()),
+                "~fetch" => normalized_opts.push("~xhr".to_string()),
+                "strict3p" => normalized_opts.push("3p".to_string()),
+                "strict1p" => normalized_opts.push("1p".to_string()),
+                "inline-script" => {
+                    if !has_explicit_script {
+                        normalized_opts.push(
+                            "csp=script-src 'self' 'unsafe-eval' http: https: data: blob: mediastream: filesystem:"
+                                .to_string(),
+                        );
+                    }
+                }
+                _ if trimmed.starts_with("denyallow=") => {
+                    let domains = &trimmed["denyallow=".len()..];
+                    let negated: Vec<String> = domains
+                        .split('|')
+                        .map(|d| d.trim())
+                        .filter(|d| !d.is_empty())
+                        .map(|d| {
+                            if d.starts_with('~') {
+                                d.to_string()
+                            } else {
+                                format!("~{}", d)
+                            }
+                        })
+                        .collect();
+                    if !negated.is_empty() {
+                        normalized_opts.push(format!("to={}", negated.join("|")));
+                    }
+                }
+                _ if trimmed.starts_with("reason=") => {
+                    // Strip informational reason= metadata so the rule compiles
+                }
+                _ if trimmed.starts_with("urlskip=")
+                    || trimmed.starts_with("uritransform=")
+                    || trimmed.starts_with("replace=")
+                    || trimmed.starts_with("permissions=") =>
+                {
+                    // Modifier options not supported by adblock-rust
+                    drop_rule = true;
+                    break;
+                }
+                _ => normalized_opts.push(trimmed.to_string()),
+            }
+        }
+
+        if drop_rule {
+            continue;
+        }
+
+        out.push_str(pattern_part);
+        if !normalized_opts.is_empty() {
+            out.push('$');
+            out.push_str(&normalized_opts.join(","));
+        }
+        out.push('\n');
+    }
+
+    out
+}
 
 /// Initializes the adblock engine from a pre-compiled binary filter buffer.
 #[no_mangle]
@@ -33,6 +169,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initEngi
             return Ok(JNI_FALSE);
         }
 
+        configure_engine(&mut engine);
         ENGINE.store(Some(Arc::new(engine)));
         Ok(JNI_TRUE)
     });
@@ -56,16 +193,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initFrom
             Err(_) => return Ok(ptr::null_mut()),
         };
 
-        // Normalize legacy or unsupported rule options for engine compatibility
-        let normalized_rules = rules_str
-            .replace("$popup", "$doc")
-            .replace(",popup", ",doc")
-            .replace("$popunder", "$doc")
-            .replace(",popunder", ",doc")
-            .replace("$elemhide", "$generichide")
-            .replace(",elemhide", ",generichide")
-            .replace("$genericblock", "$generichide")
-            .replace(",genericblock", ",generichide");
+        let normalized_rules = normalize_filter_rules(&rules_str);
 
         let mut filter_set = FilterSet::new(false);
         let parse_options = ParseOptions {
@@ -73,9 +201,10 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initFrom
             ..Default::default()
         };
         filter_set.add_filter_list(normalized_rules, parse_options);
-        let engine = Engine::new_with_filter_set(filter_set);
+        let mut engine = Engine::new_with_filter_set(filter_set);
 
         let serialized = engine.serialize();
+        configure_engine(&mut engine);
         ENGINE.store(Some(Arc::new(engine)));
 
         match env.byte_array_from_slice(&serialized) {
@@ -91,7 +220,7 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_initFrom
 }
 
 /// Loads scriptlet/redirect resources from a JSON string (brave-resources.json format).
-/// Must be called after initEngine() or initFromRules() to enable scriptlet injection.
+/// Can be called before or after initEngine() / initFromRules().
 /// Returns JNI_TRUE on success, JNI_FALSE on failure.
 #[no_mangle]
 pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_loadResources(
@@ -111,18 +240,30 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_loadReso
             Err(_) => return Ok(JNI_FALSE),
         };
 
-        let current_guard = ENGINE.load();
-        if let Some(ref current_engine) = *current_guard {
-            let serialized = current_engine.serialize();
-            let mut new_engine = Engine::default();
-            if new_engine.deserialize(&serialized).is_ok() {
-                new_engine.use_resources(resources);
-                ENGINE.store(Some(Arc::new(new_engine)));
+        RESOURCES.store(Some(Arc::new(resources.clone())));
+
+        // If an Engine is already initialized, update its resource storage in-place if possible
+        if let Some(mut arc_engine) = ENGINE.swap(None) {
+            if let Some(engine_mut) = Arc::get_mut(&mut arc_engine) {
+                engine_mut.use_resources(resources);
+                ENGINE.store(Some(arc_engine));
                 return Ok(JNI_TRUE);
+            } else {
+                // Concurrent reader held an Arc clone; restore and deserialize cleanly
+                let serialized = arc_engine.serialize();
+                ENGINE.store(Some(arc_engine));
+                let mut new_engine = Engine::default();
+                if new_engine.deserialize(&serialized).is_ok() {
+                    configure_engine(&mut new_engine);
+                    ENGINE.store(Some(Arc::new(new_engine)));
+                    return Ok(JNI_TRUE);
+                }
+                return Ok(JNI_FALSE);
             }
         }
 
-        Ok(JNI_FALSE)
+        // Engine not yet constructed; configure_engine() will attach RESOURCES when initEngine/initFromRules runs
+        Ok(JNI_TRUE)
     });
 
     match outcome.into_outcome() {
@@ -386,6 +527,25 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
                     css = format!("{} {{ display: none !important; }}", selectors.join(", "));
                 }
 
+                // Promote pure-CSS :style(...) rules in procedural_actions to instant document_start CSS
+                for action_json in resources.procedural_actions {
+                    if let Ok(parsed_filter) =
+                        serde_json::from_str::<ProceduralOrActionFilter>(&action_json)
+                    {
+                        if let Some((selector, style)) = parsed_filter.as_css() {
+                            if !css.is_empty() {
+                                css.push('\n');
+                            }
+                            css.push_str(&selector);
+                            css.push_str(" { ");
+                            css.push_str(&style);
+                            css.push_str(" }");
+                            continue;
+                        }
+                    }
+                    procedural_vec.push(action_json);
+                }
+
                 // Get scriptlet JS code (compiled from +js() rules using loaded resources)
                 script = resources.injected_script;
 
@@ -394,23 +554,18 @@ pub extern "system" fn Java_com_onyx_browser_nativebridge_AdBlockEngine_getCosme
 
                 // Propagate exceptions for generic rules
                 exceptions_vec = resources.exceptions.into_iter().collect();
-
-                // Propagate procedural actions
-                procedural_vec = resources.procedural_actions.into_iter().collect();
             }
         }
 
         let css_val = serde_json::Value::String(css);
         let script_val = serde_json::Value::String(script);
-        let exceptions_val = serde_json::to_value(&exceptions_vec).unwrap_or(serde_json::Value::Array(Vec::new()));
-        let procedural_val = serde_json::to_value(&procedural_vec).unwrap_or(serde_json::Value::Array(Vec::new()));
+        let exceptions_val =
+            serde_json::to_value(&exceptions_vec).unwrap_or(serde_json::Value::Array(Vec::new()));
+        let procedural_val =
+            serde_json::to_value(&procedural_vec).unwrap_or(serde_json::Value::Array(Vec::new()));
         let json_out = format!(
             "{{\"css\":{},\"script\":{},\"generichide\":{},\"exceptions\":{},\"procedural\":{}}}",
-            css_val,
-            script_val,
-            generichide,
-            exceptions_val,
-            procedural_val
+            css_val, script_val, generichide, exceptions_val, procedural_val
         );
 
         match env.new_string(&json_out) {

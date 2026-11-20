@@ -164,106 +164,130 @@ object AdBlockDocumentStart {
             window.__onyx_shields_active = true;
 
             // ── Pre-Parse Domain Cosmetic CSS & Scriptlet Injection (Brave Parity) ───
+            function applyCosmeticCssString(domainCss) {
+                if (!domainCss || typeof domainCss !== 'string' || domainCss.length === 0) return;
+                window.__onyx_domain_css_cache = domainCss;
+                var existing = document.getElementById('onyx-domain-cosmetic');
+                if (existing) {
+                    existing.textContent = domainCss;
+                } else {
+                    var domainStyle = document.createElement('style');
+                    domainStyle.id = 'onyx-domain-cosmetic';
+                    domainStyle.type = 'text/css';
+                    domainStyle.textContent = domainCss;
+                    var targetNode = document.head || document.documentElement;
+                    if (targetNode) {
+                        targetNode.appendChild(domainStyle);
+                    } else {
+                        var earlyObserver = new MutationObserver(function() {
+                            var root = document.head || document.documentElement;
+                            if (root) {
+                                root.appendChild(domainStyle);
+                                earlyObserver.disconnect();
+                            }
+                        });
+                        earlyObserver.observe(document, { childList: true, subtree: true });
+                    }
+                }
+            }
+
+            function applyScriptletString(scriptlet) {
+                if (!scriptlet || typeof scriptlet !== 'string' || scriptlet.length === 0) return;
+                if (window.__onyx_scriptlets_applied_for === location.href) return;
+                window.__onyx_scriptlets_applied_for = location.href;
+                var scriptCode = scriptlet;
+                // Handle Trusted Types CSP (required by YouTube, Google, and modern hardened origins)
+                try {
+                    if (window.trustedTypes && typeof window.trustedTypes.createPolicy === 'function') {
+                        if (!window.__onyx_tt_policy) {
+                            try {
+                                window.__onyx_tt_policy = window.trustedTypes.createPolicy('onyx-shield-policy', {
+                                    createScript: function(s) { return s; }
+                                });
+                            } catch(_) {}
+                        }
+                        if (window.__onyx_tt_policy && typeof window.__onyx_tt_policy.createScript === 'function') {
+                            scriptCode = window.__onyx_tt_policy.createScript(scriptlet);
+                        }
+                    }
+                } catch(_) {}
+
+                var executed = false;
+                try {
+                    (new Function(scriptCode))();
+                    executed = true;
+                } catch(e) {}
+
+                // If new Function is blocked by strict CSP without unsafe-eval, inject via DOM script
+                if (!executed) {
+                    try {
+                        var scriptEl = document.createElement('script');
+                        scriptEl.id = 'onyx-shield-scriptlet';
+                        if (typeof scriptCode !== 'string') {
+                            scriptEl.text = scriptCode;
+                        } else {
+                            scriptEl.textContent = scriptCode;
+                        }
+                        var sTarget = document.head || document.documentElement;
+                        if (sTarget) {
+                            sTarget.appendChild(scriptEl);
+                            scriptEl.remove();
+                        }
+                    } catch(_) {}
+                }
+            }
+
+            function applyCspString(cspDirectives) {
+                if (!cspDirectives || typeof cspDirectives !== 'string' || cspDirectives.trim().length === 0) return;
+                var existingCsp = document.getElementById('onyx-csp-meta');
+                if (!existingCsp) {
+                    var cspMeta = document.createElement('meta');
+                    cspMeta.id = 'onyx-csp-meta';
+                    cspMeta.httpEquiv = 'Content-Security-Policy';
+                    cspMeta.content = cspDirectives.trim();
+                    var cspTarget = document.head || document.documentElement;
+                    if (cspTarget) {
+                        cspTarget.insertBefore(cspMeta, cspTarget.firstChild);
+                    } else {
+                        var cspObserver = new MutationObserver(function() {
+                            var root = document.head || document.documentElement;
+                            if (root) {
+                                root.insertBefore(cspMeta, root.firstChild);
+                                cspObserver.disconnect();
+                            }
+                        });
+                        cspObserver.observe(document, { childList: true, subtree: true });
+                    }
+                }
+            }
+
             function injectDomainShieldResources(targetUrl) {
                 try {
                     if (!window.OnyxShieldBridge || !targetUrl || targetUrl === 'about:blank') return;
+
+                    // Single batched JNI & bridge roundtrip when available
+                    if (typeof window.OnyxShieldBridge.getDocumentStartPayload === 'function') {
+                        var payloadRaw = window.OnyxShieldBridge.getDocumentStartPayload(targetUrl);
+                        if (payloadRaw && typeof payloadRaw === 'string' && payloadRaw.length > 0) {
+                            var payload = JSON.parse(payloadRaw);
+                            applyCosmeticCssString(payload.css);
+                            applyScriptletString(payload.script);
+                            applyCspString(payload.csp);
+                        }
+                        return;
+                    }
+
                     var domainCss = typeof window.OnyxShieldBridge.getCosmeticCss === 'function' ?
                         window.OnyxShieldBridge.getCosmeticCss(targetUrl) : '';
-                    if (domainCss && typeof domainCss === 'string' && domainCss.length > 0) {
-                        var existing = document.getElementById('onyx-domain-cosmetic');
-                        if (existing) {
-                            existing.textContent = domainCss;
-                        } else {
-                            var domainStyle = document.createElement('style');
-                            domainStyle.id = 'onyx-domain-cosmetic';
-                            domainStyle.type = 'text/css';
-                            domainStyle.textContent = domainCss;
-                            var targetNode = document.head || document.documentElement;
-                            if (targetNode) {
-                                targetNode.appendChild(domainStyle);
-                            } else {
-                                var earlyObserver = new MutationObserver(function() {
-                                    var root = document.head || document.documentElement;
-                                    if (root) {
-                                        root.appendChild(domainStyle);
-                                        earlyObserver.disconnect();
-                                    }
-                                });
-                                earlyObserver.observe(document, { childList: true, subtree: true });
-                            }
-                        }
-                    }
+                    applyCosmeticCssString(domainCss);
 
                     var scriptlet = typeof window.OnyxShieldBridge.getScriptletJs === 'function' ?
                         window.OnyxShieldBridge.getScriptletJs(targetUrl) : '';
-                    if (scriptlet && typeof scriptlet === 'string' && scriptlet.length > 0) {
-                        var scriptCode = scriptlet;
-                        // Handle Trusted Types CSP (required by YouTube, Google, and modern hardened origins)
-                        try {
-                            if (window.trustedTypes && typeof window.trustedTypes.createPolicy === 'function') {
-                                if (!window.__onyx_tt_policy) {
-                                    try {
-                                        window.__onyx_tt_policy = window.trustedTypes.createPolicy('onyx-shield-policy', {
-                                            createScript: function(s) { return s; }
-                                        });
-                                    } catch(_) {}
-                                }
-                                if (window.__onyx_tt_policy && typeof window.__onyx_tt_policy.createScript === 'function') {
-                                    scriptCode = window.__onyx_tt_policy.createScript(scriptlet);
-                                }
-                            }
-                        } catch(_) {}
+                    applyScriptletString(scriptlet);
 
-                        var executed = false;
-                        try {
-                            (new Function(scriptCode))();
-                            executed = true;
-                        } catch(e) {}
-
-                        // If new Function is blocked by strict CSP without unsafe-eval, inject via DOM script
-                        if (!executed) {
-                            try {
-                                var scriptEl = document.createElement('script');
-                                scriptEl.id = 'onyx-shield-scriptlet';
-                                if (typeof scriptCode !== 'string') {
-                                    scriptEl.text = scriptCode;
-                                } else {
-                                    scriptEl.textContent = scriptCode;
-                                }
-                                var sTarget = document.head || document.documentElement;
-                                if (sTarget) {
-                                    sTarget.appendChild(scriptEl);
-                                    scriptEl.remove();
-                                }
-                            } catch(_) {}
-                        }
-                    }
-
-                    // ── Content Security Policy Directives Injection (${'$'}csp rules) ───────
                     var cspDirectives = typeof window.OnyxShieldBridge.getCspDirectives === 'function' ?
                         window.OnyxShieldBridge.getCspDirectives(targetUrl) : '';
-                    if (cspDirectives && typeof cspDirectives === 'string' && cspDirectives.trim().length > 0) {
-                        var existingCsp = document.getElementById('onyx-csp-meta');
-                        if (!existingCsp) {
-                            var cspMeta = document.createElement('meta');
-                            cspMeta.id = 'onyx-csp-meta';
-                            cspMeta.httpEquiv = 'Content-Security-Policy';
-                            cspMeta.content = cspDirectives.trim();
-                            var cspTarget = document.head || document.documentElement;
-                            if (cspTarget) {
-                                cspTarget.insertBefore(cspMeta, cspTarget.firstChild);
-                            } else {
-                                var cspObserver = new MutationObserver(function() {
-                                    var root = document.head || document.documentElement;
-                                    if (root) {
-                                        root.insertBefore(cspMeta, root.firstChild);
-                                        cspObserver.disconnect();
-                                    }
-                                });
-                                cspObserver.observe(document, { childList: true, subtree: true });
-                            }
-                        }
-                    }
+                    applyCspString(cspDirectives);
                 } catch(e) {}
             }
 
@@ -930,6 +954,45 @@ object AdBlockDocumentStart {
                 var pendingIds = new Set();
                 var queryTimer = null;
                 var cosmeticStyleEl = null;
+                var openShadowRoots = [];
+
+                function syncShadowRootStyles(shadowRoot) {
+                    try {
+                        if (!shadowRoot) return;
+                        var combinedCss = (window.__onyx_domain_css_cache || '') + '\n' +
+                            (cosmeticStyleEl ? (cosmeticStyleEl.textContent || '') : '');
+                        if (!combinedCss.trim()) return;
+                        var shadowStyle = shadowRoot.querySelector('style[data-onyx-shadow-cosmetic="true"]');
+                        if (!shadowStyle) {
+                            shadowStyle = document.createElement('style');
+                            shadowStyle.setAttribute('data-onyx-shadow-cosmetic', 'true');
+                            shadowRoot.appendChild(shadowStyle);
+                        }
+                        shadowStyle.textContent = combinedCss;
+                    } catch(_) {}
+                }
+
+                // Hook open Shadow DOM creation so ads inside modern Web Components are hidden too
+                try {
+                    if (window.Element && Element.prototype && Element.prototype.attachShadow) {
+                        var _origAttachShadow = Element.prototype.attachShadow;
+                        Element.prototype.attachShadow = makeNative(function(init) {
+                            var sr = _origAttachShadow.apply(this, arguments);
+                            try {
+                                if (init && init.mode === 'open' && sr) {
+                                    openShadowRoots.push(sr);
+                                    syncShadowRootStyles(sr);
+                                    cosmeticObserver.observe(sr, {
+                                        subtree: true,
+                                        childList: true,
+                                        attributeFilter: ['id', 'class']
+                                    });
+                                }
+                            } catch(_) {}
+                            return sr;
+                        }, 'attachShadow');
+                    }
+                } catch(_) {}
 
                 function getOrCreateCosmeticStyle() {
                     if (cosmeticStyleEl && document.contains(cosmeticStyleEl)) return cosmeticStyleEl;
@@ -989,6 +1052,9 @@ object AdBlockDocumentStart {
                                     var target = document.head || document.documentElement || document.body;
                                     if (target && !document.contains(styleTag)) {
                                         target.appendChild(styleTag);
+                                    }
+                                    for (var si = 0; si < openShadowRoots.length; si++) {
+                                        syncShadowRootStyles(openShadowRoots[si]);
                                     }
                                 }
                             }

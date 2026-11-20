@@ -52,13 +52,33 @@ object AdBlockEngine {
         val rewrittenUrl: String? = null
     )
 
+    data class CosmeticPayload(
+        val rawCss: String,
+        val scriptletJs: String,
+        val generichide: Boolean,
+        val exceptionsJson: String,
+        val proceduralRules: List<String>
+    ) {
+        companion object {
+            val EMPTY = CosmeticPayload(
+                rawCss = "",
+                scriptletJs = "",
+                generichide = false,
+                exceptionsJson = "[]",
+                proceduralRules = emptyList()
+            )
+        }
+    }
+
     private const val MAX_DECISION_CACHE_SIZE = 8192
     private val requestDecisionCache = object : android.util.LruCache<String, RequestResult>(MAX_DECISION_CACHE_SIZE) {}
     private val checkUrlCache = object : android.util.LruCache<String, Boolean>(4096) {}
+    private val cosmeticPayloadCache = object : android.util.LruCache<String, CosmeticPayload>(128) {}
 
     fun clearDecisionCache() {
         requestDecisionCache.evictAll()
         checkUrlCache.evictAll()
+        cosmeticPayloadCache.evictAll()
         exceptionsCache.evictAll()
         genericHideCache.evictAll()
     }
@@ -82,6 +102,10 @@ object AdBlockEngine {
         appContext = context.applicationContext
 
         try {
+            // Pre-load scriptlet/redirect resources (brave-resources.json) into Rust memory first
+            // so initEngine() / initFromRules() attaches them on construction without re-serialization.
+            loadBraveResources(context)
+
             val prefs = BrowserPreferences.getInstance(context)
             val currentSig = com.onyx.browser.data.filter.FilterListManager.getCurrentFilterSignature(prefs)
             val isCacheValid = prefs.compiledFilterSignature == currentSig
@@ -92,8 +116,6 @@ object AdBlockEngine {
                 val success = initEngine(bytes)
                 if (success) {
                     Log.i(TAG, "AdBlockEngine initialized from serialized binary cache (${bytes.size} bytes)")
-                    // Always reload scriptlet resources on top of cached engine
-                    loadBraveResources(context)
                     clearDecisionCache()
                     return@withContext
                 } else {
@@ -138,8 +160,6 @@ object AdBlockEngine {
                 Log.i(TAG, "Compiled base asset filter database (${compiledBytes.size} bytes, pendingFullMerge=$hasExtraLists)")
             }
 
-            // Load scriptlet resources (brave-resources.json) so +js() rules resolve to real JS
-            loadBraveResources(context)
             clearDecisionCache()
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing AdBlockEngine", e)
@@ -276,6 +296,24 @@ object AdBlockEngine {
         return checkRequest(url, sourceUrl, resourceType, method).shouldBlock
     }
 
+    /**
+     * Evaluates `$removeparam` rules in adblock-rust and returns the cleaned URL if query parameters
+     * were stripped and the request itself is not blocked.
+     */
+    fun getRewrittenUrl(url: String, sourceUrl: String, resourceType: Int, method: String = "GET"): String? {
+        if (!isNativeLoaded || url.isBlank() || !url.contains('?')) return null
+        val res = checkRequest(url, sourceUrl, resourceType, method)
+        if (res.shouldBlock) return null
+        val rewritten = res.rewrittenUrl?.takeIf { it.isNotBlank() && it != url } ?: return null
+        return if (rewritten.startsWith("http://", ignoreCase = true) ||
+            rewritten.startsWith("https://", ignoreCase = true)
+        ) {
+            rewritten
+        } else {
+            null
+        }
+    }
+
     fun shouldBlock(url: String, sourceUrl: String, resourceType: String, method: String = "GET"): Boolean {
         if (!isNativeLoaded) return false
         val typeInt = when (resourceType.lowercase()) {
@@ -297,46 +335,70 @@ object AdBlockEngine {
     }
 
     /**
-     * Returns procedural filter rules (e.g. :has(), :has-text(), actions) for the given URL.
+     * Fetches and caches all URL-specific cosmetic resources (CSS, promoted :style() rules,
+     * scriptlets, generichide, exceptions, and procedural actions) in a single JNI call.
      */
-    fun getProceduralRules(url: String): List<String> {
-        if (!isNativeLoaded || url.isBlank()) return emptyList()
+    fun getCosmeticPayload(url: String): CosmeticPayload {
+        if (!isNativeLoaded || url.isBlank()) return CosmeticPayload.EMPTY
+        cosmeticPayloadCache.get(url)?.let { return it }
+
         return try {
-            val json = getCosmeticResources(url) ?: return emptyList()
-            if (json.isEmpty()) return emptyList()
-            val obj = JSONObject(json)
-            val arr = obj.optJSONArray("procedural") ?: return emptyList()
-            val list = ArrayList<String>(arr.length())
-            for (i in 0 until arr.length()) {
-                val item = arr.optString(i)
-                if (!item.isNullOrBlank()) {
-                    list.add(item)
-                }
+            val json = getCosmeticResources(url)
+            if (json.isNullOrEmpty()) {
+                cosmeticPayloadCache.put(url, CosmeticPayload.EMPTY)
+                return CosmeticPayload.EMPTY
             }
-            list
+            val obj = JSONObject(json)
+            val rawCss = obj.optString("css", "")
+            val scriptlet = obj.optString("script", "")
+            val generichide = obj.optBoolean("generichide", false)
+            val exceptionsJson = obj.optJSONArray("exceptions")?.toString() ?: "[]"
+            val procArr = obj.optJSONArray("procedural")
+            val procList = if (procArr != null && procArr.length() > 0) {
+                ArrayList<String>(procArr.length()).apply {
+                    for (i in 0 until procArr.length()) {
+                        val item = procArr.optString(i)
+                        if (!item.isNullOrBlank()) add(item)
+                    }
+                }
+            } else {
+                emptyList()
+            }
+
+            val payload = CosmeticPayload(
+                rawCss = rawCss,
+                scriptletJs = scriptlet,
+                generichide = generichide,
+                exceptionsJson = exceptionsJson,
+                proceduralRules = procList
+            )
+            cosmeticPayloadCache.put(url, payload)
+            exceptionsCache.put(url, exceptionsJson)
+            genericHideCache.put(url, generichide)
+            payload
         } catch (t: Throwable) {
-            Log.e(TAG, "Error parsing procedural rules from getCosmeticResources", t)
-            emptyList()
+            Log.e(TAG, "Error parsing getCosmeticResources payload", t)
+            CosmeticPayload.EMPTY
         }
     }
 
     /**
-     * Returns cosmetic CSS (hide_selectors formatted as display:none rules) for injection.
+     * Returns procedural filter rules (e.g. :has(), :has-text(), actions) for the given URL.
+     */
+    fun getProceduralRules(url: String): List<String> {
+        if (!isNativeLoaded || url.isBlank()) return emptyList()
+        return getCosmeticPayload(url).proceduralRules
+    }
+
+    /**
+     * Returns cosmetic CSS (hide_selectors + promoted :style() rules) for injection.
      * Returns empty string if none.
      */
     fun getCosmeticCss(url: String): String {
-        if (!isNativeLoaded) return ""
-        return try {
-            val json = getCosmeticResources(url) ?: return ""
-            if (json.isEmpty()) return ""
-            val obj = JSONObject(json)
-            val css = obj.optString("css", "")
-            if (css.isBlank()) return ""
-            sanitizeCosmeticCss(url, css)
-        } catch (t: Throwable) {
-            Log.e(TAG, "Error parsing cosmetic CSS from getCosmeticResources", t)
-            ""
-        }
+        if (!isNativeLoaded || url.isBlank()) return ""
+        val css = getCosmeticPayload(url).rawCss
+        if (css.isBlank()) return ""
+        return sanitizeCosmeticCss(url, css)
     }
 
     private fun sanitizeCosmeticCss(url: String, rawCss: String): String {
@@ -385,16 +447,8 @@ object AdBlockEngine {
      * Returns empty string if no scriptlets apply to this URL.
      */
     fun getScriptletJs(url: String): String {
-        if (!isNativeLoaded) return ""
-        return try {
-            val json = getCosmeticResources(url) ?: return ""
-            if (json.isEmpty()) return ""
-            val obj = JSONObject(json)
-            obj.optString("script", "")
-        } catch (t: Throwable) {
-            Log.e(TAG, "Error parsing scriptlet JS from getCosmeticResources", t)
-            ""
-        }
+        if (!isNativeLoaded || url.isBlank()) return ""
+        return getCosmeticPayload(url).scriptletJs
     }
 
     private val exceptionsCache = android.util.LruCache<String, String>(64)
@@ -405,23 +459,8 @@ object AdBlockEngine {
      */
     fun getExceptionsJson(url: String): String {
         if (!isNativeLoaded || url.isBlank()) return "[]"
-        val cached = exceptionsCache.get(url)
-        if (cached != null) return cached
-
-        return try {
-            val json = getCosmeticResources(url) ?: return "[]"
-            if (json.isEmpty()) return "[]"
-            val obj = JSONObject(json)
-            val exceptionsArr = obj.optJSONArray("exceptions")
-            val result = exceptionsArr?.toString() ?: "[]"
-            exceptionsCache.put(url, result)
-            if (obj.has("generichide")) {
-                genericHideCache.put(url, obj.optBoolean("generichide", false))
-            }
-            result
-        } catch (t: Throwable) {
-            "[]"
-        }
+        exceptionsCache.get(url)?.let { return it }
+        return getCosmeticPayload(url).exceptionsJson
     }
 
     /**
@@ -430,23 +469,8 @@ object AdBlockEngine {
      */
     fun isGenericHide(url: String): Boolean {
         if (!isNativeLoaded || url.isBlank()) return false
-        val cached = genericHideCache.get(url)
-        if (cached != null) return cached
-
-        return try {
-            val json = getCosmeticResources(url) ?: return false
-            if (json.isEmpty()) return false
-            val obj = JSONObject(json)
-            val result = obj.optBoolean("generichide", false)
-            genericHideCache.put(url, result)
-            val exceptionsArr = obj.optJSONArray("exceptions")
-            if (exceptionsArr != null) {
-                exceptionsCache.put(url, exceptionsArr.toString())
-            }
-            result
-        } catch (t: Throwable) {
-            false
-        }
+        genericHideCache.get(url)?.let { return it }
+        return getCosmeticPayload(url).generichide
     }
 
     /**
