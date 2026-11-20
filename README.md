@@ -21,7 +21,7 @@ A fast, private, and lightweight browser for Android.
 
 ## About
 
-Onyx browser is based on Android WebView and Brave adblock-rust engine with many features of modern browser within a small webview based browser.
+Onyx Browser is a lightweight, privacy-focused web browser for Android. Built on Android WebView and powered by Brave’s adblock-rust engine, it delivers fast browsing, built-in ad and tracker blocking, and essential modern browser features in a compact footprint.
 
 ---
 
