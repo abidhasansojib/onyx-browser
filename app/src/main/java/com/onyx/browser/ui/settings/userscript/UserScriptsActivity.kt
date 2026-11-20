@@ -6,10 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -247,15 +250,53 @@ class UserScriptsActivity : ComponentActivity() {
     }
 
     private fun shareSingleScript(item: ParsedUserScript) {
-        try {
-            val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, item.code)
-                putExtra(Intent.EXTRA_SUBJECT, "${item.metadata.name}.user.js")
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val code = item.code.ifBlank { manager.readCodeFile(item.script.id) }
+                if (code.isBlank()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@UserScriptsActivity, "Script content is empty", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
+                val rawName = item.metadata.name.ifBlank { item.script.name }.ifBlank { "script" }
+                val sanitized = rawName.replace(Regex("""[\\/:*?"<>|\r\n\t]"""), "_").trim()
+                val fileName = when {
+                    sanitized.endsWith(".user.js", ignoreCase = true) -> sanitized
+                    sanitized.endsWith(".js", ignoreCase = true) -> sanitized.removeSuffix(".js") + ".user.js"
+                    else -> "$sanitized.user.js"
+                }
+
+                val shareDir = File(cacheDir, "shared_scripts").apply { mkdirs() }
+                val shareFile = File(shareDir, fileName)
+                shareFile.writeText(code)
+
+                val fileUri: Uri = FileProvider.getUriForFile(
+                    this@UserScriptsActivity,
+                    "$packageName.fileprovider",
+                    shareFile
+                )
+
+                withContext(Dispatchers.Main) {
+                    val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension("js") ?: "application/javascript"
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = mimeType
+                        putExtra(Intent.EXTRA_STREAM, fileUri)
+                        putExtra(Intent.EXTRA_SUBJECT, fileName)
+                        clipData = ClipData.newRawUri(fileName, fileUri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    val chooser = Intent.createChooser(sendIntent, "Share Userscript").apply {
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(chooser)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserScriptsActivity, "Failed to share script file: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
             }
-            startActivity(Intent.createChooser(sendIntent, "Share Userscript"))
-        } catch (e: Exception) {
-            Toast.makeText(this, "Failed to share script: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -380,13 +421,26 @@ class UserScriptsActivity : ComponentActivity() {
                     array.put(obj)
                 }
                 val json = array.toString(2)
+                val shareDir = File(cacheDir, "shared_scripts").apply { mkdirs() }
+                val backupFile = File(shareDir, "userscripts_backup.json")
+                backupFile.writeText(json)
+                val fileUri: Uri = FileProvider.getUriForFile(
+                    this@UserScriptsActivity,
+                    "$packageName.fileprovider",
+                    backupFile
+                )
                 withContext(Dispatchers.Main) {
                     val sendIntent = Intent(Intent.ACTION_SEND).apply {
                         type = "application/json"
-                        putExtra(Intent.EXTRA_TEXT, json)
-                        putExtra(Intent.EXTRA_SUBJECT, "Onyx Userscripts Backup")
+                        putExtra(Intent.EXTRA_STREAM, fileUri)
+                        putExtra(Intent.EXTRA_SUBJECT, "Userscripts Backup")
+                        clipData = ClipData.newRawUri("userscripts_backup.json", fileUri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    startActivity(Intent.createChooser(sendIntent, "Export Userscripts"))
+                    val chooser = Intent.createChooser(sendIntent, "Export Userscripts").apply {
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(chooser)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {

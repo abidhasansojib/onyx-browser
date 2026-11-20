@@ -1,7 +1,10 @@
 package com.onyx.browser.ui.settings.userscript
 
+import android.content.ClipData
 import android.content.Context
+import android.content.Intent
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.InputType
@@ -12,7 +15,10 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.webkit.MimeTypeMap
 import android.widget.Toast
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -50,6 +56,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -224,6 +231,7 @@ class UserScriptEditorActivity : ComponentActivity() {
                         isWordWrap = !isWordWrap
                         editorView?.setWordWrap(isWordWrap)
                     },
+                    onShareClick = { shareCurrentScriptFile() },
                     onBindEditor = { view ->
                         editorView = view
                         view.onCursorPositionChanged = { l, c ->
@@ -506,6 +514,54 @@ class UserScriptEditorActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun shareCurrentScriptFile() {
+        val code = editorView?.text?.toString() ?: initialCode.orEmpty()
+        if (code.isBlank()) {
+            Toast.makeText(this, "Script content is empty", Toast.LENGTH_SHORT).show()
+            return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val rawName = scriptTitle.ifBlank { "script" }
+                val sanitized = rawName.replace(Regex("""[\\/:*?"<>|\r\n\t]"""), "_").trim()
+                val fileName = when {
+                    sanitized.endsWith(".user.js", ignoreCase = true) -> sanitized
+                    sanitized.endsWith(".js", ignoreCase = true) -> sanitized.removeSuffix(".js") + ".user.js"
+                    else -> "$sanitized.user.js"
+                }
+
+                val shareDir = File(cacheDir, "shared_scripts").apply { mkdirs() }
+                val shareFile = File(shareDir, fileName)
+                shareFile.writeText(code)
+
+                val fileUri: Uri = FileProvider.getUriForFile(
+                    this@UserScriptEditorActivity,
+                    "$packageName.fileprovider",
+                    shareFile
+                )
+
+                withContext(Dispatchers.Main) {
+                    val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension("js") ?: "application/javascript"
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = mimeType
+                        putExtra(Intent.EXTRA_STREAM, fileUri)
+                        putExtra(Intent.EXTRA_SUBJECT, fileName)
+                        clipData = ClipData.newRawUri(fileName, fileUri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    val chooser = Intent.createChooser(sendIntent, "Share Userscript").apply {
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(chooser)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserScriptEditorActivity, "Failed to share script file: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -758,6 +814,7 @@ fun UserScriptEditorScreen(
     onToggleFindBar: () -> Unit,
     onGoToLineClick: () -> Unit,
     onToggleWordWrap: () -> Unit,
+    onShareClick: () -> Unit = {},
     onBindEditor: (ScriptCodeEditorView) -> Unit,
     onInsertText: (String) -> Unit,
     onMoveCursor: (Int) -> Unit,
@@ -853,6 +910,20 @@ fun UserScriptEditorScreen(
                                 onClick = {
                                     overflowExpanded = false
                                     onToggleWordWrap()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Share script") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                onClick = {
+                                    overflowExpanded = false
+                                    onShareClick()
                                 }
                             )
                         }
