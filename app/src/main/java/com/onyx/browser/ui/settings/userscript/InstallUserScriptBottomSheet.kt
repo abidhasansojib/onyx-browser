@@ -102,7 +102,8 @@ class InstallUserScriptBottomSheet : BottomSheetDialogFragment() {
             val responseBody = try {
                 val req = Request.Builder()
                     .url(scriptUrl)
-                    .header("User-Agent", "OnyxBrowser/1.0 UserScriptEngine")
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                     .build()
                 httpClient.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) {

@@ -59,11 +59,23 @@ class UserScriptUrlMatcherTest {
     }
 
     @Test
+    fun `match pattern without trailing slash matches root and paths`() {
+        val patterns = listOf("https://example.com", "*://*.google.com")
+        assertTrue(UserScriptUrlMatcher.matches("https://example.com", patterns, emptyList()))
+        assertTrue(UserScriptUrlMatcher.matches("https://example.com/", patterns, emptyList()))
+        assertTrue(UserScriptUrlMatcher.matches("https://example.com/test", patterns, emptyList()))
+        assertTrue(UserScriptUrlMatcher.matches("https://www.google.com", patterns, emptyList()))
+        assertTrue(UserScriptUrlMatcher.matches("https://www.google.com/", patterns, emptyList()))
+        assertTrue(UserScriptUrlMatcher.matches("https://google.com/search?q=test", patterns, emptyList()))
+        assertFalse(UserScriptUrlMatcher.matches("https://bing.com", patterns, emptyList()))
+    }
+
+    @Test
     fun `invalid match patterns return false gracefully`() {
         val invalidPatterns = listOf(
             "not-a-valid-pattern",
-            "https://example.com", // missing path slash
-            "://missing-scheme"
+            "://missing-scheme",
+            "http://"
         )
         assertFalse(UserScriptUrlMatcher.matches("https://example.com/", invalidPatterns, emptyList()))
     }
@@ -77,6 +89,11 @@ class UserScriptUrlMatcherTest {
         val regexIncludes = listOf("""/https:\/\/example\.com\/items\/\d+/""")
         assertTrue(UserScriptUrlMatcher.matches("https://example.com/items/42", emptyList(), regexIncludes))
         assertFalse(UserScriptUrlMatcher.matches("https://example.com/items/abc", emptyList(), regexIncludes))
+
+        val regexWithFlags = listOf("""/^https?:\/\/(www\.)?youtube\.com\/watch/i""")
+        assertTrue(UserScriptUrlMatcher.matches("https://www.youtube.com/watch?v=123", emptyList(), regexWithFlags))
+        assertTrue(UserScriptUrlMatcher.matches("https://YOUTUBE.COM/watch?v=123", emptyList(), regexWithFlags))
+        assertFalse(UserScriptUrlMatcher.matches("https://www.youtube.com/feed", emptyList(), regexWithFlags))
 
         val brokenRegex = listOf("/[unclosed group/")
         assertFalse(UserScriptUrlMatcher.matches("https://example.com/", emptyList(), brokenRegex))

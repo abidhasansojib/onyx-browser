@@ -171,9 +171,12 @@ class UserScriptBridge(
 
             val builder = Request.Builder().url(url).method(method, requestBody)
 
-            val cookie = runCatching { CookieManager.getInstance().getCookie(url) }.getOrNull()
-            if (!cookie.isNullOrBlank()) {
-                builder.header("Cookie", cookie)
+            val anonymous = details.optBoolean("anonymous", false)
+            if (!anonymous) {
+                val cookie = runCatching { CookieManager.getInstance().getCookie(url) }.getOrNull()
+                if (!cookie.isNullOrBlank()) {
+                    builder.header("Cookie", cookie)
+                }
             }
 
             var hasUserAgent = false
@@ -224,6 +227,16 @@ class UserScriptBridge(
                             .put("statusText", r.message)
                             .put("finalUrl", r.request.url.toString())
                             .put("responseHeaders", headerText.toString())
+
+                        if (!anonymous) {
+                            val setCookieHeaders = r.headers("Set-Cookie")
+                            if (setCookieHeaders.isNotEmpty()) {
+                                val cm = CookieManager.getInstance()
+                                setCookieHeaders.forEach { sc ->
+                                    runCatching { cm.setCookie(url, sc) }
+                                }
+                            }
+                        }
 
                         if (isBinary) {
                             val bytes = r.body?.bytes() ?: ByteArray(0)
@@ -320,7 +333,14 @@ class UserScriptBridge(
 
     @JavascriptInterface
     fun gmNotification(token: String, text: String) {
-        notify("", "", text, "")
+        try {
+            val d = JSONObject(text)
+            val t = d.optString("title", "")
+            val txt = d.optString("text", text)
+            notify(t, t, txt, "")
+        } catch (_: Exception) {
+            notify("", "", text, "")
+        }
     }
 
     @JavascriptInterface
@@ -342,7 +362,12 @@ class UserScriptBridge(
     fun openInTab(url: String, active: Boolean) {
         webView.post {
             try {
-                val activity = webView.context as? com.onyx.browser.MainActivity
+                var ctx: Context? = webView.context
+                while (ctx is android.content.ContextWrapper) {
+                    if (ctx is com.onyx.browser.MainActivity) break
+                    ctx = ctx.baseContext
+                }
+                val activity = ctx as? com.onyx.browser.MainActivity
                 activity?.openUrlInNewTab(url = url, isIncognito = webView.isIncognito)
             } catch (_: Exception) {}
         }

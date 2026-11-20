@@ -457,7 +457,9 @@ class UserScriptEditorActivity : ComponentActivity() {
             return
         }
 
-        if (!code.contains("// ==UserScript==") || !code.contains("// ==/UserScript==")) {
+        val hasHeader = Regex("""//\s*==UserScript==\s*""", RegexOption.IGNORE_CASE).containsMatchIn(code)
+        val hasFooter = Regex("""//\s*==/UserScript==\s*""", RegexOption.IGNORE_CASE).containsMatchIn(code)
+        if (!hasHeader || !hasFooter) {
             Toast.makeText(this, "Script must contain // ==UserScript== and // ==/UserScript== metadata block", Toast.LENGTH_LONG).show()
             return
         }

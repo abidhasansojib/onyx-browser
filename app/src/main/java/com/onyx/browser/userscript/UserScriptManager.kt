@@ -174,11 +174,13 @@ class UserScriptManager private constructor(private val context: Context) {
             if (parsed.metadata.requires.isNotEmpty() && parsed.requiresContent.isBlank()) {
                 scope.launch {
                     resolveRequires(parsed)
+                    notifyScriptsChanged()
                 }
             }
             if (parsed.metadata.resources.isNotEmpty() && (parsed.resourcesContent.isBlank() || parsed.resourcesContent == "{}")) {
                 scope.launch {
                     resolveResources(parsed)
+                    notifyScriptsChanged()
                 }
             }
         }
@@ -239,12 +241,17 @@ class UserScriptManager private constructor(private val context: Context) {
         }
     }
 
-    private fun resolveResources(parsed: ParsedUserScript) {
-        if (parsed.metadata.resources.isEmpty()) return
+    private fun fetchResources(resources: List<UserScriptResource>): String {
+        if (resources.isEmpty()) return "{}"
         val resMap = JSONObject()
-        parsed.metadata.resources.forEach { res ->
+        resources.forEach { res ->
             try {
-                val resp = httpClient.newCall(Request.Builder().url(res.url).build()).execute()
+                val req = Request.Builder()
+                    .url(res.url)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36")
+                    .header("Accept", "*/*")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
                 val bytes = resp.body?.bytes()
                 val contentType = resp.header("Content-Type") ?: "application/octet-stream"
                 resp.close()
@@ -263,7 +270,12 @@ class UserScriptManager private constructor(private val context: Context) {
                 Log.w(TAG, "Failed to fetch @resource ${res.name} from ${res.url}", e)
             }
         }
-        val json = resMap.toString()
+        return resMap.toString()
+    }
+
+    private fun resolveResources(parsed: ParsedUserScript) {
+        if (parsed.metadata.resources.isEmpty()) return
+        val json = fetchResources(parsed.metadata.resources)
         parsed.resourcesContent = json
         if (json.isNotBlank() && json != "{}") {
             writeResourcesFile(parsed.script.id, json)
@@ -357,14 +369,13 @@ class UserScriptManager private constructor(private val context: Context) {
         val unwrap = meta.unwrap
 
         return "(function(){\n" +
-                "var __url = location.href;\n" +
                 "var __exclude = [$excludeArray];\n" +
                 "var __match = [$matchArray];\n" +
-                "for (var __i = 0; __i < __exclude.length; __i++) { if (__exclude[__i].test(__url)) return; }\n" +
-                "if (__match.length > 0) {\n" +
-                "  var __ok = false;\n" +
-                "  for (var __j = 0; __j < __match.length; __j++) { if (__match[__j].test(__url)) { __ok = true; break; } }\n" +
-                "  if (!__ok) return;\n" +
+                "function __matchesUrl(u) {\n" +
+                "  for (var __i = 0; __i < __exclude.length; __i++) { if (__exclude[__i].test(u)) return false; }\n" +
+                "  if (__match.length === 0) return true;\n" +
+                "  for (var __j = 0; __j < __match.length; __j++) { if (__match[__j].test(u)) return true; }\n" +
+                "  return false;\n" +
                 "}\n" +
                 "if ($noFrames && window.self !== window.top) return;\n" +
                 "var __scriptId = $scriptId;\n" +
@@ -398,15 +409,23 @@ class UserScriptManager private constructor(private val context: Context) {
                 "var unsafeWindow = window;\n" +
                 "function GM_log() { try { console.log.apply(console, arguments); } catch(__e) {} }\n" +
                 "function GM_addStyle(css) {\n" +
-                "  function __apply() {\n" +
-                "    var __s = document.createElement('style');\n" +
-                "    __s.setAttribute('data-userscript', __scriptName);\n" +
-                "    __s.textContent = css;\n" +
-                "    (document.head || document.documentElement).appendChild(__s);\n" +
-                "    return __s;\n" +
+                "  var __s = document.createElement('style');\n" +
+                "  __s.setAttribute('data-userscript', __scriptName);\n" +
+                "  __s.textContent = css;\n" +
+                "  var __t = document.head || document.documentElement;\n" +
+                "  if (__t) { __t.appendChild(__s); return __s; }\n" +
+                "  if (typeof MutationObserver !== 'undefined') {\n" +
+                "    var __obs = new MutationObserver(function() {\n" +
+                "      var __cur = document.head || document.documentElement;\n" +
+                "      if (__cur) { __obs.disconnect(); __cur.appendChild(__s); }\n" +
+                "    });\n" +
+                "    __obs.observe(document, { childList: true, subtree: true });\n" +
+                "  } else {\n" +
+                "    document.addEventListener('DOMContentLoaded', function() {\n" +
+                "      (document.head || document.documentElement).appendChild(__s);\n" +
+                "    });\n" +
                 "  }\n" +
-                "  if (document.head || document.documentElement) return __apply();\n" +
-                "  document.addEventListener('DOMContentLoaded', __apply);\n" +
+                "  return __s;\n" +
                 "}\n" +
                 "function GM_addElement(a, b, c) {\n" +
                 "  var __tag, __attrs, __parent;\n" +
@@ -481,15 +500,14 @@ class UserScriptManager private constructor(private val context: Context) {
                 "}\n" +
                 "function GM_setClipboard(text, type) {\n" +
                 "  try {\n" +
-                "    if (navigator.clipboard && navigator.clipboard.writeText) {\n" +
-                "      navigator.clipboard.writeText(text);\n" +
+                "    if (window.onyxGM && window.onyxGM.setClipboard) {\n" +
+                "      window.onyxGM.setClipboard(String(text));\n" +
                 "      return;\n" +
                 "    }\n" +
                 "  } catch(__e) {}\n" +
                 "  try {\n" +
-                "    if (window.onyxGM && window.onyxGM.setClipboard) {\n" +
-                "      window.onyxGM.setClipboard(text);\n" +
-                "      return;\n" +
+                "    if (navigator.clipboard && navigator.clipboard.writeText) {\n" +
+                "      navigator.clipboard.writeText(String(text)).catch(function() {});\n" +
                 "    }\n" +
                 "  } catch(__e2) {}\n" +
                 "}\n" +
@@ -513,14 +531,15 @@ class UserScriptManager private constructor(private val context: Context) {
                 "      method: (details.method || 'GET').toUpperCase(),\n" +
                 "      headers: details.headers || {},\n" +
                 "      timeout: details.timeout || 0,\n" +
-                "      responseType: details.responseType || ''\n" +
+                "      responseType: details.responseType || '',\n" +
+                "      anonymous: !!details.anonymous\n" +
                 "    };\n" +
                 "    if (details.data !== undefined && details.data !== null) {\n" +
                 "      __payload.data = (typeof details.data === 'string') ? details.data : JSON.stringify(details.data);\n" +
                 "    }\n" +
                 "    window.__usRuntime.xhrCallbacks[__id] = function(result, error) {\n" +
                 "      if (error) {\n" +
-                "        if (details.onerror) details.onerror({ error: error.error || 'error', finalUrl: details.url, readyState: 4, status: 0 });\n" +
+                "        if (details.onerror) details.onerror({ error: error.error || 'error', finalUrl: details.url, readyState: 4, status: 0, context: details.context });\n" +
                 "        return;\n" +
                 "      }\n" +
                 "      var __resp = result.responseText;\n" +
@@ -552,20 +571,17 @@ class UserScriptManager private constructor(private val context: Context) {
                 "        response: __respObj,\n" +
                 "        readyState: 4,\n" +
                 "        finalUrl: result.finalUrl,\n" +
-                "        responseHeaders: result.responseHeaders\n" +
+                "        responseHeaders: result.responseHeaders,\n" +
+                "        context: details.context\n" +
                 "      };\n" +
                 "      if (details.onreadystatechange) try { details.onreadystatechange(__r); } catch(__e3) {}\n" +
-                "      if (result.status >= 200 && result.status < 400) {\n" +
-                "        if (details.onload) details.onload(__r);\n" +
-                "      } else {\n" +
-                "        if (details.onerror) details.onerror(__r);\n" +
-                "      }\n" +
+                "      if (details.onload) details.onload(__r);\n" +
                 "    };\n" +
                 "    if (window.onyxGM && window.onyxGM.xhr) {\n" +
                 "      window.onyxGM.xhr(__id, JSON.stringify(__payload));\n" +
                 "    } else {\n" +
                 "      delete window.__usRuntime.xhrCallbacks[__id];\n" +
-                "      if (details.onerror) details.onerror({ error: 'Bridge unavailable' });\n" +
+                "      if (details.onerror) details.onerror({ error: 'Bridge unavailable', context: details.context });\n" +
                 "    }\n" +
                 "    return {\n" +
                 "      abort: function() {\n" +
@@ -574,15 +590,29 @@ class UserScriptManager private constructor(private val context: Context) {
                 "      }\n" +
                 "    };\n" +
                 "  } catch(__e) {\n" +
-                "    if (details.onerror) details.onerror({ error: String(__e) });\n" +
+                "    if (details.onerror) details.onerror({ error: String(__e), context: details.context });\n" +
                 "    return { abort: function() {} };\n" +
                 "  }\n" +
                 "}\n" +
                 "function GM_download(details, filename) {\n" +
                 "  try {\n" +
                 "    var __opts = (typeof details === 'string') ? { url: details, name: filename } : (details || {});\n" +
+                "    var __u = __opts.url || '';\n" +
+                "    if (__u.indexOf('blob:') === 0 || __u.indexOf('data:') === 0) {\n" +
+                "      var __a = document.createElement('a');\n" +
+                "      __a.href = __u;\n" +
+                "      __a.download = __opts.name || 'download';\n" +
+                "      __a.style.display = 'none';\n" +
+                "      (document.body || document.documentElement).appendChild(__a);\n" +
+                "      __a.click();\n" +
+                "      setTimeout(function() {\n" +
+                "        __a.remove();\n" +
+                "        if (__opts.onload) __opts.onload();\n" +
+                "      }, 100);\n" +
+                "      return { abort: function() {} };\n" +
+                "    }\n" +
                 "    if (window.onyxGM && window.onyxGM.download) {\n" +
-                "      window.onyxGM.download(__opts.url, __opts.name || 'download');\n" +
+                "      window.onyxGM.download(__u, __opts.name || 'download');\n" +
                 "    }\n" +
                 "    if (__opts.onload) setTimeout(__opts.onload, 100);\n" +
                 "  } catch(__e) {\n" +
@@ -689,7 +719,10 @@ class UserScriptManager private constructor(private val context: Context) {
                 "};\n" +
                 "var GM_xmlHttpRequest = GM_xmlhttpRequest;\n" +
                 requireBlock + "\n" +
+                "var __hasExecuted = false;\n" +
                 "function __runUserScript() {\n" +
+                "  if (__hasExecuted) return;\n" +
+                "  __hasExecuted = true;\n" +
                 "  try {\n" +
                 parsed.code + "\n" +
                 "  } catch(__e) {\n" +
@@ -697,15 +730,22 @@ class UserScriptManager private constructor(private val context: Context) {
                 "  }\n" +
                 "}\n" +
                 "var __runAt = ${JSONObject.quote(runAtStr)};\n" +
-                "if (__runAt === 'document-start') {\n" +
-                "  __runUserScript();\n" +
-                "} else if (__runAt === 'document-end') {\n" +
-                "  if (document.readyState !== 'loading') { __runUserScript(); }\n" +
-                "  else { document.addEventListener('DOMContentLoaded', __runUserScript); }\n" +
-                "} else {\n" +
-                "  if (document.readyState === 'complete') { __runUserScript(); }\n" +
-                "  else { window.addEventListener('load', __runUserScript); }\n" +
+                "function __attemptRun() {\n" +
+                "  if (__hasExecuted) return;\n" +
+                "  if (!__matchesUrl(location.href)) return;\n" +
+                "  if (__runAt === 'document-start') {\n" +
+                "    __runUserScript();\n" +
+                "  } else if (__runAt === 'document-end') {\n" +
+                "    if (document.readyState !== 'loading') { __runUserScript(); }\n" +
+                "    else { document.addEventListener('DOMContentLoaded', __runUserScript); }\n" +
+                "  } else {\n" +
+                "    if (document.readyState === 'complete') { __runUserScript(); }\n" +
+                "    else { window.addEventListener('load', __runUserScript); }\n" +
+                "  }\n" +
                 "}\n" +
+                "__attemptRun();\n" +
+                "window.addEventListener('onyx:urlchange', function() { __attemptRun(); });\n" +
+                "window.addEventListener('yt-navigate-finish', function() { __attemptRun(); });\n" +
                 "})();\n"
     }
 
@@ -788,6 +828,12 @@ class UserScriptManager private constructor(private val context: Context) {
                     writeRequiresFile(existing.id, reqContent)
                 }
             }
+            if (metadata.resources.isNotEmpty()) {
+                val resContent = fetchResources(metadata.resources)
+                if (resContent.isNotBlank() && resContent != "{}") {
+                    writeResourcesFile(existing.id, resContent)
+                }
+            }
             reload()
             return@withContext existing.id
         }
@@ -814,6 +860,12 @@ class UserScriptManager private constructor(private val context: Context) {
             val reqContent = fetchRequires(metadata.requires)
             if (reqContent.isNotBlank()) {
                 writeRequiresFile(id, reqContent)
+            }
+        }
+        if (metadata.resources.isNotEmpty()) {
+            val resContent = fetchResources(metadata.resources)
+            if (resContent.isNotBlank() && resContent != "{}") {
+                writeResourcesFile(id, resContent)
             }
         }
         reload()
@@ -847,6 +899,12 @@ class UserScriptManager private constructor(private val context: Context) {
             val reqContent = fetchRequires(metadata.requires)
             if (reqContent.isNotBlank()) {
                 writeRequiresFile(id, reqContent)
+            }
+        }
+        if (metadata.resources.isNotEmpty()) {
+            val resContent = fetchResources(metadata.resources)
+            if (resContent.isNotBlank() && resContent != "{}") {
+                writeResourcesFile(id, resContent)
             }
         }
         reload()
@@ -967,6 +1025,28 @@ class UserScriptManager private constructor(private val context: Context) {
             "window.__usValueChanged=function(scriptKey,key,jsonValueOrNull){var list=window.__usRuntime.valueListeners[scriptKey];if(!list)return;" +
             "var nv=(jsonValueOrNull===null||jsonValueOrNull===undefined)?undefined:JSON.parse(jsonValueOrNull);" +
             "for(var k in list){if(list.hasOwnProperty(k)){try{list[k](key,undefined,nv,false);}catch(e){}}}};" +
+            "};" +
+            "if(!window.__onyxSpaHookInstalled){" +
+            "window.__onyxSpaHookInstalled=true;" +
+            "var _lastUrl=location.href;" +
+            "function _notifyUrlChange(){" +
+            "if(location.href!==_lastUrl){" +
+            "_lastUrl=location.href;" +
+            "try{" +
+            "window.dispatchEvent(new CustomEvent('onyx:urlchange',{detail:{url:location.href}}));" +
+            "window.dispatchEvent(new Event('yt-navigate-finish'));" +
+            "window.dispatchEvent(new Event('yt-page-data-updated'));" +
+            "window.dispatchEvent(new Event('popstate'));" +
+            "window.dispatchEvent(new Event('hashchange'));" +
+            "}catch(_){}" +
+            "}" +
+            "};" +
+            "var _ps=history.pushState;" +
+            "if(_ps){history.pushState=function(){var r=_ps.apply(this,arguments);_notifyUrlChange();return r;};};" +
+            "var _rs=history.replaceState;" +
+            "if(_rs){history.replaceState=function(){var r=_rs.apply(this,arguments);_notifyUrlChange();return r;};};" +
+            "window.addEventListener('popstate',_notifyUrlChange);" +
+            "window.addEventListener('hashchange',_notifyUrlChange);" +
             "}"
 
         @Volatile

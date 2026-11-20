@@ -107,7 +107,7 @@ class UserScriptMetadataTest {
         assertTrue(meta.grants.isEmpty())
         assertTrue(meta.connects.isEmpty())
         assertTrue(meta.requires.isEmpty())
-        assertEquals(RunAt.DOCUMENT_IDLE, meta.runAt)
+        assertEquals(RunAt.DOCUMENT_END, meta.runAt)
         assertFalse(meta.noFrames)
         assertEquals("", meta.updateUrl)
         assertEquals("", meta.downloadUrl)
@@ -182,10 +182,17 @@ class UserScriptMetadataTest {
             // @name Omitted
             // ==/UserScript==
         """.trimIndent()
+        val unsafeWin = """
+            // ==UserScript==
+            // @name UnsafeWin
+            // @grant unsafeWindow
+            // ==/UserScript==
+        """.trimIndent()
 
         assertTrue(UserScriptMetadata.parse(privileged).isIsolatedWorld)
         assertFalse(UserScriptMetadata.parse(unprivileged).isIsolatedWorld)
         assertFalse(UserScriptMetadata.parse(omitted).isIsolatedWorld)
+        assertTrue(UserScriptMetadata.parse(unsafeWin).isIsolatedWorld)
     }
 
     @Test

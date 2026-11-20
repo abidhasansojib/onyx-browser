@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -140,7 +142,11 @@ class UserScriptsActivity : ComponentActivity() {
                     onToggleScript = { item, enabled ->
                         lifecycleScope.launch {
                             manager.toggleScript(item.script.id, enabled)
-                            loadScripts()
+                            val idx = scripts.indexOfFirst { it.script.id == item.script.id }
+                            if (idx >= 0) {
+                                val current = scripts[idx]
+                                scripts[idx] = current.copy(script = current.script.copy(enabled = enabled))
+                            }
                         }
                     },
                     onEditScript = { item ->
@@ -226,8 +232,17 @@ class UserScriptsActivity : ComponentActivity() {
     private fun loadScripts() {
         lifecycleScope.launch {
             manager.reload()
-            scripts.clear()
-            scripts.addAll(manager.scripts)
+            val fresh = manager.scripts
+            if (scripts.size == fresh.size && scripts.indices.all { scripts[it].script.id == fresh[it].script.id }) {
+                for (i in fresh.indices) {
+                    if (scripts[i] != fresh[i]) {
+                        scripts[i] = fresh[i]
+                    }
+                }
+            } else {
+                scripts.clear()
+                scripts.addAll(fresh)
+            }
         }
     }
 
@@ -310,7 +325,11 @@ class UserScriptsActivity : ComponentActivity() {
     private fun fetchAndInstallScriptFromUrl(url: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val req = Request.Builder().url(url).build()
+                val req = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .build()
                 val resp = httpClient.newCall(req).execute()
                 val body = resp.body?.string()
                 if (resp.isSuccessful && !body.isNullOrBlank()) {
@@ -417,10 +436,23 @@ fun UserScriptsScreen(
     onAddClick: () -> Unit,
     onCheckUpdates: () -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredScripts = remember(scripts, searchQuery) {
+        val q = searchQuery.trim().lowercase()
+        if (q.isEmpty()) scripts
+        else scripts.filter {
+            it.metadata.name.lowercase().contains(q) ||
+                    it.metadata.author.lowercase().contains(q) ||
+                    it.metadata.description.lowercase().contains(q) ||
+                    it.metadata.matches.any { m -> m.lowercase().contains(q) } ||
+                    it.metadata.includes.any { inc -> inc.lowercase().contains(q) }
+        }
+    }
+
     Scaffold(
         topBar = {
             AppTopBar(
-                title = "User Scripts",
+                title = "Userscripts",
                 onBackClick = onBackClick,
                 actions = {
                     if (scripts.isNotEmpty()) {
@@ -498,23 +530,69 @@ fun UserScriptsScreen(
                     }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 80.dp)
-                ) {
-                    items(scripts, key = { it.script.id }) { item ->
-                        CardContainer {
-                            UserScriptItemRow(
-                                item = item,
-                                onToggle = { enabled -> onToggleScript(item, enabled) },
-                                onEdit = { onEditScript(item) },
-                                onCheckUpdate = { onCheckScriptUpdate(item) },
-                                onShare = { onShareScript(item) },
-                                onCopyName = { onCopyScriptName(item) },
-                                onCopyLink = { onCopyScriptLink(item) },
-                                onDelete = { onDeleteScript(item) }
+                if (scripts.size >= 2 || searchQuery.isNotEmpty()) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        placeholder = { Text("Search by name, author, domain...") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Clear",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+
+                if (filteredScripts.isEmpty() && searchQuery.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No userscripts match '$searchQuery'",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = 80.dp)
+                    ) {
+                        items(filteredScripts, key = { it.script.id }) { item ->
+                            CardContainer {
+                                UserScriptItemRow(
+                                    item = item,
+                                    onToggle = { enabled -> onToggleScript(item, enabled) },
+                                    onEdit = { onEditScript(item) },
+                                    onCheckUpdate = { onCheckScriptUpdate(item) },
+                                    onShare = { onShareScript(item) },
+                                    onCopyName = { onCopyScriptName(item) },
+                                    onCopyLink = { onCopyScriptLink(item) },
+                                    onDelete = { onDeleteScript(item) }
+                                )
+                            }
                         }
                     }
                 }

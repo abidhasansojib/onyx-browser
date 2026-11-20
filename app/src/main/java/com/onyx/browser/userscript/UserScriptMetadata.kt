@@ -58,7 +58,11 @@ data class UserScriptMetadata(
      */
     val isIsolatedWorld: Boolean
         get() = !unwrap && grants.none { it.equals("none", ignoreCase = true) } &&
-                (requiresNativeBridge || grants.any { it.startsWith("GM", ignoreCase = true) })
+                (requiresNativeBridge || grants.any {
+                    it.startsWith("GM", ignoreCase = true) ||
+                            it.equals("unsafeWindow", ignoreCase = true) ||
+                            it.startsWith("window.", ignoreCase = true)
+                })
 
     companion object {
         private val NATIVE_APIS = listOf(
@@ -71,7 +75,7 @@ data class UserScriptMetadata(
         const val DEFAULT_NAME = "Unnamed script"
 
         private val BLOCK_REGEX =
-            Regex("""//\s*==UserScript==\s*\n(.*?)//\s*==/UserScript==""", RegexOption.DOT_MATCHES_ALL)
+            Regex("""//\s*==UserScript==\s*\r?\n(.*?)//\s*==/UserScript==""", RegexOption.DOT_MATCHES_ALL)
         private val LINE_REGEX = Regex("""//\s*@([\w-]+)(?::[\w-]+)?(?:\s+(.*))?""")
 
         fun parse(code: String): UserScriptMetadata {
@@ -95,7 +99,7 @@ data class UserScriptMetadata(
                 "document-body" -> RunAt.DOCUMENT_START
                 "document-end" -> RunAt.DOCUMENT_END
                 "document-idle" -> RunAt.DOCUMENT_IDLE
-                else -> RunAt.DOCUMENT_IDLE
+                else -> RunAt.DOCUMENT_END
             }
 
             val resources = mutableListOf<UserScriptResource>()
