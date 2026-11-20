@@ -557,6 +557,8 @@
     <string name="paste_clipboard">Paste</string>
     <string name="link_you_copied">Link you copied</string>
     <string name="text_you_copied">Text you copied</string>
+    <string name="tap_to_search_copied">Tap to search or visit</string>
+    <string name="reveal_copied_content">Reveal copied content</string>
     <string name="copy_link">Copy link</string>
     <string name="copy_script">Copy script</string>
     <string name="run_bookmarklet">Run on current page</string>

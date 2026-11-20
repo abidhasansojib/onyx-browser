@@ -9,5 +9,6 @@ data class SearchSuggestion(
     val isDomain: Boolean = false,
     /** True when the suggestion is a complete URL (e.g. starts with http/https). */
     val isUrl: Boolean = false,
-    val isClipboard: Boolean = false
+    val isClipboard: Boolean = false,
+    val isClipboardLazy: Boolean = false
 )

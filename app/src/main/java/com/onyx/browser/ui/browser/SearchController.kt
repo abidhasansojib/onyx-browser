@@ -79,6 +79,9 @@ class SearchController(
             onInsertClicked = { suggestion ->
                 binding.etUrl.setText(suggestion.queryOrUrl)
                 binding.etUrl.setSelection(binding.etUrl.text?.length ?: 0)
+            },
+            onResolveClipboard = {
+                resolveClipboardText()
             }
         )
         binding.rvSearchSuggestions.layoutManager = LinearLayoutManager(activity)
@@ -287,7 +290,7 @@ class SearchController(
             val matches = if (trimmed.isEmpty()) {
                 clipboardOpt
             } else {
-                if (clipboardOpt != null && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)) clipboardOpt else null
+                if (clipboardOpt != null && !clipboardOpt.isClipboardLazy && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)) clipboardOpt else null
             }
             suggestionsAdapter.submitList(if (matches != null) listOf(matches) else emptyList())
             return
@@ -306,7 +309,7 @@ class SearchController(
                 isUrl = true
             )
             val clipboardOpt = getClipboardSuggestion()
-            val clipboardMatch = clipboardOpt?.takeIf { it.queryOrUrl.contains(trimmed, ignoreCase = true) }
+            val clipboardMatch = clipboardOpt?.takeIf { !it.isClipboardLazy && it.queryOrUrl.contains(trimmed, ignoreCase = true) }
             val initialList = if (clipboardMatch != null) listOf(clipboardMatch, instantDomain) else listOf(instantDomain)
             suggestionsAdapter.submitList(initialList)
         }
@@ -318,7 +321,7 @@ class SearchController(
             val suggestions = suggestionRepository.getSuggestions(trimmed, preferences.searchEngine, isIncognito = isIncog)
             if (isSearchMode) {
                 val clipboardOpt = getClipboardSuggestion()
-                val clipboardMatch = clipboardOpt?.takeIf { it.queryOrUrl.contains(trimmed, ignoreCase = true) }
+                val clipboardMatch = clipboardOpt?.takeIf { !it.isClipboardLazy && it.queryOrUrl.contains(trimmed, ignoreCase = true) }
                 val finalList = if (clipboardMatch != null) {
                     val list = suggestions.toMutableList()
                     list.add(0, clipboardMatch)
@@ -342,38 +345,17 @@ class SearchController(
     private var cachedClipboardSuggestion: SearchSuggestion? = null
     private var lastClipboardQueryTime: Long = 0L
 
-    fun getClipboardSuggestion(forceRefresh: Boolean = false): SearchSuggestion? {
-        // Suppress clipboard suggestions in incognito mode (Chrome privacy standard)
-        if (getActiveTab()?.isIncognito == true) {
-            cachedClipboardSuggestion = null
-            return null
-        }
-
-        val now = System.currentTimeMillis()
-        if (!forceRefresh && cachedClipboardSuggestion != null && (now - lastClipboardQueryTime < 10_000L)) {
-            return cachedClipboardSuggestion
-        }
-        lastClipboardQueryTime = now
+    /**
+     * Resolves the actual clipboard content when the user explicitly taps the clipboard card,
+     * eye reveal button, or paste arrow. This triggers Android 12+'s clipboard toast only
+     * upon explicit user intent.
+     */
+    fun resolveClipboardText(): String? {
         try {
             val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return null
-            if (!clipboard.hasPrimaryClip()) {
-                cachedClipboardSuggestion = null
-                return null
-            }
-            // Check primaryClipDescription first — does NOT trigger Android 12+ privacy toast
-            val desc = clipboard.primaryClipDescription
-            if (desc == null || (!desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) && !desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML))) {
-                cachedClipboardSuggestion = null
-                return null
-            }
-            // Suppress if flagged as sensitive (passwords, private data, incognito clips)
-            if (desc.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true) {
-                cachedClipboardSuggestion = null
-                return null
-            }
-
-            val clipData = clipboard.primaryClip
-            if (clipData != null && clipData.itemCount > 0) {
+            if (!clipboard.hasPrimaryClip()) return null
+            val clipData = clipboard.primaryClip ?: return null
+            if (clipData.itemCount > 0) {
                 val rawText = clipData.getItemAt(0).text?.toString()?.trim()
                 if (!rawText.isNullOrBlank()) {
                     // Suppress if identical to active page URL (Brave/Chromium standard)
@@ -399,12 +381,72 @@ class SearchController(
                         queryOrUrl = rawText,
                         isUrl = isLink,
                         isDomain = isLink && !rawText.startsWith("http://", ignoreCase = true) && !rawText.startsWith("https://", ignoreCase = true),
-                        isClipboard = true
+                        isClipboard = true,
+                        isClipboardLazy = false
                     )
                     cachedClipboardSuggestion = suggestion
-                    return suggestion
+                    return rawText
                 }
             }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    fun getClipboardSuggestion(forceRefresh: Boolean = false): SearchSuggestion? {
+        // Honor user preferences
+        if (!preferences.isShowClipboardSuggestions) {
+            cachedClipboardSuggestion = null
+            return null
+        }
+
+        // Suppress clipboard suggestions in incognito mode (Chrome privacy standard)
+        if (getActiveTab()?.isIncognito == true) {
+            cachedClipboardSuggestion = null
+            return null
+        }
+
+        val now = System.currentTimeMillis()
+        if (!forceRefresh && cachedClipboardSuggestion != null && (now - lastClipboardQueryTime < 10_000L)) {
+            return cachedClipboardSuggestion
+        }
+        lastClipboardQueryTime = now
+        try {
+            val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return null
+            if (!clipboard.hasPrimaryClip()) {
+                cachedClipboardSuggestion = null
+                return null
+            }
+            // Check primaryClipDescription only — does NOT trigger Android 12+ privacy toast
+            val desc = clipboard.primaryClipDescription ?: run {
+                cachedClipboardSuggestion = null
+                return null
+            }
+            if (!desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) && !desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML)) {
+                cachedClipboardSuggestion = null
+                return null
+            }
+            // Suppress if flagged as sensitive (passwords, private data, incognito clips)
+            if (desc.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true) {
+                cachedClipboardSuggestion = null
+                return null
+            }
+
+            // If we already resolved the actual text recently, reuse it
+            val existing = cachedClipboardSuggestion
+            if (existing != null && !existing.isClipboardLazy && existing.queryOrUrl.isNotBlank()) {
+                return existing
+            }
+
+            // Return clean lazy suggestion (Chromium standard): NO clipboard.primaryClip call, so ZERO toast on search bar open!
+            val lazySuggestion = SearchSuggestion(
+                title = activity.getString(R.string.link_you_copied),
+                queryOrUrl = "",
+                isUrl = false,
+                isClipboard = true,
+                isClipboardLazy = true
+            )
+            cachedClipboardSuggestion = lazySuggestion
+            return lazySuggestion
         } catch (_: Exception) {}
         cachedClipboardSuggestion = null
         return null

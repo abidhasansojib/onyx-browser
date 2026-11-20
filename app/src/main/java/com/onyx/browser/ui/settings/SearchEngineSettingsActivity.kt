@@ -42,6 +42,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -79,12 +80,14 @@ class SearchEngineSettingsActivity : ComponentActivity() {
     private var editingEngine by mutableStateOf<SearchEngine?>(null)
     private var isBottomSheetOpen by mutableStateOf(false)
     private var engineToDelete by mutableStateOf<SearchEngine?>(null)
+    private var isShowClipboardSuggestions by mutableStateOf(true)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         preferences = BrowserPreferences.getInstance(this)
+        isShowClipboardSuggestions = preferences.isShowClipboardSuggestions
         loadEngines()
 
         setContent {
@@ -115,6 +118,11 @@ class SearchEngineSettingsActivity : ComponentActivity() {
                     },
                     onDeleteEngineClick = { engine ->
                         engineToDelete = engine
+                    },
+                    isShowClipboardSuggestions = isShowClipboardSuggestions,
+                    onToggleClipboardSuggestions = { enabled ->
+                        preferences.isShowClipboardSuggestions = enabled
+                        isShowClipboardSuggestions = enabled
                     }
                 )
 
@@ -173,7 +181,9 @@ fun SearchEngineSettingsScreen(
     customEngines: List<SearchEngine>,
     onAddEngineClick: () -> Unit,
     onEditEngineClick: (SearchEngine) -> Unit,
-    onDeleteEngineClick: (SearchEngine) -> Unit
+    onDeleteEngineClick: (SearchEngine) -> Unit,
+    isShowClipboardSuggestions: Boolean,
+    onToggleClipboardSuggestions: (Boolean) -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -305,6 +315,46 @@ fun SearchEngineSettingsScreen(
                         onDelete = { onDeleteEngineClick(engine) }
                     )
                 }
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+
+            Text(
+                text = "SEARCH SUGGESTIONS",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                letterSpacing = 0.5.sp,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleClipboardSuggestions(!isShowClipboardSuggestions) }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Clipboard suggestions",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Show copied link or text card when opening search bar",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = isShowClipboardSuggestions,
+                    onCheckedChange = onToggleClipboardSuggestions
+                )
             }
         }
     }
