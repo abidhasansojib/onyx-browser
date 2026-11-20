@@ -249,21 +249,15 @@ class ShieldsActivity : ComponentActivity() {
                 }
 
                 if (showDnsProviderPicker) {
-                    SingleChoiceBottomSheet(
-                        title = "Select Secure DNS Provider",
-                        options = listOf("Cloudflare (1.1.1.1)", "Google (8.8.8.8)", "NextDNS"),
-                        selectedIndex = when (secureDnsProvider) {
-                            "https://dns.google/dns-query" -> 1
-                            "https://dns.nextdns.io" -> 2
-                            else -> 0
-                        },
-                        onSelect = { idx ->
-                            secureDnsProvider = when (idx) {
-                                1 -> "https://dns.google/dns-query"
-                                2 -> "https://dns.nextdns.io"
-                                else -> "https://cloudflare-dns.com/dns-query"
+                    DnsProviderBottomSheet(
+                        currentProviderUrl = secureDnsProvider,
+                        currentCustomUrl = prefs.customDnsUrl,
+                        onSelectProvider = { selectedUrl, isCustom ->
+                            secureDnsProvider = selectedUrl
+                            prefs.secureDnsProvider = selectedUrl
+                            if (isCustom) {
+                                prefs.customDnsUrl = selectedUrl
                             }
-                            prefs.secureDnsProvider = secureDnsProvider
                             showDnsProviderPicker = false
                         },
                         onDismiss = { showDnsProviderPicker = false }
@@ -309,9 +303,16 @@ class ShieldsActivity : ComponentActivity() {
 
     private fun getDnsDisplayName(url: String): String {
         return when (url) {
-            "https://dns.google/dns-query" -> "Google (8.8.8.8)"
-            "https://dns.nextdns.io" -> "NextDNS"
-            else -> "Cloudflare (1.1.1.1)"
+            DnsProviderPickerBottomSheet.DNS_CLOUDFLARE -> "Cloudflare (1.1.1.1)"
+            DnsProviderPickerBottomSheet.DNS_GOOGLE -> "Google (8.8.8.8)"
+            DnsProviderPickerBottomSheet.DNS_NEXTDNS -> "NextDNS"
+            DnsProviderPickerBottomSheet.DNS_QUAD9 -> "Quad9 (9.9.9.9)"
+            DnsProviderPickerBottomSheet.DNS_ADGUARD -> "AdGuard DNS"
+            else -> if (url.isNotBlank() && url.startsWith("https://", ignoreCase = true)) {
+                url
+            } else {
+                "Custom URL"
+            }
         }
     }
 }

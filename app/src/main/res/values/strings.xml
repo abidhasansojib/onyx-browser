@@ -378,6 +378,8 @@
     <string name="dns_provider_cloudflare">Cloudflare (1.1.1.1)</string>
     <string name="dns_provider_google">Google (8.8.8.8)</string>
     <string name="dns_provider_nextdns">NextDNS</string>
+    <string name="dns_provider_quad9">Quad9 (9.9.9.9)</string>
+    <string name="dns_provider_adguard">AdGuard DNS</string>
     <string name="dns_provider_custom">Custom URL</string>
 
     <!-- App Banner -->
