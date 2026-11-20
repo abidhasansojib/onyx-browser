@@ -59,8 +59,8 @@ class ShieldsActivity : ComponentActivity() {
 
     private var isGlobalScriptBlocked by mutableStateOf(false)
     private var cookieMode by mutableIntStateOf(1)
-    private var isCookieAutoclearEnabled by mutableStateOf(false)
     private var isClearOnExitEnabled by mutableStateOf(false)
+    private var clearOnExitSummary by mutableStateOf("")
 
     private var isFingerprintEnabled by mutableStateOf(true)
     private var isFingerprintLangEnabled by mutableStateOf(true)
@@ -86,6 +86,7 @@ class ShieldsActivity : ComponentActivity() {
     private var showHttpsModePicker by mutableStateOf(false)
     private var showCookieModePicker by mutableStateOf(false)
     private var showDnsProviderPicker by mutableStateOf(false)
+    private var showClearOnExitPicker by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -138,20 +139,8 @@ class ShieldsActivity : ComponentActivity() {
                         else -> "Block 3rd-Party Cookies"
                     },
                     onCookieModeClick = { showCookieModePicker = true },
-                    isCookieAutoclear = isCookieAutoclearEnabled,
-                    onCookieAutoclearChange = { isCookieAutoclearEnabled = it; prefs.isCookieAutoclearOnCloseEnabled = it },
-                    isClearOnExit = isClearOnExitEnabled,
-                    onClearOnExitChange = {
-                        isClearOnExitEnabled = it
-                        prefs.isClearOnExitEnabled = it
-                        if (it && !prefs.isClearOnExitTabsEnabled && !prefs.isClearOnExitHistoryEnabled &&
-                            !prefs.isClearOnExitCookiesEnabled && !prefs.isClearOnExitCacheEnabled) {
-                            prefs.isClearOnExitTabsEnabled = true
-                            prefs.isClearOnExitHistoryEnabled = true
-                            prefs.isClearOnExitCookiesEnabled = true
-                            prefs.isClearOnExitCacheEnabled = true
-                        }
-                    },
+                    clearOnExitSummary = clearOnExitSummary,
+                    onClearOnExitClick = { showClearOnExitPicker = true },
 
                     // Fingerprinting
                     isFingerprint = isFingerprintEnabled,
@@ -263,6 +252,17 @@ class ShieldsActivity : ComponentActivity() {
                         onDismiss = { showDnsProviderPicker = false }
                     )
                 }
+
+                if (showClearOnExitPicker) {
+                    ClearOnExitSheet(
+                        prefs = prefs,
+                        onDismiss = { showClearOnExitPicker = false },
+                        onUpdated = {
+                            isClearOnExitEnabled = prefs.isClearOnExitEnabled
+                            clearOnExitSummary = prefs.getClearOnExitSummary(this@ShieldsActivity)
+                        }
+                    )
+                }
             }
         }
     }
@@ -278,8 +278,8 @@ class ShieldsActivity : ComponentActivity() {
 
         isGlobalScriptBlocked = prefs.isGlobalScriptBlockingEnabled
         cookieMode = prefs.cookieBlockingMode
-        isCookieAutoclearEnabled = prefs.isCookieAutoclearOnCloseEnabled
         isClearOnExitEnabled = prefs.isClearOnExitEnabled
+        clearOnExitSummary = prefs.getClearOnExitSummary(this)
 
         isFingerprintEnabled = prefs.isFingerprintProtectionEnabled
         isFingerprintLangEnabled = prefs.isFingerprintLangEnabled
@@ -338,10 +338,8 @@ fun ShieldsScreen(
     onManageUserScriptsClick: () -> Unit,
     cookieModeText: String,
     onCookieModeClick: () -> Unit,
-    isCookieAutoclear: Boolean,
-    onCookieAutoclearChange: (Boolean) -> Unit,
-    isClearOnExit: Boolean,
-    onClearOnExitChange: (Boolean) -> Unit,
+    clearOnExitSummary: String,
+    onClearOnExitClick: () -> Unit,
     isFingerprint: Boolean,
     onFingerprintChange: (Boolean) -> Unit,
     isFingerprintLang: Boolean,
@@ -469,18 +467,10 @@ fun ShieldsScreen(
                     onClick = onCookieModeClick
                 )
 
-                SwitchPreference(
-                    title = "Auto-Clear Cookies on App Close",
-                    subtitle = "Discard temporary session cookies when exiting the browser",
-                    checked = isCookieAutoclear,
-                    onCheckedChange = onCookieAutoclearChange
-                )
-
-                SwitchPreference(
+                PreferenceItem(
                     title = "Clear Data on Exit",
-                    subtitle = "Wipe history, cache, cookies, and tabs when exiting the browser",
-                    checked = isClearOnExit,
-                    onCheckedChange = onClearOnExitChange
+                    subtitle = clearOnExitSummary,
+                    onClick = onClearOnExitClick
                 )
             }
 
