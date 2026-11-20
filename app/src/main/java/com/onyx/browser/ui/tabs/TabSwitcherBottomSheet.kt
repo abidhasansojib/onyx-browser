@@ -348,60 +348,74 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                     }
                 }
 
-                // Floating Undo Toast
+                // Floating Undo Toast (Compact, sleek pill matching old branch bg_undo_toast)
                 AnimatedVisibility(
                     visible = undoMessage != null,
-                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(tween(220)),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(tween(180)),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
+                        .padding(bottom = 12.dp, start = 16.dp, end = 16.dp)
+                        .widthIn(max = 600.dp)
+                        .fillMaxWidth()
                 ) {
                     undoMessage?.let { msg ->
                         Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shadowElevation = 6.dp,
+                            shape = RoundedCornerShape(18.dp),
+                            color = colorResource(R.color.tab_card_header_bg),
+                            border = BorderStroke(1.dp, colorResource(R.color.tab_card_stroke)),
+                            shadowElevation = 8.dp,
+                            tonalElevation = 0.dp,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = msg,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontSize = 14.5.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = colorResource(R.color.tab_text_primary),
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
                                 )
 
                                 Spacer(modifier = Modifier.width(8.dp))
 
-                                TextButton(
-                                    onClick = {
-                                        val restoredBatch = tabManager.undoCloseTab()
-                                        if (restoredBatch != null && restoredBatch.states.isNotEmpty()) {
-                                            refreshTabsList()
-                                            val nextBatch = tabManager.peekLastClosedBatch(isViewingIncognitoState.value)
-                                            if (nextBatch != null) {
-                                                showUndoToastForBatch(nextBatch)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            val restoredBatch = tabManager.undoCloseTab()
+                                            if (restoredBatch != null && restoredBatch.states.isNotEmpty()) {
+                                                refreshTabsList()
+                                                val nextBatch = tabManager.peekLastClosedBatch(isViewingIncognitoState.value)
+                                                if (nextBatch != null) {
+                                                    showUndoToastForBatch(nextBatch)
+                                                } else {
+                                                    dismissUndoToast(animate = true)
+                                                }
                                             } else {
                                                 dismissUndoToast(animate = true)
                                             }
-                                        } else {
-                                            dismissUndoToast(animate = true)
                                         }
-                                    }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = stringResource(R.string.undo),
                                         color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     )
                                 }
                             }
@@ -788,11 +802,13 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         onCloseClick: () -> Unit
     ) {
         val accentColor = MaterialTheme.colorScheme.primary
-        val outlineColor = if (isActive) accentColor else MaterialTheme.colorScheme.outlineVariant
+        val outlineColor = if (isActive) accentColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
         val headerColor = if (isActive) accentColor else MaterialTheme.colorScheme.surfaceVariant
         val titleColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
         val closeColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
 
+        val context = LocalContext.current
+        val faviconBitmap = if (!isLocked && !tab.isIncognito) rememberFavicon(tab.url) else null
         val domain = remember(tab.url) {
             if (tab.url.isBlank()) ""
             else try {
@@ -819,7 +835,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(230.dp)
                 .onSizeChanged { size ->
                     cardWidthPx = size.width.toFloat()
                 }
@@ -911,16 +927,16 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                 )
         ) {
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surface,
                 border = androidx.compose.foundation.BorderStroke(
-                    width = if (isActive) 2.5.dp else 1.dp,
+                    width = if (isActive) 2.dp else 1.dp,
                     color = outlineColor
                 ),
-                shadowElevation = if (isActive) 4.dp else 1.dp,
+                shadowElevation = if (isActive) 4.dp else 0.dp,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(18.dp))
                     .combinedClickable(
                         onClick = {
                             if (!isDismissingTab) onTabClick()
@@ -931,12 +947,13 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                     )
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Tab Header
+                    // Tab Header (Fixed 42dp height matching screenshot and standard proportions)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(42.dp)
                             .background(headerColor)
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                            .padding(start = 12.dp, end = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Favicon / Lock Icon
@@ -954,37 +971,40 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                                 tint = closeColor,
                                 modifier = Modifier.size(16.dp)
                             )
+                        } else if (faviconBitmap != null) {
+                            Image(
+                                bitmap = faviconBitmap,
+                                contentDescription = null,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                            )
                         } else {
+                            val isLocal = remember(tab.url) {
+                                LocalFileLoader.isLocalFile(context, tab.url) ||
+                                LocalFileLoader.isPreviewUrl(tab.url)
+                            }
                             Icon(
-                                painter = painterResource(R.drawable.ic_web),
+                                painter = painterResource(if (isLocal) R.drawable.ic_file else R.drawable.ic_web),
                                 contentDescription = null,
                                 tint = closeColor,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
 
-                        // Title & Domain
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = if (isLocked) "Protected Tab" else tab.title.ifBlank { stringResource(R.string.new_tab) },
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = titleColor,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (!isLocked && domain.isNotBlank()) {
-                                Text(
-                                    text = domain,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = titleColor.copy(alpha = 0.75f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
+                        // Title (Single line, clear & medium bold)
+                        Text(
+                            text = if (isLocked) "Protected Tab" else tab.title.ifBlank { stringResource(R.string.new_tab) },
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                            fontWeight = FontWeight.SemiBold,
+                            color = titleColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
 
                         // Close Button
                         IconButton(
@@ -997,10 +1017,10 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Close,
+                                painter = painterResource(R.drawable.ic_close),
                                 contentDescription = stringResource(R.string.close_tab),
                                 tint = closeColor,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
@@ -1010,7 +1030,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                            .background(MaterialTheme.colorScheme.surface),
                         contentAlignment = Alignment.Center
                     ) {
                         if (isLocked) {
@@ -1036,15 +1056,31 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                                 bitmap = snapshot.asImageBitmap(),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
+                                alignment = Alignment.TopCenter,
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_app_emblem),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
-                                modifier = Modifier.size(48.dp)
-                            )
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_app_emblem),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
+                                    modifier = Modifier.size(44.dp)
+                                )
+                                if (domain.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = domain,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
                     }
                 }
