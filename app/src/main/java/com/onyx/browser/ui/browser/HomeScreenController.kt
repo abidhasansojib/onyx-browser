@@ -141,7 +141,9 @@ class HomeScreenController(
                     draggedShortcut?.id != ShortcutItem.ID_ADD_SHORTCUT &&
                     draggedShortcut?.url != ShortcutItem.URL_ADD_SHORTCUT
                 ) {
-                    showEditShortcutDialog(draggedShortcut!!)
+                    if (!draggedShortcut!!.isSystemShortcut) {
+                        showEditShortcutDialog(draggedShortcut!!)
+                    }
                 }
                 draggedShortcut = null
                 hasDragged = false

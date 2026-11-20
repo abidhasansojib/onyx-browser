@@ -2422,10 +2422,16 @@ class BrowserPreferences private constructor(private val context: Context) {
         _shortcutsFlow.value = shortcuts
     }
 
-    fun addShortcut(shortcut: ShortcutItem) {
+    fun addShortcut(shortcut: ShortcutItem): Boolean {
         val current = getShortcuts().toMutableList()
+        val exists = current.any {
+            it.url.equals(shortcut.url, ignoreCase = true) ||
+            it.url.trimEnd('/').equals(shortcut.url.trimEnd('/'), ignoreCase = true)
+        }
+        if (exists) return false
         current.add(shortcut)
         saveShortcuts(current)
+        return true
     }
 
     fun updateShortcut(updated: ShortcutItem) {

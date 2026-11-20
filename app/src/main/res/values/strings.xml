@@ -274,6 +274,12 @@
     <string name="add">Add</string>
     <string name="open_in_new_tab">Open in new tab</string>
     <string name="drag_to_reorder">Drag to reorder</string>
+    <string name="shortcut_already_exists">Already in shortcuts</string>
+    <string name="shortcut_url_empty_error">URL cannot be empty</string>
+    <string name="shortcut_url_invalid_error">Invalid URL</string>
+    <string name="suggested">SUGGESTED</string>
+    <string name="add_custom">ADD CUSTOM</string>
+    <string name="my_shortcuts">MY SHORTCUTS</string>
 
     <!-- Onyx Downloader -->
     <string name="onyx_downloader_title">Onyx Downloader</string>
