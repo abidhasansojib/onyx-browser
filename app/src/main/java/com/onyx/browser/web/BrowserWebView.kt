@@ -479,7 +479,7 @@ class BrowserWebView @JvmOverloads constructor(
                 )
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                     this,
-                    AdBlockDocumentStart.SCRIPT,
+                    AdBlockDocumentStart.getScript(currentBlockingLevel),
                     setOf("*")
                 )
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
