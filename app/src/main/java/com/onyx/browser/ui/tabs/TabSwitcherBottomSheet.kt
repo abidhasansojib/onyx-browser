@@ -1012,6 +1012,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         }
     }
 
+    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun TabOrganizationHeaderBar(
         groups: List<TabGroupItem>,
