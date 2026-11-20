@@ -115,6 +115,12 @@ class UserScriptBridge(
         tokens[token] = ScriptSession(scriptId, targetUrl)
     }
 
+    fun updateTargetUrlForAll(newUrl: String) {
+        tokens.entries.forEach { (tok, session) ->
+            tokens[tok] = session.copy(targetUrl = newUrl)
+        }
+    }
+
     fun clearTokens() {
         tokens.clear()
         activeCalls.values.forEach { runCatching { it.cancel() } }
@@ -198,10 +204,28 @@ class UserScriptBridge(
 
                 val builder = Request.Builder().url(url)
                 var contentType: String? = null
+                var hasUserAgent = false
+                var hasCookie = false
                 headers?.keys()?.forEach { name ->
                     val v = headers.getString(name)
                     if (name.equals("Content-Type", ignoreCase = true)) contentType = v
+                    if (name.equals("User-Agent", ignoreCase = true)) hasUserAgent = true
+                    if (name.equals("Cookie", ignoreCase = true)) hasCookie = true
                     builder.header(name, v)
+                }
+
+                if (!hasUserAgent) {
+                    val ua = withContext(Dispatchers.Main) { webView.settings.userAgentString }
+                    if (ua.isNotBlank()) builder.header("User-Agent", ua)
+                }
+
+                if (!hasCookie) {
+                    val cookieStr = runCatching {
+                        android.webkit.CookieManager.getInstance().getCookie(url)
+                    }.getOrNull()
+                    if (!cookieStr.isNullOrBlank()) {
+                        builder.header("Cookie", cookieStr)
+                    }
                 }
 
                 if (method == "GET" || method == "HEAD") {

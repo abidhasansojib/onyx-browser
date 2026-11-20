@@ -179,7 +179,12 @@ class UserScriptManager private constructor(private val context: Context) {
                 return@forEach
             }
             try {
-                val resp = httpClient.newCall(Request.Builder().url(url).build()).execute()
+                val req = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36")
+                    .header("Accept", "*/*")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
                 val body = resp.body?.string().orEmpty()
                 resp.close()
                 if (body.isNotBlank()) {
@@ -320,6 +325,12 @@ class UserScriptManager private constructor(private val context: Context) {
                         if (Object.prototype.hasOwnProperty.call(_scope, __k)) {
                             try { if (!(__k in unsafeWindow)) unsafeWindow[__k] = _scope[__k]; } catch (_) {}
                             try { if (!(__k in window)) window[__k] = _scope[__k]; } catch (_) {}
+                            try { if (typeof globalThis !== 'undefined' && !(__k in globalThis)) globalThis[__k] = _scope[__k]; } catch (_) {}
+                        }
+                    }
+                    for (var __w in unsafeWindow) {
+                        if (Object.prototype.hasOwnProperty.call(unsafeWindow, __w)) {
+                            try { if (!(__w in _scope)) _scope[__w] = unsafeWindow[__w]; } catch (_) {}
                         }
                     }
                 } catch (_) {}

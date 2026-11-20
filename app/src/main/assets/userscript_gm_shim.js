@@ -18,6 +18,11 @@
                 _lastUrl = location.href;
                 try {
                     window.dispatchEvent(new CustomEvent('onyx:urlchange', { detail: { url: location.href } }));
+                    window.dispatchEvent(new Event('yt-navigate-finish'));
+                    window.dispatchEvent(new Event('yt-page-data-updated'));
+                    window.dispatchEvent(new Event('popstate'));
+                    window.dispatchEvent(new Event('hashchange'));
+                    window.dispatchEvent(new Event('resize'));
                 } catch (_) {}
             }
         }
@@ -40,34 +45,95 @@
         window.addEventListener('popstate', _notifyUrlChange);
     })();
 
-    // Mobile Touch to Mouse Translation: Enables desktop mouse-hover userscripts (e.g. video downloaders) on mobile Android touchscreens
+    // Mobile Touch & Video Interaction Assistant:
+    // Enables desktop hover-gated userscripts (e.g. video downloaders) to detect active videos and operate smoothly on mobile touchscreens.
     (function () {
         if (window.__onyxTouchMouseShimInstalled) return;
         window.__onyxTouchMouseShimInstalled = true;
-        function dispatchSimulatedMouseEvent(type, touch) {
+
+        function dispatchSimulatedMouseEvent(type, target, clientX, clientY) {
             try {
                 var ev = new MouseEvent(type, {
                     bubbles: true,
                     cancelable: true,
                     view: window,
-                    clientX: touch.clientX,
-                    clientY: touch.clientY,
-                    screenX: touch.screenX,
-                    screenY: touch.screenY
+                    clientX: clientX,
+                    clientY: clientY,
+                    screenX: clientX,
+                    screenY: clientY
                 });
-                (touch.target || window).dispatchEvent(ev);
+                (target || window).dispatchEvent(ev);
             } catch (_) {}
         }
+
+        // Forward touchscreen taps & movements as synthetic mouse events
         window.addEventListener('touchstart', function (e) {
             if (e.touches && e.touches[0]) {
-                dispatchSimulatedMouseEvent('mousemove', e.touches[0]);
+                var t = e.touches[0];
+                dispatchSimulatedMouseEvent('mousemove', t.target || window, t.clientX, t.clientY);
             }
         }, { passive: true, capture: true });
+
         window.addEventListener('touchmove', function (e) {
             if (e.touches && e.touches[0]) {
-                dispatchSimulatedMouseEvent('mousemove', e.touches[0]);
+                var t = e.touches[0];
+                dispatchSimulatedMouseEvent('mousemove', t.target || window, t.clientX, t.clientY);
             }
         }, { passive: true, capture: true });
+
+        // Video presence emulator:
+        // Periodically scans for visible or playing videos in the viewport and synthesizes mouse coordinates
+        // so desktop scripts expecting mouse hover over videos automatically find them.
+        function findActiveVideoElement() {
+            try {
+                var videos = document.querySelectorAll('video');
+                for (var i = 0; i < videos.length; i++) {
+                    var v = videos[i];
+                    var r = v.getBoundingClientRect();
+                    if (r.width > 50 && r.height > 50 && r.bottom > 0 && r.top < window.innerHeight) {
+                        var st = window.getComputedStyle(v);
+                        if (st.display !== 'none' && st.visibility !== 'hidden') {
+                            return { el: v, rect: r };
+                        }
+                    }
+                }
+                var mobilePlayer = document.querySelector('.player-container, #player-container-id, ytm-player, #movie_player, .html5-video-player');
+                if (mobilePlayer) {
+                    var mr = mobilePlayer.getBoundingClientRect();
+                    if (mr.width > 50 && mr.height > 50 && mr.bottom > 0 && mr.top < window.innerHeight) {
+                        return { el: mobilePlayer, rect: mr };
+                    }
+                }
+            } catch (_) {}
+            return null;
+        }
+
+        function checkAndNotifyVideoPresence() {
+            if (document.fullscreenElement || document.webkitFullscreenElement) return;
+
+            var active = findActiveVideoElement();
+            if (active) {
+                var cx = Math.round(active.rect.left + (active.rect.width / 2));
+                var cy = Math.round(active.rect.top + Math.min(active.rect.height / 3, 50));
+                dispatchSimulatedMouseEvent('mousemove', active.el, cx, cy);
+
+                // Ensure floating action buttons like #tenzaa-aio-btn remain visible and tap-friendly on touchscreens
+                var tenzaaBtn = document.getElementById('tenzaa-aio-btn');
+                if (tenzaaBtn && tenzaaBtn.style.display === 'none') {
+                    tenzaaBtn.style.display = 'flex';
+                }
+            }
+        }
+
+        setInterval(checkAndNotifyVideoPresence, 1200);
+
+        document.addEventListener('play', checkAndNotifyVideoPresence, true);
+        document.addEventListener('playing', checkAndNotifyVideoPresence, true);
+        document.addEventListener('loadeddata', checkAndNotifyVideoPresence, true);
+        window.addEventListener('onyx:urlchange', function () {
+            setTimeout(checkAndNotifyVideoPresence, 300);
+            setTimeout(checkAndNotifyVideoPresence, 1000);
+        });
     })();
 
     (function () {

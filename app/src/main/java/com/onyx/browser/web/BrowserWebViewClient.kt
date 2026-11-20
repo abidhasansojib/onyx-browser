@@ -1540,6 +1540,19 @@ open class BrowserWebViewClient(
         if (!url.isNullOrBlank() && !isSyntheticOrDataUrl(url)) {
             currentPageUrl = url
             onUrlChanged(url)
+
+            val onyxWv = view as? BrowserWebView
+            if (onyxWv != null && !onyxWv.isLoadingSyntheticPage) {
+                onyxWv.userScriptBridge.updateTargetUrlForAll(url)
+                injectUserScripts(view, url, com.onyx.browser.userscript.RunAt.DOCUMENT_END)
+                view?.postDelayed({
+                    val activeWv = view as? BrowserWebView
+                    if (activeWv != null && !activeWv.isLoadingSyntheticPage &&
+                        (activeWv.url == url || activeWv.originalUrl == url || currentPageUrl == url)) {
+                        injectUserScripts(view, url, com.onyx.browser.userscript.RunAt.DOCUMENT_IDLE)
+                    }
+                }, DOCUMENT_IDLE_DELAY_MS)
+            }
         }
     }
 
