@@ -796,6 +796,8 @@
     <string name="userscripts_editor_title_edit">Edit Script</string>
     <string name="userscripts_save">Save</string>
     <string name="userscripts_delete">Delete</string>
+    <string name="userscripts_delete_dialog_title">Delete userscript?</string>
+    <string name="userscripts_delete_warning_desc">Are you sure you want to delete this script? This action cannot be undone.</string>
     <string name="userscripts_delete_confirm_title">Delete script?</string>
     <string name="userscripts_delete_confirm_msg">Are you sure you want to delete \"%s\"?</string>
     <string name="userscripts_deleted">Script deleted</string>

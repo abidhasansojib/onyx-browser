@@ -75,6 +75,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -82,6 +83,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -270,8 +272,14 @@ class UserScriptEditorActivity : ComponentActivity() {
                 if (showDiscardDialog) {
                     AppAlertDialog(
                         title = "Discard unsaved changes?",
-                        text = { Text("You have unsaved edits in this script.") },
+                        text = {
+                            Text(
+                                text = "You have unsaved edits in this script. Are you sure you want to discard them?",
+                                textAlign = TextAlign.Center
+                            )
+                        },
                         confirmButtonText = "Discard",
+                        dismissButtonText = stringResource(R.string.cancel),
                         isDestructive = true,
                         onConfirm = {
                             showDiscardDialog = false
@@ -282,11 +290,8 @@ class UserScriptEditorActivity : ComponentActivity() {
                 }
 
                 if (showDeleteDialog) {
-                    AppAlertDialog(
-                        title = "Delete userscript?",
-                        text = { Text("Are you sure you want to permanently delete '$scriptTitle'?") },
-                        confirmButtonText = "Delete",
-                        isDestructive = true,
+                    DeleteUserScriptDialog(
+                        scriptName = scriptTitle,
                         onConfirm = {
                             showDeleteDialog = false
                             deleteScript()

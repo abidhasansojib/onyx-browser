@@ -204,11 +204,11 @@ class UserScriptsActivity : ComponentActivity() {
 
                 if (scriptToDelete != null) {
                     val toDelete = scriptToDelete!!
-                    AppAlertDialog(
-                        title = "Delete userscript?",
-                        text = { Text("Are you sure you want to delete '${toDelete.metadata.name}'?") },
-                        confirmButtonText = "Delete",
-                        isDestructive = true,
+                    DeleteUserScriptDialog(
+                        scriptName = toDelete.metadata.name.ifBlank { toDelete.script.name },
+                        scriptVersion = toDelete.metadata.version,
+                        scriptAuthor = toDelete.metadata.author,
+                        scriptMatches = toDelete.script.matchSummary,
                         onConfirm = {
                             lifecycleScope.launch {
                                 manager.deleteScript(toDelete.script.id)
