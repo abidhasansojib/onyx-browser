@@ -22,7 +22,7 @@ static RESOURCES: ArcSwapOption<Vec<Resource>> = ArcSwapOption::const_empty();
 fn configure_engine(engine: &mut Engine) {
     engine.set_regex_discard_policy(RegexManagerDiscardPolicy {
         cleanup_interval: Duration::from_secs(30),
-        discard_unused_secs: Duration::from_secs(180),
+        discard_unused_time: Duration::from_secs(180),
     });
     let res_guard = RESOURCES.load();
     if let Some(ref res) = *res_guard {
