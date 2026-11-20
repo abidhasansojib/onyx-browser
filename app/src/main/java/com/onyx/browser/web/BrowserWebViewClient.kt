@@ -1389,7 +1389,6 @@ open class BrowserWebViewClient(
             onyxWv?.isDevToolsExpanded = false
             onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)
-            injectUserScripts(view, url, com.onyx.browser.userscript.RunAt.DOCUMENT_START)
 
             val pageDomain = preferences.cleanDomain(url)
             val isAuthOrMeta = isMetaDomain(pageDomain) || isCaptchaOrAuthUrl(url, pageDomain) ||
@@ -1544,14 +1543,6 @@ open class BrowserWebViewClient(
             val onyxWv = view as? BrowserWebView
             if (onyxWv != null && !onyxWv.isLoadingSyntheticPage) {
                 onyxWv.userScriptBridge.updateTargetUrlForAll(url)
-                injectUserScripts(view, url, com.onyx.browser.userscript.RunAt.DOCUMENT_END)
-                view?.postDelayed({
-                    val activeWv = view as? BrowserWebView
-                    if (activeWv != null && !activeWv.isLoadingSyntheticPage &&
-                        (activeWv.url == url || activeWv.originalUrl == url || currentPageUrl == url)) {
-                        injectUserScripts(view, url, com.onyx.browser.userscript.RunAt.DOCUMENT_IDLE)
-                    }
-                }, DOCUMENT_IDLE_DELAY_MS)
             }
         }
     }
@@ -1610,17 +1601,6 @@ open class BrowserWebViewClient(
             if (!isSyntheticError && !isFinishedAuthOrMeta) {
                 view?.evaluateJavascript(TouchBridge.TOUCH_LISTENER_JS, null)
                 DsdHydrationFix.applyFix(view)
-                injectUserScripts(view, effectiveUrl, com.onyx.browser.userscript.RunAt.DOCUMENT_END)
-
-                // Schedule DOCUMENT_IDLE userscripts after a short debounce to allow client-side framework
-                // hydration (React/Vue/Angular) to complete without frame drops or missing target elements.
-                val targetUrl = effectiveUrl
-                view?.postDelayed({
-                    val activeWv = view as? BrowserWebView
-                    if (activeWv != null && !activeWv.isLoadingSyntheticPage && (activeWv.url == targetUrl || activeWv.originalUrl == targetUrl)) {
-                        injectUserScripts(view, targetUrl, com.onyx.browser.userscript.RunAt.DOCUMENT_IDLE)
-                    }
-                }, DOCUMENT_IDLE_DELAY_MS)
             }
 
             // DevTools auto-persistence across page navigations
@@ -2063,112 +2043,6 @@ open class BrowserWebViewClient(
             renderAction.run()
         } else {
             view?.post(renderAction)
-        }
-    }
-
-    private fun injectUserScripts(view: WebView?, url: String, runAt: com.onyx.browser.userscript.RunAt) {
-        val onyxWv = view as? BrowserWebView ?: return
-        if (isSyntheticOrDataUrl(url) || onyxWv.isLoadingSyntheticPage) return
-
-        val pageDomain = try {
-            java.net.URI(url).host?.lowercase()?.removePrefix("www.") ?: ""
-        } catch (_: Exception) { "" }
-
-        if (preferences.isGlobalScriptBlockingEnabled ||
-            (pageDomain.isNotEmpty() && preferences.isScriptBlockingEnabledForDomain(pageDomain)) ||
-            !preferences.isJavaScriptEnabledGlobal ||
-            (pageDomain.isNotEmpty() && !preferences.isJavaScriptEnabledForDomain(pageDomain))
-        ) {
-            return
-        }
-
-        val manager = onyxWv.userScriptManager
-        val matching = manager.getMatchingScripts(url, runAt)
-        if (matching.isEmpty()) return
-
-        val bridge = onyxWv.userScriptBridge
-        matching.forEach { parsed ->
-            val token = java.util.UUID.randomUUID().toString()
-            if (parsed.metadata.requiresNativeBridge) {
-                bridge.registerToken(token, parsed.script.id, url)
-            }
-            val js = manager.buildInjectionJs(parsed, token)
-            val b64 = android.util.Base64.encodeToString(
-                js.toByteArray(Charsets.UTF_8),
-                android.util.Base64.NO_WRAP
-            )
-            val scriptId = parsed.script.id
-            val injector = if (runAt == com.onyx.browser.userscript.RunAt.DOCUMENT_IDLE) {
-                """
-                (function(){
-                    function _exec() {
-                        try {
-                            var reg = window.__onyxInjectedScripts;
-                            if (!reg) {
-                                reg = {};
-                                try {
-                                    Object.defineProperty(window, '__onyxInjectedScripts', {
-                                        value: reg,
-                                        writable: true,
-                                        configurable: true,
-                                        enumerable: false
-                                    });
-                                } catch(_) { window.__onyxInjectedScripts = reg; }
-                            }
-                            if (reg[$scriptId]) return;
-                            reg[$scriptId] = true;
-                            var _code;
-                            try {
-                                _code = decodeURIComponent(escape(atob('$b64')));
-                            } catch(_) {
-                                var _b = atob('$b64');
-                                var _bytes = new Uint8Array(_b.length);
-                                for (var _i = 0; _i < _b.length; _i++) _bytes[_i] = _b.charCodeAt(_i);
-                                _code = new TextDecoder('utf-8').decode(_bytes);
-                            }
-                            (0, eval)(_code);
-                        } catch(e) { console.error('Onyx userscript idle inject error', e); }
-                    }
-                    if (typeof window.requestIdleCallback === 'function') {
-                        window.requestIdleCallback(_exec, { timeout: 1000 });
-                    } else {
-                        setTimeout(_exec, 50);
-                    }
-                })();
-                """.trimIndent()
-            } else {
-                """
-                (function(){
-                    try {
-                        var reg = window.__onyxInjectedScripts;
-                        if (!reg) {
-                            reg = {};
-                            try {
-                                Object.defineProperty(window, '__onyxInjectedScripts', {
-                                    value: reg,
-                                    writable: true,
-                                    configurable: true,
-                                    enumerable: false
-                                });
-                            } catch(_) { window.__onyxInjectedScripts = reg; }
-                        }
-                        if (reg[$scriptId]) return;
-                        reg[$scriptId] = true;
-                        var _code;
-                        try {
-                            _code = decodeURIComponent(escape(atob('$b64')));
-                        } catch(_) {
-                            var _b = atob('$b64');
-                            var _bytes = new Uint8Array(_b.length);
-                            for (var _i = 0; _i < _b.length; _i++) _bytes[_i] = _b.charCodeAt(_i);
-                            _code = new TextDecoder('utf-8').decode(_bytes);
-                        }
-                        (0, eval)(_code);
-                    } catch(e) { console.error('Onyx userscript inject error', e); }
-                })();
-                """.trimIndent()
-            }
-            onyxWv.evaluateJavascript(injector, null)
         }
     }
 

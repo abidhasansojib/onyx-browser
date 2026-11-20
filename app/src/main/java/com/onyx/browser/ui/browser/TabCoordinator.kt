@@ -159,6 +159,11 @@ class TabCoordinator(
 
     init {
         activeInstance = this
+        com.onyx.browser.userscript.UserScriptManager.getInstance(context).addOnScriptsChangedListener {
+            coroutineScope.launch(Dispatchers.Main) {
+                webViewPool.values.forEach { it.applyUserScripts() }
+            }
+        }
     }
 
     private fun getThumbnailDir(): File {

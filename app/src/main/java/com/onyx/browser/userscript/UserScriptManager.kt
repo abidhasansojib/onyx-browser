@@ -53,6 +53,20 @@ class UserScriptManager private constructor(private val context: Context) {
         valueChangeListeners.remove(listener)
     }
 
+    val onScriptsChangedListeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
+
+    fun addOnScriptsChangedListener(listener: () -> Unit) {
+        onScriptsChangedListeners.add(listener)
+    }
+
+    fun removeOnScriptsChangedListener(listener: () -> Unit) {
+        onScriptsChangedListeners.remove(listener)
+    }
+
+    private fun notifyScriptsChanged() {
+        onScriptsChangedListeners.forEach { runCatching { it.invoke() } }
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -153,6 +167,7 @@ class UserScriptManager private constructor(private val context: Context) {
 
         scripts = loaded
         _hasNativeScripts.value = loaded.any { it.script.enabled && it.metadata.requiresNativeBridge }
+        notifyScriptsChanged()
 
         // Asynchronously resolve and cache any missing requires or resources on disk
         loaded.forEach { parsed ->
@@ -169,13 +184,31 @@ class UserScriptManager private constructor(private val context: Context) {
         }
     }
 
+    fun parseRequireSources(cache: String): List<String> {
+        if (cache.isBlank()) return emptyList()
+        val trimmed = cache.trim()
+        return if (trimmed.startsWith("[")) {
+            try {
+                val arr = JSONArray(trimmed)
+                (0 until arr.length()).mapNotNull { idx ->
+                    val obj = arr.optJSONObject(idx)
+                    obj?.optString("source") ?: arr.optString(idx).takeIf { it.isNotBlank() }
+                }
+            } catch (_: Exception) {
+                listOf(cache)
+            }
+        } else {
+            listOf(cache)
+        }
+    }
+
     private fun fetchRequires(requires: List<String>): String {
-        if (requires.isEmpty()) return ""
-        val sb = StringBuilder()
+        if (requires.isEmpty()) return "[]"
+        val arr = JSONArray()
         requires.forEach { url ->
             val cached = requireCache[url]
             if (cached != null) {
-                sb.append(cached).append('\n')
+                arr.put(JSONObject().put("url", url).put("source", cached))
                 return@forEach
             }
             try {
@@ -189,13 +222,13 @@ class UserScriptManager private constructor(private val context: Context) {
                 resp.close()
                 if (body.isNotBlank()) {
                     requireCache[url] = body
-                    sb.append(body).append('\n')
+                    arr.put(JSONObject().put("url", url).put("source", body))
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to fetch @require $url", e)
             }
         }
-        return sb.toString()
+        return arr.toString()
     }
 
     private fun resolveRequires(parsed: ParsedUserScript) {
@@ -269,103 +302,411 @@ class UserScriptManager private constructor(private val context: Context) {
                 !UserScriptUrlMatcher.isExcluded(url, m.excludes)
     }
 
-    fun buildInjectionJs(parsed: ParsedUserScript, token: String): String {
-        val isIsolated = parsed.metadata.isIsolatedWorld
+    fun buildCombinedScript(): String? {
+        val prefs = BrowserPreferences.getInstance(context)
+        if (prefs.isGlobalScriptBlockingEnabled || !prefs.isJavaScriptEnabledGlobal) return null
 
-        return if (isIsolated) {
-            val shimTemplate = loadShimAsset()
-                .replace("__SCRIPT_ID__", parsed.script.id.toString())
-                .replace("__GM_TOKEN__", JSONObject.quote(token))
-                .replace("__GM_INFO__", buildGmInfo(parsed))
-                .replace("__GM_RESOURCES__", if (parsed.resourcesContent.isNotBlank()) parsed.resourcesContent else "{}")
+        val active = scripts.filter { it.script.enabled }
+        if (active.isEmpty()) return null
 
-            buildString {
-                append("(function(){\n")
-                if (parsed.metadata.noFrames) {
-                    append("if (window.self !== window.top) return;\n")
-                }
-                append("var unsafeWindow = window;\n")
-                append("var {")
-                append("GM, GM_info, GM_getValue, GM_setValue, GM_deleteValue, ")
-                append("GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, ")
-                append("GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, ")
-                append("GM_setClipboard, GM_log, GM_notification, GM_download, ")
-                append("GM_getResourceText, GM_getResourceURL, GM_addValueChangeListener, GM_removeValueChangeListener")
-                append("} = ").append(shimTemplate).append(";\n")
-                append("var _scope = Object.create(unsafeWindow);\n")
-                append("_scope.unsafeWindow = unsafeWindow;\n")
-                append("_scope.window = _scope;\n")
-                append("_scope.self = _scope;\n")
-                append("_scope.globalThis = _scope;\n")
-                append("_scope.GM = GM;\n")
-                append("_scope.GM_info = GM_info;\n")
-                append("_scope.GM_getValue = GM_getValue;\n")
-                append("_scope.GM_setValue = GM_setValue;\n")
-                append("_scope.GM_deleteValue = GM_deleteValue;\n")
-                append("_scope.GM_listValues = GM_listValues;\n")
-                append("_scope.GM_addStyle = GM_addStyle;\n")
-                append("_scope.GM_addElement = GM_addElement;\n")
-                append("_scope.GM_xmlhttpRequest = GM_xmlhttpRequest;\n")
-                append("_scope.GM_download = GM_download;\n")
-                append("_scope.GM_registerMenuCommand = GM_registerMenuCommand;\n")
-                append("_scope.GM_unregisterMenuCommand = GM_unregisterMenuCommand;\n")
-                append("_scope.GM_openInTab = GM_openInTab;\n")
-                append("_scope.GM_setClipboard = GM_setClipboard;\n")
-                append("_scope.GM_log = GM_log;\n")
-                append("_scope.GM_notification = GM_notification;\n")
-                append("_scope.GM_getResourceText = GM_getResourceText;\n")
-                append("_scope.GM_getResourceURL = GM_getResourceURL;\n")
-                append("_scope.GM_addValueChangeListener = GM_addValueChangeListener;\n")
-                append("_scope.GM_removeValueChangeListener = GM_removeValueChangeListener;\n")
-                append("(function(GM, GM_info, unsafeWindow, GM_getValue, GM_setValue, GM_deleteValue, GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, GM_setClipboard, GM_log, GM_notification, GM_download, GM_getResourceText, GM_getResourceURL, GM_addValueChangeListener, GM_removeValueChangeListener){\n")
-                if (parsed.requiresContent.isNotEmpty()) append(parsed.requiresContent).append('\n')
-                append("""
-                try {
-                    for (var __k in _scope) {
-                        if (Object.prototype.hasOwnProperty.call(_scope, __k)) {
-                            try { if (!(__k in unsafeWindow)) unsafeWindow[__k] = _scope[__k]; } catch (_) {}
-                            try { if (!(__k in window)) window[__k] = _scope[__k]; } catch (_) {}
-                            try { if (typeof globalThis !== 'undefined' && !(__k in globalThis)) globalThis[__k] = _scope[__k]; } catch (_) {}
-                        }
-                    }
-                    for (var __w in unsafeWindow) {
-                        if (Object.prototype.hasOwnProperty.call(unsafeWindow, __w)) {
-                            try { if (!(__w in _scope)) _scope[__w] = unsafeWindow[__w]; } catch (_) {}
-                        }
-                    }
-                } catch (_) {}
-                """.trimIndent()).append('\n')
-                append("var _t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();\n")
-                append(parsed.code).append("\n")
-                append("var _t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();\n")
-                append("if (_t1 - _t0 > 500) { console.warn('Onyx: Userscript took ' + Math.round(_t1 - _t0) + 'ms to execute'); }\n")
-                append("}).call(_scope, GM, GM_info, unsafeWindow, GM_getValue, GM_setValue, GM_deleteValue, GM_listValues, GM_addStyle, GM_addElement, GM_xmlhttpRequest, GM_registerMenuCommand, GM_unregisterMenuCommand, GM_openInTab, GM_setClipboard, GM_log, GM_notification, GM_download, GM_getResourceText, GM_getResourceURL, GM_addValueChangeListener, GM_removeValueChangeListener);\n")
-                append("})();\n")
-                append("\n//# sourceURL=onyx-userscript-").append(parsed.script.id).append(".user.js\n")
-            }
-        } else {
-            // Unprivileged / Page-World script (@grant none or @unwrap):
-            // Runs directly in the host page's context for 100% compatibility with site internals (e.g. YouTube ytplayer/ytcfg).
-            val gmInfoJson = buildGmInfo(parsed)
-            buildString {
-                append("(function(){\n")
-                if (parsed.metadata.noFrames) {
-                    append("if (window.self !== window.top) return;\n")
-                }
-                append("var unsafeWindow = window;\n")
-                append("var GM_info = ").append(gmInfoJson).append(";\n")
-                append("var GM = { info: GM_info };\n")
-                append("(function(GM, GM_info, unsafeWindow){\n")
-                if (parsed.requiresContent.isNotEmpty()) append(parsed.requiresContent).append('\n')
-                append("var _t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();\n")
-                append(parsed.code).append("\n")
-                append("var _t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();\n")
-                append("if (_t1 - _t0 > 500) { console.warn('Onyx: Userscript took ' + Math.round(_t1 - _t0) + 'ms to execute'); }\n")
-                append("}).call(window, GM, GM_info, unsafeWindow);\n")
-                append("})();\n")
-                append("\n//# sourceURL=onyx-userscript-").append(parsed.script.id).append(".user.js\n")
-            }
+        val builder = StringBuilder()
+        builder.append(RUNTIME_BOOTSTRAP).append('\n')
+        for (parsed in active) {
+            builder.append(buildScriptBlock(parsed)).append('\n')
         }
+        return builder.toString()
+    }
+
+    fun buildInjectionJs(parsed: ParsedUserScript, token: String = ""): String {
+        return buildScriptBlock(parsed)
+    }
+
+    private fun buildScriptBlock(parsed: ParsedUserScript): String {
+        val meta = parsed.metadata
+        val excludePatterns = meta.excludes.mapNotNull { UserScriptUrlMatcher.globToRegexSource(it) }
+        val matchPatterns = meta.matches.mapNotNull { UserScriptUrlMatcher.matchPatternToRegexSource(it) } +
+                meta.includes.map { UserScriptUrlMatcher.globToRegexSource(it) }
+
+        val excludeArray = excludePatterns.joinToString(",") { "new RegExp(${JSONObject.quote(it)})" }
+        val matchArray = matchPatterns.joinToString(",") { "new RegExp(${JSONObject.quote(it)})" }
+
+        val requireSources = parseRequireSources(parsed.requiresContent)
+        val requireBlock = requireSources.joinToString("\n") {
+            "try {\n$it\n} catch(__reqErr) { console.error('[UserScript] require failed in ' + __scriptName, __reqErr); }"
+        }
+
+        val resourcesObj = if (parsed.resourcesContent.isNotBlank() && parsed.resourcesContent != "{}") {
+            parsed.resourcesContent
+        } else {
+            "{}"
+        }
+
+        val connectsArray = meta.connects.joinToString(",") { JSONObject.quote(it) }
+        val grantsArray = meta.grants.joinToString(",") { JSONObject.quote(it) }
+
+        val runAtStr = when (meta.runAt) {
+            RunAt.DOCUMENT_START -> "document-start"
+            RunAt.DOCUMENT_END -> "document-end"
+            RunAt.DOCUMENT_IDLE -> "document-idle"
+        }
+
+        val scriptKey = "us_${parsed.script.id}"
+        val scriptName = JSONObject.quote(meta.name)
+        val scriptId = parsed.script.id
+        val noFrames = meta.noFrames
+        val unwrap = meta.unwrap
+
+        return "(function(){\n" +
+                "var __url = location.href;\n" +
+                "var __exclude = [$excludeArray];\n" +
+                "var __match = [$matchArray];\n" +
+                "for (var __i = 0; __i < __exclude.length; __i++) { if (__exclude[__i].test(__url)) return; }\n" +
+                "if (__match.length > 0) {\n" +
+                "  var __ok = false;\n" +
+                "  for (var __j = 0; __j < __match.length; __j++) { if (__match[__j].test(__url)) { __ok = true; break; } }\n" +
+                "  if (!__ok) return;\n" +
+                "}\n" +
+                "if ($noFrames && window.self !== window.top) return;\n" +
+                "var __scriptId = $scriptId;\n" +
+                "var __scriptKey = ${JSONObject.quote(scriptKey)};\n" +
+                "var __scriptName = $scriptName;\n" +
+                "var __resources = $resourcesObj;\n" +
+                "var GM_info = {\n" +
+                "  script: {\n" +
+                "    name: $scriptName,\n" +
+                "    namespace: ${JSONObject.quote(meta.namespace)},\n" +
+                "    version: ${JSONObject.quote(meta.version)},\n" +
+                "    description: ${JSONObject.quote(meta.description)},\n" +
+                "    author: ${JSONObject.quote(meta.author)},\n" +
+                "    matches: __match.map(function(r){ return r.source; }),\n" +
+                "    includes: [],\n" +
+                "    excludes: [],\n" +
+                "    resources: __resources,\n" +
+                "    connects: [$connectsArray],\n" +
+                "    grant: [$grantsArray],\n" +
+                "    runAt: ${JSONObject.quote(runAtStr)},\n" +
+                "    noframes: $noFrames,\n" +
+                "    unwrap: $unwrap\n" +
+                "  },\n" +
+                "  version: '1.0',\n" +
+                "  scriptHandler: 'OnyxBrowser',\n" +
+                "  scriptMetaStr: null,\n" +
+                "  scriptWillUpdate: false,\n" +
+                "  isIncognito: false,\n" +
+                "  downloadMode: 'native'\n" +
+                "};\n" +
+                "var unsafeWindow = window;\n" +
+                "function GM_log() { try { console.log.apply(console, arguments); } catch(__e) {} }\n" +
+                "function GM_addStyle(css) {\n" +
+                "  function __apply() {\n" +
+                "    var __s = document.createElement('style');\n" +
+                "    __s.setAttribute('data-userscript', __scriptName);\n" +
+                "    __s.textContent = css;\n" +
+                "    (document.head || document.documentElement).appendChild(__s);\n" +
+                "    return __s;\n" +
+                "  }\n" +
+                "  if (document.head || document.documentElement) return __apply();\n" +
+                "  document.addEventListener('DOMContentLoaded', __apply);\n" +
+                "}\n" +
+                "function GM_addElement(a, b, c) {\n" +
+                "  var __tag, __attrs, __parent;\n" +
+                "  if (typeof a === 'string') { __tag = a; __attrs = b || {}; __parent = c || document.head || document.documentElement; }\n" +
+                "  else { __parent = a || document.head || document.documentElement; __tag = b; __attrs = c || {}; }\n" +
+                "  var __el = document.createElement(__tag);\n" +
+                "  for (var __k in __attrs) {\n" +
+                "    if (__attrs.hasOwnProperty(__k)) {\n" +
+                "      if (__k === 'textContent') __el.textContent = __attrs[__k];\n" +
+                "      else __el.setAttribute(__k, __attrs[__k]);\n" +
+                "    }\n" +
+                "  }\n" +
+                "  if (__parent) __parent.appendChild(__el);\n" +
+                "  return __el;\n" +
+                "}\n" +
+                "function GM_getValue(key, defaultValue) {\n" +
+                "  try {\n" +
+                "    if (window.onyxGM && window.onyxGM.getValue) {\n" +
+                "      var raw = window.onyxGM.getValue(__scriptKey, String(key));\n" +
+                "      if (raw === null || raw === undefined) return defaultValue;\n" +
+                "      return JSON.parse(raw);\n" +
+                "    }\n" +
+                "  } catch(__e) {}\n" +
+                "  return defaultValue;\n" +
+                "}\n" +
+                "function GM_setValue(key, value) {\n" +
+                "  try {\n" +
+                "    if (window.onyxGM && window.onyxGM.setValue) {\n" +
+                "      window.onyxGM.setValue(__scriptKey, String(key), JSON.stringify(value));\n" +
+                "    }\n" +
+                "  } catch(__e) {}\n" +
+                "}\n" +
+                "function GM_deleteValue(key) {\n" +
+                "  try {\n" +
+                "    if (window.onyxGM && window.onyxGM.deleteValue) {\n" +
+                "      window.onyxGM.deleteValue(__scriptKey, String(key));\n" +
+                "    }\n" +
+                "  } catch(__e) {}\n" +
+                "}\n" +
+                "function GM_listValues() {\n" +
+                "  try {\n" +
+                "    if (window.onyxGM && window.onyxGM.listValues) {\n" +
+                "      var raw = window.onyxGM.listValues(__scriptKey);\n" +
+                "      return raw ? JSON.parse(raw) : [];\n" +
+                "    }\n" +
+                "  } catch(__e) {}\n" +
+                "  return [];\n" +
+                "}\n" +
+                "function GM_addValueChangeListener(name, callback) {\n" +
+                "  if (!window.__usRuntime.valueListeners[__scriptKey]) { window.__usRuntime.valueListeners[__scriptKey] = {}; }\n" +
+                "  var __id = 'vl_' + Math.random().toString(36).substring(2);\n" +
+                "  window.__usRuntime.valueListeners[__scriptKey][__id] = function(k, ov, nv, r) {\n" +
+                "    if (k === name) { try { callback(k, ov, nv, r); } catch(__e) {} }\n" +
+                "  };\n" +
+                "  return __id;\n" +
+                "}\n" +
+                "function GM_removeValueChangeListener(id) {\n" +
+                "  if (window.__usRuntime.valueListeners[__scriptKey]) {\n" +
+                "    delete window.__usRuntime.valueListeners[__scriptKey][id];\n" +
+                "  }\n" +
+                "}\n" +
+                "function GM_openInTab(url, options) {\n" +
+                "  var active = true;\n" +
+                "  if (typeof options === 'boolean') active = !options;\n" +
+                "  else if (options && typeof options === 'object') active = options.active !== false;\n" +
+                "  try {\n" +
+                "    if (window.onyxGM && window.onyxGM.openInTab) {\n" +
+                "      window.onyxGM.openInTab(url, active);\n" +
+                "    }\n" +
+                "  } catch(__e) {}\n" +
+                "  return { closed: false, close: function() {} };\n" +
+                "}\n" +
+                "function GM_setClipboard(text, type) {\n" +
+                "  try {\n" +
+                "    if (navigator.clipboard && navigator.clipboard.writeText) {\n" +
+                "      navigator.clipboard.writeText(text);\n" +
+                "      return;\n" +
+                "    }\n" +
+                "  } catch(__e) {}\n" +
+                "  try {\n" +
+                "    if (window.onyxGM && window.onyxGM.setClipboard) {\n" +
+                "      window.onyxGM.setClipboard(text);\n" +
+                "      return;\n" +
+                "    }\n" +
+                "  } catch(__e2) {}\n" +
+                "}\n" +
+                "function GM_notification(details, ondone) {\n" +
+                "  try {\n" +
+                "    var __opts = (typeof details === 'string') ? { text: details, title: ondone } : (details || {});\n" +
+                "    var __title = (typeof __opts.title === 'string' && __opts.title) ? __opts.title : __scriptName;\n" +
+                "    if (window.onyxGM && window.onyxGM.notify) {\n" +
+                "      window.onyxGM.notify(__scriptName, __title, __opts.text || '', location.hostname || '');\n" +
+                "    }\n" +
+                "    if (typeof __opts.ondone === 'function') setTimeout(__opts.ondone, 0);\n" +
+                "  } catch(__e) {}\n" +
+                "}\n" +
+                "var __xhrSeq = 0;\n" +
+                "function GM_xmlhttpRequest(details) {\n" +
+                "  details = details || {};\n" +
+                "  try {\n" +
+                "    var __id = 'x_' + __scriptId + '_' + (++__xhrSeq) + '_' + Date.now();\n" +
+                "    var __payload = {\n" +
+                "      url: details.url,\n" +
+                "      method: (details.method || 'GET').toUpperCase(),\n" +
+                "      headers: details.headers || {},\n" +
+                "      timeout: details.timeout || 0,\n" +
+                "      responseType: details.responseType || ''\n" +
+                "    };\n" +
+                "    if (details.data !== undefined && details.data !== null) {\n" +
+                "      __payload.data = (typeof details.data === 'string') ? details.data : JSON.stringify(details.data);\n" +
+                "    }\n" +
+                "    window.__usRuntime.xhrCallbacks[__id] = function(result, error) {\n" +
+                "      if (error) {\n" +
+                "        if (details.onerror) details.onerror({ error: error.error || 'error', finalUrl: details.url, readyState: 4, status: 0 });\n" +
+                "        return;\n" +
+                "      }\n" +
+                "      var __resp = result.responseText;\n" +
+                "      var __respObj = __resp;\n" +
+                "      if (details.responseType === 'json') {\n" +
+                "        try { __respObj = JSON.parse(__resp); } catch(__pe) { __respObj = null; }\n" +
+                "      } else if ((details.responseType === 'blob' || details.responseType === 'arraybuffer') && result.responseBase64) {\n" +
+                "        try {\n" +
+                "          var __binStr = atob(result.responseBase64);\n" +
+                "          var __binLen = __binStr.length;\n" +
+                "          var __u8 = new Uint8Array(__binLen);\n" +
+                "          for (var __bi = 0; __bi < __binLen; __bi++) { __u8[__bi] = __binStr.charCodeAt(__bi); }\n" +
+                "          if (details.responseType === 'blob') {\n" +
+                "            var __mime = 'application/octet-stream';\n" +
+                "            if (result.responseHeaders) {\n" +
+                "              var __mMatch = result.responseHeaders.match(/content-type:\\s*([^\\r\\n;]+)/i);\n" +
+                "              if (__mMatch) __mime = __mMatch[1].trim();\n" +
+                "            }\n" +
+                "            __respObj = new Blob([__u8], { type: __mime });\n" +
+                "          } else {\n" +
+                "            __respObj = __u8.buffer;\n" +
+                "          }\n" +
+                "        } catch(__be) { console.error('[UserScript] binary conversion error', __be); }\n" +
+                "      }\n" +
+                "      var __r = {\n" +
+                "        status: result.status,\n" +
+                "        statusText: result.statusText,\n" +
+                "        responseText: __resp,\n" +
+                "        response: __respObj,\n" +
+                "        readyState: 4,\n" +
+                "        finalUrl: result.finalUrl,\n" +
+                "        responseHeaders: result.responseHeaders\n" +
+                "      };\n" +
+                "      if (details.onreadystatechange) try { details.onreadystatechange(__r); } catch(__e3) {}\n" +
+                "      if (result.status >= 200 && result.status < 400) {\n" +
+                "        if (details.onload) details.onload(__r);\n" +
+                "      } else {\n" +
+                "        if (details.onerror) details.onerror(__r);\n" +
+                "      }\n" +
+                "    };\n" +
+                "    if (window.onyxGM && window.onyxGM.xhr) {\n" +
+                "      window.onyxGM.xhr(__id, JSON.stringify(__payload));\n" +
+                "    } else {\n" +
+                "      delete window.__usRuntime.xhrCallbacks[__id];\n" +
+                "      if (details.onerror) details.onerror({ error: 'Bridge unavailable' });\n" +
+                "    }\n" +
+                "    return {\n" +
+                "      abort: function() {\n" +
+                "        try { if (window.onyxGM && window.onyxGM.abortXhr) window.onyxGM.abortXhr(__id); } catch(__ae) {}\n" +
+                "        if (details.onabort) details.onabort();\n" +
+                "      }\n" +
+                "    };\n" +
+                "  } catch(__e) {\n" +
+                "    if (details.onerror) details.onerror({ error: String(__e) });\n" +
+                "    return { abort: function() {} };\n" +
+                "  }\n" +
+                "}\n" +
+                "function GM_download(details, filename) {\n" +
+                "  try {\n" +
+                "    var __opts = (typeof details === 'string') ? { url: details, name: filename } : (details || {});\n" +
+                "    if (window.onyxGM && window.onyxGM.download) {\n" +
+                "      window.onyxGM.download(__opts.url, __opts.name || 'download');\n" +
+                "    }\n" +
+                "    if (__opts.onload) setTimeout(__opts.onload, 100);\n" +
+                "  } catch(__e) {\n" +
+                "    if (details && details.onerror) details.onerror(String(__e));\n" +
+                "  }\n" +
+                "}\n" +
+                "function GM_getResourceText(name) {\n" +
+                "  var __r = __resources[name];\n" +
+                "  if (!__r) return undefined;\n" +
+                "  if (__r.text !== undefined) return __r.text;\n" +
+                "  if (__r.base64) {\n" +
+                "    try { return decodeURIComponent(escape(atob(__r.base64))); }\n" +
+                "    catch(__e) { try { return atob(__r.base64); } catch(__e2) { return undefined; } }\n" +
+                "  }\n" +
+                "  return undefined;\n" +
+                "}\n" +
+                "function GM_getResourceURL(name) {\n" +
+                "  var __r = __resources[name];\n" +
+                "  if (!__r) return undefined;\n" +
+                "  return 'data:' + (__r.mime || 'application/octet-stream') + ';base64,' + (__r.base64 || '');\n" +
+                "}\n" +
+                "function GM_registerMenuCommand(caption, onClick, accessKey) {\n" +
+                "  var __id = 'm_' + __scriptId + '_' + (++__xhrSeq);\n" +
+                "  window.__usRuntime.menuCommands[__id] = { scriptName: __scriptName, caption: caption, onClick: onClick, accessKey: accessKey };\n" +
+                "  __usRenderMenuButton();\n" +
+                "  try { if (window.onyxGM && window.onyxGM.registerMenuCommand) window.onyxGM.registerMenuCommand(caption, __id); } catch(__e) {}\n" +
+                "  return __id;\n" +
+                "}\n" +
+                "function GM_unregisterMenuCommand(id) {\n" +
+                "  delete window.__usRuntime.menuCommands[id];\n" +
+                "  __usRenderMenuButton();\n" +
+                "  try { if (window.onyxGM && window.onyxGM.unregisterMenuCommand) window.onyxGM.unregisterMenuCommand(id); } catch(__e) {}\n" +
+                "}\n" +
+                "function __usRenderMenuButton() {\n" +
+                "  try {\n" +
+                "    var __ids = Object.keys(window.__usRuntime.menuCommands);\n" +
+                "    var __btn = document.getElementById('__us_menu_btn');\n" +
+                "    if (__ids.length === 0) { if (__btn) __btn.remove(); return; }\n" +
+                "    if (!__btn) {\n" +
+                "      __btn = document.createElement('div');\n" +
+                "      __btn.id = '__us_menu_btn';\n" +
+                "      __btn.style.cssText = 'position:fixed;right:14px;bottom:80px;z-index:2147483647;width:38px;height:38px;border-radius:19px;background:rgba(30,30,34,0.88);backdrop-filter:blur(10px);color:#fff;display:flex;align-items:center;justify-content:center;font:16px sans-serif;box-shadow:0 3px 10px rgba(0,0,0,0.45);cursor:pointer;user-select:none;border:1px solid rgba(255,255,255,0.12);';\n" +
+                "      __btn.textContent = '\\u2699';\n" +
+                "      var __menu = document.createElement('div');\n" +
+                "      __menu.id = '__us_menu_list';\n" +
+                "      __menu.style.cssText = 'position:fixed;right:14px;bottom:126px;z-index:2147483647;background:#202024;color:#fff;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.55);display:none;min-width:180px;max-width:280px;font:13px sans-serif;overflow:hidden;border:1px solid rgba(255,255,255,0.1);';\n" +
+                "      (document.body || document.documentElement).appendChild(__btn);\n" +
+                "      (document.body || document.documentElement).appendChild(__menu);\n" +
+                "      __btn.addEventListener('click', function(e) {\n" +
+                "        e.stopPropagation();\n" +
+                "        __menu.style.display = (__menu.style.display === 'none' ? 'block' : 'none');\n" +
+                "      });\n" +
+                "      document.addEventListener('click', function() {\n" +
+                "        if (__menu) __menu.style.display = 'none';\n" +
+                "      });\n" +
+                "    }\n" +
+                "    var __menuEl = document.getElementById('__us_menu_list');\n" +
+                "    if (__menuEl) {\n" +
+                "      __menuEl.innerHTML = '';\n" +
+                "      __ids.forEach(function(__mid) {\n" +
+                "        var __cmd = window.__usRuntime.menuCommands[__mid];\n" +
+                "        var __item = document.createElement('div');\n" +
+                "        __item.textContent = __cmd.caption;\n" +
+                "        __item.style.cssText = 'padding:11px 16px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer;transition:background 0.15s;';\n" +
+                "        __item.addEventListener('click', function(e) {\n" +
+                "          e.stopPropagation();\n" +
+                "          __menuEl.style.display = 'none';\n" +
+                "          try { __cmd.onClick(); } catch(__e) {}\n" +
+                "        });\n" +
+                "        __menuEl.appendChild(__item);\n" +
+                "      });\n" +
+                "    }\n" +
+                "  } catch(__e) {}\n" +
+                "}\n" +
+                "var GM = {\n" +
+                "  info: GM_info,\n" +
+                "  log: function() { GM_log.apply(null, arguments); return Promise.resolve(); },\n" +
+                "  getValue: function(k, d) { return Promise.resolve(GM_getValue(k, d)); },\n" +
+                "  setValue: function(k, v) { GM_setValue(k, v); return Promise.resolve(); },\n" +
+                "  deleteValue: function(k) { GM_deleteValue(k); return Promise.resolve(); },\n" +
+                "  listValues: function() { return Promise.resolve(GM_listValues()); },\n" +
+                "  addStyle: GM_addStyle,\n" +
+                "  addElement: GM_addElement,\n" +
+                "  xmlHttpRequest: function(d) {\n" +
+                "    return new Promise(function(res) {\n" +
+                "      var __d = Object.assign({}, d);\n" +
+                "      var __ol = __d.onload, __oe = __d.onerror;\n" +
+                "      __d.onload = function(r) { if (__ol) __ol(r); res(r); };\n" +
+                "      __d.onerror = function(r) { if (__oe) __oe(r); res(r); };\n" +
+                "      GM_xmlhttpRequest(__d);\n" +
+                "    });\n" +
+                "  },\n" +
+                "  download: function(d, f) { GM_download(d, f); return Promise.resolve(); },\n" +
+                "  getResourceText: function(n) { return Promise.resolve(GM_getResourceText(n)); },\n" +
+                "  getResourceUrl: function(n) { return Promise.resolve(GM_getResourceURL(n)); },\n" +
+                "  getResourceURL: function(n) { return Promise.resolve(GM_getResourceURL(n)); },\n" +
+                "  registerMenuCommand: function(c, cb, a) { return Promise.resolve(GM_registerMenuCommand(c, cb, a)); },\n" +
+                "  unregisterMenuCommand: function(id) { return Promise.resolve(GM_unregisterMenuCommand(id)); },\n" +
+                "  openInTab: function(u, o) { return Promise.resolve(GM_openInTab(u, o)); },\n" +
+                "  setClipboard: function(t, ty) { GM_setClipboard(t, ty); return Promise.resolve(); },\n" +
+                "  notification: function(d, od) { GM_notification(d, od); return Promise.resolve(); },\n" +
+                "  addValueChangeListener: function(n, cb) { return Promise.resolve(GM_addValueChangeListener(n, cb)); },\n" +
+                "  removeValueChangeListener: function(id) { return Promise.resolve(GM_removeValueChangeListener(id)); }\n" +
+                "};\n" +
+                "var GM_xmlHttpRequest = GM_xmlhttpRequest;\n" +
+                requireBlock + "\n" +
+                "function __runUserScript() {\n" +
+                "  try {\n" +
+                parsed.code + "\n" +
+                "  } catch(__e) {\n" +
+                "    console.error('[UserScript] ' + __scriptName + ' failed', __e);\n" +
+                "  }\n" +
+                "}\n" +
+                "var __runAt = ${JSONObject.quote(runAtStr)};\n" +
+                "if (__runAt === 'document-start') {\n" +
+                "  __runUserScript();\n" +
+                "} else if (__runAt === 'document-end') {\n" +
+                "  if (document.readyState !== 'loading') { __runUserScript(); }\n" +
+                "  else { document.addEventListener('DOMContentLoaded', __runUserScript); }\n" +
+                "} else {\n" +
+                "  if (document.readyState === 'complete') { __runUserScript(); }\n" +
+                "  else { window.addEventListener('load', __runUserScript); }\n" +
+                "}\n" +
+                "})();\n"
     }
 
     private fun loadShimAsset(): String {
@@ -579,6 +920,10 @@ class UserScriptManager private constructor(private val context: Context) {
 
     // region GM values
     fun gmGetValue(scriptId: Long, key: String): String? = valueDao.getValue(scriptId, key)
+    fun gmGetValue(scriptKey: String, key: String): String? {
+        val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return null
+        return gmGetValue(id, key)
+    }
 
     fun gmSetValue(scriptId: Long, key: String, value: String) {
         val oldValue = valueDao.getValue(scriptId, key)
@@ -586,6 +931,10 @@ class UserScriptManager private constructor(private val context: Context) {
         if (oldValue != value) {
             valueChangeListeners.forEach { runCatching { it.onValueChanged(scriptId, key, oldValue, value) } }
         }
+    }
+    fun gmSetValue(scriptKey: String, key: String, value: String) {
+        val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return
+        gmSetValue(id, key, value)
     }
 
     fun gmDeleteValue(scriptId: Long, key: String) {
@@ -595,13 +944,30 @@ class UserScriptManager private constructor(private val context: Context) {
             valueChangeListeners.forEach { runCatching { it.onValueChanged(scriptId, key, oldValue, null) } }
         }
     }
+    fun gmDeleteValue(scriptKey: String, key: String) {
+        val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return
+        gmDeleteValue(id, key)
+    }
 
     fun gmListValues(scriptId: Long): List<String> = valueDao.listKeys(scriptId)
+    fun gmListValues(scriptKey: String): List<String> {
+        val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return emptyList()
+        return gmListValues(id)
+    }
     // endregion
 
     companion object {
         private const val TAG = "UserScriptManager"
         private val requireCache = ConcurrentHashMap<String, String>()
+
+        private const val RUNTIME_BOOTSTRAP =
+            "if(!window.__usRuntime){" +
+            "window.__usRuntime={xhrCallbacks:{},valueListeners:{},menuCommands:{}};" +
+            "window.__usXhrCallback=function(id,result,error){var c=window.__usRuntime.xhrCallbacks[id];if(c){delete window.__usRuntime.xhrCallbacks[id];c(result,error);}};" +
+            "window.__usValueChanged=function(scriptKey,key,jsonValueOrNull){var list=window.__usRuntime.valueListeners[scriptKey];if(!list)return;" +
+            "var nv=(jsonValueOrNull===null||jsonValueOrNull===undefined)?undefined:JSON.parse(jsonValueOrNull);" +
+            "for(var k in list){if(list.hasOwnProperty(k)){try{list[k](key,undefined,nv,false);}catch(e){}}}};" +
+            "}"
 
         @Volatile
         private var INSTANCE: UserScriptManager? = null

@@ -78,4 +78,45 @@ object UserScriptUrlMatcher {
 
     private fun globBody(glob: String): String =
         glob.split("*").joinToString(".*") { Regex.escape(it) }
+
+    fun matchPatternToRegexSource(pattern: String): String? {
+        val trimmed = pattern.trim()
+        if (trimmed.isEmpty()) return null
+        if (trimmed == "<all_urls>" || trimmed == "*") return "^https?://.*$"
+        val schemeSep = trimmed.indexOf("://")
+        if (schemeSep < 0) return null
+        val scheme = trimmed.substring(0, schemeSep)
+        val rest = trimmed.substring(schemeSep + 3)
+        val slash = rest.indexOf('/')
+        val host = if (slash < 0) rest else rest.substring(0, slash)
+        val path = if (slash < 0) "/*" else rest.substring(slash)
+
+        val schemePattern = if (scheme == "*") "https?" else escapeJsRegex(scheme)
+        val hostPattern = when {
+            host == "*" -> "[^/]*"
+            host.startsWith("*.") -> "(?:[^/]*\\.)?" + escapeJsRegex(host.removePrefix("*."))
+            else -> escapeJsRegex(host)
+        }
+        val pathPattern = if (path.isEmpty()) "/.*" else path.split("*").joinToString(".*") { escapeJsRegex(it) }
+        return "^$schemePattern://$hostPattern(?::\\d+)?$pathPattern$"
+    }
+
+    fun globToRegexSource(pattern: String): String {
+        val trimmed = pattern.trim()
+        if (trimmed.length >= 2 && trimmed.startsWith("/") && trimmed.endsWith("/")) {
+            return trimmed.substring(1, trimmed.length - 1)
+        }
+        return "^" + trimmed.split("*").joinToString(".*") { escapeJsRegex(it) } + "$"
+    }
+
+    private fun escapeJsRegex(s: String): String {
+        val builder = StringBuilder()
+        for (c in s) {
+            if (c in ".+?^\${}()|[]/\\") {
+                builder.append('\\')
+            }
+            builder.append(c)
+        }
+        return builder.toString()
+    }
 }

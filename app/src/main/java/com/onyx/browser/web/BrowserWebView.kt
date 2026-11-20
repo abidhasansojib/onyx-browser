@@ -160,6 +160,23 @@ class BrowserWebView @JvmOverloads constructor(
     val userScriptManager by lazy { com.onyx.browser.userscript.UserScriptManager.getInstance(context) }
     val userScriptBridge by lazy { com.onyx.browser.userscript.UserScriptBridge(this, userScriptManager) }
     val userScriptMenuCommands = LinkedHashMap<String, String>()
+    private var userScriptHandler: androidx.webkit.ScriptHandler? = null
+
+    fun applyUserScripts() {
+        if (!androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) return
+        try {
+            userScriptHandler?.remove()
+            userScriptHandler = null
+            val script = userScriptManager.buildCombinedScript() ?: return
+            userScriptHandler = androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                this,
+                script,
+                setOf("*")
+            )
+        } catch (e: Throwable) {
+            android.util.Log.e("BrowserWebView", "Failed to apply user scripts", e)
+        }
+    }
 
     fun registerUserScriptMenuCommand(caption: String, fnId: String) {
         userScriptMenuCommands[caption] = fnId
@@ -170,7 +187,12 @@ class BrowserWebView @JvmOverloads constructor(
     }
 
     fun invokeUserScriptMenuCommand(fnId: String) {
-        evaluateJavascript("window.__onyxGM && window.__onyxGM.invokeMenu('$fnId');", null)
+        val safeFnId = fnId.replace("'", "")
+        val js = "try { " +
+                "if (window.__onyxGM && window.__onyxGM.invokeMenu) window.__onyxGM.invokeMenu('$safeFnId'); " +
+                "if (window.__usRuntime && window.__usRuntime.menuCommands && window.__usRuntime.menuCommands['$safeFnId']) window.__usRuntime.menuCommands['$safeFnId'].onClick(); " +
+                "} catch(_) {}"
+        evaluateJavascript(js, null)
     }
 
     fun clearUserScriptState() {
@@ -511,6 +533,8 @@ class BrowserWebView @JvmOverloads constructor(
                     DesktopModeManager.DESKTOP_VIEWPORT_SCRIPT,
                     setOf("*")
                 )
+                // Native Document-Start Userscript Engine
+                applyUserScripts()
             }
         } catch (_: Exception) {}
 
