@@ -194,6 +194,7 @@ class UserScriptBridge(
                 val headers = details.optJSONObject("headers")
                 val data = if (details.isNull("data")) null else details.optString("data")
                 val timeoutMs = details.optLong("timeout", 0L)
+                val responseType = details.optString("responseType", "").lowercase()
 
                 val builder = Request.Builder().url(url)
                 var contentType: String? = null
@@ -221,16 +222,28 @@ class UserScriptBridge(
 
                 try {
                     call.execute().use { resp ->
-                        val bodyText = resp.body?.string().orEmpty()
+                        val isBinary = responseType == "blob" || responseType == "arraybuffer"
                         val headerText = resp.headers.joinToString("\r\n") { "${it.first}: ${it.second}" }
                         val payload = JSONObject().apply {
                             put("readyState", 4)
                             put("status", resp.code)
                             put("statusText", resp.message)
-                            put("responseText", bodyText)
-                            put("response", bodyText)
                             put("responseHeaders", headerText)
                             put("finalUrl", resp.request.url.toString())
+                            if (isBinary) {
+                                val bytes = resp.body?.bytes() ?: ByteArray(0)
+                                if (bytes.size <= 25 * 1024 * 1024) {
+                                    val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                                    put("responseBase64", b64)
+                                    put("responseText", "")
+                                } else {
+                                    put("error", "Binary response exceeds 25MB buffer limit")
+                                }
+                            } else {
+                                val bodyText = resp.body?.string().orEmpty()
+                                put("responseText", bodyText)
+                                put("response", bodyText)
+                            }
                         }
                         deliverXhr(token, reqId, "load", payload.toString())
                     }
@@ -321,12 +334,6 @@ class UserScriptBridge(
 
                 if (!isWebUrl(url)) {
                     deliverDownloadError(token, reqId, "Invalid or non-web download URL: $url")
-                    return@launch
-                }
-
-                if (!isConnectAllowed(scriptId, token, url)) {
-                    Log.w(TAG, "gmDownload blocked (not in @connect): $url")
-                    deliverDownloadError(token, reqId, "URL host not in @connect allow-list: $url")
                     return@launch
                 }
 

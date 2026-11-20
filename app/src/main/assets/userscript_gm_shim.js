@@ -40,6 +40,36 @@
         window.addEventListener('popstate', _notifyUrlChange);
     })();
 
+    // Mobile Touch to Mouse Translation: Enables desktop mouse-hover userscripts (e.g. video downloaders) on mobile Android touchscreens
+    (function () {
+        if (window.__onyxTouchMouseShimInstalled) return;
+        window.__onyxTouchMouseShimInstalled = true;
+        function dispatchSimulatedMouseEvent(type, touch) {
+            try {
+                var ev = new MouseEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    screenX: touch.screenX,
+                    screenY: touch.screenY
+                });
+                (touch.target || window).dispatchEvent(ev);
+            } catch (_) {}
+        }
+        window.addEventListener('touchstart', function (e) {
+            if (e.touches && e.touches[0]) {
+                dispatchSimulatedMouseEvent('mousemove', e.touches[0]);
+            }
+        }, { passive: true, capture: true });
+        window.addEventListener('touchmove', function (e) {
+            if (e.touches && e.touches[0]) {
+                dispatchSimulatedMouseEvent('mousemove', e.touches[0]);
+            }
+        }, { passive: true, capture: true });
+    })();
+
     (function () {
         var Orig = window.Response;
         if (!Orig) return;
@@ -92,6 +122,27 @@
                     try { resp = JSON.parse(payload); } catch (e) { resp = {}; }
                     if (cb.responseType === 'json' && typeof resp.responseText === 'string') {
                         try { resp.response = JSON.parse(resp.responseText); } catch (e2) {}
+                    } else if ((cb.responseType === 'blob' || cb.responseType === 'arraybuffer') && resp.responseBase64) {
+                        try {
+                            var binStr = atob(resp.responseBase64);
+                            var binLen = binStr.length;
+                            var u8 = new Uint8Array(binLen);
+                            for (var bi = 0; bi < binLen; bi++) {
+                                u8[bi] = binStr.charCodeAt(bi);
+                            }
+                            if (cb.responseType === 'blob') {
+                                var mimeType = 'application/octet-stream';
+                                if (resp.responseHeaders) {
+                                    var mimeMatch = resp.responseHeaders.match(/content-type:\s*([^\r\n;]+)/i);
+                                    if (mimeMatch) mimeType = mimeMatch[1].trim();
+                                }
+                                resp.response = new Blob([u8], { type: mimeType });
+                            } else {
+                                resp.response = u8.buffer;
+                            }
+                        } catch (binErr) {
+                            console.error('onyx GM_xhr binary conversion error', binErr);
+                        }
                     }
                     try {
                         if (eventName === 'progress') {

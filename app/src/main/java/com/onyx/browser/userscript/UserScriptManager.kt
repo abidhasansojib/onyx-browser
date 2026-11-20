@@ -169,10 +169,10 @@ class UserScriptManager private constructor(private val context: Context) {
         }
     }
 
-    private fun resolveRequires(parsed: ParsedUserScript) {
-        if (parsed.metadata.requires.isEmpty()) return
+    private fun fetchRequires(requires: List<String>): String {
+        if (requires.isEmpty()) return ""
         val sb = StringBuilder()
-        parsed.metadata.requires.forEach { url ->
+        requires.forEach { url ->
             val cached = requireCache[url]
             if (cached != null) {
                 sb.append(cached).append('\n')
@@ -182,13 +182,19 @@ class UserScriptManager private constructor(private val context: Context) {
                 val resp = httpClient.newCall(Request.Builder().url(url).build()).execute()
                 val body = resp.body?.string().orEmpty()
                 resp.close()
-                requireCache[url] = body
-                sb.append(body).append('\n')
+                if (body.isNotBlank()) {
+                    requireCache[url] = body
+                    sb.append(body).append('\n')
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to fetch @require $url", e)
             }
         }
-        val result = sb.toString()
+        return sb.toString()
+    }
+
+    private fun resolveRequires(parsed: ParsedUserScript) {
+        val result = fetchRequires(parsed.metadata.requires)
         parsed.requiresContent = result
         if (result.isNotBlank()) {
             writeRequiresFile(parsed.script.id, result)
@@ -424,6 +430,12 @@ class UserScriptManager private constructor(private val context: Context) {
             )
             userScriptDao.update(updated)
             writeCodeFile(existing.id, code)
+            if (metadata.requires.isNotEmpty()) {
+                val reqContent = fetchRequires(metadata.requires)
+                if (reqContent.isNotBlank()) {
+                    writeRequiresFile(existing.id, reqContent)
+                }
+            }
             reload()
             return@withContext existing.id
         }
@@ -446,6 +458,12 @@ class UserScriptManager private constructor(private val context: Context) {
         )
         val id = userScriptDao.insert(newItem)
         writeCodeFile(id, code)
+        if (metadata.requires.isNotEmpty()) {
+            val reqContent = fetchRequires(metadata.requires)
+            if (reqContent.isNotBlank()) {
+                writeRequiresFile(id, reqContent)
+            }
+        }
         reload()
         id
     }
@@ -473,6 +491,12 @@ class UserScriptManager private constructor(private val context: Context) {
         )
         userScriptDao.update(updated)
         writeCodeFile(id, code)
+        if (metadata.requires.isNotEmpty()) {
+            val reqContent = fetchRequires(metadata.requires)
+            if (reqContent.isNotBlank()) {
+                writeRequiresFile(id, reqContent)
+            }
+        }
         reload()
     }
 
