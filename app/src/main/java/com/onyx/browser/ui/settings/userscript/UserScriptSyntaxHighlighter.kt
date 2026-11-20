@@ -57,23 +57,23 @@ object UserScriptSyntaxHighlighter {
     )
 
     val darkColors = ThemeColors(
-        metadata = Color.parseColor("#4EC9B0"),  // Cyan / Teal
-        comment = Color.parseColor("#6A9955"),   // Muted Green
-        string = Color.parseColor("#CE9178"),    // Coral / Amber
-        number = Color.parseColor("#B5CEA8"),    // Light Green
-        keyword = Color.parseColor("#569CD6"),   // Keyword Blue
-        constant = Color.parseColor("#56B6C2"),  // Aqua / Constant
-        gmApi = Color.parseColor("#C586C0")      // Purple / Violet GM APIs
+        metadata = 0xFF4EC9B0.toInt(),  // Cyan / Teal
+        comment = 0xFF6A9955.toInt(),   // Muted Green
+        string = 0xFFCE9178.toInt(),    // Coral / Amber
+        number = 0xFFB5CEA8.toInt(),    // Light Green
+        keyword = 0xFF569CD6.toInt(),   // Keyword Blue
+        constant = 0xFF56B6C2.toInt(),  // Aqua / Constant
+        gmApi = 0xFFC586C0.toInt()      // Purple / Violet GM APIs
     )
 
     val lightColors = ThemeColors(
-        metadata = Color.parseColor("#008080"),  // Deep Teal
-        comment = Color.parseColor("#008000"),   // Forest Green
-        string = Color.parseColor("#A31515"),    // Crimson / Rust
-        number = Color.parseColor("#098658"),    // Dark Emerald
-        keyword = Color.parseColor("#0000FF"),   // Classic Blue
-        constant = Color.parseColor("#0184BC"),  // Cyan
-        gmApi = Color.parseColor("#AF00DB")      // Purple
+        metadata = 0xFF008080.toInt(),  // Deep Teal
+        comment = 0xFF008000.toInt(),   // Forest Green
+        string = 0xFFA31515.toInt(),    // Crimson / Rust
+        number = 0xFF098658.toInt(),    // Dark Emerald
+        keyword = 0xFF0000FF.toInt(),   // Classic Blue
+        constant = 0xFF0184BC.toInt(),  // Cyan
+        gmApi = 0xFFAF00DB.toInt()      // Purple
     )
 
     fun getThemeColors(isDark: Boolean): ThemeColors = if (isDark) darkColors else lightColors
