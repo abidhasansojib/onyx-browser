@@ -586,83 +586,88 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(onClick = onSearchClick) {
+            IconButton(
+                onClick = onSearchClick,
+                modifier = Modifier.size(44.dp)
+            ) {
                 Icon(
-                    imageVector = Icons.Default.Search,
+                    painter = painterResource(R.drawable.ic_search),
                     contentDescription = stringResource(R.string.search),
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(26.dp)
                 )
             }
 
-            // Normal / Incognito Pill Toggle
+            // Normal / Incognito Segmented Control (Square buttons with smooth corners, equal size)
             Row(
                 modifier = Modifier
+                    .height(44.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
                     .padding(3.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                // Normal Tabs Button
+                // Normal Tabs Button (Square with smooth corners)
                 val normalBg = if (!isViewingIncognito) MaterialTheme.colorScheme.primary else Color.Transparent
-                val normalText = if (!isViewingIncognito) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                val normalContentColor = if (!isViewingIncognito) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
 
                 Box(
                     modifier = Modifier
+                        .size(38.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(normalBg)
-                        .clickable { onToggleIncognito(false) }
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                        .clickable { onToggleIncognito(false) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = if (normalCount > 99) "99+" else normalCount.toString(),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = normalText
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .border(1.5.dp, normalContentColor, RoundedCornerShape(5.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (normalCount > 99) "99+" else normalCount.toString(),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            fontWeight = FontWeight.Bold,
+                            color = normalContentColor
+                        )
+                    }
                 }
 
-                // Incognito Tabs Button
+                // Incognito Tabs Button (Square with smooth corners, equal size, no tab count)
                 val incognitoBg = if (isViewingIncognito) MaterialTheme.colorScheme.primary else Color.Transparent
-                val incognitoTint = if (isViewingIncognito) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                val incognitoContentColor = if (isViewingIncognito) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
 
                 Box(
                     modifier = Modifier
+                        .size(38.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(incognitoBg)
-                        .clickable { onToggleIncognito(true) }
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                        .clickable { onToggleIncognito(true) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_incognito),
-                            contentDescription = stringResource(R.string.incognito_mode),
-                            tint = incognitoTint,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        if (incognitoCount > 0) {
-                            Text(
-                                text = if (incognitoCount > 99) "99+" else incognitoCount.toString(),
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = incognitoTint
-                            )
-                        }
-                    }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_incognito),
+                        contentDescription = stringResource(R.string.incognito_mode),
+                        tint = incognitoContentColor,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
             // Overflow Menu
             Box {
-                IconButton(onClick = onOverflowClick) {
+                IconButton(
+                    onClick = onOverflowClick,
+                    modifier = Modifier.size(44.dp)
+                ) {
                     Icon(
-                        imageVector = Icons.Default.MoreVert,
+                        painter = painterResource(R.drawable.ic_more_vert),
                         contentDescription = "More options",
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
