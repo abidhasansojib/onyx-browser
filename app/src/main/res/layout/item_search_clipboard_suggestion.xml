@@ -82,28 +82,16 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Eye Reveal Button (Chrome style: previews copied text without searching yet) -->
+        <!-- Eye Reveal Button (toggles previewing copied text) -->
         <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/btnClipboardReveal"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/reveal_copied_content"
-            android:padding="8dp"
+            android:padding="9dp"
             android:scaleType="fitCenter"
             app:srcCompat="@drawable/ic_visibility"
-            app:tint="?attr/colorControlNormal" />
-
-        <!-- Insert into Omnibox Arrow (Chromium/Brave diagonal arrow) -->
-        <androidx.appcompat.widget.AppCompatImageButton
-            android:id="@+id/btnClipboardInsert"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/paste_clipboard"
-            android:padding="8dp"
-            android:scaleType="fitCenter"
-            app:srcCompat="@drawable/ic_insert_query"
             app:tint="?attr/colorControlNormal" />
 
     </LinearLayout>

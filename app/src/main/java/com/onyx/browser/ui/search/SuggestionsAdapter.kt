@@ -149,47 +149,32 @@ class SuggestionsAdapter(
 
     inner class ClipboardViewHolder(private val binding: com.onyx.browser.databinding.ItemSearchClipboardSuggestionBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        fun bind(item: SearchSuggestion) {
-            val isRevealed = !item.isClipboardLazy && item.queryOrUrl.isNotBlank()
-            binding.tvClipboardText.text = item.title
 
-            if (isRevealed) {
-                val cleanDisplay = item.queryOrUrl.replace("\n", " ").replace("\r", " ").trim()
-                binding.tvClipboardUrl.text = cleanDisplay
-                binding.btnClipboardReveal.visibility = View.GONE
-                if (item.isUrl || item.isDomain) {
-                    binding.ivClipboardIcon.setImageResource(R.drawable.ic_link)
-                } else {
-                    binding.ivClipboardIcon.setImageResource(R.drawable.ic_search)
-                }
-            } else {
-                binding.tvClipboardUrl.text = binding.root.context.getString(R.string.tap_to_search_copied)
-                binding.btnClipboardReveal.visibility = View.VISIBLE
-                binding.ivClipboardIcon.setImageResource(R.drawable.ic_link)
-            }
+        private var isRevealedState: Boolean = false
+        private var cachedResolvedText: String? = null
+
+        fun bind(item: SearchSuggestion) {
+            cachedResolvedText = if (!item.isClipboardLazy && item.queryOrUrl.isNotBlank()) item.queryOrUrl else null
+            isRevealedState = cachedResolvedText != null
+            updateUi(item)
 
             binding.btnClipboardReveal.setOnClickListener {
-                val resolvedText = onResolveClipboard?.invoke()
-                if (!resolvedText.isNullOrBlank()) {
-                    val isLink = android.util.Patterns.WEB_URL.matcher(resolvedText).matches() ||
-                            resolvedText.startsWith("http://", ignoreCase = true) ||
-                            resolvedText.startsWith("https://", ignoreCase = true) ||
-                            resolvedText.startsWith("www.", ignoreCase = true)
-                    val updatedTitle = if (isLink) binding.root.context.getString(R.string.link_you_copied) else binding.root.context.getString(R.string.text_you_copied)
-                    val cleanDisplay = resolvedText.replace("\n", " ").replace("\r", " ").trim()
-                    binding.tvClipboardText.text = updatedTitle
-                    binding.tvClipboardUrl.text = cleanDisplay
-                    binding.ivClipboardIcon.setImageResource(if (isLink) R.drawable.ic_link else R.drawable.ic_search)
-                    binding.btnClipboardReveal.visibility = View.GONE
+                if (isRevealedState) {
+                    isRevealedState = false
+                    updateUi(item)
+                } else {
+                    if (cachedResolvedText == null) {
+                        cachedResolvedText = onResolveClipboard?.invoke()
+                    }
+                    if (!cachedResolvedText.isNullOrBlank()) {
+                        isRevealedState = true
+                        updateUi(item)
+                    }
                 }
             }
 
             val handleCardClick = {
-                val targetText = if (item.isClipboardLazy || item.queryOrUrl.isBlank()) {
-                    onResolveClipboard?.invoke() ?: ""
-                } else {
-                    item.queryOrUrl
-                }
+                val targetText = cachedResolvedText ?: onResolveClipboard?.invoke() ?: ""
                 if (targetText.isNotBlank()) {
                     val isLink = android.util.Patterns.WEB_URL.matcher(targetText).matches() ||
                             targetText.startsWith("http://", ignoreCase = true) ||
@@ -206,18 +191,40 @@ class SuggestionsAdapter(
                 }
             }
 
-            binding.root.setOnClickListener { handleCardClick() }
-            binding.containerClipboardInfo.setOnClickListener { handleCardClick() }
-
-            binding.btnClipboardInsert.setOnClickListener {
-                val targetText = if (item.isClipboardLazy || item.queryOrUrl.isBlank()) {
-                    onResolveClipboard?.invoke() ?: ""
-                } else {
-                    item.queryOrUrl
-                }
+            val handleCardLongClick = {
+                val targetText = cachedResolvedText ?: onResolveClipboard?.invoke() ?: ""
                 if (targetText.isNotBlank()) {
                     onInsertClicked(item.copy(queryOrUrl = targetText, isClipboardLazy = false))
-                }
+                    true
+                } else false
+            }
+
+            binding.root.setOnClickListener { handleCardClick() }
+            binding.containerClipboardInfo.setOnClickListener { handleCardClick() }
+            binding.root.setOnLongClickListener { handleCardLongClick() }
+            binding.containerClipboardInfo.setOnLongClickListener { handleCardLongClick() }
+        }
+
+        private fun updateUi(item: SearchSuggestion) {
+            val text = cachedResolvedText
+            if (isRevealedState && !text.isNullOrBlank()) {
+                val isLink = android.util.Patterns.WEB_URL.matcher(text).matches() ||
+                        text.startsWith("http://", ignoreCase = true) ||
+                        text.startsWith("https://", ignoreCase = true) ||
+                        text.startsWith("www.", ignoreCase = true)
+                val updatedTitle = if (isLink) binding.root.context.getString(R.string.link_you_copied) else binding.root.context.getString(R.string.text_you_copied)
+                val cleanDisplay = text.replace("\n", " ").replace("\r", " ").trim()
+                binding.tvClipboardText.text = updatedTitle
+                binding.tvClipboardUrl.text = cleanDisplay
+                binding.ivClipboardIcon.setImageResource(if (isLink) R.drawable.ic_link else R.drawable.ic_search)
+                binding.btnClipboardReveal.setImageResource(R.drawable.ic_visibility_off)
+                binding.btnClipboardReveal.contentDescription = "Hide copied content"
+            } else {
+                binding.tvClipboardText.text = item.title
+                binding.tvClipboardUrl.text = binding.root.context.getString(R.string.tap_to_search_copied)
+                binding.ivClipboardIcon.setImageResource(R.drawable.ic_link)
+                binding.btnClipboardReveal.setImageResource(R.drawable.ic_visibility)
+                binding.btnClipboardReveal.contentDescription = binding.root.context.getString(R.string.reveal_copied_content)
             }
         }
     }
