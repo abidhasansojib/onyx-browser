@@ -702,6 +702,12 @@ class UserScriptManager private constructor(private val context: Context) {
                 "  setValue: function(k, v) { GM_setValue(k, v); return Promise.resolve(); },\n" +
                 "  deleteValue: function(k) { GM_deleteValue(k); return Promise.resolve(); },\n" +
                 "  listValues: function() { return Promise.resolve(GM_listValues()); },\n" +
+                "  getValues: function(k) { return Promise.resolve(GM_getValues(k)); },\n" +
+                "  setValues: function(v) { GM_setValues(v); return Promise.resolve(); },\n" +
+                "  deleteValues: function(k) { GM_deleteValues(k); return Promise.resolve(); },\n" +
+                "  getTab: function() { return Promise.resolve(GM_getTab()); },\n" +
+                "  saveTab: function(o) { GM_saveTab(o); return Promise.resolve(); },\n" +
+                "  getTabs: function() { return Promise.resolve(GM_getTabs()); },\n" +
                 "  addStyle: GM_addStyle,\n" +
                 "  addElement: GM_addElement,\n" +
                 "  xmlHttpRequest: function(d) {\n" +
@@ -725,6 +731,34 @@ class UserScriptManager private constructor(private val context: Context) {
                 "  addValueChangeListener: function(n, cb) { return Promise.resolve(GM_addValueChangeListener(n, cb)); },\n" +
                 "  removeValueChangeListener: function(id) { return Promise.resolve(GM_removeValueChangeListener(id)); }\n" +
                 "};\n" +
+                "function GM_getValues(keys) {\n" +
+                "  var out = {};\n" +
+                "  if (Array.isArray(keys)) { keys.forEach(function(k) { out[k] = GM_getValue(k); }); }\n" +
+                "  else if (keys && typeof keys === 'object') { Object.keys(keys).forEach(function(k) { out[k] = GM_getValue(k, keys[k]); }); }\n" +
+                "  else { GM_listValues().forEach(function(k) { out[k] = GM_getValue(k); }); }\n" +
+                "  return out;\n" +
+                "}\n" +
+                "function GM_setValues(values) {\n" +
+                "  if (values && typeof values === 'object') { Object.keys(values).forEach(function(k) { GM_setValue(k, values[k]); }); }\n" +
+                "}\n" +
+                "function GM_deleteValues(keys) {\n" +
+                "  if (Array.isArray(keys)) { keys.forEach(function(k) { GM_deleteValue(k); }); }\n" +
+                "}\n" +
+                "var __tabKey = '__onyx_gm_tab_' + __scriptKey;\n" +
+                "function GM_getTab(cb) {\n" +
+                "  var o = {};\n" +
+                "  try { o = JSON.parse(sessionStorage.getItem(__tabKey) || '{}'); } catch(__e) {}\n" +
+                "  if (typeof cb === 'function') cb(o);\n" +
+                "  return o;\n" +
+                "}\n" +
+                "function GM_saveTab(obj) {\n" +
+                "  try { sessionStorage.setItem(__tabKey, JSON.stringify(obj || {})); } catch(__e) {}\n" +
+                "}\n" +
+                "function GM_getTabs(cb) {\n" +
+                "  var all = {}; all[0] = GM_getTab();\n" +
+                "  if (typeof cb === 'function') cb(all);\n" +
+                "  return all;\n" +
+                "}\n" +
                 "var GM_xmlHttpRequest = GM_xmlhttpRequest;\n" +
                 requireBlock + "\n" +
                 "var __hasExecuted = false;\n" +

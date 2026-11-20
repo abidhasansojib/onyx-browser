@@ -43,7 +43,7 @@ object UserScriptSyntaxHighlighter {
     )
 
     private val GM_API_PATTERN = Pattern.compile(
-        """\b(?:GM|GM_getValue|GM_setValue|GM_deleteValue|GM_listValues|GM_xmlhttpRequest|GM_xmlHttpRequest|GM_download|GM_openInTab|GM_setClipboard|GM_notification|GM_addStyle|GM_addElement|GM_registerMenuCommand|GM_unregisterMenuCommand|GM_getResourceText|GM_getResourceURL|GM_log|GM_info|unsafeWindow)\b"""
+        """\b(?:GM|GM_getValue|GM_setValue|GM_deleteValue|GM_listValues|GM_getValues|GM_setValues|GM_deleteValues|GM_getTab|GM_saveTab|GM_getTabs|GM_xmlhttpRequest|GM_xmlHttpRequest|GM_download|GM_openInTab|GM_setClipboard|GM_notification|GM_addStyle|GM_addElement|GM_registerMenuCommand|GM_unregisterMenuCommand|GM_getResourceText|GM_getResourceURL|GM_log|GM_info|unsafeWindow)\b"""
     )
 
     data class ThemeColors(

@@ -159,3 +159,5 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[ ]` **Built-in Reader Mode**: Distraction-free article reader with typography and theme customization.
 
 - `[x]` **Userscript editor performance**: Viewport highlighting skips already-highlighted regions, uses possessive string regexes and substring copies, and theme/word-wrap updates no longer re-layout on every keystroke.
+
+- `[x]` **Userscript GM API additions**: `GM_getValues`, `GM_setValues`, `GM_deleteValues`, `GM_getTab`, `GM_saveTab`, `GM_getTabs` and their `GM.*` promise forms.
