@@ -64,6 +64,8 @@ class InstallUserScriptBottomSheet : BottomSheetDialogFragment() {
                 val behavior = BottomSheetBehavior.from(sheet)
                 behavior.state = BottomSheetBehavior.STATE_EXPANDED
                 behavior.skipCollapsed = true
+                val displayMetrics = resources.displayMetrics
+                behavior.maxHeight = (displayMetrics.heightPixels * 0.90).toInt()
             }
         }
     }
@@ -73,7 +75,7 @@ class InstallUserScriptBottomSheet : BottomSheetDialogFragment() {
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
             val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            v.updatePadding(bottom = (24 * resources.displayMetrics.density).toInt() + navBars.bottom)
+            v.updatePadding(bottom = (16 * resources.displayMetrics.density).toInt() + navBars.bottom)
             insets
         }
 
@@ -150,7 +152,38 @@ class InstallUserScriptBottomSheet : BottomSheetDialogFragment() {
         binding.layoutError.visibility = View.GONE
         binding.layoutContent.visibility = View.VISIBLE
 
+        val isExisting = try {
+            val manager = UserScriptManager.getInstance(requireContext())
+            manager.scripts.any {
+                it.script.name.equals(meta.name, ignoreCase = true) &&
+                        (meta.namespace.isBlank() || it.metadata.namespace == meta.namespace)
+            }
+        } catch (_: Exception) { false }
+
+        if (isExisting) {
+            binding.tvDialogTitle.text = getString(R.string.update) + " UserScript"
+            binding.btnInstall.text = getString(R.string.update)
+        } else {
+            binding.tvDialogTitle.text = getString(R.string.userscripts_install_dialog_title)
+            binding.btnInstall.text = getString(R.string.userscripts_btn_install)
+        }
+
         binding.tvDialogSubtitle.text = "Review permissions before installing"
+
+        // Constrain scroll view height dynamically so Cancel and Install buttons are always pinned on-screen
+        binding.scrollMetadata.post {
+            if (_binding == null) return@post
+            val displayMetrics = resources.displayMetrics
+            val maxScrollHeight = (displayMetrics.heightPixels * 0.45).toInt().coerceIn(
+                (220 * displayMetrics.density).toInt(),
+                (380 * displayMetrics.density).toInt()
+            )
+            if (binding.scrollMetadata.height > maxScrollHeight) {
+                val lp = binding.scrollMetadata.layoutParams
+                lp.height = maxScrollHeight
+                binding.scrollMetadata.layoutParams = lp
+            }
+        }
 
         // Title & Author
         binding.tvScriptName.text = meta.name.ifBlank { "Unnamed Script" }
@@ -174,7 +207,11 @@ class InstallUserScriptBottomSheet : BottomSheetDialogFragment() {
             else -> emptyList()
         }
         binding.tvScriptMatches.text = if (matchRules.isNotEmpty()) {
-            matchRules.joinToString("\n")
+            if (matchRules.size > 8) {
+                matchRules.take(8).joinToString("\n") + "\n+ ${matchRules.size - 8} more sites"
+            } else {
+                matchRules.joinToString("\n")
+            }
         } else {
             getString(R.string.userscripts_all_sites)
         }
