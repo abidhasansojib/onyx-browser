@@ -31,7 +31,8 @@ data class UserScriptMetadata(
     val noFrames: Boolean = false,
     val unwrap: Boolean = false,
     val updateUrl: String = "",
-    val downloadUrl: String = ""
+    val downloadUrl: String = "",
+    val icon: String = ""
 ) {
     /** Explicit grants only; `none` (or omitted grants) gives no native capability. */
     fun allowsApi(api: String): Boolean =
@@ -122,7 +123,8 @@ data class UserScriptMetadata(
                 noFrames = tags.containsKey("noframes"),
                 unwrap = tags.containsKey("unwrap"),
                 updateUrl = first("updateurl"),
-                downloadUrl = first("downloadurl")
+                downloadUrl = first("downloadurl"),
+                icon = first("icon", "iconurl", "defaulticon")
             )
         }
 

@@ -1,5 +1,8 @@
 package com.onyx.browser.ui.settings.userscript
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -7,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -23,25 +27,32 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -57,24 +68,32 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
-import com.onyx.browser.data.model.UserScriptItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.components.AppAlertDialog
 import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.components.PreferenceItem
 import com.onyx.browser.ui.components.AppTopBar
+import com.onyx.browser.ui.home.rememberFavicon
 import com.onyx.browser.ui.theme.OnyxTheme
+import com.onyx.browser.userscript.ParsedUserScript
+import com.onyx.browser.userscript.UpdateResult
 import com.onyx.browser.userscript.UserScriptManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.net.URL
 
 class UserScriptsActivity : ComponentActivity() {
 
@@ -82,9 +101,9 @@ class UserScriptsActivity : ComponentActivity() {
     private lateinit var preferences: BrowserPreferences
     private val httpClient = OkHttpClient()
 
-    private val scripts = mutableStateListOf<UserScriptItem>()
+    private val scripts = mutableStateListOf<ParsedUserScript>()
     private var isGlobalScriptBlocked by mutableStateOf(false)
-    private var scriptToDelete by mutableStateOf<UserScriptItem?>(null)
+    private var scriptToDelete by mutableStateOf<ParsedUserScript?>(null)
     private var showAddOptionsSheet by mutableStateOf(false)
     private var showImportUrlSheet by mutableStateOf(false)
 
@@ -118,24 +137,35 @@ class UserScriptsActivity : ComponentActivity() {
                     scripts = scripts,
                     isGlobalScriptBlocked = isGlobalScriptBlocked,
                     onBackClick = { finish() },
-                    onToggleScript = { script, enabled ->
+                    onToggleScript = { item, enabled ->
                         lifecycleScope.launch {
-                            manager.toggleScript(script.id, enabled)
+                            manager.toggleScript(item.script.id, enabled)
                             loadScripts()
                         }
                     },
-                    onEditScript = { script ->
+                    onEditScript = { item ->
                         val intent = Intent(this@UserScriptsActivity, UserScriptEditorActivity::class.java).apply {
-                            putExtra(UserScriptEditorActivity.EXTRA_SCRIPT_ID, script.id)
+                            putExtra(UserScriptEditorActivity.EXTRA_SCRIPT_ID, item.script.id)
                         }
                         startActivity(intent)
                     },
-                    onDeleteScript = { script ->
-                        scriptToDelete = script
+                    onDeleteScript = { item ->
+                        scriptToDelete = item
+                    },
+                    onShareScript = { item ->
+                        shareSingleScript(item)
+                    },
+                    onCheckScriptUpdate = { item ->
+                        checkSingleScriptUpdate(item)
+                    },
+                    onCopyScriptName = { item ->
+                        copyToClipboard("Script Name", item.metadata.name)
+                    },
+                    onCopyScriptLink = { item ->
+                        copyToClipboard("Script Link", item.script.sourceUrl ?: "")
                     },
                     onAddClick = { showAddOptionsSheet = true },
-                    onCheckUpdates = { checkForUpdates() },
-                    onExportScripts = { exportAllScripts() }
+                    onCheckUpdates = { checkForUpdates() }
                 )
 
                 if (showAddOptionsSheet) {
@@ -170,12 +200,12 @@ class UserScriptsActivity : ComponentActivity() {
                     val toDelete = scriptToDelete!!
                     AppAlertDialog(
                         title = "Delete userscript?",
-                        text = { Text("Are you sure you want to delete '${toDelete.name}'?") },
+                        text = { Text("Are you sure you want to delete '${toDelete.metadata.name}'?") },
                         confirmButtonText = "Delete",
                         isDestructive = true,
                         onConfirm = {
                             lifecycleScope.launch {
-                                manager.deleteScript(toDelete.id)
+                                manager.deleteScript(toDelete.script.id)
                                 loadScripts()
                                 scriptToDelete = null
                             }
@@ -196,9 +226,63 @@ class UserScriptsActivity : ComponentActivity() {
     private fun loadScripts() {
         lifecycleScope.launch {
             manager.reload()
-            val list = manager.scripts.map { it.script }
             scripts.clear()
-            scripts.addAll(list)
+            scripts.addAll(manager.scripts)
+        }
+    }
+
+    private fun shareSingleScript(item: ParsedUserScript) {
+        try {
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, item.code)
+                putExtra(Intent.EXTRA_SUBJECT, "${item.metadata.name}.user.js")
+            }
+            startActivity(Intent.createChooser(sendIntent, "Share Userscript"))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to share script: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun checkSingleScriptUpdate(item: ParsedUserScript) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@UserScriptsActivity, "Checking for update...", Toast.LENGTH_SHORT).show()
+            }
+            try {
+                val res = manager.checkAndUpdate(item.script.id)
+                withContext(Dispatchers.Main) {
+                    when (res) {
+                        is UpdateResult.Updated -> {
+                            Toast.makeText(this@UserScriptsActivity, "Updated to v${res.to}", Toast.LENGTH_SHORT).show()
+                            loadScripts()
+                        }
+                        is UpdateResult.UpToDate -> {
+                            Toast.makeText(this@UserScriptsActivity, "Script is up to date", Toast.LENGTH_SHORT).show()
+                        }
+                        is UpdateResult.NoSource -> {
+                            Toast.makeText(this@UserScriptsActivity, "No update URL available", Toast.LENGTH_SHORT).show()
+                        }
+                        is UpdateResult.Failed -> {
+                            Toast.makeText(this@UserScriptsActivity, "Update failed: ${res.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserScriptsActivity, "Check failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun copyToClipboard(label: String, text: String) {
+        if (text.isBlank()) return
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (clipboard != null) {
+            val clip = ClipData.newPlainText(label, text)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(this, "Copied $label to clipboard", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -320,15 +404,18 @@ class UserScriptsActivity : ComponentActivity() {
 
 @Composable
 fun UserScriptsScreen(
-    scripts: List<UserScriptItem>,
+    scripts: List<ParsedUserScript>,
     isGlobalScriptBlocked: Boolean,
     onBackClick: () -> Unit,
-    onToggleScript: (UserScriptItem, Boolean) -> Unit,
-    onEditScript: (UserScriptItem) -> Unit,
-    onDeleteScript: (UserScriptItem) -> Unit,
+    onToggleScript: (ParsedUserScript, Boolean) -> Unit,
+    onEditScript: (ParsedUserScript) -> Unit,
+    onDeleteScript: (ParsedUserScript) -> Unit,
+    onShareScript: (ParsedUserScript) -> Unit,
+    onCheckScriptUpdate: (ParsedUserScript) -> Unit,
+    onCopyScriptName: (ParsedUserScript) -> Unit,
+    onCopyScriptLink: (ParsedUserScript) -> Unit,
     onAddClick: () -> Unit,
-    onCheckUpdates: () -> Unit,
-    onExportScripts: () -> Unit
+    onCheckUpdates: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -341,13 +428,6 @@ fun UserScriptsScreen(
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Check for updates",
-                                tint = MaterialTheme.colorScheme.onBackground
-                            )
-                        }
-                        IconButton(onClick = onExportScripts) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Export Scripts",
                                 tint = MaterialTheme.colorScheme.onBackground
                             )
                         }
@@ -423,13 +503,17 @@ fun UserScriptsScreen(
                         .fillMaxSize()
                         .padding(bottom = 80.dp)
                 ) {
-                    items(scripts, key = { it.id }) { script ->
+                    items(scripts, key = { it.script.id }) { item ->
                         CardContainer {
                             UserScriptItemRow(
-                                script = script,
-                                onToggle = { enabled -> onToggleScript(script, enabled) },
-                                onEdit = { onEditScript(script) },
-                                onDelete = { onDeleteScript(script) }
+                                item = item,
+                                onToggle = { enabled -> onToggleScript(item, enabled) },
+                                onEdit = { onEditScript(item) },
+                                onCheckUpdate = { onCheckScriptUpdate(item) },
+                                onShare = { onShareScript(item) },
+                                onCopyName = { onCopyScriptName(item) },
+                                onCopyLink = { onCopyScriptLink(item) },
+                                onDelete = { onDeleteScript(item) }
                             )
                         }
                     }
@@ -439,38 +523,141 @@ fun UserScriptsScreen(
     }
 }
 
+private val SCRIPT_BADGE_COLORS = listOf(
+    Color(0xFF5B50E6), // Purple / Indigo (matches reference A.png)
+    Color(0xFF2563EB), // Blue
+    Color(0xFF059669), // Emerald
+    Color(0xFFD97706), // Amber
+    Color(0xFFDC2626), // Red
+    Color(0xFF7C3AED), // Violet
+    Color(0xFF0891B2), // Cyan
+    Color(0xFFDB2777)  // Pink
+)
+
+private fun resolveUserScriptIconUrl(icon: String, sourceUrl: String?): String {
+    val value = icon.trim()
+    if (value.isEmpty()) return ""
+    return when {
+        value.startsWith("data:image/", ignoreCase = true) -> value
+        value.startsWith("https://", ignoreCase = true) || value.startsWith("http://", ignoreCase = true) -> value
+        value.startsWith("//") -> "https:$value"
+        sourceUrl.isNullOrBlank() -> ""
+        else -> runCatching { URL(URL(sourceUrl), value).toString() }.getOrDefault("")
+    }
+}
+
 @Composable
 private fun UserScriptItemRow(
-    script: UserScriptItem,
+    item: ParsedUserScript,
     onToggle: (Boolean) -> Unit,
     onEdit: () -> Unit,
+    onCheckUpdate: () -> Unit,
+    onShare: () -> Unit,
+    onCopyName: () -> Unit,
+    onCopyLink: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    val iconUrl = remember(item.metadata.icon, item.script.sourceUrl) {
+        resolveUserScriptIconUrl(item.metadata.icon, item.script.sourceUrl)
+    }
+    val effectiveFaviconUrl = iconUrl.ifBlank { item.script.sourceUrl ?: "" }
+    val favicon = rememberFavicon(effectiveFaviconUrl)
+
+    val patternCount = item.metadata.matches.size + item.metadata.includes.size
+    val subtitle = item.metadata.description.ifBlank {
+        if (patternCount == 0) "Runs on all sites"
+        else "Runs on $patternCount pattern(s)"
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onEdit)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .alpha(if (item.script.enabled) 1f else 0.6f)
+            .padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        // Left Icon Badge (Favicon or Deterministic Letter Badge)
+        if (favicon != null) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    bitmap = favicon,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        } else {
+            val initial = item.metadata.name.trim().firstOrNull()?.uppercaseChar()?.toString()
+            if (!initial.isNullOrBlank() && initial.all { it.isLetterOrDigit() }) {
+                val colorIndex = Math.abs(item.metadata.name.hashCode()) % SCRIPT_BADGE_COLORS.size
+                val badgeColor = SCRIPT_BADGE_COLORS[colorIndex]
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(badgeColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = initial,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Code,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        // Center Title & Subtitle Column
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp, end = 4.dp)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = script.name,
+                    text = item.metadata.name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
-                if (script.version.isNotBlank()) {
-                    Spacer(modifier = Modifier.width(8.dp))
+                if (item.metadata.version.isNotBlank()) {
+                    Spacer(modifier = Modifier.width(6.dp))
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
                     ) {
                         Text(
-                            text = "v${script.version}",
+                            text = "v${item.metadata.version}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -478,47 +665,148 @@ private fun UserScriptItemRow(
                 }
             }
 
-            if (script.description.isNotBlank()) {
-                Text(
-                    text = script.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
-                    maxLines = 2
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        IconButton(onClick = onEdit) {
-            Icon(
-                imageVector = Icons.Default.Edit,
-                contentDescription = "Edit",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
 
-        IconButton(onClick = onDelete) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Delete",
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-
+        // Switch with Checkmark Thumb
         Switch(
-            checked = script.enabled,
+            checked = item.script.enabled,
             onCheckedChange = onToggle,
+            thumbContent = if (item.script.enabled) {
+                {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                    )
+                }
+            } else null,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
+                checkedIconColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = MaterialTheme.colorScheme.outline,
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         )
+
+        // 3-dot More Options Menu
+        Box {
+            IconButton(onClick = { menuExpanded = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Script options",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Edit script") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        onEdit()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Check for update") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        onCheckUpdate()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Share script") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        onShare()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Copy name") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        onCopyName()
+                    }
+                )
+                if (!item.script.sourceUrl.isNullOrBlank()) {
+                    DropdownMenuItem(
+                        text = { Text("Copy link") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Link,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onCopyLink()
+                        }
+                    )
+                }
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = "Delete",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        onDelete()
+                    }
+                )
+            }
+        }
     }
 }
 
