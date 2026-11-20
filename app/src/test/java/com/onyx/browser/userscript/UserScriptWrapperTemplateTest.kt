@@ -10,7 +10,8 @@ class UserScriptWrapperTemplateTest {
     private val known = setOf(
         "EXCLUDE_ARRAY", "MATCH_ARRAY", "NO_FRAMES", "SCRIPT_ID", "SCRIPT_KEY", "SCRIPT_NAME",
         "RESOURCES", "NAMESPACE", "VERSION", "DESCRIPTION", "AUTHOR", "CONNECTS", "GRANTS",
-        "RUN_AT", "UNWRAP", "IS_INCOGNITO", "REQUIRE_BLOCK", "CODE"
+        "RUN_AT", "UNWRAP", "INJECT_INTO", "SANDBOX", "SANDBOX_MODE", "IS_ISOLATED",
+        "IS_INCOGNITO", "REQUIRE_BLOCK", "CODE"
     )
 
     private fun template(): String {

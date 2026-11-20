@@ -27,16 +27,50 @@ var GM_info = {
     grant: [{{GRANTS}}],
     runAt: {{RUN_AT}},
     noframes: {{NO_FRAMES}},
-    unwrap: {{UNWRAP}}
+    unwrap: {{UNWRAP}},
+    injectInto: {{INJECT_INTO}},
+    sandbox: {{SANDBOX}}
   },
   version: '1.0',
   scriptHandler: 'OnyxBrowser',
   scriptMetaStr: null,
   scriptWillUpdate: false,
   isIncognito: {{IS_INCOGNITO}},
+  sandboxMode: {{SANDBOX_MODE}},
   downloadMode: 'native'
 };
-var unsafeWindow = window;
+var __isIsolated = {{IS_ISOLATED}};
+var __pageWindow = window;
+var unsafeWindow = __pageWindow;
+var __sandboxWindow = __pageWindow;
+if (__isIsolated && typeof Proxy !== 'undefined') {
+  var __localProps = Object.create(null);
+  __sandboxWindow = new Proxy(__pageWindow, {
+    has: function(target, prop) {
+      return (prop in __localProps) || (prop in target);
+    },
+    get: function(target, prop) {
+      if (prop === 'window' || prop === 'self' || prop === 'globalThis') return __sandboxWindow;
+      if (prop === 'unsafeWindow') return __pageWindow;
+      if (prop === 'top') return target.top === target ? __sandboxWindow : target.top;
+      if (prop === 'parent') return target.parent === target ? __sandboxWindow : target.parent;
+      if (prop in __localProps) return __localProps[prop];
+      var val = target[prop];
+      return typeof val === 'function' ? val.bind(target) : val;
+    },
+    set: function(target, prop, value) {
+      __localProps[prop] = value;
+      return true;
+    },
+    deleteProperty: function(target, prop) {
+      if (prop in __localProps) {
+        delete __localProps[prop];
+        return true;
+      }
+      return false;
+    }
+  });
+}
 function GM_log() { try { console.log.apply(console, arguments); } catch(__e) {} }
 function GM_addStyle(css) {
   var __s = document.createElement('style');
@@ -382,16 +416,18 @@ function GM_getTabs(cb) {
   return all;
 }
 var GM_xmlHttpRequest = GM_xmlhttpRequest;
-{{REQUIRE_BLOCK}}
 var __hasExecuted = false;
 function __runUserScript() {
   if (__hasExecuted) return;
   __hasExecuted = true;
-  try {
+  (function(window, self, globalThis, unsafeWindow) {
+    try {
+{{REQUIRE_BLOCK}}
 {{CODE}}
-  } catch(__e) {
-    console.error('[UserScript] ' + __scriptName + ' failed', __e);
-  }
+    } catch(__e) {
+      console.error('[UserScript] ' + __scriptName + ' failed', __e);
+    }
+  }).call(__sandboxWindow, __sandboxWindow, __sandboxWindow, __sandboxWindow, __pageWindow);
 }
 var __runAt = {{RUN_AT}};
 function __attemptRun() {

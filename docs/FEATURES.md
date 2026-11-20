@@ -161,3 +161,5 @@ For deep technical specifications, JNI bindings, and subsystem implementations, 
 - `[x]` **Userscript editor performance**: Viewport highlighting skips already-highlighted regions, uses possessive string regexes and substring copies, and theme/word-wrap updates no longer re-layout on every keystroke.
 
 - `[x]` **Userscript GM API additions**: `GM_getValues`, `GM_setValues`, `GM_deleteValues`, `GM_getTab`, `GM_saveTab`, `GM_getTabs` and their `GM.*` promise forms.
+
+- `[x]` **Userscript Sandbox Hardening (`@inject-into`, `@sandbox`, `@connect` first-use prompt)**: Supports `@inject-into` (`page`, `content`, `auto`) and `@sandbox` (`raw`, `JavaScript`, `DOM`, `default`) with proxy-isolated `window`/`self`/`globalThis` scope vs `unsafeWindow` in isolated mode, and a per-script, per-domain first-use confirmation dialog (Always Allow, Allow Once, Deny) for `GM_xmlhttpRequest` network domains.

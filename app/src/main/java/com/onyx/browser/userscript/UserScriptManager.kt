@@ -379,6 +379,8 @@ class UserScriptManager private constructor(private val context: Context) {
         val scriptId = parsed.script.id
         val noFrames = meta.noFrames
         val unwrap = meta.unwrap
+        val isIsolated = meta.isIsolatedWorld
+        val sandboxModeStr = if (isIsolated) "js" else "raw"
 
         val replacements = mapOf(
             "EXCLUDE_ARRAY" to excludeArray,
@@ -396,6 +398,10 @@ class UserScriptManager private constructor(private val context: Context) {
             "GRANTS" to grantsArray,
             "RUN_AT" to JSONObject.quote(runAtStr),
             "UNWRAP" to unwrap.toString(),
+            "INJECT_INTO" to JSONObject.quote(meta.injectInto.value),
+            "SANDBOX" to JSONObject.quote(meta.sandbox.value),
+            "SANDBOX_MODE" to JSONObject.quote(sandboxModeStr),
+            "IS_ISOLATED" to isIsolated.toString(),
             "IS_INCOGNITO" to isIncognito.toString(),
             "REQUIRE_BLOCK" to requireBlock,
             "CODE" to parsed.code
@@ -423,10 +429,13 @@ class UserScriptManager private constructor(private val context: Context) {
             put("excludes", JSONArray(m.excludes))
             put("grant", JSONArray(m.grants))
             put("connects", JSONArray(m.connects))
+            put("injectInto", m.injectInto.value)
+            put("sandbox", m.sandbox.value)
         }
         return JSONObject().apply {
             put("script", scriptObj)
             put("scriptHandler", "OnyxBrowser")
+            put("sandboxMode", if (m.isIsolatedWorld) "js" else "raw")
             put("version", parsed.script.id.toString())
             put("uuid", parsed.script.id.toString())
         }.toString()
@@ -669,15 +678,38 @@ class UserScriptManager private constructor(private val context: Context) {
         gmDeleteValue(id, key)
     }
 
-    fun gmListValues(scriptId: Long): List<String> = valueDao.listKeys(scriptId)
+    fun gmListValues(scriptId: Long): List<String> =
+        valueDao.listKeys(scriptId).filterNot { it.startsWith(CONNECT_DECISION_KEY_PREFIX) }
     fun gmListValues(scriptKey: String): List<String> {
         val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return emptyList()
         return gmListValues(id)
+    }
+
+    /**
+     * Returns the saved @connect decision for [host] on [scriptId]:
+     * `true` = always allow, `false` = always deny, `null` = not yet decided (prompt on first use).
+     */
+    fun getConnectDecision(scriptId: Long, host: String): Boolean? {
+        val normalized = host.trim().lowercase()
+        if (normalized.isEmpty()) return null
+        return when (valueDao.getValue(scriptId, "$CONNECT_DECISION_KEY_PREFIX$normalized")) {
+            "allow" -> true
+            "deny" -> false
+            else -> null
+        }
+    }
+
+    fun setConnectDecision(scriptId: Long, host: String, allow: Boolean) {
+        val normalized = host.trim().lowercase()
+        if (normalized.isEmpty()) return
+        val key = "$CONNECT_DECISION_KEY_PREFIX$normalized"
+        valueDao.setValue(UserScriptValueItem(scriptId, key, if (allow) "allow" else "deny"))
     }
     // endregion
 
     companion object {
         private const val TAG = "UserScriptManager"
+        const val CONNECT_DECISION_KEY_PREFIX = "__onyx_connect_decision_"
         private val requireCache = ConcurrentHashMap<String, String>()
 
         private const val RUNTIME_BOOTSTRAP =

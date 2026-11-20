@@ -204,4 +204,62 @@ class UserScriptMetadataTest {
         assertFalse(UserScriptMetadata.isNewer("1.0.0", "1.0.0"))
         assertFalse(UserScriptMetadata.isNewer("1.0.0-beta", "1.0.0"))
     }
+
+    @Test
+    fun `parse extracts inject-into and sandbox modes and resolves isolation`() {
+        val pageScript = """
+            // ==UserScript==
+            // @name PageInject
+            // @grant GM_getValue
+            // @inject-into page
+            // ==/UserScript==
+        """.trimIndent()
+        val pageMeta = UserScriptMetadata.parse(pageScript)
+        assertEquals(InjectInto.PAGE, pageMeta.injectInto)
+        assertFalse(pageMeta.isIsolatedWorld)
+
+        val contentScript = """
+            // ==UserScript==
+            // @name ContentInject
+            // @grant none
+            // @inject-into content
+            // ==/UserScript==
+        """.trimIndent()
+        val contentMeta = UserScriptMetadata.parse(contentScript)
+        assertEquals(InjectInto.CONTENT, contentMeta.injectInto)
+        assertTrue(contentMeta.isIsolatedWorld)
+
+        val rawSandbox = """
+            // ==UserScript==
+            // @name RawSandbox
+            // @grant GM_setValue
+            // @sandbox raw
+            // ==/UserScript==
+        """.trimIndent()
+        val rawMeta = UserScriptMetadata.parse(rawSandbox)
+        assertEquals(SandboxMode.RAW, rawMeta.sandbox)
+        assertFalse(rawMeta.isIsolatedWorld)
+
+        val jsSandbox = """
+            // ==UserScript==
+            // @name JsSandbox
+            // @grant none
+            // @sandbox JavaScript
+            // ==/UserScript==
+        """.trimIndent()
+        val jsMeta = UserScriptMetadata.parse(jsSandbox)
+        assertEquals(SandboxMode.JAVASCRIPT, jsMeta.sandbox)
+        assertTrue(jsMeta.isIsolatedWorld)
+
+        val domSandbox = """
+            // ==UserScript==
+            // @name DomSandbox
+            // @grant none
+            // @sandbox DOM
+            // ==/UserScript==
+        """.trimIndent()
+        val domMeta = UserScriptMetadata.parse(domSandbox)
+        assertEquals(SandboxMode.DOM, domMeta.sandbox)
+        assertTrue(domMeta.isIsolatedWorld)
+    }
 }

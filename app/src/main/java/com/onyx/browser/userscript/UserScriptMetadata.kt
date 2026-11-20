@@ -6,6 +6,19 @@ enum class RunAt {
     DOCUMENT_IDLE
 }
 
+enum class InjectInto(val value: String) {
+    AUTO("auto"),
+    PAGE("page"),
+    CONTENT("content")
+}
+
+enum class SandboxMode(val value: String) {
+    DEFAULT("default"),
+    RAW("raw"),
+    JAVASCRIPT("JavaScript"),
+    DOM("DOM")
+}
+
 data class UserScriptResource(
     val name: String,
     val url: String
@@ -30,6 +43,8 @@ data class UserScriptMetadata(
     val runAt: RunAt,
     val noFrames: Boolean = false,
     val unwrap: Boolean = false,
+    val injectInto: InjectInto = InjectInto.AUTO,
+    val sandbox: SandboxMode = SandboxMode.DEFAULT,
     val updateUrl: String = "",
     val downloadUrl: String = "",
     val icon: String = ""
@@ -52,21 +67,30 @@ data class UserScriptMetadata(
 
     /**
      * Determines whether the userscript should execute within an isolated execution world scope.
-     * Following the Tampermonkey standard:
-     * - Scripts with `@grant none` (or no grants) or `@unwrap` run directly in the host page's world.
-     * - Scripts requesting `GM_*` grants execute within an isolated scope sandbox with `unsafeWindow`.
+     * Following the Tampermonkey / Violentmonkey standard:
+     * - `@unwrap`, `@inject-into page`, or `@sandbox raw` always execute in the host page's world.
+     * - `@inject-into content`, `@sandbox JavaScript`, or `@sandbox DOM` force an isolated sandbox world.
+     * - Under `@inject-into auto` and `@sandbox default`: scripts with `@grant none` (or no grants) run
+     *   in the host page's world, while scripts requesting `GM_*` or `unsafeWindow` grants run in an isolated world.
      */
     val isIsolatedWorld: Boolean
-        get() = !unwrap && grants.none { it.equals("none", ignoreCase = true) } &&
-                (requiresNativeBridge || grants.any {
-                    it.startsWith("GM", ignoreCase = true) ||
-                            it.equals("unsafeWindow", ignoreCase = true) ||
-                            it.startsWith("window.", ignoreCase = true)
-                })
+        get() {
+            if (unwrap) return false
+            if (sandbox == SandboxMode.RAW || injectInto == InjectInto.PAGE) return false
+            if (sandbox == SandboxMode.JAVASCRIPT || sandbox == SandboxMode.DOM || injectInto == InjectInto.CONTENT) return true
+            return grants.none { it.equals("none", ignoreCase = true) } &&
+                    (requiresNativeBridge || grants.any {
+                        it.startsWith("GM", ignoreCase = true) ||
+                                it.equals("unsafeWindow", ignoreCase = true) ||
+                                it.startsWith("window.", ignoreCase = true)
+                    })
+        }
 
     companion object {
         private val NATIVE_APIS = listOf(
-            "getValue", "setValue", "deleteValue", "listValues", "xmlhttpRequest",
+            "getValue", "setValue", "deleteValue", "listValues",
+            "getValues", "setValues", "deleteValues", "getTab", "saveTab", "getTabs",
+            "xmlhttpRequest",
             "download", "registerMenuCommand", "unregisterMenuCommand", "openInTab",
             "setClipboard", "notification", "log", "getResourceText", "getResourceUrl",
             "getResourceURL", "addValueChangeListener", "removeValueChangeListener"
@@ -102,6 +126,19 @@ data class UserScriptMetadata(
                 else -> RunAt.DOCUMENT_END
             }
 
+            val injectInto = when (first("inject-into").lowercase()) {
+                "page" -> InjectInto.PAGE
+                "content" -> InjectInto.CONTENT
+                else -> InjectInto.AUTO
+            }
+
+            val sandbox = when (first("sandbox").lowercase()) {
+                "raw" -> SandboxMode.RAW
+                "javascript", "js" -> SandboxMode.JAVASCRIPT
+                "dom" -> SandboxMode.DOM
+                else -> SandboxMode.DEFAULT
+            }
+
             val resources = mutableListOf<UserScriptResource>()
             tags["resource"]?.forEach { entry ->
                 val parts = entry.trim().split(Regex("""\s+"""), limit = 2)
@@ -126,6 +163,8 @@ data class UserScriptMetadata(
                 runAt = runAt,
                 noFrames = tags.containsKey("noframes"),
                 unwrap = tags.containsKey("unwrap"),
+                injectInto = injectInto,
+                sandbox = sandbox,
                 updateUrl = first("updateurl"),
                 downloadUrl = first("downloadurl"),
                 icon = first("icon", "iconurl", "defaulticon")

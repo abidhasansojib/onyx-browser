@@ -19,7 +19,7 @@ class JsSyntaxSpan(color: Int) : ForegroundColorSpan(color)
 object UserScriptSyntaxHighlighter {
 
     private val METADATA_PATTERN = Pattern.compile(
-        """//\s*==/?UserScript==|//\s*@(?:name|namespace|version|description|author|match|include|exclude|exclude-match|require|resource|connect|grant|run-at|noframes|unwrap|updateURL|downloadURL|icon)\b.*""",
+        """//\s*==/?UserScript==|//\s*@(?:name|namespace|version|description|author|match|include|exclude|exclude-match|require|resource|connect|grant|run-at|noframes|unwrap|inject-into|sandbox|updateURL|downloadURL|icon)\b.*""",
         Pattern.CASE_INSENSITIVE
     )
 

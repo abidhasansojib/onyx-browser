@@ -1,21 +1,26 @@
 package com.onyx.browser.userscript
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
 import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.widget.Toast
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onyx.browser.download.DownloadEngineManager
 import com.onyx.browser.web.BrowserWebView
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -46,6 +51,7 @@ class UserScriptBridge(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val tokens = ConcurrentHashMap<String, ScriptSession>()
     private val activeCalls = ConcurrentHashMap<String, Call>()
+    private val inFlightConnectPrompts = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
 
     private val valueChangeListener = object : UserScriptManager.ValueChangeListener {
         override fun onValueChanged(scriptId: Long, key: String, oldValue: String?, newValue: String?) {
@@ -87,6 +93,8 @@ class UserScriptBridge(
         tokens.clear()
         activeCalls.values.forEach { runCatching { it.cancel() } }
         activeCalls.clear()
+        inFlightConnectPrompts.values.forEach { it.complete(false) }
+        inFlightConnectPrompts.clear()
     }
 
     fun destroy() {
@@ -155,32 +163,150 @@ class UserScriptBridge(
             val details = JSONObject(detailsJson)
             val url = details.getString("url")
 
-            // @connect domain enforcement (Tampermonkey spec §connect)
+            // @connect domain enforcement and first-use permission prompt (Tampermonkey spec §connect)
             // Request ID format: x_<scriptId>_<seq>_<timestamp> — parse scriptId to look up metadata
             val parsedScriptId = safeId.split("_").getOrNull(1)?.toLongOrNull()
             if (parsedScriptId != null) {
-                val connects = manager.getById(parsedScriptId)?.metadata?.connects ?: emptyList()
-                if (connects.isNotEmpty()) {
-                    val requestHost = try { URI(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
-                    val allowed = connects.any { domain ->
-                        val d = domain.trim().lowercase()
-                        d == "*" || d == "@nocheck" ||
-                                requestHost == d ||
-                                requestHost.endsWith(".$d")
-                    }
-                    if (!allowed) {
-                        val err = JSONObject().put("error", "GM_xmlhttpRequest blocked: host '$requestHost' not listed in @connect")
-                        webView.post {
-                            webView.evaluateJavascript(
-                                "window.__usXhrCallback && window.__usXhrCallback('$safeId', null, $err);",
-                                null
-                            )
-                        }
+                val parsedScript = manager.getById(parsedScriptId)
+                val connects = parsedScript?.metadata?.connects ?: emptyList()
+                val requestHost = try { URI(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+                if (requestHost.isNotEmpty()) {
+                    val savedDecision = manager.getConnectDecision(parsedScriptId, requestHost)
+                    if (savedDecision == false) {
+                        postXhrError(safeId, "GM_xmlhttpRequest denied by user for host '$requestHost'")
                         return
+                    }
+                    if (savedDecision != true) {
+                        val hasWildcard = connects.any {
+                            val d = it.trim().lowercase()
+                            d == "*" || d == "@nocheck"
+                        }
+                        if (!hasWildcard) {
+                            val listedInConnect = connects.any { domain ->
+                                val d = domain.trim().lowercase()
+                                d == "self" || requestHost == d || requestHost.endsWith(".$d")
+                            }
+                            scope.launch {
+                                val approved = promptConnectPermission(
+                                    scriptId = parsedScriptId,
+                                    scriptName = parsedScript?.metadata?.name ?: "Userscript",
+                                    host = requestHost,
+                                    listedInConnect = listedInConnect
+                                )
+                                if (approved) {
+                                    scope.launch(Dispatchers.IO) {
+                                        executeXhrCall(safeId, details, url)
+                                    }
+                                } else {
+                                    postXhrError(
+                                        safeId,
+                                        if (listedInConnect) {
+                                            "GM_xmlhttpRequest denied by user for @connect host '$requestHost'"
+                                        } else {
+                                            "GM_xmlhttpRequest blocked: host '$requestHost' not listed in @connect"
+                                        }
+                                    )
+                                }
+                            }
+                            return
+                        }
                     }
                 }
             }
 
+            executeXhrCall(safeId, details, url)
+        } catch (e: Exception) {
+            postXhrError(safeId, e.message ?: "invalid request")
+        }
+    }
+
+    private fun postXhrError(safeId: String, message: String) {
+        val err = JSONObject().put("error", message)
+        webView.post {
+            webView.evaluateJavascript(
+                "window.__usXhrCallback && window.__usXhrCallback('$safeId', null, $err);",
+                null
+            )
+        }
+    }
+
+    private fun findHostActivity(context: Context): Activity? {
+        var ctx: Context? = context
+        while (ctx is ContextWrapper) {
+            if (ctx is Activity) return ctx
+            ctx = ctx.baseContext
+        }
+        return null
+    }
+
+    private suspend fun promptConnectPermission(
+        scriptId: Long,
+        scriptName: String,
+        host: String,
+        listedInConnect: Boolean
+    ): Boolean {
+        val normalizedHost = host.trim().lowercase()
+        manager.getConnectDecision(scriptId, normalizedHost)?.let { return it }
+
+        val key = "$scriptId:$normalizedHost"
+        val newDeferred = CompletableDeferred<Boolean>()
+        val existing = inFlightConnectPrompts.putIfAbsent(key, newDeferred)
+        if (existing != null) {
+            return existing.await()
+        }
+
+        val result = withContext(Dispatchers.Main) {
+            val activity = findHostActivity(webView.context)
+            if (activity == null || activity.isFinishing || activity.isDestroyed) {
+                return@withContext listedInConnect
+            }
+
+            val deferred = CompletableDeferred<Boolean>()
+            val statusLine = if (listedInConnect) {
+                "This domain is declared in the script's @connect metadata."
+            } else {
+                "Warning: This domain is NOT declared in the script's @connect metadata."
+            }
+            val message = "\"$scriptName\" is requesting cross-origin network access via GM_xmlhttpRequest to:\n\n" +
+                    "• Domain: $normalizedHost\n\n$statusLine"
+
+            try {
+                MaterialAlertDialogBuilder(activity)
+                    .setTitle("Userscript Network Access")
+                    .setMessage(message)
+                    .setCancelable(true)
+                    .setPositiveButton("Always Allow") { _, _ ->
+                        scope.launch(Dispatchers.IO) {
+                            manager.setConnectDecision(scriptId, normalizedHost, true)
+                        }
+                        deferred.complete(true)
+                    }
+                    .setNeutralButton("Allow Once") { _, _ ->
+                        deferred.complete(true)
+                    }
+                    .setNegativeButton("Deny") { _, _ ->
+                        scope.launch(Dispatchers.IO) {
+                            manager.setConnectDecision(scriptId, normalizedHost, false)
+                        }
+                        deferred.complete(false)
+                    }
+                    .setOnCancelListener {
+                        deferred.complete(false)
+                    }
+                    .show()
+            } catch (_: Exception) {
+                deferred.complete(listedInConnect)
+            }
+            deferred.await()
+        }
+
+        newDeferred.complete(result)
+        inFlightConnectPrompts.remove(key, newDeferred)
+        return result
+    }
+
+    private fun executeXhrCall(safeId: String, details: JSONObject, url: String) {
+        try {
             val method = details.optString("method", "GET").ifBlank { "GET" }.uppercase()
             val hasBody = details.has("data") && !details.isNull("data")
             val mediaTypeHeader = details.optJSONObject("headers")?.optString("Content-Type")
@@ -232,13 +358,7 @@ class UserScriptBridge(
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
                     activeCalls.remove(safeId)
-                    val err = JSONObject().put("error", e.message ?: "network error")
-                    webView.post {
-                        webView.evaluateJavascript(
-                            "window.__usXhrCallback && window.__usXhrCallback('$safeId', null, $err);",
-                            null
-                        )
-                    }
+                    postXhrError(safeId, e.message ?: "network error")
                 }
 
                 override fun onResponse(call: Call, response: Response) {
@@ -285,13 +405,7 @@ class UserScriptBridge(
                 }
             })
         } catch (e: Exception) {
-            val err = JSONObject().put("error", e.message ?: "invalid request")
-            webView.post {
-                webView.evaluateJavascript(
-                    "window.__usXhrCallback && window.__usXhrCallback('$safeId', null, $err);",
-                    null
-                )
-            }
+            postXhrError(safeId, e.message ?: "invalid request")
         }
     }
 
