@@ -154,6 +154,33 @@ class UserScriptBridge(
         try {
             val details = JSONObject(detailsJson)
             val url = details.getString("url")
+
+            // @connect domain enforcement (Tampermonkey spec §connect)
+            // Request ID format: x_<scriptId>_<seq>_<timestamp> — parse scriptId to look up metadata
+            val parsedScriptId = safeId.split("_").getOrNull(1)?.toLongOrNull()
+            if (parsedScriptId != null) {
+                val connects = manager.getById(parsedScriptId)?.metadata?.connects ?: emptyList()
+                if (connects.isNotEmpty()) {
+                    val requestHost = try { URI(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+                    val allowed = connects.any { domain ->
+                        val d = domain.trim().lowercase()
+                        d == "*" || d == "@nocheck" ||
+                                requestHost == d ||
+                                requestHost.endsWith(".$d")
+                    }
+                    if (!allowed) {
+                        val err = JSONObject().put("error", "GM_xmlhttpRequest blocked: host '$requestHost' not listed in @connect")
+                        webView.post {
+                            webView.evaluateJavascript(
+                                "window.__usXhrCallback && window.__usXhrCallback('$safeId', null, $err);",
+                                null
+                            )
+                        }
+                        return
+                    }
+                }
+            }
+
             val method = details.optString("method", "GET").ifBlank { "GET" }.uppercase()
             val hasBody = details.has("data") && !details.isNull("data")
             val mediaTypeHeader = details.optJSONObject("headers")?.optString("Content-Type")
@@ -258,7 +285,6 @@ class UserScriptBridge(
                 }
             })
         } catch (e: Exception) {
-            val safeId = id.replace("'", "")
             val err = JSONObject().put("error", e.message ?: "invalid request")
             webView.post {
                 webView.evaluateJavascript(

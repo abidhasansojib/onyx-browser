@@ -167,7 +167,7 @@ class BrowserWebView @JvmOverloads constructor(
         try {
             userScriptHandler?.remove()
             userScriptHandler = null
-            val script = userScriptManager.buildCombinedScript() ?: return
+            val script = userScriptManager.buildCombinedScript(isIncognito = isIncognito) ?: return
             userScriptHandler = androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                 this,
                 script,

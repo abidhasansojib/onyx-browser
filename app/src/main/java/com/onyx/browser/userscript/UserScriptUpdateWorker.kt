@@ -22,8 +22,29 @@ class UserScriptUpdateWorker(
             Log.i(TAG, "Starting periodic background userscript update check (attempt $runAttemptCount)...")
             val manager = UserScriptManager.getInstance(applicationContext)
             val results = manager.checkAndUpdateAll()
-            val updatedCount = results.count { it.second is UpdateResult.Updated }
+            val updatedScripts = results.filter { it.second is UpdateResult.Updated }
+            val updatedCount = updatedScripts.size
             Log.i(TAG, "Periodic userscript update check completed; updated $updatedCount scripts")
+
+            // Notify user of which scripts were updated in the background
+            if (updatedCount > 0) {
+                val names = updatedScripts.joinToString(", ") { it.first.name }
+                val title = if (updatedCount == 1) "Userscript Updated" else "$updatedCount Userscripts Updated"
+                val text = if (updatedCount == 1) {
+                    val r = updatedScripts.first().second as UpdateResult.Updated
+                    "${updatedScripts.first().first.name}: v${r.from} → v${r.to}"
+                } else {
+                    names
+                }
+                UserScriptNotificationHelper.showNotification(
+                    context = applicationContext,
+                    scriptName = "Userscript Updater",
+                    title = title,
+                    text = text,
+                    origin = ""
+                )
+            }
+
             Result.success()
         } catch (t: Throwable) {
             Log.e(TAG, "Periodic userscript update threw exception", t)

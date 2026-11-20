@@ -10,6 +10,9 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -223,6 +226,11 @@ class UserScriptManager private constructor(private val context: Context) {
                 val body = resp.body?.string().orEmpty()
                 resp.close()
                 if (body.isNotBlank()) {
+                    // LRU-style cap: evict oldest entries when cache exceeds 50 items to prevent
+                    // unbounded memory growth from large @require libraries (jQuery, lodash, etc.)
+                    if (requireCache.size >= 50) {
+                        requireCache.keys.take(20).forEach { requireCache.remove(it) }
+                    }
                     requireCache[url] = body
                     arr.put(JSONObject().put("url", url).put("source", body))
                 }
@@ -314,7 +322,7 @@ class UserScriptManager private constructor(private val context: Context) {
                 !UserScriptUrlMatcher.isExcluded(url, m.excludes)
     }
 
-    fun buildCombinedScript(): String? {
+    fun buildCombinedScript(isIncognito: Boolean = false): String? {
         val prefs = BrowserPreferences.getInstance(context)
         if (prefs.isGlobalScriptBlockingEnabled || !prefs.isJavaScriptEnabledGlobal) return null
 
@@ -324,16 +332,16 @@ class UserScriptManager private constructor(private val context: Context) {
         val builder = StringBuilder()
         builder.append(RUNTIME_BOOTSTRAP).append('\n')
         for (parsed in active) {
-            builder.append(buildScriptBlock(parsed)).append('\n')
+            builder.append(buildScriptBlock(parsed, isIncognito)).append('\n')
         }
         return builder.toString()
     }
 
-    fun buildInjectionJs(parsed: ParsedUserScript, token: String = ""): String {
-        return buildScriptBlock(parsed)
+    fun buildInjectionJs(parsed: ParsedUserScript, token: String = "", isIncognito: Boolean = false): String {
+        return buildScriptBlock(parsed, isIncognito)
     }
 
-    private fun buildScriptBlock(parsed: ParsedUserScript): String {
+    private fun buildScriptBlock(parsed: ParsedUserScript, isIncognito: Boolean = false): String {
         val meta = parsed.metadata
         val excludePatterns = meta.excludes.mapNotNull { UserScriptUrlMatcher.globToRegexSource(it) }
         val matchPatterns = meta.matches.mapNotNull { UserScriptUrlMatcher.matchPatternToRegexSource(it) } +
@@ -403,7 +411,7 @@ class UserScriptManager private constructor(private val context: Context) {
                 "  scriptHandler: 'OnyxBrowser',\n" +
                 "  scriptMetaStr: null,\n" +
                 "  scriptWillUpdate: false,\n" +
-                "  isIncognito: false,\n" +
+                "  isIncognito: $isIncognito,\n" +
                 "  downloadMode: 'native'\n" +
                 "};\n" +
                 "var unsafeWindow = window;\n" +
@@ -744,22 +752,9 @@ class UserScriptManager private constructor(private val context: Context) {
                 "  }\n" +
                 "}\n" +
                 "__attemptRun();\n" +
-                "window.addEventListener('onyx:urlchange', function() { __attemptRun(); });\n" +
-                "window.addEventListener('yt-navigate-finish', function() { __attemptRun(); });\n" +
+                "window.addEventListener('onyx:urlchange', function() { __hasExecuted = false; __attemptRun(); });\n" +
+                "window.addEventListener('yt-navigate-finish', function() { __hasExecuted = false; __attemptRun(); });\n" +
                 "})();\n"
-    }
-
-    private fun loadShimAsset(): String {
-        return try {
-            try {
-                context.assets.open("userscript_gm_shim.js").bufferedReader().use { it.readText() }
-            } catch (_: Exception) {
-                context.assets.open("userscript_gm_shim.js").bufferedReader().use { it.readText() }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load userscript_gm_shim.js asset", e)
-            ""
-        }
     }
 
     private fun buildGmInfo(parsed: ParsedUserScript): String {
@@ -942,8 +937,13 @@ class UserScriptManager private constructor(private val context: Context) {
             return@withContext UpdateResult.UpToDate
         }
 
-        val downloadUrl = meta.downloadUrl.ifEmpty { sourceUrl }.ifEmpty { checkUrl }
+        // Prefer @downloadURL, then sourceUrl. Never fall back to checkUrl (which may be a
+        // metadata-only .meta.js URL) — writing a metadata-only body would corrupt the script.
+        val downloadUrl = meta.downloadUrl.ifEmpty { sourceUrl }
+        if (downloadUrl.isBlank()) return@withContext UpdateResult.Failed("No @downloadURL or source URL to fetch updated code")
+
         val newCode = if (downloadUrl == checkUrl) {
+            // The @updateURL and @downloadURL both point to the same full script — reuse fetched body
             checkBody
         } else {
             try {
@@ -953,22 +953,33 @@ class UserScriptManager private constructor(private val context: Context) {
             } ?: return@withContext UpdateResult.Failed("Empty script downloaded")
         }
 
+        // Sanity-check: refuse to overwrite with a metadata-only body (no executable JS)
+        val hasExecutableCode = newCode.lines().any { line ->
+            val trimmed = line.trim()
+            trimmed.isNotBlank() && !trimmed.startsWith("//") && !trimmed.startsWith("/*") && !trimmed.startsWith("*")
+        }
+        if (!hasExecutableCode) return@withContext UpdateResult.Failed("Downloaded file contains no executable code (possible .meta.js URL)")
+
         updateScript(id, newCode, sourceUrl = downloadUrl)
         UpdateResult.Updated(from = meta.version, to = remoteMeta.version)
     }
 
     suspend fun checkAndUpdateAll(): List<Pair<UserScriptItem, UpdateResult>> = withContext(Dispatchers.IO) {
-        val results = mutableListOf<Pair<UserScriptItem, UpdateResult>>()
         val currentScripts = userScriptDao.getAll()
-        for (item in currentScripts) {
-            val res = checkAndUpdate(item.id)
-            results.add(item to res)
+        // Run all update checks in parallel — each is an independent network round-trip
+        coroutineScope {
+            currentScripts.map { item ->
+                async { item to checkAndUpdate(item.id) }
+            }.awaitAll()
         }
-        results
     }
 
     private fun httpGet(url: String): String? {
-        val request = Request.Builder().url(url).build()
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36")
+            .header("Accept", "*/*")
+            .build()
         return httpClient.newCall(request).execute().use { response ->
             if (response.isSuccessful) response.body?.string() else null
         }
