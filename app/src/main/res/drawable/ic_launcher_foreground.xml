@@ -2,12 +2,13 @@
 <!--
     Launcher icon foreground — references the density-specific logo PNGs
     placed in each mipmap-{density} folder.
-    The logo.jpeg from /storage/emulated/0 has been resized to:
-      mipmap-mdpi     : 108x108 dp  (foreground), 48x48 dp (launcher)
-      mipmap-hdpi     : 162x162 dp  (foreground), 72x72 dp (launcher)
-      mipmap-xhdpi    : 216x216 dp  (foreground), 96x96 dp (launcher)
-      mipmap-xxhdpi   : 324x324 dp  (foreground), 144x144 dp (launcher)
-      mipmap-xxxhdpi  : 432x432 dp  (foreground), 192x192 dp (launcher)
+    The metallic emblem is rendered on a 108dp canvas with a 100% transparent
+    background, centered within the 66dp adaptive icon safe zone:
+      mipmap-mdpi     : 108x108 px (foreground), 48x48 px (legacy)
+      mipmap-hdpi     : 162x162 px (foreground), 72x72 px (legacy)
+      mipmap-xhdpi    : 216x216 px (foreground), 96x96 px (legacy)
+      mipmap-xxhdpi   : 324x324 px (foreground), 144x144 px (legacy)
+      mipmap-xxxhdpi  : 432x432 px (foreground), 192x192 px (legacy)
 -->
 <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
     android:src="@mipmap/ic_launcher_foreground"
