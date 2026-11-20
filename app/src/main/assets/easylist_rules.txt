@@ -36236,6 +36236,9 @@ funradio.fr##+js(trusted-set, getUserConsentStatus, json:{"dailymotion":true}, a
 @@||googletagmanager.com/gtag/js$domain=masstransitmag.com
 @@||google-analytics.com/analytics.js$domain=masstransitmag.com
 @@||google-analytics.com/plugins/ua/linkid.js$domain=masstransitmag.com
+||sy.ameblo.jp^$badfilter
+||sy.ameba.jp^$badfilter
+||sy.amebame.com^$badfilter
 &&sub19=undefined&sub20=undefined
 &action=js_stats
 &ev=PageView&
@@ -47940,6 +47943,7 @@ $third-party,xmlhttprequest,domain=opensubtitles.org
 ||feedblitz.com/imp?$third-party
 ||feedblitz.com^*.gif?$third-party
 ||feedify.net/thirdparty/json/track/
+||feliz.data.tm-awx.com/netro-web/batch
 ||feliz.data.tm-awx.com/smile-web-v2/batch
 ||fem.gprod.postmedia.digital/*/IIQUniversalID.js
 ||fgip.rosehosting.com^
@@ -76267,9 +76271,6 @@ search.rakuten.co.jp##+js(aeld, mouseup, sendClickEvent)
 ||ssai.api.streaks.jp/*/ad_info?
 ||stat.i3.dmm.com/plus/tracking.js
 ||stats.nhk.or.jp^
-||sy.ameba.jp^
-||sy.amebame.com^
-||sy.ameblo.jp^
 ||t.rentio.jp^
 ||t.syosetu.org^
 ||tanweb.net/wordpress/?rest_route=/sng/v1/page-count
@@ -78216,20 +78217,15 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||ads180.com^
 ||ads2.contentabc.com^
 ||ads2.femmefab.nl^
-||ads2.gamecity.net^
 ||ads2.virtual-nights.com^
 ||ads2.xnet.cz^
 ||ads2004.treiberupdate.de^
 ||ads24h.net^
 ||ads3-adnow.com^
-||ads3.gamecity.net^
 ||ads3.virtual-nights.com^
-||ads4.gamecity.net^
 ||ads4.virtual-nights.com^
 ||ads4homes.com^
 ||ads5.virtual-nights.com^
-||ads6.gamecity.net^
-||ads7.gamecity.net^
 ||adsafeprotected.com^
 ||adsatt.abc.starwave.com^
 ||adsatt.abcnews.starwave.com^
@@ -78285,7 +78281,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||adserver.omroepzeeland.nl^
 ||adserver.pampa.com.br^
 ||adserver.piksel.mk^
-||adserver.pl^
 ||adserver.portugalmail.net^
 ||adserver.pressboard.ca^
 ||adserver.sanomawsoy.fi^
@@ -78998,7 +78993,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||engage.windows.com^
 ||engagebdr.com^
 ||engageya.com^
-||engine.espace.netavenir.com^
 ||enginenetwork.com^
 ||enquisite.com^
 ||ensighten.com^
@@ -79190,7 +79184,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||hits.theguardian.com^
 ||hits4me.com^
 ||hitslink.com^
-||hittail.com^
 ||hlok.qertewrt.com^
 ||homepageking.de^
 ||hostedads.realitykings.com^
@@ -79215,7 +79208,6 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||i305175.net^
 ||ia.iinfo.cz^
 ||iad.anm.co.uk^
-||iadnet.com^
 ||ibillboard.com^
 ||icptrack.com^
 ||id5-sync.com^
@@ -79385,6 +79377,7 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||links-ranking.de^
 ||links.email.crunchbase.com^
 ||links.housekeep.com^
+||links.prosservice.fr^
 ||links.zoopla.co.uk^
 ||linkstorms.com^
 ||linkswaper.com^
@@ -80168,14 +80161,12 @@ m.youtube.com##+js(rc, paused-mode, , stay)
 ||ter-jrnl-oc.vidaahub.com^
 ||text-link-ads.com^
 ||textad.sexsearch.com^
-||textads.biz^
 ||textlinks.com^
 ||tfag.de^
 ||the-ozone-project.com^
 ||theadex.com^
 ||theadhost.com^
 ||theadsparks.com^
-||thebugs.ws^
 ||themoneytizer.com^
 ||therapistla.com^
 ||thirdparty.bnc.lt^
