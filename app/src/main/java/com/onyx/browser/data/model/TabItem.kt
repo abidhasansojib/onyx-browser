@@ -15,5 +15,8 @@ data class TabItem(
     val createdAt: Long = System.currentTimeMillis(),
     var lastAccessedAt: Long = System.currentTimeMillis(),
     var isHibernated: Boolean = false,
-    var parentId: String? = null
+    var parentId: String? = null,
+    var groupId: String? = null,
+    var isArchived: Boolean = false,
+    var archivedAt: Long = 0L
 )

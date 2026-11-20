@@ -9,6 +9,7 @@ import com.onyx.browser.data.model.BookmarkItem
 import com.onyx.browser.data.model.DownloadItem
 import com.onyx.browser.data.model.HistoryItem
 import com.onyx.browser.data.model.SitePermissionEntity
+import com.onyx.browser.data.model.TabGroupItem
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.data.model.UserScriptItem
 import com.onyx.browser.data.model.UserScriptValueItem
@@ -21,6 +22,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [
         TabItem::class,
+        TabGroupItem::class,
         HistoryItem::class,
         BookmarkItem::class,
         DownloadItem::class,
@@ -28,11 +30,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         UserScriptValueItem::class,
         SitePermissionEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tabDao(): TabDao
+    abstract fun tabGroupDao(): TabGroupDao
     abstract fun historyDao(): HistoryDao
     abstract fun bookmarkDao(): BookmarkDao
     abstract fun downloadDao(): DownloadDao
@@ -121,6 +124,26 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tabs ADD COLUMN groupId TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE tabs ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tabs ADD COLUMN archivedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS tab_groups (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        colorHex TEXT NOT NULL DEFAULT '#FF5C38',
+                        position INTEGER NOT NULL DEFAULT 0,
+                        createdAt INTEGER NOT NULL DEFAULT 0,
+                        isCollapsed INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -146,7 +169,7 @@ abstract class AppDatabase : RoomDatabase() {
                         AppDatabase::class.java,
                         "onyx_browser_fallback.db"
                     )
-                        .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                        .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                         .fallbackToDestructiveMigration()
                         .build()
                         .also {
@@ -172,7 +195,7 @@ abstract class AppDatabase : RoomDatabase() {
                 "onyx_browser_secure.db"
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .fallbackToDestructiveMigration()
                 .build()
 

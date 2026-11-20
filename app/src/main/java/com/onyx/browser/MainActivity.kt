@@ -2978,6 +2978,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         updatePipParams()
+        if (isTabsRestored) {
+            tabManager.autoArchiveIdleTabs()
+        }
         binding.root.post {
             wv?.resumeTimers()
             wv?.requestFocus()

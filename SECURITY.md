@@ -1,56 +1,50 @@
 # Security Policy
 
-Onyx Browser is engineered with defense-in-depth privacy and security defaults. This document outlines the browser's security architecture and how to report vulnerabilities responsibly.
+Onyx Browser is built with defense-in-depth privacy and security defaults. This document outlines the security architecture and how to report vulnerabilities.
 
 ---
 
-## 1. Security Architecture Overview
+## 1. Security Architecture
 
-### On-Device Database Encryption (SQLCipher AES-256)
-- All persistent Room database tables (`OnyxDatabase` — tabs, bookmarks, browsing history, homepage shortcuts, download metadata, and per-site permissions in `SitePermissionEntity`) are encrypted at rest using **SQLCipher AES-256**.
-- Database encryption keys are generated and protected by the hardware-backed **Android KeyStore** (`KeyStoreManager`) and `EncryptedSharedPreferences`.
+### SQLCipher AES-256 Database Encryption
+- All Room database tables (`AppDatabase` — tabs, bookmarks, history, shortcuts, downloads, userscripts, and site permissions) are encrypted at rest with **SQLCipher AES-256**.
+- Master encryption keys are backed by the Android KeyStore (`SecureDatabaseKeyProvider`).
 
 ### Chromium Multi-Profile Isolation
-- Normal and Incognito browsing sessions are isolated at the engine level using AndroidX WebKit `ProfileStore` (`ProfileStore.getOrCreateProfile("incognito")` and `WebViewCompat.setProfile()`).
-- Incognito tabs use an isolated cookie jar, WebStorage, IndexedDB, and HTTP cache partition that is purged immediately when all incognito tabs are closed (`TabManager.purgeIncognitoProfile()`), with in-memory-only bundle hibernation (`incognitoStateBundles`) so private tab state never touches disk.
-- Private sessions enforce `EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING` across both the Omnibox and in-page WebView input connections to prevent keyboard personalized learning and clipboard history retention.
+- Normal and Incognito sessions are isolated at the engine level via AndroidX WebKit `ProfileStore` (`WebViewCompat.setProfile(webView, "incognito")`).
+- Incognito tabs use an ephemeral cookie jar, WebStorage, IndexedDB, and HTTP cache partition purged when all incognito tabs close, with tab state held strictly in memory (`incognitoStateBundles`).
+- Private sessions enforce `EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING` on the omnibox and WebView input connections.
 
 ### WebAuthn & Passkey Origin Verification
-- `PasskeyWebAuthnBridge` marshals all `@JavascriptInterface` calls onto the Main UI thread before reading `webView.url`, validates `rpId` domain suffixes and subframe `crossOrigin` restrictions, and passes verified web `origin` + `clientDataHash` to Android `CredentialManager` (`CREDENTIAL_MANAGER_SET_ORIGIN`), never falling back to `origin = null` native app credentials.
-- Canonical `clientDataJSON` matching `clientDataHash` is verified and injected so Relying Party SHA-256 signature checks succeed against hardware/provider authenticators.
+- `PasskeyWebAuthnBridge` marshals `@JavascriptInterface` calls onto the main UI thread before reading `webView.url`, validates `rpId` domain suffixes and subframe `crossOrigin` bounds, and passes verified web `origin` + `clientDataHash` to Android `CredentialManager` (`CREDENTIAL_MANAGER_SET_ORIGIN`).
+- Canonical `clientDataJSON` matching `clientDataHash` is verified and injected so Relying Party SHA-256 signature checks succeed.
 
-### Network Interception, CSP Injection & Bridge Hardening
-- Network requests traverse the `RequestInterceptor` pipeline (`HttpsUpgradeInterceptor`, `AuthBypassInterceptor`, `AdBlockRequestInterceptor`, and `PrivacyUrlSanitizer`) backed by Brave's memory-safe Rust engine (`adblock-rust` / `libadblock_bridge.so`).
-- `$csp` filter directives are injected at document start via `<meta http-equiv="Content-Security-Policy">` after stripping `<meta>`-invalid directives and scoping `worker-src` to `blob:`.
-- Modern asynchronous bridges (`OnyxTouchBridge`, `OnyxFormBridge`, `OnyxBlobBridge`) use `WebViewCompat.addWebMessageListener` where supported rather than exposing reflective Java objects on `window`.
-- UserScripts execute inside isolated IIFEs with capability tokens and enforce explicit `@connect` domain review before `GM_xmlhttpRequest` cross-origin calls.
+### Network Interception, Bridges & Userscript Sandbox
+- Network requests pass through `RequestInterceptor` (`HttpsUpgradeInterceptor`, `AuthBypassInterceptor`, `AdBlockRequestInterceptor`, `PrivacyUrlSanitizer`) backed by `adblock-rust` (`libadblock_bridge.so`).
+- `$csp` filter directives are injected at document start via `<meta http-equiv="Content-Security-Policy">` with `worker-src` scoped to `blob:`.
+- Asynchronous bridges (`TouchBridge`, `FormBridge`, `BlobBridge`) use `WebViewCompat.addWebMessageListener` where supported rather than exposing reflective Java objects on `window`.
+- Userscripts support `@inject-into` and `@sandbox` isolation (running isolated scripts inside a `Proxy`-backed sandbox `window` separated from `unsafeWindow`) and enforce a per-script, per-domain first-use user prompt before `GM_xmlhttpRequest` network calls.
 
 ### Zero Telemetry
-- Onyx Browser contains no analytics SDKs, crash-reporting telemetry, or background phoning home. Network connections are made exclusively for user navigation, configured search suggestions, DNS-over-HTTPS, and filter list updates.
+- Onyx Browser includes no analytics SDKs, crash-reporting telemetry, or background tracking. Network requests occur only for user navigation, configured search suggestions, DNS-over-HTTPS, and optional update checks (app, filter lists, userscripts).
 
 ---
 
 ## 2. Supported Versions
 
-Security fixes are applied to the latest release on the `main` branch.
+Security fixes apply to the latest release on `main`.
 
 | Version | Supported |
 | :--- | :--- |
 | Latest Release (`main`) | Yes |
-| Older Releases | No (upgrade to latest release) |
+| Older Releases | No |
 
 ---
 
 ## 3. Reporting a Vulnerability
 
-If you discover a security or privacy vulnerability in Onyx Browser (such as a sandbox/bridge bypass, credential origin spoofing, cross-profile data leak, or filter/CSP bypass):
+If you discover a security or privacy vulnerability (such as a bridge/sandbox bypass, origin spoofing, cross-profile data leak, or CSP bypass):
 
-1. **Do NOT open a public GitHub issue** for unpatched security vulnerabilities.
-2. **Use GitHub Private Vulnerability Reporting**:
-   - Navigate to the repository's [**Security Advisories**](https://github.com/abidhasansojib/onyx-browser/security/advisories/new) page and click **"Report a vulnerability"**.
-3. **Include the following details in your report**:
-   - Affected component or file (e.g., `PasskeyWebAuthnBridge.kt`, `ExternalNavigationHandler.kt`, `OnyxUserScriptBridge.kt`).
-   - Step-by-step reproduction instructions or a minimal proof-of-concept (HTML/JS snippet or URL).
-   - Impact assessment (what data or boundary is affected).
-
-We review all private vulnerability reports promptly and will coordinate a fix and advisory disclosure with credit to the reporter.
+1. **Do not open a public GitHub issue.**
+2. **Use GitHub Private Vulnerability Reporting** via the repository's [**Security Advisories**](https://github.com/abidhasansojib/onyx-browser/security/advisories/new) page.
+3. Include the affected component (e.g., `PasskeyWebAuthnBridge.kt`, `ExternalNavigationHandler.kt`, `UserScriptBridge.kt`), reproduction steps or proof-of-concept, and impact assessment.

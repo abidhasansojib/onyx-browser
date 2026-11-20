@@ -47,15 +47,24 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             combine(
                 tabManager.activeTab,
                 tabManager.normalTabs,
-                tabManager.incognitoTabs
-            ) { active, normal, incognito ->
-                Triple(active, normal.size, incognito.size)
-            }.collectLatest { (active, normalCount, incognitoCount) ->
+                tabManager.incognitoTabs,
+                tabManager.archivedTabs,
+                tabManager.tabGroups
+            ) { active, normal, incognito, archived, groups ->
+                listOf(active, normal.size, incognito.size, archived.size, groups.size)
+            }.collectLatest { values ->
+                val active = values[0] as? com.onyx.browser.data.model.TabItem
+                val normalCount = values[1] as Int
+                val incognitoCount = values[2] as Int
+                val archivedCount = values[3] as Int
+                val groupCount = values[4] as Int
                 _uiState.update { state ->
                     state.copy(
                         activeTab = active,
                         normalTabCount = normalCount,
                         incognitoTabCount = incognitoCount,
+                        archivedTabCount = archivedCount,
+                        tabGroupCount = groupCount,
                         isIncognito = active?.isIncognito ?: state.isIncognito
                     )
                 }

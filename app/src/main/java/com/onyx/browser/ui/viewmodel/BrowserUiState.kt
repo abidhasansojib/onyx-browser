@@ -6,6 +6,8 @@ data class BrowserUiState(
     val activeTab: TabItem? = null,
     val normalTabCount: Int = 0,
     val incognitoTabCount: Int = 0,
+    val archivedTabCount: Int = 0,
+    val tabGroupCount: Int = 0,
     val isLoading: Boolean = false,
     val progress: Int = 0,
     val canGoBack: Boolean = false,

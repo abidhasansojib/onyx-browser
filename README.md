@@ -1,70 +1,60 @@
 <div align="center">
 
-<img src="docs/logo.png" alt="Onyx Browser Logo" width="128" height="128" style="border-radius: 28px;" />
+<img src="docs/logo.png" alt="Onyx Browser Logo" width="120" height="120" style="border-radius: 26px;" />
 
 # Onyx Browser
 
-A fast, private, and lightweight browser for Android.
+A fast, privacy-focused Android browser with native Rust content blocking and a built-in userscript engine.
 
 [![Build & Release](https://github.com/abidhasansojib/onyx-browser/actions/workflows/build.yml/badge.svg)](https://github.com/abidhasansojib/onyx-browser/actions/workflows/build.yml)
 [![Latest Release](https://img.shields.io/github/v/release/abidhasansojib/onyx-browser?color=blue&label=Release)](https://github.com/abidhasansojib/onyx-browser/releases/latest)
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-3DDC84.svg?logo=android&logoColor=white)](https://developer.android.com)
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
 
-<br />
-
-[**Download APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**Features**](docs/FEATURES.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Contributing**](CONTRIBUTING.md) • [**Security**](SECURITY.md) • [**Report an Issue**](https://github.com/abidhasansojib/onyx-browser/issues)
+[**Download APK**](https://github.com/abidhasansojib/onyx-browser/releases/latest) • [**Features**](docs/FEATURES.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**WebView Guide**](docs/WEBVIEW.md) • [**Contributing**](CONTRIBUTING.md) • [**Security**](SECURITY.md)
 
 </div>
 
 ---
 
-## About
+## Key Capabilities
 
-Onyx is a clean and fast web browser for Android with built-in adblocking, background media playback, and on-device privacy.
-
----
-
-## Features
-
-- **Adblocking** – Blocks ads, popups, and trackers with Brave's native engine
-- **UserScripts** – Built-in Tampermonkey & Violentmonkey engine to run, import, and edit custom scripts
-- **Background Play & PiP** – Audio and video keep playing in the background, with Picture-in-Picture
-- **Private & Secure** – On-device encrypted storage, per-site shields, and zero tracking
-- **Fast & Lightweight** – Instant startup, low memory usage, and no background bloat
-- **Themes** – Google Light, Google Dark, and pure AMOLED black modes
-- **Smart Tools** – Passkeys, external download manager handoff, and built-in QR scanner
+- **Native Content Blocking** — Powered by Brave's `adblock-rust` (`libadblock_bridge.so`) with 54 filter lists, FlatBuffers binary caching, CNAME uncloaking, cosmetic/procedural filtering, and scriptlet injection.
+- **Userscript Engine** — Tampermonkey and Violentmonkey compatibility with document-start injection, `@inject-into` / `@sandbox` isolation, first-use `@connect` prompts, full `GM_*` / `GM.*` APIs, and a 120 FPS code editor.
+- **Background Media & PiP** — Uninterrupted background audio/video playback, lockscreen controls, and automatic Picture-in-Picture across inline and fullscreen video.
+- **Privacy & Security** — SQLCipher AES-256 encrypted Room database, Chromium `ProfileStore` multi-profile incognito isolation, WebAuthn Level 3 passkeys, DNS-over-HTTPS, and granular clear-on-exit.
+- **Modern UI** — Jetpack Compose and Material 3 screens (`OnyxTheme`) paired with a low-overhead ViewBinding WebView host, customizable top/bottom address bar, and Light/Dark/AMOLED themes.
 
 ---
 
 ## Download
 
-Get the latest APK from [**GitHub Releases**](https://github.com/abidhasansojib/onyx-browser/releases/latest):
+Download the latest signed APK from [**GitHub Releases**](https://github.com/abidhasansojib/onyx-browser/releases/latest):
 
-- **Most phones (recommended):** `arm64-v8a`
-- **Older phones (32-bit):** `armeabi-v7a`
-- **Emulators / PC:** `x86_64`
-- **Not sure?** Grab the `universal` build
+| Variant | Target Devices |
+| :--- | :--- |
+| `arm64-v8a` | Modern 64-bit ARM devices (Recommended) |
+| `armeabi-v7a` | Legacy 32-bit ARM devices |
+| `x86_64` | 64-bit x86 emulators and Chromebooks |
+| `universal` | All architectures in a single APK |
 
 ---
 
-## Built With & Architecture Highlights
+## Tech Stack
 
-- **Kotlin & Native Views** – Fast startup and low memory footprint with XML ViewBinding, UDF `StateFlow` ViewModels, and modular UI coordinators (`ToolbarLayoutDelegate`, `BrowserMenuCoordinator`, `NavigationCoordinator`)
-- **Rust NDK (`libadblock_bridge.so`)** – Brave's native `adblock-rust` engine with FlatBuffers binary rule caching and a Chain-of-Responsibility `RequestInterceptor` pipeline
-- **Hardened Chromium WebView** – Multi-Profile Incognito partitioning, WebAuthn Level 3 Passkey bridge, `ExternalNavigationHandler` intent routing, and Tampermonkey/Violentmonkey Userscript engine
-- **SQLCipher AES-256** – Full on-device Room database encryption (`OnyxDatabase`, `SitePermissionRepository`) backed by Android KeyStore master keys
-- **CameraX & ML Kit** – Fast on-device QR and barcode scanning
-
-See [Architecture & Core Subsystems](docs/ARCHITECTURE.md) and [WebView Engineering Guide](docs/WEBVIEW.md) for full technical details.
+- **UI**: Jetpack Compose (Material 3, Compose BOM `2024.10.01`, Kotlin 2.0.21) for screens, dialogs, and sheets; XML ViewBinding for `MainActivity` WebView and camera hosting.
+- **Engine**: Android System WebView + AndroidX WebKit (`Multi-Profile`, `DocumentStartJavaScript`, `WebMessageListener`, `UserAgentMetadata`).
+- **Native Core**: Rust NDK (`adblock-rust` -> `libadblock_bridge.so`) with JNI bridge (`AdBlockEngine`).
+- **Storage**: SQLCipher AES-256 encrypted Room (`AppDatabase`) backed by Android KeyStore.
+- **Background Work**: AndroidX WorkManager (`UpdateScheduler`) for 12-hour app, filter list, and userscript update checks.
 
 ---
 
 ## Building from Source
 
-### Option 1: Local Workstation Build (Linux / macOS / WSL2)
+### Local Workstation (Linux / macOS / WSL2)
 
-Prerequisites: **JDK 17**, **Android SDK (API 35)**, **Android NDK r26b+**, and **Rust stable** + `cargo-ndk`.
+Requires **JDK 17**, **Android SDK (API 35)**, **Android NDK r26b+**, and **Rust stable** with `cargo-ndk`.
 
 ```bash
 git clone --recurse-submodules https://github.com/abidhasansojib/onyx-browser.git
@@ -73,25 +63,16 @@ cd onyx-browser
 ./gradlew :core:common:test testReleaseUnitTest assembleRelease
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup instructions and development guidelines.
+### GitHub Actions CI
 
-### Option 2: GitHub Actions CI Build
+1. Fork the repository on GitHub.
+2. Open **Actions -> Build Onyx Browser** and click **Run workflow**.
+3. Select `Release` or `Prerelease` to build signed APKs and publish a GitHub Release.
 
-1. Fork this repository on GitHub.
-2. Go to the **Actions** tab in your GitHub fork.
-3. Choose **Build Onyx Browser** and click **Run workflow**.
-4. Your compiled APKs will be ready under **Releases** and **Artifacts**.
-
----
-
-## Credits
-
-- [Brave Software](https://brave.com) – for `adblock-rust` and adblocking filter lists
-- [Lucide Icons](https://lucide.dev) – for clean UI vectors
-- [SQLCipher](https://www.zetetic.net/sqlcipher/) – for database encryption
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and architecture details.
 
 ---
 
 ## License
 
-Onyx Browser is open-source under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
+Licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).

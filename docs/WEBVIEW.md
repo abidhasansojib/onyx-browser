@@ -9,7 +9,7 @@ This document provides a technical guide on Android WebView integration, archite
 ### 1.1 Full Browser vs. Embedded WebView
 In simple utility apps, `WebView` typically displays static content (e.g., terms of service or help pages). In Onyx Browser, `BrowserWebView` functions as a full-fledged browser rendering engine:
 - Manages multi-tab navigation, address bar coordination, tab switching, and window management.
-- Coordinates between native Android views (XML ViewBinding) and the underlying Chromium Blink engine.
+- Coordinates between the Android presentation layer (Jetpack Compose screens/sheets + XML ViewBinding host in `MainActivity`) and the underlying Chromium Blink engine.
 - Implements strict security boundaries, tracking protection, and isolated multi-profile sessions.
 
 ### 1.2 AndroidX WebKit Integration (`androidx.webkit:webkit`)

@@ -21,6 +21,7 @@ import android.webkit.WebViewDatabase
 import androidx.webkit.ProfileStore
 import androidx.webkit.WebViewFeature
 import com.onyx.browser.data.local.AppDatabase
+import com.onyx.browser.data.model.TabGroupItem
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.web.BrowserWebView
 import kotlinx.coroutines.CoroutineScope
@@ -79,6 +80,12 @@ class TabCoordinator(
 
     private val _normalTabs = MutableStateFlow<List<TabItem>>(emptyList())
     val normalTabs: StateFlow<List<TabItem>> = _normalTabs.asStateFlow()
+
+    private val _archivedTabs = MutableStateFlow<List<TabItem>>(emptyList())
+    val archivedTabs: StateFlow<List<TabItem>> = _archivedTabs.asStateFlow()
+
+    private val _tabGroups = MutableStateFlow<List<TabGroupItem>>(emptyList())
+    val tabGroups: StateFlow<List<TabGroupItem>> = _tabGroups.asStateFlow()
 
     private val _incognitoTabs = MutableStateFlow<List<TabItem>>(emptyList())
     val incognitoTabs: StateFlow<List<TabItem>> = _incognitoTabs.asStateFlow()
@@ -281,7 +288,7 @@ class TabCoordinator(
 
     fun cleanupOrphanedTabStates() {
         try {
-            val validIds = _normalTabs.value.map { it.id }.toSet()
+            val validIds = (_normalTabs.value + _archivedTabs.value).map { it.id }.toSet()
             val dir = getStateDir()
             dir.listFiles()?.forEach { file ->
                 val tabId = file.name.removePrefix("state_").removeSuffix(".bin")
@@ -411,17 +418,37 @@ class TabCoordinator(
     }
 
     suspend fun restoreTabs() = withContext(Dispatchers.IO) {
-        val savedTabs = database.tabDao().getAllNormalTabs()
-        if (savedTabs.isNotEmpty()) {
-            _normalTabs.value = savedTabs
+        val savedGroups = try {
+            database.tabGroupDao().getAllGroups()
+        } catch (_: Throwable) {
+            emptyList()
+        }
+        val validGroupIds = savedGroups.map { it.id }.toSet()
+        _tabGroups.value = savedGroups
+
+        val allSavedTabs = database.tabDao().getAllNormalTabs().map { tab ->
+            if (tab.groupId != null && tab.groupId !in validGroupIds) {
+                val cleaned = tab.copy(groupId = null)
+                try { database.tabDao().updateTab(cleaned) } catch (_: Throwable) {}
+                cleaned
+            } else {
+                tab
+            }
+        }
+        val activeSavedTabs = allSavedTabs.filter { !it.isArchived }
+        val archivedSavedTabs = allSavedTabs.filter { it.isArchived }.sortedByDescending { it.archivedAt }
+
+        _normalTabs.value = activeSavedTabs
+        _archivedTabs.value = archivedSavedTabs
+
+        if (activeSavedTabs.isNotEmpty()) {
             val lastActiveId = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).lastActiveTabId
-            val targetTab = savedTabs.find { it.id == lastActiveId } ?: savedTabs.first()
+            val targetTab = activeSavedTabs.find { it.id == lastActiveId } ?: activeSavedTabs.first()
             setActiveTab(targetTab)
-            cleanupOrphanedTabStates()
         } else {
-            _normalTabs.value = emptyList()
             setActiveTab(null)
         }
+        cleanupOrphanedTabStates()
         withContext(Dispatchers.Main) {
             purgeIncognitoProfile()
         }
@@ -519,20 +546,24 @@ class TabCoordinator(
     fun getTabById(tabId: String): TabItem? {
         return _normalTabs.value.firstOrNull { it.id == tabId }
             ?: _incognitoTabs.value.firstOrNull { it.id == tabId }
+            ?: _archivedTabs.value.firstOrNull { it.id == tabId }
     }
 
     fun createNewTab(
         url: String = "",
         isIncognito: Boolean = false,
-        parentId: String? = null
+        parentId: String? = null,
+        groupId: String? = null
     ): TabItem {
+        val effectiveGroupId = if (isIncognito) null else (groupId ?: parentId?.let { getTabById(it)?.groupId })
         val newTab = TabItem(
             id = UUID.randomUUID().toString(),
             url = url,
             title = if (url.isBlank()) "New Tab" else url,
             isIncognito = isIncognito,
             position = if (isIncognito) _incognitoTabs.value.size else _normalTabs.value.size,
-            parentId = parentId
+            parentId = parentId,
+            groupId = effectiveGroupId
         )
 
         if (isIncognito) {
@@ -549,13 +580,26 @@ class TabCoordinator(
     }
 
     fun selectTab(tab: TabItem) {
-        val updatedTab = tab.copy(lastAccessedAt = System.currentTimeMillis(), isHibernated = false)
+        val wasArchived = tab.isArchived
+        val updatedTab = tab.copy(
+            lastAccessedAt = System.currentTimeMillis(),
+            isHibernated = false,
+            isArchived = false,
+            archivedAt = 0L
+        )
         if (!updatedTab.isIncognito) {
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().updateTab(updatedTab)
             }
-            val newList = _normalTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
-            _normalTabs.value = newList
+            if (wasArchived) {
+                _archivedTabs.value = _archivedTabs.value.filter { it.id != updatedTab.id }
+                if (_normalTabs.value.none { it.id == updatedTab.id }) {
+                    _normalTabs.value = _normalTabs.value + updatedTab
+                }
+            } else {
+                val newList = _normalTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
+                _normalTabs.value = newList
+            }
         } else {
             val newList = _incognitoTabs.value.map { if (it.id == updatedTab.id) updatedTab else it }
             _incognitoTabs.value = newList
@@ -741,6 +785,413 @@ class TabCoordinator(
 
     fun hibernateIdleTabs() {
         hibernateBackgroundTabs(aggressive = false, maxAgeMs = 24 * 60 * 60 * 1000L)
+        autoArchiveIdleTabs()
+    }
+
+    /**
+     * Automatically archives normal background tabs that have been idle longer than
+     * the user's configured auto-archive threshold ([BrowserPreferences.tabAutoArchiveHours]).
+     * Never archives the active tab, incognito tabs, blank "New Tab" placeholders, or
+     * any tab actively playing media.
+     */
+    fun autoArchiveIdleTabs(): Int {
+        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+        val timeoutMs = prefs.getTabAutoArchiveTimeoutMs()
+        if (timeoutMs <= 0L) return 0
+
+        val now = System.currentTimeMillis()
+        val cutoff = now - timeoutMs
+        val activeId = _activeTab.value?.id
+        val playingId = com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId
+
+        val currentNormal = _normalTabs.value
+        val toArchive = currentNormal.filter { tab ->
+            !tab.isIncognito &&
+                !tab.isArchived &&
+                tab.id != activeId &&
+                tab.id != playingId &&
+                tab.url.isNotBlank() &&
+                !tab.url.equals("about:blank", ignoreCase = true) &&
+                tab.lastAccessedAt in 1 until cutoff
+        }
+
+        if (toArchive.isEmpty()) return 0
+
+        val archivedIds = toArchive.map { it.id }.toSet()
+        val newlyArchived = toArchive.map { tab ->
+            val wv = webViewPool.remove(tab.id)
+            if (wv != null) {
+                saveTabState(tab.id, wv)
+                wv.destroySafely()
+            }
+            val archivedTab = tab.copy(
+                isArchived = true,
+                archivedAt = now,
+                isHibernated = true
+            )
+            coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                database.tabDao().updateTab(archivedTab)
+            }
+            archivedTab
+        }
+
+        _normalTabs.value = currentNormal.filter { it.id !in archivedIds }
+        _archivedTabs.value = (newlyArchived + _archivedTabs.value).sortedByDescending { it.archivedAt }
+        return newlyArchived.size
+    }
+
+    fun archiveTab(tab: TabItem) {
+        if (tab.isIncognito || tab.isArchived) return
+        val now = System.currentTimeMillis()
+        val wasActive = (_activeTab.value?.id == tab.id)
+        val originalIndex = _normalTabs.value.indexOfFirst { it.id == tab.id }
+
+        if (tab.id == com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId) {
+            com.onyx.browser.media.MediaPlaybackBridge.onTabClosed(tab.id, context)
+        }
+
+        val wv = webViewPool.remove(tab.id)
+        if (wv != null) {
+            saveTabState(tab.id, wv)
+            wv.destroySafely()
+        }
+
+        val archivedTab = tab.copy(
+            isArchived = true,
+            archivedAt = now,
+            isHibernated = true
+        )
+
+        val remaining = _normalTabs.value.filter { it.id != tab.id }
+        _normalTabs.value = remaining
+        _archivedTabs.value = (listOf(archivedTab) + _archivedTabs.value.filter { it.id != tab.id })
+            .sortedByDescending { it.archivedAt }
+
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            database.tabDao().updateTab(archivedTab)
+        }
+
+        if (wasActive) {
+            if (remaining.isNotEmpty()) {
+                val nextIdx = originalIndex.coerceIn(0, remaining.size - 1)
+                setActiveTab(remaining[nextIdx])
+            } else {
+                setActiveTab(null)
+            }
+        }
+    }
+
+    fun unarchiveTab(tab: TabItem, makeActive: Boolean = false): TabItem {
+        val now = System.currentTimeMillis()
+        val validGroupIds = _tabGroups.value.map { it.id }.toSet()
+        val effectiveGroupId = tab.groupId?.takeIf { it in validGroupIds }
+        val restoredTab = tab.copy(
+            isArchived = false,
+            archivedAt = 0L,
+            lastAccessedAt = now,
+            groupId = effectiveGroupId,
+            position = _normalTabs.value.size
+        )
+
+        _archivedTabs.value = _archivedTabs.value.filter { it.id != tab.id }
+        if (_normalTabs.value.none { it.id == restoredTab.id }) {
+            _normalTabs.value = _normalTabs.value + restoredTab
+        } else {
+            _normalTabs.value = _normalTabs.value.map { if (it.id == restoredTab.id) restoredTab else it }
+        }
+
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            database.tabDao().updateTab(restoredTab)
+        }
+
+        if (makeActive || _activeTab.value == null) {
+            selectTab(restoredTab)
+        }
+        return restoredTab
+    }
+
+    fun unarchiveAllTabs() {
+        val toRestore = _archivedTabs.value
+        if (toRestore.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val validGroupIds = _tabGroups.value.map { it.id }.toSet()
+        val basePos = _normalTabs.value.size
+
+        val restoredList = toRestore.mapIndexed { idx, tab ->
+            tab.copy(
+                isArchived = false,
+                archivedAt = 0L,
+                lastAccessedAt = now,
+                groupId = tab.groupId?.takeIf { it in validGroupIds },
+                position = basePos + idx
+            )
+        }
+
+        _archivedTabs.value = emptyList()
+        _normalTabs.value = _normalTabs.value + restoredList
+
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            for (tab in restoredList) {
+                database.tabDao().updateTab(tab)
+            }
+        }
+
+        if (_activeTab.value == null && restoredList.isNotEmpty()) {
+            setActiveTab(restoredList.first())
+        }
+    }
+
+    fun closeAllArchivedTabs(canUndo: Boolean = true) {
+        val archived = _archivedTabs.value
+        if (archived.isEmpty()) return
+
+        val closingIds = archived.map { it.id }.toSet()
+        val candidateUrls = archived.mapNotNull { it.url.takeIf { u -> u.isNotBlank() } }
+        val states = mutableListOf<ClosedTabState>()
+
+        archived.forEachIndexed { index, tab ->
+            onTabClosedListener?.invoke(tab)
+            com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
+            val snapshot = snapshotCache.get(tab.id)
+            val savedBundle = loadBundleFromFile(getStateFile(tab.id))
+            if (canUndo) {
+                states.add(
+                    ClosedTabState(
+                        tab = tab,
+                        index = index,
+                        savedStateBundle = savedBundle,
+                        snapshot = snapshot,
+                        wasActive = false
+                    )
+                )
+            } else {
+                snapshotCache.remove(tab.id)
+                deleteTabState(tab.id)
+                try { getThumbnailFile(tab.id).delete() } catch (_: Exception) {}
+            }
+        }
+        autoclearTabData(candidateUrls, closingIds, isIncognito = false)
+
+        _archivedTabs.value = emptyList()
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            database.tabDao().clearArchivedTabs()
+        }
+
+        if (canUndo && states.isNotEmpty()) {
+            val batch = ClosedTabBatch(
+                states = states,
+                autoCreatedTabId = null,
+                isIncognito = false
+            )
+            closedBatchesStack.addLast(batch)
+            if (closedBatchesStack.size > 10) {
+                val oldest = closedBatchesStack.removeFirst()
+                finalizeClosedBatch(oldest)
+            }
+        }
+    }
+
+    // ── Tab Groups Management ────────────────────────────────────────────────
+
+    fun getGroupById(groupId: String?): TabGroupItem? {
+        if (groupId.isNullOrBlank()) return null
+        return _tabGroups.value.firstOrNull { it.id == groupId }
+    }
+
+    fun createTabGroup(
+        title: String,
+        colorHex: String = TabGroupItem.DEFAULT_COLOR_ORANGE,
+        initialTabIds: List<String> = emptyList()
+    ): TabGroupItem {
+        val cleanTitle = title.trim().ifBlank { "Tab Group" }
+        val cleanColor = if (colorHex.startsWith("#")) colorHex.uppercase() else "#${colorHex.uppercase()}"
+        val newGroup = TabGroupItem(
+            id = UUID.randomUUID().toString(),
+            title = cleanTitle,
+            colorHex = cleanColor,
+            position = _tabGroups.value.size,
+            createdAt = System.currentTimeMillis(),
+            isCollapsed = false
+        )
+
+        _tabGroups.value = _tabGroups.value + newGroup
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            database.tabGroupDao().insertGroup(newGroup)
+        }
+
+        if (initialTabIds.isNotEmpty()) {
+            val idSet = initialTabIds.toSet()
+            var hasChanges = false
+            val updatedNormal = _normalTabs.value.map { tab ->
+                if (tab.id in idSet && !tab.isIncognito) {
+                    hasChanges = true
+                    val grouped = tab.copy(groupId = newGroup.id)
+                    coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                        database.tabDao().updateTab(grouped)
+                    }
+                    grouped
+                } else {
+                    tab
+                }
+            }
+            if (hasChanges) {
+                _normalTabs.value = updatedNormal
+                _activeTab.value?.let { active ->
+                    if (active.id in idSet && !active.isIncognito) {
+                        setActiveTab(active.copy(groupId = newGroup.id))
+                    }
+                }
+            }
+        }
+
+        return newGroup
+    }
+
+    fun updateTabGroup(groupId: String, title: String, colorHex: String) {
+        val existing = getGroupById(groupId) ?: return
+        val cleanTitle = title.trim().ifBlank { existing.title }
+        val cleanColor = if (colorHex.startsWith("#")) colorHex.uppercase() else "#${colorHex.uppercase()}"
+        val updated = existing.copy(title = cleanTitle, colorHex = cleanColor)
+        _tabGroups.value = _tabGroups.value.map { if (it.id == groupId) updated else it }
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            database.tabGroupDao().updateGroup(updated)
+        }
+    }
+
+    fun toggleTabGroupCollapsed(groupId: String) {
+        val existing = getGroupById(groupId) ?: return
+        val updated = existing.copy(isCollapsed = !existing.isCollapsed)
+        _tabGroups.value = _tabGroups.value.map { if (it.id == groupId) updated else it }
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            database.tabGroupDao().updateGroup(updated)
+        }
+    }
+
+    fun assignTabToGroup(tabId: String, groupId: String?) {
+        val targetTab = getTabById(tabId) ?: return
+        if (targetTab.isIncognito) return
+        val updated = targetTab.copy(groupId = groupId)
+        if (updated.isArchived) {
+            _archivedTabs.value = _archivedTabs.value.map { if (it.id == tabId) updated else it }
+        } else {
+            _normalTabs.value = _normalTabs.value.map { if (it.id == tabId) updated else it }
+        }
+        if (_activeTab.value?.id == tabId) {
+            setActiveTab(updated)
+        }
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            database.tabDao().updateTab(updated)
+        }
+    }
+
+    fun ungroupAllInGroup(groupId: String) {
+        val updatedNormal = _normalTabs.value.map { tab ->
+            if (tab.groupId == groupId) tab.copy(groupId = null) else tab
+        }
+        val updatedArchived = _archivedTabs.value.map { tab ->
+            if (tab.groupId == groupId) tab.copy(groupId = null) else tab
+        }
+        _normalTabs.value = updatedNormal
+        _archivedTabs.value = updatedArchived
+        _activeTab.value?.let { active ->
+            if (active.groupId == groupId) {
+                setActiveTab(active.copy(groupId = null))
+            }
+        }
+        _tabGroups.value = _tabGroups.value.filter { it.id != groupId }
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            database.tabDao().ungroupTabsByGroupId(groupId)
+            database.tabGroupDao().deleteGroupById(groupId)
+        }
+    }
+
+    fun closeTabGroup(groupId: String, closeTabs: Boolean = true): Int {
+        if (!closeTabs) {
+            ungroupAllInGroup(groupId)
+            return 0
+        }
+
+        val tabsInGroup = _normalTabs.value.filter { it.groupId == groupId }
+        val archivedInGroup = _archivedTabs.value.filter { it.groupId == groupId }
+        val allInGroup = tabsInGroup + archivedInGroup
+
+        if (allInGroup.isEmpty()) {
+            _tabGroups.value = _tabGroups.value.filter { it.id != groupId }
+            coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                database.tabGroupDao().deleteGroupById(groupId)
+            }
+            return 0
+        }
+
+        val closingIds = allInGroup.map { it.id }.toSet()
+        if (closingIds.contains(com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId)) {
+            com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
+        }
+
+        val candidateUrls = mutableListOf<String>()
+        val states = mutableListOf<ClosedTabState>()
+
+        allInGroup.forEachIndexed { idx, tab ->
+            onTabClosedListener?.invoke(tab)
+            val webView = webViewPool.remove(tab.id)
+            tabDesktopModeStates.remove(tab.id)
+            tabDesktopModeExplicitToggles.remove(tab.id)
+            candidateUrls.addAll(extractCandidateUrls(tab, webView))
+            com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
+            var savedBundle: Bundle? = null
+            if (webView != null) {
+                try {
+                    val b = Bundle()
+                    val list = webView.saveState(b)
+                    if (list != null && list.size > 0) savedBundle = b
+                } catch (_: Throwable) {}
+            } else {
+                savedBundle = loadBundleFromFile(getStateFile(tab.id))
+            }
+            val snapshot = snapshotCache.get(tab.id)
+            val wasActive = (_activeTab.value?.id == tab.id)
+            webView?.destroySafely()
+
+            states.add(
+                ClosedTabState(
+                    tab = tab.copy(groupId = null),
+                    index = idx,
+                    savedStateBundle = savedBundle,
+                    snapshot = snapshot,
+                    wasActive = wasActive
+                )
+            )
+        }
+        autoclearTabData(candidateUrls, closingIds, isIncognito = false)
+
+        val remainingNormal = _normalTabs.value.filter { it.id !in closingIds }
+        val remainingArchived = _archivedTabs.value.filter { it.id !in closingIds }
+        _normalTabs.value = remainingNormal
+        _archivedTabs.value = remainingArchived
+        _tabGroups.value = _tabGroups.value.filter { it.id != groupId }
+
+        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            database.tabDao().deleteTabsByGroupId(groupId)
+            database.tabGroupDao().deleteGroupById(groupId)
+        }
+
+        if (_activeTab.value?.id in closingIds) {
+            setActiveTab(remainingNormal.lastOrNull())
+        }
+
+        if (states.isNotEmpty()) {
+            val batch = ClosedTabBatch(
+                states = states,
+                autoCreatedTabId = null,
+                isIncognito = false
+            )
+            closedBatchesStack.addLast(batch)
+            if (closedBatchesStack.size > 10) {
+                val oldest = closedBatchesStack.removeFirst()
+                finalizeClosedBatch(oldest)
+            }
+        }
+        return allInGroup.size
     }
 
     private fun extractRootDomain(host: String): String = com.onyx.browser.web.SiteDataManager.extractRootDomain(host)
@@ -1022,14 +1473,20 @@ class TabCoordinator(
             }
         }
 
-        val current = _normalTabs.value.toMutableList()
-        val toRestore = batch.states.map { it.tab }.filter { tab -> current.none { it.id == tab.id } }
+        val currentNormal = _normalTabs.value.toMutableList()
+        val currentArchived = _archivedTabs.value.toMutableList()
+        val existingIds = (currentNormal + currentArchived).map { it.id }.toSet()
+        val toRestore = batch.states.map { it.tab }.filter { it.id !in existingIds }
 
         val sortedStates = batch.states.sortedBy { it.index }
         for (state in sortedStates) {
             if (toRestore.any { it.id == state.tab.id }) {
-                val targetIdx = state.index.coerceIn(0, current.size)
-                current.add(targetIdx, state.tab)
+                if (state.tab.isArchived) {
+                    currentArchived.add(state.tab)
+                } else {
+                    val targetIdx = state.index.coerceIn(0, currentNormal.size)
+                    currentNormal.add(targetIdx, state.tab)
+                }
 
                 if (state.savedStateBundle != null) {
                     try {
@@ -1043,17 +1500,18 @@ class TabCoordinator(
                 }
             }
         }
-        _normalTabs.value = current
+        _normalTabs.value = currentNormal
+        _archivedTabs.value = currentArchived.sortedByDescending { it.archivedAt }
 
         coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             database.tabDao().insertTabs(toRestore)
         }
 
-        val activeState = batch.states.firstOrNull { it.wasActive }
-        if (activeState != null && current.any { it.id == activeState.tab.id }) {
+        val activeState = batch.states.firstOrNull { it.wasActive && !it.tab.isArchived }
+        if (activeState != null && currentNormal.any { it.id == activeState.tab.id }) {
             setActiveTab(activeState.tab)
         } else if (_activeTab.value == null || _activeTab.value?.id == batch.autoCreatedTabId) {
-            setActiveTab(current.lastOrNull())
+            setActiveTab(currentNormal.lastOrNull())
         }
 
         return batch
@@ -1072,8 +1530,11 @@ class TabCoordinator(
     }
 
     fun closeTab(tab: TabItem) {
-        val originalIndex = (if (tab.isIncognito) _incognitoTabs.value else _normalTabs.value)
-            .indexOfFirst { it.id == tab.id }
+        val originalIndex = when {
+            tab.isIncognito -> _incognitoTabs.value.indexOfFirst { it.id == tab.id }
+            tab.isArchived -> _archivedTabs.value.indexOfFirst { it.id == tab.id }
+            else -> _normalTabs.value.indexOfFirst { it.id == tab.id }
+        }
         val wasActive = _activeTab.value?.id == tab.id
 
         // Retrieve webview before destruction and extract candidate URLs
@@ -1099,6 +1560,8 @@ class TabCoordinator(
                     savedBundle = b
                 }
             } catch (_: Throwable) {}
+        } else if (!tab.isIncognito) {
+            savedBundle = loadBundleFromFile(getStateFile(tab.id))
         }
         val snapshot = snapshotCache.get(tab.id)
 
@@ -1133,6 +1596,12 @@ class TabCoordinator(
                     }
                 }
                 setActiveTab(nextTab)
+            }
+        } else if (tab.isArchived) {
+            _archivedTabs.value = _archivedTabs.value.filter { it.id != tab.id }
+            coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                database.tabDao().deleteTabById(tab.id)
+                database.tabDao().updateParentIdForChildren(tab.id, orphanParentId)
             }
         } else {
             val updated = _normalTabs.value
@@ -1184,7 +1653,7 @@ class TabCoordinator(
     }
 
     fun duplicateTab(tab: TabItem): TabItem {
-        val newTab = createNewTab(url = tab.url, isIncognito = tab.isIncognito, parentId = tab.id)
+        val newTab = createNewTab(url = tab.url, isIncognito = tab.isIncognito, parentId = tab.id, groupId = tab.groupId)
         val saved = tabDesktopModeStates[tab.id]
         if (saved != null) {
             tabDesktopModeStates[newTab.id] = saved
@@ -1267,7 +1736,7 @@ class TabCoordinator(
             }
         } else {
             val tabsToClose = _normalTabs.value
-            if (tabsToClose.isEmpty()) return
+            if (tabsToClose.isEmpty() && canUndo) return
 
             com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
 
@@ -1288,6 +1757,8 @@ class TabCoordinator(
                             savedBundle = b
                         }
                     } catch (_: Throwable) {}
+                } else {
+                    savedBundle = loadBundleFromFile(getStateFile(tab.id))
                 }
                 val snapshot = snapshotCache.get(tab.id)
                 val wasActive = (_activeTab.value?.id == tab.id)
@@ -1312,8 +1783,19 @@ class TabCoordinator(
             autoclearTabData(candidateUrls, closingIds, isIncognito = false)
 
             _normalTabs.value = emptyList()
+            if (!canUndo) {
+                _archivedTabs.value = emptyList()
+                _tabGroups.value = emptyList()
+            }
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
-                database.tabDao().clearNormalTabs()
+                if (canUndo) {
+                    for (tab in tabsToClose) {
+                        database.tabDao().deleteTabById(tab.id)
+                    }
+                } else {
+                    database.tabDao().clearNormalTabs()
+                    database.tabGroupDao().clearAllGroups()
+                }
             }
             if (_activeTab.value?.isIncognito != true) {
                 setActiveTab(null)
@@ -1330,7 +1812,7 @@ class TabCoordinator(
                     val oldest = closedBatchesStack.removeFirst()
                     finalizeClosedBatch(oldest)
                 }
-            } else {
+            } else if (!canUndo) {
                 finalizeAllClosedTabs()
             }
         }
@@ -1339,14 +1821,17 @@ class TabCoordinator(
     fun clearAllTabsAndDataForExit() {
         closeAllTabs(incognitoOnly = true, canUndo = false)
         closeAllTabs(incognitoOnly = false, canUndo = false)
+        _archivedTabs.value = emptyList()
+        _tabGroups.value = emptyList()
         closedBatchesStack.clear()
         clearAllThumbnailsAndCache()
     }
 
     fun closeTabsCreatedSince(sinceTime: Long) {
         val normalToClose = _normalTabs.value.filter { it.createdAt >= sinceTime }
+        val archivedToClose = _archivedTabs.value.filter { it.createdAt >= sinceTime }
         val incognitoToClose = _incognitoTabs.value.filter { it.createdAt >= sinceTime }
-        val allClosing = normalToClose + incognitoToClose
+        val allClosing = normalToClose + archivedToClose + incognitoToClose
         val closingIds = allClosing.map { it.id }.toSet()
 
         allClosing.forEach { onTabClosedListener?.invoke(it) }
@@ -1367,9 +1852,11 @@ class TabCoordinator(
         autoclearTabData(candidateUrls, closingIds)
 
         val remainingNormal = _normalTabs.value.filter { it.createdAt < sinceTime }
+        val remainingArchived = _archivedTabs.value.filter { it.createdAt < sinceTime }
         val remainingIncognito = _incognitoTabs.value.filter { it.createdAt < sinceTime }
 
         _normalTabs.value = remainingNormal
+        _archivedTabs.value = remainingArchived
         _incognitoTabs.value = remainingIncognito
 
         if (incognitoToClose.isNotEmpty() && remainingIncognito.isEmpty()) {
@@ -1377,7 +1864,7 @@ class TabCoordinator(
         }
 
         coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
-            for (tab in normalToClose) {
+            for (tab in (normalToClose + archivedToClose)) {
                 database.tabDao().deleteTabById(tab.id)
             }
         }

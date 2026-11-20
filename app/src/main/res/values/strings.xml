@@ -612,6 +612,20 @@
     <string name="undo">Undo</string>
     <string name="tab_closed_toast">Closed %s</string>
     <string name="tabs_closed_toast">Closed %1$d tabs</string>
+    <string name="tab_archived_toast">Archived %s</string>
+    <string name="tabs_archived_toast">Archived %1$d idle tabs</string>
+    <string name="tab_restored_toast">Restored %s</string>
+    <string name="new_tab_group">New Tab Group</string>
+    <string name="edit_tab_group">Edit Tab Group</string>
+    <string name="move_to_group">Move to group</string>
+    <string name="remove_from_group">Remove from group</string>
+    <string name="archive_tab">Archive tab</string>
+    <string name="restore_tab">Restore tab</string>
+    <string name="restore_all_tabs">Restore all</string>
+    <string name="archived_tabs">Archived Tabs</string>
+    <string name="auto_archive_settings">Auto-archive settings</string>
+    <string name="ungroup_tabs">Ungroup tabs</string>
+    <string name="close_group">Close group</string>
 
     <!-- Visual Element Blocker (Zapper) -->
     <string name="block_element">Block element</string>

@@ -87,6 +87,12 @@ class AppearancePreferences(private val browserPrefs: BrowserPreferences) {
             browserPrefs.isScrollToTopEnabled = value
         }
 
+    var tabAutoArchiveHours: Int
+        get() = browserPrefs.tabAutoArchiveHours
+        set(value) {
+            browserPrefs.tabAutoArchiveHours = value
+        }
+
     val shortcutsFlow: StateFlow<List<ShortcutItem>>
         get() = browserPrefs.shortcutsFlow
 

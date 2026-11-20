@@ -10,12 +10,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,6 +35,7 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.common.BiometricAuthHelper
 import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.components.PreferenceItem
+import com.onyx.browser.ui.components.RadioPreference
 import com.onyx.browser.ui.components.SwitchPreference
 import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
@@ -46,6 +52,8 @@ class AccessibilitySettingsActivity : FragmentActivity() {
     private var isPullToRefreshEnabled by mutableStateOf(false)
     private var isForceDarkModeEnabled by mutableStateOf(false)
     private var isBiometricIncognitoEnabled by mutableStateOf(false)
+    private var tabAutoArchiveHours by mutableIntStateOf(BrowserPreferences.TAB_ARCHIVE_7_DAYS)
+    private var showTabArchivePicker by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,8 +99,23 @@ class AccessibilitySettingsActivity : FragmentActivity() {
                     },
                     isBiometric = isBiometricIncognitoEnabled,
                     onBiometricRowClick = { handleBiometricToggle() },
-                    onPinWidgetClick = { SearchWidgetManager.requestPinSearchWidget(this) }
+                    onPinWidgetClick = { SearchWidgetManager.requestPinSearchWidget(this) },
+                    tabAutoArchiveLabel = preferences.getTabAutoArchiveDisplayLabel(),
+                    onTabAutoArchiveClick = { showTabArchivePicker = true }
                 )
+
+                if (showTabArchivePicker) {
+                    TabAutoArchivePickerSheet(
+                        selectedHours = tabAutoArchiveHours,
+                        onSelect = { hours ->
+                            tabAutoArchiveHours = hours
+                            preferences.tabAutoArchiveHours = hours
+                            com.onyx.browser.ui.browser.TabCoordinator.activeInstance?.autoArchiveIdleTabs()
+                            showTabArchivePicker = false
+                        },
+                        onDismiss = { showTabArchivePicker = false }
+                    )
+                }
             }
         }
     }
@@ -110,6 +133,7 @@ class AccessibilitySettingsActivity : FragmentActivity() {
         isPullToRefreshEnabled = preferences.isPullToRefreshEnabled
         isForceDarkModeEnabled = preferences.isForceDarkModeEnabled
         isBiometricIncognitoEnabled = preferences.isBiometricIncognitoEnabled
+        tabAutoArchiveHours = preferences.tabAutoArchiveHours
     }
 
     private fun handleBiometricToggle() {
@@ -185,7 +209,9 @@ fun AccessibilitySettingsScreen(
     onForceDarkModeChange: (Boolean) -> Unit,
     isBiometric: Boolean,
     onBiometricRowClick: () -> Unit,
-    onPinWidgetClick: () -> Unit
+    onPinWidgetClick: () -> Unit,
+    tabAutoArchiveLabel: String = "After 7 days",
+    onTabAutoArchiveClick: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -219,6 +245,16 @@ fun AccessibilitySettingsScreen(
                     subtitle = "Show shortcut option in browser menu for quick access",
                     checked = isAddToHomeScreen,
                     onCheckedChange = onAddToHomeScreenChange
+                )
+            }
+
+            CategoryHeader("Tabs & Organization")
+            CardContainer {
+                PreferenceItem(
+                    title = "Auto-Archive Inactive Tabs",
+                    subtitle = "$tabAutoArchiveLabel • Moves idle background tabs to Archived Tabs",
+                    icon = Icons.Default.Archive,
+                    onClick = onTabAutoArchiveClick
                 )
             }
 
@@ -263,6 +299,59 @@ fun AccessibilitySettingsScreen(
                     subtitle = "Require fingerprint or screen lock to open private tabs",
                     checked = isBiometric,
                     onCheckedChange = { onBiometricRowClick() }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TabAutoArchivePickerSheet(
+    selectedHours: Int,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val options = listOf(
+        BrowserPreferences.TAB_ARCHIVE_NEVER to "Never (Keep all tabs active)",
+        BrowserPreferences.TAB_ARCHIVE_1_DAY to "After 1 day of inactivity",
+        BrowserPreferences.TAB_ARCHIVE_3_DAYS to "After 3 days of inactivity",
+        BrowserPreferences.TAB_ARCHIVE_7_DAYS to "After 7 days of inactivity (Recommended)",
+        BrowserPreferences.TAB_ARCHIVE_14_DAYS to "After 14 days of inactivity",
+        BrowserPreferences.TAB_ARCHIVE_30_DAYS to "After 30 days of inactivity"
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = "Auto-Archive Inactive Tabs",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+            Text(
+                text = "Tabs not opened for this duration are automatically hibernated and moved to Archived Tabs so your tab grid stays clean.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 14.dp)
+            )
+
+            options.forEach { (hours, label) ->
+                RadioPreference(
+                    title = label,
+                    selected = selectedHours == hours,
+                    onClick = { onSelect(hours) }
                 )
             }
         }

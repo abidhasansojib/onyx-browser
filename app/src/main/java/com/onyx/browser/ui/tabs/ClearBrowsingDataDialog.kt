@@ -164,8 +164,9 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
 
             val tm = tabManager ?: TabCoordinator.activeInstance
             val normalTabs = tm?.normalTabs?.value ?: emptyList()
+            val archivedTabs = tm?.archivedTabs?.value ?: emptyList()
             val incognitoTabs = tm?.incognitoTabs?.value ?: emptyList()
-            val allTabs = normalTabs + incognitoTabs
+            val allTabs = normalTabs + archivedTabs + incognitoTabs
 
             val matchingTabs = if (cutoff == 0L) {
                 allTabs
@@ -499,8 +500,8 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
             if (clearTabs) {
                 try {
                     if (cutoff == 0L) {
-                        tm?.closeAllTabs(incognitoOnly = true)
-                        tm?.closeAllTabs(incognitoOnly = false)
+                        tm?.closeAllTabs(incognitoOnly = true, canUndo = false)
+                        tm?.closeAllTabs(incognitoOnly = false, canUndo = false)
                     } else {
                         tm?.closeTabsCreatedSince(cutoff)
                     }

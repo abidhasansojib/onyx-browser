@@ -58,6 +58,7 @@ object ClearDataOnExitHelper {
                 runBlocking(Dispatchers.IO) {
                     try {
                         db.tabDao().clearNormalTabs()
+                        db.tabGroupDao().clearAllGroups()
                     } catch (_: Throwable) {}
                 }
             } catch (_: Throwable) {}

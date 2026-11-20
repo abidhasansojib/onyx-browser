@@ -2679,6 +2679,37 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_HISTORY_SUGGESTIONS, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_HISTORY_SUGGESTIONS, value).apply()
 
+    // ── Tab Auto-Archive (Idle Tabs Management) ──────────────────────────────
+    /**
+     * Auto-archive threshold in hours for idle background tabs:
+     *   0   = Never (disabled)
+     *   24  = After 1 day
+     *   72  = After 3 days
+     *   168 = After 7 days (default)
+     *   336 = After 14 days
+     *   720 = After 30 days
+     */
+    var tabAutoArchiveHours: Int
+        get() = prefs.getInt(KEY_TAB_AUTO_ARCHIVE_HOURS, TAB_ARCHIVE_7_DAYS)
+        set(value) = prefs.edit().putInt(KEY_TAB_AUTO_ARCHIVE_HOURS, value).apply()
+
+    fun getTabAutoArchiveTimeoutMs(): Long {
+        val hours = tabAutoArchiveHours
+        return if (hours <= 0) 0L else hours.toLong() * 3600L * 1000L
+    }
+
+    fun getTabAutoArchiveDisplayLabel(): String {
+        return when (tabAutoArchiveHours) {
+            TAB_ARCHIVE_NEVER -> "Never"
+            TAB_ARCHIVE_1_DAY -> "After 1 day"
+            TAB_ARCHIVE_3_DAYS -> "After 3 days"
+            TAB_ARCHIVE_7_DAYS -> "After 7 days"
+            TAB_ARCHIVE_14_DAYS -> "After 14 days"
+            TAB_ARCHIVE_30_DAYS -> "After 30 days"
+            else -> "After ${tabAutoArchiveHours / 24} days"
+        }
+    }
+
     companion object {
         private const val PREF_NAME = "onyx_browser_prefs"
 
@@ -2874,6 +2905,14 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_SEARCH_SUGGESTIONS_ENABLED = "pref_search_suggestions_enabled"
         const val KEY_SHOW_CLIPBOARD_SUGGESTIONS = "pref_show_clipboard_suggestions"
         const val KEY_SHOW_HISTORY_SUGGESTIONS = "pref_show_history_suggestions"
+        const val KEY_TAB_AUTO_ARCHIVE_HOURS = "pref_tab_auto_archive_hours"
+
+        const val TAB_ARCHIVE_NEVER = 0
+        const val TAB_ARCHIVE_1_DAY = 24
+        const val TAB_ARCHIVE_3_DAYS = 72
+        const val TAB_ARCHIVE_7_DAYS = 168
+        const val TAB_ARCHIVE_14_DAYS = 336
+        const val TAB_ARCHIVE_30_DAYS = 720
 
         const val KEY_LAST_APP_UPDATE_CHECK_TIME = "pref_last_app_update_check_time"
         const val KEY_DISMISSED_UPDATE_TAG = "pref_dismissed_update_tag"

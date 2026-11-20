@@ -1,6 +1,6 @@
 # Contributing to Onyx Browser
 
-Thank you for contributing to **Onyx Browser**. This guide covers workstation setup, repository architecture, coding standards, and pull request guidelines.
+This guide covers workstation setup, module structure, coding conventions, and pull request requirements.
 
 ---
 
@@ -16,7 +16,7 @@ To build and test Onyx Browser on Linux, macOS, or Windows (WSL2):
   rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
   cargo install cargo-ndk
   ```
-- **Python 3 & curl** (for asset & filter synchronization scripts)
+- **Python 3 & curl** (for asset and filter list scripts)
 
 ---
 
@@ -30,104 +30,76 @@ cd onyx-browser
 ./scripts/bootstrap_dev.sh
 ```
 
-`./scripts/bootstrap_dev.sh` automates:
-1. Submodule initialization (`external/adblock-rust`, `external/adblock-lists`).
-2. Symlinks and Brave filter assets synchronization.
-3. Lucide icon vector conversion (`./scripts/fetch_icons.sh`).
-4. Bundled EasyList and Brave filter list compilation (`./scripts/update_filter_lists.sh`).
-5. Native NDK compilation of `libadblock_bridge.so` into `app/src/main/jniLibs/` (pass `--skip-rust` to skip when working purely on Kotlin/JVM code).
+`./scripts/bootstrap_dev.sh` initializes submodules (`external/adblock-rust`, `external/adblock-lists`), syncs icons and filter lists, and compiles `libadblock_bridge.so` into `app/src/main/jniLibs/` (pass `--skip-rust` when working only on Kotlin/JVM code).
 
 ---
 
-## 3. Module & Package Architecture
-
-The project consists of two Gradle modules and a native Rust engine:
+## 3. Module & Package Structure
 
 | Component | Responsibility |
 | :--- | :--- |
-| `:app` | Android application module (`com.onyx.browser`): Native XML UI, ViewModels, hardened Chromium WebView, SQLCipher database, and userscript engine. |
-| `:core:common` | Multi-module utilities (`DispatcherProvider`, `DefaultDispatcherProvider`, and `ResultState`). |
-| `rust_engine/` | Native Rust NDK bridge (`libadblock_bridge.so`) compiling Brave `adblock-rust` with JNI bindings for `AdBlockEngine`. |
-| `gradle/libs.versions.toml` | Centralized Gradle Version Catalog for dependencies and plugins. |
+| `:app` | Android application (`com.onyx.browser`): Compose + ViewBinding UI, ViewModels, hardened WebView, SQLCipher Room DB, and userscript engine. |
+| `:core:common` | Shared utilities (`DispatcherProvider`, `DefaultDispatcherProvider`, `ResultState`). |
+| `rust_engine/` | Native Rust NDK bridge (`libadblock_bridge.so`) wrapping Brave `adblock-rust` for `AdBlockEngine`. |
+| `gradle/libs.versions.toml` | Centralized Gradle Version Catalog. |
 
-### `:app` Package Organization
+### `:app` Packages
 
 ```text
 com.onyx.browser
-├── MainActivity.kt        # Primary activity, toolbar coordinator, and window orchestration
-├── BrowserApplication.kt     # App entry point, DI container init, SQLCipher setup
-├── autofill/              # System AutofillManager & Credential Manager passkey helpers
-├── data/                  # Room database, SQLCipher keys, models, repositories, preferences
-├── di/                    # Dependency injection (AppContainer, ViewModelFactory)
-├── download/              # DownloadEngine, DownloadHandler, notifications, background service
-├── incognito/             # IncognitoNotificationReceiver, isolated profile lifecycle
-├── media/                 # Foreground MediaPlaybackService and MediaPlaybackBridge
-├── nativebridge/          # AdBlockEngine JNI interface to libadblock_bridge.so
-├── privacy/               # ClearOnExitService and ClearDataOnExitHelper
-├── ui/                    # Presentation layer
-│   ├── browser/           # UI coordinators (*Coordinator) and view controllers (*Controller)
-│   ├── settings/          # Settings screens partitioned by domain (shields/, site/, userscript/, appearance/)
-│   └── viewmodel/         # UDF StateFlow ViewModels (BrowserViewModel, HistoryViewModel, etc.)
-├── userscript/            # Tampermonkey/Violentmonkey engine, metadata parser, and GM_* bridge
-└── web/                   # Hardened Chromium WebView subsystem
-    ├── adblock/           # Document-start adblock scripts, domain uncloaking, and DSD hydration fix
-    ├── bridge/            # @JavascriptInterface bridges (Passkey, Shield, Form, Blob, Touch, Notification)
-    ├── error/             # Synthetic HTTPS error pages and error bridges
-    ├── interceptor/       # Chain-of-responsibility request interceptors (HTTPS, AdBlock, Sanitizer)
-    ├── navigation/        # External scheme and app intent navigation handler
-    └── translate/         # CSP-immune in-page DOM translation engine
+├── MainActivity.kt          # Browser window host, toolbar, and coordinator wiring
+├── BrowserApplication.kt    # Startup lifecycle, SQLCipher init, async Chromium pre-warm
+├── autofill/                # AutofillHelper (AutofillManager & Credential Manager)
+├── data/                    # AppDatabase, DAOs, filter/FilterListManager, preferences/, repository/
+├── di/                      # AppContainer, DefaultAppContainer, AppViewModelFactory
+├── download/                # DownloadEngine, DownloadHandler, DownloadForegroundService
+├── incognito/               # IncognitoNotificationHelper, IncognitoNotificationReceiver
+├── media/                   # MediaPlaybackService, MediaPlaybackBridge
+├── nativebridge/            # AdBlockEngine JNI bindings
+├── privacy/                 # ClearOnExitService, ClearDataOnExitHelper
+├── ui/                      # Compose screens/sheets, browser coordinators/controllers, ViewModels
+├── update/                  # AppUpdateManager, ReleaseFeedParser, UpdateScheduler, AppUpdateNotifier
+├── userscript/              # UserScriptManager, UserScriptMetadata, UserScriptUrlMatcher, UserScriptBridge
+└── web/                     # BrowserWebView, BrowserWebViewClient, AssetScriptLoader, adblock/, bridge/, interceptor/, navigation/, translate/
 ```
 
 ---
 
-## 4. Architectural Conventions & Suffix Standards
+## 4. Coding Conventions
 
-To keep the codebase predictable across the team, adhere to these standards:
-
-1. **Native Views Over Compose**:
-   - Use Android XML Views with ViewBinding.
-   - Do not introduce Jetpack Compose dependencies.
-
-2. **Standardized Class Suffixes**:
-   - **`*Coordinator`**: For lifecycle, navigation, and dialog orchestrators (e.g., `BrowserMenuCoordinator`, `WebContextMenuCoordinator`, `NavigationCoordinator`, `TabCoordinator`).
-   - **`*Controller`**: For bound View/UI state controllers (e.g., `ToolbarLayoutController`, `SearchController`, `FindInPageController`, `PipController`).
-   - **`*BottomSheet`**: For all `BottomSheetDialogFragment` implementations (e.g., `MenuBottomSheet`, `SiteShieldBottomSheet`, `ClearOnExitBottomSheet`).
-   - **`*Bridge`**: For `@JavascriptInterface` bridges in `web/bridge/` (e.g., `ShieldBridge`, `FormBridge`, `BlobBridge`, `PasskeyWebAuthnBridge`). *Note: Internal JS window interface names such as `window.OnyxShieldBridge` remain unchanged for script compatibility.*
-
-3. **Performance on Interception Threads**:
-   - `shouldInterceptRequest` executes on Chromium's background I/O threads. Never run blocking disk or database operations here. Always query lock-free in-memory caches (e.g., `SitePermissionRepository`).
-
-4. **Persistence & Cryptography**:
-   - All database records pass through SQLCipher AES-256 encryption via `OnyxDatabase`.
-   - Never write sensitive browsing records or authentication secrets to unencrypted storage.
+1. **Compose for Screens, ViewBinding for WebView Host**:
+   - Use Jetpack Compose with Material 3 (`OnyxTheme`, `tonalElevation = 0.dp`) for screens, settings, dialogs, and bottom sheets.
+   - Keep XML ViewBinding for `MainActivity` (WebView and camera containers) and platform `View` widgets (`ScriptCodeEditorView`).
+2. **Naming & Suffixes**:
+   - Do not prefix internal classes, composables, or files with `Onyx`.
+   - Use standard suffixes: `*Coordinator`, `*Controller`, `*BottomSheet`, `*Bridge`, `*Preferences`, `*Repository`.
+3. **WebView Threading & Interception**:
+   - `shouldInterceptRequest` runs on background threads: query only lock-free in-memory caches (`SitePermissionRepository`, `AdBlockEngine`).
+   - `@JavascriptInterface` methods run on the `JavaBridge` thread: post to the main thread before accessing `WebView` APIs.
+4. **Encrypted Persistence**:
+   - Route persistent Room data through SQLCipher (`AppDatabase`). Never write sensitive browsing data to plain storage.
 
 ---
 
-## 5. Development Workflow & Testing
+## 5. Testing & Pull Requests
 
-### Running Unit Tests
-
-Run the JVM test suite across `:core:common` and `:app`:
+Run the unit test suite before opening a PR:
 
 ```bash
 ./gradlew :core:common:test testReleaseUnitTest --no-daemon
 ```
 
-All pull requests must pass the unit test suite before merge.
+### Commit Format
 
-### Conventional Commit Messages
+Use conventional commits:
+- `feat(userscript): support @inject-into and @sandbox`
+- `fix(update): retry failed update checks`
+- `refactor(update): unify background workers into UpdateScheduler`
+- `docs: update architecture guide`
 
-Follow the conventional commit format with appropriate scopes:
-- `feat(adblock): add support for $rule`
-- `fix(navigation): handle custom intent scheme`
-- `refactor(ui): extract address bar controller`
-- `test(interceptor): add unit tests for url sanitizer`
-- `docs: update subsystem architecture guide`
+### PR Checklist
 
-### Pull Request Checklist
-
-Before submitting a PR:
-- [ ] Code compiles cleanly and adheres to `.editorconfig` (4-space indentation for Kotlin/XML).
-- [ ] Unit tests pass via `./gradlew testReleaseUnitTest`.
-- [ ] Color resources are paired in `res/values/colors.xml` and `res/values-night/colors.xml`.
-- [ ] Any new architectural changes are reflected in `AGENTS.md` and `docs/`.
+- [ ] Code compiles cleanly and follows `.editorconfig` (4-space indentation).
+- [ ] Unit tests pass (`./gradlew :core:common:test testReleaseUnitTest`).
+- [ ] New color resources are paired in `res/values/colors.xml` and `res/values-night/colors.xml`.
+- [ ] Architectural or feature changes are reflected in `AGENTS.md` and `docs/`.
