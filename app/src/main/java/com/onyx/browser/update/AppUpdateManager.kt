@@ -170,31 +170,40 @@ object AppUpdateManager {
     // ── Update Flow (release and prerelease share one implementation) ────────
 
     private fun checkChannelUpdate(currentVersion: String, prerelease: Boolean): UpdateCheckResult {
-        val tiers: List<() -> UpdateCheckResult?> = if (prerelease) {
+        var anyEndpointSucceeded = false
+        var wasRateLimited = false
+
+        val tiers: List<() -> Pair<Boolean, UpdateCheckResult?>> = if (prerelease) {
             listOf(
                 { fetchFromAtomFeed(currentVersion, true) },
-                { fetchFromRestApi(currentVersion, true) },
+                { fetchFromRestApi(currentVersion, true).also { if (it.second is UpdateCheckResult.RateLimited) wasRateLimited = true } },
                 { fetchFromReleasesPage(currentVersion, true) }
             )
         } else {
             listOf(
                 { fetchFromAtomFeed(currentVersion, false) },
                 { fetchFromWebRedirect(currentVersion) },
-                { fetchFromRestApi(currentVersion, false) }
+                { fetchFromRestApi(currentVersion, false).also { if (it.second is UpdateCheckResult.RateLimited) wasRateLimited = true } },
+                { fetchFromReleasesPage(currentVersion, false) }
             )
         }
         for (tier in tiers) {
             try {
-                tier()?.let { return it }
+                val (reachable, result) = tier()
+                if (reachable) {
+                    anyEndpointSucceeded = true
+                }
+                if (result != null && result !is UpdateCheckResult.RateLimited) {
+                    return result
+                }
             } catch (_: Exception) {
                 // Fall through to the next tier
             }
         }
-        return if (prerelease) {
-            // No prerelease published yet: nothing newer to offer
-            UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = currentVersion)
-        } else {
-            UpdateCheckResult.Error("Unable to check for updates. Please check your internet connection.")
+        return when {
+            anyEndpointSucceeded -> UpdateCheckResult.UpToDate(currentVersion = currentVersion, latestTag = currentVersion)
+            wasRateLimited -> UpdateCheckResult.RateLimited("GitHub API rate limit reached. Please try again later or visit GitHub directly.")
+            else -> UpdateCheckResult.Error("Unable to check for updates. Please check your internet connection.")
         }
     }
 
@@ -233,26 +242,30 @@ object AppUpdateManager {
         )
     }
 
-    private fun fetchFromAtomFeed(currentVersion: String, prerelease: Boolean): UpdateCheckResult? {
+    private fun fetchFromAtomFeed(currentVersion: String, prerelease: Boolean): Pair<Boolean, UpdateCheckResult?> {
         val xmlBody = client.newCall(webRequest(GITHUB_ATOM_URL, "application/atom+xml, text/xml, */*"))
-            .execute().use { if (it.isSuccessful) it.body?.string() else null } ?: return null
+            .execute().use { if (it.isSuccessful) it.body?.string() else null } ?: return false to null
+        val isValidFeed = xmlBody.contains("<feed", ignoreCase = true)
         val entry = ReleaseFeedParser.parseAtomEntries(xmlBody)
-            .firstOrNull { isPrereleaseTag(it.tag) == prerelease } ?: return null
-        return resultForTag(currentVersion, entry.tag, prerelease, entry.title, entry.contentHtml, null)
+            .firstOrNull { isPrereleaseTag(it.tag) == prerelease } ?: return isValidFeed to null
+        return true to resultForTag(currentVersion, entry.tag, prerelease, entry.title, entry.contentHtml, null)
     }
 
-    /** /releases/latest always redirects to the newest stable release. */
-    private fun fetchFromWebRedirect(currentVersion: String): UpdateCheckResult? {
+    /** /releases/latest redirects to `/releases/tag/<tag>` when a stable release exists, or `/releases` when none exist. */
+    private fun fetchFromWebRedirect(currentVersion: String): Pair<Boolean, UpdateCheckResult?> {
         val request = Request.Builder()
             .url(GITHUB_LATEST_WEB_URL)
             .header("User-Agent", WEB_USER_AGENT)
             .head()
             .build()
-        val location = noRedirectClient.newCall(request).execute().use { it.header("Location") } ?: ""
-        if (!location.contains("/releases/tag/")) return null
+        val (code, location) = noRedirectClient.newCall(request).execute().use {
+            it.code to (it.header("Location") ?: "")
+        }
+        val reachable = code in 200..399
+        if (!location.contains("/releases/tag/")) return reachable to null
         val tagName = location.substringAfterLast("/releases/tag/").trim()
-        if (tagName.isBlank() || isPrereleaseTag(tagName)) return null
-        return resultForTag(
+        if (tagName.isBlank() || isPrereleaseTag(tagName)) return reachable to null
+        return true to resultForTag(
             currentVersion, tagName, false,
             "Onyx Browser $tagName",
             "A new version of Onyx Browser ($tagName) is available on GitHub.",
@@ -260,15 +273,19 @@ object AppUpdateManager {
         )
     }
 
-    private fun fetchFromRestApi(currentVersion: String, prerelease: Boolean): UpdateCheckResult? {
+    private fun fetchFromRestApi(currentVersion: String, prerelease: Boolean): Pair<Boolean, UpdateCheckResult?> {
         val request = Request.Builder()
             .url("$GITHUB_RELEASES_API_URL?per_page=15")
             .header("Accept", "application/vnd.github.v3+json")
             .header("User-Agent", "OnyxBrowser/$currentVersion")
             .build()
-        val body = client.newCall(request).execute().use { response ->
-            if (response.code == 403 || !response.isSuccessful) null else response.body?.string()
-        } ?: return null
+        val (code, body) = client.newCall(request).execute().use { response ->
+            response.code to (if (response.isSuccessful) response.body?.string() else null)
+        }
+        if (code == 403 || code == 429) {
+            return false to UpdateCheckResult.RateLimited("GitHub API rate limit reached. Please try again later or visit GitHub directly.")
+        }
+        if (body == null) return false to null
 
         val array = JSONArray(body)
         var release: JSONObject? = null
@@ -282,11 +299,11 @@ object AppUpdateManager {
             }
         }
         if (release == null) {
-            return if (prerelease) UpdateCheckResult.UpToDate(currentVersion, currentVersion) else null
+            return true to UpdateCheckResult.UpToDate(currentVersion, currentVersion)
         }
 
         val tagName = release.optString("tag_name", "").trim()
-        if (tagName.isBlank()) return null
+        if (tagName.isBlank()) return true to null
 
         val assets = mutableListOf<ReleaseAsset>()
         release.optJSONArray("assets")?.let { arr ->
@@ -299,7 +316,7 @@ object AppUpdateManager {
                 }
             }
         }
-        return resultForTag(
+        return true to resultForTag(
             currentVersion, tagName, prerelease,
             release.optString("name", "Onyx Browser $tagName"),
             release.optString("body", ""),
@@ -308,9 +325,9 @@ object AppUpdateManager {
     }
 
     /** Last resort: scrape tag links from the public releases page. */
-    private fun fetchFromReleasesPage(currentVersion: String, prerelease: Boolean): UpdateCheckResult? {
+    private fun fetchFromReleasesPage(currentVersion: String, prerelease: Boolean): Pair<Boolean, UpdateCheckResult?> {
         val html = client.newCall(webRequest(GITHUB_RELEASES_WEB_URL, "text/html, */*"))
-            .execute().use { if (it.isSuccessful) it.body?.string() else null } ?: return null
+            .execute().use { if (it.isSuccessful) it.body?.string() else null } ?: return false to null
         val matcher = Pattern.compile(
             """href=["'](/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases/tag/([^"'\s>]+))["']"""
         ).matcher(html)
@@ -322,8 +339,8 @@ object AppUpdateManager {
                 break
             }
         }
-        val matched = tag ?: return null
-        return resultForTag(
+        val matched = tag ?: return true to null
+        return true to resultForTag(
             currentVersion, matched, prerelease,
             "Onyx Browser $matched" + if (prerelease) " (Pre-release)" else "",
             "A new ${if (prerelease) "pre-release" else "version"} of Onyx Browser ($matched) is available on GitHub.",
