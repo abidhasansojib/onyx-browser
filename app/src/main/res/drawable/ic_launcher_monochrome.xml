@@ -5,18 +5,18 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Center core dot (radius 6dp, safe zone centered) -->
+    <!-- Center core dot -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M 54 48 A 6 6 0 1 0 54 60 A 6 6 0 1 0 54 48 Z" />
+        android:pathData="M 54 46 A 8 8 0 1 0 54 62 A 8 8 0 1 0 54 46 Z" />
 
-    <!-- Middle concentric arc (180° sweep on right, radius 13dp to 19dp) -->
+    <!-- Middle concentric arc (180° sweep on right) -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M 54 35 A 19 19 0 0 1 54 73 L 54 67 A 13 13 0 0 0 54 41 Z" />
+        android:pathData="M 54 30 A 24 24 0 0 1 54 78 L 54 70 A 16 16 0 0 0 54 38 Z" />
 
-    <!-- Outer concentric arc (270° sweep around left and bottom, radius 25dp to 31dp, safe zone compliant) -->
+    <!-- Outer concentric arc (270° sweep around left and bottom) -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M 54 23 A 31 31 0 1 0 85 54 L 79 54 A 25 25 0 1 1 54 29 Z" />
+        android:pathData="M 54 14 A 40 40 0 1 0 94 54 L 86 54 A 32 32 0 1 1 54 22 Z" />
 </vector>
