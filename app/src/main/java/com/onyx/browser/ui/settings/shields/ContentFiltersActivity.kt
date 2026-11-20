@@ -61,7 +61,8 @@ import com.onyx.browser.R
 import com.onyx.browser.data.filter.CustomFilterItem
 import com.onyx.browser.data.filter.FilterListEntry
 import com.onyx.browser.data.filter.FilterListManager
-import com.onyx.browser.data.filter.FilterUpdateWorker
+import com.onyx.browser.update.UpdateScheduler
+import com.onyx.browser.update.UpdateTask
 import com.onyx.browser.ui.components.UPDATE_INTERVAL_OPTIONS
 import com.onyx.browser.ui.components.UpdateActionButton
 import com.onyx.browser.ui.components.updateIntervalLabel
@@ -155,7 +156,7 @@ class ContentFiltersActivity : ComponentActivity() {
 
                 if (showIntervalDialog) {
                     UpdateIntervalDialog(
-                        currentHours = if (preferences.isFilterAutoUpdateEnabled) preferences.filterAutoUpdateIntervalHours else 0,
+                        currentHours = if (preferences.updates.isFilterAutoUpdateEnabled) preferences.updates.filterAutoUpdateIntervalHours else 0,
                         onSelectHours = { hours ->
                             applyUpdateInterval(hours)
                             showIntervalDialog = false
@@ -231,18 +232,18 @@ class ContentFiltersActivity : ComponentActivity() {
 
     private fun applyUpdateInterval(hours: Int) {
         if (hours <= 0) {
-            preferences.isFilterAutoUpdateEnabled = false
+            preferences.updates.isFilterAutoUpdateEnabled = false
         } else {
-            preferences.filterAutoUpdateIntervalHours = hours
-            preferences.isFilterAutoUpdateEnabled = true
+            preferences.updates.filterAutoUpdateIntervalHours = hours
+            preferences.updates.isFilterAutoUpdateEnabled = true
         }
-        FilterUpdateWorker.schedule(this, forceReschedule = true)
+        UpdateScheduler.schedule(this, UpdateTask.FILTERS)
         updateSubtitleDisplay()
     }
 
     private fun updateSubtitleDisplay() {
-        val hours = preferences.filterAutoUpdateIntervalHours
-        val isEnabled = preferences.isFilterAutoUpdateEnabled && hours > 0
+        val hours = preferences.updates.filterAutoUpdateIntervalHours
+        val isEnabled = preferences.updates.isFilterAutoUpdateEnabled && hours > 0
         intervalHoursState = if (isEnabled) hours else 0
         val intervalLabel = updateIntervalLabel(if (isEnabled) hours else 0)
         val lastUpdated = FilterListManager.getLastUpdatedFormatted(this)

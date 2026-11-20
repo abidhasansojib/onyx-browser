@@ -213,8 +213,7 @@
 -keep class * extends androidx.work.ListenableWorker {
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
--keep class com.onyx.browser.data.filter.FilterUpdateWorker { *; }
--keep class com.onyx.browser.userscript.UserScriptUpdateWorker { *; }
+-keep class com.onyx.browser.update.UpdateScheduler$UpdateWorker { *; }
 
 
 

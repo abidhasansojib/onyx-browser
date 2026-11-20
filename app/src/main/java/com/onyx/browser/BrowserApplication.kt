@@ -146,9 +146,7 @@ class BrowserApplication : Application() {
     }
 
     private fun scheduleFilterUpdateWork() {
-        com.onyx.browser.data.filter.FilterUpdateWorker.schedule(this, forceReschedule = false)
-        com.onyx.browser.userscript.UserScriptUpdateWorker.schedule(this, forceReschedule = false)
-        com.onyx.browser.update.AppUpdateWorker.schedule(this)
+        com.onyx.browser.update.UpdateScheduler.scheduleAll(this)
     }
 
     /**

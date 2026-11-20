@@ -696,7 +696,7 @@ object FilterListManager {
             // Now merge and compile
             val ruleCount = compileFilters(context)
             if (ruleCount > 0) {
-                prefs.filterLastUpdatedTime = System.currentTimeMillis()
+                prefs.updates.filterLastUpdatedTime = System.currentTimeMillis()
                 Result.success(ruleCount)
             } else {
                 Result.failure(Exception("Failed to compile filter rules"))
@@ -771,8 +771,8 @@ object FilterListManager {
 
         if (needsRecompile) {
             val count = compileFilters(context)
-            if (prefs.filterLastUpdatedTime <= 0L) {
-                prefs.filterLastUpdatedTime = System.currentTimeMillis()
+            if (prefs.updates.filterLastUpdatedTime <= 0L) {
+                prefs.updates.filterLastUpdatedTime = System.currentTimeMillis()
             }
             Log.i(TAG, "Cached and compiled filter lists (downloaded: $downloaded, rules active: $count)")
             return@withContext count
@@ -923,11 +923,11 @@ object FilterListManager {
      */
     suspend fun checkAndAutoUpdateFilters(context: Context, force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
         val prefs = BrowserPreferences.getInstance(context)
-        if (!force && !prefs.isFilterAutoUpdateEnabled) {
+        if (!force && !prefs.updates.isFilterAutoUpdateEnabled) {
             return@withContext false
         }
-        val lastUpdated = prefs.filterLastUpdatedTime
-        val intervalMillis = prefs.filterAutoUpdateIntervalHours * 3600_000L
+        val lastUpdated = prefs.updates.filterLastUpdatedTime
+        val intervalMillis = prefs.updates.filterAutoUpdateIntervalHours * 3600_000L
         val now = System.currentTimeMillis()
         if (!force && (now - lastUpdated < intervalMillis)) {
             Log.d(TAG, "Filter lists are up to date (last updated ${((now - lastUpdated) / 3600000)}h ago)")
@@ -943,7 +943,7 @@ object FilterListManager {
 
     fun getLastUpdatedFormatted(context: Context): String {
         val prefs = BrowserPreferences.getInstance(context)
-        val lastUpdated = prefs.filterLastUpdatedTime
+        val lastUpdated = prefs.updates.filterLastUpdatedTime
         if (lastUpdated <= 0) return "Never"
         val diff = System.currentTimeMillis() - lastUpdated
         val hours = diff / (3600 * 1000)

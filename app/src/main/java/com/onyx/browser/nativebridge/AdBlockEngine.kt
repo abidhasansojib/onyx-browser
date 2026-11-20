@@ -196,7 +196,7 @@ object AdBlockEngine {
                         try { tempFile.delete() } catch (_: Exception) {}
                         return@withContext false
                     }
-                    BrowserPreferences.getInstance(context).filterLastUpdatedTime = System.currentTimeMillis()
+                    BrowserPreferences.getInstance(context).updates.filterLastUpdatedTime = System.currentTimeMillis()
                     Log.i(TAG, "Successfully updated and serialized filter lists (${compiledBytes.size} bytes)")
                     // Reload scriptlet resources after filter update
                     loadBraveResources(context)

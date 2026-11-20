@@ -224,9 +224,10 @@ onyx-browser/
 
 ## 5. Architectural & Coding Mandates for AI Agents
 
-1. **Native Views Over Compose**:
-   - Strictly write native Android XML Views and ViewBinding.
-   - Do NOT introduce Jetpack Compose dependencies or `@Composable` components.
+1. **Compose for Screens, Views for WebView Hosting**:
+   - Use Jetpack Compose with Material 3 for new screens, settings, dialogs and sheets (`OnyxTheme`).
+   - Keep XML Views and ViewBinding for the main browser window (`MainActivity` toolbar, WebView and camera containers) and for code that needs a platform `View` (`ScriptCodeEditorView` hosted via `AndroidView`).
+   - Do not rewrite working View-based screens to Compose unless the screen is being substantially changed.
 2. **Resource & Color Consistency**:
    - Always pair color resources between `res/values/colors.xml` and `res/values-night/colors.xml`.
    - Use theme attributes (`?attr/colorControlNormal`, `?attr/colorPrimary`) for icon tints and surface backgrounds.
@@ -389,3 +390,5 @@ onyx-browser/
 
 
 - Update schedules: app update check 12h (`AppUpdateWorker`), filter lists and userscripts default 12h, user-selectable via long-press on the refresh button (`UpdateActionButton`: 6h/12h/24h/2d/off).
+
+- Architecture notes: periodic work goes through `UpdateScheduler` / `UpdateTask` (add an enum entry instead of a new worker). Update state lives in `UpdatePreferences` (`BrowserPreferences.updates`). The userscript wrapper JS is `assets/scripts/userscript_wrapper.js` with `{{PLACEHOLDER}}` values filled by `UserScriptManager`; edit the asset, not Kotlin strings. Release feed parsing is in `ReleaseFeedParser`; `AppUpdateManager` has one parameterised flow for release and prerelease.

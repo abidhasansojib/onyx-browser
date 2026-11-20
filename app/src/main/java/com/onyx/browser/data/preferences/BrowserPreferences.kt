@@ -46,6 +46,7 @@ class BrowserPreferences private constructor(private val context: Context) {
 
     val appearance: AppearancePreferences by lazy { AppearancePreferences(this) }
     val shields: ShieldPreferences by lazy { ShieldPreferences(this) }
+    val updates: UpdatePreferences by lazy { UpdatePreferences(context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)) }
     val mediaAndDownloads: MediaAndDownloadPreferences by lazy { MediaAndDownloadPreferences(this) }
     val search: SearchPreferences by lazy { SearchPreferences(this) }
 
@@ -449,74 +450,8 @@ class BrowserPreferences private constructor(private val context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_CHECKED_DEFAULT_REGION, value).apply()
 
     // ── Filter List Auto-Update ────────────────────────────────────────────────
-    var isFilterAutoUpdateEnabled: Boolean
-        get() = prefs.getBoolean(KEY_FILTER_AUTO_UPDATE, true)
-        set(value) = prefs.edit().putBoolean(KEY_FILTER_AUTO_UPDATE, value).apply()
-
-    var filterAutoUpdateIntervalHours: Int
-        get() = prefs.getInt(KEY_FILTER_UPDATE_INTERVAL, 12)
-        set(value) = prefs.edit().putInt(KEY_FILTER_UPDATE_INTERVAL, value).apply()
-
     // ── Userscript Auto-Update ─────────────────────────────────────────────────
-    var isUserScriptAutoUpdateEnabled: Boolean
-        get() = prefs.getBoolean(KEY_USERSCRIPT_AUTO_UPDATE, true)
-        set(value) = prefs.edit().putBoolean(KEY_USERSCRIPT_AUTO_UPDATE, value).apply()
-
-    var userScriptAutoUpdateIntervalHours: Int
-        get() = prefs.getInt(KEY_USERSCRIPT_UPDATE_INTERVAL, 12)
-        set(value) = prefs.edit().putInt(KEY_USERSCRIPT_UPDATE_INTERVAL, value).apply()
-
-    var userScriptLastUpdateCheckTime: Long
-        get() = prefs.getLong(KEY_USERSCRIPT_LAST_CHECK, 0L)
-        set(value) = prefs.edit().putLong(KEY_USERSCRIPT_LAST_CHECK, value).apply()
-
-    var notifiedUpdateTag: String
-        get() = prefs.getString(KEY_NOTIFIED_UPDATE_TAG, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_NOTIFIED_UPDATE_TAG, value).apply()
-
     // ── App In-App Update Preferences ──────────────────────────────────────────
-    var lastAppUpdateCheckTime: Long
-        get() = prefs.getLong(KEY_LAST_APP_UPDATE_CHECK_TIME, 0L)
-        set(value) = prefs.edit().putLong(KEY_LAST_APP_UPDATE_CHECK_TIME, value).apply()
-
-    var dismissedUpdateTag: String
-        get() = prefs.getString(KEY_DISMISSED_UPDATE_TAG, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_DISMISSED_UPDATE_TAG, value).apply()
-
-    var cachedUpdateTag: String
-        get() = prefs.getString(KEY_CACHED_UPDATE_TAG, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_CACHED_UPDATE_TAG, value).apply()
-
-    var cachedUpdateTitle: String
-        get() = prefs.getString(KEY_CACHED_UPDATE_TITLE, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_CACHED_UPDATE_TITLE, value).apply()
-
-    var cachedUpdateNotes: String
-        get() = prefs.getString(KEY_CACHED_UPDATE_NOTES, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_CACHED_UPDATE_NOTES, value).apply()
-
-    var cachedUpdateAssetName: String
-        get() = prefs.getString(KEY_CACHED_UPDATE_ASSET_NAME, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_CACHED_UPDATE_ASSET_NAME, value).apply()
-
-    var cachedUpdateAssetUrl: String
-        get() = prefs.getString(KEY_CACHED_UPDATE_ASSET_URL, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_CACHED_UPDATE_ASSET_URL, value).apply()
-
-    var cachedUpdateAssetSize: Long
-        get() = prefs.getLong(KEY_CACHED_UPDATE_ASSET_SIZE, 0L)
-        set(value) = prefs.edit().putLong(KEY_CACHED_UPDATE_ASSET_SIZE, value).apply()
-
-    fun clearCachedUpdate() {
-        prefs.edit()
-            .remove(KEY_CACHED_UPDATE_TAG)
-            .remove(KEY_CACHED_UPDATE_TITLE)
-            .remove(KEY_CACHED_UPDATE_NOTES)
-            .remove(KEY_CACHED_UPDATE_ASSET_NAME)
-            .remove(KEY_CACHED_UPDATE_ASSET_URL)
-            .remove(KEY_CACHED_UPDATE_ASSET_SIZE)
-            .apply()
-    }
 
     // ── Element Blocking in Private Windows ──────────────────────────────────
     var isElementBlockingInPrivateEnabled: Boolean
@@ -730,12 +665,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_JAVASCRIPT_ENABLED, true)
         set(value) {
             prefs.edit().putBoolean(KEY_JAVASCRIPT_ENABLED, value).apply()
-        }
-
-    var filterLastUpdatedTime: Long
-        get() = prefs.getLong(KEY_FILTER_UPDATED, 0L)
-        set(value) {
-            prefs.edit().putLong(KEY_FILTER_UPDATED, value).apply()
         }
 
     var compiledFilterSignature: String

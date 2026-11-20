@@ -94,7 +94,7 @@ object AppUpdatePromptHelper {
             }
             .setNegativeButton(R.string.later) { _, _ ->
                 val prefs = BrowserPreferences.getInstance(activity)
-                prefs.dismissedUpdateTag = updateInfo.tagName
+                prefs.updates.dismissedUpdateTag = updateInfo.tagName
                 onDismiss?.invoke()
             }
             .setOnCancelListener {

@@ -130,7 +130,7 @@ class UserScriptsActivity : ComponentActivity() {
         manager = UserScriptManager.getInstance(this)
         preferences = BrowserPreferences.getInstance(this)
         isGlobalScriptBlocked = preferences.isGlobalScriptBlockingEnabled
-        updateIntervalHours = if (preferences.isUserScriptAutoUpdateEnabled) preferences.userScriptAutoUpdateIntervalHours else 0
+        updateIntervalHours = if (preferences.updates.isUserScriptAutoUpdateEnabled) preferences.updates.userScriptAutoUpdateIntervalHours else 0
 
         loadScripts()
 
@@ -458,16 +458,16 @@ class UserScriptsActivity : ComponentActivity() {
 
     private fun applyUpdateInterval(hours: Int) {
         if (hours <= 0) {
-            preferences.isUserScriptAutoUpdateEnabled = false
+            preferences.updates.isUserScriptAutoUpdateEnabled = false
             updateIntervalHours = 0
             Toast.makeText(this, "Userscript auto-update disabled", Toast.LENGTH_SHORT).show()
         } else {
-            preferences.userScriptAutoUpdateIntervalHours = hours
-            preferences.isUserScriptAutoUpdateEnabled = true
+            preferences.updates.userScriptAutoUpdateIntervalHours = hours
+            preferences.updates.isUserScriptAutoUpdateEnabled = true
             updateIntervalHours = hours
             Toast.makeText(this, "Auto-update: ${updateIntervalLabel(hours)}", Toast.LENGTH_SHORT).show()
         }
-        com.onyx.browser.userscript.UserScriptUpdateWorker.schedule(this, forceReschedule = true)
+        com.onyx.browser.update.UpdateScheduler.schedule(this, com.onyx.browser.update.UpdateTask.USERSCRIPTS)
     }
 
     private fun checkForUpdates() {

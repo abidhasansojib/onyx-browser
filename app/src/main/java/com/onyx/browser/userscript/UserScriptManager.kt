@@ -1,5 +1,6 @@
 package com.onyx.browser.userscript
 
+import com.onyx.browser.web.AssetScriptLoader
 import android.content.Context
 import android.net.Uri
 import android.util.Log
@@ -39,6 +40,9 @@ sealed class UpdateResult {
     object NoSource : UpdateResult()
     data class Failed(val message: String) : UpdateResult()
 }
+
+private const val WRAPPER_ASSET = "scripts/userscript_wrapper.js"
+private val WRAPPER_PLACEHOLDER = Regex("""\{\{([A-Z_]+)\}\}""")
 
 class UserScriptManager private constructor(private val context: Context) {
 
@@ -376,419 +380,29 @@ class UserScriptManager private constructor(private val context: Context) {
         val noFrames = meta.noFrames
         val unwrap = meta.unwrap
 
-        return "(function(){\n" +
-                "var __exclude = [$excludeArray];\n" +
-                "var __match = [$matchArray];\n" +
-                "function __matchesUrl(u) {\n" +
-                "  for (var __i = 0; __i < __exclude.length; __i++) { if (__exclude[__i].test(u)) return false; }\n" +
-                "  if (__match.length === 0) return true;\n" +
-                "  for (var __j = 0; __j < __match.length; __j++) { if (__match[__j].test(u)) return true; }\n" +
-                "  return false;\n" +
-                "}\n" +
-                "if ($noFrames && window.self !== window.top) return;\n" +
-                "var __scriptId = $scriptId;\n" +
-                "var __scriptKey = ${JSONObject.quote(scriptKey)};\n" +
-                "var __scriptName = $scriptName;\n" +
-                "var __resources = $resourcesObj;\n" +
-                "var GM_info = {\n" +
-                "  script: {\n" +
-                "    name: $scriptName,\n" +
-                "    namespace: ${JSONObject.quote(meta.namespace)},\n" +
-                "    version: ${JSONObject.quote(meta.version)},\n" +
-                "    description: ${JSONObject.quote(meta.description)},\n" +
-                "    author: ${JSONObject.quote(meta.author)},\n" +
-                "    matches: __match.map(function(r){ return r.source; }),\n" +
-                "    includes: [],\n" +
-                "    excludes: [],\n" +
-                "    resources: __resources,\n" +
-                "    connects: [$connectsArray],\n" +
-                "    grant: [$grantsArray],\n" +
-                "    runAt: ${JSONObject.quote(runAtStr)},\n" +
-                "    noframes: $noFrames,\n" +
-                "    unwrap: $unwrap\n" +
-                "  },\n" +
-                "  version: '1.0',\n" +
-                "  scriptHandler: 'OnyxBrowser',\n" +
-                "  scriptMetaStr: null,\n" +
-                "  scriptWillUpdate: false,\n" +
-                "  isIncognito: $isIncognito,\n" +
-                "  downloadMode: 'native'\n" +
-                "};\n" +
-                "var unsafeWindow = window;\n" +
-                "function GM_log() { try { console.log.apply(console, arguments); } catch(__e) {} }\n" +
-                "function GM_addStyle(css) {\n" +
-                "  var __s = document.createElement('style');\n" +
-                "  __s.setAttribute('data-userscript', __scriptName);\n" +
-                "  __s.textContent = css;\n" +
-                "  var __t = document.head || document.documentElement;\n" +
-                "  if (__t) { __t.appendChild(__s); return __s; }\n" +
-                "  if (typeof MutationObserver !== 'undefined') {\n" +
-                "    var __obs = new MutationObserver(function() {\n" +
-                "      var __cur = document.head || document.documentElement;\n" +
-                "      if (__cur) { __obs.disconnect(); __cur.appendChild(__s); }\n" +
-                "    });\n" +
-                "    __obs.observe(document, { childList: true, subtree: true });\n" +
-                "  } else {\n" +
-                "    document.addEventListener('DOMContentLoaded', function() {\n" +
-                "      (document.head || document.documentElement).appendChild(__s);\n" +
-                "    });\n" +
-                "  }\n" +
-                "  return __s;\n" +
-                "}\n" +
-                "function GM_addElement(a, b, c) {\n" +
-                "  var __tag, __attrs, __parent;\n" +
-                "  if (typeof a === 'string') { __tag = a; __attrs = b || {}; __parent = c || document.head || document.documentElement; }\n" +
-                "  else { __parent = a || document.head || document.documentElement; __tag = b; __attrs = c || {}; }\n" +
-                "  var __el = document.createElement(__tag);\n" +
-                "  for (var __k in __attrs) {\n" +
-                "    if (__attrs.hasOwnProperty(__k)) {\n" +
-                "      if (__k === 'textContent') __el.textContent = __attrs[__k];\n" +
-                "      else __el.setAttribute(__k, __attrs[__k]);\n" +
-                "    }\n" +
-                "  }\n" +
-                "  if (__parent) __parent.appendChild(__el);\n" +
-                "  return __el;\n" +
-                "}\n" +
-                "function GM_getValue(key, defaultValue) {\n" +
-                "  try {\n" +
-                "    if (window.onyxGM && window.onyxGM.getValue) {\n" +
-                "      var raw = window.onyxGM.getValue(__scriptKey, String(key));\n" +
-                "      if (raw === null || raw === undefined) return defaultValue;\n" +
-                "      return JSON.parse(raw);\n" +
-                "    }\n" +
-                "  } catch(__e) {}\n" +
-                "  return defaultValue;\n" +
-                "}\n" +
-                "function GM_setValue(key, value) {\n" +
-                "  try {\n" +
-                "    if (window.onyxGM && window.onyxGM.setValue) {\n" +
-                "      window.onyxGM.setValue(__scriptKey, String(key), JSON.stringify(value));\n" +
-                "    }\n" +
-                "  } catch(__e) {}\n" +
-                "}\n" +
-                "function GM_deleteValue(key) {\n" +
-                "  try {\n" +
-                "    if (window.onyxGM && window.onyxGM.deleteValue) {\n" +
-                "      window.onyxGM.deleteValue(__scriptKey, String(key));\n" +
-                "    }\n" +
-                "  } catch(__e) {}\n" +
-                "}\n" +
-                "function GM_listValues() {\n" +
-                "  try {\n" +
-                "    if (window.onyxGM && window.onyxGM.listValues) {\n" +
-                "      var raw = window.onyxGM.listValues(__scriptKey);\n" +
-                "      return raw ? JSON.parse(raw) : [];\n" +
-                "    }\n" +
-                "  } catch(__e) {}\n" +
-                "  return [];\n" +
-                "}\n" +
-                "function GM_addValueChangeListener(name, callback) {\n" +
-                "  if (!window.__usRuntime.valueListeners[__scriptKey]) { window.__usRuntime.valueListeners[__scriptKey] = {}; }\n" +
-                "  var __id = 'vl_' + Math.random().toString(36).substring(2);\n" +
-                "  window.__usRuntime.valueListeners[__scriptKey][__id] = function(k, ov, nv, r) {\n" +
-                "    if (k === name) { try { callback(k, ov, nv, r); } catch(__e) {} }\n" +
-                "  };\n" +
-                "  return __id;\n" +
-                "}\n" +
-                "function GM_removeValueChangeListener(id) {\n" +
-                "  if (window.__usRuntime.valueListeners[__scriptKey]) {\n" +
-                "    delete window.__usRuntime.valueListeners[__scriptKey][id];\n" +
-                "  }\n" +
-                "}\n" +
-                "function GM_openInTab(url, options) {\n" +
-                "  var active = true;\n" +
-                "  if (typeof options === 'boolean') active = !options;\n" +
-                "  else if (options && typeof options === 'object') active = options.active !== false;\n" +
-                "  try {\n" +
-                "    if (window.onyxGM && window.onyxGM.openInTab) {\n" +
-                "      window.onyxGM.openInTab(url, active);\n" +
-                "    }\n" +
-                "  } catch(__e) {}\n" +
-                "  return { closed: false, close: function() {} };\n" +
-                "}\n" +
-                "function GM_setClipboard(text, type) {\n" +
-                "  try {\n" +
-                "    if (window.onyxGM && window.onyxGM.setClipboard) {\n" +
-                "      window.onyxGM.setClipboard(String(text));\n" +
-                "      return;\n" +
-                "    }\n" +
-                "  } catch(__e) {}\n" +
-                "  try {\n" +
-                "    if (navigator.clipboard && navigator.clipboard.writeText) {\n" +
-                "      navigator.clipboard.writeText(String(text)).catch(function() {});\n" +
-                "    }\n" +
-                "  } catch(__e2) {}\n" +
-                "}\n" +
-                "function GM_notification(details, ondone) {\n" +
-                "  try {\n" +
-                "    var __opts = (typeof details === 'string') ? { text: details, title: ondone } : (details || {});\n" +
-                "    var __title = (typeof __opts.title === 'string' && __opts.title) ? __opts.title : __scriptName;\n" +
-                "    if (window.onyxGM && window.onyxGM.notify) {\n" +
-                "      window.onyxGM.notify(__scriptName, __title, __opts.text || '', location.hostname || '');\n" +
-                "    }\n" +
-                "    if (typeof __opts.ondone === 'function') setTimeout(__opts.ondone, 0);\n" +
-                "  } catch(__e) {}\n" +
-                "}\n" +
-                "var __xhrSeq = 0;\n" +
-                "function GM_xmlhttpRequest(details) {\n" +
-                "  details = details || {};\n" +
-                "  try {\n" +
-                "    var __id = 'x_' + __scriptId + '_' + (++__xhrSeq) + '_' + Date.now();\n" +
-                "    var __payload = {\n" +
-                "      url: details.url,\n" +
-                "      method: (details.method || 'GET').toUpperCase(),\n" +
-                "      headers: details.headers || {},\n" +
-                "      timeout: details.timeout || 0,\n" +
-                "      responseType: details.responseType || '',\n" +
-                "      anonymous: !!details.anonymous\n" +
-                "    };\n" +
-                "    if (details.data !== undefined && details.data !== null) {\n" +
-                "      __payload.data = (typeof details.data === 'string') ? details.data : JSON.stringify(details.data);\n" +
-                "    }\n" +
-                "    window.__usRuntime.xhrCallbacks[__id] = function(result, error) {\n" +
-                "      if (error) {\n" +
-                "        if (details.onerror) details.onerror({ error: error.error || 'error', finalUrl: details.url, readyState: 4, status: 0, context: details.context });\n" +
-                "        return;\n" +
-                "      }\n" +
-                "      var __resp = result.responseText;\n" +
-                "      var __respObj = __resp;\n" +
-                "      if (details.responseType === 'json') {\n" +
-                "        try { __respObj = JSON.parse(__resp); } catch(__pe) { __respObj = null; }\n" +
-                "      } else if ((details.responseType === 'blob' || details.responseType === 'arraybuffer') && result.responseBase64) {\n" +
-                "        try {\n" +
-                "          var __binStr = atob(result.responseBase64);\n" +
-                "          var __binLen = __binStr.length;\n" +
-                "          var __u8 = new Uint8Array(__binLen);\n" +
-                "          for (var __bi = 0; __bi < __binLen; __bi++) { __u8[__bi] = __binStr.charCodeAt(__bi); }\n" +
-                "          if (details.responseType === 'blob') {\n" +
-                "            var __mime = 'application/octet-stream';\n" +
-                "            if (result.responseHeaders) {\n" +
-                "              var __mMatch = result.responseHeaders.match(/content-type:\\s*([^\\r\\n;]+)/i);\n" +
-                "              if (__mMatch) __mime = __mMatch[1].trim();\n" +
-                "            }\n" +
-                "            __respObj = new Blob([__u8], { type: __mime });\n" +
-                "          } else {\n" +
-                "            __respObj = __u8.buffer;\n" +
-                "          }\n" +
-                "        } catch(__be) { console.error('[UserScript] binary conversion error', __be); }\n" +
-                "      }\n" +
-                "      var __r = {\n" +
-                "        status: result.status,\n" +
-                "        statusText: result.statusText,\n" +
-                "        responseText: __resp,\n" +
-                "        response: __respObj,\n" +
-                "        readyState: 4,\n" +
-                "        finalUrl: result.finalUrl,\n" +
-                "        responseHeaders: result.responseHeaders,\n" +
-                "        context: details.context\n" +
-                "      };\n" +
-                "      if (details.onreadystatechange) try { details.onreadystatechange(__r); } catch(__e3) {}\n" +
-                "      if (details.onload) details.onload(__r);\n" +
-                "    };\n" +
-                "    if (window.onyxGM && window.onyxGM.xhr) {\n" +
-                "      window.onyxGM.xhr(__id, JSON.stringify(__payload));\n" +
-                "    } else {\n" +
-                "      delete window.__usRuntime.xhrCallbacks[__id];\n" +
-                "      if (details.onerror) details.onerror({ error: 'Bridge unavailable', context: details.context });\n" +
-                "    }\n" +
-                "    return {\n" +
-                "      abort: function() {\n" +
-                "        try { if (window.onyxGM && window.onyxGM.abortXhr) window.onyxGM.abortXhr(__id); } catch(__ae) {}\n" +
-                "        if (details.onabort) details.onabort();\n" +
-                "      }\n" +
-                "    };\n" +
-                "  } catch(__e) {\n" +
-                "    if (details.onerror) details.onerror({ error: String(__e), context: details.context });\n" +
-                "    return { abort: function() {} };\n" +
-                "  }\n" +
-                "}\n" +
-                "function GM_download(details, filename) {\n" +
-                "  try {\n" +
-                "    var __opts = (typeof details === 'string') ? { url: details, name: filename } : (details || {});\n" +
-                "    var __u = __opts.url || '';\n" +
-                "    if (__u.indexOf('blob:') === 0 || __u.indexOf('data:') === 0) {\n" +
-                "      var __a = document.createElement('a');\n" +
-                "      __a.href = __u;\n" +
-                "      __a.download = __opts.name || 'download';\n" +
-                "      __a.style.display = 'none';\n" +
-                "      (document.body || document.documentElement).appendChild(__a);\n" +
-                "      __a.click();\n" +
-                "      setTimeout(function() {\n" +
-                "        __a.remove();\n" +
-                "        if (__opts.onload) __opts.onload();\n" +
-                "      }, 100);\n" +
-                "      return { abort: function() {} };\n" +
-                "    }\n" +
-                "    if (window.onyxGM && window.onyxGM.download) {\n" +
-                "      window.onyxGM.download(__u, __opts.name || 'download');\n" +
-                "    }\n" +
-                "    if (__opts.onload) setTimeout(__opts.onload, 100);\n" +
-                "  } catch(__e) {\n" +
-                "    if (details && details.onerror) details.onerror(String(__e));\n" +
-                "  }\n" +
-                "}\n" +
-                "function GM_getResourceText(name) {\n" +
-                "  var __r = __resources[name];\n" +
-                "  if (!__r) return undefined;\n" +
-                "  if (__r.text !== undefined) return __r.text;\n" +
-                "  if (__r.base64) {\n" +
-                "    try { return decodeURIComponent(escape(atob(__r.base64))); }\n" +
-                "    catch(__e) { try { return atob(__r.base64); } catch(__e2) { return undefined; } }\n" +
-                "  }\n" +
-                "  return undefined;\n" +
-                "}\n" +
-                "function GM_getResourceURL(name) {\n" +
-                "  var __r = __resources[name];\n" +
-                "  if (!__r) return undefined;\n" +
-                "  return 'data:' + (__r.mime || 'application/octet-stream') + ';base64,' + (__r.base64 || '');\n" +
-                "}\n" +
-                "function GM_registerMenuCommand(caption, onClick, accessKey) {\n" +
-                "  var __id = 'm_' + __scriptId + '_' + (++__xhrSeq);\n" +
-                "  window.__usRuntime.menuCommands[__id] = { scriptName: __scriptName, caption: caption, onClick: onClick, accessKey: accessKey };\n" +
-                "  __usRenderMenuButton();\n" +
-                "  try { if (window.onyxGM && window.onyxGM.registerMenuCommand) window.onyxGM.registerMenuCommand(caption, __id); } catch(__e) {}\n" +
-                "  return __id;\n" +
-                "}\n" +
-                "function GM_unregisterMenuCommand(id) {\n" +
-                "  delete window.__usRuntime.menuCommands[id];\n" +
-                "  __usRenderMenuButton();\n" +
-                "  try { if (window.onyxGM && window.onyxGM.unregisterMenuCommand) window.onyxGM.unregisterMenuCommand(id); } catch(__e) {}\n" +
-                "}\n" +
-                "function __usRenderMenuButton() {\n" +
-                "  try {\n" +
-                "    var __ids = Object.keys(window.__usRuntime.menuCommands);\n" +
-                "    var __btn = document.getElementById('__us_menu_btn');\n" +
-                "    if (__ids.length === 0) { if (__btn) __btn.remove(); return; }\n" +
-                "    if (!__btn) {\n" +
-                "      __btn = document.createElement('div');\n" +
-                "      __btn.id = '__us_menu_btn';\n" +
-                "      __btn.style.cssText = 'position:fixed;right:14px;bottom:80px;z-index:2147483647;width:38px;height:38px;border-radius:19px;background:rgba(30,30,34,0.88);backdrop-filter:blur(10px);color:#fff;display:flex;align-items:center;justify-content:center;font:16px sans-serif;box-shadow:0 3px 10px rgba(0,0,0,0.45);cursor:pointer;user-select:none;border:1px solid rgba(255,255,255,0.12);';\n" +
-                "      __btn.textContent = '\\u2699';\n" +
-                "      var __menu = document.createElement('div');\n" +
-                "      __menu.id = '__us_menu_list';\n" +
-                "      __menu.style.cssText = 'position:fixed;right:14px;bottom:126px;z-index:2147483647;background:#202024;color:#fff;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.55);display:none;min-width:180px;max-width:280px;font:13px sans-serif;overflow:hidden;border:1px solid rgba(255,255,255,0.1);';\n" +
-                "      (document.body || document.documentElement).appendChild(__btn);\n" +
-                "      (document.body || document.documentElement).appendChild(__menu);\n" +
-                "      __btn.addEventListener('click', function(e) {\n" +
-                "        e.stopPropagation();\n" +
-                "        __menu.style.display = (__menu.style.display === 'none' ? 'block' : 'none');\n" +
-                "      });\n" +
-                "      document.addEventListener('click', function() {\n" +
-                "        if (__menu) __menu.style.display = 'none';\n" +
-                "      });\n" +
-                "    }\n" +
-                "    var __menuEl = document.getElementById('__us_menu_list');\n" +
-                "    if (__menuEl) {\n" +
-                "      __menuEl.innerHTML = '';\n" +
-                "      __ids.forEach(function(__mid) {\n" +
-                "        var __cmd = window.__usRuntime.menuCommands[__mid];\n" +
-                "        var __item = document.createElement('div');\n" +
-                "        __item.textContent = __cmd.caption;\n" +
-                "        __item.style.cssText = 'padding:11px 16px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer;transition:background 0.15s;';\n" +
-                "        __item.addEventListener('click', function(e) {\n" +
-                "          e.stopPropagation();\n" +
-                "          __menuEl.style.display = 'none';\n" +
-                "          try { __cmd.onClick(); } catch(__e) {}\n" +
-                "        });\n" +
-                "        __menuEl.appendChild(__item);\n" +
-                "      });\n" +
-                "    }\n" +
-                "  } catch(__e) {}\n" +
-                "}\n" +
-                "var GM = {\n" +
-                "  info: GM_info,\n" +
-                "  log: function() { GM_log.apply(null, arguments); return Promise.resolve(); },\n" +
-                "  getValue: function(k, d) { return Promise.resolve(GM_getValue(k, d)); },\n" +
-                "  setValue: function(k, v) { GM_setValue(k, v); return Promise.resolve(); },\n" +
-                "  deleteValue: function(k) { GM_deleteValue(k); return Promise.resolve(); },\n" +
-                "  listValues: function() { return Promise.resolve(GM_listValues()); },\n" +
-                "  getValues: function(k) { return Promise.resolve(GM_getValues(k)); },\n" +
-                "  setValues: function(v) { GM_setValues(v); return Promise.resolve(); },\n" +
-                "  deleteValues: function(k) { GM_deleteValues(k); return Promise.resolve(); },\n" +
-                "  getTab: function() { return Promise.resolve(GM_getTab()); },\n" +
-                "  saveTab: function(o) { GM_saveTab(o); return Promise.resolve(); },\n" +
-                "  getTabs: function() { return Promise.resolve(GM_getTabs()); },\n" +
-                "  addStyle: GM_addStyle,\n" +
-                "  addElement: GM_addElement,\n" +
-                "  xmlHttpRequest: function(d) {\n" +
-                "    return new Promise(function(res) {\n" +
-                "      var __d = Object.assign({}, d);\n" +
-                "      var __ol = __d.onload, __oe = __d.onerror;\n" +
-                "      __d.onload = function(r) { if (__ol) __ol(r); res(r); };\n" +
-                "      __d.onerror = function(r) { if (__oe) __oe(r); res(r); };\n" +
-                "      GM_xmlhttpRequest(__d);\n" +
-                "    });\n" +
-                "  },\n" +
-                "  download: function(d, f) { GM_download(d, f); return Promise.resolve(); },\n" +
-                "  getResourceText: function(n) { return Promise.resolve(GM_getResourceText(n)); },\n" +
-                "  getResourceUrl: function(n) { return Promise.resolve(GM_getResourceURL(n)); },\n" +
-                "  getResourceURL: function(n) { return Promise.resolve(GM_getResourceURL(n)); },\n" +
-                "  registerMenuCommand: function(c, cb, a) { return Promise.resolve(GM_registerMenuCommand(c, cb, a)); },\n" +
-                "  unregisterMenuCommand: function(id) { return Promise.resolve(GM_unregisterMenuCommand(id)); },\n" +
-                "  openInTab: function(u, o) { return Promise.resolve(GM_openInTab(u, o)); },\n" +
-                "  setClipboard: function(t, ty) { GM_setClipboard(t, ty); return Promise.resolve(); },\n" +
-                "  notification: function(d, od) { GM_notification(d, od); return Promise.resolve(); },\n" +
-                "  addValueChangeListener: function(n, cb) { return Promise.resolve(GM_addValueChangeListener(n, cb)); },\n" +
-                "  removeValueChangeListener: function(id) { return Promise.resolve(GM_removeValueChangeListener(id)); }\n" +
-                "};\n" +
-                "function GM_getValues(keys) {\n" +
-                "  var out = {};\n" +
-                "  if (Array.isArray(keys)) { keys.forEach(function(k) { out[k] = GM_getValue(k); }); }\n" +
-                "  else if (keys && typeof keys === 'object') { Object.keys(keys).forEach(function(k) { out[k] = GM_getValue(k, keys[k]); }); }\n" +
-                "  else { GM_listValues().forEach(function(k) { out[k] = GM_getValue(k); }); }\n" +
-                "  return out;\n" +
-                "}\n" +
-                "function GM_setValues(values) {\n" +
-                "  if (values && typeof values === 'object') { Object.keys(values).forEach(function(k) { GM_setValue(k, values[k]); }); }\n" +
-                "}\n" +
-                "function GM_deleteValues(keys) {\n" +
-                "  if (Array.isArray(keys)) { keys.forEach(function(k) { GM_deleteValue(k); }); }\n" +
-                "}\n" +
-                "var __tabKey = '__onyx_gm_tab_' + __scriptKey;\n" +
-                "function GM_getTab(cb) {\n" +
-                "  var o = {};\n" +
-                "  try { o = JSON.parse(sessionStorage.getItem(__tabKey) || '{}'); } catch(__e) {}\n" +
-                "  if (typeof cb === 'function') cb(o);\n" +
-                "  return o;\n" +
-                "}\n" +
-                "function GM_saveTab(obj) {\n" +
-                "  try { sessionStorage.setItem(__tabKey, JSON.stringify(obj || {})); } catch(__e) {}\n" +
-                "}\n" +
-                "function GM_getTabs(cb) {\n" +
-                "  var all = {}; all[0] = GM_getTab();\n" +
-                "  if (typeof cb === 'function') cb(all);\n" +
-                "  return all;\n" +
-                "}\n" +
-                "var GM_xmlHttpRequest = GM_xmlhttpRequest;\n" +
-                requireBlock + "\n" +
-                "var __hasExecuted = false;\n" +
-                "function __runUserScript() {\n" +
-                "  if (__hasExecuted) return;\n" +
-                "  __hasExecuted = true;\n" +
-                "  try {\n" +
-                parsed.code + "\n" +
-                "  } catch(__e) {\n" +
-                "    console.error('[UserScript] ' + __scriptName + ' failed', __e);\n" +
-                "  }\n" +
-                "}\n" +
-                "var __runAt = ${JSONObject.quote(runAtStr)};\n" +
-                "function __attemptRun() {\n" +
-                "  if (__hasExecuted) return;\n" +
-                "  if (!__matchesUrl(location.href)) return;\n" +
-                "  if (__runAt === 'document-start') {\n" +
-                "    __runUserScript();\n" +
-                "  } else if (__runAt === 'document-end') {\n" +
-                "    if (document.readyState !== 'loading') { __runUserScript(); }\n" +
-                "    else { document.addEventListener('DOMContentLoaded', __runUserScript); }\n" +
-                "  } else {\n" +
-                "    if (document.readyState === 'complete') { __runUserScript(); }\n" +
-                "    else { window.addEventListener('load', __runUserScript); }\n" +
-                "  }\n" +
-                "}\n" +
-                "__attemptRun();\n" +
-                "window.addEventListener('onyx:urlchange', function() { __hasExecuted = false; __attemptRun(); });\n" +
-                "window.addEventListener('yt-navigate-finish', function() { __hasExecuted = false; __attemptRun(); });\n" +
-                "})();\n"
+        val replacements = mapOf(
+            "EXCLUDE_ARRAY" to excludeArray,
+            "MATCH_ARRAY" to matchArray,
+            "NO_FRAMES" to noFrames.toString(),
+            "SCRIPT_ID" to scriptId.toString(),
+            "SCRIPT_KEY" to JSONObject.quote(scriptKey),
+            "SCRIPT_NAME" to scriptName,
+            "RESOURCES" to resourcesObj,
+            "NAMESPACE" to JSONObject.quote(meta.namespace),
+            "VERSION" to JSONObject.quote(meta.version),
+            "DESCRIPTION" to JSONObject.quote(meta.description),
+            "AUTHOR" to JSONObject.quote(meta.author),
+            "CONNECTS" to connectsArray,
+            "GRANTS" to grantsArray,
+            "RUN_AT" to JSONObject.quote(runAtStr),
+            "UNWRAP" to unwrap.toString(),
+            "IS_INCOGNITO" to isIncognito.toString(),
+            "REQUIRE_BLOCK" to requireBlock,
+            "CODE" to parsed.code
+        )
+        val template = AssetScriptLoader.loadScript(context, WRAPPER_ASSET)
+        // Single pass so user code containing "{{...}}" is never re-substituted
+        return WRAPPER_PLACEHOLDER.replace(template) { m -> replacements[m.groupValues[1]] ?: m.value }
     }
 
     private fun buildGmInfo(parsed: ParsedUserScript): String {
@@ -1006,7 +620,7 @@ class UserScriptManager private constructor(private val context: Context) {
                 async { item to checkAndUpdate(item.id) }
             }.awaitAll()
         }
-        com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).userScriptLastUpdateCheckTime =
+        com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).updates.userScriptLastUpdateCheckTime =
             System.currentTimeMillis()
         results
     }

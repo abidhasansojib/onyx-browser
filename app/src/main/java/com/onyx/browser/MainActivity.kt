@@ -2288,7 +2288,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         updateMenuUpdateBadge()
 
         val cachedUpdate = AppUpdateManager.getCachedUpdate(this)
-        if (cachedUpdate != null && cachedUpdate.tagName != preferences.dismissedUpdateTag) {
+        if (cachedUpdate != null && cachedUpdate.tagName != preferences.updates.dismissedUpdateTag) {
             showUpdateAvailableSnackbar(cachedUpdate)
         }
 
@@ -2312,7 +2312,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (isFinishing || isDestroyed) return@withContext
             updateMenuUpdateBadge()
             if (newUpdate != null &&
-                newUpdate.tagName != preferences.dismissedUpdateTag &&
+                newUpdate.tagName != preferences.updates.dismissedUpdateTag &&
                 newUpdate.tagName != lastPromptedUpdateTag
             ) {
                 lastPromptedUpdateTag = newUpdate.tagName
@@ -2321,18 +2321,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
 
         // Catch up on filter/userscript updates that background work may have deferred
-        try {
-            com.onyx.browser.data.filter.FilterListManager.checkAndAutoUpdateFilters(applicationContext)
-        } catch (_: Exception) {
-        }
-        try {
-            if (preferences.isUserScriptAutoUpdateEnabled && preferences.userScriptAutoUpdateIntervalHours > 0) {
-                val due = now - preferences.userScriptLastUpdateCheckTime >=
-                    preferences.userScriptAutoUpdateIntervalHours * 3_600_000L
-                if (due) com.onyx.browser.userscript.UserScriptManager.getInstance(applicationContext).checkAndUpdateAll()
-            }
-        } catch (_: Exception) {
-        }
+        com.onyx.browser.update.UpdateScheduler.runDueTasks(
+            applicationContext,
+            com.onyx.browser.update.UpdateTask.FILTERS,
+            com.onyx.browser.update.UpdateTask.USERSCRIPTS
+        )
     }
 
     private fun showUpdateAvailableSnackbar(updateInfo: UpdateInfo) {
