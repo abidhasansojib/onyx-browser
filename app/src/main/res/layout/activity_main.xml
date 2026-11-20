@@ -206,7 +206,7 @@
                 android:id="@+id/btnTabSwitcher"
                 android:layout_width="26dp"
                 android:layout_height="26dp"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="10dp"
                 android:background="@drawable/bg_tab_badge"
                 android:contentDescription="@string/tabs">
 
