@@ -817,6 +817,8 @@
     <string name="userscripts_btn_install">Install</string>
     <string name="userscripts_all_sites">All websites</string>
     <string name="userscripts_install_failed">Failed to download userscript</string>
+    <string name="userscripts_notification_channel_name">Userscript Alerts</string>
+    <string name="userscripts_notification_channel_desc">Alerts and messages posted by active userscripts</string>
 </resources>
 
 

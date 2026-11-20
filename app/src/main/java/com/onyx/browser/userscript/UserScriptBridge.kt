@@ -324,9 +324,13 @@ class UserScriptBridge(
     fun notify(scriptName: String, title: String, text: String, origin: String) {
         webView.post {
             try {
-                val displayTitle = title.ifBlank { scriptName }
-                val fullMsg = if (text.isNotBlank()) "$displayTitle: $text" else displayTitle
-                Toast.makeText(webView.context, fullMsg, Toast.LENGTH_LONG).show()
+                UserScriptNotificationHelper.showNotification(
+                    context = webView.context,
+                    scriptName = scriptName,
+                    title = title,
+                    text = text,
+                    origin = origin
+                )
             } catch (_: Exception) {}
         }
     }

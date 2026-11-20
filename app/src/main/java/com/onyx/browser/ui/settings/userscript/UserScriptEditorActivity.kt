@@ -831,6 +831,17 @@ class ScriptCodeEditorView @JvmOverloads constructor(
     private var isApplyingHistory = false
     private var beforeChangeText: CharSequence? = null
 
+    var isDarkTheme: Boolean = true
+        set(value) {
+            if (field != value) {
+                field = value
+                scheduleViewportHighlighting(delayMs = 0)
+            }
+        }
+
+    private var isApplyingSyntaxSpans = false
+    private val highlightRunnable = Runnable { applyViewportSyntaxHighlighting() }
+
     var isWordWrap: Boolean = false
         private set
 
@@ -841,6 +852,49 @@ class ScriptCodeEditorView @JvmOverloads constructor(
     var onContentModified: (() -> Unit)? = null
     var onVerticalScrollChanged: ((scrollY: Int) -> Unit)? = null
     var onLayoutReady: (() -> Unit)? = null
+
+    fun scheduleViewportHighlighting(delayMs: Long = 150) {
+        removeCallbacks(highlightRunnable)
+        if (delayMs <= 0) {
+            highlightRunnable.run()
+        } else {
+            postDelayed(highlightRunnable, delayMs)
+        }
+    }
+
+    fun applyViewportSyntaxHighlighting() {
+        val ed = text ?: return
+        val l = layout ?: return
+        val len = ed.length
+        if (len == 0) return
+
+        val totalLines = l.lineCount
+        if (totalLines == 0) return
+
+        val firstVisibleLine = l.getLineForVertical(scrollY).coerceIn(0, totalLines - 1)
+        val lastVisibleLine = l.getLineForVertical(scrollY + height).coerceIn(firstVisibleLine, totalLines - 1)
+
+        val bufferLines = 50
+        val startLine = maxOf(0, firstVisibleLine - bufferLines)
+        val endLine = minOf(totalLines - 1, lastVisibleLine + bufferLines)
+
+        val startOffset = l.getLineStart(startLine).coerceIn(0, len)
+        val endOffset = l.getLineEnd(endLine).coerceIn(startOffset, len)
+
+        isApplyingSyntaxSpans = true
+        try {
+            val colors = UserScriptSyntaxHighlighter.getThemeColors(isDarkTheme)
+            UserScriptSyntaxHighlighter.highlightRange(ed, startOffset, endOffset, colors)
+        } catch (_: Exception) {
+        } finally {
+            isApplyingSyntaxSpans = false
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        removeCallbacks(highlightRunnable)
+    }
 
     val lineCountEstimate: Int
         get() {
@@ -915,7 +969,7 @@ class ScriptCodeEditorView @JvmOverloads constructor(
 
         addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-                if (isApplyingHistory || s == null) return
+                if (isApplyingHistory || isApplyingSyntaxSpans || s == null) return
                 if (count < 8000) {
                     beforeChangeText = s.subSequence(start, start + count)
                 } else {
@@ -924,7 +978,9 @@ class ScriptCodeEditorView @JvmOverloads constructor(
             }
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (isApplyingSyntaxSpans) return
                 onContentModified?.invoke()
+                scheduleViewportHighlighting(delayMs = 300)
                 if (isApplyingHistory || s == null) return
                 if (count < 8000 && beforeChangeText != null) {
                     val afterText = s.subSequence(start, start + count)
@@ -1211,6 +1267,7 @@ class CodeEditorContainer @JvmOverloads constructor(
 
         editorView.onVerticalScrollChanged = { scrollY ->
             gutterView.onEditorScrolled(scrollY)
+            editorView.scheduleViewportHighlighting(delayMs = 60)
         }
         editorView.onCursorSelectionChanged = {
             gutterView.postInvalidateOnAnimation()
@@ -1221,6 +1278,7 @@ class CodeEditorContainer @JvmOverloads constructor(
         editorView.onLayoutReady = {
             gutterView.syncFontMetrics()
             gutterView.updateDigits()
+            editorView.scheduleViewportHighlighting(delayMs = 0)
         }
     }
 
@@ -1233,8 +1291,10 @@ class CodeEditorContainer @JvmOverloads constructor(
         accentColor: Int,
         isWordWrap: Boolean,
         initialCode: String?,
+        isDark: Boolean,
         onBindEditor: (ScriptCodeEditorView) -> Unit
     ) {
+        editorView.isDarkTheme = isDark
         editorView.setTextColor(textColor)
         editorView.setHintTextColor(hintColor)
         editorView.setBackgroundColor(surfaceColor)
@@ -1257,6 +1317,7 @@ class CodeEditorContainer @JvmOverloads constructor(
             editorView.setText(initialCode)
             editorView.setSelection(0)
             editorView.scrollTo(0, 0)
+            editorView.scheduleViewportHighlighting(delayMs = 50)
         }
 
         onBindEditor(editorView)
@@ -1269,8 +1330,10 @@ class CodeEditorContainer @JvmOverloads constructor(
         gutterBgColor: Int,
         gutterTextColor: Int,
         accentColor: Int,
-        isWordWrap: Boolean
+        isWordWrap: Boolean,
+        isDark: Boolean
     ) {
+        editorView.isDarkTheme = isDark
         if (editorView.currentTextColor != textColor) {
             editorView.setTextColor(textColor)
         }
@@ -1521,6 +1584,7 @@ fun UserScriptEditorScreen(
                                     accentColor = accentColor,
                                     isWordWrap = isWordWrap,
                                     initialCode = code,
+                                    isDark = isDark,
                                     onBindEditor = onBindEditor
                                 )
                             }
@@ -1533,7 +1597,8 @@ fun UserScriptEditorScreen(
                                 gutterBgColor = gutterBgColor,
                                 gutterTextColor = gutterTextColor,
                                 accentColor = accentColor,
-                                isWordWrap = isWordWrap
+                                isWordWrap = isWordWrap,
+                                isDark = isDark
                             )
                         },
                         modifier = Modifier.fillMaxSize()
