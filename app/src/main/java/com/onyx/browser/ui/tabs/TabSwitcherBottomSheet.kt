@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.format.DateUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -34,21 +35,35 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOff
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -77,10 +92,13 @@ import androidx.core.view.WindowCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.onyx.browser.R
+import com.onyx.browser.data.model.TabGroupItem
 import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.browser.TabCoordinator
 import com.onyx.browser.ui.common.BiometricAuthHelper
+import com.onyx.browser.ui.components.AppAlertDialog
+import com.onyx.browser.ui.components.RadioPreference
 import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 import kotlinx.coroutines.CoroutineScope
@@ -165,6 +183,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
     ): View {
         isDismissing = false
         val prefs = BrowserPreferences.getInstance(requireContext())
+        tabManager.autoArchiveIdleTabs()
         if (isViewingIncognitoState.value && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked) {
             isViewingIncognitoState.value = false
             promptBiometricAuth {
@@ -191,6 +210,15 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         }
     }
 
+    private fun parseHexColor(hex: String, fallback: Color): Color {
+        return try {
+            val formatted = if (hex.startsWith("#")) hex else "#$hex"
+            Color(android.graphics.Color.parseColor(formatted))
+        } catch (_: Exception) {
+            fallback
+        }
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun TabSwitcherScreen() {
@@ -200,6 +228,8 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
 
         val normalTabs by tabManager.normalTabs.collectAsStateWithLifecycle()
         val incognitoTabs by tabManager.incognitoTabs.collectAsStateWithLifecycle()
+        val archivedTabs by tabManager.archivedTabs.collectAsStateWithLifecycle()
+        val tabGroups by tabManager.tabGroups.collectAsStateWithLifecycle()
         val activeTab by tabManager.activeTab.collectAsStateWithLifecycle()
 
         var isViewingIncognito by isViewingIncognitoState
@@ -208,14 +238,38 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
 
         val currentTabs = if (isViewingIncognito) incognitoTabs else normalTabs
         val prefs = remember { BrowserPreferences.getInstance(context) }
+
         var overflowMenuExpanded by remember { mutableStateOf(false) }
         var selectedTabForMenu by remember { mutableStateOf<TabItem?>(null) }
+        var selectedTabForMoveGroup by remember { mutableStateOf<TabItem?>(null) }
+        var selectedGroupFilterId by remember { mutableStateOf<String?>(null) }
+        var showArchivedSheet by remember { mutableStateOf(false) }
+        var showAutoArchiveConfigSheet by remember { mutableStateOf(false) }
+        var autoArchiveHoursState by remember { mutableIntStateOf(prefs.tabAutoArchiveHours) }
+
+        // Group creation / editing dialog state
+        var showGroupEditDialog by remember { mutableStateOf(false) }
+        var editingGroup by remember { mutableStateOf<TabGroupItem?>(null) }
+        var initialTabForNewGroup by remember { mutableStateOf<TabItem?>(null) }
+
+        // Group options bottom sheet state
+        var selectedGroupForOptions by remember { mutableStateOf<TabGroupItem?>(null) }
+
+        // Reset filter if selected group was deleted
+        LaunchedEffect(tabGroups) {
+            if (selectedGroupFilterId != null && tabGroups.none { it.id == selectedGroupFilterId }) {
+                selectedGroupFilterId = null
+            }
+        }
+
+        val groupMap = remember(tabGroups) { tabGroups.associateBy { it.id } }
 
         Scaffold(
             topBar = {
                 TabSwitcherTopBar(
                     normalCount = normalTabs.size,
                     incognitoCount = incognitoTabs.size,
+                    archivedCount = archivedTabs.size,
                     isViewingIncognito = isViewingIncognito,
                     onToggleIncognito = { targetIncognito ->
                         if (targetIncognito != isViewingIncognito && !isDismissing) {
@@ -261,6 +315,21 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             dismissAllowingStateLoss()
                         }
                     },
+                    onNewTabGroupClick = {
+                        overflowMenuExpanded = false
+                        editingGroup = null
+                        initialTabForNewGroup = null
+                        showGroupEditDialog = true
+                    },
+                    onArchivedTabsClick = {
+                        overflowMenuExpanded = false
+                        showArchivedSheet = true
+                    },
+                    onAutoArchiveSettingsClick = {
+                        overflowMenuExpanded = false
+                        autoArchiveHoursState = prefs.tabAutoArchiveHours
+                        showAutoArchiveConfigSheet = true
+                    },
                     onCloseAllTabsClick = {
                         overflowMenuExpanded = false
                         if (!isDismissing) confirmCloseAllTabs()
@@ -282,7 +351,15 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                     onNewTabClick = {
                         if (!isDismissing) {
                             isDismissing = true
-                            onNewTabRequested(isViewingIncognito)
+                            if (!isViewingIncognito && selectedGroupFilterId != null) {
+                                val newTab = tabManager.createNewTab(
+                                    isIncognito = false,
+                                    groupId = selectedGroupFilterId
+                                )
+                                onTabSelected(newTab)
+                            } else {
+                                onNewTabRequested(isViewingIncognito)
+                            }
                             dismissAllowingStateLoss()
                         }
                     },
@@ -298,55 +375,195 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                if (currentTabs.isEmpty()) {
-                    EmptyTabsView(isViewingIncognito = isViewingIncognito)
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(spanCount),
-                        contentPadding = PaddingValues(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(currentTabs, key = { it.id }) { tab ->
-                            val isLocked = tab.isIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked
-                            val isActive = tab.id == activeTab?.id
-                            val snapshot = remember(tab.id, isLocked, rev) {
-                                if (isLocked) null else tabManager.getSnapshot(tab.id)
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Normal mode: Tab Groups Filter Bar & Archived Tabs Pill Banner
+                    if (!isViewingIncognito && (tabGroups.isNotEmpty() || archivedTabs.isNotEmpty() || normalTabs.size >= 2)) {
+                        TabOrganizationHeaderBar(
+                            groups = tabGroups,
+                            normalTabs = normalTabs,
+                            archivedCount = archivedTabs.size,
+                            selectedGroupId = selectedGroupFilterId,
+                            onSelectGroup = { gId ->
+                                selectedGroupFilterId = if (selectedGroupFilterId == gId) null else gId
+                            },
+                            onCreateGroupClick = {
+                                editingGroup = null
+                                initialTabForNewGroup = null
+                                showGroupEditDialog = true
+                            },
+                            onArchivedClick = {
+                                showArchivedSheet = true
+                            },
+                            onGroupLongClick = { group ->
+                                selectedGroupForOptions = group
+                            }
+                        )
+                    }
+
+                    val displayedGroups = remember(tabGroups, selectedGroupFilterId) {
+                        if (selectedGroupFilterId != null) {
+                            tabGroups.filter { it.id == selectedGroupFilterId }
+                        } else {
+                            tabGroups
+                        }
+                    }
+
+                    val ungroupedTabs = remember(currentTabs, tabGroups, isViewingIncognito, selectedGroupFilterId) {
+                        if (isViewingIncognito) {
+                            currentTabs
+                        } else if (selectedGroupFilterId != null) {
+                            emptyList()
+                        } else {
+                            val validGroupIds = tabGroups.map { it.id }.toSet()
+                            currentTabs.filter { it.groupId == null || it.groupId !in validGroupIds }
+                        }
+                    }
+
+                    val hasVisibleContent = if (isViewingIncognito) {
+                        currentTabs.isNotEmpty()
+                    } else if (selectedGroupFilterId != null) {
+                        displayedGroups.isNotEmpty()
+                    } else {
+                        currentTabs.isNotEmpty() || displayedGroups.isNotEmpty()
+                    }
+
+                    if (!hasVisibleContent) {
+                        EmptyTabsView(
+                            isViewingIncognito = isViewingIncognito,
+                            archivedCount = if (isViewingIncognito) 0 else archivedTabs.size,
+                            onOpenArchived = { showArchivedSheet = true }
+                        )
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(spanCount),
+                            contentPadding = PaddingValues(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        ) {
+                            if (!isViewingIncognito) {
+                                displayedGroups.forEach { group ->
+                                    val groupTabs = currentTabs.filter { it.groupId == group.id }
+                                    item(
+                                        key = "group_header_${group.id}",
+                                        span = { GridItemSpan(spanCount) }
+                                    ) {
+                                        TabGroupSectionHeader(
+                                            group = group,
+                                            tabCount = groupTabs.size,
+                                            onToggleCollapse = {
+                                                tabManager.toggleTabGroupCollapsed(group.id)
+                                            },
+                                            onAddTabToGroup = {
+                                                if (!isDismissing) {
+                                                    isDismissing = true
+                                                    val newTab = tabManager.createNewTab(
+                                                        isIncognito = false,
+                                                        groupId = group.id
+                                                    )
+                                                    onTabSelected(newTab)
+                                                    dismissAllowingStateLoss()
+                                                }
+                                            },
+                                            onGroupOptionsClick = {
+                                                selectedGroupForOptions = group
+                                            }
+                                        )
+                                    }
+
+                                    if (!group.isCollapsed) {
+                                        items(groupTabs, key = { it.id }) { tab ->
+                                            val isActive = tab.id == activeTab?.id
+                                            val snapshot = remember(tab.id, rev) {
+                                                tabManager.getSnapshot(tab.id)
+                                            }
+                                            TabCard(
+                                                tab = tab,
+                                                group = group,
+                                                isActive = isActive,
+                                                isLocked = false,
+                                                snapshot = snapshot,
+                                                onTabClick = {
+                                                    if (isDismissing) return@TabCard
+                                                    isDismissing = true
+                                                    tabManager.selectTab(tab)
+                                                    onTabSelected(tab)
+                                                    dismissAllowingStateLoss()
+                                                },
+                                                onTabLongClick = {
+                                                    if (!isDismissing) {
+                                                        selectedTabForMenu = tab
+                                                    }
+                                                },
+                                                onCloseClick = {
+                                                    if (isDismissing) return@TabCard
+                                                    tabManager.closeTab(tab)
+                                                    showUndoToastForTab(tab)
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (displayedGroups.isNotEmpty() && ungroupedTabs.isNotEmpty()) {
+                                    item(
+                                        key = "ungrouped_header",
+                                        span = { GridItemSpan(spanCount) }
+                                    ) {
+                                        Text(
+                                            text = "OTHER TABS (${ungroupedTabs.size})",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
+                                        )
+                                    }
+                                }
                             }
 
-                            TabCard(
-                                tab = tab,
-                                isActive = isActive,
-                                isLocked = isLocked,
-                                snapshot = snapshot,
-                                onTabClick = {
-                                    if (isDismissing) return@TabCard
-                                    if (isLocked) {
-                                        promptBiometricAuth {
+                            items(ungroupedTabs, key = { it.id }) { tab ->
+                                val isLocked = tab.isIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked
+                                val isActive = tab.id == activeTab?.id
+                                val snapshot = remember(tab.id, isLocked, rev) {
+                                    if (isLocked) null else tabManager.getSnapshot(tab.id)
+                                }
+
+                                TabCard(
+                                    tab = tab,
+                                    group = tab.groupId?.let { groupMap[it] },
+                                    isActive = isActive,
+                                    isLocked = isLocked,
+                                    snapshot = snapshot,
+                                    onTabClick = {
+                                        if (isDismissing) return@TabCard
+                                        if (isLocked) {
+                                            promptBiometricAuth {
+                                                isDismissing = true
+                                                tabManager.selectTab(tab)
+                                                onTabSelected(tab)
+                                                dismissAllowingStateLoss()
+                                            }
+                                        } else {
                                             isDismissing = true
                                             tabManager.selectTab(tab)
                                             onTabSelected(tab)
                                             dismissAllowingStateLoss()
                                         }
-                                    } else {
-                                        isDismissing = true
-                                        tabManager.selectTab(tab)
-                                        onTabSelected(tab)
-                                        dismissAllowingStateLoss()
+                                    },
+                                    onTabLongClick = {
+                                        if (!isDismissing && !isLocked) {
+                                            selectedTabForMenu = tab
+                                        }
+                                    },
+                                    onCloseClick = {
+                                        if (isDismissing) return@TabCard
+                                        tabManager.closeTab(tab)
+                                        showUndoToastForTab(tab)
                                     }
-                                },
-                                onTabLongClick = {
-                                    if (!isDismissing && !isLocked) {
-                                        selectedTabForMenu = tab
-                                    }
-                                },
-                                onCloseClick = {
-                                    if (isDismissing) return@TabCard
-                                    tabManager.closeTab(tab)
-                                    showUndoToastForTab(tab)
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -428,6 +645,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
 
                 // Tab Long-Press Context Menu ModalBottomSheet
                 selectedTabForMenu?.let { tab ->
+                    val currentGroup = tab.groupId?.let { groupMap[it] }
                     ModalBottomSheet(
                         onDismissRequest = { selectedTabForMenu = null },
                         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -461,42 +679,72 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             }
                             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                            // Close Tab
-                            ListItem(
-                                headlineContent = { Text(stringResource(R.string.close_tab)) },
-                                leadingContent = {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                },
-                                modifier = Modifier.clickable {
-                                    val t = tab
-                                    selectedTabForMenu = null
-                                    tabManager.closeTab(t)
-                                    showUndoToastForTab(t)
-                                }
-                            )
-
-                            // Close Other Tabs
-                            if (currentTabs.size > 1) {
+                            // Group actions (for normal tabs)
+                            if (!tab.isIncognito) {
                                 ListItem(
-                                    headlineContent = { Text(stringResource(R.string.close_other_tabs)) },
+                                    headlineContent = {
+                                        Text(
+                                            if (currentGroup != null) "Change tab group (${currentGroup.title})"
+                                            else stringResource(R.string.move_to_group)
+                                        )
+                                    },
                                     leadingContent = {
                                         Icon(
-                                            painter = painterResource(R.drawable.ic_delete),
+                                            imageVector = Icons.Default.Folder,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurface
+                                            tint = MaterialTheme.colorScheme.primary
                                         )
                                     },
                                     modifier = Modifier.clickable {
                                         val t = tab
                                         selectedTabForMenu = null
-                                        tabManager.closeOtherTabs(t)
-                                        showUndoToastWithMessage(getString(R.string.other_tabs_closed))
+                                        selectedTabForMoveGroup = t
                                     }
                                 )
+
+                                if (currentGroup != null) {
+                                    ListItem(
+                                        headlineContent = { Text(stringResource(R.string.remove_from_group)) },
+                                        leadingContent = {
+                                            Icon(
+                                                imageVector = Icons.Default.FolderOff,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        },
+                                        modifier = Modifier.clickable {
+                                            val t = tab
+                                            selectedTabForMenu = null
+                                            tabManager.assignTabToGroup(t.id, null)
+                                            refreshTabsList()
+                                        }
+                                    )
+                                }
+
+                                // Archive Tab
+                                if (tab.url.isNotBlank() && !tab.url.equals("about:blank", ignoreCase = true)) {
+                                    ListItem(
+                                        headlineContent = { Text(stringResource(R.string.archive_tab)) },
+                                        leadingContent = {
+                                            Icon(
+                                                imageVector = Icons.Default.Archive,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        },
+                                        modifier = Modifier.clickable {
+                                            val t = tab
+                                            selectedTabForMenu = null
+                                            tabManager.archiveTab(t)
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.tab_archived_toast, t.title.ifBlank { "Tab" }),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            refreshTabsList()
+                                        }
+                                    )
+                                }
                             }
 
                             // Duplicate Tab
@@ -558,9 +806,465 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                                     }
                                 )
                             }
+
+                            // Close Other Tabs
+                            if (currentTabs.size > 1) {
+                                ListItem(
+                                    headlineContent = { Text(stringResource(R.string.close_other_tabs)) },
+                                    leadingContent = {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_delete),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    modifier = Modifier.clickable {
+                                        val t = tab
+                                        selectedTabForMenu = null
+                                        tabManager.closeOtherTabs(t)
+                                        showUndoToastWithMessage(getString(R.string.other_tabs_closed))
+                                    }
+                                )
+                            }
+
+                            // Close Tab
+                            ListItem(
+                                headlineContent = { Text(stringResource(R.string.close_tab)) },
+                                leadingContent = {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    val t = tab
+                                    selectedTabForMenu = null
+                                    tabManager.closeTab(t)
+                                    showUndoToastForTab(t)
+                                }
+                            )
                         }
                     }
                 }
+
+                // Move Tab to Group Picker Sheet
+                selectedTabForMoveGroup?.let { targetTab ->
+                    MoveTabToGroupBottomSheet(
+                        tab = targetTab,
+                        groups = tabGroups,
+                        onSelectGroup = { group ->
+                            tabManager.assignTabToGroup(targetTab.id, group?.id)
+                            selectedTabForMoveGroup = null
+                            refreshTabsList()
+                        },
+                        onCreateNewGroupWithTab = {
+                            val t = targetTab
+                            selectedTabForMoveGroup = null
+                            editingGroup = null
+                            initialTabForNewGroup = t
+                            showGroupEditDialog = true
+                        },
+                        onDismiss = { selectedTabForMoveGroup = null }
+                    )
+                }
+
+                // Group Options Bottom Sheet (Edit, New Tab in Group, Ungroup, Close Group)
+                selectedGroupForOptions?.let { group ->
+                    TabGroupOptionsBottomSheet(
+                        group = group,
+                        tabCount = normalTabs.count { it.groupId == group.id },
+                        onNewTabInGroup = {
+                            selectedGroupForOptions = null
+                            if (!isDismissing) {
+                                isDismissing = true
+                                val newTab = tabManager.createNewTab(
+                                    isIncognito = false,
+                                    groupId = group.id
+                                )
+                                onTabSelected(newTab)
+                                dismissAllowingStateLoss()
+                            }
+                        },
+                        onEditGroup = {
+                            val g = group
+                            selectedGroupForOptions = null
+                            editingGroup = g
+                            initialTabForNewGroup = null
+                            showGroupEditDialog = true
+                        },
+                        onUngroup = {
+                            val g = group
+                            selectedGroupForOptions = null
+                            tabManager.ungroupAllInGroup(g.id)
+                            refreshTabsList()
+                        },
+                        onCloseGroup = {
+                            val g = group
+                            selectedGroupForOptions = null
+                            val closedCount = tabManager.closeTabGroup(g.id, closeTabs = true)
+                            if (closedCount > 0) {
+                                val batch = tabManager.peekLastClosedBatch(false)
+                                if (batch != null) {
+                                    showUndoToastForBatch(batch)
+                                }
+                            }
+                            refreshTabsList()
+                        },
+                        onDismiss = { selectedGroupForOptions = null }
+                    )
+                }
+
+                // Create / Edit Tab Group Dialog
+                if (showGroupEditDialog) {
+                    CreateOrEditTabGroupDialog(
+                        existingGroup = editingGroup,
+                        onConfirm = { title, colorHex ->
+                            val existing = editingGroup
+                            if (existing != null) {
+                                tabManager.updateTabGroup(existing.id, title, colorHex)
+                            } else {
+                                val initialIds = initialTabForNewGroup?.let { listOf(it.id) } ?: emptyList()
+                                tabManager.createTabGroup(title, colorHex, initialIds)
+                            }
+                            showGroupEditDialog = false
+                            editingGroup = null
+                            initialTabForNewGroup = null
+                            refreshTabsList()
+                        },
+                        onDismiss = {
+                            showGroupEditDialog = false
+                            editingGroup = null
+                            initialTabForNewGroup = null
+                        }
+                    )
+                }
+
+                // Archived Tabs Bottom Sheet
+                if (showArchivedSheet) {
+                    ArchivedTabsBottomSheet(
+                        archivedTabs = archivedTabs,
+                        autoArchiveLabel = prefs.getTabAutoArchiveDisplayLabel(),
+                        onRestoreTab = { tab, openNow ->
+                            val restored = tabManager.unarchiveTab(tab, makeActive = openNow)
+                            if (openNow && !isDismissing) {
+                                showArchivedSheet = false
+                                isDismissing = true
+                                onTabSelected(restored)
+                                dismissAllowingStateLoss()
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.tab_restored_toast, restored.title.ifBlank { "Tab" }),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                refreshTabsList()
+                            }
+                        },
+                        onRestoreAll = {
+                            tabManager.unarchiveAllTabs()
+                            showArchivedSheet = false
+                            refreshTabsList()
+                        },
+                        onDeleteArchivedTab = { tab ->
+                            tabManager.closeTab(tab)
+                            showUndoToastForTab(tab)
+                        },
+                        onClearAllArchived = {
+                            val count = archivedTabs.size
+                            tabManager.closeAllArchivedTabs(canUndo = true)
+                            showArchivedSheet = false
+                            if (count > 0) {
+                                val batch = tabManager.peekLastClosedBatch(false)
+                                if (batch != null) showUndoToastForBatch(batch)
+                            }
+                        },
+                        onConfigureAutoArchive = {
+                            autoArchiveHoursState = prefs.tabAutoArchiveHours
+                            showAutoArchiveConfigSheet = true
+                        },
+                        onDismiss = { showArchivedSheet = false }
+                    )
+                }
+
+                // Auto-Archive Threshold Configuration Sheet
+                if (showAutoArchiveConfigSheet) {
+                    AutoArchiveConfigBottomSheet(
+                        selectedHours = autoArchiveHoursState,
+                        onSelectHours = { hours ->
+                            autoArchiveHoursState = hours
+                            prefs.tabAutoArchiveHours = hours
+                            val newlyArchived = tabManager.autoArchiveIdleTabs()
+                            showAutoArchiveConfigSheet = false
+                            if (newlyArchived > 0) {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.tabs_archived_toast, newlyArchived),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            refreshTabsList()
+                        },
+                        onDismiss = { showAutoArchiveConfigSheet = false }
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun TabOrganizationHeaderBar(
+        groups: List<TabGroupItem>,
+        normalTabs: List<TabItem>,
+        archivedCount: Int,
+        selectedGroupId: String?,
+        onSelectGroup: (String?) -> Unit,
+        onCreateGroupClick: () -> Unit,
+        onArchivedClick: () -> Unit,
+        onGroupLongClick: (TabGroupItem) -> Unit
+    ) {
+        val scrollState = rememberScrollState()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(scrollState)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Archived Tabs Pill Button (if archived tabs exist)
+            if (archivedCount > 0) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                    tonalElevation = 0.dp,
+                    modifier = Modifier
+                        .height(34.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onArchivedClick)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Archive,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Text(
+                            text = "Archived ($archivedCount)",
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
+            // "All Tabs" chip when groups exist
+            if (groups.isNotEmpty()) {
+                val isAllSelected = selectedGroupId == null
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isAllSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(
+                        1.dp,
+                        if (isAllSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                    ),
+                    tonalElevation = 0.dp,
+                    modifier = Modifier
+                        .height(34.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onSelectGroup(null) }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "All (${normalTabs.size})",
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
+                            fontWeight = FontWeight.Bold,
+                            color = if (isAllSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
+            // Group filter chips
+            groups.forEach { group ->
+                val isSelected = selectedGroupId == group.id
+                val groupColor = parseHexColor(group.colorHex, MaterialTheme.colorScheme.primary)
+                val count = normalTabs.count { it.groupId == group.id }
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) groupColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) groupColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                    ),
+                    tonalElevation = 0.dp,
+                    modifier = Modifier
+                        .height(34.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .combinedClickable(
+                            onClick = { onSelectGroup(group.id) },
+                            onLongClick = { onGroupLongClick(group) }
+                        )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(9.dp)
+                                .clip(CircleShape)
+                                .background(groupColor)
+                        )
+                        Text(
+                            text = "${group.title} ($count)",
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            // "+ New Group" chip
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                tonalElevation = 0.dp,
+                modifier = Modifier
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onCreateGroupClick)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CreateNewFolder,
+                        contentDescription = stringResource(R.string.new_tab_group),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = "New Group",
+                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun TabGroupSectionHeader(
+        group: TabGroupItem,
+        tabCount: Int,
+        onToggleCollapse: () -> Unit,
+        onAddTabToGroup: () -> Unit,
+        onGroupOptionsClick: () -> Unit
+    ) {
+        val groupColor = parseHexColor(group.colorHex, MaterialTheme.colorScheme.primary)
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+            border = BorderStroke(1.dp, groupColor.copy(alpha = 0.5f)),
+            tonalElevation = 0.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(onClick = onToggleCollapse)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(groupColor)
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Text(
+                    text = group.title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.5.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = groupColor.copy(alpha = 0.16f),
+                    tonalElevation = 0.dp,
+                    modifier = Modifier.padding(horizontal = 6.dp)
+                ) {
+                    Text(
+                        text = if (tabCount == 1) "1 tab" else "$tabCount tabs",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+                        fontWeight = FontWeight.SemiBold,
+                        color = groupColor,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onAddTabToGroup,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "New tab in group",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onGroupOptionsClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Group options",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Icon(
+                    imageVector = if (group.isCollapsed) Icons.Default.KeyboardArrowRight else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(end = 4.dp)
+                        .size(20.dp)
+                )
             }
         }
     }
@@ -569,6 +1273,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
     private fun TabSwitcherTopBar(
         normalCount: Int,
         incognitoCount: Int,
+        archivedCount: Int,
         isViewingIncognito: Boolean,
         onToggleIncognito: (Boolean) -> Unit,
         onSearchClick: () -> Unit,
@@ -577,6 +1282,9 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         onDismissOverflow: () -> Unit,
         onNewTabClick: () -> Unit,
         onNewIncognitoTabClick: () -> Unit,
+        onNewTabGroupClick: () -> Unit,
+        onArchivedTabsClick: () -> Unit,
+        onAutoArchiveSettingsClick: () -> Unit,
         onCloseAllTabsClick: () -> Unit,
         onClearBrowsingDataClick: () -> Unit,
         hasTabs: Boolean
@@ -677,7 +1385,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                 DropdownMenu(
                     expanded = overflowMenuExpanded,
                     onDismissRequest = onDismissOverflow,
-                    modifier = Modifier.width(220.dp),
+                    modifier = Modifier.width(235.dp),
                     shape = RoundedCornerShape(14.dp),
                     containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = 0.dp,
@@ -728,6 +1436,74 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         onClick = onNewIncognitoTabClick
                     )
 
+                    if (!isViewingIncognito) {
+                        // 3. New Tab Group
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = stringResource(R.string.new_tab_group),
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.CreateNewFolder,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.height(42.dp),
+                            onClick = onNewTabGroupClick
+                        )
+
+                        // 4. Archived Tabs
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = if (archivedCount > 0) "Archived Tabs ($archivedCount)" else stringResource(R.string.archived_tabs),
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Archive,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.height(42.dp),
+                            onClick = onArchivedTabsClick
+                        )
+
+                        // 5. Auto-Archive Settings
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = stringResource(R.string.auto_archive_settings),
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.height(42.dp),
+                            onClick = onAutoArchiveSettingsClick
+                        )
+                    }
+
                     // Divider
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 3.dp),
@@ -735,7 +1511,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                     )
 
-                    // 3. Close All Tabs
+                    // 6. Close All Tabs
                     val closeAllTextColor = if (hasTabs) {
                         MaterialTheme.colorScheme.onSurface
                     } else {
@@ -772,7 +1548,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         onClick = onCloseAllTabsClick
                     )
 
-                    // 4. Delete Browsing Data
+                    // 7. Delete Browsing Data
                     DropdownMenuItem(
                         text = {
                             Text(
@@ -802,6 +1578,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
     @Composable
     private fun TabCard(
         tab: TabItem,
+        group: TabGroupItem? = null,
         isActive: Boolean,
         isLocked: Boolean,
         snapshot: Bitmap?,
@@ -810,7 +1587,12 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         onCloseClick: () -> Unit
     ) {
         val accentColor = MaterialTheme.colorScheme.primary
-        val outlineColor = if (isActive) accentColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        val groupColor = group?.let { parseHexColor(it.colorHex, accentColor) }
+        val outlineColor = when {
+            isActive -> accentColor
+            groupColor != null -> groupColor.copy(alpha = 0.65f)
+            else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        }
         val headerColor = if (isActive) accentColor else MaterialTheme.colorScheme.surfaceVariant
         val titleColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
         val closeColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -942,6 +1724,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                     color = outlineColor
                 ),
                 shadowElevation = if (isActive) 4.dp else 0.dp,
+                tonalElevation = 0.dp,
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(18.dp))
@@ -964,6 +1747,17 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             .padding(start = 12.dp, end = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Group color indicator dot when tab is in a group
+                        if (groupColor != null && !isActive) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(end = 6.dp)
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(groupColor)
+                            )
+                        }
+
                         // Favicon / Lock Icon
                         if (isLocked) {
                             Icon(
@@ -1097,7 +1891,11 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
     }
 
     @Composable
-    private fun EmptyTabsView(isViewingIncognito: Boolean) {
+    private fun EmptyTabsView(
+        isViewingIncognito: Boolean,
+        archivedCount: Int = 0,
+        onOpenArchived: () -> Unit = {}
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1130,6 +1928,38 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            if (!isViewingIncognito && archivedCount > 0) {
+                Spacer(modifier = Modifier.height(18.dp))
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                    tonalElevation = 0.dp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable(onClick = onOpenArchived)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Archive,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "View $archivedCount archived tab${if (archivedCount == 1) "" else "s"}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -1220,6 +2050,587 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                         },
                         modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun CreateOrEditTabGroupDialog(
+        existingGroup: TabGroupItem?,
+        onConfirm: (title: String, colorHex: String) -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        var titleInput by remember(existingGroup) {
+            mutableStateOf(existingGroup?.title ?: "")
+        }
+        var selectedColorHex by remember(existingGroup) {
+            mutableStateOf(existingGroup?.colorHex ?: TabGroupItem.DEFAULT_COLOR_ORANGE)
+        }
+
+        AppAlertDialog(
+            title = if (existingGroup != null) stringResource(R.string.edit_tab_group) else stringResource(R.string.new_tab_group),
+            confirmButtonText = if (existingGroup != null) stringResource(R.string.save) else "Create",
+            onConfirm = {
+                onConfirm(titleInput.trim().ifBlank { "Tab Group" }, selectedColorHex)
+            },
+            onDismissRequest = onDismiss,
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = titleInput,
+                        onValueChange = { titleInput = it },
+                        placeholder = { Text("e.g. Reading, Work, Shopping") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "GROUP COLOR",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TabGroupItem.GROUP_COLORS.forEach { hex ->
+                            val swatchColor = parseHexColor(hex, MaterialTheme.colorScheme.primary)
+                            val isSelected = selectedColorHex.equals(hex, ignoreCase = true)
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(swatchColor)
+                                    .then(
+                                        if (isSelected) {
+                                            Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                                    .clickable { selectedColorHex = hex },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun MoveTabToGroupBottomSheet(
+        tab: TabItem,
+        groups: List<TabGroupItem>,
+        onSelectGroup: (TabGroupItem?) -> Unit,
+        onCreateNewGroupWithTab: () -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 20.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.move_to_group),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+                )
+
+                Text(
+                    text = tab.title.ifBlank { stringResource(R.string.new_tab) },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = "+ Create new group with this tab",
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Default.CreateNewFolder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    modifier = Modifier.clickable(onClick = onCreateNewGroupWithTab)
+                )
+
+                if (tab.groupId != null) {
+                    ListItem(
+                        headlineContent = { Text("None (Ungrouped)") },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Default.FolderOff,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        modifier = Modifier.clickable { onSelectGroup(null) }
+                    )
+                }
+
+                groups.forEach { group ->
+                    val groupColor = parseHexColor(group.colorHex, MaterialTheme.colorScheme.primary)
+                    val isCurrent = tab.groupId == group.id
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = group.title,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        leadingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .background(groupColor)
+                            )
+                        },
+                        trailingContent = if (isCurrent) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        } else null,
+                        modifier = Modifier.clickable { onSelectGroup(group) }
+                    )
+                }
+            }
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun TabGroupOptionsBottomSheet(
+        group: TabGroupItem,
+        tabCount: Int,
+        onNewTabInGroup: () -> Unit,
+        onEditGroup: () -> Unit,
+        onUngroup: () -> Unit,
+        onCloseGroup: () -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        val groupColor = parseHexColor(group.colorHex, MaterialTheme.colorScheme.primary)
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(groupColor)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = group.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "($tabCount tab${if (tabCount == 1) "" else "s"})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                ListItem(
+                    headlineContent = { Text("New tab in group") },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    modifier = Modifier.clickable(onClick = onNewTabInGroup)
+                )
+
+                ListItem(
+                    headlineContent = { Text("Rename or change color") },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    modifier = Modifier.clickable(onClick = onEditGroup)
+                )
+
+                ListItem(
+                    headlineContent = { Text("Ungroup tabs (keep tabs open)") },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Default.FolderOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    modifier = Modifier.clickable(onClick = onUngroup)
+                )
+
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = "Close group and all its tabs",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    },
+                    modifier = Modifier.clickable(onClick = onCloseGroup)
+                )
+            }
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun ArchivedTabsBottomSheet(
+        archivedTabs: List<TabItem>,
+        autoArchiveLabel: String,
+        onRestoreTab: (TabItem, Boolean) -> Unit,
+        onRestoreAll: () -> Unit,
+        onDeleteArchivedTab: (TabItem) -> Unit,
+        onClearAllArchived: () -> Unit,
+        onConfigureAutoArchive: () -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 24.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Archived Tabs (${archivedTabs.size})",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Auto-archive: $autoArchiveLabel",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .clickable(onClick = onConfigureAutoArchive)
+                        )
+                    }
+
+                    IconButton(onClick = onConfigureAutoArchive) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.auto_archive_settings),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                if (archivedTabs.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onRestoreAll,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Unarchive,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Restore All")
+                        }
+
+                        OutlinedButton(
+                            onClick = onClearAllArchived,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_delete),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Close All")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (archivedTabs.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 36.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Archive,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No archived tabs",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Inactive tabs are automatically moved here to free memory and keep your tab switcher tidy.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                    }
+                } else {
+                    val listScroll = rememberScrollState()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp)
+                            .verticalScroll(listScroll),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        archivedTabs.forEach { tab ->
+                            val favicon = rememberFavicon(tab.url)
+                            val relativeIdle = remember(tab.archivedAt, tab.lastAccessedAt) {
+                                val refTime = if (tab.archivedAt > 0L) tab.archivedAt else tab.lastAccessedAt
+                                DateUtils.getRelativeTimeSpanString(
+                                    refTime,
+                                    System.currentTimeMillis(),
+                                    DateUtils.MINUTE_IN_MILLIS,
+                                    DateUtils.FORMAT_ABBREV_RELATIVE
+                                ).toString()
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                tonalElevation = 0.dp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable { onRestoreTab(tab, true) }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (favicon != null) {
+                                        Image(
+                                            bitmap = favicon,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(22.dp)
+                                                .clip(CircleShape)
+                                        )
+                                    } else {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_web),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = tab.title.ifBlank { tab.url.ifBlank { "Archived Tab" } },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${tab.url} • Archived $relativeIdle",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = { onRestoreTab(tab, false) },
+                                        modifier = Modifier.size(34.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Unarchive,
+                                            contentDescription = stringResource(R.string.restore_tab),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = { onDeleteArchivedTab(tab) },
+                                        modifier = Modifier.size(34.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = stringResource(R.string.close_tab),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun AutoArchiveConfigBottomSheet(
+        selectedHours: Int,
+        onSelectHours: (Int) -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        val options = listOf(
+            BrowserPreferences.TAB_ARCHIVE_NEVER to "Never (Keep all tabs active)",
+            BrowserPreferences.TAB_ARCHIVE_1_DAY to "After 1 day of inactivity",
+            BrowserPreferences.TAB_ARCHIVE_3_DAYS to "After 3 days of inactivity",
+            BrowserPreferences.TAB_ARCHIVE_7_DAYS to "After 7 days of inactivity (Recommended)",
+            BrowserPreferences.TAB_ARCHIVE_14_DAYS to "After 14 days of inactivity",
+            BrowserPreferences.TAB_ARCHIVE_30_DAYS to "After 30 days of inactivity"
+        )
+
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 28.dp)
+            ) {
+                Text(
+                    text = "Auto-Archive Inactive Tabs",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                Text(
+                    text = "Tabs that have not been opened for the selected period are automatically hibernated and moved to Archived Tabs.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                options.forEach { (hours, label) ->
+                    RadioPreference(
+                        title = label,
+                        selected = selectedHours == hours,
+                        onClick = { onSelectHours(hours) }
                     )
                 }
             }

@@ -32,6 +32,7 @@ class DomainPreferencesTest {
         every { browserPrefs.isShowShortcutsOnHome } returns false
         every { browserPrefs.isShowQuickActionsOnHome } returns true
         every { browserPrefs.pageZoomPercent } returns 125
+        every { browserPrefs.tabAutoArchiveHours } returns BrowserPreferences.TAB_ARCHIVE_7_DAYS
 
         assertEquals(BrowserPreferences.THEME_DARK, appearance.themeMode)
         assertEquals(BrowserPreferences.ACCENT_PRESET_BLUE, appearance.accentColorPreset)
@@ -42,6 +43,7 @@ class DomainPreferencesTest {
         assertFalse(appearance.isShowShortcutsOnHome)
         assertTrue(appearance.isShowQuickActionsOnHome)
         assertEquals(125, appearance.pageZoomPercent)
+        assertEquals(BrowserPreferences.TAB_ARCHIVE_7_DAYS, appearance.tabAutoArchiveHours)
 
         appearance.themeMode = BrowserPreferences.THEME_LIGHT
         appearance.accentColorPreset = BrowserPreferences.ACCENT_PRESET_GREEN
@@ -52,6 +54,7 @@ class DomainPreferencesTest {
         appearance.isShowShortcutsOnHome = true
         appearance.isShowQuickActionsOnHome = false
         appearance.pageZoomPercent = 110
+        appearance.tabAutoArchiveHours = BrowserPreferences.TAB_ARCHIVE_14_DAYS
         appearance.applyTheme()
 
         verify { browserPrefs.themeMode = BrowserPreferences.THEME_LIGHT }
@@ -63,6 +66,7 @@ class DomainPreferencesTest {
         verify { browserPrefs.isShowShortcutsOnHome = true }
         verify { browserPrefs.isShowQuickActionsOnHome = false }
         verify { browserPrefs.pageZoomPercent = 110 }
+        verify { browserPrefs.tabAutoArchiveHours = BrowserPreferences.TAB_ARCHIVE_14_DAYS }
         verify { browserPrefs.applyTheme() }
     }
 

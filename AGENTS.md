@@ -117,7 +117,8 @@ onyx-browser/
    - Enforce `tonalElevation = 0.dp` on all Compose sheets, dialogs, cards, and menus so dark surfaces remain `#202020` and light surfaces remain `#F7F7F8` without primary-color tint bleed.
    - All `DialogFragment` / `BottomSheetDialogFragment` classes must provide a public no-arg / `@JvmOverloads` constructor and bind `BackHandler` in searchable/editable Compose activities.
 2. **Database & Privacy**:
-   - All persistent Room tables use SQLCipher AES-256 (`AppDatabase`). Never store sensitive browsing or credential data in unencrypted files.
+   - All persistent Room tables use SQLCipher AES-256 (`AppDatabase`, v9 with `tabs`, `tab_groups`, `history`, `bookmarks`, `downloads`, `user_scripts`, `user_script_values`, `site_permissions`). Never store sensitive browsing or credential data in unencrypted files.
+   - `TabCoordinator` manages color-coded Tab Groups (`TabGroupItem`, `TabGroupDao`, `MIGRATION_8_9`) and automatic archiving of idle background tabs (`tabAutoArchiveHours`: Never, 1d, 3d, 7d default, 14d, 30d) into `archivedTabs` while protecting active, incognito, blank, and media-playing tabs.
    - `ClearDataOnExitHelper` purges selected categories synchronously across Back exit, Recents swipe-away (`ClearOnExitService`), background task kill (`hasPendingExitClearance`), and cold-start recovery.
 3. **WebView & Interception**:
    - `shouldInterceptRequest` runs on background I/O threads: only read lock-free in-memory caches (`SitePermissionRepository`, `AdBlockEngine` LRU cache), return `EmptyInputStream` with `Content-Length: 0` and pre-allocated CORS headers for blocked subresources, and never return synthetic 3xx `WebResourceResponse` redirects.
