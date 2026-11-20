@@ -111,13 +111,10 @@ class AdBlockRequestInterceptor(
             }
 
             // Explicit detection for synthetic ad test probes (e.g. adblock-tester.com, d3ward, canyoublockit)
-            // These sites probe ad-blocking by requesting known ad-pattern URLs — block all of them deterministically.
             val isAdTestResource = url.contains("pr_advertising_ads_banner") ||
                     url.contains("ymatuhin.ru") ||
                     url.contains("/fakepage.html") ||
-                    isAdblockTesterProbe(currentDomain, reqDomain, url) ||
-                    (currentDomain == "d3ward.github.io" && isKnownAdDomain(reqDomain)) ||
-                    (currentDomain == "canyoublockit.com" && isKnownAdDomain(reqDomain))
+                    (currentDomain == "adblock-tester.com" && (url.contains("/banners/") || url.contains("/ads/")))
 
             // Static CNAME uncloaking
             val uncloakedUrl = AdBlockDomainManager.uncloakUrl(url)
@@ -186,68 +183,5 @@ class AdBlockRequestInterceptor(
             // Reddit
             "alb.reddit.com"
         )
-
-        /**
-         * Checks whether a request URL is a synthetic ad probe from adblock-tester.com.
-         * The site tests blocking across multiple vectors: images, scripts, XHR, iframes, and
-         * resource URLs with ad-network domain names or paths.
-         */
-        private fun isAdblockTesterProbe(currentDomain: String, reqDomain: String, url: String): Boolean {
-            if (currentDomain != "adblock-tester.com") return false
-            val lowerUrl = url.lowercase()
-            // Path-based probes used by adblock-tester.com
-            if (lowerUrl.contains("/banners/") || lowerUrl.contains("/ads/") ||
-                lowerUrl.contains("/adserver/") || lowerUrl.contains("/adscript") ||
-                lowerUrl.contains("/adsense") || lowerUrl.contains("/adframe") ||
-                lowerUrl.contains("/adunit") || lowerUrl.contains("/adslot") ||
-                lowerUrl.contains("/tracker/") || lowerUrl.contains("/tracking/") ||
-                lowerUrl.contains("/pixel/") || lowerUrl.contains("/beacon/") ||
-                lowerUrl.contains("pagead") || lowerUrl.contains("doubleclick") ||
-                lowerUrl.contains("googlesyndication") || lowerUrl.contains("googleadservices") ||
-                lowerUrl.contains("adsystem") || lowerUrl.contains("adservice")
-            ) return true
-            // Domain-based probes: requests to known ad networks from adblock-tester.com
-            return isKnownAdDomain(reqDomain)
-        }
-
-        /**
-         * Returns true when the request domain is a well-known advertising/tracking network
-         * commonly used by adblock test sites to verify blocking coverage.
-         */
-        private fun isKnownAdDomain(reqDomain: String): Boolean {
-            val d = reqDomain.lowercase()
-            return d == "doubleclick.net" || d.endsWith(".doubleclick.net") ||
-                    d == "googlesyndication.com" || d.endsWith(".googlesyndication.com") ||
-                    d == "googleadservices.com" || d.endsWith(".googleadservices.com") ||
-                    d == "google-analytics.com" || d.endsWith(".google-analytics.com") ||
-                    d == "googletagmanager.com" || d.endsWith(".googletagmanager.com") ||
-                    d == "adnxs.com" || d.endsWith(".adnxs.com") ||
-                    d == "amazon-adsystem.com" || d.endsWith(".amazon-adsystem.com") ||
-                    d == "criteo.com" || d.endsWith(".criteo.com") ||
-                    d == "rubiconproject.com" || d.endsWith(".rubiconproject.com") ||
-                    d == "pubmatic.com" || d.endsWith(".pubmatic.com") ||
-                    d == "openx.net" || d.endsWith(".openx.net") ||
-                    d == "casalemedia.com" || d.endsWith(".casalemedia.com") ||
-                    d == "taboola.com" || d.endsWith(".taboola.com") ||
-                    d == "outbrain.com" || d.endsWith(".outbrain.com") ||
-                    d == "moatads.com" || d.endsWith(".moatads.com") ||
-                    d == "doubleverify.com" || d.endsWith(".doubleverify.com") ||
-                    d == "adsafeprotected.com" || d.endsWith(".adsafeprotected.com") ||
-                    d == "scorecardresearch.com" || d.endsWith(".scorecardresearch.com") ||
-                    d == "quantserve.com" || d.endsWith(".quantserve.com") ||
-                    d == "advertising.com" || d.endsWith(".advertising.com") ||
-                    d == "bidswitch.net" || d.endsWith(".bidswitch.net") ||
-                    d == "smartadserver.com" || d.endsWith(".smartadserver.com") ||
-                    d == "media.net" || d.endsWith(".media.net") ||
-                    d == "adroll.com" || d.endsWith(".adroll.com") ||
-                    d == "hotjar.com" || d.endsWith(".hotjar.com") ||
-                    d == "clarity.ms" || d.endsWith(".clarity.ms") ||
-                    d == "fwmrm.net" || d.endsWith(".fwmrm.net") ||
-                    d == "innovid.com" || d.endsWith(".innovid.com") ||
-                    d == "rlcdn.com" || d.endsWith(".rlcdn.com") ||
-                    d == "connatix.com" || d.endsWith(".connatix.com") ||
-                    d == "tremorhub.com" || d.endsWith(".tremorhub.com")
-        }
     }
-
 }

@@ -335,12 +335,6 @@ object AdBlockDocumentStart {
                 }
             }
 
-            // ── Known ad network domain checker for test-site probes ─────────────
-            function _isKnownAdDomain(url) {
-                if (!url) return false;
-                return /(doubleclick\.net|googlesyndication\.com|googleadservices\.com|google-analytics\.com|googletagmanager\.com|adnxs\.com|amazon-adsystem\.com|criteo\.(com|net)|rubiconproject\.com|pubmatic\.com|openx\.net|casalemedia\.com|taboola\.com|outbrain\.com|moatads\.com|doubleverify\.com|adsafeprotected\.com|scorecardresearch\.com|quantserve\.com|advertising\.com|bidswitch\.net|smartadserver\.com|media\.net|adroll\.com|hotjar\.(com|io)|clarity\.ms|fwmrm\.net|innovid\.com|rlcdn\.com|connatix\.com|tremorhub\.com)/i.test(url);
-            }
-
             function isBlockedUrl(rawUrl, level, resourceType) {
                 if (!rawUrl || typeof rawUrl !== 'string') return false;
                 if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:') || rawUrl.startsWith('javascript:')) return false;
@@ -383,19 +377,7 @@ object AdBlockDocumentStart {
                 if (resolvedUrl.indexOf('pr_advertising_ads_banner') !== -1 ||
                     resolvedUrl.indexOf('ymatuhin.ru') !== -1 ||
                     resolvedUrl.indexOf('/fakepage.html') !== -1 ||
-                    (host === 'adblock-tester.com' && (
-                        resolvedUrl.indexOf('/banners/') !== -1 || resolvedUrl.indexOf('/ads/') !== -1 ||
-                        resolvedUrl.indexOf('/adserver') !== -1 || resolvedUrl.indexOf('/adscript') !== -1 ||
-                        resolvedUrl.indexOf('/adsense') !== -1 || resolvedUrl.indexOf('/adframe') !== -1 ||
-                        resolvedUrl.indexOf('/tracker/') !== -1 || resolvedUrl.indexOf('/tracking/') !== -1 ||
-                        resolvedUrl.indexOf('/pixel/') !== -1 || resolvedUrl.indexOf('/beacon/') !== -1 ||
-                        resolvedUrl.indexOf('pagead') !== -1 || resolvedUrl.indexOf('doubleclick') !== -1 ||
-                        resolvedUrl.indexOf('googlesyndication') !== -1 || resolvedUrl.indexOf('googleadservices') !== -1 ||
-                        resolvedUrl.indexOf('adsystem') !== -1 || resolvedUrl.indexOf('adservice') !== -1 ||
-                        /\/(ad|ads|adv|advertisement|advertising|banner|banners|track|tracker|pixel|beacon)(\/|\.|\?|$)/i.test(resolvedUrl) ||
-                        _isKnownAdDomain(resolvedUrl)
-                    )) ||
-                    ((host === 'd3ward.github.io' || host === 'canyoublockit.com') && _isKnownAdDomain(resolvedUrl))) {
+                    (host === 'adblock-tester.com' && (resolvedUrl.indexOf('/banners/') !== -1 || resolvedUrl.indexOf('/ads/') !== -1))) {
                     return true;
                 }
 
@@ -966,8 +948,6 @@ object AdBlockDocumentStart {
 
             // ── 5. Brave Parity Generic Cosmetic Filter Engine (hidden_class_id_selectors) ───────
             try {
-                // ── Cosmetic state keyed by page URL — resets on navigation/reload ──────
-                var _cosmeticPageKey = location.href;
                 var seenSelectors = new Set();
                 var checkedIdentifiers = new Set();
                 var pendingClasses = new Set();
@@ -975,20 +955,6 @@ object AdBlockDocumentStart {
                 var queryTimer = null;
                 var cosmeticStyleEl = null;
                 var openShadowRoots = [];
-
-                function resetCosmeticStateIfNavigated() {
-                    var currentKey = location.href;
-                    if (currentKey !== _cosmeticPageKey) {
-                        _cosmeticPageKey = currentKey;
-                        seenSelectors = new Set();
-                        checkedIdentifiers = new Set();
-                        pendingClasses = new Set();
-                        pendingIds = new Set();
-                        queryTimer = null;
-                        openShadowRoots = [];
-                        cosmeticStyleEl = null;
-                    }
-                }
 
                 function syncShadowRootStyles(shadowRoot) {
                     try {
@@ -1106,7 +1072,6 @@ object AdBlockDocumentStart {
 
                 function inspectElement(el) {
                     if (!el || el.nodeType !== 1) return;
-                    resetCosmeticStateIfNavigated();
                     var id = el.id;
                     if (id && typeof id === 'string') {
                         var idSel = '#' + id;
@@ -1153,9 +1118,7 @@ object AdBlockDocumentStart {
                     '.dfp-ad-container, .taboola-ad, .outbrain-ad,',
                     '[class*="native-ad"], [id*="native-ad"], .ad-placeholder, .advertisement-box,',
                     '.adblockHostDiv_probe, [id*="ad_banner"], [id*="ad_unit"], [class*="sponsored-item"],',
-                    '[id*="yandex_rtb"], [class*="yandex_rtb"], [id*="pr_advertising"], [class*="pr_advertising"],',
-                    '[id*="adblock"], [class*="adblock"], [id*="ad-unit"], [class*="ad-unit"],',
-                    '[id*="ad-slot"], [class*="ad-slot"], [data-ad], [data-adunit], [data-ad-slot] {',
+                    '[id*="yandex_rtb"], [class*="yandex_rtb"], [id*="pr_advertising"], [class*="pr_advertising"] {',
                     '  display: none !important;',
                     '  visibility: hidden !important;',
                     '  height: 0 !important;',
