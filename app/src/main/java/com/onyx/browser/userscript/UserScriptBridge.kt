@@ -278,12 +278,13 @@ class UserScriptBridge(
         webView.post {
             try {
                 val finalFilename = filename.ifBlank { "download" }
-                val downloadEngine = DownloadEngineManager.getInstance(webView.context)
-                downloadEngine.enqueueDownload(
+                DownloadEngineManager.enqueueDownload(
+                    context = webView.context,
                     url = url,
-                    suggestedFilename = finalFilename,
+                    fileName = finalFilename,
+                    mimeType = "application/octet-stream",
                     userAgent = webView.settings.userAgentString,
-                    cookie = CookieManager.getInstance().getCookie(url)
+                    cookies = CookieManager.getInstance().getCookie(url) ?: ""
                 )
             } catch (e: Exception) {
                 Log.w(TAG, "gmDownload failed to enqueue", e)

@@ -568,7 +568,6 @@ class ScriptCodeEditorView @JvmOverloads constructor(
         gravity = Gravity.TOP or Gravity.START
         hint = "// Write or paste your userscript here..."
         importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
-        isSpellCheckEnabled = false
         typeface = Typeface.MONOSPACE
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
         setLineSpacing(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2.5f, resources.displayMetrics), 1f)
