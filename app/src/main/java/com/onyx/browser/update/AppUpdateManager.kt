@@ -143,19 +143,25 @@ object AppUpdateManager {
         result
     }
 
-    suspend fun checkSilentlyIfDue(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
+    const val CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000L
+
+    /**
+     * Checks for an update when the 12-hour interval has elapsed. Failed checks do not
+     * consume the interval, so they are retried on the next call.
+     */
+    suspend fun checkSilentlyIfDue(context: Context, force: Boolean = false): UpdateInfo? = withContext(Dispatchers.IO) {
         val prefs = BrowserPreferences.getInstance(context)
         val now = System.currentTimeMillis()
         val lastCheck = prefs.lastAppUpdateCheckTime
-        val twentyFourHoursMs = 24 * 60 * 60 * 1000L
 
-        // If not due yet, return currently cached update if valid
-        if (now - lastCheck < twentyFourHoursMs && lastCheck > 0L) {
+        if (!force && lastCheck > 0L && now >= lastCheck && now - lastCheck < CHECK_INTERVAL_MS) {
             return@withContext getCachedUpdate(context)
         }
 
-        prefs.lastAppUpdateCheckTime = now
         val result = checkForUpdate(context)
+        if (result !is UpdateCheckResult.Error && result !is UpdateCheckResult.RateLimited) {
+            prefs.lastAppUpdateCheckTime = now
+        }
         if (result is UpdateCheckResult.Available) {
             result.updateInfo
         } else {
@@ -246,8 +252,7 @@ object AppUpdateManager {
             .head()
             .build()
 
-        val response = noRedirectClient.newCall(request).execute()
-        val location = response.header("Location") ?: ""
+        val location = noRedirectClient.newCall(request).execute().use { it.header("Location") } ?: ""
         if (!location.contains("/releases/tag/")) return null
 
         val tagName = location.substringAfterLast("/releases/tag/").trim()
@@ -709,8 +714,7 @@ object AppUpdateManager {
                 .head()
                 .header("User-Agent", userAgent)
                 .build()
-            val response = client.newCall(request).execute()
-            val len = response.header("Content-Length")?.toLongOrNull() ?: 0L
+            val len = client.newCall(request).execute().use { it.header("Content-Length")?.toLongOrNull() } ?: 0L
             if (len > 0L) {
                 asset.copy(size = len)
             } else {

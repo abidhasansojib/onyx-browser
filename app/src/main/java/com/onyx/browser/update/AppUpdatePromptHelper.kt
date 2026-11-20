@@ -77,6 +77,16 @@ object AppUpdatePromptHelper {
             dialogBinding.tvChangelogContent.text = activity.getString(R.string.no_release_notes)
         }
 
+        // Cap the changelog height so long notes scroll instead of pushing buttons off-screen
+        val maxChangelogPx = (activity.resources.displayMetrics.heightPixels * 0.28f).toInt()
+        dialogBinding.scrollChangelog.post {
+            val tv = dialogBinding.tvChangelogContent
+            if (tv.height > maxChangelogPx) {
+                dialogBinding.scrollChangelog.layoutParams =
+                    dialogBinding.scrollChangelog.layoutParams.apply { height = maxChangelogPx }
+            }
+        }
+
         MaterialAlertDialogBuilder(activity)
             .setView(dialogBinding.root)
             .setPositiveButton(R.string.download_and_install) { _, _ ->

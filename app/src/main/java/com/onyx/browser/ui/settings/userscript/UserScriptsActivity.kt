@@ -49,6 +49,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import com.onyx.browser.ui.components.UpdateActionButton
+import com.onyx.browser.ui.components.updateIntervalLabel
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -108,6 +110,7 @@ class UserScriptsActivity : ComponentActivity() {
 
     private val scripts = mutableStateListOf<ParsedUserScript>()
     private var isGlobalScriptBlocked by mutableStateOf(false)
+    private var updateIntervalHours by mutableStateOf(12)
     private var scriptToDelete by mutableStateOf<ParsedUserScript?>(null)
     private var showAddOptionsSheet by mutableStateOf(false)
     private var showImportUrlSheet by mutableStateOf(false)
@@ -127,6 +130,7 @@ class UserScriptsActivity : ComponentActivity() {
         manager = UserScriptManager.getInstance(this)
         preferences = BrowserPreferences.getInstance(this)
         isGlobalScriptBlocked = preferences.isGlobalScriptBlockingEnabled
+        updateIntervalHours = if (preferences.isUserScriptAutoUpdateEnabled) preferences.userScriptAutoUpdateIntervalHours else 0
 
         loadScripts()
 
@@ -174,7 +178,9 @@ class UserScriptsActivity : ComponentActivity() {
                         copyToClipboard("Script Link", item.script.sourceUrl ?: "")
                     },
                     onAddClick = { showAddOptionsSheet = true },
-                    onCheckUpdates = { checkForUpdates() }
+                    onCheckUpdates = { checkForUpdates() },
+                    updateIntervalHours = updateIntervalHours,
+                    onSelectUpdateInterval = { applyUpdateInterval(it) }
                 )
 
                 if (showAddOptionsSheet) {
@@ -450,6 +456,20 @@ class UserScriptsActivity : ComponentActivity() {
         }
     }
 
+    private fun applyUpdateInterval(hours: Int) {
+        if (hours <= 0) {
+            preferences.isUserScriptAutoUpdateEnabled = false
+            updateIntervalHours = 0
+            Toast.makeText(this, "Userscript auto-update disabled", Toast.LENGTH_SHORT).show()
+        } else {
+            preferences.userScriptAutoUpdateIntervalHours = hours
+            preferences.isUserScriptAutoUpdateEnabled = true
+            updateIntervalHours = hours
+            Toast.makeText(this, "Auto-update: ${updateIntervalLabel(hours)}", Toast.LENGTH_SHORT).show()
+        }
+        com.onyx.browser.userscript.UserScriptUpdateWorker.schedule(this, forceReschedule = true)
+    }
+
     private fun checkForUpdates() {
         lifecycleScope.launch(Dispatchers.IO) {
             withContext(Dispatchers.Main) {
@@ -488,7 +508,9 @@ fun UserScriptsScreen(
     onCopyScriptName: (ParsedUserScript) -> Unit,
     onCopyScriptLink: (ParsedUserScript) -> Unit,
     onAddClick: () -> Unit,
-    onCheckUpdates: () -> Unit
+    onCheckUpdates: () -> Unit,
+    updateIntervalHours: Int,
+    onSelectUpdateInterval: (Int) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val filteredScripts = remember(scripts, searchQuery) {
@@ -510,13 +532,12 @@ fun UserScriptsScreen(
                 onBackClick = onBackClick,
                 actions = {
                     if (scripts.isNotEmpty()) {
-                        IconButton(onClick = onCheckUpdates) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Check for updates",
-                                tint = MaterialTheme.colorScheme.onBackground
-                            )
-                        }
+                        UpdateActionButton(
+                            currentHours = updateIntervalHours,
+                            contentDescription = "Check for updates (long-press for auto-update options)",
+                            onClick = onCheckUpdates,
+                            onSelectHours = onSelectUpdateInterval
+                        )
                     }
                 }
             )

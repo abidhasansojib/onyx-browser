@@ -2294,14 +2294,44 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
 
         lifecycleScope.launch {
             delay(2500)
-            val newUpdate = AppUpdateManager.checkSilentlyIfDue(this@MainActivity)
-            withContext(Dispatchers.Main) {
-                if (isFinishing || isDestroyed) return@withContext
-                updateMenuUpdateBadge()
-                if (newUpdate != null && newUpdate.tagName != preferences.dismissedUpdateTag) {
-                    showUpdateAvailableSnackbar(newUpdate)
-                }
+            runSilentUpdateChecks()
+        }
+    }
+
+    private var lastPromptedUpdateTag: String? = null
+    private var lastForegroundUpdateCheck = 0L
+
+    /** App, filter list and userscript checks; each is a no-op unless its interval has elapsed. */
+    private suspend fun runSilentUpdateChecks() {
+        val now = System.currentTimeMillis()
+        if (now - lastForegroundUpdateCheck < 10 * 60_000L) return
+        lastForegroundUpdateCheck = now
+
+        val newUpdate = AppUpdateManager.checkSilentlyIfDue(this)
+        withContext(Dispatchers.Main) {
+            if (isFinishing || isDestroyed) return@withContext
+            updateMenuUpdateBadge()
+            if (newUpdate != null &&
+                newUpdate.tagName != preferences.dismissedUpdateTag &&
+                newUpdate.tagName != lastPromptedUpdateTag
+            ) {
+                lastPromptedUpdateTag = newUpdate.tagName
+                showUpdateAvailableSnackbar(newUpdate)
             }
+        }
+
+        // Catch up on filter/userscript updates that background work may have deferred
+        try {
+            com.onyx.browser.data.filter.FilterListManager.checkAndAutoUpdateFilters(applicationContext)
+        } catch (_: Exception) {
+        }
+        try {
+            if (preferences.isUserScriptAutoUpdateEnabled && preferences.userScriptAutoUpdateIntervalHours > 0) {
+                val due = now - preferences.userScriptLastUpdateCheckTime >=
+                    preferences.userScriptAutoUpdateIntervalHours * 3_600_000L
+                if (due) com.onyx.browser.userscript.UserScriptManager.getInstance(applicationContext).checkAndUpdateAll()
+            }
+        } catch (_: Exception) {
         }
     }
 
@@ -2879,6 +2909,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         super.onResume()
         AppUpdatePromptHelper.handleResumeInstall(this)
         updateMenuUpdateBadge()
+        if (isTabsRestored) lifecycleScope.launch { runSilentUpdateChecks() }
         isLaunchingChildActivity = false
         MediaPlaybackBridge.isAppInBackground = false
         if (MediaPlaybackBridge.isMediaPlaying) {

@@ -62,13 +62,20 @@ class UserScriptUpdateWorker(
         private const val MAX_RETRIES = 3
 
         /**
-         * Schedules the periodic background userscript update worker (default 7 days)
+         * Schedules the periodic background userscript update worker (user-configured interval)
          * with connected network and battery not low constraints.
          */
         fun schedule(context: Context, forceReschedule: Boolean = false) {
             try {
                 val appContext = context.applicationContext
                 val workManager = WorkManager.getInstance(appContext)
+                val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(appContext)
+
+                if (!prefs.isUserScriptAutoUpdateEnabled || prefs.userScriptAutoUpdateIntervalHours <= 0) {
+                    workManager.cancelUniqueWork(WORK_NAME)
+                    return
+                }
+                val intervalHours = maxOf(1L, prefs.userScriptAutoUpdateIntervalHours.toLong())
 
                 val constraints = Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -76,24 +83,20 @@ class UserScriptUpdateWorker(
                     .build()
 
                 val workRequest = PeriodicWorkRequestBuilder<UserScriptUpdateWorker>(
-                    7, TimeUnit.DAYS
+                    intervalHours, TimeUnit.HOURS
                 )
                     .setConstraints(constraints)
                     .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
                     .build()
 
-                val policy = if (forceReschedule) {
-                    ExistingPeriodicWorkPolicy.UPDATE
-                } else {
-                    ExistingPeriodicWorkPolicy.KEEP
-                }
+                val policy = ExistingPeriodicWorkPolicy.UPDATE
 
                 workManager.enqueueUniquePeriodicWork(
                     WORK_NAME,
                     policy,
                     workRequest
                 )
-                Log.i(TAG, "Scheduled userscript update worker every 7 days (policy=$policy)")
+                Log.i(TAG, "Scheduled userscript update worker every ${intervalHours}h (policy=$policy)")
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to schedule userscript update work", t)
             }

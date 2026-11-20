@@ -387,3 +387,5 @@ onyx-browser/
    - **System Shortcut Safeguards**: System shortcuts (Bookmarks, History, Downloads) are protected against accidental renaming, URL mutation, or deletion from long-press actions in `HomeScreenController`.
    - **Jitter-Free Drag Handle Reordering**: Drag-and-drop reordering inside `ManageShortcutsBottomSheet` uses pointer input tracking with relative index distance thresholds rather than global coordinate tracking, ensuring stable, jitter-free item swapping.
 
+
+- Update schedules: app update check 12h (`AppUpdateWorker`), filter lists and userscripts default 12h, user-selectable via long-press on the refresh button (`UpdateActionButton`: 6h/12h/24h/2d/off).

@@ -78,11 +78,8 @@ class FilterUpdateWorker(
                     .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
                     .build()
 
-                val policy = if (forceReschedule) {
-                    ExistingPeriodicWorkPolicy.UPDATE
-                } else {
-                    ExistingPeriodicWorkPolicy.KEEP
-                }
+                // UPDATE keeps the existing run timing while applying the current interval
+                val policy = ExistingPeriodicWorkPolicy.UPDATE
 
                 workManager.enqueueUniquePeriodicWork(
                     WORK_NAME,

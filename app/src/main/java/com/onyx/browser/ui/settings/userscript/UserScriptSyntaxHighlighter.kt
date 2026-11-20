@@ -27,7 +27,7 @@ object UserScriptSyntaxHighlighter {
     private val COMMENT_BLOCK_PATTERN = Pattern.compile("""/\*[\s\S]*?\*/""")
 
     private val STRING_PATTERN = Pattern.compile(
-        """"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`"""
+        """"(?:[^"\\\r\n]++|\\.)*+"|'(?:[^'\\\r\n]++|\\.)*+'|`(?:[^`\\]++|\\.)*+`"""
     )
 
     private val NUMBER_PATTERN = Pattern.compile(
@@ -82,12 +82,15 @@ object UserScriptSyntaxHighlighter {
      * Highlights only the specified range within the editable text.
      * Guaranteed to be O(range length) rather than O(total document size).
      */
+    private const val MAX_HIGHLIGHT_CHARS = 120_000
+
     fun highlightRange(
         editable: Editable,
         rangeStart: Int,
         rangeEnd: Int,
         colors: ThemeColors
     ) {
+        if (rangeEnd - rangeStart > MAX_HIGHLIGHT_CHARS) return
         val len = editable.length
         if (len == 0) return
         val start = rangeStart.coerceIn(0, len)
@@ -100,7 +103,7 @@ object UserScriptSyntaxHighlighter {
             editable.removeSpan(span)
         }
 
-        val subSequence = editable.subSequence(start, end)
+        val subSequence: CharSequence = android.text.TextUtils.substring(editable, start, end)
         val occupied = BooleanArray(end - start)
 
         fun applyPattern(pattern: Pattern, color: Int, markOccupied: Boolean = true) {

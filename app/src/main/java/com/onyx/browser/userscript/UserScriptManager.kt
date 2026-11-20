@@ -967,11 +967,14 @@ class UserScriptManager private constructor(private val context: Context) {
     suspend fun checkAndUpdateAll(): List<Pair<UserScriptItem, UpdateResult>> = withContext(Dispatchers.IO) {
         val currentScripts = userScriptDao.getAll()
         // Run all update checks in parallel — each is an independent network round-trip
-        coroutineScope {
+        val results = coroutineScope {
             currentScripts.map { item ->
                 async { item to checkAndUpdate(item.id) }
             }.awaitAll()
         }
+        com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context).userScriptLastUpdateCheckTime =
+            System.currentTimeMillis()
+        results
     }
 
     private fun httpGet(url: String): String? {

@@ -62,6 +62,9 @@ import com.onyx.browser.data.filter.CustomFilterItem
 import com.onyx.browser.data.filter.FilterListEntry
 import com.onyx.browser.data.filter.FilterListManager
 import com.onyx.browser.data.filter.FilterUpdateWorker
+import com.onyx.browser.ui.components.UPDATE_INTERVAL_OPTIONS
+import com.onyx.browser.ui.components.UpdateActionButton
+import com.onyx.browser.ui.components.updateIntervalLabel
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.ui.components.AppAlertDialog
 import com.onyx.browser.ui.components.CardContainer
@@ -95,6 +98,7 @@ class ContentFiltersActivity : ComponentActivity() {
     private var showCreateCustomSheet by mutableStateOf(false)
     private var entryToDelete by mutableStateOf<FilterListUiItem?>(null)
 
+    private var intervalHoursState by mutableStateOf(0)
     private var recompileJob: Job? = null
     private var hasPendingRecompile = false
 
@@ -103,8 +107,6 @@ class ContentFiltersActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         preferences = BrowserPreferences.getInstance(this)
-        preferences.isFilterAutoUpdateEnabled = true
-
         reloadLists()
 
         setContent {
@@ -132,6 +134,8 @@ class ContentFiltersActivity : ComponentActivity() {
                     isUpdating = isUpdating,
                     updateStatus = updateStatusText,
                     onUpdateClick = { performUpdateFilters() },
+                    updateIntervalHours = intervalHoursState,
+                    onSelectUpdateInterval = { applyUpdateInterval(it) },
                     onIntervalClick = { showIntervalDialog = true },
                     onAddViaUrlClick = { showAddUrlSheet = true },
                     onCreateCustomClick = { showCreateCustomSheet = true },
@@ -153,15 +157,7 @@ class ContentFiltersActivity : ComponentActivity() {
                     UpdateIntervalDialog(
                         currentHours = if (preferences.isFilterAutoUpdateEnabled) preferences.filterAutoUpdateIntervalHours else 0,
                         onSelectHours = { hours ->
-                            if (hours == 0) {
-                                preferences.filterAutoUpdateIntervalHours = 0
-                                preferences.isFilterAutoUpdateEnabled = false
-                            } else {
-                                preferences.filterAutoUpdateIntervalHours = hours
-                                preferences.isFilterAutoUpdateEnabled = true
-                            }
-                            FilterUpdateWorker.schedule(this@ContentFiltersActivity, forceReschedule = true)
-                            updateSubtitleDisplay()
+                            applyUpdateInterval(hours)
                             showIntervalDialog = false
                         },
                         onDismiss = { showIntervalDialog = false }
@@ -233,18 +229,22 @@ class ContentFiltersActivity : ComponentActivity() {
         updateSubtitleDisplay()
     }
 
+    private fun applyUpdateInterval(hours: Int) {
+        if (hours <= 0) {
+            preferences.isFilterAutoUpdateEnabled = false
+        } else {
+            preferences.filterAutoUpdateIntervalHours = hours
+            preferences.isFilterAutoUpdateEnabled = true
+        }
+        FilterUpdateWorker.schedule(this, forceReschedule = true)
+        updateSubtitleDisplay()
+    }
+
     private fun updateSubtitleDisplay() {
         val hours = preferences.filterAutoUpdateIntervalHours
         val isEnabled = preferences.isFilterAutoUpdateEnabled && hours > 0
-        val intervalLabel = when {
-            !isEnabled -> "Disabled"
-            hours == 6 -> "Every 6h"
-            hours == 12 -> "Every 12h"
-            hours == 24 -> "Every 24h"
-            hours == 72 -> "Every 3 days"
-            hours == 168 -> "Every 7 days"
-            else -> "Every ${hours}h"
-        }
+        intervalHoursState = if (isEnabled) hours else 0
+        val intervalLabel = updateIntervalLabel(if (isEnabled) hours else 0)
         val lastUpdated = FilterListManager.getLastUpdatedFormatted(this)
         subtitleText = "Auto-update: $intervalLabel • Updated: $lastUpdated"
     }
@@ -314,6 +314,8 @@ fun ContentFiltersScreen(
     isUpdating: Boolean,
     updateStatus: String,
     onUpdateClick: () -> Unit,
+    updateIntervalHours: Int,
+    onSelectUpdateInterval: (Int) -> Unit,
     onIntervalClick: () -> Unit,
     onAddViaUrlClick: () -> Unit,
     onCreateCustomClick: () -> Unit,
@@ -336,13 +338,12 @@ fun ContentFiltersScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
                     } else {
-                        IconButton(onClick = onUpdateClick) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Update Filters",
-                                tint = MaterialTheme.colorScheme.onBackground
-                            )
-                        }
+                        UpdateActionButton(
+                            currentHours = updateIntervalHours,
+                            contentDescription = "Update Filters (long-press for auto-update options)",
+                            onClick = onUpdateClick,
+                            onSelectHours = onSelectUpdateInterval
+                        )
                     }
                 }
             )
@@ -507,14 +508,7 @@ private fun UpdateIntervalDialog(
     onSelectHours: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val intervals = listOf(
-        0 to "Manual updates only (Disabled)",
-        6 to "Every 6 hours",
-        12 to "Every 12 hours",
-        24 to "Every 1 day (24 hours)",
-        72 to "Every 3 days",
-        168 to "Every 7 days (1 week)"
-    )
+    val intervals = UPDATE_INTERVAL_OPTIONS
 
     AppAlertDialog(
         title = "Auto-Update Interval",

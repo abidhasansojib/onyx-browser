@@ -454,8 +454,25 @@ class BrowserPreferences private constructor(private val context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_FILTER_AUTO_UPDATE, value).apply()
 
     var filterAutoUpdateIntervalHours: Int
-        get() = prefs.getInt(KEY_FILTER_UPDATE_INTERVAL, 24)
+        get() = prefs.getInt(KEY_FILTER_UPDATE_INTERVAL, 12)
         set(value) = prefs.edit().putInt(KEY_FILTER_UPDATE_INTERVAL, value).apply()
+
+    // ── Userscript Auto-Update ─────────────────────────────────────────────────
+    var isUserScriptAutoUpdateEnabled: Boolean
+        get() = prefs.getBoolean(KEY_USERSCRIPT_AUTO_UPDATE, true)
+        set(value) = prefs.edit().putBoolean(KEY_USERSCRIPT_AUTO_UPDATE, value).apply()
+
+    var userScriptAutoUpdateIntervalHours: Int
+        get() = prefs.getInt(KEY_USERSCRIPT_UPDATE_INTERVAL, 12)
+        set(value) = prefs.edit().putInt(KEY_USERSCRIPT_UPDATE_INTERVAL, value).apply()
+
+    var userScriptLastUpdateCheckTime: Long
+        get() = prefs.getLong(KEY_USERSCRIPT_LAST_CHECK, 0L)
+        set(value) = prefs.edit().putLong(KEY_USERSCRIPT_LAST_CHECK, value).apply()
+
+    var notifiedUpdateTag: String
+        get() = prefs.getString(KEY_NOTIFIED_UPDATE_TAG, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_NOTIFIED_UPDATE_TAG, value).apply()
 
     // ── App In-App Update Preferences ──────────────────────────────────────────
     var lastAppUpdateCheckTime: Long
@@ -2822,6 +2839,10 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_SAVE_PASSWORDS_PROMPT = "pref_save_passwords_prompt"
         const val KEY_PASSKEYS_ENABLED = "pref_passkeys_enabled"
         const val KEY_FILTER_AUTO_UPDATE = "pref_filter_auto_update"
+        const val KEY_USERSCRIPT_AUTO_UPDATE = "pref_userscript_auto_update"
+        const val KEY_USERSCRIPT_UPDATE_INTERVAL = "pref_userscript_update_interval"
+        const val KEY_USERSCRIPT_LAST_CHECK = "pref_userscript_last_check"
+        const val KEY_NOTIFIED_UPDATE_TAG = "pref_notified_update_tag"
         const val KEY_FILTER_UPDATE_INTERVAL = "pref_filter_update_interval"
         const val KEY_CUSTOM_FILTER_ITEMS = "pref_custom_filter_items"
         const val KEY_COOKIE_AUTOCLEAR = "pref_cookie_autoclear"

@@ -639,6 +639,12 @@ class LineNumberGutterView @JvmOverloads constructor(
     private var maxDigits = 2
     private var gutterWidth = 0
     private var currentScrollY = 0
+    private var nlCacheOffset = -1
+    private var nlCacheCount = 0
+
+    fun invalidateLineCache() {
+        nlCacheOffset = -1
+    }
 
     private var gutterDownY = 0f
     private var gutterIsDragging = false
@@ -734,10 +740,16 @@ class LineNumberGutterView @JvmOverloads constructor(
         var logicalLineNum = 1
         if (isWordWrap && firstLine > 0) {
             val startOffset = minOf(textLen, layout.getLineStart(firstLine))
-            var count = 0
-            for (i in 0 until startOffset) {
+            if (nlCacheOffset < 0 || startOffset < nlCacheOffset) {
+                nlCacheOffset = 0
+                nlCacheCount = 0
+            }
+            var count = nlCacheCount
+            for (i in nlCacheOffset until startOffset) {
                 if (text[i] == '\n') count++
             }
+            nlCacheOffset = startOffset
+            nlCacheCount = count
             logicalLineNum = count + 1
         } else if (!isWordWrap) {
             logicalLineNum = firstLine + 1
@@ -835,11 +847,14 @@ class ScriptCodeEditorView @JvmOverloads constructor(
         set(value) {
             if (field != value) {
                 field = value
+                highlightedStart = -1
                 scheduleViewportHighlighting(delayMs = 0)
             }
         }
 
     private var isApplyingSyntaxSpans = false
+    private var highlightedStart = -1
+    private var highlightedEnd = -1
     private val highlightRunnable = Runnable { applyViewportSyntaxHighlighting() }
 
     var isWordWrap: Boolean = false
@@ -874,7 +889,12 @@ class ScriptCodeEditorView @JvmOverloads constructor(
         val firstVisibleLine = l.getLineForVertical(scrollY).coerceIn(0, totalLines - 1)
         val lastVisibleLine = l.getLineForVertical(scrollY + height).coerceIn(firstVisibleLine, totalLines - 1)
 
-        val bufferLines = 50
+        val visStart = l.getLineStart(firstVisibleLine).coerceIn(0, len)
+        val visEnd = l.getLineEnd(lastVisibleLine).coerceIn(visStart, len)
+        // Skip work when the visible region is already highlighted and text is unchanged
+        if (highlightedStart >= 0 && visStart >= highlightedStart && visEnd <= highlightedEnd) return
+
+        val bufferLines = 40
         val startLine = maxOf(0, firstVisibleLine - bufferLines)
         val endLine = minOf(totalLines - 1, lastVisibleLine + bufferLines)
 
@@ -885,7 +905,9 @@ class ScriptCodeEditorView @JvmOverloads constructor(
         try {
             val colors = UserScriptSyntaxHighlighter.getThemeColors(isDarkTheme)
             UserScriptSyntaxHighlighter.highlightRange(ed, startOffset, endOffset, colors)
-        } catch (_: Exception) {
+            highlightedStart = startOffset
+            highlightedEnd = endOffset
+        } catch (_: Throwable) {
         } finally {
             isApplyingSyntaxSpans = false
         }
@@ -971,7 +993,7 @@ class ScriptCodeEditorView @JvmOverloads constructor(
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
                 if (isApplyingHistory || isApplyingSyntaxSpans || s == null) return
                 if (count < 8000) {
-                    beforeChangeText = s.subSequence(start, start + count)
+                    beforeChangeText = android.text.TextUtils.substring(s, start, start + count)
                 } else {
                     beforeChangeText = null
                 }
@@ -979,11 +1001,12 @@ class ScriptCodeEditorView @JvmOverloads constructor(
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 if (isApplyingSyntaxSpans) return
+                highlightedStart = -1
                 onContentModified?.invoke()
                 scheduleViewportHighlighting(delayMs = 300)
                 if (isApplyingHistory || s == null) return
                 if (count < 8000 && beforeChangeText != null) {
-                    val afterText = s.subSequence(start, start + count)
+                    val afterText = android.text.TextUtils.substring(s, start, start + count)
                     history.record(start, beforeChangeText, afterText)
                     onHistoryStateChanged?.invoke(history.canUndo, history.canRedo)
                 }
@@ -1021,7 +1044,11 @@ class ScriptCodeEditorView @JvmOverloads constructor(
         return ic
     }
 
+    private var appliedWrap: Boolean? = null
+
     fun setWordWrap(wrap: Boolean) {
+        if (appliedWrap == wrap) return
+        appliedWrap = wrap
         isWordWrap = wrap
         setHorizontallyScrolling(!wrap)
         isHorizontalScrollBarEnabled = !wrap
@@ -1252,6 +1279,7 @@ class CodeEditorContainer @JvmOverloads constructor(
 
     val gutterView = LineNumberGutterView(context)
     val editorView = ScriptCodeEditorView(context)
+    private var lastThemeSignature: List<Any>? = null
 
     init {
         orientation = HORIZONTAL
@@ -1273,6 +1301,7 @@ class CodeEditorContainer @JvmOverloads constructor(
             gutterView.postInvalidateOnAnimation()
         }
         editorView.onContentModified = {
+            gutterView.invalidateLineCache()
             gutterView.updateDigits()
         }
         editorView.onLayoutReady = {
@@ -1294,6 +1323,7 @@ class CodeEditorContainer @JvmOverloads constructor(
         isDark: Boolean,
         onBindEditor: (ScriptCodeEditorView) -> Unit
     ) {
+        lastThemeSignature = listOf(textColor, hintColor, surfaceColor, gutterBgColor, gutterTextColor, accentColor, isWordWrap, isDark)
         editorView.isDarkTheme = isDark
         editorView.setTextColor(textColor)
         editorView.setHintTextColor(hintColor)
@@ -1333,6 +1363,9 @@ class CodeEditorContainer @JvmOverloads constructor(
         isWordWrap: Boolean,
         isDark: Boolean
     ) {
+        val sig = listOf(textColor, hintColor, surfaceColor, gutterBgColor, gutterTextColor, accentColor, isWordWrap, isDark)
+        if (sig == lastThemeSignature) return
+        lastThemeSignature = sig
         editorView.isDarkTheme = isDark
         if (editorView.currentTextColor != textColor) {
             editorView.setTextColor(textColor)

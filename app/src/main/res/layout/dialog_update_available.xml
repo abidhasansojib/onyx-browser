@@ -5,161 +5,128 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:paddingStart="24dp"
+    android:paddingTop="28dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="8dp">
 
-    <!-- Header Icon & Title -->
-    <LinearLayout
+    <FrameLayout
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/bg_box_tile">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="center"
+            app:srcCompat="@drawable/ic_download"
+            app:tint="?attr/colorPrimary" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tvUpdateDialogTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:text="@string/update_available_title"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvUpdateDialogSubtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="13sp"
+        tools:text="Onyx Browser v1.0.154" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="16dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <FrameLayout
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_box_tile">
-
-            <androidx.appcompat.widget.AppCompatImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_gravity="center"
-                app:srcCompat="@drawable/ic_download"
-                app:tint="?attr/colorPrimary" />
-        </FrameLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/tvCurrentVersionBadge"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="14dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:background="@drawable/bg_pill_badge"
+            android:paddingStart="10dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="4dp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            tools:text="v1.0.153" />
 
-            <TextView
-                android:id="@+id/tvUpdateDialogTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/update_available_title"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="19sp"
-                android:textStyle="bold" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:text="→"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="14sp" />
 
-            <TextView
-                android:id="@+id/tvUpdateDialogSubtitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="13sp"
-                tools:text="Onyx Browser v1.0.154" />
-        </LinearLayout>
+        <TextView
+            android:id="@+id/tvNewVersionBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_pill_badge"
+            android:paddingStart="10dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="4dp"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            tools:text="v1.0.154" />
     </LinearLayout>
 
-    <!-- Version Badge & Architecture Details Card -->
-    <com.google.android.material.card.MaterialCardView
+    <TextView
+        android:id="@+id/tvUpdateAssetInfo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="0dp"
-        app:strokeColor="?attr/colorOutline"
-        app:strokeWidth="1dp">
+        android:layout_marginTop="10dp"
+        android:ellipsize="middle"
+        android:gravity="center"
+        android:singleLine="true"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="12sp"
+        tools:text="Onyx-Browser-v1.0.154-arm64-v8a-release.apk • 38 MB" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/tvCurrentVersionBadge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_pill_badge"
-                    android:paddingStart="8dp"
-                    android:paddingTop="3dp"
-                    android:paddingEnd="8dp"
-                    android:paddingBottom="3dp"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    tools:text="v1.0.153" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_marginEnd="8dp"
-                    android:text="➜"
-                    android:textColor="?attr/colorPrimary"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:id="@+id/tvNewVersionBadge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_pill_badge"
-                    android:paddingStart="8dp"
-                    android:paddingTop="3dp"
-                    android:paddingEnd="8dp"
-                    android:paddingBottom="3dp"
-                    android:textColor="?attr/colorPrimary"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    tools:text="v1.0.154" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/tvUpdateAssetInfo"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="13sp"
-                tools:text="arm64-v8a • 19.1 MB" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
-    <!-- Changelog Label -->
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="6dp"
-        android:text="@string/whats_new"
+        android:layout_marginTop="18dp"
+        android:text="What's new"
         android:textColor="?android:attr/textColorPrimary"
         android:textSize="14sp"
         android:textStyle="bold" />
 
-    <!-- Scrollable Changelog Box -->
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollChangelog"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:maxHeight="180dp">
+        android:layout_marginTop="6dp"
+        android:scrollbars="vertical">
 
-        <com.google.android.material.card.MaterialCardView
+        <TextView
+            android:id="@+id/tvChangelogContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutline"
-            app:strokeWidth="1dp">
-
-            <TextView
-                android:id="@+id/tvChangelogContent"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:lineSpacingMultiplier="1.2"
-                android:padding="12dp"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="13sp"
-                tools:text="* New in-app update checker\n* Faster page loading\n* Bug fixes and performance improvements" />
-        </com.google.android.material.card.MaterialCardView>
+            android:lineSpacingMultiplier="1.15"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textColorLink="?attr/colorPrimary"
+            android:textSize="13sp"
+            tools:text="• Fixed bugs\n• Faster filters" />
     </androidx.core.widget.NestedScrollView>
-
 </LinearLayout>
