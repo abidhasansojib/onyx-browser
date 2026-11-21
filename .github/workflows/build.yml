@@ -106,10 +106,13 @@ jobs:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > keystore/release.keystore
             echo "KEYSTORE_PATH=${{ github.workspace }}/keystore/release.keystore" >> $GITHUB_ENV
-            echo "Release signing keystore decoded to keystore/release.keystore"
-          else
-            echo "Using committed release.keystore for consistent reproducible signing"
+            echo "Release signing keystore decoded from KEYSTORE_BASE64 secret."
+          elif [ -f "keystore/release.keystore" ]; then
+            echo "Using local keystore/release.keystore"
             echo "KEYSTORE_PATH=${{ github.workspace }}/keystore/release.keystore" >> $GITHUB_ENV
+          else
+            echo "ERROR: Release signing keystore is missing and KEYSTORE_BASE64 secret is not configured!"
+            exit 1
           fi
 
       - name: Compute Automatic Versioning & Build Type

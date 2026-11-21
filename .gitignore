@@ -18,3 +18,9 @@ __pycache__/
 *.pyc
 docs/superpowers/
 .superpowers/
+
+# Keystores & Signing Keys
+keystore/*.keystore
+keystore/*.jks
+*.keystore
+*.jks
