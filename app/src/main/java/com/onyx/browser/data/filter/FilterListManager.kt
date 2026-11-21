@@ -226,6 +226,30 @@ object FilterListManager {
             defaultEnabled = false
         ),
         FilterListEntry(
+            id = "embed_exceptions_facebook",
+            title = "Allow Facebook Embeds",
+            subtitle = "Exceptions so Facebook login SDK and embedded posts keep working",
+            url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/embed-exceptions-facebook.txt",
+            category = "social",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
+            id = "embed_exceptions_twitter",
+            title = "Allow X/Twitter Embeds",
+            subtitle = "Exceptions so X/Twitter login and embedded posts keep working",
+            url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/embed-exceptions-twitter.txt",
+            category = "social",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
+            id = "embed_exceptions_linkedin",
+            title = "Allow LinkedIn Embeds",
+            subtitle = "Exceptions so LinkedIn sign-in and embedded content keep working",
+            url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/embed-exceptions-linkedin.txt",
+            category = "social",
+            defaultEnabled = true
+        ),
+        FilterListEntry(
             id = "yt_shorts",
             title = "YouTube Shorts blocker",
             subtitle = "YouTube Anti-Shorts",

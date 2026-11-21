@@ -52,9 +52,22 @@ class AuthBypassInterceptor(
         val isCaptchaResource = PrivacyUrlSanitizer.isCaptchaOrAuthUrl(url, reqDomain)
 
         // 3. OAuth / SSO / Identity & Payment Provider Exemption
-        val isOAuthResource = PrivacyUrlSanitizer.isOAuthOrLoginProvider(reqDomain) ||
-                PrivacyUrlSanitizer.isOAuthOrLoginProvider(pageDomain) ||
-                PrivacyUrlSanitizer.isOAuthOrLoginUrl(url)
+        // Meta ad pixels must never ride on the login exemption (even though facebook.com is a login provider).
+        val isMetaAdPixel = reqDomain == "pixel.facebook.com" ||
+                reqDomain == "an.facebook.com" ||
+                reqDomain == "tr.facebook.com"
+        // Page-level and URL-pattern exemptions only apply to navigations and same-site requests, so
+        // third-party trackers on provider pages (github, amazon, linkedin...) or tracker URLs that
+        // merely contain "login"/"code=" are still evaluated by the blocker.
+        val isNavigationOrSameSite = resourceType == "main_frame" || resourceType == "sub_frame" ||
+                !PrivacyUrlSanitizer.isThirdPartyDomain(reqDomain, pageDomain)
+        val isOAuthResource = !isMetaAdPixel && (
+                PrivacyUrlSanitizer.isOAuthOrLoginProvider(reqDomain) ||
+                (isNavigationOrSameSite && (
+                        PrivacyUrlSanitizer.isOAuthOrLoginProvider(pageDomain) ||
+                        PrivacyUrlSanitizer.isOAuthOrLoginUrl(url)
+                ))
+        )
 
         val isMediaSubresource = resourceType == "media" ||
                 PrivacyUrlSanitizer.isMediaUrl(url) ||
@@ -120,9 +133,6 @@ class AuthBypassInterceptor(
 
         // 5. Meta / Facebook First-Party Integrity & Active OAuth Grace Period
         val isMetaResource = PrivacyUrlSanitizer.isMetaDomain(reqDomain)
-        val isMetaAdPixel = reqDomain == "pixel.facebook.com" ||
-                reqDomain == "an.facebook.com" ||
-                reqDomain == "tr.facebook.com"
         val isWithinOAuthGrace = onyxWebView?.isWithinOAuthGracePeriod() == true
 
         if (isMetaResource) {
