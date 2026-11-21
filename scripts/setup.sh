@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Script: scripts/bootstrap_dev.sh
+# Script: scripts/setup.sh
 # Purpose: One-command local workstation setup for Onyx Browser contributors.
 #          Initializes Git submodules, applies patches idempotently, verifies
 #          symlinks, syncs Brave filter lists, and optionally compiles the
 #          native Rust NDK bridge (libadblock_bridge.so).
 #
 # Usage:
-#   ./scripts/bootstrap_dev.sh [--skip-rust]
+#   ./scripts/setup.sh [--skip-rust]
 # ==============================================================================
 
 set -euo pipefail
@@ -22,7 +22,7 @@ for arg in "$@"; do
             SKIP_RUST=true
             ;;
         -h|--help)
-            echo "Usage: ./scripts/bootstrap_dev.sh [--skip-rust]"
+            echo "Usage: ./scripts/setup.sh [--skip-rust]"
             echo ""
             echo "Options:"
             echo "  --skip-rust   Skip compiling the native Rust NDK bridge (libadblock_bridge.so)"
@@ -31,7 +31,7 @@ for arg in "$@"; do
             ;;
         *)
             echo "Unknown option: $arg"
-            echo "Run './scripts/bootstrap_dev.sh --help' for usage."
+            echo "Run './scripts/setup.sh --help' for usage."
             exit 1
             ;;
     esac
@@ -94,7 +94,7 @@ else
     echo "  cargo-ndk is not installed. To build libadblock_bridge.so locally, install Rust targets and cargo-ndk:"
     echo "    rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android"
     echo "    cargo install cargo-ndk"
-    echo "  Then re-run: ./scripts/bootstrap_dev.sh"
+    echo "  Then re-run: ./scripts/setup.sh"
 fi
 
 echo ""

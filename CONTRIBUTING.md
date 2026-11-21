@@ -22,15 +22,15 @@ To build and test Onyx Browser on Linux, macOS, or Windows (WSL2):
 
 ## 2. Quick Setup
 
-Clone the repository with submodules and run the bootstrap script:
+Clone the repository with submodules and run the setup script:
 
 ```bash
 git clone --recurse-submodules https://github.com/abidhasansojib/onyx-browser.git
 cd onyx-browser
-./scripts/bootstrap_dev.sh
+./scripts/setup.sh
 ```
 
-`./scripts/bootstrap_dev.sh` initializes submodules (`external/adblock-rust`, `external/adblock-lists`), syncs icons and filter lists, and compiles `libadblock_bridge.so` into `app/src/main/jniLibs/` (pass `--skip-rust` when working only on Kotlin/JVM code).
+`./scripts/setup.sh` initializes submodules (`external/adblock-rust`, `external/adblock-lists`), syncs filter lists, and compiles `libadblock_bridge.so` into `app/src/main/jniLibs/` (pass `--skip-rust` when working only on Kotlin/JVM code).
 
 ---
 

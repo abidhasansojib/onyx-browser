@@ -96,5 +96,5 @@ onyx-browser/
 ├── docs/                       # ARCHITECTURE.md, WEBVIEW.md, FEATURES.md
 ├── gradle/libs.versions.toml   # Gradle Version Catalog
 ├── rust_engine/                # Rust NDK crate (libadblock_bridge.so)
-└── scripts/                    # bootstrap_dev.sh, generate_release_notes.py, notify_upstream_update.py, sync_upstream.sh, update_filter_lists.sh
+└── scripts/                    # setup.sh, generate_release_notes.py, notify_upstream_update.py, sync_upstream.sh, update_filter_lists.sh
 ```

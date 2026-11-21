@@ -57,7 +57,7 @@ Prerequisites: **JDK 17**, **Android SDK (API 35)**, **Android NDK r26b+**, and 
 ```bash
 git clone --recurse-submodules https://github.com/abidhasansojib/onyx-browser.git
 cd onyx-browser
-./scripts/bootstrap_dev.sh
+./scripts/setup.sh
 ./gradlew :core:common:test testReleaseUnitTest assembleRelease
 ```
 
