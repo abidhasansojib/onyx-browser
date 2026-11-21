@@ -3,8 +3,8 @@
 # Script: scripts/bootstrap_dev.sh
 # Purpose: One-command local workstation setup for Onyx Browser contributors.
 #          Initializes Git submodules, applies patches idempotently, verifies
-#          symlinks, syncs Lucide icons & Brave filter lists, and optionally
-#          compiles the native Rust NDK bridge (libadblock_bridge.so).
+#          symlinks, syncs Brave filter lists, and optionally compiles the
+#          native Rust NDK bridge (libadblock_bridge.so).
 #
 # Usage:
 #   ./scripts/bootstrap_dev.sh [--skip-rust]
@@ -70,15 +70,11 @@ if [ -f "${ROOT_DIR}/external/adblock-rust/data/brave/brave-resources.json" ]; t
     echo "  Synced app/src/main/assets/brave-resources.json"
 fi
 
-echo "=== 4. Fetching & Converting Official Lucide Icons ==="
-chmod +x "${ROOT_DIR}/scripts/fetch_icons.sh"
-"${ROOT_DIR}/scripts/fetch_icons.sh"
-
-echo "=== 5. Synchronizing Brave & Community Filter Lists ==="
+echo "=== 4. Synchronizing Brave & Community Filter Lists ==="
 chmod +x "${ROOT_DIR}/scripts/update_filter_lists.sh"
 "${ROOT_DIR}/scripts/update_filter_lists.sh"
 
-echo "=== 6. Native Rust Engine (libadblock_bridge.so) ==="
+echo "=== 5. Native Rust Engine (libadblock_bridge.so) ==="
 if [ "$SKIP_RUST" = true ]; then
     echo "  Skipping Rust NDK compilation (--skip-rust passed)."
 elif command -v cargo-ndk >/dev/null 2>&1; then
