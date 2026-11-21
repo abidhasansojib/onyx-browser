@@ -2671,10 +2671,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_SEARCH_SUGGESTIONS_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_SEARCH_SUGGESTIONS_ENABLED, value).apply()
 
-    var isShowClipboardSuggestions: Boolean
-        get() = prefs.getBoolean(KEY_SHOW_CLIPBOARD_SUGGESTIONS, true)
-        set(value) = prefs.edit().putBoolean(KEY_SHOW_CLIPBOARD_SUGGESTIONS, value).apply()
-
     var isShowHistorySuggestions: Boolean
         get() = prefs.getBoolean(KEY_SHOW_HISTORY_SUGGESTIONS, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_HISTORY_SUGGESTIONS, value).apply()
@@ -2903,7 +2899,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_SELECTED_DOWNLOADER_PACKAGE = "pref_selected_downloader_package"
         const val KEY_DOWNLOAD_THREADS_COUNT = "pref_download_threads_count"
         const val KEY_SEARCH_SUGGESTIONS_ENABLED = "pref_search_suggestions_enabled"
-        const val KEY_SHOW_CLIPBOARD_SUGGESTIONS = "pref_show_clipboard_suggestions"
         const val KEY_SHOW_HISTORY_SUGGESTIONS = "pref_show_history_suggestions"
         const val KEY_TAB_AUTO_ARCHIVE_HOURS = "pref_tab_auto_archive_hours"
 

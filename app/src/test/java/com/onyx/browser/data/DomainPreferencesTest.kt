@@ -206,27 +206,23 @@ class DomainPreferencesTest {
 
         every { browserPrefs.searchEngine } returns SearchEngine.DUCKDUCKGO
         every { browserPrefs.isSearchSuggestionsEnabled } returns true
-        every { browserPrefs.isShowClipboardSuggestions } returns false
         every { browserPrefs.isShowHistorySuggestions } returns true
         every { browserPrefs.getCustomSearchEngines() } returns listOf(customEngine)
         every { browserPrefs.getAllSearchEngines() } returns SearchEngine.BUILT_IN + customEngine
 
         assertEquals(SearchEngine.DUCKDUCKGO, search.searchEngine)
         assertTrue(search.isSearchSuggestionsEnabled)
-        assertFalse(search.isShowClipboardSuggestions)
         assertTrue(search.isShowHistorySuggestions)
         assertEquals(listOf(customEngine), search.getCustomSearchEngines())
         assertTrue(search.getAllSearchEngines().contains(customEngine))
 
         search.searchEngine = SearchEngine.BRAVE
         search.isSearchSuggestionsEnabled = false
-        search.isShowClipboardSuggestions = true
         search.isShowHistorySuggestions = false
         search.saveCustomSearchEngines(listOf(customEngine))
 
         verify { browserPrefs.searchEngine = SearchEngine.BRAVE }
         verify { browserPrefs.isSearchSuggestionsEnabled = false }
-        verify { browserPrefs.isShowClipboardSuggestions = true }
         verify { browserPrefs.isShowHistorySuggestions = false }
         verify { browserPrefs.saveCustomSearchEngines(listOf(customEngine)) }
     }

@@ -393,12 +393,6 @@ class SearchController(
     }
 
     fun getClipboardSuggestion(forceRefresh: Boolean = false): SearchSuggestion? {
-        // Honor user preferences
-        if (!preferences.isShowClipboardSuggestions) {
-            cachedClipboardSuggestion = null
-            return null
-        }
-
         // Suppress clipboard suggestions in incognito mode (Chrome privacy standard)
         if (getActiveTab()?.isIncognito == true) {
             cachedClipboardSuggestion = null

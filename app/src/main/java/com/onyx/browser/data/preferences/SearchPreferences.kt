@@ -20,12 +20,6 @@ class SearchPreferences(private val browserPrefs: BrowserPreferences) {
             browserPrefs.isSearchSuggestionsEnabled = value
         }
 
-    var isShowClipboardSuggestions: Boolean
-        get() = browserPrefs.isShowClipboardSuggestions
-        set(value) {
-            browserPrefs.isShowClipboardSuggestions = value
-        }
-
     var isShowHistorySuggestions: Boolean
         get() = browserPrefs.isShowHistorySuggestions
         set(value) {
