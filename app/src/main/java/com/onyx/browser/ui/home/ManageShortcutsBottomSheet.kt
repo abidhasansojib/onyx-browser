@@ -98,6 +98,9 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
         val behavior = BottomSheetBehavior.from(sheet)
         behavior.state = BottomSheetBehavior.STATE_EXPANDED
         behavior.skipCollapsed = true
+        // The Compose LazyColumn is not a NestedScrollingChild for BottomSheetBehavior, so
+        // scrolling up dragged the sheet down and dismissed it. Dismiss via close button/back/scrim.
+        behavior.isDraggable = false
     }
 
     @Composable
