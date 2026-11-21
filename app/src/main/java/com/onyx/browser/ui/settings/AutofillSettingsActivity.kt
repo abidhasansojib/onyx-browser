@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
@@ -28,21 +26,15 @@ import androidx.core.view.WindowCompat
 import com.onyx.browser.autofill.ActivePasswordManagerInfo
 import com.onyx.browser.autofill.AutofillHelper
 import com.onyx.browser.data.preferences.BrowserPreferences
+import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.components.PreferenceItem
-import com.onyx.browser.ui.components.SwitchPreference
-import com.onyx.browser.ui.components.AppTopBar
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class AutofillSettingsActivity : ComponentActivity() {
 
     private lateinit var preferences: BrowserPreferences
     private var activeManager by mutableStateOf<ActivePasswordManagerInfo?>(null)
-    private var isSupported by mutableStateOf(true)
-
-    private var isAutofillEnabled by mutableStateOf(false)
-    private var isSavePasswordsPromptEnabled by mutableStateOf(false)
-    private var isPasskeysEnabled by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,31 +53,12 @@ class AutofillSettingsActivity : ComponentActivity() {
             OnyxTheme(darkTheme = isDark, isAmoled = false) {
                 AutofillSettingsScreen(
                     onBackClick = { finish() },
-                    isSupported = isSupported,
                     manager = activeManager,
                     onChangeAutofillService = {
                         AutofillHelper.openAutofillServiceSettings(this, activeManager?.packageName)
                     },
-                    onConfigurePasskeys = {
-                        AutofillHelper.openPasskeyProviderSettings(this, activeManager)
-                    },
                     onOpenPasswordManager = {
                         AutofillHelper.openActivePasswordManager(this, activeManager)
-                    },
-                    isAutofillForms = isAutofillEnabled,
-                    onAutofillFormsChange = { enabled ->
-                        isAutofillEnabled = enabled
-                        preferences.isAutofillEnabled = enabled
-                    },
-                    isSavePasswords = isSavePasswordsPromptEnabled,
-                    onSavePasswordsChange = { enabled ->
-                        isSavePasswordsPromptEnabled = enabled
-                        preferences.isSavePasswordsPromptEnabled = enabled
-                    },
-                    isPasskeys = isPasskeysEnabled,
-                    onPasskeysChange = { enabled ->
-                        isPasskeysEnabled = enabled
-                        preferences.isPasskeysEnabled = enabled
                     }
                 )
             }
@@ -98,28 +71,16 @@ class AutofillSettingsActivity : ComponentActivity() {
     }
 
     private fun loadState() {
-        isSupported = AutofillHelper.isAutofillSupported(this)
         activeManager = AutofillHelper.getActivePasswordManager(this)
-        isAutofillEnabled = preferences.isAutofillEnabled
-        isSavePasswordsPromptEnabled = preferences.isSavePasswordsPromptEnabled
-        isPasskeysEnabled = preferences.isPasskeysEnabled
     }
 }
 
 @Composable
 fun AutofillSettingsScreen(
     onBackClick: () -> Unit,
-    isSupported: Boolean,
     manager: ActivePasswordManagerInfo?,
     onChangeAutofillService: () -> Unit,
-    onConfigurePasskeys: () -> Unit,
-    onOpenPasswordManager: () -> Unit,
-    isAutofillForms: Boolean,
-    onAutofillFormsChange: (Boolean) -> Unit,
-    isSavePasswords: Boolean,
-    onSavePasswordsChange: (Boolean) -> Unit,
-    isPasskeys: Boolean,
-    onPasskeysChange: (Boolean) -> Unit
+    onOpenPasswordManager: () -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -157,40 +118,9 @@ fun AutofillSettingsScreen(
 
                 PreferenceItem(
                     title = "Change Autofill Service",
-                    subtitle = "Configure Android system autofill provider in settings",
+                    subtitle = "Configure Android system autofill & passkey provider in settings",
                     icon = Icons.Default.Settings,
                     onClick = onChangeAutofillService
-                )
-
-                PreferenceItem(
-                    title = "Configure Passkey Providers",
-                    subtitle = "Manage FIDO2 passkeys & Credential Manager settings",
-                    icon = Icons.Default.Key,
-                    onClick = onConfigurePasskeys
-                )
-            }
-
-            CategoryHeader("Web Autofill & Credentials")
-            CardContainer {
-                SwitchPreference(
-                    title = "Autofill Forms & Credentials",
-                    subtitle = "Automatically fill saved addresses, payment methods, and logins",
-                    checked = isAutofillForms,
-                    onCheckedChange = onAutofillFormsChange
-                )
-
-                SwitchPreference(
-                    title = "Ask to Save Passwords",
-                    subtitle = "Prompt to save entered passwords to your active password manager",
-                    checked = isSavePasswords,
-                    onCheckedChange = onSavePasswordsChange
-                )
-
-                SwitchPreference(
-                    title = "Passkeys Support",
-                    subtitle = "Enable passwordless WebAuthn / FIDO2 authentication on supported sites",
-                    checked = isPasskeys,
-                    onCheckedChange = onPasskeysChange
                 )
             }
         }

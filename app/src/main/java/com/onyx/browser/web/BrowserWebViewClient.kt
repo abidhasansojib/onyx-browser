@@ -1292,7 +1292,7 @@ open class BrowserWebViewClient(
 
         // Passkey / WebAuthn & PasswordCredential support — allow on all auth & login sites (GitHub, Google, Microsoft, etc.), only skip Meta/Facebook internal flows
         val isMetaAuthOnly = isMetaDomain(pageDomain) || isMetaDomain(preferences.cleanDomain(url ?: ""))
-        if ((preferences.isPasskeysEnabled || preferences.isAutofillEnabled) && !isMetaAuthOnly) {
+        if (!isMetaAuthOnly) {
             view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
         }
 
@@ -1492,7 +1492,7 @@ open class BrowserWebViewClient(
                 }
             }
             val isMetaAuthOnly = isMetaDomain(pageDomain) || isMetaDomain(preferences.cleanDomain(url))
-            if ((preferences.isPasskeysEnabled || preferences.isAutofillEnabled) && !isMetaAuthOnly) {
+            if (!isMetaAuthOnly) {
                 view?.evaluateJavascript(PasskeyWebAuthnBridge.getWebAuthnPolyfillJs(), null)
             }
             if (!isAuthOrMeta) {

@@ -47,7 +47,6 @@ import androidx.credentials.exceptions.domerrors.UnknownError
 import androidx.credentials.exceptions.publickeycredential.CreatePublicKeyCredentialDomException
 import androidx.credentials.exceptions.publickeycredential.GetPublicKeyCredentialDomException
 import com.onyx.browser.MainActivity
-import com.onyx.browser.data.preferences.BrowserPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -63,7 +62,6 @@ class PasskeyWebAuthnBridge(
     private val coroutineScope: CoroutineScope
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val preferences by lazy { BrowserPreferences.getInstance(activity.applicationContext) }
 
     private data class OriginContext(
         val effectiveOrigin: String,
@@ -83,12 +81,12 @@ class PasskeyWebAuthnBridge(
 
     @JavascriptInterface
     fun isPasskeySupported(): Boolean {
-        return preferences.isPasskeysEnabled
+        return true
     }
 
     @JavascriptInterface
     fun isPasswordCredentialSupported(): Boolean {
-        return preferences.isAutofillEnabled
+        return true
     }
 
     @JavascriptInterface
@@ -103,10 +101,6 @@ class PasskeyWebAuthnBridge(
 
     @JavascriptInterface
     fun createPasskey(requestJson: String, origin: String, isTopFrame: Boolean, callbackId: String) {
-        if (!preferences.isPasskeysEnabled) {
-            sendError(callbackId, "NotAllowedError", "Passkeys are disabled in browser settings")
-            return
-        }
         // IMPORTANT: @JavascriptInterface runs on Chromium's background JavaBridge thread.
         // Never touch WebView methods (such as webView.url) outside mainHandler.post.
         mainHandler.post {
@@ -217,10 +211,6 @@ class PasskeyWebAuthnBridge(
         includePasswords: Boolean,
         callbackId: String
     ) {
-        if (!preferences.isPasskeysEnabled) {
-            sendError(callbackId, "NotAllowedError", "Passkeys are disabled in browser settings")
-            return
-        }
         mainHandler.post {
             getPasskeyOnMainThread(requestJson, origin, isTopFrame, includePasswords, callbackId)
         }
@@ -267,7 +257,7 @@ class PasskeyWebAuthnBridge(
                 .addCredentialOption(publicKeyOption)
                 .setOrigin(originCtx.effectiveOrigin)
 
-            if (includePasswords && preferences.isAutofillEnabled) {
+            if (includePasswords) {
                 builder.addCredentialOption(GetPasswordOption())
             }
 
@@ -337,10 +327,6 @@ class PasskeyWebAuthnBridge(
         preferImmediatelyAvailable: Boolean,
         callbackId: String
     ) {
-        if (!preferences.isAutofillEnabled) {
-            sendSuccess(callbackId, "null")
-            return
-        }
         mainHandler.post {
             val originCtx = resolveVerifiedOrigin(origin, null, isTopFrame, callbackId) ?: return@post
             val hostActivity = resolveActiveActivity()
@@ -391,9 +377,7 @@ class PasskeyWebAuthnBridge(
         isTopFrame: Boolean,
         callbackId: String
     ) {
-        if (!preferences.isAutofillEnabled || !preferences.isSavePasswordsPromptEnabled ||
-            username.isBlank() || password.isEmpty()
-        ) {
+        if (username.isBlank() || password.isEmpty()) {
             sendSuccess(callbackId, "{}")
             return
         }

@@ -86,45 +86,6 @@ object AutofillHelper {
         }
     }
 
-    fun openPasskeyProviderSettings(context: Context, activeManager: ActivePasswordManagerInfo? = null) {
-        val preferredThirdPartyPkg = activeManager?.packageName?.takeIf { !activeManager.isGoogle }
-            ?: getInstalledAutofillServices(context).firstOrNull { !it.isGoogle }?.packageName
-
-        val intents = mutableListOf<Intent>()
-        if (Build.VERSION.SDK_INT >= 34) {
-            if (!preferredThirdPartyPkg.isNullOrBlank()) {
-                intents.add(
-                    Intent("android.settings.CREDENTIAL_PROVIDER").apply {
-                        data = Uri.parse("package:$preferredThirdPartyPkg")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                )
-            }
-            intents.add(
-                Intent("android.settings.CREDENTIAL_PROVIDER").apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            )
-        }
-        intents.add(
-            Intent("android.settings.AUTOFILL_SETTINGS").apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        )
-        intents.add(
-            Intent(Settings.ACTION_SETTINGS).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        )
-
-        for (intent in intents) {
-            try {
-                context.startActivity(intent)
-                return
-            } catch (_: Exception) {}
-        }
-    }
-
     fun openGooglePasswordManager(context: Context) {
         val intents = listOf(
             Intent().apply {

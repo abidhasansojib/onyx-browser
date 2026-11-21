@@ -2605,19 +2605,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         return SearchEngine.BUILT_IN + getCustomSearchEngines()
     }
 
-    // ── Autofill & Passkeys ──────────────────────────────────────────────────
-    var isAutofillEnabled: Boolean
-        get() = prefs.getBoolean(KEY_AUTOFILL_ENABLED, true)
-        set(value) = prefs.edit().putBoolean(KEY_AUTOFILL_ENABLED, value).apply()
-
-    var isSavePasswordsPromptEnabled: Boolean
-        get() = prefs.getBoolean(KEY_SAVE_PASSWORDS_PROMPT, true)
-        set(value) = prefs.edit().putBoolean(KEY_SAVE_PASSWORDS_PROMPT, value).apply()
-
-    var isPasskeysEnabled: Boolean
-        get() = prefs.getBoolean(KEY_PASSKEYS_ENABLED, true)
-        set(value) = prefs.edit().putBoolean(KEY_PASSKEYS_ENABLED, value).apply()
-
     var isCookieAutoclearOnCloseEnabled: Boolean
         get() = prefs.getBoolean(KEY_COOKIE_AUTOCLEAR, false)
         set(value) = prefs.edit().putBoolean(KEY_COOKIE_AUTOCLEAR, value).apply()
@@ -2860,9 +2847,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_BLOCK_APP_BANNER = "pref_block_app_banner"
         const val KEY_ANTI_ADBLOCK_DETECTION = "pref_anti_adblock_detection"
         const val KEY_CUSTOM_SEARCH_ENGINES = "pref_custom_search_engines"
-        const val KEY_AUTOFILL_ENABLED = "pref_autofill_enabled"
-        const val KEY_SAVE_PASSWORDS_PROMPT = "pref_save_passwords_prompt"
-        const val KEY_PASSKEYS_ENABLED = "pref_passkeys_enabled"
         const val KEY_FILTER_AUTO_UPDATE = "pref_filter_auto_update"
         const val KEY_USERSCRIPT_AUTO_UPDATE = "pref_userscript_auto_update"
         const val KEY_USERSCRIPT_UPDATE_INTERVAL = "pref_userscript_update_interval"

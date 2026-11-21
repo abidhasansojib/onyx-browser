@@ -580,16 +580,11 @@ class BrowserWebView @JvmOverloads constructor(
     }
 
     fun syncAutofillSettings() {
-        val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                importantForAutofill = if (prefs.isAutofillEnabled) {
-                    View.IMPORTANT_FOR_AUTOFILL_YES
-                } else {
-                    View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
-                }
+                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
             }
-            settings.saveFormData = !isIncognito && prefs.isAutofillEnabled && prefs.isSavePasswordsPromptEnabled
+            settings.saveFormData = !isIncognito
         } catch (_: Exception) {}
     }
 
