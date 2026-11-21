@@ -165,27 +165,35 @@ class NavigationCoordinator(
         }
         val title = activeTab.title.ifBlank { currentUrl }
 
-        if (ShortcutManagerCompat.isRequestPinShortcutSupported(activity)) {
-            val shortcutIntent = Intent(activity, MainActivity::class.java).apply {
-                action = Intent.ACTION_VIEW
-                data = Uri.parse(currentUrl)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val iconCompat = if (favicon != null) {
-                IconCompat.createWithBitmap(favicon)
+        try {
+            if (ShortcutManagerCompat.isRequestPinShortcutSupported(activity)) {
+                val shortcutIntent = Intent(activity, MainActivity::class.java).apply {
+                    action = Intent.ACTION_VIEW
+                    data = Uri.parse(currentUrl)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val iconCompat = if (favicon != null && !favicon.isRecycled && favicon.width > 0 && favicon.height > 0) {
+                    try {
+                        IconCompat.createWithBitmap(favicon)
+                    } catch (_: Exception) {
+                        IconCompat.createWithResource(activity, R.mipmap.ic_launcher)
+                    }
+                } else {
+                    IconCompat.createWithResource(activity, R.mipmap.ic_launcher)
+                }
+                val pinShortcutInfo = ShortcutInfoCompat.Builder(activity, "onyx_web_${currentUrl.hashCode()}")
+                    .setShortLabel(title.take(20))
+                    .setLongLabel(title)
+                    .setIcon(iconCompat)
+                    .setIntent(shortcutIntent)
+                    .build()
+                ShortcutManagerCompat.requestPinShortcut(activity, pinShortcutInfo, null)
+                Toast.makeText(activity, activity.getString(R.string.added_to_home_screen), Toast.LENGTH_SHORT).show()
             } else {
-                IconCompat.createWithResource(activity, R.mipmap.ic_launcher)
+                Toast.makeText(activity, "Pin shortcut not supported by launcher", Toast.LENGTH_SHORT).show()
             }
-            val pinShortcutInfo = ShortcutInfoCompat.Builder(activity, "onyx_web_${currentUrl.hashCode()}")
-                .setShortLabel(title.take(20))
-                .setLongLabel(title)
-                .setIcon(iconCompat)
-                .setIntent(shortcutIntent)
-                .build()
-            ShortcutManagerCompat.requestPinShortcut(activity, pinShortcutInfo, null)
-            Toast.makeText(activity, activity.getString(R.string.added_to_home_screen), Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(activity, "Pin shortcut not supported by launcher", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {
+            Toast.makeText(activity, "Failed to pin shortcut to Home screen", Toast.LENGTH_SHORT).show()
         }
     }
 }

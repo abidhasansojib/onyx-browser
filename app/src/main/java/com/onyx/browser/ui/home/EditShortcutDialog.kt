@@ -43,13 +43,42 @@ import com.onyx.browser.ui.theme.AccentColorManager
 import com.onyx.browser.ui.theme.OnyxTheme
 
 class EditShortcutDialog @JvmOverloads constructor(
-    private var shortcut: ShortcutItem = ShortcutItem(title = "", url = ""),
+    shortcutItem: ShortcutItem = ShortcutItem(title = "", url = ""),
     private var onShortcutSaved: ((ShortcutItem) -> Unit)? = null
 ) : DialogFragment() {
+
+    private var currentShortcut: ShortcutItem = shortcutItem
+
+    init {
+        val args = arguments ?: Bundle()
+        if (!args.containsKey(KEY_SHORTCUT_ID)) {
+            args.putString(KEY_SHORTCUT_ID, shortcutItem.id)
+            args.putString(KEY_SHORTCUT_TITLE, shortcutItem.title)
+            args.putString(KEY_SHORTCUT_URL, shortcutItem.url)
+            args.putString(KEY_SHORTCUT_ICON, shortcutItem.iconType)
+            arguments = args
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NO_TITLE, 0)
+        val args = savedInstanceState ?: arguments
+        if (args != null && args.containsKey(KEY_SHORTCUT_ID)) {
+            val id = args.getString(KEY_SHORTCUT_ID, currentShortcut.id)
+            val title = args.getString(KEY_SHORTCUT_TITLE, currentShortcut.title)
+            val url = args.getString(KEY_SHORTCUT_URL, currentShortcut.url)
+            val iconType = args.getString(KEY_SHORTCUT_ICON, currentShortcut.iconType)
+            currentShortcut = ShortcutItem(id = id, title = title, url = url, iconType = iconType)
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(KEY_SHORTCUT_ID, currentShortcut.id)
+        outState.putString(KEY_SHORTCUT_TITLE, currentShortcut.title)
+        outState.putString(KEY_SHORTCUT_URL, currentShortcut.url)
+        outState.putString(KEY_SHORTCUT_ICON, currentShortcut.iconType)
     }
 
     override fun onCreateView(
@@ -84,16 +113,16 @@ class EditShortcutDialog @JvmOverloads constructor(
         val focusManager = LocalFocusManager.current
         val keyboardController = LocalSoftwareKeyboardController.current
 
-        val isNew = remember(shortcut.url) { shortcut.url.isBlank() }
-        var title by remember { mutableStateOf(shortcut.title) }
-        var url by remember { mutableStateOf(shortcut.url) }
+        val isNew = remember(currentShortcut.url) { currentShortcut.url.isBlank() }
+        var title by remember { mutableStateOf(currentShortcut.title) }
+        var url by remember { mutableStateOf(currentShortcut.url) }
         var urlError by remember { mutableStateOf<String?>(null) }
 
         val firstLetter = remember(title) {
             title.trim().firstOrNull()?.uppercase()
         }
 
-        val isSystem = shortcut.isSystemShortcut
+        val isSystem = currentShortcut.isSystemShortcut
         val favicon = if (!isSystem) rememberFavicon(url) else null
         val brandIcon = remember(url) {
             when (ShortcutItem.inferIconType(url)) {
@@ -109,33 +138,68 @@ class EditShortcutDialog @JvmOverloads constructor(
 
         val onSaveAction = {
             val trimmedUrl = url.trim()
+            val candidateUrl = when {
+                trimmedUrl.startsWith("http://", ignoreCase = true) ||
+                trimmedUrl.startsWith("https://", ignoreCase = true) ||
+                trimmedUrl.startsWith("onyx://", ignoreCase = true) -> trimmedUrl
+                else -> "https://$trimmedUrl"
+            }
+
+            val parsedUri = try { android.net.Uri.parse(candidateUrl) } catch (_: Exception) { null }
+            val scheme = parsedUri?.scheme?.lowercase()
+            val host = parsedUri?.host
+            val schemeSpecific = parsedUri?.schemeSpecificPart
+
+            val isValid = when {
+                trimmedUrl.isBlank() -> false
+                scheme == "onyx" -> !schemeSpecific.isNullOrBlank() && schemeSpecific != "//"
+                scheme in listOf("http", "https") -> !host.isNullOrBlank() && !host.contains(" ")
+                else -> false
+            }
+
             if (trimmedUrl.isBlank()) {
                 urlError = context.getString(R.string.shortcut_url_empty_error)
-            } else if (trimmedUrl.contains(" ") && !trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://") && !trimmedUrl.startsWith("onyx://")) {
+            } else if (!isValid) {
                 urlError = context.getString(R.string.shortcut_url_invalid_error)
             } else {
-                val validUrl = when {
-                    trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://") || trimmedUrl.startsWith("onyx://") -> trimmedUrl
-                    else -> "https://$trimmedUrl"
+                val validUrl = if (candidateUrl.contains(" ")) candidateUrl.replace(" ", "%20") else candidateUrl
+
+                val existing = BrowserPreferences.getInstance(context).getShortcuts()
+                val isDuplicate = existing.any {
+                    it.id != currentShortcut.id && (
+                        it.url.equals(validUrl, ignoreCase = true) ||
+                        it.url.trimEnd('/').equals(validUrl.trimEnd('/'), ignoreCase = true)
+                    )
                 }
 
-                val finalTitle = title.trim().ifBlank {
-                    try {
-                        android.net.Uri.parse(validUrl).host?.removePrefix("www.") ?: validUrl
-                    } catch (_: Exception) {
-                        validUrl
+                if (isDuplicate) {
+                    urlError = context.getString(R.string.shortcut_already_exists)
+                    Toast.makeText(context, R.string.shortcut_already_exists, Toast.LENGTH_SHORT).show()
+                } else {
+                    val finalTitle = title.trim().ifBlank {
+                        try {
+                            android.net.Uri.parse(validUrl).host?.removePrefix("www.") ?: validUrl
+                        } catch (_: Exception) {
+                            validUrl
+                        }
                     }
-                }
 
-                val inferredIcon = if (isSystem) shortcut.iconType else ShortcutItem.inferIconType(validUrl)
-                val updated = shortcut.copy(
-                    title = finalTitle,
-                    url = validUrl,
-                    iconType = inferredIcon
-                )
-                keyboardController?.hide()
-                onShortcutSaved?.invoke(updated)
-                dismiss()
+                    val inferredIcon = if (isSystem) currentShortcut.iconType else ShortcutItem.inferIconType(validUrl)
+                    val updated = currentShortcut.copy(
+                        title = finalTitle,
+                        url = validUrl,
+                        iconType = inferredIcon
+                    )
+                    keyboardController?.hide()
+                    if (onShortcutSaved != null) {
+                        onShortcutSaved?.invoke(updated)
+                    } else {
+                        val prefs = BrowserPreferences.getInstance(context)
+                        prefs.updateShortcut(updated)
+                        Toast.makeText(context, R.string.shortcut_updated, Toast.LENGTH_SHORT).show()
+                    }
+                    dismiss()
+                }
             }
         }
 
@@ -145,7 +209,9 @@ class EditShortcutDialog @JvmOverloads constructor(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             tonalElevation = 0.dp,
             shadowElevation = 12.dp,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
         ) {
             Column(
                 modifier = Modifier
@@ -166,16 +232,16 @@ class EditShortcutDialog @JvmOverloads constructor(
                     ) {
                         when {
                             isSystem -> {
-                                val sysRes = when (shortcut.iconType) {
+                                val sysRes = when (currentShortcut.iconType) {
                                     ShortcutItem.ICON_BOOKMARKS -> R.drawable.ic_bookmark
                                     ShortcutItem.ICON_HISTORY -> R.drawable.ic_history
                                     ShortcutItem.ICON_DOWNLOADS -> R.drawable.ic_download
                                     ShortcutItem.ICON_QR_SCAN -> R.drawable.ic_qr_code
                                     else -> when {
-                                        shortcut.url.contains("bookmarks") -> R.drawable.ic_bookmark
-                                        shortcut.url.contains("history") -> R.drawable.ic_history
-                                        shortcut.url.contains("downloads") -> R.drawable.ic_download
-                                        shortcut.url.contains("qr") -> R.drawable.ic_qr_code
+                                        currentShortcut.url.contains("bookmarks") -> R.drawable.ic_bookmark
+                                        currentShortcut.url.contains("history") -> R.drawable.ic_history
+                                        currentShortcut.url.contains("downloads") -> R.drawable.ic_download
+                                        currentShortcut.url.contains("qr") -> R.drawable.ic_qr_code
                                         else -> R.drawable.ic_bookmark
                                     }
                                 }
@@ -327,5 +393,9 @@ class EditShortcutDialog @JvmOverloads constructor(
 
     companion object {
         const val TAG = "EditShortcutDialog"
+        private const val KEY_SHORTCUT_ID = "arg_shortcut_id"
+        private const val KEY_SHORTCUT_TITLE = "arg_shortcut_title"
+        private const val KEY_SHORTCUT_URL = "arg_shortcut_url"
+        private const val KEY_SHORTCUT_ICON = "arg_shortcut_icon"
     }
 }

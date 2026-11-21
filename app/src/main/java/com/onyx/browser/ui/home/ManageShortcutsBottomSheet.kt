@@ -143,15 +143,31 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
 
         val onAddAction = {
             val trimmedUrl = newUrl.trim()
+            val candidateUrl = when {
+                trimmedUrl.startsWith("http://", ignoreCase = true) ||
+                trimmedUrl.startsWith("https://", ignoreCase = true) ||
+                trimmedUrl.startsWith("onyx://", ignoreCase = true) -> trimmedUrl
+                else -> "https://$trimmedUrl"
+            }
+
+            val parsedUri = try { android.net.Uri.parse(candidateUrl) } catch (_: Exception) { null }
+            val scheme = parsedUri?.scheme?.lowercase()
+            val host = parsedUri?.host
+            val schemeSpecific = parsedUri?.schemeSpecificPart
+
+            val isValid = when {
+                trimmedUrl.isBlank() -> false
+                scheme == "onyx" -> !schemeSpecific.isNullOrBlank() && schemeSpecific != "//"
+                scheme in listOf("http", "https") -> !host.isNullOrBlank() && !host.contains(" ")
+                else -> false
+            }
+
             if (trimmedUrl.isBlank()) {
                 urlError = context.getString(R.string.shortcut_url_empty_error)
-            } else if (trimmedUrl.contains(" ") && !trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://") && !trimmedUrl.startsWith("onyx://")) {
+            } else if (!isValid) {
                 urlError = context.getString(R.string.shortcut_url_invalid_error)
             } else {
-                val validUrl = when {
-                    trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://") || trimmedUrl.startsWith("onyx://") -> trimmedUrl
-                    else -> "https://$trimmedUrl"
-                }
+                val validUrl = if (candidateUrl.contains(" ")) candidateUrl.replace(" ", "%20") else candidateUrl
 
                 val existing = prefs.getShortcuts()
                 val isDuplicate = existing.any {
@@ -197,6 +213,7 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .imePadding()
                     .navigationBarsPadding(),
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
