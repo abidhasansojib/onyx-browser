@@ -51,11 +51,18 @@ jobs:
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
-      - name: Cache cargo-ndk
+      - name: Cache Cargo & cargo-ndk
         uses: actions/cache@v5
         with:
-          path: ~/.cargo/bin/cargo-ndk
-          key: cargo-ndk-${{ runner.os }}
+          path: |
+            ~/.cargo/bin/cargo-ndk
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            rust_engine/target/
+          key: cargo-${{ runner.os }}-${{ hashFiles('rust_engine/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
 
       - name: Install cargo-ndk
         run: which cargo-ndk || cargo install cargo-ndk
@@ -207,19 +214,6 @@ jobs:
           
           echo "Final Binaries & Checksums:"
           ls -lh package_apks/
-
-      - name: Commit Bundled Filter Lists to Repository
-        run: |
-          if [ -n "$(git status --porcelain app/src/main/assets external/adblock-lists)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add app/src/main/assets/easylist_rules.txt app/src/main/assets/brave-resources.json external/adblock-lists 2>/dev/null || true
-            git commit -m "chore(filters): bundle updated filter rules for ${{ env.TAG_NAME }}"
-            git push origin HEAD
-            echo "Committed and pushed bundled filter rules for ${{ env.TAG_NAME }}."
-          else
-            echo "Filter assets unchanged, skipping commit."
-          fi
 
       - name: Publish GitHub Release
         env:
