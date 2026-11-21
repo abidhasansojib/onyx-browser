@@ -108,8 +108,10 @@ class SiteShieldBottomSheet @JvmOverloads constructor(
                 var isFingerprint by remember { mutableStateOf(prefs.isFingerprintProtectionEnabled) }
                 var isScriptBlocked by remember { mutableStateOf(prefs.isScriptBlockingEnabledForDomain(domain)) }
                 var isCosmeticBlocked by remember { mutableStateOf(prefs.isBlockElementEnabled) }
+                var customBlockedCount by remember { mutableIntStateOf(prefs.getCustomBlockedSelectorsForDomain(domain).size) }
                 var isDesktopMode by remember { mutableStateOf(prefs.getEffectiveDesktopMode(domain)) }
                 var showClearDataDialog by remember { mutableStateOf(false) }
+                var showManageBlockedElementsSheet by remember { mutableStateOf(false) }
 
                 val userscriptManager = remember { com.onyx.browser.userscript.UserScriptManager.getInstance(requireContext()) }
                 val activeScriptCount = remember(currentUrl) {
@@ -149,6 +151,10 @@ class SiteShieldBottomSheet @JvmOverloads constructor(
                             prefs.isBlockElementEnabled = it
                             onShieldSettingsChanged?.invoke()
                         },
+                        customBlockedCount = customBlockedCount,
+                        onManageBlockedElementsClick = {
+                            showManageBlockedElementsSheet = true
+                        },
                         isDesktopMode = isDesktopMode,
                         onDesktopModeToggle = { enabled ->
                             isDesktopMode = enabled
@@ -183,6 +189,18 @@ class SiteShieldBottomSheet @JvmOverloads constructor(
                             onDismissRequest = { showClearDataDialog = false }
                         )
                     }
+
+                    if (showManageBlockedElementsSheet) {
+                        com.onyx.browser.ui.settings.shields.ManageBlockedElementsSheet(
+                            prefs = prefs,
+                            highlightDomain = domain,
+                            onDismiss = { showManageBlockedElementsSheet = false },
+                            onUpdated = {
+                                customBlockedCount = prefs.getCustomBlockedSelectorsForDomain(domain).size
+                                onShieldSettingsChanged?.invoke()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -203,6 +221,8 @@ fun SiteShieldSheetLayout(
     onScriptBlockedToggle: (Boolean) -> Unit,
     isCosmeticBlocked: Boolean,
     onCosmeticBlockedToggle: (Boolean) -> Unit,
+    customBlockedCount: Int = 0,
+    onManageBlockedElementsClick: () -> Unit = {},
     isDesktopMode: Boolean,
     onDesktopModeToggle: (Boolean) -> Unit,
     onClearSiteDataClick: () -> Unit,
@@ -344,6 +364,17 @@ fun SiteShieldSheetLayout(
                 checked = isCosmeticBlocked,
                 onCheckedChange = onCosmeticBlockedToggle,
                 enabled = isShieldsActive
+            )
+
+            PreferenceItem(
+                title = "Manage Blocked Elements",
+                subtitle = if (customBlockedCount > 0) {
+                    "$customBlockedCount ${if (customBlockedCount == 1) "element" else "elements"} hidden on $domain • Tap to restore"
+                } else {
+                    "View or restore blocked elements across websites"
+                },
+                iconResId = R.drawable.ic_block_element,
+                onClick = onManageBlockedElementsClick
             )
 
             SwitchPreference(

@@ -347,7 +347,8 @@ class ShieldBridge(
     }
 
     companion object {
-        private val DANGEROUS_CSS_PATTERN = Regex("[{}<>;@\\\\]|url\\s*\\(|expression\\s*\\(|javascript\\s*:|-moz-binding", RegexOption.IGNORE_CASE)
+        // Allow '>' (CSS child combinator) and '\' (CSS.escape identifier escaping); block style/HTML injection tokens
+        private val DANGEROUS_CSS_PATTERN = Regex("[{}<;@]|/\\*|\\*/|url\\s*\\(|expression\\s*\\(|javascript\\s*:|-moz-binding", RegexOption.IGNORE_CASE)
         private val WORKER_SRC_NONE_REGEX = Regex("^worker-src\\s+'none'\\s*$", RegexOption.IGNORE_CASE)
 
         private fun isMediaStreamPath(lowerUrl: String): Boolean {
@@ -380,9 +381,6 @@ class ShieldBridge(
 
     @JavascriptInterface
     fun saveCustomCosmeticRules(domain: String?, selectorsJson: String?) {
-        // Enforce that the native Element Picker is active
-        if (!com.onyx.browser.ui.menu.ElementPickerManager.isPickerActive) return
-
         val rawDomain = domain?.trim() ?: return
         val cleanD = preferences.cleanDomain(rawDomain).lowercase()
         if (cleanD.isBlank() || cleanD.contains("/") || cleanD.contains(":") || cleanD.contains("\\")) return

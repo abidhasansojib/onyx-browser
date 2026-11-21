@@ -68,6 +68,7 @@ class ShieldsActivity : ComponentActivity() {
 
     private var isBlockElementEnabled by mutableStateOf(true)
     private var isElementInPrivateEnabled by mutableStateOf(true)
+    private var blockedElementsSummary by mutableStateOf("")
 
     private var isSocialMediaBlockingEnabled by mutableStateOf(false)
     private var isGoogleSignInAllowed by mutableStateOf(true)
@@ -87,6 +88,7 @@ class ShieldsActivity : ComponentActivity() {
     private var showCookieModePicker by mutableStateOf(false)
     private var showDnsProviderPicker by mutableStateOf(false)
     private var showClearOnExitPicker by mutableStateOf(false)
+    private var showManageBlockedElementsSheet by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -155,6 +157,8 @@ class ShieldsActivity : ComponentActivity() {
                     onBlockElementChange = { isBlockElementEnabled = it; prefs.isBlockElementEnabled = it },
                     isElementInPrivate = isElementInPrivateEnabled,
                     onElementInPrivateChange = { isElementInPrivateEnabled = it; prefs.isElementBlockingInPrivateEnabled = it },
+                    blockedElementsSummary = blockedElementsSummary,
+                    onManageBlockedElementsClick = { showManageBlockedElementsSheet = true },
 
                     // Social Media
                     isSocialMedia = isSocialMediaBlockingEnabled,
@@ -263,7 +267,31 @@ class ShieldsActivity : ComponentActivity() {
                         }
                     )
                 }
+
+                if (showManageBlockedElementsSheet) {
+                    ManageBlockedElementsSheet(
+                        prefs = prefs,
+                        onDismiss = { showManageBlockedElementsSheet = false },
+                        onUpdated = { updateBlockedElementsSummary() }
+                    )
+                }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadState()
+    }
+
+    private fun updateBlockedElementsSummary() {
+        val map = prefs.getAllDomainsWithCustomBlockedRules()
+        val siteCount = map.size
+        val ruleCount = map.values.sumOf { it.size }
+        blockedElementsSummary = if (siteCount == 0) {
+            "No websites with blocked elements"
+        } else {
+            "$siteCount ${if (siteCount == 1) "website" else "websites"} ($ruleCount ${if (ruleCount == 1) "element" else "elements"} blocked) • Tap to restore"
         }
     }
 
@@ -287,6 +315,7 @@ class ShieldsActivity : ComponentActivity() {
 
         isBlockElementEnabled = prefs.isBlockElementEnabled
         isElementInPrivateEnabled = prefs.isElementBlockingInPrivateEnabled
+        updateBlockedElementsSummary()
 
         isSocialMediaBlockingEnabled = prefs.isSocialMediaBlockingEnabled
         isGoogleSignInAllowed = !prefs.isGoogleSignInBlockedGlobal
@@ -350,6 +379,8 @@ fun ShieldsScreen(
     onBlockElementChange: (Boolean) -> Unit,
     isElementInPrivate: Boolean,
     onElementInPrivateChange: (Boolean) -> Unit,
+    blockedElementsSummary: String,
+    onManageBlockedElementsClick: () -> Unit,
     isSocialMedia: Boolean,
     onSocialMediaChange: (Boolean) -> Unit,
     isGoogleSignIn: Boolean,
@@ -513,6 +544,12 @@ fun ShieldsScreen(
                     subtitle = "Apply cosmetic hides in incognito browsing sessions",
                     checked = isElementInPrivate,
                     onCheckedChange = onElementInPrivateChange
+                )
+
+                PreferenceItem(
+                    title = "Manage Blocked Elements",
+                    subtitle = blockedElementsSummary,
+                    onClick = onManageBlockedElementsClick
                 )
             }
 

@@ -445,6 +445,36 @@ class BrowserPreferences private constructor(private val context: Context) {
         return selectors.joinToString(", ") + " { display: none !important; }"
     }
 
+    fun getAllDomainsWithCustomBlockedRules(): Map<String, List<String>> {
+        ensureDomainRulesCache()
+        val result = sortedMapOf<String, List<String>>()
+        for ((d, selectors) in domainCustomRulesCache) {
+            if (selectors.isNotEmpty()) {
+                result[d] = selectors.toList()
+            }
+        }
+        return result
+    }
+
+    fun removeCustomBlockedSelector(domain: String, selector: String) {
+        val cleanD = cleanDomain(domain).lowercase()
+        val trimmedSel = selector.trim()
+        if (cleanD.isBlank() || trimmedSel.isBlank()) return
+        ensureDomainRulesCache()
+        val set = domainCustomRulesCache[cleanD]
+        set?.remove(trimmedSel)
+        if (set != null && set.isEmpty()) {
+            domainCustomRulesCache.remove(cleanD)
+        }
+
+        val existing = customFilterRules
+        val updatedLines = existing.lineSequence().filterNot { line ->
+            val trimmed = line.trim()
+            trimmed == "$cleanD##$trimmedSel" || trimmed == "$cleanD#?#$trimmedSel"
+        }.joinToString("\n")
+        prefs.edit().putString(KEY_CUSTOM_FILTER_RULES, updatedLines).apply()
+    }
+
     fun clearCustomBlockedRulesForDomain(domain: String) {
         val cleanD = cleanDomain(domain).lowercase()
         if (cleanD.isBlank()) return
@@ -466,7 +496,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         }
         prefs.edit()
             .remove(KEY_CUSTOM_FILTER_RULES)
-            .remove(KEY_BLOCK_ELEMENT_ENABLED)
             .apply()
     }
 
@@ -2618,7 +2647,7 @@ class BrowserPreferences private constructor(private val context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_ADD_TO_HOME_SCREEN, value).apply()
 
     var isBlockElementEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BLOCK_ELEMENT_ENABLED, false)
+        get() = prefs.getBoolean(KEY_BLOCK_ELEMENT_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_BLOCK_ELEMENT_ENABLED, value).apply()
 
     // ── Domain Store Facade Aliases & Extended Preferences ───────────────────

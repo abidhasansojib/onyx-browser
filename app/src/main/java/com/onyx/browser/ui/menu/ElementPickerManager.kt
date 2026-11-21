@@ -143,17 +143,23 @@ object ElementPickerManager {
         return str.replace(/([\u0000-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u009F])/g, '\\$1');
     }
 
+    function escapeAttrValue(str) {
+        return String(str).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\r\n]+/g, ' ');
+    }
+
     var DYNAMIC_ID = /[^a-zA-Z0-9_-]/;
-    var NOISY_CLASS = /^(flex|grid|block|inline|relative|absolute|fixed|sticky|container|col-|row-|w-|h-|p-|m-|gap-|text-|bg-|border-|dark:|sm:|md:|lg:|xl:|css-|sc-)/;
+    var NOISY_CLASS = /^(?:(?:flex|grid|block|inline|inline-block|inline-flex|relative|absolute|fixed|sticky|container|hidden|visible|clearfix|active|open|show|selected|disabled|focused|hover)$|(?:col-|row-|w-|h-|min-w-|min-h-|max-w-|max-h-|p-|px-|py-|pt-|pb-|pl-|pr-|m-|mx-|my-|mt-|mb-|ml-|mr-|gap-|space-|text-|font-|leading-|tracking-|bg-|from-|via-|to-|border-|rounded-|shadow-|ring-|opacity-|z-|top-|bottom-|left-|right-|inset-|translate-|scale-|rotate-|transition-|duration-|ease-|delay-|animate-|cursor-|select-|pointer-events-|overflow-|object-|aspect-|order-|grow|shrink|basis-|justify-|items-|content-|self-|place-|dark:|sm:|md:|lg:|xl:|2xl:|hover:|focus:|active:|disabled:|group-|peer-|css-|sc-|emotion-|jsx-|svelte-)|_[a-z0-9]{5,}$)/i;
 
     // ── Robust Selector Generator ─────────────────────────────────────────────
-    function generateSelector(el) {
-        if (!el || el === document.body || el === document.documentElement) return '';
+    function generateSelector(el, depth) {
+        if (!el || el === document.documentElement) return '';
+        if (el === document.body) return 'body';
+        var curDepth = depth || 0;
 
         // 1. Stable, non-dynamic ID
         if (el.id && typeof el.id === 'string' && el.id.trim().length > 0) {
             var rawId = el.id.trim();
-            if (!DYNAMIC_ID.test(rawId) && !/^\d/.test(rawId) && rawId.length <= 60 && !/[a-f0-9]{8,}/i.test(rawId)) {
+            if (!DYNAMIC_ID.test(rawId) && !/^\d/.test(rawId) && rawId.length <= 60 && !/[a-f0-9]{8,}/i.test(rawId) && !/[_-]\d{4,}$/.test(rawId)) {
                 var idSel = '#' + cssEscape(rawId);
                 try {
                     if (document.querySelectorAll(idSel).length === 1) return idSel;
@@ -162,58 +168,78 @@ object ElementPickerManager {
         }
 
         var tag = el.tagName.toLowerCase();
+        var attrCandidate = '';
 
         // 2. Distinctive semantic attributes
-        var attrCandidates = ['data-testid', 'data-ad', 'data-slot', 'data-ad-slot', 'data-unit', 'aria-label', 'role'];
+        var attrCandidates = ['data-testid', 'data-ad', 'data-slot', 'data-ad-slot', 'data-unit', 'data-component', 'data-section', 'data-module', 'aria-label', 'role', 'name'];
         for (var ai = 0; ai < attrCandidates.length; ai++) {
             var attr = attrCandidates[ai];
             var val = el.getAttribute(attr);
-            if (val && typeof val === 'string' && val.trim().length > 0 && val.length <= 60) {
-                var attrSel = tag + '[' + attr + '="' + cssEscape(val.trim()) + '"]';
+            if (val && typeof val === 'string' && val.trim().length > 0 && val.trim().length <= 60) {
+                var attrSel = tag + '[' + attr + '="' + escapeAttrValue(val.trim()) + '"]';
                 try {
-                    if (document.querySelectorAll(attrSel).length === 1) return attrSel;
+                    var attrCount = document.querySelectorAll(attrSel).length;
+                    if (attrCount === 1) return attrSel;
+                    if (!attrCandidate && attrCount > 1) attrCandidate = attrSel;
                 } catch(_) {}
             }
         }
 
         // 3. Stable semantic class names
+        var localClassSel = '';
         if (el.classList && el.classList.length > 0) {
-            var classes = Array.prototype.slice.call(el.classList)
+            var cleanClasses = Array.prototype.slice.call(el.classList)
                 .filter(function(c) {
                     return c && !c.startsWith('__onyx') &&
-                           c.length <= 40 &&
+                           c.length >= 2 && c.length <= 45 &&
                            !/^\d/.test(c) &&
+                           !/[a-f0-9]{8,}/i.test(c) &&
                            !NOISY_CLASS.test(c);
-                })
-                .slice(0, 3)
-                .map(function(c) { return '.' + cssEscape(c); });
+                });
 
-            if (classes.length > 0) {
-                var classSel = tag + classes.join('');
+            // Prefer a single unique semantic class if one uniquely identifies the element
+            for (var ci = 0; ci < cleanClasses.length; ci++) {
+                var singleClassSel = tag + '.' + cssEscape(cleanClasses[ci]);
                 try {
-                    var matches = document.querySelectorAll(classSel);
-                    if (matches.length === 1) return classSel;
+                    if (document.querySelectorAll(singleClassSel).length === 1) return singleClassSel;
+                } catch(_) {}
+            }
+
+            var escapedClasses = cleanClasses.slice(0, 3).map(function(c) { return '.' + cssEscape(c); });
+            if (escapedClasses.length > 0) {
+                localClassSel = tag + escapedClasses.join('');
+                try {
+                    if (document.querySelectorAll(localClassSel).length === 1) return localClassSel;
                 } catch(_) {}
             }
         }
 
+        var baseSegment = localClassSel || attrCandidate || tag;
+
         // 4. Parent contextual qualifier
         var parent = el.parentElement;
-        if (parent && parent !== document.body && parent !== document.documentElement) {
-            var parentSel = generateSelector(parent);
+        if (parent && parent !== document.documentElement && curDepth < 6) {
+            var parentSel = (parent === document.body) ? 'body' : generateSelector(parent, curDepth + 1);
             if (parentSel) {
+                var directCandidate = parentSel + ' > ' + baseSegment;
+                try {
+                    if (document.querySelectorAll(directCandidate).length === 1) {
+                        return directCandidate;
+                    }
+                } catch(_) {}
+
                 var siblings = Array.prototype.slice.call(parent.children);
                 var sameTagSiblings = siblings.filter(function(s) { return s.tagName === el.tagName; });
                 if (sameTagSiblings.length > 1) {
                     var nth = sameTagSiblings.indexOf(el) + 1;
-                    return parentSel + ' > ' + tag + ':nth-of-type(' + nth + ')';
+                    return parentSel + ' > ' + baseSegment + ':nth-of-type(' + nth + ')';
                 } else {
-                    return parentSel + ' > ' + tag;
+                    return directCandidate;
                 }
             }
         }
 
-        return tag;
+        return baseSegment;
     }
 
     // ── Highlight Position Updater ────────────────────────────────────────────

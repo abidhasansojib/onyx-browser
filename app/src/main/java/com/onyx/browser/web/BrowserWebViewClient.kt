@@ -1281,38 +1281,8 @@ open class BrowserWebViewClient(
         }
 
         // User Custom Blocked Elements (per-domain custom cosmetic rules)
-        if (!isAuthOrMeta) {
-            try {
-                val customBlockedCss = preferences.getCustomBlockedCssForDomain(url)
-                if (customBlockedCss.isNotBlank()) {
-                    val escapedCss = org.json.JSONObject.quote(customBlockedCss)
-                    val customJs = """
-                        (function() {
-                            try {
-                                var s = document.getElementById('onyx-user-custom-blocked');
-                                if (!s) {
-                                    s = document.createElement('style');
-                                    s.id = 'onyx-user-custom-blocked';
-                                    s.type = 'text/css';
-                                    (document.head || document.documentElement).appendChild(s);
-                                }
-                                s.textContent = $escapedCss;
-                            } catch(e) {}
-                        })();
-                    """.trimIndent()
-                    view?.evaluateJavascript(customJs, null)
-                } else {
-                    val removeJs = """
-                        (function() {
-                            try {
-                                var s = document.getElementById('onyx-user-custom-blocked');
-                                if (s) s.remove();
-                            } catch(e) {}
-                        })();
-                    """.trimIndent()
-                    view?.evaluateJavascript(removeJs, null)
-                }
-            } catch (_: Throwable) {}
+        if (!isAuthFlowOnly) {
+            injectOrRemoveCustomBlockedCss(view, url)
         }
 
         // Fingerprint Protection (JS API spoofing) — completely disabled on auth & security pages
@@ -1577,9 +1547,15 @@ open class BrowserWebViewClient(
             }
 
             val finishedDomain = preferences.cleanDomain(effectiveUrl)
-            val isFinishedAuthOrMeta = isMetaDomain(finishedDomain) || isCaptchaOrAuthUrl(effectiveUrl, finishedDomain) ||
-                    isOAuthOrLoginProvider(finishedDomain) || isOAuthOrLoginUrl(effectiveUrl) ||
+            val isFinishedAuthFlowOnly = isCaptchaOrAuthUrl(effectiveUrl, finishedDomain) ||
+                    isOAuthOrLoginUrl(effectiveUrl) ||
                     finishedDomain.contains("login") || finishedDomain.contains("auth") || finishedDomain.contains("checkpoint")
+            val isFinishedAuthOrMeta = isMetaDomain(finishedDomain) ||
+                    isOAuthOrLoginProvider(finishedDomain) || isFinishedAuthFlowOnly
+
+            if (!isSyntheticError && !isFinishedAuthFlowOnly) {
+                injectOrRemoveCustomBlockedCss(view, effectiveUrl)
+            }
 
             if (isFinishedAuthOrMeta) {
                 try {
@@ -1757,6 +1733,45 @@ open class BrowserWebViewClient(
             acceptHeader.contains("text/html") -> AdBlockEngine.RESOURCE_TYPE_SUB_FRAME
             else -> AdBlockEngine.RESOURCE_TYPE_OTHER
         }
+    }
+
+    private fun injectOrRemoveCustomBlockedCss(view: WebView?, pageUrl: String) {
+        try {
+            val customBlockedCss = preferences.getCustomBlockedCssForDomain(pageUrl)
+            if (customBlockedCss.isNotBlank()) {
+                val escapedCss = org.json.JSONObject.quote(customBlockedCss)
+                val customJs = """
+                    (function() {
+                        try {
+                            window.__onyx_user_custom_css = $escapedCss;
+                            var s = document.getElementById('onyx-user-custom-blocked');
+                            if (!s) {
+                                s = document.createElement('style');
+                                s.id = 'onyx-user-custom-blocked';
+                                s.type = 'text/css';
+                                (document.head || document.documentElement).appendChild(s);
+                            }
+                            if (s.textContent !== $escapedCss) {
+                                s.textContent = $escapedCss;
+                            }
+                        } catch(e) {}
+                    })();
+                """.trimIndent()
+                view?.evaluateJavascript(customJs, null)
+            } else {
+                val removeJs = """
+                    (function() {
+                        try {
+                            window.__onyx_user_custom_css = '';
+                            var s = document.getElementById('onyx-user-custom-blocked');
+                            if (s) s.remove();
+                            document.querySelectorAll('style[id^="__onyx_user_blocked_"]').forEach(function(el) { el.remove(); });
+                        } catch(e) {}
+                    })();
+                """.trimIndent()
+                view?.evaluateJavascript(removeJs, null)
+            }
+        } catch (_: Throwable) {}
     }
 
     private fun injectCosmeticCss(view: WebView?, css: String) {

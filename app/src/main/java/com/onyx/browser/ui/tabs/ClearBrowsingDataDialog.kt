@@ -544,11 +544,6 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                     db.clearHttpAuthUsernamePassword()
                     db.clearFormData()
                 } catch (_: Exception) {}
-
-                try {
-                    val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(appContext)
-                    prefs.clearAllCustomBlockedRules()
-                } catch (_: Exception) {}
             }
 
             // 4. Clear disk cache & preview files (if selected)

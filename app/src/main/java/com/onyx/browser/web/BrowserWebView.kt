@@ -756,7 +756,49 @@ class BrowserWebView @JvmOverloads constructor(
 
     fun onSiteSettingsChanged() {
         resetDesktopModeExplicitOverride()
+        syncCustomBlockedElementsOnCurrentPage()
         applyUserAgentForUrl(this.url ?: "", forceRefreshLayout = true)
+    }
+
+    fun syncCustomBlockedElementsOnCurrentPage() {
+        val currentUrl = this.url ?: return
+        if (currentUrl.isBlank() || isSyntheticOrDataUrl(currentUrl)) return
+        try {
+            val prefs = com.onyx.browser.data.preferences.BrowserPreferences.getInstance(context)
+            val css = prefs.getCustomBlockedCssForDomain(currentUrl)
+            if (css.isNotBlank()) {
+                val escaped = org.json.JSONObject.quote(css)
+                val js = """
+                    (function() {
+                        try {
+                            window.__onyx_user_custom_css = $escaped;
+                            document.querySelectorAll('style[id^="__onyx_user_blocked_"]').forEach(function(el) { el.remove(); });
+                            var s = document.getElementById('onyx-user-custom-blocked');
+                            if (!s) {
+                                s = document.createElement('style');
+                                s.id = 'onyx-user-custom-blocked';
+                                s.type = 'text/css';
+                                (document.head || document.documentElement).appendChild(s);
+                            }
+                            s.textContent = $escaped;
+                        } catch(e) {}
+                    })();
+                """.trimIndent()
+                evaluateJavascript(js, null)
+            } else {
+                val js = """
+                    (function() {
+                        try {
+                            window.__onyx_user_custom_css = '';
+                            var s = document.getElementById('onyx-user-custom-blocked');
+                            if (s) s.remove();
+                            document.querySelectorAll('style[id^="__onyx_user_blocked_"]').forEach(function(el) { el.remove(); });
+                        } catch(e) {}
+                    })();
+                """.trimIndent()
+                evaluateJavascript(js, null)
+            }
+        } catch (_: Exception) {}
     }
 
     /**

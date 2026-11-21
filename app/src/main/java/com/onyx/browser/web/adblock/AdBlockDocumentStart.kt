@@ -948,21 +948,29 @@ object AdBlockDocumentStart {
                 if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.getCustomBlockedCss === 'function') {
                     var userBlockedCss = window.OnyxShieldBridge.getCustomBlockedCss(location.href);
                     if (userBlockedCss && userBlockedCss.length > 0) {
-                        var userStyle = document.createElement('style');
-                        userStyle.id = 'onyx-user-custom-blocked';
-                        userStyle.type = 'text/css';
-                        userStyle.textContent = userBlockedCss;
-                        var targetEl = document.head || document.documentElement;
-                        if (targetEl) {
-                            targetEl.appendChild(userStyle);
-                        } else {
-                            document.addEventListener('DOMContentLoaded', function() {
-                                var t = document.head || document.documentElement;
-                                if (t && !document.getElementById('onyx-user-custom-blocked')) {
-                                    t.appendChild(userStyle);
+                        window.__onyx_user_custom_css = userBlockedCss;
+                        function ensureUserCustomBlockedStyle() {
+                            try {
+                                var existing = document.getElementById('onyx-user-custom-blocked');
+                                if (existing) {
+                                    if (existing.textContent !== userBlockedCss) {
+                                        existing.textContent = userBlockedCss;
+                                    }
+                                    return;
                                 }
-                            });
+                                var userStyle = document.createElement('style');
+                                userStyle.id = 'onyx-user-custom-blocked';
+                                userStyle.type = 'text/css';
+                                userStyle.textContent = userBlockedCss;
+                                var targetEl = document.head || document.documentElement;
+                                if (targetEl) {
+                                    targetEl.appendChild(userStyle);
+                                }
+                            } catch(e) {}
                         }
+                        ensureUserCustomBlockedStyle();
+                        document.addEventListener('DOMContentLoaded', ensureUserCustomBlockedStyle);
+                        window.addEventListener('load', ensureUserCustomBlockedStyle);
                     }
                 }
             } catch(e) {}
@@ -981,6 +989,7 @@ object AdBlockDocumentStart {
                     try {
                         if (!shadowRoot) return;
                         var combinedCss = (window.__onyx_domain_css_cache || '') + '\n' +
+                            (window.__onyx_user_custom_css || '') + '\n' +
                             (cosmeticStyleEl ? (cosmeticStyleEl.textContent || '') : '');
                         if (!combinedCss.trim()) return;
                         var shadowStyle = shadowRoot.querySelector('style[data-onyx-shadow-cosmetic="true"]');
