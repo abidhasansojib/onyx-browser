@@ -1248,29 +1248,12 @@ open class BrowserWebViewClient(
             view?.evaluateJavascript(langJs, null)
         }
 
-        // Block Smart App Banners ("Open in App" notices) — never run on auth/checkpoint pages
-        if (preferences.isBlockAppBannerEnabled && !isAuthOrMeta) {
-            val bannerJs = """
-                (function() {
-                    try {
-                        // Remove meta app-argument and smart-app-banner tags
-                        var metas = document.querySelectorAll('meta[name="apple-itunes-app"], meta[name="google-play-app"], link[rel="alternate"][media]');
-                        metas.forEach(function(m) { m.parentNode && m.parentNode.removeChild(m); });
-                        // Hide common app banner elements
-                        var style = document.createElement('style');
-                        style.textContent = [
-                            '#app-banner, .app-banner, .smartbanner, .smart-banner,',
-                            '.smartbanner-show, #smart-app-banner, .open-in-app,',
-                            '[id*="app-banner"], [class*="app-banner"], [class*="smart-banner"],',
-                            '[class*="app-download-banner"], [id*="appstore"], .branch-banner-content {',
-                            '  display: none !important; visibility: hidden !important;',
-                            '}'
-                        ].join('');
-                        document.head.appendChild(style);
-                    } catch(e) {}
-                })();
-            """.trimIndent()
-            view?.evaluateJavascript(bannerJs, null)
+        // Block "Open in app" banners. Also runs on Meta/OAuth-provider pages (Facebook, Instagram...)
+        // because their banners are injected late; skipped only on genuine login/captcha flows.
+        val isAuthFlowOnly = isCaptchaOrAuthUrl(url, pageDomain) || isOAuthOrLoginUrl(url) ||
+                pageDomain.contains("login") || pageDomain.contains("auth") || pageDomain.contains("checkpoint")
+        if (preferences.isBlockAppBannerEnabled && !isAuthFlowOnly) {
+            view?.evaluateJavascript(AppBannerBlocker.script, null)
         }
 
         // Cosmetic element hiding (CSS injection) — never hide containers on auth/checkpoint pages
