@@ -59,12 +59,6 @@ mkdir -p "${ROOT_DIR}/app/src/main/assets"
 ln -sfn "../external/adblock-rust" "${ROOT_DIR}/rust_engine/adblock-rust"
 echo "  Verified symlink: rust_engine/adblock-rust -> ../external/adblock-rust"
 
-if [ -d "${ROOT_DIR}/external/adblock-lists/brave-lists" ]; then
-    rm -rf "${ROOT_DIR}/app/src/main/assets/brave-lists"
-    ln -sfn "../../../../external/adblock-lists/brave-lists" "${ROOT_DIR}/app/src/main/assets/brave-lists"
-    echo "  Verified symlink: app/src/main/assets/brave-lists -> ../../../../external/adblock-lists/brave-lists"
-fi
-
 if [ -f "${ROOT_DIR}/external/adblock-rust/data/brave/brave-resources.json" ]; then
     cp "${ROOT_DIR}/external/adblock-rust/data/brave/brave-resources.json" "${ROOT_DIR}/app/src/main/assets/brave-resources.json"
     echo "  Synced app/src/main/assets/brave-resources.json"

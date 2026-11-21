@@ -32,10 +32,6 @@ sync_filters() {
     cd "${ROOT_DIR}"
     git submodule update --init --remote external/adblock-lists 2>/dev/null || true
     
-    # Refresh symlink: app/src/main/assets/brave-lists -> external/adblock-lists/brave-lists
-    ln -sfn "../../../../external/adblock-lists/brave-lists" "${ROOT_DIR}/app/src/main/assets/brave-lists"
-    echo "  Symlinked app/src/main/assets/brave-lists -> ../../../../external/adblock-lists/brave-lists"
-    
     echo "=== 3. Synchronizing and Bundling Adblock Lists ==="
     "${ROOT_DIR}/scripts/update_filter_lists.sh"
 }

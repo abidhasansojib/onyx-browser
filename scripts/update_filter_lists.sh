@@ -44,7 +44,7 @@ header = """[Adblock Plus 2.0]
 
 core_remote_sources = [
     (os.path.join(external, 'brave-lists/filters-mirror.txt'), 'https://easylist.to/easylist/easylist.txt'),
-    (os.path.join(external, 'brave-lists/brave-default.txt'), 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-default.txt'),
+    (os.path.join(external, 'brave-lists/brave-specific.txt'), 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-specific.txt'),
     (os.path.join(external, 'brave-lists/brave-firstparty.txt'), 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-firstparty.txt'),
     (os.path.join(external, 'brave-unbreak.txt'), 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-unbreak.txt'),
     (os.path.join(external, 'brave-lists/brave-firstparty-cname.txt'), 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-firstparty-cname.txt'),
@@ -184,14 +184,6 @@ with open(output_path, 'w', encoding='utf-8') as f:
 
 print(f"Filter database generated: {len(rules)} rules ({os.path.getsize(output_path)} bytes)")
 EOF
-
-# Also create symlink from assets/brave-lists to external/adblock-lists/brave-lists if submodule exists
-if [ -d "${EXTERNAL_LISTS_DIR}/brave-lists" ]; then
-    mkdir -p "${ASSETS_DIR}"
-    rm -rf "${ASSETS_DIR}/brave-lists"
-    ln -sfn "../../../../external/adblock-lists/brave-lists" "${ASSETS_DIR}/brave-lists" || true
-    echo "Created symlink: app/src/main/assets/brave-lists -> external/adblock-lists/brave-lists"
-fi
 
 # Synchronize brave-resources.json from external/adblock-rust if available
 BRAVE_RESOURCES_SRC="${ROOT_DIR}/external/adblock-rust/data/brave/brave-resources.json"

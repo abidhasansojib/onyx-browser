@@ -108,7 +108,7 @@ object FilterListManager {
             id = "brave_default",
             title = "Brave Shields – Default Filters",
             subtitle = "Brave's curated ad and cosmetic blocking rules",
-            url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-default.txt",
+            url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-unbreak.txt",
             category = "core",
             defaultEnabled = true
         ),
@@ -349,7 +349,7 @@ object FilterListManager {
             id = "regional_chinese_annoy",
             title = "Chinese website annoyances",
             subtitle = "Chinese website annoyances",
-            url = "https://filters.adtidy.org/extension/ublock/filters/224_annoyances.txt",
+            url = "https://filters.adtidy.org/extension/ublock/filters/224.txt",
             category = "regional"
         ),
 
