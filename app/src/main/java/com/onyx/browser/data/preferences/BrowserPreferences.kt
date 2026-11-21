@@ -520,9 +520,13 @@ class BrowserPreferences private constructor(private val context: Context) {
         set(value) = prefs.edit().putString(KEY_SECURE_DNS_PROVIDER, value).apply()
 
     // ── Block Switch-to-App Banners ───────────────────────────────────────────
+    /**
+     * Same approach as Brave: the toggle is backed by the "Mobile app promo blocker" filter list
+     * (Fanboy's Mobile Notifications), so banner rules are applied by the adblock engine.
+     */
     var isBlockAppBannerEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BLOCK_APP_BANNER, true)
-        set(value) = prefs.edit().putBoolean(KEY_BLOCK_APP_BANNER, value).apply()
+        get() = isFilterListEnabled(APP_PROMO_LIST_ID)
+        set(value) = setFilterListEnabled(APP_PROMO_LIST_ID, value)
 
     // ── Last Active Tab ID ──────────────────────────────────────────────────
     var lastActiveTabId: String?
@@ -2775,6 +2779,7 @@ class BrowserPreferences private constructor(private val context: Context) {
 
         const val KEY_SEARCH_ENGINE = "pref_search_engine"
         const val KEY_THEME_MODE = "pref_theme_mode"
+        const val APP_PROMO_LIST_ID = "mobile_app_promo"
         const val KEY_CLEAR_DATA_TIME_RANGE = "pref_clear_data_time_range"
         const val KEY_CLEAR_DATA_HISTORY = "pref_clear_data_history"
         const val KEY_CLEAR_DATA_TABS = "pref_clear_data_tabs"

@@ -1248,16 +1248,14 @@ open class BrowserWebViewClient(
             view?.evaluateJavascript(langJs, null)
         }
 
-        // Block "Open in app" banners. Also runs on Meta/OAuth-provider pages (Facebook, Instagram...)
-        // because their banners are injected late; skipped only on genuine login/captcha flows.
+        // "Open in app" banners are handled by the "Mobile app promo blocker" filter list (see
+        // BrowserPreferences.isBlockAppBannerEnabled), applied by the cosmetic/procedural engine.
+        // Only genuine login/captcha flows are exempt, not whole Meta/OAuth-provider domains.
         val isAuthFlowOnly = isCaptchaOrAuthUrl(url, pageDomain) || isOAuthOrLoginUrl(url) ||
                 pageDomain.contains("login") || pageDomain.contains("auth") || pageDomain.contains("checkpoint")
-        if (preferences.isBlockAppBannerEnabled && !isAuthFlowOnly) {
-            view?.evaluateJavascript(AppBannerBlocker.script, null)
-        }
 
         // Cosmetic element hiding (CSS injection) — never hide containers on auth/checkpoint pages
-        if (preferences.isCosmeticFilteringEnabled && preferences.isAdBlockEnabled && !isWhitelisted && !isAuthOrMeta) {
+        if (preferences.isCosmeticFilteringEnabled && preferences.isAdBlockEnabled && !isWhitelisted && !isAuthFlowOnly) {
             try {
                 val cosmeticCss = AdBlockEngine.getCosmeticCss(url)
                 if (cosmeticCss.isNotBlank()) {

@@ -70,6 +70,17 @@ object AdBlockDocumentStart {
                        d.indexOf('geetest') !== -1 || d.indexOf('challenges.cloudflare.com') !== -1;
             }
 
+            function isCaptchaVendorDomain(d) {
+                if (!d) return false;
+                d = d.toLowerCase();
+                return d.indexOf('arkose') !== -1 || d.indexOf('funcaptcha') !== -1 ||
+                       d.indexOf('matchkey') !== -1 ||
+                       d.indexOf('recaptcha') !== -1 || d.indexOf('hcaptcha') !== -1 ||
+                       d.indexOf('turnstile') !== -1 || d.indexOf('datadome') !== -1 ||
+                       d.indexOf('perimeterx') !== -1 || d.indexOf('kasada') !== -1 ||
+                       d.indexOf('geetest') !== -1 || d.indexOf('challenges.cloudflare.com') !== -1;
+            }
+
             var referrerHost = '';
             try {
                 if (document.referrer) {
@@ -109,8 +120,18 @@ object AdBlockDocumentStart {
                 href.indexOf('lsd=') !== -1 || href.indexOf('jazoest=') !== -1 || href.indexOf('datr=') !== -1
             );
 
-            var isMetaOrAuthContext = isCloudflareChallenge || isChallengeOrAuthDomain ||
-                                      isChallengePath || isMetaLoginParamOrPath;
+            // Only real challenge/login contexts disable shields. A plain Meta/GitHub page (or a page
+            // reached from one) keeps cosmetic, procedural and scriptlet filtering so list rules such as
+            // the "Open app" banner removal apply, as in Brave.
+            var isCaptchaVendorContext = isCaptchaVendorDomain(host) ||
+                                         isCaptchaVendorDomain(referrerHost) ||
+                                         isCaptchaVendorDomain(topHost);
+            var isMetaLoginPage = isChallengeOrAuthDomain && (
+                path.indexOf('/login') !== -1 || path.indexOf('/recover') !== -1 ||
+                path.indexOf('/dialog/oauth') !== -1 || path.indexOf('/dialog/') !== -1
+            );
+            var isMetaOrAuthContext = isCloudflareChallenge || isCaptchaVendorContext ||
+                                      isChallengePath || isMetaLoginParamOrPath || isMetaLoginPage;
 
             if (isMetaOrAuthContext || !isShieldActive || window.__onyx_shields_active === false || window.__onyxAdBlockEnabled === false) {
                 // Do not run adblock/cosmetic injections or stub globals on Cloudflare challenges,
