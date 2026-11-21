@@ -1116,6 +1116,10 @@ open class BrowserWebViewClient(
             }
 
             // External app URL schemes (tg://, whatsapp://, tel:, mailto:, sms:, geo:, intent:, market:, etc.)
+            // Like Chrome/Brave: iframes and scripts without a user gesture may not launch or prompt for apps.
+            if (!isForMainFrame && !hasGesture) {
+                return true
+            }
             val handled = dispatchExternalScheme(view, uri, url, scheme)
             val onyxWv = view as? BrowserWebView
             if (handled && onyxWv != null && onyxWv.isPopupTab && (onyxWv.isPopupPendingDisplay || !onyxWv.canGoBack())) {

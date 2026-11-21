@@ -152,16 +152,9 @@ class ExternalNavigationHandler(
             promptDialog.showSafely(activity.supportFragmentManager)
             return true
         }
-        return try {
-            context.startActivity(intent)
-            true
-        } catch (_: ActivityNotFoundException) {
-            fallback?.invoke()
-            false
-        } catch (_: Exception) {
-            fallback?.invoke()
-            false
-        }
+        // No UI available to ask the user: never launch the app silently, stay in the browser.
+        fallback?.invoke()
+        return false
     }
 
     fun dispatchExternalScheme(
@@ -272,40 +265,22 @@ class ExternalNavigationHandler(
                 return true
             }
 
-            // 2nd Fallback: explicit package -> Google Play Store
-            val pkg = intent.`package`
-            if (!pkg.isNullOrBlank() && isOpenLinksInAppEnabled) {
-                try {
-                    val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(marketIntent)
-                } catch (_: Exception) {
-                    view?.post { view.loadUrl("https://play.google.com/store/apps/details?id=$pkg") }
-                }
-            }
             true
         } catch (_: Exception) {
             true
         }
     }
 
-    fun handleAppNotFoundFallback(context: Context, view: WebView?, scheme: String, @Suppress("UNUSED_PARAMETER") uri: Uri) {
-        val appPackage = resolveFallbackStorePackage(scheme)
-        if (appPackage != null) {
-            try {
-                val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$appPackage")).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(marketIntent)
-            } catch (_: Exception) {
-                view?.post { view.loadUrl("https://play.google.com/store/apps/details?id=$appPackage") }
-            }
-        } else {
-            try {
-                Toast.makeText(context, "No app found to handle this link", Toast.LENGTH_SHORT).show()
-            } catch (_: Exception) {}
-        }
+    /**
+     * The target app is not installed. Never jump to the Play Store on our own (a page could use this to
+     * redirect the user out of the browser); just tell the user and stay on the page.
+     */
+    fun handleAppNotFoundFallback(context: Context, @Suppress("UNUSED_PARAMETER") view: WebView?, scheme: String, @Suppress("UNUSED_PARAMETER") uri: Uri) {
+        try {
+            val name = resolveKnownAppName(scheme)
+            val msg = if (name != null) "$name is not installed" else "No app found to handle this link"
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {}
     }
 
     fun tryOpenAppForHttpLink(
