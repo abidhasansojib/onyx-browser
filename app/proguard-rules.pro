@@ -21,7 +21,6 @@
 
 # Core Application & Activities
 -keep class com.onyx.browser.BrowserApplication { *; }
--keep class com.onyx.browser.OnyxApplication { *; }
 -keep class com.onyx.browser.MainActivity { *; }
 -keep class com.onyx.browser.ui.** { *; }
 
@@ -40,18 +39,14 @@
     <methods>;
 }
 
-# Preserve AdBlock domain manager and start script helpers
+# Preserve AdBlock domain manager, request interceptors, and start script helpers
 -keep class com.onyx.browser.web.adblock.** { *; }
--keepclassmembers class com.onyx.browser.web.adblock.** {
-    *;
-}
--keep class com.onyx.browser.web.AdBlock* { *; }
--keepclassmembers class com.onyx.browser.web.AdBlock* {
-    *;
-}
+-keepclassmembers class com.onyx.browser.web.adblock.** { *; }
+-keep class com.onyx.browser.web.interceptor.** { *; }
+-keepclassmembers class com.onyx.browser.web.interceptor.** { *; }
 
 # ------------------------------------------------------------------------------
-# 3. WebView JavaScript Interfaces & WebAuthn / Passkey Bridge
+# 3. WebView JavaScript Interfaces & Web Bridges
 # ------------------------------------------------------------------------------
 # Preserve JavascriptInterface annotation and all methods annotated with it
 -keepattributes JavascriptInterface
@@ -59,44 +54,40 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
-# Preserve JavaScript Bridges in web.bridge
+# Preserve all JavaScript Bridges across bridge, error, translate, and userscript packages
 -keep class com.onyx.browser.web.bridge.** { *; }
 -keepclassmembers class com.onyx.browser.web.bridge.** {
     public <methods>;
     *;
 }
-
-# Preserve PasskeyWebAuthnBridge and its public methods called from JavaScript
--keep class com.onyx.browser.web.bridge.PasskeyWebAuthnBridge { *; }
--keep class com.onyx.browser.web.bridge.PasskeyWebAuthnBridge$* { *; }
--keep class com.onyx.browser.web.PasskeyWebAuthnBridge { *; }
--keep class com.onyx.browser.web.PasskeyWebAuthnBridge$* { *; }
--keepclassmembers class com.onyx.browser.web.bridge.PasskeyWebAuthnBridge {
+-keep class com.onyx.browser.web.translate.** { *; }
+-keepclassmembers class com.onyx.browser.web.translate.** {
     public <methods>;
+    *;
 }
--keepclassmembers class com.onyx.browser.web.PasskeyWebAuthnBridge {
+-keep class com.onyx.browser.web.error.** { *; }
+-keepclassmembers class com.onyx.browser.web.error.** {
     public <methods>;
+    *;
+}
+-keep class com.onyx.browser.userscript.** { *; }
+-keepclassmembers class com.onyx.browser.userscript.** {
+    public <methods>;
+    *;
 }
 
-# Preserve FormBridge and FormPostRegistry for POST download replay
--keep class com.onyx.browser.web.bridge.FormBridge { *; }
--keep class com.onyx.browser.web.bridge.FormPostRegistry { *; }
--keep class com.onyx.browser.web.bridge.FormPost { *; }
--keep class com.onyx.browser.web.OnyxFormBridge { *; }
--keep class com.onyx.browser.web.FormPostRegistry { *; }
--keep class com.onyx.browser.web.FormPost { *; }
-
-# Preserve Domain Utilities & Services
--keep class com.onyx.browser.autofill.** { *; }
--keep class com.onyx.browser.privacy.** { *; }
-
-# Preserve custom WebView and WebChrome clients
+# Preserve custom WebView and WebChrome clients & navigation
 -keep class com.onyx.browser.web.BrowserWebView { *; }
 -keep class com.onyx.browser.web.BrowserWebViewClient { *; }
 -keep class com.onyx.browser.web.BrowserWebChromeClient { *; }
--keep class com.onyx.browser.web.OnyxWebView { *; }
--keep class com.onyx.browser.web.OnyxWebViewClient { *; }
--keep class com.onyx.browser.web.OnyxWebChromeClient { *; }
+-keep class com.onyx.browser.web.navigation.** { *; }
+
+# Preserve Core Services & Utilities
+-keep class com.onyx.browser.autofill.** { *; }
+-keep class com.onyx.browser.privacy.** { *; }
+-keep class com.onyx.browser.download.** { *; }
+-keep class com.onyx.browser.incognito.** { *; }
+-keep class com.onyx.browser.update.** { *; }
 
 # ------------------------------------------------------------------------------
 # 4. Room Database & SQLCipher Encryption
@@ -113,9 +104,11 @@
 -keepclassmembers class com.onyx.browser.data.model.** { *; }
 -keep class com.onyx.browser.data.repository.** { *; }
 -keepclassmembers class com.onyx.browser.data.repository.** { *; }
+-keep class com.onyx.browser.data.filter.** { *; }
+-keepclassmembers class com.onyx.browser.data.filter.** { *; }
+-keep class com.onyx.browser.data.preferences.** { *; }
+-keepclassmembers class com.onyx.browser.data.preferences.** { *; }
 -keep class com.onyx.browser.di.** { *; }
--keep class com.onyx.browser.web.interceptor.** { *; }
--keep class com.onyx.browser.web.navigation.** { *; }
 -keep class com.onyx.browser.core.common.** { *; }
 -keep class **_Impl { *; }
 -dontwarn androidx.room.**
@@ -214,8 +207,6 @@
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
 -keep class com.onyx.browser.update.UpdateScheduler$UpdateWorker { *; }
-
-
 
 # ------------------------------------------------------------------------------
 # 13. Jetpack Compose & Material 3
