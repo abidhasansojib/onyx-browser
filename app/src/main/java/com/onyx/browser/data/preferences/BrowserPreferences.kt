@@ -199,6 +199,36 @@ class BrowserPreferences private constructor(private val context: Context) {
             prefs.edit().putString(KEY_SEARCH_ENGINE, value.id).apply()
         }
 
+    var clearDataTimeRangeIndex: Int
+        get() = prefs.getInt(KEY_CLEAR_DATA_TIME_RANGE, 2).coerceIn(0, 5)
+        set(value) {
+            prefs.edit().putInt(KEY_CLEAR_DATA_TIME_RANGE, value).apply()
+        }
+
+    var clearDataHistory: Boolean
+        get() = prefs.getBoolean(KEY_CLEAR_DATA_HISTORY, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CLEAR_DATA_HISTORY, value).apply()
+        }
+
+    var clearDataTabs: Boolean
+        get() = prefs.getBoolean(KEY_CLEAR_DATA_TABS, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CLEAR_DATA_TABS, value).apply()
+        }
+
+    var clearDataCookies: Boolean
+        get() = prefs.getBoolean(KEY_CLEAR_DATA_COOKIES, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CLEAR_DATA_COOKIES, value).apply()
+        }
+
+    var clearDataCache: Boolean
+        get() = prefs.getBoolean(KEY_CLEAR_DATA_CACHE, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CLEAR_DATA_CACHE, value).apply()
+        }
+
     var themeMode: Int
         get() = prefs.getInt(KEY_THEME_MODE, THEME_SYSTEM)
         set(value) {
@@ -2745,6 +2775,11 @@ class BrowserPreferences private constructor(private val context: Context) {
 
         const val KEY_SEARCH_ENGINE = "pref_search_engine"
         const val KEY_THEME_MODE = "pref_theme_mode"
+        const val KEY_CLEAR_DATA_TIME_RANGE = "pref_clear_data_time_range"
+        const val KEY_CLEAR_DATA_HISTORY = "pref_clear_data_history"
+        const val KEY_CLEAR_DATA_TABS = "pref_clear_data_tabs"
+        const val KEY_CLEAR_DATA_COOKIES = "pref_clear_data_cookies"
+        const val KEY_CLEAR_DATA_CACHE = "pref_clear_data_cache"
         const val KEY_ADBLOCK_ENABLED = "pref_adblock_enabled"
         const val KEY_BLOCKING_LEVEL = "pref_blocking_level"
         const val KEY_AGGRESSIVE_DOMAINS = "pref_aggressive_domains"

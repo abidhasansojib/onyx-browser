@@ -115,13 +115,14 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
             stringResource(R.string.time_range_all_time)
         )
 
-        var selectedTimeRangeIndex by remember { mutableIntStateOf(2) } // Default 24 hours
+        val savedPrefs = remember { BrowserPreferences.getInstance(context) }
+        var selectedTimeRangeIndex by remember { mutableIntStateOf(savedPrefs.clearDataTimeRangeIndex) }
         var timeRangeDropdownExpanded by remember { mutableStateOf(false) }
 
-        var clearHistory by remember { mutableStateOf(true) }
-        var clearTabs by remember { mutableStateOf(false) }
-        var clearCookies by remember { mutableStateOf(false) }
-        var clearCache by remember { mutableStateOf(false) }
+        var clearHistory by remember { mutableStateOf(savedPrefs.clearDataHistory) }
+        var clearTabs by remember { mutableStateOf(savedPrefs.clearDataTabs) }
+        var clearCookies by remember { mutableStateOf(savedPrefs.clearDataCookies) }
+        var clearCache by remember { mutableStateOf(savedPrefs.clearDataCache) }
 
         var historyCount by remember { mutableIntStateOf(0) }
         var historyExample by remember { mutableStateOf("") }
@@ -375,6 +376,11 @@ class ClearBrowsingDataDialog @JvmOverloads constructor(
                     Button(
                         onClick = {
                             isClearing = true
+                            savedPrefs.clearDataTimeRangeIndex = selectedTimeRangeIndex
+                            savedPrefs.clearDataHistory = clearHistory
+                            savedPrefs.clearDataTabs = clearTabs
+                            savedPrefs.clearDataCookies = clearCookies
+                            savedPrefs.clearDataCache = clearCache
                             performClearData(
                                 selectedIndex = selectedTimeRangeIndex,
                                 clearHistory = clearHistory,
