@@ -137,14 +137,8 @@ class HomeScreenController(
 
                 if (hasDragged) {
                     preferences.saveShortcuts(shortcutsAdapter.getItems())
-                } else if (draggedShortcut != null &&
-                    draggedShortcut?.id != ShortcutItem.ID_ADD_SHORTCUT &&
-                    draggedShortcut?.url != ShortcutItem.URL_ADD_SHORTCUT
-                ) {
-                    if (!draggedShortcut!!.isSystemShortcut) {
-                        showEditShortcutDialog(draggedShortcut!!)
-                    }
                 }
+                // Long-press without movement does nothing: edits live in ManageShortcutsBottomSheet.
                 draggedShortcut = null
                 hasDragged = false
                 isDragging = false
