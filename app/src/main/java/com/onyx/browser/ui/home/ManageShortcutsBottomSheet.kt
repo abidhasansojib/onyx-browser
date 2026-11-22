@@ -92,6 +92,7 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
         val dialog = dialog as? com.google.android.material.bottomsheet.BottomSheetDialog ?: return
         dialog.window?.let { window ->
             window.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+            window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
         val sheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet) ?: return
         sheet.setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -216,7 +217,6 @@ class ManageShortcutsBottomSheet : BottomSheetDialogFragment() {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .imePadding()
                     .navigationBarsPadding(),
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
