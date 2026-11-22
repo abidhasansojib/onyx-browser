@@ -35,8 +35,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import com.onyx.browser.R
+import com.onyx.browser.data.filter.FilterListManager
 import com.onyx.browser.data.preferences.BrowserPreferences
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.onyx.browser.ui.components.CardContainer
 import com.onyx.browser.ui.components.PreferenceItem
 import com.onyx.browser.ui.components.RadioPreference
@@ -88,6 +95,18 @@ class ShieldsActivity : ComponentActivity() {
     private var showDnsProviderPicker by mutableStateOf(false)
     private var showClearOnExitPicker by mutableStateOf(false)
     private var showManageBlockedElementsSheet by mutableStateOf(false)
+    private var recompileJob: Job? = null
+
+    private fun scheduleFilterRecompile() {
+        val appCtx = applicationContext
+        recompileJob?.cancel()
+        recompileJob = lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+            delay(350)
+            try {
+                FilterListManager.recompileFilters(appCtx)
+            } catch (_: Exception) {}
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -159,15 +178,15 @@ class ShieldsActivity : ComponentActivity() {
 
                     // Social Media
                     isSocialMedia = isSocialMediaBlockingEnabled,
-                    onSocialMediaChange = { isSocialMediaBlockingEnabled = it; prefs.isSocialMediaBlockingEnabled = it },
+                    onSocialMediaChange = { isSocialMediaBlockingEnabled = it; prefs.isSocialMediaBlockingEnabled = it; scheduleFilterRecompile() },
                     isGoogleSignIn = isGoogleSignInAllowed,
                     onGoogleSignInChange = { isGoogleSignInAllowed = it; prefs.isGoogleSignInBlockedGlobal = !it },
                     isFacebook = isFacebookAllowed,
-                    onFacebookChange = { isFacebookAllowed = it; prefs.allowFacebookLogins = it },
+                    onFacebookChange = { isFacebookAllowed = it; prefs.allowFacebookLogins = it; scheduleFilterRecompile() },
                     isTwitter = isTwitterAllowed,
-                    onTwitterChange = { isTwitterAllowed = it; prefs.allowTwitterEmbeds = it },
+                    onTwitterChange = { isTwitterAllowed = it; prefs.allowTwitterEmbeds = it; scheduleFilterRecompile() },
                     isLinkedIn = isLinkedInAllowed,
-                    onLinkedInChange = { isLinkedInAllowed = it; prefs.allowLinkedInEmbeds = it },
+                    onLinkedInChange = { isLinkedInAllowed = it; prefs.allowLinkedInEmbeds = it; scheduleFilterRecompile() },
 
                     // DNS & Privacy
                     isSecureDns = isSecureDnsEnabled,
@@ -175,7 +194,7 @@ class ShieldsActivity : ComponentActivity() {
                     dnsProviderText = getDnsDisplayName(secureDnsProvider),
                     onDnsProviderClick = { showDnsProviderPicker = true },
                     isBlockAppBanner = isBlockAppBannerEnabled,
-                    onBlockAppBannerChange = { isBlockAppBannerEnabled = it; prefs.isBlockAppBannerEnabled = it },
+                    onBlockAppBannerChange = { isBlockAppBannerEnabled = it; prefs.isBlockAppBannerEnabled = it; scheduleFilterRecompile() },
                     isDoNotTrack = isDoNotTrackEnabled,
                     onDoNotTrackChange = { isDoNotTrackEnabled = it; prefs.isDoNotTrackEnabled = it }
                 )

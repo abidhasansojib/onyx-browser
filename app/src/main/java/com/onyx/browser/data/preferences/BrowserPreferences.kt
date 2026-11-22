@@ -522,19 +522,31 @@ class BrowserPreferences private constructor(private val context: Context) {
     // ── Social Media Blocking ─────────────────────────────────────────────────
     var isSocialMediaBlockingEnabled: Boolean
         get() = prefs.getBoolean(KEY_SOCIAL_MEDIA_BLOCKING, true)
-        set(value) = prefs.edit().putBoolean(KEY_SOCIAL_MEDIA_BLOCKING, value).apply()
+        set(value) {
+            prefs.edit().putBoolean(KEY_SOCIAL_MEDIA_BLOCKING, value).apply()
+            setFilterListEnabled("social_media", value)
+        }
 
     var allowFacebookLogins: Boolean
         get() = prefs.getBoolean(KEY_ALLOW_FB_LOGINS, true)
-        set(value) = prefs.edit().putBoolean(KEY_ALLOW_FB_LOGINS, value).apply()
+        set(value) {
+            prefs.edit().putBoolean(KEY_ALLOW_FB_LOGINS, value).apply()
+            setFilterListEnabled("embed_exceptions_facebook", value)
+        }
 
     var allowTwitterEmbeds: Boolean
         get() = prefs.getBoolean(KEY_ALLOW_TWITTER_EMBEDS, true)
-        set(value) = prefs.edit().putBoolean(KEY_ALLOW_TWITTER_EMBEDS, value).apply()
+        set(value) {
+            prefs.edit().putBoolean(KEY_ALLOW_TWITTER_EMBEDS, value).apply()
+            setFilterListEnabled("embed_exceptions_twitter", value)
+        }
 
     var allowLinkedInEmbeds: Boolean
         get() = prefs.getBoolean(KEY_ALLOW_LINKEDIN_EMBEDS, false)
-        set(value) = prefs.edit().putBoolean(KEY_ALLOW_LINKEDIN_EMBEDS, value).apply()
+        set(value) {
+            prefs.edit().putBoolean(KEY_ALLOW_LINKEDIN_EMBEDS, value).apply()
+            setFilterListEnabled("embed_exceptions_linkedin", value)
+        }
 
     // ── Open Links in App ─────────────────────────────────────────────────────
     var isOpenLinksInAppEnabled: Boolean
@@ -2622,7 +2634,12 @@ class BrowserPreferences private constructor(private val context: Context) {
 
     var isBlockElementEnabled: Boolean
         get() = prefs.getBoolean(KEY_BLOCK_ELEMENT_ENABLED, true)
-        set(value) = prefs.edit().putBoolean(KEY_BLOCK_ELEMENT_ENABLED, value).apply()
+        set(value) {
+            prefs.edit()
+                .putBoolean(KEY_BLOCK_ELEMENT_ENABLED, value)
+                .putBoolean(KEY_COSMETIC_FILTERING, value)
+                .apply()
+        }
 
     // ── Domain Store Facade Aliases & Extended Preferences ───────────────────
 
@@ -2977,7 +2994,9 @@ class BrowserPreferences private constructor(private val context: Context) {
             "brave_default",
             "brave_firstparty",
             "cookie_notice",
-            "mobile_app_promo"
+            "mobile_app_promo",
+            "embed_exceptions_facebook",
+            "embed_exceptions_twitter"
         )
 
 

@@ -247,7 +247,7 @@ object FilterListManager {
             subtitle = "Exceptions so LinkedIn sign-in and embedded content keep working",
             url = "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/embed-exceptions-linkedin.txt",
             category = "social",
-            defaultEnabled = true
+            defaultEnabled = false
         ),
         FilterListEntry(
             id = "yt_shorts",
