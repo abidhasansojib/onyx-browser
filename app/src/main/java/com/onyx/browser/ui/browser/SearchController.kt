@@ -182,11 +182,10 @@ class SearchController(
         val isIncognito = getActiveTab()?.isIncognito == true
         if (isIncognito) {
             binding.etUrl.imeOptions = binding.etUrl.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
-            binding.etUrl.hint = activity.getString(R.string.search_privately)
         } else {
             binding.etUrl.imeOptions = binding.etUrl.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING.inv()
-            binding.etUrl.hint = activity.getString(R.string.search_or_type_url)
         }
+        binding.etUrl.hint = activity.getString(R.string.search_or_type_url)
         binding.etUrl.requestFocus()
         showSoftKeyboard()
 

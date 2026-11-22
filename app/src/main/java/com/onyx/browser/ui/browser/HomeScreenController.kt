@@ -194,7 +194,7 @@ class HomeScreenController(
             home.tvTagline.visibility = View.GONE
             home.incognitoHeader.visibility = View.VISIBLE
             binding.ivIncognitoIndicator.visibility = View.VISIBLE
-            binding.etUrl.hint = activity.getString(R.string.search_privately)
+            binding.etUrl.hint = activity.getString(R.string.search_or_type_url)
             binding.etUrl.imeOptions = binding.etUrl.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
         } else {
             home.ivBrandLogo.visibility = View.VISIBLE
