@@ -7,7 +7,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.PersistableBundle
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -392,12 +391,6 @@ class SearchController(
     }
 
     fun getClipboardSuggestion(forceRefresh: Boolean = false): SearchSuggestion? {
-        // Suppress clipboard suggestions in incognito mode (Chrome privacy standard)
-        if (getActiveTab()?.isIncognito == true) {
-            cachedClipboardSuggestion = null
-            return null
-        }
-
         val now = System.currentTimeMillis()
         if (!forceRefresh && cachedClipboardSuggestion != null && (now - lastClipboardQueryTime < 10_000L)) {
             return cachedClipboardSuggestion
@@ -415,11 +408,6 @@ class SearchController(
                 return null
             }
             if (!desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) && !desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML)) {
-                cachedClipboardSuggestion = null
-                return null
-            }
-            // Suppress if flagged as sensitive (passwords, private data, incognito clips)
-            if (desc.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true) {
                 cachedClipboardSuggestion = null
                 return null
             }
