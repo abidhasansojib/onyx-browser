@@ -443,166 +443,23 @@ open class BrowserWebViewClient(
             )
         }
 
-        // Never spoof blocked Google IMA SDK (ima3.js) with an empty 0-byte 200 OK script:
-        // firing script.onload while window.google.ima is undefined crashes player onload handlers,
-        // whereas HTTP 403 triggers script.onerror so players invoke their native no-IMA fallback
-        // (sites requiring a full IMA shim use Brave's google-ima.js $redirect surrogate).
-        val isImaSdkScript = resourceType == "script" && (
-                lowerUrl.contains("imasdk.googleapis.com/js/sdkloader/ima3") ||
-                lowerUrl.contains("/instream/html5/ima3")
-        )
-
         // Return HTTP 403 Forbidden with permissive CORS headers.
         // In-page fetch() and XMLHttpRequest calls are intercepted by the stealth client proxies
         // in AdBlockDocumentStart (throwing TypeError: net::ERR_BLOCKED_BY_CLIENT / onerror),
         // while DOM subresources (<script>, <img>, <iframe>) receive HTTP 403 and trigger onerror.
-        if (!preferences.isAntiAdblockDetectionEnabled || isImaSdkScript) {
-            val headers = if (isWildcard) {
-                EMPTY_403_WILDCARD_HEADERS
-            } else {
-                corsHeaders + ("Content-Length" to "0")
-            }
-            return WebResourceResponse(
-                "text/plain",
-                "UTF-8",
-                403,
-                "Blocked by Onyx Shields",
-                headers,
-                EmptyInputStream
-            )
+        val headers = if (isWildcard) {
+            EMPTY_403_WILDCARD_HEADERS
+        } else {
+            corsHeaders + ("Content-Length" to "0")
         }
-
-        // When Adblocker Spoofing is enabled:
-        // Return safe, type-aware HTTP 200 OK stubs with CORS headers to spoof ad scripts as loaded
-        // and bypass anti-adblock detection walls without breaking page layout.
-        return when (resourceType) {
-            "image" -> {
-                val headers = if (isWildcard) {
-                    EMPTY_PNG_WILDCARD_HEADERS
-                } else {
-                    corsHeaders + mapOf(
-                        "Content-Type" to "image/png",
-                        "Content-Length" to TRANSPARENT_1X1_PNG.size.toString()
-                    )
-                }
-                WebResourceResponse(
-                    "image/png",
-                    "UTF-8",
-                    200,
-                    "OK",
-                    headers,
-                    ByteArrayInputStream(TRANSPARENT_1X1_PNG)
-                )
-            }
-            "script" -> {
-                val headers = if (isWildcard) {
-                    EMPTY_JS_WILDCARD_HEADERS
-                } else {
-                    corsHeaders + mapOf(
-                        "Content-Type" to "application/javascript; charset=utf-8",
-                        "Content-Length" to "0"
-                    )
-                }
-                WebResourceResponse(
-                    "application/javascript",
-                    "UTF-8",
-                    200,
-                    "OK",
-                    headers,
-                    EmptyInputStream
-                )
-            }
-            "stylesheet" -> {
-                val headers = if (isWildcard) {
-                    EMPTY_CSS_WILDCARD_HEADERS
-                } else {
-                    corsHeaders + mapOf(
-                        "Content-Type" to "text/css; charset=utf-8",
-                        "Content-Length" to "0"
-                    )
-                }
-                WebResourceResponse(
-                    "text/css",
-                    "UTF-8",
-                    200,
-                    "OK",
-                    headers,
-                    EmptyInputStream
-                )
-            }
-            "sub_frame" -> {
-                val headers = if (isWildcard) {
-                    BLOCKED_SUBFRAME_WILDCARD_HEADERS
-                } else {
-                    corsHeaders + mapOf(
-                        "Content-Type" to "text/html; charset=utf-8",
-                        "Content-Length" to BLOCKED_SUBFRAME_BYTES.size.toString()
-                    )
-                }
-                WebResourceResponse(
-                    "text/html",
-                    "UTF-8",
-                    200,
-                    "OK",
-                    headers,
-                    ByteArrayInputStream(BLOCKED_SUBFRAME_BYTES)
-                )
-            }
-            "font" -> {
-                val headers = if (isWildcard) {
-                    EMPTY_FONT_WILDCARD_HEADERS
-                } else {
-                    corsHeaders + mapOf(
-                        "Content-Type" to "font/woff2",
-                        "Content-Length" to "0"
-                    )
-                }
-                WebResourceResponse(
-                    "font/woff2",
-                    "UTF-8",
-                    200,
-                    "OK",
-                    headers,
-                    EmptyInputStream
-                )
-            }
-            "media" -> {
-                val headers = if (isWildcard) {
-                    EMPTY_MEDIA_WILDCARD_HEADERS
-                } else {
-                    corsHeaders + mapOf(
-                        "Content-Type" to "video/mp4",
-                        "Content-Length" to "0"
-                    )
-                }
-                WebResourceResponse(
-                    "video/mp4",
-                    "UTF-8",
-                    200,
-                    "OK",
-                    headers,
-                    EmptyInputStream
-                )
-            }
-            else -> {
-                val headers = if (isWildcard) {
-                    EMPTY_TEXT_WILDCARD_HEADERS
-                } else {
-                    corsHeaders + mapOf(
-                        "Content-Type" to "text/plain; charset=utf-8",
-                        "Content-Length" to "0"
-                    )
-                }
-                WebResourceResponse(
-                    "text/plain",
-                    "UTF-8",
-                    200,
-                    "OK",
-                    headers,
-                    EmptyInputStream
-                )
-            }
-        }
+        return WebResourceResponse(
+            "text/plain",
+            "UTF-8",
+            403,
+            "Blocked by Onyx Shields",
+            headers,
+            EmptyInputStream
+        )
     }
 
     private fun createSurrogateResponse(

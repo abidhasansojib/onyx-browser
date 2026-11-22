@@ -626,21 +626,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         get() = prefs.getBoolean(KEY_ADDRESS_BAR_AT_BOTTOM, false)
         set(value) = prefs.edit().putBoolean(KEY_ADDRESS_BAR_AT_BOTTOM, value).apply()
 
-    // ── Anti-Adblock Detection Spoofing ──────────────────────────────────────
-    /**
-     * When enabled (Adblocker Spoofing), injects JS stubs (adsbygoogle.loaded, window.ga, window.gtag, fbq, etc.)
-     * and synthesizes safe 200 OK stubs for blocked ad/tracker network requests, preventing
-     * "Please disable your adblocker" overlays and script crash walls.
-     * Disabled by default so standard adblocking (403 Forbidden on ads) works and adblock-test sites report correctly.
-     */
-    var isAntiAdblockDetectionEnabled: Boolean
-        get() = prefs.getBoolean(KEY_ANTI_ADBLOCK_DETECTION, false)
-        set(value) = prefs.edit().putBoolean(KEY_ANTI_ADBLOCK_DETECTION, value).apply()
-
-    var isAdblockerSpoofingEnabled: Boolean
-        get() = isAntiAdblockDetectionEnabled
-        set(value) { isAntiAdblockDetectionEnabled = value }
-
     // ── Per-domain Script Blocking ───────────────────────────────────────────
 
     @Volatile
@@ -2847,7 +2832,6 @@ class BrowserPreferences private constructor(private val context: Context) {
         const val KEY_SECURE_DNS = "pref_secure_dns"
         const val KEY_SECURE_DNS_PROVIDER = "pref_secure_dns_provider"
         const val KEY_BLOCK_APP_BANNER = "pref_block_app_banner"
-        const val KEY_ANTI_ADBLOCK_DETECTION = "pref_anti_adblock_detection"
         const val KEY_CUSTOM_SEARCH_ENGINES = "pref_custom_search_engines"
         const val KEY_FILTER_AUTO_UPDATE = "pref_filter_auto_update"
         const val KEY_USERSCRIPT_AUTO_UPDATE = "pref_userscript_auto_update"

@@ -51,7 +51,6 @@ class ShieldsActivity : ComponentActivity() {
 
     private var isAdBlockEnabled by mutableStateOf(true)
     private var blockingLevel by mutableIntStateOf(0)
-    private var isAntiAdblockEnabled by mutableStateOf(true)
 
     private var isAmpRedirectEnabled by mutableStateOf(true)
     private var isTrackingRedirectEnabled by mutableStateOf(true)
@@ -113,8 +112,6 @@ class ShieldsActivity : ComponentActivity() {
                     onAdBlockChange = { isAdBlockEnabled = it; prefs.isAdBlockEnabled = it },
                     blockingLevelText = if (blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) "Aggressive" else "Standard",
                     onBlockingLevelClick = { showBlockingLevelPicker = true },
-                    isAntiAdblock = isAntiAdblockEnabled,
-                    onAntiAdblockChange = { isAntiAdblockEnabled = it; prefs.isAntiAdblockDetectionEnabled = it },
                     onFilterListsClick = { startActivity(Intent(this, ContentFiltersActivity::class.java)) },
 
                     // Connections
@@ -298,7 +295,6 @@ class ShieldsActivity : ComponentActivity() {
     private fun loadState() {
         isAdBlockEnabled = prefs.isAdBlockEnabled
         blockingLevel = prefs.blockingLevel
-        isAntiAdblockEnabled = prefs.isAntiAdblockDetectionEnabled
 
         isAmpRedirectEnabled = prefs.isAutoRedirectAmpEnabled
         isTrackingRedirectEnabled = prefs.isAutoRedirectTrackingUrlsEnabled
@@ -353,8 +349,6 @@ fun ShieldsScreen(
     onAdBlockChange: (Boolean) -> Unit,
     blockingLevelText: String,
     onBlockingLevelClick: () -> Unit,
-    isAntiAdblock: Boolean,
-    onAntiAdblockChange: (Boolean) -> Unit,
     onFilterListsClick: () -> Unit,
     isAmpRedirect: Boolean,
     onAmpRedirectChange: (Boolean) -> Unit,
@@ -432,13 +426,6 @@ fun ShieldsScreen(
                     title = "Blocking Level",
                     subtitle = blockingLevelText,
                     onClick = onBlockingLevelClick
-                )
-
-                SwitchPreference(
-                    title = "Defuse Anti-Adblock Detection",
-                    subtitle = "Neutralize adblocker detection scripts across websites",
-                    checked = isAntiAdblock,
-                    onCheckedChange = onAntiAdblockChange
                 )
 
                 PreferenceItem(

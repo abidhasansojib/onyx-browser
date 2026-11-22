@@ -76,11 +76,6 @@ class ShieldBridge(
     }
 
     @JavascriptInterface
-    fun isAntiAdblockDetectionEnabled(): Boolean {
-        return preferences.isAntiAdblockDetectionEnabled
-    }
-
-    @JavascriptInterface
     fun isStreamingSite(domainOrUrl: String?): Boolean {
         val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return false
         val clean = preferences.cleanDomain(target)
