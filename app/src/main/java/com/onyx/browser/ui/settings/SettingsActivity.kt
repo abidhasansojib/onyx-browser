@@ -210,7 +210,7 @@ fun SettingsScreen(
 
                 PreferenceItem(
                     title = "Accessibility & Gestures",
-                    subtitle = "Pull to refresh, auto-hide toolbar, and biometric lock",
+                    subtitle = "Pull to refresh, scroll to top, and biometric lock",
                     icon = Icons.Default.Accessibility,
                     onClick = onAccessibilityClick
                 )

@@ -48,9 +48,7 @@ class AccessibilitySettingsActivity : FragmentActivity() {
 
     private var isAddToHomeScreenEnabled by mutableStateOf(false)
     private var isScrollToTopEnabled by mutableStateOf(false)
-    private var isAutoHideToolbarEnabled by mutableStateOf(false)
     private var isPullToRefreshEnabled by mutableStateOf(false)
-    private var isForceDarkModeEnabled by mutableStateOf(false)
     private var isBiometricIncognitoEnabled by mutableStateOf(false)
     private var tabAutoArchiveHours by mutableIntStateOf(BrowserPreferences.TAB_ARCHIVE_7_DAYS)
     private var showTabArchivePicker by mutableStateOf(false)
@@ -82,20 +80,10 @@ class AccessibilitySettingsActivity : FragmentActivity() {
                         isScrollToTopEnabled = enabled
                         preferences.isScrollToTopEnabled = enabled
                     },
-                    isAutoHideToolbar = isAutoHideToolbarEnabled,
-                    onAutoHideToolbarChange = { enabled ->
-                        isAutoHideToolbarEnabled = enabled
-                        preferences.isAutoHideToolbarEnabled = enabled
-                    },
                     isPullToRefresh = isPullToRefreshEnabled,
                     onPullToRefreshChange = { enabled ->
                         isPullToRefreshEnabled = enabled
                         preferences.isPullToRefreshEnabled = enabled
-                    },
-                    isForceDarkMode = isForceDarkModeEnabled,
-                    onForceDarkModeChange = { enabled ->
-                        isForceDarkModeEnabled = enabled
-                        preferences.isForceDarkModeEnabled = enabled
                     },
                     isBiometric = isBiometricIncognitoEnabled,
                     onBiometricRowClick = { handleBiometricToggle() },
@@ -129,9 +117,7 @@ class AccessibilitySettingsActivity : FragmentActivity() {
     private fun loadPreferencesState() {
         isAddToHomeScreenEnabled = preferences.isAddToHomeScreenEnabled
         isScrollToTopEnabled = preferences.isScrollToTopEnabled
-        isAutoHideToolbarEnabled = preferences.isAutoHideToolbarEnabled
         isPullToRefreshEnabled = preferences.isPullToRefreshEnabled
-        isForceDarkModeEnabled = preferences.isForceDarkModeEnabled
         isBiometricIncognitoEnabled = preferences.isBiometricIncognitoEnabled
         tabAutoArchiveHours = preferences.tabAutoArchiveHours
     }
@@ -201,12 +187,8 @@ fun AccessibilitySettingsScreen(
     onAddToHomeScreenChange: (Boolean) -> Unit,
     isScrollToTop: Boolean,
     onScrollToTopChange: (Boolean) -> Unit,
-    isAutoHideToolbar: Boolean,
-    onAutoHideToolbarChange: (Boolean) -> Unit,
     isPullToRefresh: Boolean,
     onPullToRefreshChange: (Boolean) -> Unit,
-    isForceDarkMode: Boolean,
-    onForceDarkModeChange: (Boolean) -> Unit,
     isBiometric: Boolean,
     onBiometricRowClick: () -> Unit,
     onPinWidgetClick: () -> Unit,
@@ -268,27 +250,10 @@ fun AccessibilitySettingsScreen(
                 )
 
                 SwitchPreference(
-                    title = "Auto-Hide Address Bar",
-                    subtitle = "Collapse address bar when scrolling down web pages",
-                    checked = isAutoHideToolbar,
-                    onCheckedChange = onAutoHideToolbarChange
-                )
-
-                SwitchPreference(
                     title = "Pull to Refresh",
                     subtitle = "Swipe down from top of webpage to reload",
                     checked = isPullToRefresh,
                     onCheckedChange = onPullToRefreshChange
-                )
-            }
-
-            CategoryHeader("Visual & Display")
-            CardContainer {
-                SwitchPreference(
-                    title = "Force Dark Mode for Web Contents",
-                    subtitle = "Invert background and colors on websites without dark theme",
-                    checked = isForceDarkMode,
-                    onCheckedChange = onForceDarkModeChange
                 )
             }
 
