@@ -14,6 +14,7 @@ import com.onyx.browser.data.model.TabItem
 import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.data.search.SearchSuggestionRepository
 import com.onyx.browser.web.LocalFileLoader
+import com.onyx.browser.web.interceptor.PrivacyUrlSanitizer
 import java.io.File
 
 /**
@@ -43,12 +44,32 @@ class NavigationCoordinator(
         return false
     }
 
+    fun sanitizeNavigationUrl(rawUrl: String): String {
+        if (!rawUrl.startsWith("http://", ignoreCase = true) &&
+            !rawUrl.startsWith("https://", ignoreCase = true)) {
+            return rawUrl
+        }
+        var current = rawUrl
+        if (preferences.isAutoRedirectTrackingUrlsEnabled) {
+            current = PrivacyUrlSanitizer.unwrapTrackingRedirect(current)
+        }
+        if (preferences.isAutoRedirectAmpEnabled) {
+            PrivacyUrlSanitizer.resolveAmpUrl(current)?.let { canonical ->
+                current = canonical
+            }
+        }
+        if (preferences.isAutoRedirectTrackingUrlsEnabled) {
+            current = PrivacyUrlSanitizer.stripTrackingParams(current)
+        }
+        return current
+    }
+
     /**
      * Resolves user omnibox input into a target URL or search query URL.
      * Returns null if navigation was blocked (e.g. restricted local path or missing file).
      */
     fun resolveOmniboxInputToUrl(trimmed: String): String? {
-        return when {
+        val resolved = when {
             LocalFileLoader.isSensitiveOrRestrictedPath(activity, trimmed) -> {
                 Toast.makeText(activity, "Access to private or restricted files is blocked", Toast.LENGTH_SHORT).show()
                 null
@@ -93,6 +114,7 @@ class NavigationCoordinator(
                 }
             }
         }
+        return resolved?.let { sanitizeNavigationUrl(it) }
     }
 
     fun extractUrlFromIntent(intent: Intent?): String? {
@@ -103,12 +125,12 @@ class NavigationCoordinator(
         if (dataUri != null) {
             val uriStr = dataUri.toString().trim()
             if (uriStr.isNotBlank()) {
-                return uriStr
+                return sanitizeNavigationUrl(uriStr)
             }
         }
         val dataString = intent.dataString?.trim()
         if (!dataString.isNullOrBlank()) {
-            return dataString
+            return sanitizeNavigationUrl(dataString)
         }
 
         val action = intent.action ?: return null
@@ -117,7 +139,7 @@ class NavigationCoordinator(
             Intent.ACTION_VIEW, Intent.ACTION_SEND -> {
                 val extraText = intent.getStringExtra(Intent.EXTRA_TEXT)
                 if (!extraText.isNullOrBlank()) {
-                    return parseUrlOrExtract(extraText)
+                    return sanitizeNavigationUrl(parseUrlOrExtract(extraText))
                 }
             }
             Intent.ACTION_WEB_SEARCH, Intent.ACTION_SEARCH -> {

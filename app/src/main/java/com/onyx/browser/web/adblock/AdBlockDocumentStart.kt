@@ -138,6 +138,41 @@ object AdBlockDocumentStart {
             // alive across React/Next.js <head> hydration replacements.
             if (!isCloudflareChallenge && !isCaptchaVendorContext) {
                 try {
+                    // Brave Stage-2 DOM De-AMP: detect <html amp> / <html ⚡> or AMP runtime scripts
+                    // and redirect to <link rel="canonical"> with sessionStorage loop protection.
+                    function tryDomDeAmp() {
+                        try {
+                            if (window !== window.top) return;
+                            if (!window.OnyxShieldBridge || typeof window.OnyxShieldBridge.isDeAmpEnabled !== 'function') return;
+                            if (!window.OnyxShieldBridge.isDeAmpEnabled()) return;
+                            var docEl = document.documentElement;
+                            if (!docEl) return;
+                            var isAmpDoc = docEl.hasAttribute('amp') ||
+                                           docEl.hasAttribute('\u26A1') ||
+                                           docEl.hasAttribute('amp-version') ||
+                                           document.querySelector('script[src*="cdn.ampproject.org/v0.js"]') !== null;
+                            if (!isAmpDoc) return;
+                            var canonLink = document.querySelector('link[rel="canonical"][href]');
+                            if (!canonLink) return;
+                            var rawHref = canonLink.getAttribute('href');
+                            if (!rawHref) return;
+                            var canonUrl = new URL(rawHref, location.href).href;
+                            if (!canonUrl || (!canonUrl.startsWith('http://') && !canonUrl.startsWith('https://'))) return;
+                            var curClean = location.href.split('#')[0].replace(/\/$/, '');
+                            var canClean = canonUrl.split('#')[0].replace(/\/$/, '');
+                            if (curClean === canClean) return;
+                            try {
+                                if (sessionStorage.getItem('__onyx_deamp_target') === canClean) return;
+                                sessionStorage.setItem('__onyx_deamp_target', canClean);
+                            } catch(_) {}
+                            window.location.replace(canonUrl);
+                        } catch(e) {}
+                    }
+                    tryDomDeAmp();
+                    document.addEventListener('DOMContentLoaded', tryDomDeAmp);
+                } catch(e) {}
+
+                try {
                     function syncUserCustomBlockedStyle() {
                         try {
                             if (!window.OnyxShieldBridge || typeof window.OnyxShieldBridge.getCustomBlockedCss !== 'function') return;

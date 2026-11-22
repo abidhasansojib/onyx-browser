@@ -200,8 +200,20 @@ class InterceptorPipelineTest {
         val googleAmp = "https://www.google.com/amp/s/example.com/news/story.html"
         assertEquals("https://example.com/news/story.html", PrivacyUrlSanitizer.resolveAmpUrl(googleAmp))
 
+        val regionalGoogleAmp = "https://www.google.co.uk/amp/s/bbc.co.uk/news/article-1"
+        assertEquals("https://bbc.co.uk/news/article-1", PrivacyUrlSanitizer.resolveAmpUrl(regionalGoogleAmp))
+
+        val ampProjectCdn = "https://www-theverge-com.cdn.ampproject.org/v/s/www.theverge.com/2026/5/10/story?amp_js_v=a6&amp_gsa=1&id=5#section"
+        assertEquals("https://www.theverge.com/2026/5/10/story?id=5#section", PrivacyUrlSanitizer.resolveAmpUrl(ampProjectCdn))
+
         val queryAmp = "https://example.com/article?amp=1&ref=home"
         assertEquals("https://example.com/article?ref=home", PrivacyUrlSanitizer.resolveAmpUrl(queryAmp))
+
+        val outputTypeAmp = "https://example.com/post?outputType=amp"
+        assertEquals("https://example.com/post", PrivacyUrlSanitizer.resolveAmpUrl(outputTypeAmp))
+
+        val fbShim = "https://l.facebook.com/l.php?u=https%3A%2F%2Fexample.com%2Fvideo%3Ffbclid%3DIwAR999%26id%3D7&h=AT123"
+        assertEquals("https://example.com/video?id=7", PrivacyUrlSanitizer.unwrapTrackingRedirect(fbShim))
 
         val normalUrl = "https://example.com/article?id=10"
         assertNull(PrivacyUrlSanitizer.resolveAmpUrl(normalUrl))

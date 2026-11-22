@@ -784,9 +784,16 @@ open class BrowserWebViewClient(
 
             if (isForMainFrame && preferences.isAutoRedirectTrackingUrlsEnabled &&
                 (scheme == "http" || scheme == "https")) {
-                if (!isAuthOrMeta) {
-                    var cleaned = stripTrackingParams(url)
-                    if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(host)) {
+                // 1. Always unwrap outbound bounce / link-shim URLs (including l.facebook.com, l.instagram.com,
+                //    google.com/url, youtube.com/redirect, out.reddit.com, and Brave debounce.json hosts).
+                var cleaned = PrivacyUrlSanitizer.unwrapTrackingRedirect(url)
+                val cleanedHost = try { Uri.parse(cleaned).host?.lowercase() ?: host } catch (_: Exception) { host }
+                val isGenuineAuthFlow = isCaptchaOrAuthUrl(cleaned, cleanedHost) ||
+                        isOAuthOrLoginUrl(cleaned) ||
+                        cleanedHost.contains("login") || cleanedHost.contains("auth") || cleanedHost.contains("checkpoint")
+                if (!isGenuineAuthFlow) {
+                    cleaned = stripTrackingParams(cleaned)
+                    if (preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(cleanedHost)) {
                         val nativeRewrite = AdBlockEngine.getRewrittenUrl(
                             url = cleaned,
                             sourceUrl = currentPageUrl.ifBlank { cleaned },
@@ -796,10 +803,15 @@ open class BrowserWebViewClient(
                             cleaned = nativeRewrite
                         }
                     }
-                    if (cleaned != url) {
-                        view?.post { view.loadUrl(cleaned) }
-                        return true
+                }
+                if (preferences.isAutoRedirectAmpEnabled) {
+                    resolveAmpUrl(cleaned)?.let { ampResolved ->
+                        cleaned = ampResolved
                     }
+                }
+                if (cleaned != url) {
+                    view?.post { view.loadUrl(cleaned) }
+                    return true
                 }
             }
 
@@ -808,7 +820,12 @@ open class BrowserWebViewClient(
                 (scheme == "http" || scheme == "https")) {
                 val canonical = resolveAmpUrl(url)
                 if (canonical != null && canonical != url) {
-                    view?.post { view.loadUrl(canonical) }
+                    val finalCanonical = if (preferences.isAutoRedirectTrackingUrlsEnabled) {
+                        stripTrackingParams(canonical)
+                    } else {
+                        canonical
+                    }
+                    view?.post { view.loadUrl(finalCanonical) }
                     return true
                 }
             }

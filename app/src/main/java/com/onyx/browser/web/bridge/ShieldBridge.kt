@@ -76,6 +76,11 @@ class ShieldBridge(
     }
 
     @JavascriptInterface
+    fun isDeAmpEnabled(): Boolean {
+        return preferences.isAutoRedirectAmpEnabled
+    }
+
+    @JavascriptInterface
     fun isStreamingSite(domainOrUrl: String?): Boolean {
         val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return false
         val clean = preferences.cleanDomain(target)
