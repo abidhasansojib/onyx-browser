@@ -135,67 +135,42 @@ object ChromeEnvironmentBridge {
                     });
                 } catch (_) {}
 
-                // ── 4. Clean Java bridge references on Meta / Arkose / Auth domains ───
-                if (isAuthOrChallenge) {
-                    var bridgePattern = /^(Onyx|__onyx|_Onyx|Passkey|_orig)/;
+                // ── 4. Mask Java bridge references from Window reflection ────────────
+                // Never delete or shadow OnyxShieldBridge / OnyxMediaBridge / etc. to undefined,
+                // because Document-Start Shields, Element Picker persistence, Media PiP, and Translation
+                // depend on calling these bridges. Hiding them from Object.getOwnPropertyNames,
+                // Object.keys, and Reflect.ownKeys is sufficient for anti-bot window-hash scanners.
+                var bridgePattern = /^(Onyx|__onyx|_Onyx|Passkey|_orig|WebErrorBridge|PageTranslateBridge)/;
+                try {
+                    var _origGetOwnPropertyNames = Object.getOwnPropertyNames;
+                    Object.getOwnPropertyNames = makeNative(function(obj) {
+                        var names = _origGetOwnPropertyNames.apply(this, arguments);
+                        if (obj === window || obj === window.__proto__) {
+                            return names.filter(function(n) { return !bridgePattern.test(n); });
+                        }
+                        return names;
+                    }, 'getOwnPropertyNames');
 
-                    // Note: _OnyxPasskeyBridge is excluded from bridgeNames so passkeys remain functional on login pages.
-                    // It is already hidden from window reflection (Object.getOwnPropertyNames, Reflect.ownKeys) via bridgePattern below.
-                    var bridgeNames = [
-                        'OnyxShieldBridge', 'OnyxMediaBridge', 'OnyxErrorBridge', 'WebErrorBridge',
-                        'OnyxBlobBridge', 'OnyxTouchBridge', 'OnyxTranslateBridge', 'PageTranslateBridge',
-                        'OnyxNotificationBridge', 'OnyxFormBridge',
-                        '__onyx_shields_active', '__onyxAdBlockEnabled',
-                        '__onyxTouchInitialized', '_origFetch', '_origXHR'
-                    ];
+                    var _origKeys = Object.keys;
+                    Object.keys = makeNative(function(obj) {
+                        var keys = _origKeys.apply(this, arguments);
+                        if (obj === window || obj === window.__proto__) {
+                            return keys.filter(function(k) { return !bridgePattern.test(k); });
+                        }
+                        return keys;
+                    }, 'keys');
 
-                    for (var i = 0; i < bridgeNames.length; i++) {
-                        var b = bridgeNames[i];
-                        try { delete window[b]; } catch (_) {}
-                        try {
-                            if (window[b] !== undefined) {
-                                Object.defineProperty(window, b, {
-                                    get: function() { return undefined; },
-                                    enumerable: false,
-                                    configurable: true
-                                });
-                            }
-                        } catch (_) {}
-                    }
-
-                    // Mask custom bridges from window reflection (Object.getOwnPropertyNames, Object.keys, Reflect.ownKeys)
-                    // so Arkose Labs' Window Hash (wh) and anti-bot scanners compute a 100% clean authentic Chrome hash
-                    try {
-                        var _origGetOwnPropertyNames = Object.getOwnPropertyNames;
-                        Object.getOwnPropertyNames = makeNative(function(obj) {
-                            var names = _origGetOwnPropertyNames.apply(this, arguments);
+                    if (typeof Reflect !== 'undefined' && Reflect.ownKeys) {
+                        var _origOwnKeys = Reflect.ownKeys;
+                        Reflect.ownKeys = makeNative(function(obj) {
+                            var keys = _origOwnKeys.apply(this, arguments);
                             if (obj === window || obj === window.__proto__) {
-                                return names.filter(function(n) { return !bridgePattern.test(n); });
-                            }
-                            return names;
-                        }, 'getOwnPropertyNames');
-
-                        var _origKeys = Object.keys;
-                        Object.keys = makeNative(function(obj) {
-                            var keys = _origKeys.apply(this, arguments);
-                            if (obj === window || obj === window.__proto__) {
-                                return keys.filter(function(k) { return !bridgePattern.test(k); });
+                                return keys.filter(function(k) { return typeof k !== 'string' || !bridgePattern.test(k); });
                             }
                             return keys;
-                        }, 'keys');
-
-                        if (typeof Reflect !== 'undefined' && Reflect.ownKeys) {
-                            var _origOwnKeys = Reflect.ownKeys;
-                            Reflect.ownKeys = makeNative(function(obj) {
-                                var keys = _origOwnKeys.apply(this, arguments);
-                                if (obj === window || obj === window.__proto__) {
-                                    return keys.filter(function(k) { return typeof k !== 'string' || !bridgePattern.test(k); });
-                                }
-                                return keys;
-                            }, 'ownKeys');
-                        }
-                    } catch (_) {}
-                }
+                        }, 'ownKeys');
+                    }
+                } catch (_) {}
 
                 // ── 5. Motion & Light Sensors Control (Brave parity) ─────────────────
                 if (!isAuthOrChallenge) {

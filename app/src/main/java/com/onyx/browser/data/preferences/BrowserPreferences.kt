@@ -442,7 +442,9 @@ class BrowserPreferences private constructor(private val context: Context) {
         if (!isBlockElementEnabled) return ""
         val selectors = getCustomBlockedSelectorsForDomain(domainOrUrl)
         if (selectors.isEmpty()) return ""
-        return selectors.joinToString(", ") + " { display: none !important; }"
+        return selectors.joinToString("\n") { sel ->
+            "$sel { display: none !important; visibility: hidden !important; }"
+        }
     }
 
     fun getAllDomainsWithCustomBlockedRules(): Map<String, List<String>> {

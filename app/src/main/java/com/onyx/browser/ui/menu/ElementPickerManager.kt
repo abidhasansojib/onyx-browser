@@ -151,6 +151,37 @@ object ElementPickerManager {
     var NOISY_CLASS = /^(?:(?:flex|grid|block|inline|inline-block|inline-flex|relative|absolute|fixed|sticky|container|hidden|visible|clearfix|active|open|show|selected|disabled|focused|hover)$|(?:col-|row-|w-|h-|min-w-|min-h-|max-w-|max-h-|p-|px-|py-|pt-|pb-|pl-|pr-|m-|mx-|my-|mt-|mb-|ml-|mr-|gap-|space-|text-|font-|leading-|tracking-|bg-|from-|via-|to-|border-|rounded-|shadow-|ring-|opacity-|z-|top-|bottom-|left-|right-|inset-|translate-|scale-|rotate-|transition-|duration-|ease-|delay-|animate-|cursor-|select-|pointer-events-|overflow-|object-|aspect-|order-|grow|shrink|basis-|justify-|items-|content-|self-|place-|dark:|sm:|md:|lg:|xl:|2xl:|hover:|focus:|active:|disabled:|group-|peer-|css-|sc-|emotion-|jsx-|svelte-)|_[a-z0-9]{5,}$)/i;
 
     // ── Robust Selector Generator ─────────────────────────────────────────────
+    function isStableId(rawId) {
+        return rawId && !DYNAMIC_ID.test(rawId) && !/^\d/.test(rawId) &&
+               rawId.length <= 60 && !/[a-f0-9]{8,}/i.test(rawId) && !/[_-]\d{4,}$/.test(rawId);
+    }
+
+    function getAnchorForAncestor(anc) {
+        if (!anc || anc === document.documentElement) return '';
+        if (anc === document.body) return 'body';
+        if (anc.id && typeof anc.id === 'string') {
+            var rid = anc.id.trim();
+            if (isStableId(rid)) {
+                var idS = '#' + cssEscape(rid);
+                try { if (document.querySelectorAll(idS).length === 1) return idS; } catch(_) {}
+            }
+        }
+        var atag = anc.tagName.toLowerCase();
+        var landmarkAttrs = ['data-testid', 'data-ad', 'data-slot', 'data-component', 'data-section', 'role', 'aria-label'];
+        for (var li = 0; li < landmarkAttrs.length; li++) {
+            var la = landmarkAttrs[li];
+            var lv = anc.getAttribute(la);
+            if (lv && typeof lv === 'string' && lv.trim().length > 0 && lv.trim().length <= 60) {
+                var asel = atag + '[' + la + '="' + escapeAttrValue(lv.trim()) + '"]';
+                try { if (document.querySelectorAll(asel).length === 1) return asel; } catch(_) {}
+            }
+        }
+        if (atag === 'header' || atag === 'footer' || atag === 'nav' || atag === 'aside' || atag === 'main') {
+            try { if (document.querySelectorAll(atag).length === 1) return atag; } catch(_) {}
+        }
+        return '';
+    }
+
     function generateSelector(el, depth) {
         if (!el || el === document.documentElement) return '';
         if (el === document.body) return 'body';
@@ -159,7 +190,7 @@ object ElementPickerManager {
         // 1. Stable, non-dynamic ID
         if (el.id && typeof el.id === 'string' && el.id.trim().length > 0) {
             var rawId = el.id.trim();
-            if (!DYNAMIC_ID.test(rawId) && !/^\d/.test(rawId) && rawId.length <= 60 && !/[a-f0-9]{8,}/i.test(rawId) && !/[_-]\d{4,}$/.test(rawId)) {
+            if (isStableId(rawId)) {
                 var idSel = '#' + cssEscape(rawId);
                 try {
                     if (document.querySelectorAll(idSel).length === 1) return idSel;
@@ -170,18 +201,43 @@ object ElementPickerManager {
         var tag = el.tagName.toLowerCase();
         var attrCandidate = '';
 
-        // 2. Distinctive semantic attributes
-        var attrCandidates = ['data-testid', 'data-ad', 'data-slot', 'data-ad-slot', 'data-unit', 'data-component', 'data-section', 'data-module', 'aria-label', 'role', 'name'];
+        // 2. Distinctive semantic attributes (including data-* and stable href/src paths)
+        var attrCandidates = ['data-testid', 'data-ad', 'data-slot', 'data-ad-slot', 'data-unit', 'data-component', 'data-section', 'data-module', 'aria-label', 'role', 'name', 'title', 'alt'];
+        if (el.attributes) {
+            for (var di = 0; di < el.attributes.length; di++) {
+                var aName = el.attributes[di].name;
+                if (aName && aName.startsWith('data-') && !aName.startsWith('data-onyx') && attrCandidates.indexOf(aName) === -1) {
+                    attrCandidates.push(aName);
+                }
+            }
+        }
         for (var ai = 0; ai < attrCandidates.length; ai++) {
             var attr = attrCandidates[ai];
             var val = el.getAttribute(attr);
-            if (val && typeof val === 'string' && val.trim().length > 0 && val.trim().length <= 60) {
+            if (val && typeof val === 'string' && val.trim().length > 0 && val.trim().length <= 60 && !/^\d+$/.test(val.trim()) && !/[a-f0-9]{12,}/i.test(val.trim())) {
                 var attrSel = tag + '[' + attr + '="' + escapeAttrValue(val.trim()) + '"]';
                 try {
                     var attrCount = document.querySelectorAll(attrSel).length;
                     if (attrCount === 1) return attrSel;
                     if (!attrCandidate && attrCount > 1) attrCandidate = attrSel;
                 } catch(_) {}
+            }
+        }
+
+        // Check stable href/src path prefix for links, images, and iframes
+        if (tag === 'a' || tag === 'img' || tag === 'iframe') {
+            var urlAttr = (tag === 'a') ? 'href' : 'src';
+            var rawUrl = el.getAttribute(urlAttr);
+            if (rawUrl && typeof rawUrl === 'string' && !rawUrl.startsWith('data:') && !rawUrl.startsWith('blob:') && !rawUrl.startsWith('javascript:')) {
+                var cleanPath = rawUrl.split('?')[0].split('#')[0].trim();
+                if (cleanPath.length >= 4 && cleanPath.length <= 80) {
+                    var urlSel = tag + '[' + urlAttr + '^="' + escapeAttrValue(cleanPath) + '"]';
+                    try {
+                        var uCount = document.querySelectorAll(urlSel).length;
+                        if (uCount === 1) return urlSel;
+                        if (!attrCandidate && uCount > 1) attrCandidate = urlSel;
+                    } catch(_) {}
+                }
             }
         }
 
@@ -205,7 +261,7 @@ object ElementPickerManager {
                 } catch(_) {}
             }
 
-            var escapedClasses = cleanClasses.slice(0, 3).map(function(c) { return '.' + cssEscape(c); });
+            var escapedClasses = cleanClasses.slice(0, 2).map(function(c) { return '.' + cssEscape(c); });
             if (escapedClasses.length > 0) {
                 localClassSel = tag + escapedClasses.join('');
                 try {
@@ -214,12 +270,33 @@ object ElementPickerManager {
             }
         }
 
-        var baseSegment = localClassSel || attrCandidate || tag;
+        // For the target element itself (curDepth === 0), try anchoring its class/attribute to the
+        // nearest landmark ancestor with a descendant combinator (' ') before falling back to brittle '>' chains.
+        var semanticSegment = attrCandidate || localClassSel;
+        if (curDepth === 0 && semanticSegment) {
+            var anc = el.parentElement;
+            var hop = 0;
+            while (anc && anc !== document.documentElement && hop < 10) {
+                var anchor = getAnchorForAncestor(anc);
+                if (anchor) {
+                    var descSel = anchor + ' ' + semanticSegment;
+                    try {
+                        if (document.querySelectorAll(descSel).length === 1) return descSel;
+                    } catch(_) {}
+                }
+                anc = anc.parentElement;
+                hop++;
+            }
+        }
+
+        // On intermediate ancestors (curDepth > 0), avoid locking onto multiple classes that may change on reload
+        var baseSegment = (curDepth === 0) ? (semanticSegment || tag) : (attrCandidate || tag);
 
         // 4. Parent contextual qualifier
         var parent = el.parentElement;
-        if (parent && parent !== document.documentElement && curDepth < 6) {
-            var parentSel = (parent === document.body) ? 'body' : generateSelector(parent, curDepth + 1);
+        if (parent && parent !== document.documentElement && curDepth < 12) {
+            var parentAnchor = getAnchorForAncestor(parent);
+            var parentSel = parentAnchor || generateSelector(parent, curDepth + 1);
             if (parentSel) {
                 var directCandidate = parentSel + ' > ' + baseSegment;
                 try {
@@ -232,7 +309,7 @@ object ElementPickerManager {
                 var sameTagSiblings = siblings.filter(function(s) { return s.tagName === el.tagName; });
                 if (sameTagSiblings.length > 1) {
                     var nth = sameTagSiblings.indexOf(el) + 1;
-                    return parentSel + ' > ' + baseSegment + ':nth-of-type(' + nth + ')';
+                    return parentSel + ' > ' + tag + ':nth-of-type(' + nth + ')';
                 } else {
                     return directCandidate;
                 }
@@ -443,11 +520,12 @@ object ElementPickerManager {
 
         // 2. Persist rules permanently via OnyxShieldBridge
         try {
-            if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.saveCustomCosmeticRules === 'function') {
-                window.OnyxShieldBridge.saveCustomCosmeticRules(window.location.hostname, JSON.stringify(selectors));
-            } else if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.saveCustomCosmeticRule === 'function') {
+            var targetDomain = window.location.href || window.location.hostname || '';
+            if (window.OnyxShieldBridge && window.OnyxShieldBridge.saveCustomCosmeticRules) {
+                window.OnyxShieldBridge.saveCustomCosmeticRules(targetDomain, JSON.stringify(selectors));
+            } else if (window.OnyxShieldBridge && window.OnyxShieldBridge.saveCustomCosmeticRule) {
                 for (var si = 0; si < selectors.length; si++) {
-                    window.OnyxShieldBridge.saveCustomCosmeticRule(window.location.hostname, selectors[si]);
+                    window.OnyxShieldBridge.saveCustomCosmeticRule(targetDomain, selectors[si]);
                 }
             }
         } catch(err) {}

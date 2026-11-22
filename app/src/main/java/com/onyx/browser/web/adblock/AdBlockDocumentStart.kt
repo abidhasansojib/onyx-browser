@@ -133,6 +133,62 @@ object AdBlockDocumentStart {
             var isMetaOrAuthContext = isCloudflareChallenge || isCaptchaVendorContext ||
                                       isChallengePath || isMetaLoginParamOrPath || isMetaLoginPage;
 
+            // Always apply the user's explicit custom blocked elements on every non-captcha page,
+            // even if Shields are paused or the page is a Meta/OAuth domain, and keep the style
+            // alive across React/Next.js <head> hydration replacements.
+            if (!isCloudflareChallenge && !isCaptchaVendorContext) {
+                try {
+                    function syncUserCustomBlockedStyle() {
+                        try {
+                            if (!window.OnyxShieldBridge || typeof window.OnyxShieldBridge.getCustomBlockedCss !== 'function') return;
+                            var targetHref = (location.href && location.href !== 'about:blank') ? location.href : (location.hostname || '');
+                            if (!targetHref) return;
+                            var userBlockedCss = window.OnyxShieldBridge.getCustomBlockedCss(targetHref);
+                            if (!userBlockedCss || userBlockedCss.length === 0) return;
+                            window.__onyx_user_custom_css = userBlockedCss;
+                            var targetEl = document.head || document.documentElement;
+                            if (!targetEl) return;
+                            var existing = document.getElementById('onyx-user-custom-blocked');
+                            if (existing) {
+                                if (existing.textContent !== userBlockedCss) {
+                                    existing.textContent = userBlockedCss;
+                                }
+                                if (existing.parentNode !== targetEl || targetEl.lastElementChild !== existing) {
+                                    targetEl.appendChild(existing);
+                                }
+                                return;
+                            }
+                            var userStyle = document.createElement('style');
+                            userStyle.id = 'onyx-user-custom-blocked';
+                            userStyle.type = 'text/css';
+                            userStyle.textContent = userBlockedCss;
+                            targetEl.appendChild(userStyle);
+                        } catch(e) {}
+                    }
+                    syncUserCustomBlockedStyle();
+                    document.addEventListener('DOMContentLoaded', syncUserCustomBlockedStyle);
+                    window.addEventListener('load', syncUserCustomBlockedStyle);
+                    if (!window.__onyx_custom_block_observer && typeof MutationObserver !== 'undefined') {
+                        window.__onyx_custom_block_observer = true;
+                        var customScheduled = false;
+                        var customObs = new MutationObserver(function() {
+                            if (!window.__onyx_user_custom_css) return;
+                            if (customScheduled) return;
+                            if (!document.getElementById('onyx-user-custom-blocked')) {
+                                customScheduled = true;
+                                setTimeout(function() {
+                                    customScheduled = false;
+                                    syncUserCustomBlockedStyle();
+                                }, 50);
+                            }
+                        });
+                        if (document.documentElement) {
+                            customObs.observe(document.documentElement, { childList: true, subtree: true });
+                        }
+                    }
+                } catch(e) {}
+            }
+
             if (isMetaOrAuthContext || !isShieldActive || window.__onyx_shields_active === false || window.__onyxAdBlockEnabled === false) {
                 // Do not run adblock/cosmetic injections or stub globals on Cloudflare challenges,
                 // Meta login, CAPTCHA verifications, or whitelisted sites!
@@ -942,38 +998,6 @@ object AdBlockDocumentStart {
                     }
                 } catch(e) {}
             }
-
-            // ── 4b. User Custom Blocked Elements (Instant CSS at Document-Start) ───────────
-            try {
-                if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.getCustomBlockedCss === 'function') {
-                    var userBlockedCss = window.OnyxShieldBridge.getCustomBlockedCss(location.href);
-                    if (userBlockedCss && userBlockedCss.length > 0) {
-                        window.__onyx_user_custom_css = userBlockedCss;
-                        function ensureUserCustomBlockedStyle() {
-                            try {
-                                var existing = document.getElementById('onyx-user-custom-blocked');
-                                if (existing) {
-                                    if (existing.textContent !== userBlockedCss) {
-                                        existing.textContent = userBlockedCss;
-                                    }
-                                    return;
-                                }
-                                var userStyle = document.createElement('style');
-                                userStyle.id = 'onyx-user-custom-blocked';
-                                userStyle.type = 'text/css';
-                                userStyle.textContent = userBlockedCss;
-                                var targetEl = document.head || document.documentElement;
-                                if (targetEl) {
-                                    targetEl.appendChild(userStyle);
-                                }
-                            } catch(e) {}
-                        }
-                        ensureUserCustomBlockedStyle();
-                        document.addEventListener('DOMContentLoaded', ensureUserCustomBlockedStyle);
-                        window.addEventListener('load', ensureUserCustomBlockedStyle);
-                    }
-                }
-            } catch(e) {}
 
             // ── 5. Brave Parity Generic Cosmetic Filter Engine (hidden_class_id_selectors) ───────
             try {

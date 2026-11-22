@@ -25,24 +25,10 @@ class ShieldBridge(
 
     private val preferences = BrowserPreferences.getInstance(context)
 
-    private fun isAuthOrMetaDomain(domain: String): Boolean {
+    private fun isCaptchaChallengeDomain(domain: String): Boolean {
         if (domain.isBlank()) return false
         val d = domain.lowercase()
-        return d == "facebook.com" || d.endsWith(".facebook.com") ||
-                d == "meta.com" || d.endsWith(".meta.com") ||
-                d == "fb.com" || d.endsWith(".fb.com") ||
-                d == "fb.me" || d.endsWith(".fb.me") ||
-                d == "fbcdn.net" || d.endsWith(".fbcdn.net") ||
-                d == "facebook.net" || d.endsWith(".facebook.net") ||
-                d == "fbsbx.com" || d.endsWith(".fbsbx.com") ||
-                d == "messenger.com" || d.endsWith(".messenger.com") ||
-                d == "instagram.com" || d.endsWith(".instagram.com") ||
-                d == "cdninstagram.com" || d.endsWith(".cdninstagram.com") ||
-                d == "threads.net" || d.endsWith(".threads.net") ||
-                d == "accountkit.com" || d.endsWith(".accountkit.com") ||
-                d == "github.com" || d.endsWith(".github.com") ||
-                d == "githubassets.com" || d.endsWith(".githubassets.com") ||
-                d == "githubusercontent.com" || d.endsWith(".githubusercontent.com") ||
+        return d == "fbsbx.com" || d.endsWith(".fbsbx.com") ||
                 d.contains("arkose") || d.contains("funcaptcha") ||
                 d.contains("recaptcha") || d.contains("hcaptcha") ||
                 d.contains("turnstile") || d.contains("datadome") ||
@@ -56,7 +42,7 @@ class ShieldBridge(
         val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return true
         if (preferences.isDomainWhitelisted(target)) return false
         val clean = preferences.cleanDomain(target)
-        if (isAuthOrMetaDomain(clean)) return false
+        if (isCaptchaChallengeDomain(clean)) return false
         return true
     }
 
@@ -66,7 +52,7 @@ class ShieldBridge(
         val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return true
         if (preferences.isDomainWhitelisted(target)) return false
         val clean = preferences.cleanDomain(target)
-        if (isAuthOrMetaDomain(clean)) return false
+        if (isCaptchaChallengeDomain(clean)) return false
         return true
     }
 
@@ -184,14 +170,7 @@ class ShieldBridge(
         val domain = preferences.cleanDomain(url)
         if (preferences.isDomainWhitelisted(domain)) return "[]"
 
-        val d = domain.lowercase()
-        val isMetaOrCaptcha = d == "facebook.com" || d.endsWith(".facebook.com") ||
-                d == "fb.com" || d.endsWith(".fb.com") ||
-                d == "messenger.com" || d.endsWith(".messenger.com") ||
-                d == "instagram.com" || d.endsWith(".instagram.com") ||
-                d.contains("arkose") || d.contains("recaptcha") ||
-                d.contains("hcaptcha") || d.contains("turnstile") || d.contains("funcaptcha")
-        if (isMetaOrCaptcha) return "[]"
+        if (isCaptchaChallengeDomain(domain)) return "[]"
 
         val cJson = classesJson?.takeIf { it.isNotBlank() } ?: "[]"
         val iJson = idsJson?.takeIf { it.isNotBlank() } ?: "[]"
@@ -204,15 +183,7 @@ class ShieldBridge(
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return "[]"
         val domain = preferences.cleanDomain(url)
         if (preferences.isDomainWhitelisted(domain)) return "[]"
-
-        val d = domain.lowercase()
-        val isMetaOrCaptcha = d == "facebook.com" || d.endsWith(".facebook.com") ||
-                d == "fb.com" || d.endsWith(".fb.com") ||
-                d == "messenger.com" || d.endsWith(".messenger.com") ||
-                d == "instagram.com" || d.endsWith(".instagram.com") ||
-                d.contains("arkose") || d.contains("recaptcha") ||
-                d.contains("hcaptcha") || d.contains("turnstile") || d.contains("funcaptcha")
-        if (isMetaOrCaptcha) return "[]"
+        if (isCaptchaChallengeDomain(domain)) return "[]"
 
         val rules = com.onyx.browser.nativebridge.AdBlockEngine.getProceduralRules(url)
         return org.json.JSONArray(rules).toString()
@@ -224,15 +195,7 @@ class ShieldBridge(
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return ""
         val domain = preferences.cleanDomain(url)
         if (preferences.isDomainWhitelisted(domain)) return ""
-
-        val d = domain.lowercase()
-        val isMetaOrCaptcha = d == "facebook.com" || d.endsWith(".facebook.com") ||
-                d == "fb.com" || d.endsWith(".fb.com") ||
-                d == "messenger.com" || d.endsWith(".messenger.com") ||
-                d == "instagram.com" || d.endsWith(".instagram.com") ||
-                d.contains("arkose") || d.contains("recaptcha") ||
-                d.contains("hcaptcha") || d.contains("turnstile") || d.contains("funcaptcha")
-        if (isMetaOrCaptcha) return ""
+        if (isCaptchaChallengeDomain(domain)) return ""
 
         return com.onyx.browser.nativebridge.AdBlockEngine.getCosmeticCss(url)
     }
@@ -243,15 +206,7 @@ class ShieldBridge(
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return ""
         val domain = preferences.cleanDomain(url)
         if (preferences.isDomainWhitelisted(domain)) return ""
-
-        val d = domain.lowercase()
-        val isMetaOrCaptcha = d == "facebook.com" || d.endsWith(".facebook.com") ||
-                d == "fb.com" || d.endsWith(".fb.com") ||
-                d == "messenger.com" || d.endsWith(".messenger.com") ||
-                d == "instagram.com" || d.endsWith(".instagram.com") ||
-                d.contains("arkose") || d.contains("recaptcha") ||
-                d.contains("hcaptcha") || d.contains("turnstile") || d.contains("funcaptcha")
-        if (isMetaOrCaptcha) return ""
+        if (isCaptchaChallengeDomain(domain)) return ""
 
         return com.onyx.browser.nativebridge.AdBlockEngine.getScriptletJs(url)
     }
@@ -262,15 +217,7 @@ class ShieldBridge(
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return ""
         val domain = preferences.cleanDomain(url)
         if (preferences.isDomainWhitelisted(domain)) return ""
-
-        val d = domain.lowercase()
-        val isMetaOrCaptcha = d == "facebook.com" || d.endsWith(".facebook.com") ||
-                d == "fb.com" || d.endsWith(".fb.com") ||
-                d == "messenger.com" || d.endsWith(".messenger.com") ||
-                d == "instagram.com" || d.endsWith(".instagram.com") ||
-                d.contains("arkose") || d.contains("recaptcha") ||
-                d.contains("hcaptcha") || d.contains("turnstile") || d.contains("funcaptcha")
-        if (isMetaOrCaptcha) return ""
+        if (isCaptchaChallengeDomain(domain)) return ""
 
         val rawCsp = com.onyx.browser.nativebridge.AdBlockEngine.getCspDirectives(
             url = url,
@@ -311,14 +258,7 @@ class ShieldBridge(
         val domain = preferences.cleanDomain(url)
         if (preferences.isDomainWhitelisted(domain)) return ""
 
-        val d = domain.lowercase()
-        val isMetaOrCaptcha = d == "facebook.com" || d.endsWith(".facebook.com") ||
-                d == "fb.com" || d.endsWith(".fb.com") ||
-                d == "messenger.com" || d.endsWith(".messenger.com") ||
-                d == "instagram.com" || d.endsWith(".instagram.com") ||
-                d.contains("arkose") || d.contains("recaptcha") ||
-                d.contains("hcaptcha") || d.contains("turnstile") || d.contains("funcaptcha")
-        if (isMetaOrCaptcha) return ""
+        if (isCaptchaChallengeDomain(domain)) return ""
 
         val cosmeticEnabled = preferences.isCosmeticFilteringEnabled
         val css = if (cosmeticEnabled) com.onyx.browser.nativebridge.AdBlockEngine.getCosmeticCss(url) else ""
@@ -381,7 +321,11 @@ class ShieldBridge(
 
     @JavascriptInterface
     fun saveCustomCosmeticRules(domain: String?, selectorsJson: String?) {
-        val rawDomain = domain?.trim() ?: return
+        val fallbackUrl = try {
+            val wv = webViewRef?.get()
+            wv?.pendingMainFrameUrl ?: wv?.url ?: ""
+        } catch (_: Throwable) { "" }
+        val rawDomain = domain?.trim()?.takeIf { it.isNotBlank() } ?: fallbackUrl
         val cleanD = preferences.cleanDomain(rawDomain).lowercase()
         if (cleanD.isBlank() || cleanD.contains("/") || cleanD.contains(":") || cleanD.contains("\\")) return
 

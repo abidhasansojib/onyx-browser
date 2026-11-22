@@ -1281,9 +1281,7 @@ open class BrowserWebViewClient(
         }
 
         // User Custom Blocked Elements (per-domain custom cosmetic rules)
-        if (!isAuthFlowOnly) {
-            injectOrRemoveCustomBlockedCss(view, url)
-        }
+        injectOrRemoveCustomBlockedCss(view, url)
 
         // Fingerprint Protection (JS API spoofing) — completely disabled on auth & security pages
         if (preferences.isFingerprintProtectionEnabled && !isWhitelisted && !isAuthOrMeta) {
@@ -1553,7 +1551,7 @@ open class BrowserWebViewClient(
             val isFinishedAuthOrMeta = isMetaDomain(finishedDomain) ||
                     isOAuthOrLoginProvider(finishedDomain) || isFinishedAuthFlowOnly
 
-            if (!isSyntheticError && !isFinishedAuthFlowOnly) {
+            if (!isSyntheticError) {
                 injectOrRemoveCustomBlockedCss(view, effectiveUrl)
             }
 
