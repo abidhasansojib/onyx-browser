@@ -469,7 +469,6 @@ class BrowserWebView @JvmOverloads constructor(
 
         // Document-Start Adblock & Anti-Adblock Shields + WebAuthn Passkeys Polyfill + Media Playback
         try {
-            val currentBlockingLevel = prefs.blockingLevel
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
                 // Native Chrome environment polyfill (window.chrome, navigator.userAgentData, plugins, bridge masking)
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
@@ -1002,10 +1001,6 @@ class BrowserWebView @JvmOverloads constructor(
                 )
             }
         } catch (_: Throwable) {}
-    }
-
-    fun updateShieldsLevel(level: Int) {
-        evaluateJavascript("if (window.__onyx_set_blocking_level) window.__onyx_set_blocking_level($level);", null)
     }
 
     fun destroySafely() {

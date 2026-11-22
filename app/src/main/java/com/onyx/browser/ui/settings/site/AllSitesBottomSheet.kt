@@ -216,10 +216,6 @@ class AllSitesBottomSheet @JvmOverloads constructor(
         if (webrtc == SitePermissionState.ALLOWED) summaryParts.add("WebRTC: allowed")
         else if (webrtc == SitePermissionState.BLOCKED) summaryParts.add("WebRTC: blocked")
         if (!prefs.isAdBlockEnabled || prefs.isDomainWhitelisted(domain)) summaryParts.add("Shields: off")
-        val blockingLevel = prefs.getSiteBlockingLevel(domain)
-        if (blockingLevel != null) {
-            summaryParts.add("Shields: ${if (blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) "aggressive" else "standard"}")
-        }
         val customCount = prefs.getCustomBlockedSelectorsForDomain(domain).size
         if (customCount > 0) summaryParts.add("$customCount elements blocked")
 

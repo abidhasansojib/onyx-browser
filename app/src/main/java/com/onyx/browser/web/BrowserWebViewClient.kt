@@ -140,15 +140,6 @@ open class BrowserWebViewClient(
             return true
         }
 
-        // 6. In Aggressive blocking mode, also block main_frame ad rules or unverified cross-domain popups
-        val effectiveBlocking = preferences.getEffectiveBlockingLevel(parentUrl)
-        if (effectiveBlocking == BrowserPreferences.BLOCKING_AGGRESSIVE) {
-            if (AdBlockEngine.shouldBlock(url, effectiveSourceUrl, "main_frame")) {
-                return true
-            }
-            return true
-        }
-
         return false
     }
 
@@ -595,11 +586,8 @@ open class BrowserWebViewClient(
                     val isWhitelisted = preferences.isDomainWhitelisted(pageDomain) || preferences.isDomainWhitelisted(reqDomain)
 
                     if (preferences.isAdBlockEnabled && !isWhitelisted) {
-                        val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
                         val onyxWv = view as? BrowserWebView
                         // Only the first navigation of a not-yet-displayed popup is checked as a popup ad.
-                        // In Standard mode (Brave parity): Main-frame top-level navigations are never cancelled
-                        // or 403-intercepted by adblock rules (DomainBlockingType::kNone in Brave), UNLESS it is a child popup tab.
                         if (onyxWv != null && onyxWv.isPopupPendingDisplay && isPopupAd(url, onyxWv)) {
                             recordBlockedRequest(view)
                             onyxWv.post {
@@ -616,25 +604,6 @@ open class BrowserWebViewClient(
                                 BLOCKED_MAIN_FRAME_WILDCARD_HEADERS,
                                 ByteArrayInputStream(BLOCKED_MAIN_FRAME_HTML_BYTES)
                             )
-                        }
-
-                        // In Aggressive mode (DomainBlockingType::kAggressive), main-frame ad domains can also be blocked.
-                        if (isAggressive) {
-                            val method = request.method ?: "GET"
-                            val blockedByEngine = AdBlockEngine.shouldBlock(url, currentPageUrl, "main_frame", method)
-                            val blockedByAggressive = AdBlockDomainManager.isBlockedInAggressive(reqDomain)
-
-                            if (blockedByEngine || blockedByAggressive) {
-                                recordBlockedRequest(view)
-                                return WebResourceResponse(
-                                    "text/html",
-                                    "UTF-8",
-                                    403,
-                                    "Blocked by Onyx Shields",
-                                    BLOCKED_MAIN_FRAME_WILDCARD_HEADERS,
-                                    ByteArrayInputStream(BLOCKED_MAIN_FRAME_HTML_BYTES)
-                                )
-                            }
                         }
                     }
                 }
@@ -850,7 +819,6 @@ open class BrowserWebViewClient(
                 val isWhitelisted = preferences.isDomainWhitelisted(pageDomain) || preferences.isDomainWhitelisted(reqDomain)
 
                 if (preferences.isAdBlockEnabled && !isWhitelisted) {
-                    val isAggressive = preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
                     val onyxWv = view as? BrowserWebView
                     // Popup-ad heuristics apply only to the first navigation of a popup window that has
                     // not been shown yet. Once a tab is displayed it behaves like any normal tab.
@@ -899,11 +867,7 @@ open class BrowserWebViewClient(
                         // 4. Script-driven redirects (no user gesture) to ad/betting domains
                         val isScriptAdRedirect = !hasGesture && isAdTarget
 
-                        // 5. Aggressive mode: also cancel script-driven cross-site navigations.
-                        //    Links the user actually taps and server redirects always proceed.
-                        val isAggressiveScriptNav = isAggressive && !hasGesture && !isRedirect
-
-                        if (isStreamingClickjack || isScriptAdRedirect || isAggressiveScriptNav) {
+                        if (isStreamingClickjack || isScriptAdRedirect) {
                             preferences.incrementBlockedRequests()
                             if (isPendingPopup) {
                                 onyxWv?.post {
@@ -1079,29 +1043,6 @@ open class BrowserWebViewClient(
         if (!isAuthOrMeta) {
             val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !isWhitelisted
             view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
-        }
-
-        if (preferences.isAdBlockEnabled && preferences.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE && !isWhitelisted && !isAuthOrMeta) {
-            val urlLower = url.lowercase()
-            val isCloudflareChallengePage = urlLower.contains("__cf_chl") ||
-                    urlLower.contains("/cdn-cgi/challenge-platform") ||
-                    urlLower.contains("/cdn-cgi/cf-challenge") ||
-                    isCaptchaOrAuthUrl(url, pageDomain)
-            if (!isCloudflareChallengePage) {
-                val js = """
-                    (function() {
-                        window.ga = window.ga || function(){};
-                        window.ga.q = window.ga.q || [];
-                        window.ga.l = +new Date;
-                        window.fbq = window.fbq || function(){};
-                        window.gtag = window.gtag || function(){};
-                        window.google_ad_client = true;
-                        window.google_ad_width = window.innerWidth;
-                        window.google_ad_height = window.innerHeight;
-                    })();
-                """.trimIndent()
-                view?.evaluateJavascript(js, null)
-            }
         }
 
         if (preferences.isDoNotTrackEnabled && !isAuthOrMeta) {
@@ -1294,9 +1235,7 @@ open class BrowserWebViewClient(
                 val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)
                 view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
                 if (isAdBlockActiveForPage) {
-                    val lvl = preferences.getEffectiveBlockingLevel(url)
-                    view?.evaluateJavascript(AdBlockDocumentStart.getScript(lvl), null)
-                    view?.evaluateJavascript("if (window.__onyx_set_blocking_level) window.__onyx_set_blocking_level($lvl);", null)
+                    view?.evaluateJavascript(AdBlockDocumentStart.SCRIPT, null)
 
                     // Inject scriptlets resolved from +js() cosmetic filter rules via brave-resources.json.
                     // These must run before any page scripts to intercept ad-related APIs early.

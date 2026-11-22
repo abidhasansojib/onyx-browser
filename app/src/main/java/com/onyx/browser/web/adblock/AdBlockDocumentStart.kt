@@ -13,7 +13,9 @@ import com.onyx.browser.web.AssetScriptLoader
 object AdBlockDocumentStart {
 
     val SCRIPT: String
-        get() = getScript(0)
+        get() = AssetScriptLoader.getCachedOrFallback("AdBlockDocumentStart") {
+            buildDocumentStartScript()
+        }
 
     val proceduralEngineScript: String
         get() = AssetScriptLoader.getCachedOrFallback(
@@ -21,13 +23,7 @@ object AdBlockDocumentStart {
             ::buildFallbackProceduralEngineScript
         )
 
-    fun getScript(blockingLevel: Int): String {
-        return AssetScriptLoader.getCachedOrFallback("AdBlockDocumentStart:level:$blockingLevel") {
-            buildDocumentStartScript(blockingLevel)
-        }
-    }
-
-    private fun buildDocumentStartScript(blockingLevel: Int): String {
+    private fun buildDocumentStartScript(): String {
         return """
         (function() {
             // ── 0. Synchronous Shield & Whitelist Status Check ─────────────────────
@@ -235,42 +231,6 @@ object AdBlockDocumentStart {
                 } catch(e) {}
                 return;
             }
-
-            var currentLvl = $blockingLevel;
-            try {
-                if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.getBlockingLevelForDomain === 'function') {
-                    currentLvl = window.OnyxShieldBridge.getBlockingLevelForDomain(location.hostname || location.href);
-                } else if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.getBlockingLevel === 'function') {
-                    currentLvl = window.OnyxShieldBridge.getBlockingLevel();
-                }
-            } catch(e) {}
-
-            window.__onyx_blocking_level = currentLvl;
-
-            function updateCosmeticBannerStyles(lvl) {
-                try {
-                    var bannerStyle = document.getElementById('onyx-aggressive-banners');
-                    if (lvl === 1) {
-                        if (!bannerStyle) {
-                            bannerStyle = document.createElement('style');
-                            bannerStyle.id = 'onyx-aggressive-banners';
-                            bannerStyle.type = 'text/css';
-                            bannerStyle.textContent = '#onetrust-banner-sdk, #cookie-law-info-bar, .cc-window, .qc-cmp2-container, #CybotCookiebotDialog { display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; opacity: 0 !important; pointer-events: none !important; position: absolute !important; left: -9999px !important; }';
-                            var targetNode = document.head || document.documentElement;
-                            if (targetNode) targetNode.appendChild(bannerStyle);
-                        }
-                    } else if (bannerStyle) {
-                        bannerStyle.remove();
-                    }
-                } catch(e) {}
-            }
-
-            window.__onyx_set_blocking_level = function(lvl) {
-                window.__onyx_blocking_level = lvl;
-                updateCosmeticBannerStyles(lvl);
-            };
-
-            updateCosmeticBannerStyles(currentLvl);
 
             if (window.__onyx_shields_active) return;
             window.__onyx_shields_active = true;
@@ -500,9 +460,6 @@ object AdBlockDocumentStart {
                         return window.OnyxShieldBridge.isUrlBlocked(resolvedUrl, location.href, rType);
                     }
                     if (stdTrackerPattern.test(resolvedUrl) || adPathPattern.test(resolvedUrl)) return true;
-                    if (level === 1) {
-                        if (aggSubPattern.test(resolvedUrl) || aggRootPattern.test(resolvedUrl)) return true;
-                    }
                     return false;
                 } catch(e) {
                     return false;
@@ -526,8 +483,7 @@ object AdBlockDocumentStart {
                         if (!targetUrl || targetUrl.startsWith('blob:') || targetUrl.startsWith('data:') || targetUrl.startsWith('javascript:')) {
                             return _origFetch.apply(this, arguments);
                         }
-                        var lvl = window.__onyx_blocking_level || 0;
-                        if (isBlockedUrl(targetUrl, lvl, 'xhr')) {
+                        if (isBlockedUrl(targetUrl, 0, 'xhr')) {
                             return Promise.reject(new TypeError('Failed to fetch: net::ERR_BLOCKED_BY_CLIENT'));
                         }
                         return _origFetch.apply(this, arguments);
@@ -545,8 +501,7 @@ object AdBlockDocumentStart {
                         var urlStr = (typeof url === 'string') ? url : (url && typeof url.toString === 'function' ? url.toString() : '');
                         this._onyxTargetUrl = urlStr;
                         var isBlobOrData = urlStr && (urlStr.startsWith('blob:') || urlStr.startsWith('data:') || urlStr.startsWith('javascript:'));
-                        var lvl = window.__onyx_blocking_level || 0;
-                        this._onyxBlocked = !isBlobOrData && isBlockedUrl(urlStr, lvl, 'xhr');
+                        this._onyxBlocked = !isBlobOrData && isBlockedUrl(urlStr, 0, 'xhr');
                         return _origOpen.apply(this, arguments);
                     }, 'open');
                     XMLHttpRequest.prototype.send = makeNative(function() {
@@ -571,9 +526,8 @@ object AdBlockDocumentStart {
                 var OriginalWebSocket = window.WebSocket;
                 if (OriginalWebSocket) {
                     var PatchedWebSocket = makeNative(function(url, protocols) {
-                        var lvl = window.__onyx_blocking_level || 0;
                         var wsUrl = (typeof url === 'string') ? url : (url && typeof url.toString === 'function' ? url.toString() : '');
-                        if (wsUrl && isBlockedUrl(wsUrl, lvl, 'websocket')) {
+                        if (wsUrl && isBlockedUrl(wsUrl, 0, 'websocket')) {
                             throw new Error('Blocked by Onyx Shields');
                         }
                         if (arguments.length === 1) {

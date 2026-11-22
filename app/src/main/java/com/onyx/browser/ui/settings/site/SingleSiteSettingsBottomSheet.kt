@@ -165,43 +165,7 @@ class SingleSiteSettingsBottomSheet @JvmOverloads constructor(
             )
         )
 
-        // 2. Ad & tracker blocking level (Standard / Aggressive / Default)
-        items.add(
-            PermissionItem(
-                key = "blocking_level",
-                iconRes = R.drawable.ic_shield,
-                title = getString(R.string.single_site_blocking_level_title),
-                getState = {
-                    when (prefs.getSiteBlockingLevel(domain)) {
-                        BrowserPreferences.BLOCKING_STANDARD -> getString(R.string.blocking_standard)
-                        BrowserPreferences.BLOCKING_AGGRESSIVE -> getString(R.string.blocking_aggressive)
-                        else -> "${getString(R.string.default_permission)} (${if (prefs.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) getString(R.string.blocking_aggressive) else getString(R.string.blocking_standard)})"
-                    }
-                },
-                options = listOf(
-                    getString(R.string.blocking_standard),
-                    getString(R.string.blocking_aggressive),
-                    "${getString(R.string.default_permission)} (${if (prefs.blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) getString(R.string.blocking_aggressive) else getString(R.string.blocking_standard)})"
-                ),
-                getCheckedIndex = {
-                    when (prefs.getSiteBlockingLevel(domain)) {
-                        BrowserPreferences.BLOCKING_STANDARD -> 0
-                        BrowserPreferences.BLOCKING_AGGRESSIVE -> 1
-                        else -> 2
-                    }
-                },
-                onChoose = { which ->
-                    when (which) {
-                        0 -> prefs.setSiteBlockingLevel(domain, BrowserPreferences.BLOCKING_STANDARD)
-                        1 -> prefs.setSiteBlockingLevel(domain, BrowserPreferences.BLOCKING_AGGRESSIVE)
-                        else -> prefs.setSiteBlockingLevel(domain, null)
-                    }
-                    refresh()
-                }
-            )
-        )
-
-        // 3. Custom Blocked Elements (if any exist on this domain)
+        // 2. Custom Blocked Elements (if any exist on this domain)
         val customSelectors = prefs.getCustomBlockedSelectorsForDomain(domain)
         if (customSelectors.isNotEmpty()) {
             items.add(

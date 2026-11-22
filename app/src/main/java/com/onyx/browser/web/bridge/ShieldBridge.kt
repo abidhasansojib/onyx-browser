@@ -57,20 +57,6 @@ class ShieldBridge(
     }
 
     @JavascriptInterface
-    fun getBlockingLevel(): Int {
-        return preferences.blockingLevel
-    }
-
-    @JavascriptInterface
-    fun getBlockingLevelForDomain(domainOrUrl: String?): Int {
-        return if (!domainOrUrl.isNullOrBlank()) {
-            preferences.getEffectiveBlockingLevel(domainOrUrl)
-        } else {
-            preferences.blockingLevel
-        }
-    }
-
-    @JavascriptInterface
     fun isFacebookLoginAllowed(): Boolean {
         return preferences.allowFacebookLogins
     }

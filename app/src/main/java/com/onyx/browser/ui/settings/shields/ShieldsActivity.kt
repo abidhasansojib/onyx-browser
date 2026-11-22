@@ -57,7 +57,6 @@ class ShieldsActivity : ComponentActivity() {
     private lateinit var prefs: BrowserPreferences
 
     private var isAdBlockEnabled by mutableStateOf(true)
-    private var blockingLevel by mutableIntStateOf(0)
 
     private var isAmpRedirectEnabled by mutableStateOf(true)
     private var isTrackingRedirectEnabled by mutableStateOf(true)
@@ -89,7 +88,6 @@ class ShieldsActivity : ComponentActivity() {
     private var isDoNotTrackEnabled by mutableStateOf(true)
 
     // BottomSheet states
-    private var showBlockingLevelPicker by mutableStateOf(false)
     private var showHttpsModePicker by mutableStateOf(false)
     private var showCookieModePicker by mutableStateOf(false)
     private var showDnsProviderPicker by mutableStateOf(false)
@@ -129,8 +127,6 @@ class ShieldsActivity : ComponentActivity() {
                     // Trackers & Ads
                     isAdBlock = isAdBlockEnabled,
                     onAdBlockChange = { isAdBlockEnabled = it; prefs.isAdBlockEnabled = it },
-                    blockingLevelText = if (blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) "Aggressive" else "Standard",
-                    onBlockingLevelClick = { showBlockingLevelPicker = true },
                     onFilterListsClick = { startActivity(Intent(this, ContentFiltersActivity::class.java)) },
 
                     // Connections
@@ -198,20 +194,6 @@ class ShieldsActivity : ComponentActivity() {
                     isDoNotTrack = isDoNotTrackEnabled,
                     onDoNotTrackChange = { isDoNotTrackEnabled = it; prefs.isDoNotTrackEnabled = it }
                 )
-
-                if (showBlockingLevelPicker) {
-                    SingleChoiceBottomSheet(
-                        title = "Blocking Level",
-                        options = listOf("Standard (Recommended)", "Aggressive"),
-                        selectedIndex = if (blockingLevel == BrowserPreferences.BLOCKING_AGGRESSIVE) 1 else 0,
-                        onSelect = { idx ->
-                            blockingLevel = if (idx == 1) BrowserPreferences.BLOCKING_AGGRESSIVE else BrowserPreferences.BLOCKING_STANDARD
-                            prefs.blockingLevel = blockingLevel
-                            showBlockingLevelPicker = false
-                        },
-                        onDismiss = { showBlockingLevelPicker = false }
-                    )
-                }
 
                 if (showHttpsModePicker) {
                     SingleChoiceBottomSheet(
@@ -313,7 +295,6 @@ class ShieldsActivity : ComponentActivity() {
 
     private fun loadState() {
         isAdBlockEnabled = prefs.isAdBlockEnabled
-        blockingLevel = prefs.blockingLevel
 
         isAmpRedirectEnabled = prefs.isAutoRedirectAmpEnabled
         isTrackingRedirectEnabled = prefs.isAutoRedirectTrackingUrlsEnabled
@@ -366,8 +347,6 @@ fun ShieldsScreen(
     onBackClick: () -> Unit,
     isAdBlock: Boolean,
     onAdBlockChange: (Boolean) -> Unit,
-    blockingLevelText: String,
-    onBlockingLevelClick: () -> Unit,
     onFilterListsClick: () -> Unit,
     isAmpRedirect: Boolean,
     onAmpRedirectChange: (Boolean) -> Unit,
@@ -439,12 +418,6 @@ fun ShieldsScreen(
                     icon = Icons.Default.Shield,
                     checked = isAdBlock,
                     onCheckedChange = onAdBlockChange
-                )
-
-                PreferenceItem(
-                    title = "Blocking Level",
-                    subtitle = blockingLevelText,
-                    onClick = onBlockingLevelClick
                 )
 
                 PreferenceItem(

@@ -83,9 +83,7 @@ class AdBlockRequestInterceptor(
 
         // 3. Ad & Tracker Blocking via Native Rust Engine
         if (prefs.isAdBlockEnabled) {
-            val isAggressive = prefs.getEffectiveBlockingLevel(pageDomain) == BrowserPreferences.BLOCKING_AGGRESSIVE
-
-            if (ctx.isMainFrame && !isAggressive) {
+            if (ctx.isMainFrame) {
                 return chain.proceed(ctx)
             }
 
