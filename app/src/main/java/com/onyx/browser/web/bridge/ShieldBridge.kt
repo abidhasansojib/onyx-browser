@@ -409,7 +409,7 @@ class ShieldBridge(
         val d = reqDomain.lowercase()
         val u = reqUrl.lowercase()
         // Never block CAPTCHAs, bot challenges, or auth endpoints
-        if (AdBlockDomainManager.isAuthOrMetaDomain(d) || u.contains("/cdn-cgi/") ||
+        if (isCaptchaChallengeDomain(d) || u.contains("/cdn-cgi/") ||
             u.contains("/checkpoint/") || u.contains("/challenge/") ||
             u.contains("lsd=") || u.contains("jazoest=") || u.contains("datr=")
         ) {
