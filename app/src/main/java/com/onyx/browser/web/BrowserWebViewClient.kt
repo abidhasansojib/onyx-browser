@@ -1174,7 +1174,8 @@ open class BrowserWebViewClient(
                     pageDomain.contains("login") || pageDomain.contains("auth") || pageDomain.contains("checkpoint")
             val isPopup = onyxWv?.isPopupTab == true || onyxWv?.isPopupPendingDisplay == true ||
                     (tabActionCallback?.getTabById(onyxWv?.tabId ?: "")?.parentId != null)
-            val isWithinGrace = onyxWv?.isWithinOAuthGracePeriod() == true
+            val isOAuthCallbackNav = url.contains("code=") || url.contains("state=") ||
+                    url.contains("token=") || url.contains("oauth") || url.contains("auth")
 
             if (isAuthOrMeta) {
                 onyxWv?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
@@ -1189,6 +1190,10 @@ open class BrowserWebViewClient(
                     activeCm.flush()
                 } catch (_: Exception) {}
             } else {
+                if (!isPopup && !isOAuthCallbackNav) {
+                    onyxWv?.lastOAuthInteractionTimestamp = 0L
+                }
+                val isWithinGrace = onyxWv?.isWithinOAuthGracePeriod() == true
                 val isStreamingPage = isStreamingOrMediaPage(url) || onyxWv?.hasActiveMediaSubresource == true
                 val allowThirdPartyCookies = isPopup || isWithinGrace || isStreamingPage ||
                         preferences.cookieBlockingMode == BrowserPreferences.COOKIE_BLOCK_NONE
@@ -1232,6 +1237,7 @@ open class BrowserWebViewClient(
             }
 
             if (!isAuthOrMeta) {
+                view?.evaluateJavascript(ChromeEnvironmentBridge.SCRIPT, null)
                 val isAdBlockActiveForPage = preferences.isAdBlockEnabled && !preferences.isDomainWhitelisted(url)
                 view?.evaluateJavascript("window.__onyxAdBlockEnabled = $isAdBlockActiveForPage;", null)
                 if (isAdBlockActiveForPage) {
@@ -1608,57 +1614,8 @@ open class BrowserWebViewClient(
     }
 
     private fun injectFingerprintProtection(view: WebView?) {
-        val js = """
-            (function() {
-                if (window.__onyxFpInjected) return;
-
-                var host = (location.hostname || '').toLowerCase();
-                var href = (location.href || '').toLowerCase();
-                var path = (location.pathname || '').toLowerCase();
-                var ref = (document.referrer || '').toLowerCase();
-
-                // Never run fingerprint spoofing on Meta/Facebook, CAPTCHA, Turnstile, or Auth pages.
-                // Mutating Canvas, WebGL, or WebRTC APIs flags the client environment as bot/automation
-                // during security challenges (e.g. Arkose Labs / FunCaptcha) and causes "Confirmation failed".
-                if (/facebook\.com|meta\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|arkose|funcaptcha|turnstile|recaptcha|hcaptcha|datadome|perimeterx|kasada|geetest|challenges\.cloudflare\.com/i.test(host + ' ' + href + ' ' + ref) ||
-                    path.indexOf('/checkpoint/') !== -1 || path.indexOf('/login/') !== -1 || path.indexOf('/auth/') !== -1 ||
-                    href.indexOf('/checkpoint/') !== -1 || href.indexOf('lsd=') !== -1 || href.indexOf('jazoest=') !== -1) {
-                    return;
-                }
-
-                window.__onyxFpInjected = true;
-
-                function makeNative(fn, name) {
-                    try {
-                        fn.toString = function() { return 'function ' + name + '() { [native code] }'; };
-                        Object.defineProperty(fn, 'name', { value: name, configurable: true });
-                    } catch (_) {}
-                    return fn;
-                }
-
-                try {
-                    // Standard hardware spoofing with proper native descriptors
-                    try {
-                        Object.defineProperty(navigator, 'hardwareConcurrency', {
-                            get: makeNative(function() { return 8; }, 'get hardwareConcurrency'),
-                            configurable: true
-                        });
-                    } catch (_) {}
-
-                    if ('deviceMemory' in navigator) {
-                        try {
-                            Object.defineProperty(navigator, 'deviceMemory', {
-                                get: makeNative(function() { return 8; }, 'get deviceMemory'),
-                                configurable: true
-                            });
-                        } catch (_) {}
-                    }
-                } catch(e) {}
-            })();
-        """.trimIndent()
-
         view?.post {
-            try { view?.evaluateJavascript(js, null) } catch (_: Throwable) {}
+            try { view?.evaluateJavascript(ChromeEnvironmentBridge.SCRIPT, null) } catch (_: Throwable) {}
         }
     }
 

@@ -294,6 +294,244 @@ object ChromeEnvironmentBridge {
                             }
                         }
                     } catch (_) {}
+
+                    // ── 9. Language Fingerprint Protection (Document-Start) ─────────────
+                    try {
+                        var protectLang = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isFingerprintLangActive === 'function') {
+                            protectLang = window.OnyxShieldBridge.isFingerprintLangActive(host);
+                        }
+                        if (protectLang) {
+                            Object.defineProperty(navigator, 'language', {
+                                get: makeNative(function() { return 'en-US'; }, 'get language'),
+                                configurable: true
+                            });
+                            Object.defineProperty(navigator, 'languages', {
+                                get: makeNative(function() { return ['en-US', 'en']; }, 'get languages'),
+                                configurable: true
+                            });
+                        }
+                    } catch (_) {}
+
+                    // ── 10. Brave-Style Session Fingerprint Farbling (Canvas, WebGL, Audio, Plugins, Hardware) ──
+                    try {
+                        var protectFp = true;
+                        if (window.OnyxShieldBridge && typeof window.OnyxShieldBridge.isFingerprintProtectionActive === 'function') {
+                            protectFp = window.OnyxShieldBridge.isFingerprintProtectionActive(host);
+                        }
+                        if (protectFp && !window.__onyxFpInstalled) {
+                            window.__onyxFpInstalled = true;
+
+                            // Per-page-load seed: deterministic within the same document load,
+                            // newly randomized on every page reload and across first-party domains.
+                            var fpSeed = ((Math.random() * 0x7FFFFFFE) | 0) + 1;
+                            var hostHash = 2166136261;
+                            for (var hi = 0; hi < host.length; hi++) {
+                                hostHash ^= host.charCodeAt(hi);
+                                hostHash = Math.imul(hostHash, 16777619) >>> 0;
+                            }
+                            fpSeed = ((fpSeed ^ hostHash) >>> 0) || 1;
+
+                            function nextFpRand(state) {
+                                var x = (state | 0) || fpSeed;
+                                x ^= x << 13;
+                                x ^= x >>> 17;
+                                x ^= x << 5;
+                                return (x >>> 0);
+                            }
+
+                            // 10a. Hardware Concurrency & Device Memory Farbling
+                            var hwPool = [4, 6, 8, 12];
+                            var farbledCores = hwPool[(hostHash + (fpSeed & 0xFF)) % hwPool.length];
+                            var farbledMem = hwPool[((hostHash >>> 4) + (fpSeed & 0xFF)) % hwPool.length];
+                            try {
+                                Object.defineProperty(navigator, 'hardwareConcurrency', {
+                                    get: makeNative(function() { return farbledCores; }, 'get hardwareConcurrency'),
+                                    configurable: true
+                                });
+                            } catch (_) {}
+                            if ('deviceMemory' in navigator) {
+                                try {
+                                    Object.defineProperty(navigator, 'deviceMemory', {
+                                        get: makeNative(function() { return farbledMem; }, 'get deviceMemory'),
+                                        configurable: true
+                                    });
+                                } catch (_) {}
+                            }
+
+                            // 10b. Plugins Farbling (Brave standard plugin farbling)
+                            try {
+                                var suffix = (fpSeed & 0xFFFF).toString(16);
+                                var mimeEntry = {
+                                    type: 'application/pdf',
+                                    suffixes: 'pdf',
+                                    description: 'Portable Document Format'
+                                };
+                                var p0 = {
+                                    0: mimeEntry,
+                                    name: 'PDF Viewer',
+                                    description: 'Portable Document Format',
+                                    filename: 'internal-pdf-viewer-' + suffix,
+                                    length: 1,
+                                    item: makeNative(function(idx) { return idx === 0 ? mimeEntry : null; }, 'item'),
+                                    namedItem: makeNative(function(name) { return name === 'application/pdf' ? mimeEntry : null; }, 'namedItem')
+                                };
+                                var p1 = {
+                                    0: mimeEntry,
+                                    name: 'Chrome PDF Viewer',
+                                    description: 'Portable Document Format',
+                                    filename: 'internal-chrome-pdf-' + suffix,
+                                    length: 1,
+                                    item: makeNative(function(idx) { return idx === 0 ? mimeEntry : null; }, 'item'),
+                                    namedItem: makeNative(function(name) { return name === 'application/pdf' ? mimeEntry : null; }, 'namedItem')
+                                };
+                                var fakePlugins = [p0, p1];
+                                fakePlugins.item = makeNative(function(idx) { return this[idx] || null; }, 'item');
+                                fakePlugins.namedItem = makeNative(function(name) {
+                                    for (var i = 0; i < this.length; i++) {
+                                        if (this[i].name === name) return this[i];
+                                    }
+                                    return null;
+                                }, 'namedItem');
+                                fakePlugins.refresh = makeNative(function() {}, 'refresh');
+                                Object.defineProperty(navigator, 'plugins', {
+                                    get: makeNative(function() { return fakePlugins; }, 'get plugins'),
+                                    configurable: true
+                                });
+                            } catch (_) {}
+
+                            // 10c. Canvas 2D & WebGL Pixel Farbling (getImageData, toDataURL, toBlob, readPixels)
+                            var origGetImageData = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype.getImageData;
+                            var origPutImageData = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype.putImageData;
+                            var origToDataURL = window.HTMLCanvasElement && HTMLCanvasElement.prototype.toDataURL;
+                            var origToBlob = window.HTMLCanvasElement && HTMLCanvasElement.prototype.toBlob;
+
+                            function farblePixelArray(data, seedOffset) {
+                                if (!data || data.length < 16) return;
+                                var totalPixels = (data.length >> 2);
+                                if (totalPixels <= 0) return;
+                                var count = Math.min(32, totalPixels);
+                                var s = (fpSeed ^ totalPixels ^ (seedOffset || 0)) >>> 0;
+                                for (var i = 0; i < count; i++) {
+                                    s = nextFpRand(s + Math.imul(i + 1, 2654435761));
+                                    var pxIdx = (s % totalPixels) << 2;
+                                    var ch = (s >>> 8) % 3;
+                                    data[pxIdx + ch] = data[pxIdx + ch] ^ 1;
+                                }
+                            }
+
+                            if (origGetImageData) {
+                                CanvasRenderingContext2D.prototype.getImageData = makeNative(function(sx, sy, sw, sh) {
+                                    var imgData = origGetImageData.apply(this, arguments);
+                                    try {
+                                        if (imgData && imgData.data) {
+                                            farblePixelArray(imgData.data, (sw | 0) * 31 + (sh | 0));
+                                        }
+                                    } catch (_) {}
+                                    return imgData;
+                                }, 'getImageData');
+                            }
+
+                            function createFarbledCanvasClone(srcCanvas) {
+                                try {
+                                    if (!origGetImageData || !origPutImageData) return null;
+                                    var w = srcCanvas.width;
+                                    var h = srcCanvas.height;
+                                    if (!w || !h || w <= 0 || h <= 0 || w > 4096 || h > 4096) return null;
+                                    var clone = document.createElement('canvas');
+                                    clone.width = w;
+                                    clone.height = h;
+                                    var ctx = clone.getContext('2d');
+                                    if (!ctx) return null;
+                                    ctx.drawImage(srcCanvas, 0, 0);
+                                    var imgData = origGetImageData.call(ctx, 0, 0, w, h);
+                                    if (imgData && imgData.data) {
+                                        farblePixelArray(imgData.data, w * 31 + h);
+                                        origPutImageData.call(ctx, imgData, 0, 0);
+                                    }
+                                    return clone;
+                                } catch (_) {
+                                    return null;
+                                }
+                            }
+
+                            if (origToDataURL) {
+                                HTMLCanvasElement.prototype.toDataURL = makeNative(function() {
+                                    var clone = createFarbledCanvasClone(this);
+                                    if (clone) {
+                                        return origToDataURL.apply(clone, arguments);
+                                    }
+                                    return origToDataURL.apply(this, arguments);
+                                }, 'toDataURL');
+                            }
+
+                            if (origToBlob) {
+                                HTMLCanvasElement.prototype.toBlob = makeNative(function() {
+                                    var clone = createFarbledCanvasClone(this);
+                                    if (clone) {
+                                        return origToBlob.apply(clone, arguments);
+                                    }
+                                    return origToBlob.apply(this, arguments);
+                                }, 'toBlob');
+                            }
+
+                            function hookWebGLContext(proto) {
+                                if (!proto) return;
+                                try {
+                                    var origReadPixels = proto.readPixels;
+                                    if (typeof origReadPixels === 'function') {
+                                        proto.readPixels = makeNative(function(x, y, width, height, format, type, pixels) {
+                                            origReadPixels.apply(this, arguments);
+                                            try {
+                                                if (pixels && typeof pixels.length === 'number' && pixels.length >= 16) {
+                                                    farblePixelArray(pixels, (width | 0) * 37 + (height | 0));
+                                                }
+                                            } catch (_) {}
+                                        }, 'readPixels');
+                                    }
+                                    var origGetParameter = proto.getParameter;
+                                    if (typeof origGetParameter === 'function') {
+                                        var jitter = ((fpSeed % 7) + 1) * 1e-5;
+                                        proto.getParameter = makeNative(function(pname) {
+                                            var res = origGetParameter.apply(this, arguments);
+                                            try {
+                                                // ALIASED_LINE_WIDTH_RANGE (0x846E) or ALIASED_POINT_SIZE_RANGE (0x846D)
+                                                if ((pname === 0x846E || pname === 0x846D) && res && res.length === 2) {
+                                                    var copy = new Float32Array(2);
+                                                    copy[0] = res[0];
+                                                    copy[1] = res[1] + jitter;
+                                                    return copy;
+                                                }
+                                            } catch (_) {}
+                                            return res;
+                                        }, 'getParameter');
+                                    }
+                                } catch (_) {}
+                            }
+
+                            if (window.WebGLRenderingContext) hookWebGLContext(WebGLRenderingContext.prototype);
+                            if (window.WebGL2RenderingContext) hookWebGLContext(WebGL2RenderingContext.prototype);
+
+                            // 10d. AudioContext / OfflineAudioContext Sample Farbling
+                            if (window.AudioBuffer && AudioBuffer.prototype.getChannelData) {
+                                var origGetChannelData = AudioBuffer.prototype.getChannelData;
+                                var farbledAudioBuffers = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+                                var audioNoise = ((fpSeed % 89) + 11) * 1e-6;
+                                AudioBuffer.prototype.getChannelData = makeNative(function() {
+                                    var data = origGetChannelData.apply(this, arguments);
+                                    try {
+                                        if (data && data.length > 0 && (!farbledAudioBuffers || !farbledAudioBuffers.has(data))) {
+                                            if (farbledAudioBuffers) farbledAudioBuffers.add(data);
+                                            for (var i = 0; i < data.length; i += 7) {
+                                                data[i] = data[i] + audioNoise;
+                                            }
+                                        }
+                                    } catch (_) {}
+                                    return data;
+                                }, 'getChannelData');
+                            }
+                        }
+                    } catch (_) {}
                 }
             } catch (_) {}
         })();

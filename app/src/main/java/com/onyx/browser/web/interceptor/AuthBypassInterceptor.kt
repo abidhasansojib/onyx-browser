@@ -73,8 +73,13 @@ class AuthBypassInterceptor(
                 PrivacyUrlSanitizer.isMediaUrl(url) ||
                 BrowserWebViewClient.isMediaOrStreamingHost(reqDomain)
 
+        val isStreamingSubframe = resourceType == "sub_frame" && (
+                BrowserWebViewClient.isStreamingOrMediaPage(url) ||
+                BrowserWebViewClient.isStreamingOrMediaPage(pageUrl)
+        )
+
         // Ensure active auth, CAPTCHA iframes, and media streams retain cross-site cookies
-        if (isMetaContext || isCaptchaResource || isOAuthResource) {
+        if (isMetaContext || isCaptchaResource || (isOAuthResource && isNavigationOrSameSite)) {
             onyxWebView?.lastOAuthInteractionTimestamp = System.currentTimeMillis()
             view?.post {
                 try {
@@ -83,15 +88,8 @@ class AuthBypassInterceptor(
                     activeCm.setAcceptThirdPartyCookies(view, true)
                 } catch (_: Exception) {}
             }
-        } else if (isMediaSubresource || resourceType == "sub_frame") {
-            if (isMediaSubresource ||
-                (resourceType == "sub_frame" && (
-                        BrowserWebViewClient.isStreamingOrMediaPage(url) ||
-                        BrowserWebViewClient.isStreamingOrMediaPage(pageUrl)
-                ))
-            ) {
-                onyxWebView?.hasActiveMediaSubresource = true
-            }
+        } else if (isMediaSubresource || isStreamingSubframe) {
+            onyxWebView?.hasActiveMediaSubresource = true
             view?.post {
                 try {
                     val activeCm = onyxWebView?.cookieManager ?: CookieManager.getInstance()
@@ -142,10 +140,6 @@ class AuthBypassInterceptor(
             if (isWithinOAuthGrace && !isMetaAdPixel) {
                 return null
             }
-        }
-
-        if (isWithinOAuthGrace && !isMetaAdPixel) {
-            return null
         }
 
         // 6. Permitted Social Content & Embeds

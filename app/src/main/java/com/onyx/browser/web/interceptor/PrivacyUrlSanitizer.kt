@@ -456,9 +456,7 @@ object PrivacyUrlSanitizer {
                 d.contains("arkose") || d.contains("funcaptcha") ||
                 // Google identity and auth
                 d == "accounts.google.com" || d.endsWith(".accounts.google.com") ||
-                d == "oauth2.googleapis.com" || d == "apis.google.com" ||
-                d == "ssl.gstatic.com" || d == "www.gstatic.com" ||
-                d == "id.google.com" ||
+                d == "oauth2.googleapis.com" || d == "id.google.com" ||
                 // Apple Sign-In
                 d == "appleid.apple.com" || (d.endsWith(".apple.com") && (d.contains("auth") || d.contains("appleid"))) ||
                 d == "idmsa.apple.com" || d == "signin.apple.com" ||

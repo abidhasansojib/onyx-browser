@@ -150,6 +150,26 @@ class ShieldBridge(
     }
 
     @JavascriptInterface
+    fun isFingerprintProtectionActive(domainOrUrl: String?): Boolean {
+        if (!preferences.isFingerprintProtectionEnabled) return false
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return true
+        if (preferences.isDomainWhitelisted(target)) return false
+        val clean = preferences.cleanDomain(target)
+        if (isCaptchaChallengeDomain(clean)) return false
+        return true
+    }
+
+    @JavascriptInterface
+    fun isFingerprintLangActive(domainOrUrl: String?): Boolean {
+        if (!preferences.isFingerprintLangEnabled) return false
+        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: return true
+        if (preferences.isDomainWhitelisted(target)) return false
+        val clean = preferences.cleanDomain(target)
+        if (isCaptchaChallengeDomain(clean)) return false
+        return true
+    }
+
+    @JavascriptInterface
     fun getHiddenSelectors(classesJson: String?, idsJson: String?, pageUrl: String?): String {
         if (!preferences.isAdBlockEnabled || !preferences.isCosmeticFilteringEnabled) return "[]"
         val url = pageUrl?.takeIf { it.isNotBlank() } ?: return "[]"
