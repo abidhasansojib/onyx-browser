@@ -1069,10 +1069,6 @@ class ScriptCodeEditorView @JvmOverloads constructor(
         // No-op: code editor should never be scraped by Autofill
     }
 
-    override fun onProvideContentCaptureStructure(structure: ViewStructure?, flags: Int) {
-        // No-op: prevent ContentCapture from copying hundreds of KB of script text when keyboard opens
-    }
-
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
         val baseIc = super.onCreateInputConnection(outAttrs) ?: return null
 

@@ -21,6 +21,7 @@ import com.onyx.browser.nativebridge.AdBlockEngine
 import com.onyx.browser.web.adblock.AdBlockDocumentStart
 import com.onyx.browser.web.adblock.AdBlockDomainManager
 import com.onyx.browser.web.adblock.DsdHydrationFix
+import com.onyx.browser.web.bridge.ChromeEnvironmentBridge
 import com.onyx.browser.web.bridge.PasskeyWebAuthnBridge
 import com.onyx.browser.web.bridge.TouchBridge
 import com.onyx.browser.web.bridge.WebGLCompatibilityBridge
