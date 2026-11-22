@@ -83,8 +83,12 @@ class SearchController(
                 resolveClipboardText()
             }
         )
-        binding.rvSearchSuggestions.layoutManager = LinearLayoutManager(activity)
+        binding.rvSearchSuggestions.layoutManager = LinearLayoutManager(activity).apply {
+            reverseLayout = preferences.isAddressBarAtBottom
+            stackFromEnd = false
+        }
         binding.rvSearchSuggestions.adapter = suggestionsAdapter
+        syncSearchOverlayLayoutOrder()
 
         // Current Webpage Card Actions: Share, Copy, Edit
         binding.btnCurrentPageShare.setOnClickListener {
@@ -144,9 +148,56 @@ class SearchController(
         }
     }
 
+    private fun syncSearchOverlayLayoutOrder() {
+        val isBottom = preferences.isAddressBarAtBottom
+        val density = activity.resources.displayMetrics.density
+        if (isBottom) {
+            if (binding.searchOverlay.indexOfChild(binding.cardCurrentPage) == 0) {
+                binding.searchOverlay.removeView(binding.cardCurrentPage)
+                binding.searchOverlay.addView(binding.cardCurrentPage)
+            }
+            (binding.rvSearchSuggestions.layoutManager as? LinearLayoutManager)?.let { lm ->
+                if (!lm.reverseLayout || lm.stackFromEnd) {
+                    lm.reverseLayout = true
+                    lm.stackFromEnd = false
+                }
+            }
+            (binding.cardCurrentPage.layoutParams as? ViewGroup.MarginLayoutParams)?.let { cardLp ->
+                cardLp.topMargin = (6 * density).toInt()
+                cardLp.bottomMargin = (8 * density).toInt()
+                binding.cardCurrentPage.layoutParams = cardLp
+            }
+        } else {
+            if (binding.searchOverlay.indexOfChild(binding.cardCurrentPage) != 0) {
+                binding.searchOverlay.removeView(binding.cardCurrentPage)
+                binding.searchOverlay.addView(binding.cardCurrentPage, 0)
+            }
+            (binding.rvSearchSuggestions.layoutManager as? LinearLayoutManager)?.let { lm ->
+                if (lm.reverseLayout || lm.stackFromEnd) {
+                    lm.reverseLayout = false
+                    lm.stackFromEnd = false
+                }
+            }
+            (binding.cardCurrentPage.layoutParams as? ViewGroup.MarginLayoutParams)?.let { cardLp ->
+                cardLp.topMargin = (8 * density).toInt()
+                cardLp.bottomMargin = (6 * density).toInt()
+                binding.cardCurrentPage.layoutParams = cardLp
+            }
+        }
+    }
+
+    private fun submitSuggestions(list: List<SearchSuggestion>) {
+        suggestionsAdapter.submitList(list) {
+            if (list.isNotEmpty()) {
+                binding.rvSearchSuggestions.scrollToPosition(0)
+            }
+        }
+    }
+
     fun enterSearchMode() {
         if (isSearchMode) return
         isSearchMode = true
+        syncSearchOverlayLayoutOrder()
 
         val lp = binding.topBar.layoutParams as? ViewGroup.MarginLayoutParams
         if (lp != null && (lp.topMargin != 0 || lp.bottomMargin != 0)) {
@@ -190,7 +241,7 @@ class SearchController(
 
         // 5. Inject clipboard suggestion if available
         val clipboardOpt = getClipboardSuggestion(forceRefresh = true)
-        suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
+        submitSuggestions(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
     }
 
     fun exitSearchMode() {
@@ -241,7 +292,7 @@ class SearchController(
             val curUrl = getActivePageUrl()
             updateCurrentPageCard(curUrl)
             val clipboardOpt = getClipboardSuggestion()
-            suggestionsAdapter.submitList(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
+            submitSuggestions(if (clipboardOpt != null) listOf(clipboardOpt) else emptyList())
         }
     }
 
@@ -290,7 +341,9 @@ class SearchController(
             } else {
                 if (clipboardOpt != null && !clipboardOpt.isClipboardLazy && clipboardOpt.queryOrUrl.contains(trimmed, ignoreCase = true)) clipboardOpt else null
             }
-            suggestionsAdapter.submitList(if (matches != null) listOf(matches) else emptyList())
+            suggestionsAdapter.submitList(if (matches != null) listOf(matches) else emptyList()) {
+                if (matches != null) binding.rvSearchSuggestions.scrollToPosition(0)
+            }
             return
         }
 
@@ -309,7 +362,7 @@ class SearchController(
             val clipboardOpt = getClipboardSuggestion()
             val clipboardMatch = clipboardOpt?.takeIf { !it.isClipboardLazy && it.queryOrUrl.contains(trimmed, ignoreCase = true) }
             val initialList = if (clipboardMatch != null) listOf(clipboardMatch, instantDomain) else listOf(instantDomain)
-            suggestionsAdapter.submitList(initialList)
+            submitSuggestions(initialList)
         }
 
         suggestionJob = coroutineScope.launch {
@@ -327,7 +380,7 @@ class SearchController(
                 } else {
                     suggestions
                 }
-                suggestionsAdapter.submitList(finalList)
+                submitSuggestions(finalList)
             }
         }
     }

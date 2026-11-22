@@ -120,6 +120,26 @@ class ToolbarLayoutController(
         val topPaddingPx = (6 * density).toInt()
 
         if (isBottom) {
+            if (binding.searchOverlay.indexOfChild(binding.cardCurrentPage) == 0) {
+                binding.searchOverlay.removeView(binding.cardCurrentPage)
+                binding.searchOverlay.addView(binding.cardCurrentPage)
+            }
+            (binding.rvSearchSuggestions.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager)?.let { lm ->
+                lm.reverseLayout = true
+                lm.stackFromEnd = false
+            }
+            binding.rvSearchSuggestions.setPadding(
+                binding.rvSearchSuggestions.paddingLeft,
+                (16 * density).toInt(),
+                binding.rvSearchSuggestions.paddingRight,
+                (2 * density).toInt()
+            )
+            (binding.cardCurrentPage.layoutParams as? ViewGroup.MarginLayoutParams)?.let { cardLp ->
+                cardLp.topMargin = (6 * density).toInt()
+                cardLp.bottomMargin = (8 * density).toInt()
+                binding.cardCurrentPage.layoutParams = cardLp
+            }
+
             binding.topBar.setPadding(
                 binding.topBar.paddingLeft,
                 topPaddingPx,
@@ -140,6 +160,26 @@ class ToolbarLayoutController(
                 binding.fabScrollToTop.layoutParams = fabLp
             }
         } else {
+            if (binding.searchOverlay.indexOfChild(binding.cardCurrentPage) != 0) {
+                binding.searchOverlay.removeView(binding.cardCurrentPage)
+                binding.searchOverlay.addView(binding.cardCurrentPage, 0)
+            }
+            (binding.rvSearchSuggestions.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager)?.let { lm ->
+                lm.reverseLayout = false
+                lm.stackFromEnd = false
+            }
+            binding.rvSearchSuggestions.setPadding(
+                binding.rvSearchSuggestions.paddingLeft,
+                (2 * density).toInt(),
+                binding.rvSearchSuggestions.paddingRight,
+                (16 * density).toInt()
+            )
+            (binding.cardCurrentPage.layoutParams as? ViewGroup.MarginLayoutParams)?.let { cardLp ->
+                cardLp.topMargin = (8 * density).toInt()
+                cardLp.bottomMargin = (6 * density).toInt()
+                binding.cardCurrentPage.layoutParams = cardLp
+            }
+
             binding.topBar.setPadding(
                 binding.topBar.paddingLeft,
                 topPaddingPx,
