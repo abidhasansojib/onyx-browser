@@ -82,7 +82,7 @@ object UserScriptSyntaxHighlighter {
      * Highlights only the specified range within the editable text.
      * Guaranteed to be O(range length) rather than O(total document size).
      */
-    private const val MAX_HIGHLIGHT_CHARS = 120_000
+    private const val MAX_HIGHLIGHT_CHARS = 16_000
 
     fun highlightRange(
         editable: Editable,
@@ -90,15 +90,14 @@ object UserScriptSyntaxHighlighter {
         rangeEnd: Int,
         colors: ThemeColors
     ) {
-        if (rangeEnd - rangeStart > MAX_HIGHLIGHT_CHARS) return
         val len = editable.length
         if (len == 0) return
         val start = rangeStart.coerceIn(0, len)
-        val end = rangeEnd.coerceIn(start, len)
+        val end = minOf(rangeEnd.coerceIn(start, len), start + MAX_HIGHLIGHT_CHARS)
         if (start >= end) return
 
-        // 1. Clear existing syntax spans in this range
-        val oldSpans = editable.getSpans(start, end, JsSyntaxSpan::class.java)
+        // 1. Clear all existing syntax spans so span count in SpannableStringBuilder never accumulates
+        val oldSpans = editable.getSpans(0, len, JsSyntaxSpan::class.java)
         for (span in oldSpans) {
             editable.removeSpan(span)
         }

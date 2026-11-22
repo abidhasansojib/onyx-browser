@@ -165,12 +165,12 @@
                 <!-- Clear Search Input Button -->
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/btnClearUrl"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_marginStart="4dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="6dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/clear_search"
-                    android:padding="2dp"
+                    android:padding="5dp"
                     android:visibility="gone"
                     app:srcCompat="@drawable/ic_close"
                     app:tint="?attr/colorControlNormal" />
@@ -178,12 +178,12 @@
                 <!-- QR Code Scanner Button -->
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/btnQrScanner"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_marginStart="4dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="10dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/qr_scan"
-                    android:padding="2dp"
+                    android:padding="5dp"
                     android:visibility="gone"
                     app:srcCompat="@drawable/ic_qr_code"
                     app:tint="?attr/colorControlNormal" />
@@ -191,11 +191,13 @@
                 <!-- Voice Search Button (Mic) -->
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/btnVoiceSearch"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_marginStart="4dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="4dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/voice_search"
+                    android:padding="3dp"
                     android:visibility="gone"
                     app:srcCompat="@drawable/ic_mic"
                     app:tint="?attr/colorControlNormal" />

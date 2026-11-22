@@ -17,8 +17,14 @@ import android.view.MotionEvent
 import android.view.VelocityTracker
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.view.ViewStructure
+import android.view.inputmethod.ExtractedText
+import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputConnectionWrapper
 import android.view.inputmethod.InputMethodManager
+import android.view.inputmethod.SurroundingText
+import android.view.textclassifier.TextClassifier
 import android.widget.LinearLayout
 import android.widget.OverScroller
 import android.util.AttributeSet
@@ -181,7 +187,10 @@ class UserScriptEditorActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        // Use standard system window fitting with adjustResize so opening the soft keyboard
+        // performs a single fast layout pass instead of 30+ per-frame imePadding() layout passes
+        // on large multi-thousand-line userscripts.
+        WindowCompat.setDecorFitsSystemWindows(window, true)
 
         manager = UserScriptManager.getInstance(this)
         preferences = BrowserPreferences.getInstance(this)
@@ -395,8 +404,13 @@ class UserScriptEditorActivity : ComponentActivity() {
             lifecycleScope.launch(Dispatchers.IO) {
                 val code = manager.readCodeFile(scriptId)
                 val resolved = if (code.isNotBlank()) code else DEFAULT_TEMPLATE
-                computeInitialStats(resolved)
+                var lines = 1
+                for (i in 0 until resolved.length) {
+                    if (resolved[i] == '\n') lines++
+                }
                 withContext(Dispatchers.Main) {
+                    charCount = resolved.length
+                    lineCount = lines
                     initialCode = resolved
                 }
             }
@@ -841,6 +855,7 @@ class ScriptCodeEditorView @JvmOverloads constructor(
 
     private val history = EditHistoryTracker()
     private var isApplyingHistory = false
+    private var isLoadingInitialText = false
     private var beforeChangeText: CharSequence? = null
 
     var isDarkTheme: Boolean = true
@@ -848,7 +863,7 @@ class ScriptCodeEditorView @JvmOverloads constructor(
             if (field != value) {
                 field = value
                 highlightedStart = -1
-                scheduleViewportHighlighting(delayMs = 0)
+                scheduleViewportHighlighting(delayMs = 80)
             }
         }
 
@@ -856,6 +871,7 @@ class ScriptCodeEditorView @JvmOverloads constructor(
     private var highlightedStart = -1
     private var highlightedEnd = -1
     private val highlightRunnable = Runnable { applyViewportSyntaxHighlighting() }
+    private var cursorNotifyRunnable: Runnable? = null
 
     var isWordWrap: Boolean = false
         private set
@@ -865,8 +881,25 @@ class ScriptCodeEditorView @JvmOverloads constructor(
     var onEditorFocusChanged: ((Boolean) -> Unit)? = null
     var onHistoryStateChanged: ((canUndo: Boolean, canRedo: Boolean) -> Unit)? = null
     var onContentModified: (() -> Unit)? = null
+    var onGutterContentModified: (() -> Unit)? = null
     var onVerticalScrollChanged: ((scrollY: Int) -> Unit)? = null
     var onLayoutReady: (() -> Unit)? = null
+
+    fun setInitialCode(code: String) {
+        isLoadingInitialText = true
+        try {
+            history.clear()
+            highlightedStart = -1
+            highlightedEnd = -1
+            setText(code)
+            setSelection(0)
+            scrollTo(0, 0)
+        } finally {
+            isLoadingInitialText = false
+        }
+        onHistoryStateChanged?.invoke(false, false)
+        scheduleViewportHighlighting(delayMs = 80)
+    }
 
     fun scheduleViewportHighlighting(delayMs: Long = 150) {
         removeCallbacks(highlightRunnable)
@@ -894,7 +927,7 @@ class ScriptCodeEditorView @JvmOverloads constructor(
         // Skip work when the visible region is already highlighted and text is unchanged
         if (highlightedStart >= 0 && visStart >= highlightedStart && visEnd <= highlightedEnd) return
 
-        val bufferLines = 40
+        val bufferLines = 15
         val startLine = maxOf(0, firstVisibleLine - bufferLines)
         val endLine = minOf(totalLines - 1, lastVisibleLine + bufferLines)
 
@@ -916,6 +949,7 @@ class ScriptCodeEditorView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         removeCallbacks(highlightRunnable)
+        cursorNotifyRunnable?.let { removeCallbacks(it) }
     }
 
     val lineCountEstimate: Int
@@ -951,6 +985,16 @@ class ScriptCodeEditorView @JvmOverloads constructor(
         gravity = Gravity.TOP or Gravity.START
         hint = "// Write or paste your userscript here..."
         importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            importantForContentCapture = View.IMPORTANT_FOR_CONTENT_CAPTURE_NO
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            setTextClassifier(TextClassifier.NO_OP)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            breakStrategy = android.text.Layout.BREAK_STRATEGY_SIMPLE
+            hyphenationFrequency = android.text.Layout.HYPHENATION_FREQUENCY_NONE
+        }
         typeface = Typeface.MONOSPACE
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
         setLineSpacing(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2.5f, resources.displayMetrics), 1f)
@@ -991,7 +1035,7 @@ class ScriptCodeEditorView @JvmOverloads constructor(
 
         addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-                if (isApplyingHistory || isApplyingSyntaxSpans || s == null) return
+                if (isLoadingInitialText || isApplyingHistory || isApplyingSyntaxSpans || s == null) return
                 if (count < 8000) {
                     beforeChangeText = android.text.TextUtils.substring(s, start, start + count)
                 } else {
@@ -1000,8 +1044,9 @@ class ScriptCodeEditorView @JvmOverloads constructor(
             }
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                if (isApplyingSyntaxSpans) return
+                if (isLoadingInitialText || isApplyingSyntaxSpans) return
                 highlightedStart = -1
+                onGutterContentModified?.invoke()
                 onContentModified?.invoke()
                 scheduleViewportHighlighting(delayMs = 300)
                 if (isApplyingHistory || s == null) return
@@ -1016,8 +1061,20 @@ class ScriptCodeEditorView @JvmOverloads constructor(
         })
     }
 
+    override fun onProvideStructure(structure: ViewStructure?) {
+        // No-op: prevent Assist / System Intelligence from scraping large userscript buffers on focus
+    }
+
+    override fun onProvideAutofillStructure(structure: ViewStructure?, flags: Int) {
+        // No-op: code editor should never be scraped by Autofill
+    }
+
+    override fun onProvideContentCaptureStructure(structure: ViewStructure?, flags: Int) {
+        // No-op: prevent ContentCapture from copying hundreds of KB of script text when keyboard opens
+    }
+
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
-        val ic = super.onCreateInputConnection(outAttrs) ?: return null
+        val baseIc = super.onCreateInputConnection(outAttrs) ?: return null
 
         outAttrs.imeOptions = outAttrs.imeOptions or
                 EditorInfo.IME_FLAG_NO_EXTRACT_UI or
@@ -1028,8 +1085,8 @@ class ScriptCodeEditorView @JvmOverloads constructor(
                 InputType.TYPE_TEXT_FLAG_MULTI_LINE or
                 InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
 
-        // CRITICAL FIX: Limit surrounding text sent across Binder IPC to IME.
-        // Prevents Gboard / Samsung Keyboard from freezing for seconds on large scripts.
+        // Limit surrounding text sent across Binder IPC to IME and always strip spans
+        // via TextUtils.substring (plain String) so Gboard / Samsung Keyboard opens instantaneously.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val s = text
             val len = s?.length ?: 0
@@ -1037,11 +1094,70 @@ class ScriptCodeEditorView @JvmOverloads constructor(
                 val sel = selectionStart.coerceIn(0, len)
                 val subStart = maxOf(0, sel - 128)
                 val subEnd = minOf(len, sel + 128)
-                val subText = s?.subSequence(subStart, subEnd) ?: ""
+                val subText = android.text.TextUtils.substring(s, subStart, subEnd)
                 outAttrs.setInitialSurroundingSubText(subText, subStart)
             }
         }
-        return ic
+
+        return object : InputConnectionWrapper(baseIc, false) {
+            override fun getExtractedText(request: ExtractedTextRequest?, flags: Int): ExtractedText? {
+                // CRITICAL PERFORMANCE FIX:
+                // Default EditableInputConnection.getExtractedText() calls TextView.extractText(),
+                // which copies the ENTIRE document (0..length, often 100KB-2MB with all spans)
+                // across Binder IPC to the keyboard process and enables mExtractedTextMode monitoring.
+                // Returning null keeps IME communication O(1) via bounded surrounding text queries.
+                return null
+            }
+
+            override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence {
+                val s = text ?: return ""
+                val len = s.length
+                if (len == 0) return ""
+                val sel = selectionStart.coerceIn(0, len)
+                val count = n.coerceIn(0, 256)
+                val start = maxOf(0, sel - count)
+                return android.text.TextUtils.substring(s, start, sel)
+            }
+
+            override fun getTextAfterCursor(n: Int, flags: Int): CharSequence {
+                val s = text ?: return ""
+                val len = s.length
+                if (len == 0) return ""
+                val sel = selectionEnd.coerceIn(0, len)
+                val count = n.coerceIn(0, 256)
+                val end = minOf(len, sel + count)
+                return android.text.TextUtils.substring(s, sel, end)
+            }
+
+            override fun getSelectedText(flags: Int): CharSequence? {
+                val s = text ?: return null
+                val len = s.length
+                val selStart = selectionStart.coerceIn(0, len)
+                val selEnd = selectionEnd.coerceIn(0, len)
+                if (selStart == selEnd) return null
+                val min = minOf(selStart, selEnd)
+                val max = minOf(maxOf(selStart, selEnd), min + 1024)
+                return android.text.TextUtils.substring(s, min, max)
+            }
+
+            override fun getSurroundingText(beforeLength: Int, afterLength: Int, flags: Int): SurroundingText? {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val s = text ?: return SurroundingText("", 0, 0, 0)
+                    val len = s.length
+                    val selStart = selectionStart.coerceIn(0, len)
+                    val selEnd = selectionEnd.coerceIn(0, len)
+                    val minSel = minOf(selStart, selEnd)
+                    val maxSel = maxOf(selStart, selEnd)
+                    val subStart = maxOf(0, minSel - beforeLength.coerceIn(0, 256))
+                    val subEnd = minOf(len, maxSel + afterLength.coerceIn(0, 256))
+                    val sub = android.text.TextUtils.substring(s, subStart, minOf(subEnd, subStart + 1024))
+                    val localStart = (minSel - subStart).coerceIn(0, sub.length)
+                    val localEnd = (maxSel - subStart).coerceIn(localStart, sub.length)
+                    return SurroundingText(sub, localStart, localEnd, subStart)
+                }
+                return super.getSurroundingText(beforeLength, afterLength, flags)
+            }
+        }
     }
 
     private var appliedWrap: Boolean? = null
@@ -1060,7 +1176,9 @@ class ScriptCodeEditorView @JvmOverloads constructor(
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
-        onLayoutReady?.invoke()
+        if (changed) {
+            onLayoutReady?.invoke()
+        }
     }
 
     override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
@@ -1167,7 +1285,7 @@ class ScriptCodeEditorView @JvmOverloads constructor(
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
         onCursorSelectionChanged?.invoke()
-        if (isDragging) return
+        if (isDragging || isLoadingInitialText) return
         val l = layout ?: return
         val len = text?.length ?: return
         if (selStart < 0 || selStart > len) return
@@ -1176,7 +1294,14 @@ class ScriptCodeEditorView @JvmOverloads constructor(
         if (line != lastReportedLine || col != lastReportedCol) {
             lastReportedLine = line
             lastReportedCol = col
-            onCursorPositionChanged?.invoke(line + 1, col + 1)
+            // Post cursor status bar state updates asynchronously so tapping the editor
+            // never blocks soft-keyboard startup with synchronous Compose recomposition.
+            cursorNotifyRunnable?.let { removeCallbacks(it) }
+            val r = Runnable {
+                onCursorPositionChanged?.invoke(line + 1, col + 1)
+            }
+            cursorNotifyRunnable = r
+            postDelayed(r, 48)
         }
     }
 
@@ -1295,19 +1420,18 @@ class CodeEditorContainer @JvmOverloads constructor(
 
         editorView.onVerticalScrollChanged = { scrollY ->
             gutterView.onEditorScrolled(scrollY)
-            editorView.scheduleViewportHighlighting(delayMs = 60)
+            editorView.scheduleViewportHighlighting(delayMs = 80)
         }
         editorView.onCursorSelectionChanged = {
             gutterView.postInvalidateOnAnimation()
         }
-        editorView.onContentModified = {
+        editorView.onGutterContentModified = {
             gutterView.invalidateLineCache()
             gutterView.updateDigits()
         }
         editorView.onLayoutReady = {
             gutterView.syncFontMetrics()
-            gutterView.updateDigits()
-            editorView.scheduleViewportHighlighting(delayMs = 0)
+            editorView.scheduleViewportHighlighting(delayMs = 100)
         }
     }
 
@@ -1344,10 +1468,7 @@ class CodeEditorContainer @JvmOverloads constructor(
         )
 
         if (initialCode != null) {
-            editorView.setText(initialCode)
-            editorView.setSelection(0)
-            editorView.scrollTo(0, 0)
-            editorView.scheduleViewportHighlighting(delayMs = 50)
+            editorView.setInitialCode(initialCode)
         }
 
         onBindEditor(editorView)
@@ -1640,10 +1761,7 @@ fun UserScriptEditorScreen(
 
                 // Bottom Status Bar & Keyboard Accessory Bar
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .imePadding()
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     HorizontalDivider(
                         thickness = 1.dp,
