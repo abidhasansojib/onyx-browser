@@ -16,7 +16,7 @@ data class TabGroupItem(
 ) {
     companion object {
         const val DEFAULT_COLOR_ORANGE = "#FF5C38"
-        const val COLOR_BLUE = "#2563EB"
+        const val COLOR_BLUE = "#8AB4F8"
         const val COLOR_GREEN = "#10B981"
         const val COLOR_VIOLET = "#8B5CF6"
         const val COLOR_AMBER = "#F59E0B"
