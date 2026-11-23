@@ -849,6 +849,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 binding.statusBarSpace.visibility = View.GONE
                 binding.topBar.visibility = View.GONE
                 binding.topBarDivider.visibility = View.GONE
+                binding.tabGroupBottomBar.visibility = View.GONE
                 binding.homeLayout.root.visibility = View.GONE
                 binding.fullscreenControlsOverlay.visibility = View.GONE
                 binding.progressBar.visibility = View.GONE
@@ -857,6 +858,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             },
             onRestoreUiFromPip = { isCustomVideo ->
                 if (!isCustomVideo) {
+                    binding.tabGroupBottomBar.visibility = View.VISIBLE
                     binding.contentContainer.setPadding(0, 0, 0, if (preferences.isAddressBarAtBottom) 0 else lastNavBarBottomInset)
                     if (lastStatusBarTopInset > 0) {
                         binding.statusBarSpace.visibility = View.VISIBLE
@@ -1090,6 +1092,94 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             }
 
             sheet.show(supportFragmentManager, TabSwitcherBottomSheet.TAG)
+        }
+
+        // Persistent Bottom Tab Group Bar (visible when active tab is inside a Tab Group)
+        binding.tabGroupBottomBar.apply {
+            setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                val isDark = when (preferences.themeMode) {
+                    BrowserPreferences.THEME_DARK -> true
+                    BrowserPreferences.THEME_LIGHT -> false
+                    else -> androidx.compose.foundation.isSystemInDarkTheme()
+                }
+                val accentColor = androidx.compose.runtime.remember(preferences.accentColorHex, preferences.accentColorPreset) {
+                    androidx.compose.ui.graphics.Color(com.onyx.browser.ui.theme.AccentColorManager.getAccentColor(preferences))
+                }
+                com.onyx.browser.ui.theme.OnyxTheme(darkTheme = isDark, isAmoled = false, accentColor = accentColor) {
+                    com.onyx.browser.ui.tabs.TabGroupBottomBar(
+                        tabManager = tabManager,
+                        onExpandGroupClick = { group ->
+                            val activeTabId = tabManager.activeTab.value?.id
+                            val activeWebView = tabManager.getActiveWebView()
+
+                            if (com.onyx.browser.ui.menu.ElementPickerManager.isPickerActive && activeWebView != null) {
+                                com.onyx.browser.ui.menu.ElementPickerManager.cancelPicker(activeWebView)
+                            }
+
+                            val previewSheet = TabSwitcherBottomSheet(
+                                tabManager = tabManager,
+                                coroutineScope = lifecycleScope,
+                                onTabSelected = { tab ->
+                                    displayTab(tab)
+                                },
+                                onNewTabRequested = { isIncognito ->
+                                    val newTab = tabManager.createNewTab(isIncognito = isIncognito)
+                                    displayTab(newTab)
+                                },
+                                onSearchRequested = {
+                                    searchController.enterSearchMode()
+                                },
+                                initialOpenedGroupId = group.id,
+                                isDirectGroupPreviewOnly = true
+                            )
+
+                            if (activeTabId != null && activeWebView != null) {
+                                tabManager.captureTabSnapshot(activeTabId, activeWebView) {
+                                    runOnUiThread {
+                                        if (previewSheet.isAdded && !previewSheet.isHidden) {
+                                            previewSheet.refreshTabsList()
+                                        }
+                                    }
+                                }
+                            }
+
+                            previewSheet.show(supportFragmentManager, TabSwitcherBottomSheet.TAG)
+                        },
+                        onSelectTabClick = { targetTab ->
+                            val activeTabId = tabManager.activeTab.value?.id
+                            val activeWebView = tabManager.getActiveWebView()
+                            if (activeTabId != null && activeWebView != null) {
+                                tabManager.captureTabSnapshot(activeTabId, activeWebView)
+                            }
+                            tabManager.selectTab(targetTab)
+                            displayTab(targetTab)
+                        },
+                        onCloseTabClick = { tabToClose ->
+                            tabManager.closeTab(tabToClose)
+                            val nextActive = tabManager.activeTab.value
+                            if (nextActive != null) {
+                                displayTab(nextActive)
+                            } else {
+                                showHomeScreen()
+                            }
+                        },
+                        onNewTabInGroupClick = { group ->
+                            val activeTabId = tabManager.activeTab.value?.id
+                            val activeWebView = tabManager.getActiveWebView()
+                            if (activeTabId != null && activeWebView != null) {
+                                tabManager.captureTabSnapshot(activeTabId, activeWebView)
+                            }
+                            val newTab = tabManager.createNewTab(
+                                isIncognito = false,
+                                groupId = group.id
+                            )
+                            tabManager.selectTab(newTab)
+                            displayTab(newTab)
+                        }
+                    )
+                }
+            }
         }
 
         // Long-Press Tab Switcher: Quick Tab Actions Menu

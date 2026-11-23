@@ -516,26 +516,46 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/topBarDivider">
 
-        <!-- Included Homepage Body -->
-        <include
-            android:id="@+id/homeLayout"
-            layout="@layout/fragment_home"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-
-        <!-- WebView Container (swapped in when active tab is on web) -->
-        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-            android:id="@+id/swipeRefreshLayout"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:orientation="vertical">
 
             <FrameLayout
-                android:id="@+id/webViewContainer"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:visibility="gone" />
+                android:layout_height="0dp"
+                android:layout_weight="1">
 
-        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+                <!-- Included Homepage Body -->
+                <include
+                    android:id="@+id/homeLayout"
+                    layout="@layout/fragment_home"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <!-- WebView Container (swapped in when active tab is on web) -->
+                <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+                    android:id="@+id/swipeRefreshLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <FrameLayout
+                        android:id="@+id/webViewContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:visibility="gone" />
+
+                </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+            </FrameLayout>
+
+            <!-- Persistent Bottom Tab Group Bar (Visible when active tab belongs to a Tab Group) -->
+            <androidx.compose.ui.platform.ComposeView
+                android:id="@+id/tabGroupBottomBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+        </LinearLayout>
 
     </FrameLayout>
 

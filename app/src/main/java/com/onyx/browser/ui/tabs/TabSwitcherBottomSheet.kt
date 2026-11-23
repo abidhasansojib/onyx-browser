@@ -113,7 +113,9 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
     private val coroutineScope: CoroutineScope? = null,
     private val onTabSelected: (TabItem) -> Unit = {},
     private val onNewTabRequested: (Boolean) -> Unit = {},
-    private val onSearchRequested: (() -> Unit)? = null
+    private val onSearchRequested: (() -> Unit)? = null,
+    private val initialOpenedGroupId: String? = null,
+    private val isDirectGroupPreviewOnly: Boolean = false
 ) : DialogFragment() {
 
     private val tabManager: TabCoordinator by lazy {
@@ -153,10 +155,16 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                 BrowserPreferences.THEME_LIGHT -> false
                 else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             }
-            val bgColor = if (isDark) 0xFF161616.toInt() else 0xFFF1F3F4.toInt()
+            val bgColor = if (isDirectGroupPreviewOnly) {
+                android.graphics.Color.TRANSPARENT
+            } else if (isDark) {
+                0xFF161616.toInt()
+            } else {
+                0xFFF1F3F4.toInt()
+            }
             setBackgroundDrawable(ColorDrawable(bgColor))
-            statusBarColor = bgColor
-            navigationBarColor = bgColor
+            statusBarColor = if (isDirectGroupPreviewOnly) android.graphics.Color.TRANSPARENT else bgColor
+            navigationBarColor = if (isDirectGroupPreviewOnly) android.graphics.Color.TRANSPARENT else bgColor
             WindowCompat.setDecorFitsSystemWindows(this, false)
             val controller = WindowCompat.getInsetsController(this, decorView)
             controller.isAppearanceLightStatusBars = !isDark
@@ -244,7 +252,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         var overflowMenuExpanded by remember { mutableStateOf(false) }
         var selectedTabForMenu by remember { mutableStateOf<TabItem?>(null) }
         var selectedTabForMoveGroup by remember { mutableStateOf<TabItem?>(null) }
-        var openedGroupId by remember { mutableStateOf<String?>(null) }
+        var openedGroupId by remember { mutableStateOf(initialOpenedGroupId) }
         var groupForAddingTabs by remember { mutableStateOf<TabGroupItem?>(null) }
         var showArchivedSheet by remember { mutableStateOf(false) }
         var showAutoArchiveConfigSheet by remember { mutableStateOf(false) }
@@ -262,6 +270,10 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         LaunchedEffect(tabGroups, isViewingIncognito) {
             if (isViewingIncognito || (openedGroupId != null && tabGroups.none { it.id == openedGroupId })) {
                 openedGroupId = null
+                if (isDirectGroupPreviewOnly && !isDismissing) {
+                    isDismissing = true
+                    dismissAllowingStateLoss()
+                }
             }
         }
 
@@ -269,6 +281,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         val openedGroup = openedGroupId?.let { groupMap[it] }
 
         Box(modifier = Modifier.fillMaxSize()) {
+            if (!isDirectGroupPreviewOnly) {
             Scaffold(
                 topBar = {
                     TabSwitcherTopBar(
@@ -482,6 +495,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                     }
                 }
             }
+            }
 
             // Full-screen Tab Group Preview Overlay (2nd image: header with back + color dot + title + 3-dot, grid of group tabs, bottom-center + FAB)
             if (!isViewingIncognito && openedGroup != null) {
@@ -494,7 +508,16 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                     activeTabId = activeTab?.id,
                     spanCount = spanCount,
                     snapshotRevision = rev,
-                    onBack = { openedGroupId = null },
+                    onBack = {
+                        if (isDirectGroupPreviewOnly) {
+                            if (!isDismissing) {
+                                isDismissing = true
+                                dismissAllowingStateLoss()
+                            }
+                        } else {
+                            openedGroupId = null
+                        }
+                    },
                     onEditGroupClick = {
                         editingGroup = openedGroup
                         initialTabForNewGroup = null
@@ -522,7 +545,12 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             tabManager.closeTab(tab)
                             showUndoToastForTab(tab)
                             if (wasLastInGroup) {
-                                openedGroupId = null
+                                if (isDirectGroupPreviewOnly) {
+                                    isDismissing = true
+                                    dismissAllowingStateLoss()
+                                } else {
+                                    openedGroupId = null
+                                }
                             }
                         }
                     },
