@@ -582,14 +582,19 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                 )
             }
 
-                // Floating Undo Toast (Compact, sleek pill matching old branch bg_undo_toast)
+                // Floating Undo Toast (Positioned above the bottom bar / + button so it never overlaps controls)
                 AnimatedVisibility(
                     visible = undoMessage != null,
                     enter = slideInVertically(initialOffsetY = { it }) + fadeIn(tween(220)),
                     exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(tween(180)),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 12.dp, start = 16.dp, end = 16.dp)
+                        .navigationBarsPadding()
+                        .padding(
+                            bottom = if (openedGroup != null) 96.dp else 80.dp,
+                            start = 16.dp,
+                            end = 16.dp
+                        )
                         .widthIn(max = 600.dp)
                         .fillMaxWidth()
                 ) {
