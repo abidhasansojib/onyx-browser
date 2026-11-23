@@ -55,6 +55,13 @@ fun TabGroupBottomBar(
 
     val currentActive = activeTab
     if (currentActive == null || currentActive.isIncognito) return
+    val activeUrl = currentActive.url
+    if (activeUrl.isBlank() ||
+        activeUrl.startsWith("about:blank", ignoreCase = true) ||
+        activeUrl.startsWith("onyx://", ignoreCase = true)
+    ) {
+        return
+    }
 
     val groupId = currentActive.groupId ?: return
     val currentGroup = tabGroups.firstOrNull { it.id == groupId } ?: return

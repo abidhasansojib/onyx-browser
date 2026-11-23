@@ -858,7 +858,6 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             },
             onRestoreUiFromPip = { isCustomVideo ->
                 if (!isCustomVideo) {
-                    binding.tabGroupBottomBar.visibility = View.VISIBLE
                     binding.contentContainer.setPadding(0, 0, 0, if (preferences.isAddressBarAtBottom) 0 else lastNavBarBottomInset)
                     if (lastStatusBarTopInset > 0) {
                         binding.statusBarSpace.visibility = View.VISIBLE
@@ -868,9 +867,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         !activeTab.url.startsWith("onyx://") && !activeTab.url.startsWith("about:")) {
                         binding.homeLayout.root.visibility = View.GONE
                         binding.webViewContainer.visibility = View.VISIBLE
+                        binding.tabGroupBottomBar.visibility = View.VISIBLE
                     } else {
                         binding.homeLayout.root.visibility = View.VISIBLE
                         binding.webViewContainer.visibility = View.GONE
+                        binding.tabGroupBottomBar.visibility = View.GONE
                     }
                     ViewCompat.requestApplyInsets(binding.mainRoot)
                 }
@@ -1406,6 +1407,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         binding.homeLayout.root.visibility = if (inPip) View.GONE else View.VISIBLE
         binding.webViewContainer.visibility = View.GONE
+        binding.tabGroupBottomBar.visibility = View.GONE
         binding.etUrl.setText("")
         binding.ivSslLock.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
@@ -1459,6 +1461,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         binding.homeLayout.root.visibility = View.GONE
         binding.webViewContainer.visibility = View.VISIBLE
+        binding.tabGroupBottomBar.visibility = if (inPip || customVideoView != null) View.GONE else View.VISIBLE
 
         updateIncognitoUI(tab.isIncognito)
 
