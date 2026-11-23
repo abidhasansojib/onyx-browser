@@ -214,8 +214,9 @@ class SearchController(
         binding.btnMenu.visibility = View.GONE
         binding.ivSslLock.visibility = View.GONE
 
-        // 2. Open Search Overlay Page
+        // 2. Open Search Overlay Page & strictly hide bottom Tab Group bar in search mode
         binding.searchOverlay.visibility = View.VISIBLE
+        binding.tabGroupBottomBar.visibility = View.GONE
 
         // 3. Configure Current Webpage Card under search bar
         val curUrl = getActivePageUrl()
@@ -261,8 +262,9 @@ class SearchController(
         // Mic is only shown inside the search bar while in search mode
         binding.btnVoiceSearch.visibility = View.GONE
 
-        // 2. Hide search overlay
+        // 2. Hide search overlay & restore bottom Tab Group bar
         binding.searchOverlay.visibility = View.GONE
+        binding.tabGroupBottomBar.visibility = View.VISIBLE
         binding.cardCurrentPage.visibility = View.GONE
         suggestionsAdapter.submitList(emptyList())
 

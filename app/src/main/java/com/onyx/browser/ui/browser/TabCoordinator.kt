@@ -87,6 +87,9 @@ class TabCoordinator(
     private val _tabGroups = MutableStateFlow<List<TabGroupItem>>(emptyList())
     val tabGroups: StateFlow<List<TabGroupItem>> = _tabGroups.asStateFlow()
 
+    private val _incognitoTabGroups = MutableStateFlow<List<TabGroupItem>>(emptyList())
+    val incognitoTabGroups: StateFlow<List<TabGroupItem>> = _incognitoTabGroups.asStateFlow()
+
     private val _incognitoTabs = MutableStateFlow<List<TabItem>>(emptyList())
     val incognitoTabs: StateFlow<List<TabItem>> = _incognitoTabs.asStateFlow()
 
@@ -1016,49 +1019,79 @@ class TabCoordinator(
     fun getGroupById(groupId: String?): TabGroupItem? {
         if (groupId.isNullOrBlank()) return null
         return _tabGroups.value.firstOrNull { it.id == groupId }
+            ?: _incognitoTabGroups.value.firstOrNull { it.id == groupId }
+    }
+
+    fun isIncognitoGroup(groupId: String?): Boolean {
+        if (groupId.isNullOrBlank()) return false
+        return _incognitoTabGroups.value.any { it.id == groupId }
     }
 
     fun createTabGroup(
         title: String,
         colorHex: String = TabGroupItem.DEFAULT_COLOR_ORANGE,
-        initialTabIds: List<String> = emptyList()
+        initialTabIds: List<String> = emptyList(),
+        isIncognito: Boolean = false
     ): TabGroupItem {
         val cleanTitle = title.trim().ifBlank { "Tab Group" }
         val cleanColor = if (colorHex.startsWith("#")) colorHex.uppercase() else "#${colorHex.uppercase()}"
+        val targetGroupsFlow = if (isIncognito) _incognitoTabGroups else _tabGroups
         val newGroup = TabGroupItem(
             id = UUID.randomUUID().toString(),
             title = cleanTitle,
             colorHex = cleanColor,
-            position = _tabGroups.value.size,
+            position = targetGroupsFlow.value.size,
             createdAt = System.currentTimeMillis(),
             isCollapsed = false
         )
 
-        _tabGroups.value = _tabGroups.value + newGroup
-        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
-            database.tabGroupDao().insertGroup(newGroup)
+        targetGroupsFlow.value = targetGroupsFlow.value + newGroup
+        if (!isIncognito) {
+            coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                database.tabGroupDao().insertGroup(newGroup)
+            }
         }
 
         if (initialTabIds.isNotEmpty()) {
             val idSet = initialTabIds.toSet()
-            var hasChanges = false
-            val updatedNormal = _normalTabs.value.map { tab ->
-                if (tab.id in idSet && !tab.isIncognito) {
-                    hasChanges = true
-                    val grouped = tab.copy(groupId = newGroup.id)
-                    coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
-                        database.tabDao().updateTab(grouped)
+            if (isIncognito) {
+                var hasChanges = false
+                val updatedIncognito = _incognitoTabs.value.map { tab ->
+                    if (tab.id in idSet && tab.isIncognito) {
+                        hasChanges = true
+                        tab.copy(groupId = newGroup.id)
+                    } else {
+                        tab
                     }
-                    grouped
-                } else {
-                    tab
                 }
-            }
-            if (hasChanges) {
-                _normalTabs.value = updatedNormal
-                _activeTab.value?.let { active ->
-                    if (active.id in idSet && !active.isIncognito) {
-                        setActiveTab(active.copy(groupId = newGroup.id))
+                if (hasChanges) {
+                    _incognitoTabs.value = updatedIncognito
+                    _activeTab.value?.let { active ->
+                        if (active.id in idSet && active.isIncognito) {
+                            setActiveTab(active.copy(groupId = newGroup.id))
+                        }
+                    }
+                }
+            } else {
+                var hasChanges = false
+                val updatedNormal = _normalTabs.value.map { tab ->
+                    if (tab.id in idSet && !tab.isIncognito) {
+                        hasChanges = true
+                        val grouped = tab.copy(groupId = newGroup.id)
+                        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                            database.tabDao().updateTab(grouped)
+                        }
+                        grouped
+                    } else {
+                        tab
+                    }
+                }
+                if (hasChanges) {
+                    _normalTabs.value = updatedNormal
+                    _activeTab.value?.let { active ->
+                        if (active.id in idSet && !active.isIncognito) {
+                            setActiveTab(active.copy(groupId = newGroup.id))
+                        }
                     }
                 }
             }
@@ -1072,26 +1105,46 @@ class TabCoordinator(
         val cleanTitle = title.trim().ifBlank { existing.title }
         val cleanColor = if (colorHex.startsWith("#")) colorHex.uppercase() else "#${colorHex.uppercase()}"
         val updated = existing.copy(title = cleanTitle, colorHex = cleanColor)
-        _tabGroups.value = _tabGroups.value.map { if (it.id == groupId) updated else it }
-        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
-            database.tabGroupDao().updateGroup(updated)
+        if (isIncognitoGroup(groupId)) {
+            _incognitoTabGroups.value = _incognitoTabGroups.value.map { if (it.id == groupId) updated else it }
+        } else {
+            _tabGroups.value = _tabGroups.value.map { if (it.id == groupId) updated else it }
+            coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                database.tabGroupDao().updateGroup(updated)
+            }
         }
     }
 
     fun toggleTabGroupCollapsed(groupId: String) {
         val existing = getGroupById(groupId) ?: return
         val updated = existing.copy(isCollapsed = !existing.isCollapsed)
-        _tabGroups.value = _tabGroups.value.map { if (it.id == groupId) updated else it }
-        coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
-            database.tabGroupDao().updateGroup(updated)
+        if (isIncognitoGroup(groupId)) {
+            _incognitoTabGroups.value = _incognitoTabGroups.value.map { if (it.id == groupId) updated else it }
+        } else {
+            _tabGroups.value = _tabGroups.value.map { if (it.id == groupId) updated else it }
+            coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                database.tabGroupDao().updateGroup(updated)
+            }
         }
     }
 
     fun assignTabToGroup(tabId: String, groupId: String?) {
         val targetTab = getTabById(tabId) ?: return
-        if (targetTab.isIncognito) return
         val oldGroupId = targetTab.groupId
         val updated = targetTab.copy(groupId = groupId)
+        if (targetTab.isIncognito) {
+            _incognitoTabs.value = _incognitoTabs.value.map { if (it.id == tabId) updated else it }
+            if (_activeTab.value?.id == tabId) {
+                setActiveTab(updated)
+            }
+            if (oldGroupId != null && oldGroupId != groupId) {
+                val stillHasTabs = _incognitoTabs.value.any { it.groupId == oldGroupId }
+                if (!stillHasTabs) {
+                    _incognitoTabGroups.value = _incognitoTabGroups.value.filter { it.id != oldGroupId }
+                }
+            }
+            return
+        }
         if (updated.isArchived) {
             _archivedTabs.value = _archivedTabs.value.map { if (it.id == tabId) updated else it }
         } else {
@@ -1116,6 +1169,18 @@ class TabCoordinator(
     }
 
     fun ungroupAllInGroup(groupId: String) {
+        if (isIncognitoGroup(groupId)) {
+            _incognitoTabs.value = _incognitoTabs.value.map { tab ->
+                if (tab.groupId == groupId) tab.copy(groupId = null) else tab
+            }
+            _activeTab.value?.let { active ->
+                if (active.groupId == groupId) {
+                    setActiveTab(active.copy(groupId = null))
+                }
+            }
+            _incognitoTabGroups.value = _incognitoTabGroups.value.filter { it.id != groupId }
+            return
+        }
         val updatedNormal = _normalTabs.value.map { tab ->
             if (tab.groupId == groupId) tab.copy(groupId = null) else tab
         }
@@ -1143,6 +1208,65 @@ class TabCoordinator(
         }
 
         val closingGroup = getGroupById(groupId)
+        if (isIncognitoGroup(groupId)) {
+            val tabsInGroup = _incognitoTabs.value.filter { it.groupId == groupId }
+            if (tabsInGroup.isEmpty()) {
+                _incognitoTabGroups.value = _incognitoTabGroups.value.filter { it.id != groupId }
+                return 0
+            }
+            val closingIds = tabsInGroup.map { it.id }.toSet()
+            if (closingIds.contains(com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId)) {
+                com.onyx.browser.media.MediaPlaybackBridge.resetMediaPlayback(context)
+            }
+            val candidateUrls = mutableListOf<String>()
+            val states = mutableListOf<ClosedTabState>()
+            tabsInGroup.forEachIndexed { idx, tab ->
+                onTabClosedListener?.invoke(tab)
+                incognitoStateBundles.remove(tab.id)
+                val webView = webViewPool.remove(tab.id)
+                tabDesktopModeStates.remove(tab.id)
+                tabDesktopModeExplicitToggles.remove(tab.id)
+                candidateUrls.addAll(extractCandidateUrls(tab, webView))
+                com.onyx.browser.web.LocalFileLoader.cleanupTabPreviews(context, tab.id)
+                val snapshot = snapshotCache.get(tab.id)
+                val wasActive = (_activeTab.value?.id == tab.id)
+                webView?.destroySafely()
+                states.add(
+                    ClosedTabState(
+                        tab = tab,
+                        index = idx,
+                        savedStateBundle = null,
+                        snapshot = snapshot,
+                        wasActive = wasActive
+                    )
+                )
+            }
+            autoclearTabData(candidateUrls, closingIds, isIncognito = true)
+            val remainingIncognito = _incognitoTabs.value.filter { it.id !in closingIds }
+            _incognitoTabs.value = remainingIncognito
+            _incognitoTabGroups.value = _incognitoTabGroups.value.filter { it.id != groupId }
+            if (remainingIncognito.isEmpty()) {
+                purgeIncognitoProfile()
+            }
+            if (_activeTab.value?.id in closingIds) {
+                setActiveTab(remainingIncognito.lastOrNull() ?: _normalTabs.value.lastOrNull())
+            }
+            if (states.isNotEmpty()) {
+                val batch = ClosedTabBatch(
+                    states = states,
+                    autoCreatedTabId = null,
+                    isIncognito = true,
+                    closedGroup = closingGroup
+                )
+                closedBatchesStack.addLast(batch)
+                if (closedBatchesStack.size > 10) {
+                    val oldest = closedBatchesStack.removeFirst()
+                    finalizeClosedBatch(oldest)
+                }
+            }
+            return tabsInGroup.size
+        }
+
         val tabsInGroup = _normalTabs.value.filter { it.groupId == groupId }
         val archivedInGroup = _archivedTabs.value.filter { it.groupId == groupId }
         val allInGroup = tabsInGroup + archivedInGroup
@@ -1472,6 +1596,9 @@ class TabCoordinator(
         val batch = closedBatchesStack.removeLastOrNull() ?: return null
 
         if (batch.isIncognito) {
+            if (batch.closedGroup != null && _incognitoTabGroups.value.none { it.id == batch.closedGroup.id }) {
+                _incognitoTabGroups.value = _incognitoTabGroups.value + batch.closedGroup
+            }
             val current = _incognitoTabs.value.toMutableList()
             val toRestore = batch.states.map { it.tab }.filter { tab -> current.none { it.id == tab.id } }
 
@@ -1625,11 +1752,20 @@ class TabCoordinator(
                 .filter { it.id != tab.id }
                 .map { if (it.parentId == tab.id) it.copy(parentId = orphanParentId) else it }
             _incognitoTabs.value = updated
+            val gId = tab.groupId
+            if (gId != null && updated.none { it.groupId == gId }) {
+                autoClosedGroup = getGroupById(gId)
+                _incognitoTabGroups.value = _incognitoTabGroups.value.filter { it.id != gId }
+            }
             if (updated.isEmpty()) {
+                _incognitoTabGroups.value = emptyList()
                 purgeIncognitoProfile()
             }
             if (_activeTab.value?.id == tab.id) {
-                val nextTab = parentTab ?: run {
+                val sameGroupSibling = gId?.let { groupId ->
+                    updated.lastOrNull { it.groupId == groupId }
+                }
+                val nextTab = sameGroupSibling ?: parentTab ?: run {
                     if (updated.isNotEmpty()) {
                         val nextIdx = originalIndex.coerceIn(0, updated.size - 1)
                         updated[nextIdx]

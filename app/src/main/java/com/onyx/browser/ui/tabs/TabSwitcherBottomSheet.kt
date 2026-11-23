@@ -241,6 +241,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         val incognitoTabs by tabManager.incognitoTabs.collectAsStateWithLifecycle()
         val archivedTabs by tabManager.archivedTabs.collectAsStateWithLifecycle()
         val tabGroups by tabManager.tabGroups.collectAsStateWithLifecycle()
+        val incognitoTabGroups by tabManager.incognitoTabGroups.collectAsStateWithLifecycle()
         val activeTab by tabManager.activeTab.collectAsStateWithLifecycle()
 
         var isViewingIncognito by isViewingIncognitoState
@@ -248,6 +249,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         val rev = snapshotRevision.intValue
 
         val currentTabs = if (isViewingIncognito) incognitoTabs else normalTabs
+        val currentGroups = if (isViewingIncognito) incognitoTabGroups else tabGroups
         val prefs = remember { BrowserPreferences.getInstance(context) }
 
         var overflowMenuExpanded by remember { mutableStateOf(false) }
@@ -268,9 +270,9 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         // Group options bottom sheet state
         var selectedGroupForOptions by remember { mutableStateOf<TabGroupItem?>(null) }
 
-        // Close group preview if the opened group was deleted or user switched to incognito
-        LaunchedEffect(tabGroups, isViewingIncognito) {
-            if (isViewingIncognito || (openedGroupId != null && tabGroups.none { it.id == openedGroupId })) {
+        // Close group preview if the opened group was deleted or user switched modes
+        LaunchedEffect(currentGroups, isViewingIncognito) {
+            if (openedGroupId != null && currentGroups.none { it.id == openedGroupId }) {
                 openedGroupId = null
                 if (isDirectGroupPreviewOnly && !isDismissing) {
                     isDismissing = true
@@ -279,7 +281,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
             }
         }
 
-        val groupMap = remember(tabGroups) { tabGroups.associateBy { it.id } }
+        val groupMap = remember(currentGroups) { currentGroups.associateBy { it.id } }
         val openedGroup = openedGroupId?.let { groupMap[it] }
 
         Box(modifier = Modifier.fillMaxSize()) {
@@ -387,16 +389,17 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         .fillMaxSize()
                         .padding(innerPadding)
                 ) {
-                    val visibleGroups = remember(tabGroups, currentTabs, isViewingIncognito) {
-                        if (isViewingIncognito) {
+                    val isIncognitoLocked = isViewingIncognito && prefs.isBiometricIncognitoEnabled && !tabManager.isIncognitoUnlocked
+                    val visibleGroups = remember(currentGroups, currentTabs, isIncognitoLocked) {
+                        if (isIncognitoLocked) {
                             emptyList()
                         } else {
-                            tabGroups.filter { group -> currentTabs.any { it.groupId == group.id } }
+                            currentGroups.filter { group -> currentTabs.any { it.groupId == group.id } }
                         }
                     }
 
-                    val ungroupedTabs = remember(currentTabs, visibleGroups, isViewingIncognito) {
-                        if (isViewingIncognito) {
+                    val ungroupedTabs = remember(currentTabs, visibleGroups, isIncognitoLocked) {
+                        if (isIncognitoLocked) {
                             currentTabs
                         } else {
                             val validGroupIds = visibleGroups.map { it.id }.toSet()
@@ -422,41 +425,39 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                                 .fillMaxWidth()
                                 .weight(1f)
                         ) {
-                            if (!isViewingIncognito) {
-                                items(visibleGroups, key = { "group_card_${it.id}" }) { group ->
-                                    val groupTabs = remember(currentTabs, group.id) {
-                                        currentTabs.filter { it.groupId == group.id }
-                                    }
-                                    val isGroupActive = remember(groupTabs, activeTab?.id) {
-                                        groupTabs.any { it.id == activeTab?.id }
-                                    }
-                                    TabGroupCard(
-                                        group = group,
-                                        groupTabs = groupTabs,
-                                        isGroupActive = isGroupActive,
-                                        snapshotRevision = rev,
-                                        onGroupClick = {
-                                            openedGroupId = group.id
-                                        },
-                                        onGroupColorClick = {
-                                            groupForColorPicker = group
-                                        },
-                                        onGroupOptionsClick = {
-                                            selectedGroupForOptions = group
-                                        },
-                                        onCloseGroup = {
-                                            if (isDismissing) return@TabGroupCard
-                                            val closedCount = tabManager.closeTabGroup(group.id, closeTabs = true)
-                                            if (closedCount > 0) {
-                                                val batch = tabManager.peekLastClosedBatch(false)
-                                                if (batch != null) {
-                                                    showUndoToastForBatch(batch)
-                                                }
-                                            }
-                                            refreshTabsList()
-                                        }
-                                    )
+                            items(visibleGroups, key = { "group_card_${it.id}" }) { group ->
+                                val groupTabs = remember(currentTabs, group.id) {
+                                    currentTabs.filter { it.groupId == group.id }
                                 }
+                                val isGroupActive = remember(groupTabs, activeTab?.id) {
+                                    groupTabs.any { it.id == activeTab?.id }
+                                }
+                                TabGroupCard(
+                                    group = group,
+                                    groupTabs = groupTabs,
+                                    isGroupActive = isGroupActive,
+                                    snapshotRevision = rev,
+                                    onGroupClick = {
+                                        openedGroupId = group.id
+                                    },
+                                    onGroupColorClick = {
+                                        groupForColorPicker = group
+                                    },
+                                    onGroupOptionsClick = {
+                                        selectedGroupForOptions = group
+                                    },
+                                    onCloseGroup = {
+                                        if (isDismissing) return@TabGroupCard
+                                        val closedCount = tabManager.closeTabGroup(group.id, closeTabs = true)
+                                        if (closedCount > 0) {
+                                            val batch = tabManager.peekLastClosedBatch(isViewingIncognito)
+                                            if (batch != null) {
+                                                showUndoToastForBatch(batch)
+                                            }
+                                        }
+                                        refreshTabsList()
+                                    }
+                                )
                             }
 
                             items(ungroupedTabs, key = { it.id }) { tab ->
@@ -507,9 +508,9 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
             }
 
             // Full-screen Tab Group Preview Overlay (2nd image: header with back + color dot + title + 3-dot, grid of group tabs, bottom-center + FAB)
-            if (!isViewingIncognito && openedGroup != null) {
-                val groupTabs = remember(normalTabs, openedGroup.id) {
-                    normalTabs.filter { it.groupId == openedGroup.id }
+            if (openedGroup != null) {
+                val groupTabs = remember(currentTabs, openedGroup.id) {
+                    currentTabs.filter { it.groupId == openedGroup.id }
                 }
                 TabGroupPreviewOverlay(
                     group = openedGroup,
@@ -570,7 +571,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         if (!isDismissing) {
                             isDismissing = true
                             val newTab = tabManager.createNewTab(
-                                isIncognito = false,
+                                isIncognito = isViewingIncognito,
                                 groupId = openedGroup.id
                             )
                             tabManager.selectTab(newTab)
@@ -692,49 +693,49 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             }
                             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                            // Group actions (for normal tabs)
-                            if (!tab.isIncognito) {
+                            // Group actions (for both normal and incognito tabs, isolated to their mode)
+                            ListItem(
+                                headlineContent = {
+                                    Text(
+                                        if (currentGroup != null) "Change tab group (${currentGroup.title})"
+                                        else stringResource(R.string.move_to_group)
+                                    )
+                                },
+                                leadingContent = {
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    val t = tab
+                                    selectedTabForMenu = null
+                                    selectedTabForMoveGroup = t
+                                }
+                            )
+
+                            if (currentGroup != null) {
                                 ListItem(
-                                    headlineContent = {
-                                        Text(
-                                            if (currentGroup != null) "Change tab group (${currentGroup.title})"
-                                            else stringResource(R.string.move_to_group)
-                                        )
-                                    },
+                                    headlineContent = { Text(stringResource(R.string.remove_from_group)) },
                                     leadingContent = {
                                         Icon(
-                                            imageVector = Icons.Default.Folder,
+                                            imageVector = Icons.Default.FolderOff,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary
+                                            tint = MaterialTheme.colorScheme.onSurface
                                         )
                                     },
                                     modifier = Modifier.clickable {
                                         val t = tab
                                         selectedTabForMenu = null
-                                        selectedTabForMoveGroup = t
+                                        tabManager.assignTabToGroup(t.id, null)
+                                        refreshTabsList()
                                     }
                                 )
+                            }
 
-                                if (currentGroup != null) {
-                                    ListItem(
-                                        headlineContent = { Text(stringResource(R.string.remove_from_group)) },
-                                        leadingContent = {
-                                            Icon(
-                                                imageVector = Icons.Default.FolderOff,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurface
-                                            )
-                                        },
-                                        modifier = Modifier.clickable {
-                                            val t = tab
-                                            selectedTabForMenu = null
-                                            tabManager.assignTabToGroup(t.id, null)
-                                            refreshTabsList()
-                                        }
-                                    )
-                                }
-
-                                // Archive Tab
+                            // Archive Tab (Normal tabs only)
+                            if (!tab.isIncognito) {
                                 if (tab.url.isNotBlank() && !tab.url.equals("about:blank", ignoreCase = true)) {
                                     ListItem(
                                         headlineContent = { Text(stringResource(R.string.archive_tab)) },
@@ -865,7 +866,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                 selectedTabForMoveGroup?.let { targetTab ->
                     MoveTabToGroupBottomSheet(
                         tab = targetTab,
-                        groups = tabGroups,
+                        groups = currentGroups,
                         onSelectGroup = { group ->
                             tabManager.assignTabToGroup(targetTab.id, group?.id)
                             selectedTabForMoveGroup = null
@@ -884,10 +885,10 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
 
                 // Group Options Bottom Sheet (Edit Group Name, Add Existing Tabs, Ungroup, Close Group)
                 selectedGroupForOptions?.let { group ->
-                    val availableToAddCount = normalTabs.count { it.groupId != group.id }
+                    val availableToAddCount = currentTabs.count { it.groupId != group.id }
                     TabGroupOptionsBottomSheet(
                         group = group,
-                        tabCount = normalTabs.count { it.groupId == group.id },
+                        tabCount = currentTabs.count { it.groupId == group.id },
                         hasAvailableTabsToAdd = availableToAddCount > 0,
                         onAddExistingTabsToGroup = {
                             val g = group
@@ -923,7 +924,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             }
                             val closedCount = tabManager.closeTabGroup(g.id, closeTabs = true)
                             if (closedCount > 0) {
-                                val batch = tabManager.peekLastClosedBatch(false)
+                                val batch = tabManager.peekLastClosedBatch(isViewingIncognito)
                                 if (batch != null) {
                                     showUndoToastForBatch(batch)
                                 }
@@ -949,8 +950,8 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
 
                 // Add Existing Tabs to Group Dialog
                 groupForAddingTabs?.let { targetGroup ->
-                    val candidateTabs = remember(normalTabs, targetGroup.id) {
-                        normalTabs.filter { it.groupId != targetGroup.id }
+                    val candidateTabs = remember(currentTabs, targetGroup.id) {
+                        currentTabs.filter { it.groupId != targetGroup.id }
                     }
                     AddTabsToGroupDialog(
                         group = targetGroup,
@@ -970,17 +971,22 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                 if (showGroupEditDialog) {
                     CreateOrEditTabGroupDialog(
                         existingGroup = editingGroup,
-                        normalTabs = normalTabs,
+                        normalTabs = currentTabs,
                         initialTabForNewGroup = initialTabForNewGroup,
                         onConfirm = { title, colorHex, selectedTabIds ->
                             val existing = editingGroup
                             if (existing != null) {
                                 tabManager.updateTabGroup(existing.id, title, colorHex)
                             } else {
-                                val createdGroup = tabManager.createTabGroup(title, colorHex, selectedTabIds)
+                                val createdGroup = tabManager.createTabGroup(
+                                    title = title,
+                                    colorHex = colorHex,
+                                    initialTabIds = selectedTabIds,
+                                    isIncognito = isViewingIncognito
+                                )
                                 if (selectedTabIds.isEmpty()) {
                                     tabManager.createNewTab(
-                                        isIncognito = false,
+                                        isIncognito = isViewingIncognito,
                                         groupId = createdGroup.id
                                     )
                                 }
@@ -1717,29 +1723,29 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         onClick = onNewIncognitoTabClick
                     )
 
-                    if (!isViewingIncognito) {
-                        // 3. New Tab Group
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = stringResource(R.string.new_tab_group),
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.CreateNewFolder,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            },
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                            modifier = Modifier.height(42.dp),
-                            onClick = onNewTabGroupClick
-                        )
+                    // 3. New Tab Group (Available in both Normal and Incognito mode, isolated per mode)
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = stringResource(R.string.new_tab_group),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.CreateNewFolder,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                        modifier = Modifier.height(42.dp),
+                        onClick = onNewTabGroupClick
+                    )
 
+                    if (!isViewingIncognito) {
                         // 4. Archived Tabs
                         DropdownMenuItem(
                             text = {

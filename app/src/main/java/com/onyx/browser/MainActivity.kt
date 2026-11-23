@@ -867,12 +867,11 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                         !activeTab.url.startsWith("onyx://") && !activeTab.url.startsWith("about:")) {
                         binding.homeLayout.root.visibility = View.GONE
                         binding.webViewContainer.visibility = View.VISIBLE
-                        binding.tabGroupBottomBar.visibility = View.VISIBLE
                     } else {
                         binding.homeLayout.root.visibility = View.VISIBLE
                         binding.webViewContainer.visibility = View.GONE
-                        binding.tabGroupBottomBar.visibility = View.GONE
                     }
+                    binding.tabGroupBottomBar.visibility = if (searchController.isSearchMode) View.GONE else View.VISIBLE
                     ViewCompat.requestApplyInsets(binding.mainRoot)
                 }
             }
@@ -1172,8 +1171,9 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                             if (activeTabId != null && activeWebView != null) {
                                 tabManager.captureTabSnapshot(activeTabId, activeWebView)
                             }
+                            val isIncog = tabManager.isIncognitoGroup(group.id)
                             val newTab = tabManager.createNewTab(
-                                isIncognito = false,
+                                isIncognito = isIncog,
                                 groupId = group.id
                             )
                             tabManager.selectTab(newTab)
@@ -1408,7 +1408,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         binding.homeLayout.root.visibility = if (inPip) View.GONE else View.VISIBLE
         binding.webViewContainer.visibility = View.GONE
-        binding.tabGroupBottomBar.visibility = View.GONE
+        binding.tabGroupBottomBar.visibility = if (inPip || customVideoView != null || (::searchController.isInitialized && searchController.isSearchMode)) View.GONE else View.VISIBLE
         binding.etUrl.setText("")
         binding.ivSslLock.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
@@ -1462,7 +1462,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         }
         binding.homeLayout.root.visibility = View.GONE
         binding.webViewContainer.visibility = View.VISIBLE
-        binding.tabGroupBottomBar.visibility = if (inPip || customVideoView != null) View.GONE else View.VISIBLE
+        binding.tabGroupBottomBar.visibility = if (inPip || customVideoView != null || (::searchController.isInitialized && searchController.isSearchMode)) View.GONE else View.VISIBLE
 
         updateIncognitoUI(tab.isIncognito)
 

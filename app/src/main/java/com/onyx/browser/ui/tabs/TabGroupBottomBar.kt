@@ -51,21 +51,21 @@ fun TabGroupBottomBar(
 ) {
     val activeTab by tabManager.activeTab.collectAsStateWithLifecycle()
     val normalTabs by tabManager.normalTabs.collectAsStateWithLifecycle()
+    val incognitoTabs by tabManager.incognitoTabs.collectAsStateWithLifecycle()
     val tabGroups by tabManager.tabGroups.collectAsStateWithLifecycle()
+    val incognitoTabGroups by tabManager.incognitoTabGroups.collectAsStateWithLifecycle()
 
-    val currentActive = activeTab
-    if (currentActive == null || currentActive.isIncognito) return
-    val activeUrl = currentActive.url
-    if (activeUrl.isBlank() ||
-        activeUrl.startsWith("about:blank", ignoreCase = true) ||
-        activeUrl.startsWith("onyx://", ignoreCase = true)
-    ) {
-        return
-    }
-
+    val currentActive = activeTab ?: return
     val groupId = currentActive.groupId ?: return
-    val currentGroup = tabGroups.firstOrNull { it.id == groupId } ?: return
-    val groupTabs = normalTabs.filter { it.groupId == currentGroup.id }
+
+    // Strict mode isolation:
+    // - Normal active tab -> only matches normal tabGroups and normalTabs (never shown in incognito).
+    // - Incognito active tab -> only matches incognitoTabGroups and incognitoTabs (never shown in normal mode).
+    val modeGroups = if (currentActive.isIncognito) incognitoTabGroups else tabGroups
+    val modeTabs = if (currentActive.isIncognito) incognitoTabs else normalTabs
+
+    val currentGroup = modeGroups.firstOrNull { it.id == groupId } ?: return
+    val groupTabs = modeTabs.filter { it.groupId == currentGroup.id }
     if (groupTabs.isEmpty()) return
 
     val isDark = isSystemInDarkTheme()
