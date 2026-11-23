@@ -747,6 +747,13 @@ object AdBlockDocumentStart {
                 var isYouTubeHost = /youtube\.com|youtu\.be/i.test(host);
                 if (isYouTubeHost) {
                     var lastOverlaySweep = 0;
+                    // Zero-delay, zero-CPU hiding of YouTube ad modules via CSS (applies the moment elements appear).
+                    try {
+                        var ytAdCss = document.createElement('style');
+                        ytAdCss.id = 'onyx-yt-ad-css';
+                        ytAdCss.textContent = '.ytp-ad-overlay-container, .ytp-ad-player-overlay, .ytp-ad-image-overlay, .ytp-ad-action-interstitial, ytm-promoted-sparkles-web-renderer, ytm-promoted-sparkles-text-search-web-renderer, ytd-promoted-video-renderer, ytd-display-ad-renderer, ytd-companion-slot-renderer, #masthead-ad { display: none !important; }';
+                        (document.head || document.documentElement).appendChild(ytAdCss);
+                    } catch(_) {}
                     function defuseYouTubeAds() {
                         try {
                             var player = document.querySelector('#movie_player, .html5-video-player, ytm-mobile-player, #player');
@@ -778,11 +785,12 @@ object AdBlockDocumentStart {
                             }
 
                             // 3. Hide all video ad modules, overlays, banners, and promoted tiles
-                            // (rate-limited: full subtree selector sweep at most once per second)
+                            // Instant hiding is handled by the injected stylesheet (see above); this JS sweep is a
+                            // rate-limited fallback so it never costs a full subtree query on every tick.
                             var sweepNow = Date.now();
-                            if (!isAdShowing && sweepNow - lastOverlaySweep < 1000) return;
-                            lastOverlaySweep = sweepNow;
-                            var adElements = player.querySelectorAll('.ytp-ad-overlay-container, .ytp-ad-player-overlay, .ytp-ad-image-overlay, .ytp-ad-action-interstitial, ytm-promoted-sparkles-web-renderer, ytm-promoted-sparkles-text-search-web-renderer, ytd-promoted-video-renderer, ytd-display-ad-renderer, ytd-companion-slot-renderer, #masthead-ad');
+                            var doSweep = isAdShowing || sweepNow - lastOverlaySweep >= 1000;
+                            if (doSweep) lastOverlaySweep = sweepNow;
+                            var adElements = doSweep ? player.querySelectorAll('.ytp-ad-overlay-container, .ytp-ad-player-overlay, .ytp-ad-image-overlay, .ytp-ad-action-interstitial, ytm-promoted-sparkles-web-renderer, ytm-promoted-sparkles-text-search-web-renderer, ytd-promoted-video-renderer, ytd-display-ad-renderer, ytd-companion-slot-renderer, #masthead-ad') : [];
                             for (var a = 0; a < adElements.length; a++) {
                                 adElements[a].style.setProperty('display', 'none', 'important');
                             }
