@@ -1075,6 +1075,7 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
                 },
                 onNewTabRequested = { isIncognito ->
                     val newTab = tabManager.createNewTab(isIncognito = isIncognito)
+                    tabManager.selectTab(newTab)
                     displayTab(newTab)
                 },
                 onSearchRequested = {

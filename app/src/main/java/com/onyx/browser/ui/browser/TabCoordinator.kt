@@ -1090,6 +1090,7 @@ class TabCoordinator(
     fun assignTabToGroup(tabId: String, groupId: String?) {
         val targetTab = getTabById(tabId) ?: return
         if (targetTab.isIncognito) return
+        val oldGroupId = targetTab.groupId
         val updated = targetTab.copy(groupId = groupId)
         if (updated.isArchived) {
             _archivedTabs.value = _archivedTabs.value.map { if (it.id == tabId) updated else it }
@@ -1098,6 +1099,16 @@ class TabCoordinator(
         }
         if (_activeTab.value?.id == tabId) {
             setActiveTab(updated)
+        }
+        if (oldGroupId != null && oldGroupId != groupId) {
+            val stillHasTabs = _normalTabs.value.any { it.groupId == oldGroupId } ||
+                _archivedTabs.value.any { it.groupId == oldGroupId }
+            if (!stillHasTabs) {
+                _tabGroups.value = _tabGroups.value.filter { it.id != oldGroupId }
+                coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                    database.tabGroupDao().deleteGroupById(oldGroupId)
+                }
+            }
         }
         coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             database.tabDao().updateTab(updated)
@@ -1131,6 +1142,7 @@ class TabCoordinator(
             return 0
         }
 
+        val closingGroup = getGroupById(groupId)
         val tabsInGroup = _normalTabs.value.filter { it.groupId == groupId }
         val archivedInGroup = _archivedTabs.value.filter { it.groupId == groupId }
         val allInGroup = tabsInGroup + archivedInGroup
@@ -1174,7 +1186,7 @@ class TabCoordinator(
 
             states.add(
                 ClosedTabState(
-                    tab = tab.copy(groupId = null),
+                    tab = tab,
                     index = idx,
                     savedStateBundle = savedBundle,
                     snapshot = snapshot,
@@ -1203,7 +1215,8 @@ class TabCoordinator(
             val batch = ClosedTabBatch(
                 states = states,
                 autoCreatedTabId = null,
-                isIncognito = false
+                isIncognito = false,
+                closedGroup = closingGroup
             )
             closedBatchesStack.addLast(batch)
             if (closedBatchesStack.size > 10) {
@@ -1432,7 +1445,8 @@ class TabCoordinator(
     data class ClosedTabBatch(
         val states: List<ClosedTabState>,
         val autoCreatedTabId: String? = null,
-        val isIncognito: Boolean
+        val isIncognito: Boolean,
+        val closedGroup: TabGroupItem? = null
     )
 
     private val closedBatchesStack = ArrayDeque<ClosedTabBatch>()
@@ -1490,6 +1504,13 @@ class TabCoordinator(
                 coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                     database.tabDao().deleteTabById(autoTab.id)
                 }
+            }
+        }
+
+        if (batch.closedGroup != null && _tabGroups.value.none { it.id == batch.closedGroup.id }) {
+            _tabGroups.value = _tabGroups.value + batch.closedGroup
+            coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                database.tabGroupDao().insertGroup(batch.closedGroup)
             }
         }
 
@@ -1597,6 +1618,7 @@ class TabCoordinator(
         val orphanParentId = tab.parentId
         var autoCreatedTabId: String? = null
 
+        var autoClosedGroup: TabGroupItem? = null
         if (tab.isIncognito) {
             incognitoStateBundles.remove(tab.id)
             val updated = _incognitoTabs.value
@@ -1619,21 +1641,44 @@ class TabCoordinator(
             }
         } else if (tab.isArchived) {
             _archivedTabs.value = _archivedTabs.value.filter { it.id != tab.id }
+            val gId = tab.groupId
+            if (gId != null && _normalTabs.value.none { it.groupId == gId } && _archivedTabs.value.none { it.groupId == gId }) {
+                autoClosedGroup = getGroupById(gId)
+                _tabGroups.value = _tabGroups.value.filter { it.id != gId }
+            }
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().deleteTabById(tab.id)
                 database.tabDao().updateParentIdForChildren(tab.id, orphanParentId)
+                if (autoClosedGroup != null) {
+                    database.tabGroupDao().deleteGroupById(autoClosedGroup.id)
+                }
             }
         } else {
             val updated = _normalTabs.value
                 .filter { it.id != tab.id }
                 .map { if (it.parentId == tab.id) it.copy(parentId = orphanParentId) else it }
             _normalTabs.value = updated
+            val gId = tab.groupId
+            if (gId != null && updated.none { it.groupId == gId } && _archivedTabs.value.none { it.groupId == gId }) {
+                autoClosedGroup = getGroupById(gId)
+                _tabGroups.value = _tabGroups.value.filter { it.id != gId }
+            }
             coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
                 database.tabDao().deleteTabById(tab.id)
                 database.tabDao().updateParentIdForChildren(tab.id, orphanParentId)
+                if (autoClosedGroup != null) {
+                    database.tabGroupDao().deleteGroupById(autoClosedGroup.id)
+                }
             }
             if (_activeTab.value?.id == tab.id) {
-                if (parentTab != null) {
+                // If closing a tab inside a group, prefer switching to a sibling tab in the same group
+                val sameGroupSibling = gId?.let { groupId ->
+                    val sameGroupTabs = updated.filter { it.groupId == groupId }
+                    sameGroupTabs.lastOrNull()
+                }
+                if (sameGroupSibling != null) {
+                    setActiveTab(sameGroupSibling)
+                } else if (parentTab != null) {
                     setActiveTab(parentTab)
                 } else if (updated.isNotEmpty()) {
                     val nextIdx = originalIndex.coerceIn(0, updated.size - 1)
@@ -1656,7 +1701,8 @@ class TabCoordinator(
         val batch = ClosedTabBatch(
             states = listOf(state),
             autoCreatedTabId = autoCreatedTabId,
-            isIncognito = tab.isIncognito
+            isIncognito = tab.isIncognito,
+            closedGroup = autoClosedGroup
         )
         closedBatchesStack.addLast(batch)
         if (closedBatchesStack.size > 10) {

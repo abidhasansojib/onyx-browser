@@ -181,6 +181,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                 onTabSelected(currentActive)
             } else {
                 val newTab = tabManager.createNewTab(isIncognito = isViewingIncognitoState.value)
+                tabManager.selectTab(newTab)
                 onTabSelected(newTab)
             }
         }
@@ -386,20 +387,24 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         .fillMaxSize()
                         .padding(innerPadding)
                 ) {
-                    val ungroupedTabs = remember(currentTabs, tabGroups, isViewingIncognito) {
+                    val visibleGroups = remember(tabGroups, currentTabs, isViewingIncognito) {
+                        if (isViewingIncognito) {
+                            emptyList()
+                        } else {
+                            tabGroups.filter { group -> currentTabs.any { it.groupId == group.id } }
+                        }
+                    }
+
+                    val ungroupedTabs = remember(currentTabs, visibleGroups, isViewingIncognito) {
                         if (isViewingIncognito) {
                             currentTabs
                         } else {
-                            val validGroupIds = tabGroups.map { it.id }.toSet()
+                            val validGroupIds = visibleGroups.map { it.id }.toSet()
                             currentTabs.filter { it.groupId == null || it.groupId !in validGroupIds }
                         }
                     }
 
-                    val hasVisibleContent = if (isViewingIncognito) {
-                        currentTabs.isNotEmpty()
-                    } else {
-                        currentTabs.isNotEmpty() || tabGroups.isNotEmpty()
-                    }
+                    val hasVisibleContent = currentTabs.isNotEmpty()
 
                     if (!hasVisibleContent) {
                         EmptyTabsView(
@@ -418,7 +423,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                                 .weight(1f)
                         ) {
                             if (!isViewingIncognito) {
-                                items(tabGroups, key = { "group_card_${it.id}" }) { group ->
+                                items(visibleGroups, key = { "group_card_${it.id}" }) { group ->
                                     val groupTabs = remember(currentTabs, group.id) {
                                         currentTabs.filter { it.groupId == group.id }
                                     }
@@ -568,6 +573,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                                 isIncognito = false,
                                 groupId = openedGroup.id
                             )
+                            tabManager.selectTab(newTab)
                             onTabSelected(newTab)
                             dismissAllowingStateLoss()
                         }
