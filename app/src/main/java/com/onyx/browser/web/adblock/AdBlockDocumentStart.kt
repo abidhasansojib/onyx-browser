@@ -421,6 +421,13 @@ object AdBlockDocumentStart {
                     return false;
                 }
 
+                // YouTube media chunks (googlevideo.com/videoplayback) are fetched dozens of times per
+                // minute with unique URLs. Skip the synchronous JS->native bridge roundtrip here; the
+                // native shouldInterceptRequest layer still evaluates them without blocking the JS thread.
+                if (resolvedUrl.indexOf('/videoplayback') !== -1 && resolvedUrl.indexOf('googlevideo.com') !== -1) {
+                    return false;
+                }
+
                 // Never block CAPTCHAs, bot challenges, or checkpoint verification
                 if (/recaptcha|hcaptcha|arkose|turnstile|checkpoint|challenge|geetest|funcaptcha|datadome|perimeterx/i.test(resolvedUrl)) {
                     return false;
@@ -739,6 +746,7 @@ object AdBlockDocumentStart {
             try {
                 var isYouTubeHost = /youtube\.com|youtu\.be/i.test(host);
                 if (isYouTubeHost) {
+                    var lastOverlaySweep = 0;
                     function defuseYouTubeAds() {
                         try {
                             var player = document.querySelector('#movie_player, .html5-video-player, ytm-mobile-player, #player');
@@ -770,6 +778,10 @@ object AdBlockDocumentStart {
                             }
 
                             // 3. Hide all video ad modules, overlays, banners, and promoted tiles
+                            // (rate-limited: full subtree selector sweep at most once per second)
+                            var sweepNow = Date.now();
+                            if (!isAdShowing && sweepNow - lastOverlaySweep < 1000) return;
+                            lastOverlaySweep = sweepNow;
                             var adElements = player.querySelectorAll('.ytp-ad-overlay-container, .ytp-ad-player-overlay, .ytp-ad-image-overlay, .ytp-ad-action-interstitial, ytm-promoted-sparkles-web-renderer, ytm-promoted-sparkles-text-search-web-renderer, ytd-promoted-video-renderer, ytd-display-ad-renderer, ytd-companion-slot-renderer, #masthead-ad');
                             for (var a = 0; a < adElements.length; a++) {
                                 adElements[a].style.setProperty('display', 'none', 'important');
@@ -783,7 +795,18 @@ object AdBlockDocumentStart {
                         } catch(_) {}
                     }
 
-                    var ytObserver = new MutationObserver(defuseYouTubeAds);
+                    // Coalesce bursts of YouTube DOM mutations into one defuse pass per ~100ms
+                    // instead of running selector queries on every mutation batch.
+                    var ytDefuseQueued = false;
+                    function scheduleYouTubeDefuse() {
+                        if (ytDefuseQueued) return;
+                        ytDefuseQueued = true;
+                        setTimeout(function() {
+                            ytDefuseQueued = false;
+                            defuseYouTubeAds();
+                        }, 100);
+                    }
+                    var ytObserver = new MutationObserver(scheduleYouTubeDefuse);
                     function attachYtObserver() {
                         var target = document.body || document.documentElement;
                         if (target) {
