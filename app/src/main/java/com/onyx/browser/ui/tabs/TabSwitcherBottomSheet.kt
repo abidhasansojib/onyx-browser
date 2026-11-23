@@ -262,6 +262,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         var showGroupEditDialog by remember { mutableStateOf(false) }
         var editingGroup by remember { mutableStateOf<TabGroupItem?>(null) }
         var initialTabForNewGroup by remember { mutableStateOf<TabItem?>(null) }
+        var groupForColorPicker by remember { mutableStateOf<TabGroupItem?>(null) }
 
         // Group options bottom sheet state
         var selectedGroupForOptions by remember { mutableStateOf<TabGroupItem?>(null) }
@@ -432,6 +433,9 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                                         onGroupClick = {
                                             openedGroupId = group.id
                                         },
+                                        onGroupColorClick = {
+                                            groupForColorPicker = group
+                                        },
                                         onGroupOptionsClick = {
                                             selectedGroupForOptions = group
                                         },
@@ -522,6 +526,9 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         editingGroup = openedGroup
                         initialTabForNewGroup = null
                         showGroupEditDialog = true
+                    },
+                    onChangeColorClick = {
+                        groupForColorPicker = openedGroup
                     },
                     onGroupOptionsClick = {
                         selectedGroupForOptions = openedGroup
@@ -869,36 +876,29 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                     )
                 }
 
-                // Group Options Bottom Sheet (Edit, New Tab in Group, Add Existing Tabs, Ungroup, Close Group)
+                // Group Options Bottom Sheet (Edit Group Name, Add Existing Tabs, Ungroup, Close Group)
                 selectedGroupForOptions?.let { group ->
                     val availableToAddCount = normalTabs.count { it.groupId != group.id }
                     TabGroupOptionsBottomSheet(
                         group = group,
                         tabCount = normalTabs.count { it.groupId == group.id },
                         hasAvailableTabsToAdd = availableToAddCount > 0,
-                        onNewTabInGroup = {
-                            selectedGroupForOptions = null
-                            if (!isDismissing) {
-                                isDismissing = true
-                                val newTab = tabManager.createNewTab(
-                                    isIncognito = false,
-                                    groupId = group.id
-                                )
-                                onTabSelected(newTab)
-                                dismissAllowingStateLoss()
-                            }
-                        },
                         onAddExistingTabsToGroup = {
                             val g = group
                             selectedGroupForOptions = null
                             groupForAddingTabs = g
                         },
-                        onEditGroup = {
+                        onEditGroupName = {
                             val g = group
                             selectedGroupForOptions = null
                             editingGroup = g
                             initialTabForNewGroup = null
                             showGroupEditDialog = true
+                        },
+                        onChangeColor = {
+                            val g = group
+                            selectedGroupForOptions = null
+                            groupForColorPicker = g
                         },
                         onUngroup = {
                             val g = group
@@ -925,6 +925,19 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             refreshTabsList()
                         },
                         onDismiss = { selectedGroupForOptions = null }
+                    )
+                }
+
+                // Instant Group Color Picker Dialog (opened by tapping the color dot beside group name)
+                groupForColorPicker?.let { targetGroup ->
+                    GroupColorPickerDialog(
+                        group = targetGroup,
+                        onSelectColor = { newColorHex ->
+                            tabManager.updateTabGroup(targetGroup.id, targetGroup.title, newColorHex)
+                            groupForColorPicker = null
+                            refreshTabsList()
+                        },
+                        onDismiss = { groupForColorPicker = null }
                     )
                 }
 
@@ -1062,6 +1075,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         isGroupActive: Boolean,
         snapshotRevision: Int,
         onGroupClick: () -> Unit,
+        onGroupColorClick: () -> Unit = {},
         onGroupOptionsClick: () -> Unit,
         onCloseGroup: () -> Unit
     ) {
@@ -1200,10 +1214,13 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(18.dp)
+                                .size(22.dp)
                                 .clip(CircleShape)
                                 .background(groupColor)
                                 .border(2.dp, Color.White, CircleShape)
+                                .clickable {
+                                    if (!isDismissingGroup) onGroupColorClick()
+                                }
                         )
 
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1339,6 +1356,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         snapshotRevision: Int,
         onBack: () -> Unit,
         onEditGroupClick: () -> Unit,
+        onChangeColorClick: () -> Unit = {},
         onGroupOptionsClick: () -> Unit,
         onTabClick: (TabItem) -> Unit,
         onTabLongClick: (TabItem) -> Unit,
@@ -1404,28 +1422,33 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             Row(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable(onClick = onEditGroupClick)
                                     .padding(horizontal = 8.dp, vertical = 6.dp),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                // Tapping the color dot opens the color picker
                                 Box(
                                     modifier = Modifier
-                                        .size(18.dp)
+                                        .size(22.dp)
                                         .clip(CircleShape)
                                         .background(groupColor)
+                                        .clickable(onClick = onChangeColorClick)
                                 )
 
                                 Spacer(modifier = Modifier.width(10.dp))
 
+                                // Tapping the group title opens the Edit Group Name dialog
                                 Text(
                                     text = group.title,
                                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable(onClick = onEditGroupClick)
+                                        .padding(horizontal = 4.dp, vertical = 2.dp)
                                 )
                             }
 
@@ -2335,7 +2358,7 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         }
 
         AppAlertDialog(
-            title = if (existingGroup != null) stringResource(R.string.edit_tab_group) else stringResource(R.string.new_tab_group),
+            title = if (existingGroup != null) "Edit group name" else stringResource(R.string.new_tab_group),
             confirmButtonText = if (existingGroup != null) stringResource(R.string.save) else "Create",
             onConfirm = {
                 onConfirm(titleInput.trim().ifBlank { "Tab Group" }, selectedColorHex, selectedTabIds.toList())
@@ -2352,46 +2375,48 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    if (existingGroup == null) {
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    Text(
-                        text = "GROUP COLOR",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                        Text(
+                            text = "GROUP COLOR",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TabGroupItem.GROUP_COLORS.forEach { hex ->
-                            val swatchColor = parseHexColor(hex, MaterialTheme.colorScheme.primary)
-                            val isSelected = selectedColorHex.equals(hex, ignoreCase = true)
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(swatchColor)
-                                    .then(
-                                        if (isSelected) {
-                                            Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                        } else {
-                                            Modifier
-                                        }
-                                    )
-                                    .clickable { selectedColorHex = hex },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TabGroupItem.GROUP_COLORS.forEach { hex ->
+                                val swatchColor = parseHexColor(hex, MaterialTheme.colorScheme.primary)
+                                val isSelected = selectedColorHex.equals(hex, ignoreCase = true)
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(swatchColor)
+                                        .then(
+                                            if (isSelected) {
+                                                Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                            } else {
+                                                Modifier
+                                            }
+                                        )
+                                        .clickable { selectedColorHex = hex },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -2734,15 +2759,67 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         }
     }
 
+    @Composable
+    private fun GroupColorPickerDialog(
+        group: TabGroupItem,
+        onSelectColor: (String) -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        AppAlertDialog(
+            title = "Group Color",
+            confirmButtonText = stringResource(R.string.close),
+            onConfirm = onDismiss,
+            onDismissRequest = onDismiss,
+            text = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TabGroupItem.GROUP_COLORS.forEach { hex ->
+                        val swatchColor = parseHexColor(hex, MaterialTheme.colorScheme.primary)
+                        val isSelected = group.colorHex.equals(hex, ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(swatchColor)
+                                .then(
+                                    if (isSelected) {
+                                        Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                                .clickable { onSelectColor(hex) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun TabGroupOptionsBottomSheet(
         group: TabGroupItem,
         tabCount: Int,
         hasAvailableTabsToAdd: Boolean = false,
-        onNewTabInGroup: () -> Unit,
         onAddExistingTabsToGroup: () -> Unit = {},
-        onEditGroup: () -> Unit,
+        onEditGroupName: () -> Unit,
+        onChangeColor: () -> Unit = {},
         onUngroup: () -> Unit,
         onCloseGroup: () -> Unit,
         onDismiss: () -> Unit
@@ -2768,9 +2845,10 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(14.dp)
+                            .size(18.dp)
                             .clip(CircleShape)
                             .background(groupColor)
+                            .clickable(onClick = onChangeColor)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
@@ -2790,15 +2868,15 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 ListItem(
-                    headlineContent = { Text("New tab in group") },
+                    headlineContent = { Text("Edit group name") },
                     leadingContent = {
                         Icon(
-                            imageVector = Icons.Default.Add,
+                            imageVector = Icons.Default.Edit,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     },
-                    modifier = Modifier.clickable(onClick = onNewTabInGroup)
+                    modifier = Modifier.clickable(onClick = onEditGroupName)
                 )
 
                 if (hasAvailableTabsToAdd) {
@@ -2814,18 +2892,6 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                         modifier = Modifier.clickable(onClick = onAddExistingTabsToGroup)
                     )
                 }
-
-                ListItem(
-                    headlineContent = { Text("Rename or change color") },
-                    leadingContent = {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    modifier = Modifier.clickable(onClick = onEditGroup)
-                )
 
                 ListItem(
                     headlineContent = { Text("Ungroup tabs (keep tabs open)") },
