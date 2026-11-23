@@ -618,7 +618,26 @@ class TabCoordinator(
     }
 
     /**
-     * Enforces the strict LRU active WebView pool limit ([maxLiveWebViews]).
+     * Live WebView cap adjusted for current system memory pressure. When the device is low on free RAM
+     * (many apps in background), keeping extra live WebViews competes with the active tab's renderer and
+     * makes video start/buffering stall, so the pool shrinks by two (never below 2). Evicted tabs are
+     * state-saved and restored on re-selection; the active and media-playing tabs are always protected.
+     */
+    private fun effectiveMaxLiveWebViews(): Int {
+        return try {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            val info = ActivityManager.MemoryInfo()
+            am?.getMemoryInfo(info)
+            val underPressure = am != null && (info.lowMemory ||
+                (info.totalMem > 0L && info.availMem < info.totalMem / 10))
+            if (underPressure) maxOf(2, maxLiveWebViews - 2) else maxLiveWebViews
+        } catch (_: Throwable) {
+            maxLiveWebViews
+        }
+    }
+
+    /**
+     * Enforces the strict LRU active WebView pool limit ([maxLiveWebViews], reduced under memory pressure).
      * Evicts the oldest background tabs while protecting the active/target tab,
      * background media playback tab, pending popups, and recently touched/created tabs.
      */
@@ -629,7 +648,8 @@ class TabCoordinator(
             return
         }
 
-        if (webViewPool.size <= maxLiveWebViews) return
+        val poolLimit = effectiveMaxLiveWebViews()
+        if (webViewPool.size <= poolLimit) return
 
         val activeId = _activeTab.value?.id
         val playingId = com.onyx.browser.media.MediaPlaybackBridge.currentPlayingTabId
@@ -647,7 +667,7 @@ class TabCoordinator(
             }
             .sortedBy { it.lastAccessedAt }
 
-        val excessCount = webViewPool.size - maxLiveWebViews
+        val excessCount = webViewPool.size - poolLimit
         if (excessCount <= 0) return
 
         val tabsToEvict = evictableCandidates.take(excessCount)

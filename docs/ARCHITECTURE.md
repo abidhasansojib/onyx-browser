@@ -66,7 +66,7 @@ Technical specification of Onyx Browser's stack, architecture, native engines, W
 
 ### 2.5 Database, Tabs & Privacy (`AppDatabase`, `TabCoordinator`, `ClearDataOnExitHelper`)
 - **Encrypted Persistence**: All persistent Room tables use SQLCipher AES-256 (`AppDatabase` v9 with `tabs`, `tab_groups`, `history`, `bookmarks`, `downloads`, `user_scripts`, `user_script_values`, `site_permissions`). Never store sensitive browsing or credential data in unencrypted files.
-- **Tab Groups & Auto-Archive**: `TabCoordinator` manages a RAM-aware 3–5 live WebView LRU pool, color-coded Tab Groups (`TabGroupItem`, `TabGroupDao`, `MIGRATION_8_9`), and automatic archiving of idle background tabs (`tabAutoArchiveHours`: Never, 1d, 3d, 7d default, 14d, 30d) into `archivedTabs` while protecting active, incognito, blank, and media-playing tabs.
+- **Tab Groups & Auto-Archive**: `TabCoordinator` manages a RAM-aware 3–5 live WebView LRU pool (shrunk by 2, minimum 2, while free RAM is under 10% or `lowMemory` is set), color-coded Tab Groups (`TabGroupItem`, `TabGroupDao`, `MIGRATION_8_9`), and automatic archiving of idle background tabs (`tabAutoArchiveHours`: Never, 1d, 3d, 7d default, 14d, 30d) into `archivedTabs` while protecting active, incognito, blank, and media-playing tabs.
 - **Clear on Exit**: `ClearDataOnExitHelper` purges selected categories synchronously across Back exit, Recents swipe-away (`ClearOnExitService`), background task kill (`hasPendingExitClearance`), and cold-start recovery.
 
 ### 2.6 Updates & Periodic Work (`AppUpdateManager`, `ReleaseFeedParser`, `UpdateScheduler`)
