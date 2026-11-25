@@ -347,11 +347,6 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             overflowMenuExpanded = false
                             showArchivedSheet = true
                         },
-                        onAutoArchiveSettingsClick = {
-                            overflowMenuExpanded = false
-                            autoArchiveHoursState = prefs.tabAutoArchiveHours
-                            showAutoArchiveConfigSheet = true
-                        },
                         onCloseAllTabsClick = {
                             overflowMenuExpanded = false
                             if (!isDismissing) confirmCloseAllTabs()
@@ -1576,7 +1571,6 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
         onNewIncognitoTabClick: () -> Unit,
         onNewTabGroupClick: () -> Unit,
         onArchivedTabsClick: () -> Unit,
-        onAutoArchiveSettingsClick: () -> Unit,
         onCloseAllTabsClick: () -> Unit,
         onClearBrowsingDataClick: () -> Unit,
         hasTabs: Boolean
@@ -1771,28 +1765,6 @@ class TabSwitcherBottomSheet @JvmOverloads constructor(
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
                             modifier = Modifier.height(42.dp),
                             onClick = onArchivedTabsClick
-                        )
-
-                        // 5. Auto-Archive Settings
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = stringResource(R.string.auto_archive_settings),
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            },
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                            modifier = Modifier.height(42.dp),
-                            onClick = onAutoArchiveSettingsClick
                         )
                     }
 
