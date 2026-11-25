@@ -87,6 +87,7 @@ jobs:
 
       - name: Synchronize Brave Filter Lists
         run: |
+          git submodule update --init --remote external/adblock-lists 2>/dev/null || true
           chmod +x scripts/update_filter_lists.sh
           ./scripts/update_filter_lists.sh
 

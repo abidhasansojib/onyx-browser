@@ -2,9 +2,15 @@ name: Sync Upstream Brave Repositories
 
 on:
   schedule:
-    # Run once daily at 04:00 UTC to check for adblock-rust engine updates
+    # Run once daily at 04:00 UTC to check for adblock-rust engine and filter list updates
     - cron: '0 4 * * *'
   workflow_dispatch:
+    inputs:
+      force_lockfile_refresh:
+        description: 'Force regenerate rust_engine/Cargo.lock even if engine is unchanged'
+        required: false
+        default: 'false'
+        type: boolean
   repository_dispatch:
     types: [ upstream_update ]
 
@@ -14,7 +20,7 @@ permissions:
 
 jobs:
   sync:
-    name: Sync Brave adblock-rust Native Engine
+    name: Sync Brave adblock-rust & Filter Lists
     # Strictly ensure this only runs on the main repository, never on forks
     if: github.repository == 'abidhasansojib/onyx-browser'
     runs-on: ubuntu-24.04
@@ -30,42 +36,114 @@ jobs:
       - name: Configure Git Identity
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Sync adblock-rust Native Engine Submodule
-        run: |
-          chmod +x scripts/sync_upstream.sh
-          ./scripts/sync_upstream.sh --engine-only
-
-      - name: Check For Engine Updates
+      - name: Check & Validate adblock-rust Engine Updates
         id: check_engine
         run: |
-          if [ -n "$(git status --porcelain external/adblock-rust)" ]; then
-            OLD_HASH=$(git diff external/adblock-rust | grep '^-Subproject' | awk '{print $3}' | cut -c1-7 || git rev-parse :external/adblock-rust | cut -c1-7)
-            NEW_HASH=$(git -C external/adblock-rust rev-parse --short HEAD)
-            echo "engine_updated=true" >> $GITHUB_OUTPUT
-            echo "old_hash=$OLD_HASH" >> $GITHUB_OUTPUT
-            echo "new_hash=$NEW_HASH" >> $GITHUB_OUTPUT
-            echo "adblock-rust native engine updated: $OLD_HASH -> $NEW_HASH"
-          else
+          OLD_FULL=$(git rev-parse HEAD:external/adblock-rust)
+          OLD_HASH=$(echo "$OLD_FULL" | cut -c1-7)
+
+          git -C external/adblock-rust fetch origin master --tags
+          NEW_FULL=$(git -C external/adblock-rust rev-parse origin/master)
+          NEW_HASH=$(echo "$NEW_FULL" | cut -c1-7)
+
+          echo "old_hash=$OLD_HASH" >> $GITHUB_OUTPUT
+          echo "new_hash=$NEW_HASH" >> $GITHUB_OUTPUT
+
+          if [ "$OLD_FULL" = "$NEW_FULL" ]; then
             echo "engine_updated=false" >> $GITHUB_OUTPUT
-            echo "adblock-rust native engine is unchanged and up-to-date. No commits needed."
+            echo "patch_failed=false" >> $GITHUB_OUTPUT
+            echo "adblock-rust is already at origin/master ($OLD_HASH)."
+            exit 0
           fi
 
-      - name: Commit and Push Submodule Update
-        if: steps.check_engine.outputs.engine_updated == 'true'
-        run: |
-          NEW_HASH="${{ steps.check_engine.outputs.new_hash }}"
-          git add external/adblock-rust rust_engine/adblock-rust 2>/dev/null || true
-          git commit -m "chore(upstream): auto-sync Brave adblock-rust engine ($NEW_HASH)"
-          git push origin main
-          echo "Committed and pushed adblock-rust update ($NEW_HASH) to main."
+          # Only treat as an engine update if src/, Cargo.toml, or data/ actually changed
+          if git -C external/adblock-rust diff --quiet "$OLD_FULL" "$NEW_FULL" -- src/ Cargo.toml data/; then
+            echo "engine_updated=false" >> $GITHUB_OUTPUT
+            echo "patch_failed=false" >> $GITHUB_OUTPUT
+            git -C external/adblock-rust checkout -q "$OLD_FULL"
+            echo "Upstream commits ($OLD_HASH -> $NEW_HASH) only touched CI/benchmarks/lockfile; skipping noisy engine bump."
+            exit 0
+          fi
 
-      - name: Notify Developer via GitHub Issue
-        if: steps.check_engine.outputs.engine_updated == 'true'
+          git -C external/adblock-rust checkout -q "$NEW_FULL"
+
+          # Pre-flight check: ensure our local patch applies cleanly before accepting the update
+          if [ -f patches/adblock-rust.patch ]; then
+            if ! git -C external/adblock-rust apply --check ../../patches/adblock-rust.patch; then
+              echo "ERROR: patches/adblock-rust.patch failed to apply on $NEW_HASH! Reverting submodule to $OLD_HASH."
+              git -C external/adblock-rust checkout -q "$OLD_FULL"
+              echo "engine_updated=false" >> $GITHUB_OUTPUT
+              echo "patch_failed=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+
+          ln -sfn "../external/adblock-rust" rust_engine/adblock-rust
+          echo "engine_updated=true" >> $GITHUB_OUTPUT
+          echo "patch_failed=false" >> $GITHUB_OUTPUT
+          echo "adblock-rust engine updated with code changes: $OLD_HASH -> $NEW_HASH"
+
+      - name: Sync adblock-lists Submodule
+        id: check_lists
+        run: |
+          OLD_LISTS=$(git rev-parse HEAD:external/adblock-lists | cut -c1-7)
+          git submodule update --init --remote external/adblock-lists 2>/dev/null || true
+          if [ -n "$(git status --porcelain external/adblock-lists)" ]; then
+            NEW_LISTS=$(git -C external/adblock-lists rev-parse --short HEAD)
+            echo "lists_updated=true" >> $GITHUB_OUTPUT
+            echo "new_lists_hash=$NEW_LISTS" >> $GITHUB_OUTPUT
+            echo "adblock-lists updated: $OLD_LISTS -> $NEW_LISTS"
+          else
+            echo "lists_updated=false" >> $GITHUB_OUTPUT
+            echo "adblock-lists is unchanged ($OLD_LISTS)."
+          fi
+
+      - name: Setup Rust Toolchain for Cargo.lock Refresh
+        if: steps.check_engine.outputs.engine_updated == 'true' || github.event.inputs.force_lockfile_refresh == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Refresh rust_engine/Cargo.lock
+        id: check_lockfile
+        if: steps.check_engine.outputs.engine_updated == 'true' || github.event.inputs.force_lockfile_refresh == 'true'
+        run: |
+          cd rust_engine && cargo generate-lockfile && cd ..
+          if [ -n "$(git status --porcelain rust_engine/Cargo.lock)" ]; then
+            echo "lockfile_updated=true" >> $GITHUB_OUTPUT
+          else
+            echo "lockfile_updated=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and Push Upstream Updates
+        if: steps.check_engine.outputs.engine_updated == 'true' || steps.check_lists.outputs.lists_updated == 'true' || steps.check_lockfile.outputs.lockfile_updated == 'true'
+        run: |
+          git add external/adblock-rust external/adblock-lists rust_engine/Cargo.lock rust_engine/adblock-rust 2>/dev/null || true
+          git diff --cached --quiet && exit 0
+
+          if [ "${{ steps.check_engine.outputs.engine_updated }}" = "true" ]; then
+            MSG="chore(upstream): auto-sync Brave adblock-rust engine (${{ steps.check_engine.outputs.new_hash }})"
+          elif [ "${{ steps.check_lists.outputs.lists_updated }}" = "true" ]; then
+            MSG="chore(upstream): auto-sync Brave adblock-lists (${{ steps.check_lists.outputs.new_lists_hash }})"
+          else
+            MSG="chore(deps): refresh rust_engine Cargo.lock"
+          fi
+
+          git commit -m "$MSG"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          echo "Committed and pushed: $MSG"
+
+      - name: Notify Developer via GitHub Issue (Engine Update or Patch Conflict)
+        if: steps.check_engine.outputs.engine_updated == 'true' || steps.check_engine.outputs.patch_failed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          EXTRA_ARGS=""
+          if [ "${{ steps.check_engine.outputs.patch_failed }}" = "true" ]; then
+            EXTRA_ARGS="--patch-failed"
+          fi
           python3 scripts/notify_upstream_update.py \
             --old "${{ steps.check_engine.outputs.old_hash }}" \
-            --new "${{ steps.check_engine.outputs.new_hash }}"
+            --new "${{ steps.check_engine.outputs.new_hash }}" \
+            $EXTRA_ARGS
