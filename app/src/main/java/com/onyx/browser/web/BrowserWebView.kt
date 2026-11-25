@@ -203,6 +203,7 @@ class BrowserWebView @JvmOverloads constructor(
     fun clearSyntheticState() {
         currentSyntheticState = null
         pendingSslHandler = null
+        lastFailingUrl = null
     }
 
     override fun reload() {

@@ -27,6 +27,9 @@ class WebErrorBridge(
                 url.startsWith("file:///android_asset/error_page.html", ignoreCase = true)
     }
 
+    private fun isHttpUrl(url: String): Boolean =
+        url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
+
     @JavascriptInterface
     fun reload() {
         reload(null)
@@ -36,20 +39,17 @@ class WebErrorBridge(
     fun reload(targetUrl: String?) {
         webView.post {
             if (!isSyntheticErrorPageActive()) return@post
+            val requested = targetUrl?.trim()
             val target = when {
-                !targetUrl.isNullOrBlank() && !BrowserWebView.isSyntheticOrDataUrl(targetUrl) -> targetUrl
+                !requested.isNullOrEmpty() && isHttpUrl(requested) -> requested
                 !webView.currentSyntheticState?.failingUrl.isNullOrBlank() -> webView.currentSyntheticState?.failingUrl
                 !webView.lastFailingUrl.isNullOrBlank() -> webView.lastFailingUrl
                 else -> null
             }
             webView.clearSyntheticState()
             if (!target.isNullOrBlank()) {
-                val mainAct = activity as? MainActivity
-                if (mainAct != null) {
-                    mainAct.performSearchOrLoad(target)
-                } else {
-                    webView.loadUrl(target)
-                }
+                webView.stopLoading()
+                webView.loadUrl(target)
             } else {
                 webView.reload()
             }
