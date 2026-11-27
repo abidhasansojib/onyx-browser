@@ -111,6 +111,7 @@ class BrowserMenuCoordinator(
                 isUpdatingTranslateUi = false
             }
             val targetWv = webView ?: activity.getActiveWebView() ?: return@LanguageSelectionDialog
+            targetWv.isPageTranslationAuthorized = true
             binding.pbTranslateLoading.visibility = View.VISIBLE
             targetWv.evaluateJavascript(PageTranslateManager.getTranslateScript(code), null)
         }
@@ -155,11 +156,13 @@ class BrowserMenuCoordinator(
             val wv = activity.tabManager.getActiveWebView() ?: return@addOnButtonCheckedListener
             when (checkedId) {
                 R.id.btnTranslateOriginal -> {
+                    wv.isPageTranslationAuthorized = false
                     wv.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
                     binding.pbTranslateLoading.visibility = View.GONE
                 }
                 R.id.btnTranslateTarget -> {
                     val code = currentTranslateTargetCode.ifBlank { preferences.targetTranslateLanguage }
+                    wv.isPageTranslationAuthorized = true
                     binding.pbTranslateLoading.visibility = View.VISIBLE
                     wv.evaluateJavascript(PageTranslateManager.toggleTranslatedScript) { result ->
                         val res = result?.trim('"')
@@ -199,7 +202,9 @@ class BrowserMenuCoordinator(
         binding.translateBar.visibility = View.GONE
         binding.pbTranslateLoading.visibility = View.GONE
         if (restoreOriginal) {
-            activity.tabManager.getActiveWebView()?.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
+            val activeWv = activity.tabManager.getActiveWebView()
+            activeWv?.isPageTranslationAuthorized = false
+            activeWv?.evaluateJavascript(PageTranslateManager.restoreOriginalScript, null)
         }
     }
 
@@ -220,6 +225,7 @@ class BrowserMenuCoordinator(
             return
         }
 
+        webView.isPageTranslationAuthorized = true
         showTranslateBar(targetCode, targetName)
         binding.pbTranslateLoading.visibility = View.VISIBLE
 

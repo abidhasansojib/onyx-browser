@@ -50,28 +50,34 @@ class RegexFindBridge(
 
                 const queryStr = $quotedQuery;
                 if (!queryStr) {
-                    window.RegexFindBridge.reportResult(0, 0);
-                    return;
+                    if (window.RegexFindBridge && window.RegexFindBridge.reportResult) {
+                        window.RegexFindBridge.reportResult(0, 0);
+                    }
+                    return "0,0";
                 }
 
                 let regex;
                 try {
                     regex = new RegExp(queryStr, "gi");
                 } catch(e) {
-                    window.RegexFindBridge.reportResult(0, 0);
-                    return;
+                    if (window.RegexFindBridge && window.RegexFindBridge.reportResult) {
+                        window.RegexFindBridge.reportResult(0, 0);
+                    }
+                    return "0,0";
                 }
 
+                const MAX_MATCHES = 2000;
                 let matchCount = 0;
                 
                 function walk(node) {
+                    if (matchCount >= MAX_MATCHES) return;
                     if (node.nodeType === 3) {
                         const text = node.nodeValue;
                         let match;
                         let lastIndex = 0;
                         const fragments = [];
                         
-                        while ((match = regex.exec(text)) !== null) {
+                        while (matchCount < MAX_MATCHES && (match = regex.exec(text)) !== null) {
                             if (match.index === regex.lastIndex) {
                                 regex.lastIndex++;
                             }
@@ -112,11 +118,16 @@ class RegexFindBridge(
                     } else if (node.nodeType === 1 && node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE' && node.nodeName !== 'MARK') {
                         // avoid changing DOM while iterating childNodes by copying them to an array
                         const children = Array.from(node.childNodes);
-                        children.forEach(child => walk(child));
+                        for (let i = 0; i < children.length; i++) {
+                            if (matchCount >= MAX_MATCHES) break;
+                            walk(children[i]);
+                        }
                     }
                 }
                 
-                walk(document.body);
+                if (document.body) {
+                    walk(document.body);
+                }
                 
                 window.onyxRegexMatchCount = matchCount;
                 window.onyxRegexActiveIndex = matchCount > 0 ? 1 : 0;
@@ -137,11 +148,16 @@ class RegexFindBridge(
                 if (matchCount > 0 && typeof window.onyxHighlightActive === 'function') {
                     window.onyxHighlightActive();
                 }
-                window.RegexFindBridge.reportResult(window.onyxRegexActiveIndex, window.onyxRegexMatchCount);
+                if (window.RegexFindBridge && window.RegexFindBridge.reportResult) {
+                    window.RegexFindBridge.reportResult(window.onyxRegexActiveIndex, window.onyxRegexMatchCount);
+                }
+                return window.onyxRegexActiveIndex + "," + window.onyxRegexMatchCount;
             })();
         """.trimIndent()
 
-        webView.evaluateJavascript(js, null)
+        webView.evaluateJavascript(js) { rawResult ->
+            parseEvalResult(rawResult)
+        }
     }
 
     fun findNext(forward: Boolean) {
@@ -167,11 +183,27 @@ class RegexFindBridge(
                     if (typeof window.onyxHighlightActive === 'function') {
                         window.onyxHighlightActive();
                     }
-                    window.RegexFindBridge.reportResult(window.onyxRegexActiveIndex, window.onyxRegexMatchCount);
+                    if (window.RegexFindBridge && window.RegexFindBridge.reportResult) {
+                        window.RegexFindBridge.reportResult(window.onyxRegexActiveIndex, window.onyxRegexMatchCount);
+                    }
+                    return window.onyxRegexActiveIndex + "," + window.onyxRegexMatchCount;
                 }
+                return "0,0";
             })();
         """.trimIndent()
-        webView.evaluateJavascript(js, null)
+        webView.evaluateJavascript(js) { rawResult ->
+            parseEvalResult(rawResult)
+        }
+    }
+
+    private fun parseEvalResult(rawResult: String?) {
+        val cleaned = rawResult?.trim()?.removeSurrounding("\"") ?: return
+        val parts = cleaned.split(",")
+        if (parts.size == 2) {
+            val activeIndex = parts[0].toIntOrNull() ?: 0
+            val matchCount = parts[1].toIntOrNull() ?: 0
+            onFindResult(activeIndex, matchCount)
+        }
     }
     
     fun clearMatches() {

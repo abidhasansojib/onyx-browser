@@ -162,8 +162,9 @@ class BrowserWebView @JvmOverloads constructor(
     fun setRegexFindListener(listener: (Int, Int) -> Unit) {
         findListener = listener
     }
-    var isDevToolsActive: Boolean = false
-    var isDevToolsExpanded: Boolean = false
+    @Volatile var isDevToolsActive: Boolean = false
+    @Volatile var isDevToolsExpanded: Boolean = false
+    @Volatile var isPageTranslationAuthorized: Boolean = false
     val sessionSslBypasses: MutableSet<String> = mutableSetOf()
 
     val userScriptManager by lazy { com.onyx.browser.userscript.UserScriptManager.getInstance(context) }

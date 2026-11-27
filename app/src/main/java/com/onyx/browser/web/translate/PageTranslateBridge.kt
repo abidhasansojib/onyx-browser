@@ -41,6 +41,7 @@ class PageTranslateBridge(
 
     companion object {
         const val INTERFACE_NAME = "PageTranslateBridge"
+        private const val MAX_XML_PAYLOAD_CHARS = 32_768
 
         private val HTTP_CLIENT: OkHttpClient by lazy {
             OkHttpClient.Builder()
@@ -70,7 +71,10 @@ class PageTranslateBridge(
 
     @JavascriptInterface
     fun translateBatch(batchId: Int, xmlPayload: String, targetLang: String, isInitialBatch: Boolean) {
-        if (xmlPayload.isBlank()) {
+        if (!webView.isPageTranslationAuthorized) {
+            return
+        }
+        if (xmlPayload.isBlank() || xmlPayload.length > MAX_XML_PAYLOAD_CHARS) {
             return
         }
 
@@ -119,6 +123,7 @@ class PageTranslateBridge(
 
     @JavascriptInterface
     fun onTranslationFinished() {
+        if (!webView.isPageTranslationAuthorized) return
         mainHandler.post {
             activeBatchCount.set(0)
             updateLoadingState(false)
@@ -127,10 +132,12 @@ class PageTranslateBridge(
 
     @JavascriptInterface
     fun onTranslationError(error: String) {
+        if (!webView.isPageTranslationAuthorized) return
+        val safeError = error.take(120)
         mainHandler.post {
             activeBatchCount.set(0)
             updateLoadingState(false)
-            showErrorToast("Translation error: $error")
+            showErrorToast("Translation error: $safeError")
         }
     }
 

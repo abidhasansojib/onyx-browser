@@ -1169,6 +1169,7 @@ open class BrowserWebViewClient(
             onyxWv?.touchBridge?.clear()
             onyxWv?.hasScrolledDuringCurrentTouch = false
             onyxWv?.isDevToolsExpanded = false
+            onyxWv?.isPageTranslationAuthorized = false
             onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)
 

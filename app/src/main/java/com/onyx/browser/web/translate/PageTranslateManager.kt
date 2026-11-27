@@ -11,18 +11,21 @@ import java.net.URI
  */
 object PageTranslateManager {
 
+    private val LANG_CODE_REGEX = Regex("^[a-zA-Z]{2,3}(-[a-zA-Z]{2,4})?$")
+
     fun normalizeLang(code: String): String {
         if (code.isBlank()) return "en"
         val c = code.lowercase().trim()
-        return when {
+        val mapped = when {
             c == "fil" -> "tl"
             c == "he" -> "iw"
             c == "jv" -> "jw"
             c == "zh-cn" || c == "zh_cn" || c == "zh-hans" -> "zh-CN"
             c == "zh-tw" || c == "zh_tw" || c == "zh-hant" -> "zh-TW"
             c.startsWith("pt") -> if (c.contains("br")) "pt" else "pt"
-            else -> code
+            else -> code.trim()
         }
+        return if (LANG_CODE_REGEX.matches(mapped)) mapped else "en"
     }
 
     /**
