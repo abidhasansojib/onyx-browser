@@ -15,10 +15,12 @@ import com.onyx.browser.data.preferences.BrowserPreferences
 import com.onyx.browser.download.FileUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
@@ -38,6 +40,38 @@ import java.util.concurrent.ConcurrentHashMap
 object LocalFileLoader {
 
     private val EMPTY_403_HEADERS = mapOf("Content-Length" to "0")
+    private const val MAX_LOCAL_DOCUMENT_BYTES = 16 * 1024 * 1024 // 16 MB safety ceiling against OOM
+    private val loaderScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private fun readBoundedBytes(stream: InputStream, maxBytes: Int = MAX_LOCAL_DOCUMENT_BYTES): ByteArray? {
+        return try {
+            stream.use { input ->
+                val out = ByteArrayOutputStream()
+                val buf = ByteArray(8192)
+                var total = 0
+                while (true) {
+                    val read = input.read(buf)
+                    if (read == -1) break
+                    if (total + read > maxBytes) {
+                        val allowed = maxBytes - total
+                        if (allowed > 0) out.write(buf, 0, allowed)
+                        break
+                    }
+                    out.write(buf, 0, read)
+                    total += read
+                }
+                out.toByteArray()
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun readBoundedText(stream: InputStream?, maxBytes: Int = MAX_LOCAL_DOCUMENT_BYTES): String? {
+        if (stream == null) return null
+        val bytes = readBoundedBytes(stream, maxBytes) ?: return null
+        return String(bytes, StandardCharsets.UTF_8)
+    }
 
     enum class LocalFileType {
         HTML,
@@ -289,7 +323,7 @@ object LocalFileLoader {
         rawUriOrPath: String,
         onTitleResolved: ((String) -> Unit)? = null
     ) {
-        CoroutineScope(Dispatchers.IO).launch {
+        loaderScope.launch {
             val resolvedPath = FileUtils.resolveExistingPath(rawUriOrPath, context)
             if (resolvedPath == null) {
                 withContext(Dispatchers.Main) {
@@ -322,22 +356,12 @@ object LocalFileLoader {
                 }
 
                 LocalFileType.HTML -> {
-                    // Read HTML string directly in background and load via loadDataWithBaseURL.
-                    // This bypasses ContentResolver IPC latency and guarantees instant < 10ms rendering.
-                    val stream = openInputStream(context, uri)
-                    val htmlContent = try {
-                        stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }
-                    } catch (e: Exception) {
-                        null
-                    }
+                    // Read HTML string directly in background (bounded to MAX_LOCAL_DOCUMENT_BYTES) and load via loadDataWithBaseURL.
+                    val htmlContent = readBoundedText(openInputStream(context, uri))
 
                     withContext(Dispatchers.Main) {
                         if (htmlContent != null) {
-                            val documentBaseUrl = if (uri.scheme == "file" || uri.scheme == "content") {
-                                uri.toString()
-                            } else {
-                                "file://$resolvedPath"
-                            }
+                            val documentBaseUrl = PREVIEW_BASE_URL
                             webView.stopLoading()
                             webView.loadDataWithBaseURL(documentBaseUrl, htmlContent, "text/html", "UTF-8", rawUriOrPath)
                         } else {
@@ -347,12 +371,7 @@ object LocalFileLoader {
                 }
 
                 LocalFileType.MARKDOWN -> {
-                    val stream = openInputStream(context, uri)
-                    val rawMarkdown = try {
-                        stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }
-                    } catch (e: Exception) {
-                        null
-                    }
+                    val rawMarkdown = readBoundedText(openInputStream(context, uri))
 
                     withContext(Dispatchers.Main) {
                         if (rawMarkdown != null) {
@@ -367,12 +386,7 @@ object LocalFileLoader {
                 }
 
                 LocalFileType.TEXT, LocalFileType.UNKNOWN -> {
-                    val stream = openInputStream(context, uri)
-                    val textContent = try {
-                        stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }
-                    } catch (e: Exception) {
-                        null
-                    }
+                    val textContent = readBoundedText(openInputStream(context, uri))
 
                     withContext(Dispatchers.Main) {
                         if (textContent != null) {
@@ -688,16 +702,10 @@ object LocalFileLoader {
             return null
         }
 
-        val allBytes = try {
-            stream.use { it.readBytes() }
-        } catch (e: Exception) {
-            return null
-        }
+        val allBytes = readBoundedBytes(stream) ?: return null
 
         val baseHeaders = mapOf(
-            "Access-Control-Allow-Origin" to "*",
-            "Access-Control-Allow-Methods" to "GET, OPTIONS",
-            "Access-Control-Allow-Headers" to "*"
+            "Cache-Control" to "no-store, no-cache, must-revalidate"
         )
 
         return when (fileType) {

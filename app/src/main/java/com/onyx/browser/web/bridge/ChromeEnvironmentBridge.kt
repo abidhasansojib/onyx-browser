@@ -140,7 +140,7 @@ object ChromeEnvironmentBridge {
                 // because Document-Start Shields, Element Picker persistence, Media PiP, and Translation
                 // depend on calling these bridges. Hiding them from Object.getOwnPropertyNames,
                 // Object.keys, and Reflect.ownKeys is sufficient for anti-bot window-hash scanners.
-                var bridgePattern = /^(Onyx|__onyx|_Onyx|Passkey|_orig|WebErrorBridge|PageTranslateBridge)/;
+                var bridgePattern = /^(Onyx|onyx|__onyx|_Onyx|__us|Passkey|_orig|WebErrorBridge|PageTranslateBridge)/;
                 try {
                     var _origGetOwnPropertyNames = Object.getOwnPropertyNames;
                     Object.getOwnPropertyNames = makeNative(function(obj) {

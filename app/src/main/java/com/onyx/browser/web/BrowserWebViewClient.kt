@@ -1157,6 +1157,7 @@ open class BrowserWebViewClient(
             isMainFrameDocumentLoaded = false
             onyxWv?.let {
                 it.pendingMainFrameUrl = url
+                it.currentLoadedUrl = url
                 it.isMainFrameDocumentLoaded = false
             }
             if (previousUrl.isNotBlank() && previousUrl != url &&
@@ -1447,6 +1448,7 @@ open class BrowserWebViewClient(
                 isMainFrameDocumentLoaded = true
                 pendingMainFrameUrl = null
                 onyxWv?.let {
+                    it.currentLoadedUrl = url
                     it.isMainFrameDocumentLoaded = true
                     it.pendingMainFrameUrl = null
                 }

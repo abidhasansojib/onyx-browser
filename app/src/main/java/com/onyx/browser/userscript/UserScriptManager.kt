@@ -88,6 +88,25 @@ class UserScriptManager private constructor(private val context: Context) {
     private val userScriptDao get() = database.userScriptDao()
     private val valueDao get() = database.userScriptValueDao()
     private val valuesCache = ConcurrentHashMap<Long, ConcurrentHashMap<String, String>>()
+    private val scriptIdToToken = ConcurrentHashMap<Long, String>()
+    private val tokenToScriptId = ConcurrentHashMap<String, Long>()
+    private val secureRandom = java.security.SecureRandom()
+
+    fun getOrCreateScriptToken(scriptId: Long): String {
+        return scriptIdToToken.getOrPut(scriptId) {
+            val bytes = ByteArray(16)
+            secureRandom.nextBytes(bytes)
+            val hex = bytes.joinToString("") { "%02x".format(it) }
+            val token = "ust_$hex"
+            tokenToScriptId[token] = scriptId
+            token
+        }
+    }
+
+    fun resolveScriptIdFromToken(tokenOrKey: String?): Long? {
+        if (tokenOrKey.isNullOrBlank()) return null
+        return tokenToScriptId[tokenOrKey]
+    }
 
     private val scriptDir: File by lazy {
         File(context.filesDir, "userscripts").apply { mkdirs() }
@@ -386,7 +405,7 @@ class UserScriptManager private constructor(private val context: Context) {
             RunAt.DOCUMENT_IDLE -> "document-idle"
         }
 
-        val scriptKey = "us_${parsed.script.id}"
+        val scriptKey = getOrCreateScriptToken(parsed.script.id)
         val scriptName = JSONObject.quote(meta.name)
         val scriptId = parsed.script.id
         val noFrames = meta.noFrames
@@ -581,6 +600,7 @@ class UserScriptManager private constructor(private val context: Context) {
 
     suspend fun deleteScript(id: Long) = withContext(Dispatchers.IO) {
         valuesCache.remove(id)
+        scriptIdToToken.remove(id)?.let { tokenToScriptId.remove(it) }
         valueDao.deleteAllForScript(id)
         userScriptDao.deleteById(id)
         deleteCodeFile(id)
@@ -679,7 +699,7 @@ class UserScriptManager private constructor(private val context: Context) {
 
     fun gmGetValue(scriptId: Long, key: String): String? = getOrLoadValuesMap(scriptId)[key]
     fun gmGetValue(scriptKey: String, key: String): String? {
-        val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return null
+        val id = resolveScriptIdFromToken(scriptKey) ?: return null
         return gmGetValue(id, key)
     }
 
@@ -699,7 +719,7 @@ class UserScriptManager private constructor(private val context: Context) {
         }
     }
     fun gmSetValue(scriptKey: String, key: String, value: String) {
-        val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return
+        val id = resolveScriptIdFromToken(scriptKey) ?: return
         gmSetValue(id, key, value)
     }
 
@@ -718,14 +738,14 @@ class UserScriptManager private constructor(private val context: Context) {
         }
     }
     fun gmDeleteValue(scriptKey: String, key: String) {
-        val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return
+        val id = resolveScriptIdFromToken(scriptKey) ?: return
         gmDeleteValue(id, key)
     }
 
     fun gmListValues(scriptId: Long): List<String> =
         getOrLoadValuesMap(scriptId).keys.filterNot { it.startsWith(CONNECT_DECISION_KEY_PREFIX) }
     fun gmListValues(scriptKey: String): List<String> {
-        val id = scriptKey.removePrefix("us_").toLongOrNull() ?: return emptyList()
+        val id = resolveScriptIdFromToken(scriptKey) ?: return emptyList()
         return gmListValues(id)
     }
 

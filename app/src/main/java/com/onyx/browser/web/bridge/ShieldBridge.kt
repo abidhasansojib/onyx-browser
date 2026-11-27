@@ -24,6 +24,9 @@ class ShieldBridge(
 ) {
 
     private val preferences = BrowserPreferences.getInstance(context)
+    private val bridgeScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+    )
 
     private fun isCaptchaChallengeDomain(domain: String): Boolean {
         if (domain.isBlank()) return false
@@ -87,22 +90,18 @@ class ShieldBridge(
 
     @JavascriptInterface
     fun isDesktopModeActive(): Boolean {
-        val wv = webViewRef?.get()
-        if (wv != null) {
-            return wv.isDesktopModeEnabledForCurrentPage()
-        }
-        val target = wv?.url ?: wv?.pendingMainFrameUrl
-        if (!target.isNullOrBlank()) {
-            return preferences.getEffectiveDesktopMode(target)
-        }
-        return preferences.isDesktopMode
+        return isDesktopModeActive(null)
     }
 
     @JavascriptInterface
     fun isDesktopModeActive(domainOrUrl: String?): Boolean {
         val wv = webViewRef?.get()
-        val target = domainOrUrl?.takeIf { it.isNotBlank() } ?: wv?.url ?: wv?.pendingMainFrameUrl
-        if (!target.isNullOrBlank()) {
+        // Never call wv.url directly on the background JavaBridge thread (violates WebViewChromium.checkThread()).
+        // Read thread-safe @Volatile fields currentLoadedUrl / pendingMainFrameUrl / isDesktopMode instead.
+        val target = domainOrUrl?.takeIf { it.isNotBlank() }
+            ?: wv?.currentLoadedUrl?.takeIf { it.isNotBlank() }
+            ?: wv?.pendingMainFrameUrl
+        if (!target.isNullOrBlank() && !BrowserWebView.isSyntheticOrDataUrl(target)) {
             val key = preferences.getCanonicalDesktopKey(target)
             if (key.isNotBlank()) {
                 val siteState = preferences.getSiteDesktopModeState(key)
@@ -110,7 +109,7 @@ class ShieldBridge(
                 if (siteState == com.onyx.browser.data.preferences.SitePermissionState.BLOCKED) return false
             }
         }
-        return wv?.isDesktopMode ?: (!target.isNullOrBlank() && preferences.getEffectiveDesktopMode(target)) ?: preferences.isDesktopMode
+        return wv?.isDesktopMode ?: (!target.isNullOrBlank() && preferences.getEffectiveDesktopMode(target))
     }
 
     @JavascriptInterface
@@ -327,12 +326,32 @@ class ShieldBridge(
 
     @JavascriptInterface
     fun saveCustomCosmeticRules(domain: String?, selectorsJson: String?) {
-        val fallbackUrl = try {
+        // Guard against arbitrary websites injecting persistent cosmetic rules:
+        // Only allow saving rules while the user has actively opened the Element Picker.
+        if (!com.onyx.browser.ui.menu.ElementPickerManager.isPickerActive) return
+
+        val activePageUrl = try {
             val wv = webViewRef?.get()
-            wv?.pendingMainFrameUrl ?: wv?.url ?: ""
+            wv?.currentLoadedUrl?.takeIf { it.isNotBlank() } ?: wv?.pendingMainFrameUrl ?: ""
         } catch (_: Throwable) { "" }
-        val rawDomain = domain?.trim()?.takeIf { it.isNotBlank() } ?: fallbackUrl
-        val cleanD = preferences.cleanDomain(rawDomain).lowercase()
+        val activeCleanDomain = preferences.cleanDomain(activePageUrl).lowercase()
+        val requestedCleanDomain = domain?.trim()?.takeIf { it.isNotBlank() }?.let {
+            preferences.cleanDomain(it).lowercase()
+        } ?: ""
+
+        // Strictly scope custom rules to the active tab's current domain (prevent cross-domain rule poisoning)
+        val cleanD = if (activeCleanDomain.isNotBlank()) {
+            if (requestedCleanDomain.isNotBlank() &&
+                requestedCleanDomain != activeCleanDomain &&
+                !activeCleanDomain.endsWith(".$requestedCleanDomain") &&
+                !requestedCleanDomain.endsWith(".$activeCleanDomain")
+            ) {
+                return
+            }
+            activeCleanDomain
+        } else {
+            requestedCleanDomain
+        }
         if (cleanD.isBlank() || cleanD.contains("/") || cleanD.contains(":") || cleanD.contains("\\")) return
 
         val json = selectorsJson?.trim() ?: return
@@ -353,7 +372,7 @@ class ShieldBridge(
             preferences.isBlockElementEnabled = true
             preferences.addCustomBlockedSelectors(cleanD, selectors)
 
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            bridgeScope.launch {
                 try {
                     com.onyx.browser.data.filter.FilterListManager.recompileFilters(context)
                 } catch (_: Exception) {}

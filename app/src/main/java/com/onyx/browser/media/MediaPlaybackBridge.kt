@@ -154,6 +154,10 @@ class MediaPlaybackBridge(private val context: Context, private val webView: and
     @JavascriptInterface
     fun onVideoPresenceChanged(hasVideo: Boolean, src: String?, width: Int, height: Int) {
         val myTabId = (webView as? com.onyx.browser.web.BrowserWebView)?.tabId?.takeIf { it.isNotBlank() }
+        // Do not let an inactive background tab overwrite the dimensions or presence of an actively playing video tab
+        if (myTabId != null && currentPlayingTabId != null && currentPlayingTabId != myTabId && isVideoPlaying) {
+            return
+        }
         if (hasVideo) {
             if (myTabId != null) {
                 currentVideoPresentTabId = myTabId

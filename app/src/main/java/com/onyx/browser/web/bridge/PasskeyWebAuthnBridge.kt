@@ -433,26 +433,46 @@ class PasskeyWebAuthnBridge(
         callbackIdForError: String?
     ): OriginContext? {
         val rawTopUrl = webView.url?.takeIf { it.isNotBlank() }
+            ?: (webView as? BrowserWebView)?.currentLoadedUrl?.takeIf { it.isNotBlank() }
             ?: (webView as? BrowserWebView)?.pendingMainFrameUrl
             ?: ""
         val topOrigin = normalizeSecureWebOrigin(rawTopUrl)
-        val normalizedCaller = normalizeSecureWebOrigin(callerOrigin)
-
-        val effectiveOrigin = if (isTopFrame) {
-            topOrigin ?: normalizedCaller
-        } else {
-            normalizedCaller ?: topOrigin
-        }
-
-        if (effectiveOrigin.isNullOrBlank()) {
+        if (topOrigin.isNullOrBlank()) {
             if (callbackIdForError != null) {
                 sendError(
                     callbackIdForError,
                     "SecurityError",
-                    "Passkeys require a secure HTTPS (or localhost) web origin"
+                    "Passkeys require a secure HTTPS (or localhost) top-level web origin"
                 )
             }
             return null
+        }
+
+        val topHost = Uri.parse(topOrigin).host?.lowercase()?.trimEnd('.') ?: ""
+        val normalizedCaller = normalizeSecureWebOrigin(callerOrigin)
+        if (normalizedCaller != null && !normalizedCaller.equals(topOrigin, ignoreCase = true)) {
+            val callerHost = Uri.parse(normalizedCaller).host?.lowercase()?.trimEnd('.') ?: ""
+            val isSameHierarchy = callerHost.isNotBlank() && topHost.isNotBlank() && (
+                callerHost == topHost ||
+                callerHost.endsWith(".$topHost") ||
+                topHost.endsWith(".$callerHost")
+            )
+            if (!isSameHierarchy) {
+                if (callbackIdForError != null) {
+                    sendError(
+                        callbackIdForError,
+                        "SecurityError",
+                        "Cross-origin subframe '$callerHost' is not permitted to access credentials for '$topHost'"
+                    )
+                }
+                return null
+            }
+        }
+
+        val effectiveOrigin = if (isTopFrame || normalizedCaller.isNullOrBlank()) {
+            topOrigin
+        } else {
+            normalizedCaller
         }
 
         val originHost = Uri.parse(effectiveOrigin).host?.lowercase()?.trimEnd('.') ?: ""

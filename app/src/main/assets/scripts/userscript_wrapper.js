@@ -156,16 +156,16 @@ function GM_openInTab(url, options) {
   if (typeof options === 'boolean') active = !options;
   else if (options && typeof options === 'object') active = options.active !== false;
   try {
-    if (window.onyxGM && window.onyxGM.openInTab) {
-      window.onyxGM.openInTab(url, active);
+    if (window.onyxGM && window.onyxGM.gmOpenInTab) {
+      window.onyxGM.gmOpenInTab(__scriptKey, url, active);
     }
   } catch(__e) {}
   return { closed: false, close: function() {} };
 }
 function GM_setClipboard(text, type) {
   try {
-    if (window.onyxGM && window.onyxGM.setClipboard) {
-      window.onyxGM.setClipboard(String(text));
+    if (window.onyxGM && window.onyxGM.gmSetClipboard) {
+      window.onyxGM.gmSetClipboard(__scriptKey, String(text));
       return;
     }
   } catch(__e) {}
@@ -179,8 +179,8 @@ function GM_notification(details, ondone) {
   try {
     var __opts = (typeof details === 'string') ? { text: details, title: ondone } : (details || {});
     var __title = (typeof __opts.title === 'string' && __opts.title) ? __opts.title : __scriptName;
-    if (window.onyxGM && window.onyxGM.notify) {
-      window.onyxGM.notify(__scriptName, __title, __opts.text || '', location.hostname || '');
+    if (window.onyxGM && window.onyxGM.gmNotification) {
+      window.onyxGM.gmNotification(__scriptKey, JSON.stringify({ title: __title, text: __opts.text || '', origin: location.hostname || '' }));
     }
     if (typeof __opts.ondone === 'function') setTimeout(__opts.ondone, 0);
   } catch(__e) {}
@@ -189,7 +189,7 @@ var __xhrSeq = 0;
 function GM_xmlhttpRequest(details) {
   details = details || {};
   try {
-    var __id = 'x_' + __scriptId + '_' + (++__xhrSeq) + '_' + Date.now();
+    var __id = 'x_' + (++__xhrSeq) + '_' + Date.now();
     var __payload = {
       url: details.url,
       method: (details.method || 'GET').toUpperCase(),
@@ -241,15 +241,15 @@ function GM_xmlhttpRequest(details) {
       if (details.onreadystatechange) try { details.onreadystatechange(__r); } catch(__e3) {}
       if (details.onload) details.onload(__r);
     };
-    if (window.onyxGM && window.onyxGM.xhr) {
-      window.onyxGM.xhr(__id, JSON.stringify(__payload));
+    if (window.onyxGM && window.onyxGM.gmXhr) {
+      window.onyxGM.gmXhr(__scriptKey, __id, JSON.stringify(__payload));
     } else {
       delete window.__usRuntime.xhrCallbacks[__id];
       if (details.onerror) details.onerror({ error: 'Bridge unavailable', context: details.context });
     }
     return {
       abort: function() {
-        try { if (window.onyxGM && window.onyxGM.abortXhr) window.onyxGM.abortXhr(__id); } catch(__ae) {}
+        try { if (window.onyxGM && window.onyxGM.gmAbortXhr) window.onyxGM.gmAbortXhr(__scriptKey, __id); } catch(__ae) {}
         if (details.onabort) details.onabort();
       }
     };
@@ -275,8 +275,8 @@ function GM_download(details, filename) {
       }, 100);
       return { abort: function() {} };
     }
-    if (window.onyxGM && window.onyxGM.download) {
-      window.onyxGM.download(__u, __opts.name || 'download');
+    if (window.onyxGM && window.onyxGM.gmDownload) {
+      window.onyxGM.gmDownload(__scriptKey, 'd_' + (++__xhrSeq), JSON.stringify({ url: __u, name: __opts.name || 'download' }));
     }
     if (__opts.onload) setTimeout(__opts.onload, 100);
   } catch(__e) {
@@ -302,13 +302,13 @@ function GM_registerMenuCommand(caption, onClick, accessKey) {
   var __id = 'm_' + __scriptId + '_' + (++__xhrSeq);
   window.__usRuntime.menuCommands[__id] = { scriptName: __scriptName, caption: caption, onClick: onClick, accessKey: accessKey };
   __usRenderMenuButton();
-  try { if (window.onyxGM && window.onyxGM.registerMenuCommand) window.onyxGM.registerMenuCommand(caption, __id); } catch(__e) {}
+  try { if (window.onyxGM && window.onyxGM.gmRegisterMenuCommand) window.onyxGM.gmRegisterMenuCommand(__scriptKey, caption, __id); } catch(__e) {}
   return __id;
 }
 function GM_unregisterMenuCommand(id) {
   delete window.__usRuntime.menuCommands[id];
   __usRenderMenuButton();
-  try { if (window.onyxGM && window.onyxGM.unregisterMenuCommand) window.onyxGM.unregisterMenuCommand(id); } catch(__e) {}
+  try { if (window.onyxGM && window.onyxGM.gmUnregisterMenuCommand) window.onyxGM.gmUnregisterMenuCommand(__scriptKey, id); } catch(__e) {}
 }
 function __usRenderMenuButton() {
   try {

@@ -69,6 +69,7 @@ class BrowserWebView @JvmOverloads constructor(
     }
 
     @Volatile var pendingMainFrameUrl: String? = null
+    @Volatile var currentLoadedUrl: String? = null
     @Volatile var isMainFrameDocumentLoaded: Boolean = false
     @Volatile var hasActiveMediaSubresource: Boolean = false
     @Volatile private var lastAppliedDesktopMode: Boolean? = null

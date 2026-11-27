@@ -58,8 +58,9 @@ class UserScriptBridge(
             val oldValStr = if (oldValue != null) JSONObject.quote(oldValue) else "null"
             val newValStr = if (newValue != null) JSONObject.quote(newValue) else "null"
             val safeKey = JSONObject.quote(key)
+            val scriptToken = JSONObject.quote(manager.getOrCreateScriptToken(scriptId))
             val js = "try { " +
-                    "if (window.__usValueChanged) window.__usValueChanged('us_$scriptId', $safeKey, $newValStr); " +
+                    "if (window.__usValueChanged) window.__usValueChanged($scriptToken, $safeKey, $newValStr); " +
                     "if (window.__onyxGM && window.__onyxGM.notifyValueChanged) window.__onyxGM.notifyValueChanged($scriptId, $safeKey, $oldValStr, $newValStr); " +
                     "} catch (_) {}"
             scope.launch(Dispatchers.Main) {
@@ -68,8 +69,20 @@ class UserScriptBridge(
         }
     }
 
+    @Volatile
+    private var cachedUserAgent: String = ""
+
     init {
         manager.addValueChangeListener(valueChangeListener)
+        runCatching {
+            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+                cachedUserAgent = webView.settings.userAgentString ?: ""
+            } else {
+                webView.post {
+                    runCatching { cachedUserAgent = webView.settings.userAgentString ?: "" }
+                }
+            }
+        }
     }
 
     private val httpClient = OkHttpClient.Builder()
@@ -104,39 +117,42 @@ class UserScriptBridge(
     }
 
     private fun resolveScriptId(tokenOrKey: String?): Long? {
-        if (tokenOrKey == null) return null
-        if (tokenOrKey.startsWith("us_")) {
-            return tokenOrKey.removePrefix("us_").toLongOrNull()
-        }
-        tokenOrKey.toLongOrNull()?.let { return it }
+        if (tokenOrKey.isNullOrBlank()) return null
+        manager.resolveScriptIdFromToken(tokenOrKey)?.let { return it }
         val session = tokens[tokenOrKey]
         if (session != null) return session.scriptId
         return null
     }
 
+    private fun resolveAuthorizedScript(tokenOrKey: String?): ParsedUserScript? {
+        val scriptId = resolveScriptId(tokenOrKey) ?: return null
+        val parsed = manager.getById(scriptId) ?: return null
+        return if (parsed.script.enabled) parsed else null
+    }
+
     // region Values Storage
     @JavascriptInterface
     fun getValue(scriptKey: String, key: String): String? {
-        val scriptId = resolveScriptId(scriptKey) ?: return null
-        return manager.gmGetValue(scriptId, key)
+        val parsed = resolveAuthorizedScript(scriptKey) ?: return null
+        return manager.gmGetValue(parsed.script.id, key)
     }
 
     @JavascriptInterface
     fun setValue(scriptKey: String, key: String, value: String) {
-        val scriptId = resolveScriptId(scriptKey) ?: return
-        manager.gmSetValue(scriptId, key, value)
+        val parsed = resolveAuthorizedScript(scriptKey) ?: return
+        manager.gmSetValue(parsed.script.id, key, value)
     }
 
     @JavascriptInterface
     fun deleteValue(scriptKey: String, key: String) {
-        val scriptId = resolveScriptId(scriptKey) ?: return
-        manager.gmDeleteValue(scriptId, key)
+        val parsed = resolveAuthorizedScript(scriptKey) ?: return
+        manager.gmDeleteValue(parsed.script.id, key)
     }
 
     @JavascriptInterface
     fun listValues(scriptKey: String): String {
-        val scriptId = resolveScriptId(scriptKey) ?: return "[]"
-        val keys = manager.gmListValues(scriptId)
+        val parsed = resolveAuthorizedScript(scriptKey) ?: return "[]"
+        val keys = manager.gmListValues(parsed.script.id)
         val arr = JSONArray()
         keys.forEach { arr.put(it) }
         return arr.toString()
@@ -156,61 +172,67 @@ class UserScriptBridge(
     // endregion
 
     // region GM_xmlhttpRequest
-    @JavascriptInterface
-    fun xhr(id: String, detailsJson: String) {
-        val safeId = id.replace("'", "")
+    private fun executeAuthorizedXhr(token: String?, id: String, detailsJson: String) {
+        val safeId = id.replace(Regex("[^a-zA-Z0-9_\\-]"), "")
+        val parsedScript = resolveAuthorizedScript(token)
+        if (parsedScript == null) {
+            postXhrError(safeId, "Unauthorized GM_xmlhttpRequest: valid userscript capability token required")
+            return
+        }
+        val parsedScriptId = parsedScript.script.id
         try {
             val details = JSONObject(detailsJson)
             val url = details.getString("url")
+            if (!isWebUrl(url)) {
+                postXhrError(safeId, "GM_xmlhttpRequest only supports http and https URLs")
+                return
+            }
 
             // @connect domain enforcement and first-use permission prompt (Tampermonkey spec §connect)
-            // Request ID format: x_<scriptId>_<seq>_<timestamp> — parse scriptId to look up metadata
-            val parsedScriptId = safeId.split("_").getOrNull(1)?.toLongOrNull()
-            if (parsedScriptId != null) {
-                val parsedScript = manager.getById(parsedScriptId)
-                val connects = parsedScript?.metadata?.connects ?: emptyList()
-                val requestHost = try { URI(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
-                if (requestHost.isNotEmpty()) {
-                    val savedDecision = manager.getConnectDecision(parsedScriptId, requestHost)
-                    if (savedDecision == false) {
-                        postXhrError(safeId, "GM_xmlhttpRequest denied by user for host '$requestHost'")
-                        return
+            val connects = parsedScript.metadata.connects
+            val requestHost = try { URI(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+            if (requestHost.isEmpty()) {
+                postXhrError(safeId, "Invalid request host")
+                return
+            }
+            val savedDecision = manager.getConnectDecision(parsedScriptId, requestHost)
+            if (savedDecision == false) {
+                postXhrError(safeId, "GM_xmlhttpRequest denied by user for host '$requestHost'")
+                return
+            }
+            if (savedDecision != true) {
+                val hasWildcard = connects.any {
+                    val d = it.trim().lowercase()
+                    d == "*" || d == "@nocheck"
+                }
+                if (!hasWildcard) {
+                    val listedInConnect = connects.any { domain ->
+                        val d = domain.trim().lowercase()
+                        d == "self" || requestHost == d || requestHost.endsWith(".$d")
                     }
-                    if (savedDecision != true) {
-                        val hasWildcard = connects.any {
-                            val d = it.trim().lowercase()
-                            d == "*" || d == "@nocheck"
-                        }
-                        if (!hasWildcard) {
-                            val listedInConnect = connects.any { domain ->
-                                val d = domain.trim().lowercase()
-                                d == "self" || requestHost == d || requestHost.endsWith(".$d")
+                    scope.launch {
+                        val approved = promptConnectPermission(
+                            scriptId = parsedScriptId,
+                            scriptName = parsedScript.metadata.name,
+                            host = requestHost,
+                            listedInConnect = listedInConnect
+                        )
+                        if (approved) {
+                            scope.launch(Dispatchers.IO) {
+                                executeXhrCall(safeId, details, url)
                             }
-                            scope.launch {
-                                val approved = promptConnectPermission(
-                                    scriptId = parsedScriptId,
-                                    scriptName = parsedScript?.metadata?.name ?: "Userscript",
-                                    host = requestHost,
-                                    listedInConnect = listedInConnect
-                                )
-                                if (approved) {
-                                    scope.launch(Dispatchers.IO) {
-                                        executeXhrCall(safeId, details, url)
-                                    }
+                        } else {
+                            postXhrError(
+                                safeId,
+                                if (listedInConnect) {
+                                    "GM_xmlhttpRequest denied by user for @connect host '$requestHost'"
                                 } else {
-                                    postXhrError(
-                                        safeId,
-                                        if (listedInConnect) {
-                                            "GM_xmlhttpRequest denied by user for @connect host '$requestHost'"
-                                        } else {
-                                            "GM_xmlhttpRequest blocked: host '$requestHost' not listed in @connect"
-                                        }
-                                    )
+                                    "GM_xmlhttpRequest blocked: host '$requestHost' not listed in @connect"
                                 }
-                            }
-                            return
+                            )
                         }
                     }
+                    return
                 }
             }
 
@@ -218,6 +240,11 @@ class UserScriptBridge(
         } catch (e: Exception) {
             postXhrError(safeId, e.message ?: "invalid request")
         }
+    }
+
+    @JavascriptInterface
+    fun xhr(id: String, detailsJson: String) {
+        postXhrError(id.replace(Regex("[^a-zA-Z0-9_\\-]"), ""), "Unauthorized GM_xmlhttpRequest: token required")
     }
 
     private fun postXhrError(safeId: String, message: String) {
@@ -327,8 +354,9 @@ class UserScriptBridge(
             val builder = Request.Builder().url(url).method(method, requestBody)
 
             val anonymous = details.optBoolean("anonymous", false)
+            val scopedCookieManager = runCatching { webView.cookieManager }.getOrNull() ?: CookieManager.getInstance()
             if (!anonymous) {
-                val cookie = runCatching { CookieManager.getInstance().getCookie(url) }.getOrNull()
+                val cookie = runCatching { scopedCookieManager.getCookie(url) }.getOrNull()
                 if (!cookie.isNullOrBlank()) {
                     builder.header("Cookie", cookie)
                 }
@@ -344,8 +372,9 @@ class UserScriptBridge(
                 }
             }
             if (!hasUserAgent) {
-                val ua = runCatching { webView.settings.userAgentString }.getOrNull()
-                    ?: WebSettings.getDefaultUserAgent(webView.context)
+                val ua = cachedUserAgent.ifBlank {
+                    runCatching { WebSettings.getDefaultUserAgent(webView.context) }.getOrDefault("")
+                }
                 if (ua.isNotBlank()) builder.header("User-Agent", ua)
             }
 
@@ -380,9 +409,8 @@ class UserScriptBridge(
                         if (!anonymous) {
                             val setCookieHeaders = r.headers("Set-Cookie")
                             if (setCookieHeaders.isNotEmpty()) {
-                                val cm = CookieManager.getInstance()
                                 setCookieHeaders.forEach { sc ->
-                                    runCatching { cm.setCookie(url, sc) }
+                                    runCatching { scopedCookieManager.setCookie(url, sc) }
                                 }
                             }
                         }
@@ -413,33 +441,37 @@ class UserScriptBridge(
 
     @JavascriptInterface
     fun abortXhr(id: String) {
-        activeCalls.remove(id.replace("'", ""))?.cancel()
+        // Requires token via gmAbortXhr
     }
 
     @JavascriptInterface
     fun gmXhr(token: String, reqId: String, detailsJson: String) {
-        xhr(reqId, detailsJson)
+        executeAuthorizedXhr(token, reqId, detailsJson)
     }
 
     @JavascriptInterface
     fun gmAbortXhr(token: String, reqId: String) {
-        abortXhr(reqId)
+        if (resolveAuthorizedScript(token) == null) return
+        val safeId = reqId.replace(Regex("[^a-zA-Z0-9_\\-]"), "")
+        activeCalls.remove(safeId)?.cancel()
     }
     // endregion
 
     // region Download & Media
-    @JavascriptInterface
-    fun download(url: String, filename: String) {
+    private fun executeAuthorizedDownload(token: String, url: String, filename: String) {
+        if (resolveAuthorizedScript(token) == null || !isWebUrl(url)) return
         webView.post {
             try {
                 val finalFilename = filename.ifBlank { "download" }
+                val ua = webView.settings.userAgentString
+                cachedUserAgent = ua ?: ""
                 DownloadEngineManager.enqueueDownload(
                     context = webView.context,
                     url = url,
                     fileName = finalFilename,
                     mimeType = "application/octet-stream",
-                    userAgent = webView.settings.userAgentString,
-                    cookies = CookieManager.getInstance().getCookie(url) ?: ""
+                    userAgent = ua,
+                    cookies = webView.cookieManager.getCookie(url) ?: ""
                 )
             } catch (e: Exception) {
                 Log.w(TAG, "gmDownload failed to enqueue", e)
@@ -448,12 +480,18 @@ class UserScriptBridge(
     }
 
     @JavascriptInterface
+    fun download(url: String, filename: String) {
+        // Unauthenticated direct download blocked; must use gmDownload with capability token
+    }
+
+    @JavascriptInterface
     fun gmDownload(token: String, reqId: String, detailsJson: String) {
+        if (resolveAuthorizedScript(token) == null) return
         try {
             val d = JSONObject(detailsJson)
             val u = d.getString("url")
             val name = d.optString("name", "download")
-            download(u, name)
+            executeAuthorizedDownload(token, u, name)
         } catch (_: Exception) {}
     }
 
@@ -462,35 +500,48 @@ class UserScriptBridge(
     // endregion
 
     // region UI & System APIs
-    @JavascriptInterface
-    fun notify(scriptName: String, title: String, text: String, origin: String) {
+    private fun executeAuthorizedNotify(parsed: ParsedUserScript, title: String, text: String, origin: String) {
         webView.post {
             try {
+                val actualOrigin = try { Uri.parse(webView.url ?: "").host ?: origin } catch (_: Exception) { origin }
                 UserScriptNotificationHelper.showNotification(
                     context = webView.context,
-                    scriptName = scriptName,
-                    title = title,
+                    scriptName = parsed.metadata.name,
+                    title = title.ifBlank { parsed.metadata.name },
                     text = text,
-                    origin = origin
+                    origin = actualOrigin
                 )
             } catch (_: Exception) {}
         }
     }
 
     @JavascriptInterface
+    fun notify(scriptName: String, title: String, text: String, origin: String) {
+        // Unauthenticated notify blocked; must use gmNotification with capability token
+    }
+
+    @JavascriptInterface
     fun gmNotification(token: String, text: String) {
+        val parsed = resolveAuthorizedScript(token) ?: return
         try {
             val d = JSONObject(text)
-            val t = d.optString("title", "")
+            val t = d.optString("title", parsed.metadata.name)
             val txt = d.optString("text", text)
-            notify(t, t, txt, "")
+            val orig = d.optString("origin", "")
+            executeAuthorizedNotify(parsed, t, txt, orig)
         } catch (_: Exception) {
-            notify("", "", text, "")
+            executeAuthorizedNotify(parsed, parsed.metadata.name, text, "")
         }
     }
 
     @JavascriptInterface
     fun setClipboard(text: String) {
+        // Unauthenticated clipboard write blocked; must use gmSetClipboard with capability token
+    }
+
+    @JavascriptInterface
+    fun gmSetClipboard(token: String, text: String) {
+        if (resolveAuthorizedScript(token) == null) return
         webView.post {
             try {
                 val cm = webView.context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
@@ -500,12 +551,13 @@ class UserScriptBridge(
     }
 
     @JavascriptInterface
-    fun gmSetClipboard(token: String, text: String) {
-        setClipboard(text)
+    fun openInTab(url: String, active: Boolean) {
+        // Unauthenticated tab open blocked; must use gmOpenInTab with capability token
     }
 
     @JavascriptInterface
-    fun openInTab(url: String, active: Boolean) {
+    fun gmOpenInTab(token: String, url: String, active: Boolean) {
+        if (resolveAuthorizedScript(token) == null || !isWebUrl(url)) return
         webView.post {
             try {
                 var ctx: Context? = webView.context
@@ -520,36 +572,34 @@ class UserScriptBridge(
     }
 
     @JavascriptInterface
-    fun gmOpenInTab(token: String, url: String, active: Boolean) {
-        openInTab(url, active)
+    fun registerMenuCommand(caption: String, fnId: String) {
+        // Unauthenticated menu registration blocked; must use gmRegisterMenuCommand with capability token
     }
 
     @JavascriptInterface
-    fun registerMenuCommand(caption: String, fnId: String) {
+    fun unregisterMenuCommand(fnId: String) {
+        // Unauthenticated menu unregistration blocked; must use gmUnregisterMenuCommand with capability token
+    }
+
+    @JavascriptInterface
+    fun gmRegisterMenuCommand(token: String, caption: String, fnId: String) {
+        if (resolveAuthorizedScript(token) == null) return
         webView.post {
             webView.registerUserScriptMenuCommand(caption, fnId)
         }
     }
 
     @JavascriptInterface
-    fun unregisterMenuCommand(fnId: String) {
+    fun gmUnregisterMenuCommand(token: String, fnId: String) {
+        if (resolveAuthorizedScript(token) == null) return
         webView.post {
             webView.unregisterUserScriptMenuCommand(fnId)
         }
     }
 
     @JavascriptInterface
-    fun gmRegisterMenuCommand(token: String, caption: String, fnId: String) {
-        registerMenuCommand(caption, fnId)
-    }
-
-    @JavascriptInterface
-    fun gmUnregisterMenuCommand(token: String, fnId: String) {
-        unregisterMenuCommand(fnId)
-    }
-
-    @JavascriptInterface
     fun gmLog(token: String, message: String) {
+        if (resolveAuthorizedScript(token) == null) return
         Log.d(TAG, "UserScript: $message")
     }
     // endregion

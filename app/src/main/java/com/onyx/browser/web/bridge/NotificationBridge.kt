@@ -33,10 +33,31 @@ class NotificationBridge(
 
     @JavascriptInterface
     fun requestPermission(hostOrUrl: String, callbackId: String) {
-        val domain = prefs.cleanDomain(hostOrUrl)
+        val safeCallbackId = callbackId.replace(Regex("[^a-zA-Z0-9_]"), "")
+        val callerDomain = prefs.cleanDomain(hostOrUrl)
         mainHandler.post {
-            onRequestPermission(domain) { result ->
-                val js = "window.__onyxResolveNotificationPermission && window.__onyxResolveNotificationPermission('$callbackId', '$result');"
+            val topUrl = webView.url?.takeIf { it.isNotBlank() }
+                ?: (webView as? com.onyx.browser.web.BrowserWebView)?.currentLoadedUrl
+                ?: (webView as? com.onyx.browser.web.BrowserWebView)?.pendingMainFrameUrl
+                ?: ""
+            val verifiedTopDomain = prefs.cleanDomain(topUrl)
+            // Prevent cross-origin subframes or spoofed arguments from prompting under a fake domain
+            if (verifiedTopDomain.isBlank() ||
+                (callerDomain.isNotBlank() &&
+                    callerDomain != verifiedTopDomain &&
+                    !callerDomain.endsWith(".$verifiedTopDomain") &&
+                    !verifiedTopDomain.endsWith(".$callerDomain"))
+            ) {
+                val denyJs = "window.__onyxResolveNotificationPermission && window.__onyxResolveNotificationPermission('$safeCallbackId', 'denied');"
+                webView.evaluateJavascript(denyJs, null)
+                return@post
+            }
+            onRequestPermission(verifiedTopDomain) { result ->
+                val safeResult = when (result) {
+                    "granted", "denied", "default" -> result
+                    else -> "denied"
+                }
+                val js = "window.__onyxResolveNotificationPermission && window.__onyxResolveNotificationPermission('$safeCallbackId', '$safeResult');"
                 webView.evaluateJavascript(js, null)
             }
         }
