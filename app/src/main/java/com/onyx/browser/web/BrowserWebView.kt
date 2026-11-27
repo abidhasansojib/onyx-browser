@@ -102,6 +102,7 @@ class BrowserWebView @JvmOverloads constructor(
     var touchDownY: Float = 0f
         private set
     @Volatile private var lastTouchTimestamp: Long = 0L
+    @Volatile var hasScrolledDuringCurrentTouch: Boolean = false
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
@@ -111,10 +112,14 @@ class BrowserWebView @JvmOverloads constructor(
                 lastTouchX = event.x
                 lastTouchY = event.y
                 lastTouchTimestamp = System.currentTimeMillis()
+                hasScrolledDuringCurrentTouch = scrollY > 0 || canScrollVertically(-1)
             }
             MotionEvent.ACTION_MOVE -> {
                 lastTouchX = event.x
                 lastTouchY = event.y
+                if (scrollY > 0 || canScrollVertically(-1)) {
+                    hasScrolledDuringCurrentTouch = true
+                }
             }
         }
         return super.onTouchEvent(event)
@@ -136,6 +141,9 @@ class BrowserWebView @JvmOverloads constructor(
     var onScrollChangedCallback: ((Int, Int, Int, Int) -> Unit)? = null
 
     override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
+        if (t != oldt || l != oldl || t > 0) {
+            hasScrolledDuringCurrentTouch = true
+        }
         super.onScrollChanged(l, t, oldl, oldt)
         onScrollChangedCallback?.invoke(l, t, oldl, oldt)
     }

@@ -113,7 +113,6 @@ class TouchBridge {
                     }
                     "cleared" -> {
                         lastTouchedElement = TouchedElement()
-                        isPullToRefreshAllowed = true
                     }
                 }
             } catch (_: Throwable) {}
@@ -151,8 +150,10 @@ class TouchBridge {
                 // Per-gesture state for direction-aware pull-to-refresh gating
                 var __touchStartY = 0;
                 var __touchStartX = 0;
+                var __lastTouchY = 0;
                 var __scrollableTarget = null;
-                var __directionLocked = false;
+                var __ptrBlockedForGesture = false;
+                var __clearTimer = null;
 
                 function isErudaExpanded() {
                     try {
@@ -187,6 +188,33 @@ class TouchBridge {
                     return false;
                 }
 
+                function isScrollableOverflow(overflowY) {
+                    return overflowY === 'scroll' || overflowY === 'auto' || overflowY === 'overlay';
+                }
+
+                function isDocumentScrolled() {
+                    try {
+                        if ((window.scrollY && window.scrollY > 0) ||
+                            (window.pageYOffset && window.pageYOffset > 0) ||
+                            (document.scrollingElement && document.scrollingElement.scrollTop > 0) ||
+                            (document.documentElement && document.documentElement.scrollTop > 0) ||
+                            (document.body && document.body.scrollTop > 0)) {
+                            return true;
+                        }
+                    } catch (_) {}
+                    return false;
+                }
+
+                function isDocumentOrActiveContainerScrolled() {
+                    try {
+                        if (isDocumentScrolled()) return true;
+                        if (__scrollableTarget && __scrollableTarget.isConnected && __scrollableTarget.scrollTop > 0) {
+                            return true;
+                        }
+                    } catch (_) {}
+                    return false;
+                }
+
                 /**
                  * Walk up from element or inspect composedPath to find the nearest scrollable container
                  * that has actual overflow content (scrollHeight > clientHeight).
@@ -196,21 +224,29 @@ class TouchBridge {
                         if (path && path.length > 0) {
                             for (var i = 0; i < path.length; i++) {
                                 var node = path[i];
-                                if (!node || node === document.body || node === document.documentElement || !(node instanceof HTMLElement)) continue;
+                                if (!node || !(node instanceof HTMLElement)) continue;
+                                if (node === document.body || node === document.documentElement) {
+                                    if (node.scrollTop > 0) return node;
+                                    continue;
+                                }
                                 var s = window.getComputedStyle(node);
-                                if ((s.overflowY === 'scroll' || s.overflowY === 'auto') &&
-                                    node.scrollHeight > node.clientHeight) {
+                                if (isScrollableOverflow(s.overflowY) &&
+                                    node.scrollHeight > node.clientHeight + 1) {
                                     return node;
                                 }
                             }
                         }
                     } catch (_) {}
                     var p = el;
-                    while (p && p !== document.body && p !== document.documentElement) {
+                    while (p && p !== document.documentElement) {
                         try {
+                            if (p === document.body) {
+                                if (p.scrollTop > 0) return p;
+                                break;
+                            }
                             var s2 = window.getComputedStyle(p);
-                            if ((s2.overflowY === 'scroll' || s2.overflowY === 'auto') &&
-                                p.scrollHeight > p.clientHeight) {
+                            if (isScrollableOverflow(s2.overflowY) &&
+                                p.scrollHeight > p.clientHeight + 1) {
                                 return p;
                             }
                         } catch (_) {}
@@ -225,7 +261,7 @@ class TouchBridge {
                  */
                 function evaluatePullBlock(el, path) {
                     try {
-                        if (isErudaOrDevTools(el, path)) {
+                        if (isErudaOrDevTools(el, path) || isDocumentOrActiveContainerScrolled()) {
                             return true;
                         }
 
@@ -246,11 +282,12 @@ class TouchBridge {
                                 if (!node || !(node instanceof HTMLElement)) continue;
                                 var tag = (node.tagName || '').toLowerCase();
                                 if (tag === 'video' || tag === 'audio') return true;
+                                if (node.scrollTop > 0) return true;
                                 var s = window.getComputedStyle(node);
                                 var ob = s.overscrollBehaviorY || s.overscrollBehavior;
                                 if (ob === 'none' || ob === 'contain') return true;
-                                if ((s.overflowY === 'scroll' || s.overflowY === 'auto') &&
-                                    node.scrollHeight > node.clientHeight && node.scrollTop > 0) {
+                                if (isScrollableOverflow(s.overflowY) &&
+                                    node.scrollHeight > node.clientHeight + 1 && node.scrollTop > 0) {
                                     return true;
                                 }
                             }
@@ -261,14 +298,16 @@ class TouchBridge {
                                 return true;
                             }
                             var p = el;
-                            while (p && p !== document.body && p !== document.documentElement) {
+                            while (p) {
+                                if (p.scrollTop > 0) return true;
+                                if (p === document.body || p === document.documentElement) break;
                                 var s2 = window.getComputedStyle(p);
                                 var ob2 = s2.overscrollBehaviorY || s2.overscrollBehavior;
                                 if (ob2 === 'none' || ob2 === 'contain') {
                                     return true;
                                 }
-                                if ((s2.overflowY === 'scroll' || s2.overflowY === 'auto') &&
-                                    p.scrollHeight > p.clientHeight && p.scrollTop > 0) {
+                                if (isScrollableOverflow(s2.overflowY) &&
+                                    p.scrollHeight > p.clientHeight + 1 && p.scrollTop > 0) {
                                     return true;
                                 }
                                 p = p.parentElement;
@@ -288,14 +327,46 @@ class TouchBridge {
                     return false;
                 }
 
+                function sendPtrAllowed(allowed) {
+                    if (!postTouchMsg({ type: 'ptr', allowed: !!allowed })) {
+                        if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
+                            window.OnyxTouchBridge.setPullToRefreshAllowed(!!allowed);
+                        }
+                    }
+                }
+
+                // Passive capturing scroll listener keeps native isPullToRefreshAllowed synchronized
+                // in real time across document and inner SPA scroll containers BEFORE the next touchstart.
+                window.addEventListener('scroll', function(e) {
+                    try {
+                        var t = e && e.target;
+                        var targetScrolled = (t && t !== document && t !== window && typeof t.scrollTop === 'number' && t.scrollTop > 0);
+                        if (targetScrolled || isDocumentOrActiveContainerScrolled() || isErudaExpanded()) {
+                            __ptrBlockedForGesture = true;
+                            sendPtrAllowed(false);
+                        } else if (!__ptrBlockedForGesture) {
+                            sendPtrAllowed(true);
+                        }
+                    } catch (_) {}
+                }, { passive: true, capture: true });
+
                 document.addEventListener('touchstart', function(e) {
                     try {
-                        __directionLocked = false;
+                        if (__clearTimer) {
+                            clearTimeout(__clearTimer);
+                            __clearTimer = null;
+                        }
                         __scrollableTarget = null;
                         if (!e.touches || e.touches.length === 0) return;
+                        if (e.touches.length > 1) {
+                            __ptrBlockedForGesture = true;
+                            sendPtrAllowed(false);
+                            return;
+                        }
                         var t = e.touches[0];
                         __touchStartY = t.clientY;
                         __touchStartX = t.clientX;
+                        __lastTouchY = t.clientY;
                         var path = (e.composedPath && typeof e.composedPath === 'function') ? e.composedPath() : null;
                         var el = document.elementFromPoint(t.clientX, t.clientY);
 
@@ -315,11 +386,8 @@ class TouchBridge {
 
                         // ── 1. Evaluate Pull-To-Refresh Eligibility (static checks) ─────
                         var blocked = evaluatePullBlock(el, path);
-                        if (!postTouchMsg({ type: 'ptr', allowed: !blocked })) {
-                            if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                                window.OnyxTouchBridge.setPullToRefreshAllowed(!blocked);
-                            }
-                        }
+                        __ptrBlockedForGesture = blocked;
+                        sendPtrAllowed(!blocked);
 
                         // ── 2. Interactive Element Metadata Extraction ────────────────────
                         if (!el) return;
@@ -368,51 +436,48 @@ class TouchBridge {
                     } catch (err) {}
                 }, { passive: true, capture: true });
 
-                // ── touchmove: direction-aware pull-to-refresh gate ─────────────────────
-                // This is the primary fix for "scroll-up triggers pull-to-refresh" bug.
-                // Direction is determined here (not on touchstart, where it's unknown).
+                // ── touchmove: continuous direction-aware & scroll-position pull-to-refresh gate ─────
                 document.addEventListener('touchmove', function(e) {
                     try {
-                        if (__directionLocked || !e.touches || e.touches.length === 0) return;
-                        var deltaY = e.touches[0].clientY - __touchStartY;
-                        var deltaX = e.touches[0].clientX - __touchStartX;
-                        // Require meaningful vertical movement before locking direction
-                        if (Math.abs(deltaY) < 6) return;
-                        __directionLocked = true;
+                        if (__ptrBlockedForGesture || !e.touches || e.touches.length === 0) return;
+                        if (e.touches.length > 1) {
+                            __ptrBlockedForGesture = true;
+                            sendPtrAllowed(false);
+                            return;
+                        }
+                        var curY = e.touches[0].clientY;
+                        var curX = e.touches[0].clientX;
+                        var deltaY = curY - __touchStartY;
+                        var deltaX = curX - __touchStartX;
+                        var stepY = curY - __lastTouchY;
+                        __lastTouchY = curY;
 
-                        // Horizontal swipe — don't interfere with pull-to-refresh
-                        if (Math.abs(deltaX) > Math.abs(deltaY)) return;
+                        if (isErudaExpanded() || isDocumentOrActiveContainerScrolled()) {
+                            __ptrBlockedForGesture = true;
+                            sendPtrAllowed(false);
+                            return;
+                        }
 
-                        var bridge = window.OnyxTouchBridge;
-                        var hasWebMessage = window.onyxTouchBridge && typeof window.onyxTouchBridge.postMessage === 'function';
-                        if (!hasWebMessage && (!bridge || typeof bridge.setPullToRefreshAllowed !== 'function')) return;
-
-                        if (deltaY < 0) {
-                            // Swiping UP — pull-to-refresh requires a downward gesture, block it
-                            if (!postTouchMsg({ type: 'ptr', allowed: false })) {
-                                bridge.setPullToRefreshAllowed(false);
-                            }
-                        } else {
-                            // Swiping DOWN — block if an inner scrollable container is mid-scroll or if DevTools panel is expanded
-                            if (isErudaExpanded() || (__scrollableTarget && __scrollableTarget.scrollTop > 0)) {
-                                if (!postTouchMsg({ type: 'ptr', allowed: false })) {
-                                    bridge.setPullToRefreshAllowed(false);
-                                }
-                            }
+                        // Any upward movement (scrolling down the page) or dominant horizontal swipe blocks PTR for the entire gesture
+                        if (deltaY < -4 || stepY < -4 || (Math.abs(deltaX) > 6 && Math.abs(deltaX) > Math.abs(deltaY))) {
+                            __ptrBlockedForGesture = true;
+                            sendPtrAllowed(false);
                         }
                     } catch (_) {}
                 }, { passive: true, capture: true });
 
-                document.addEventListener('touchend', function() {
-                    __directionLocked = false;
+                function handleTouchFinish() {
+                    __ptrBlockedForGesture = false;
+                    var isScrolled = isDocumentOrActiveContainerScrolled();
                     __scrollableTarget = null;
-                    if (isErudaExpanded()) return;
-                    if (!postTouchMsg({ type: 'ptr', allowed: true })) {
-                        if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
-                        }
+                    if (isErudaExpanded() || isScrolled) {
+                        sendPtrAllowed(false);
+                    } else {
+                        sendPtrAllowed(true);
                     }
-                    setTimeout(function() {
+                    if (__clearTimer) clearTimeout(__clearTimer);
+                    __clearTimer = setTimeout(function() {
+                        __clearTimer = null;
                         if (isErudaExpanded()) return;
                         if (!postTouchMsg({ type: 'cleared' })) {
                             if (window.OnyxTouchBridge) {
@@ -420,23 +485,10 @@ class TouchBridge {
                             }
                         }
                     }, 800);
-                }, { passive: true });
+                }
 
-                document.addEventListener('touchcancel', function() {
-                    __directionLocked = false;
-                    __scrollableTarget = null;
-                    if (isErudaExpanded()) return;
-                    if (!postTouchMsg({ type: 'ptr', allowed: true })) {
-                        if (window.OnyxTouchBridge && typeof window.OnyxTouchBridge.setPullToRefreshAllowed === 'function') {
-                            window.OnyxTouchBridge.setPullToRefreshAllowed(true);
-                        }
-                    }
-                    if (!postTouchMsg({ type: 'cleared' })) {
-                        if (window.OnyxTouchBridge) {
-                            window.OnyxTouchBridge.onTouchCleared();
-                        }
-                    }
-                }, { passive: true });
+                document.addEventListener('touchend', handleTouchFinish, { passive: true });
+                document.addEventListener('touchcancel', handleTouchFinish, { passive: true });
             })();
         """
     }

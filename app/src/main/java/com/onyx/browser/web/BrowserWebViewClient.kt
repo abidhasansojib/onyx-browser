@@ -1165,6 +1165,8 @@ open class BrowserWebViewClient(
             }
             onyxWv?.clearSyntheticState()
             onyxWv?.clearUserScriptState()
+            onyxWv?.touchBridge?.clear()
+            onyxWv?.hasScrolledDuringCurrentTouch = false
             onyxWv?.isDevToolsExpanded = false
             onyxWv?.applyUserAgentForUrl(url)
             onUrlChanged(url)
@@ -1256,12 +1258,11 @@ open class BrowserWebViewClient(
                                     scriptletJs.toByteArray(Charsets.UTF_8),
                                     android.util.Base64.NO_WRAP
                                 )
-                                // Decode and execute using Trusted Types / DOM injection with fallback to Function() constructor
+                                // Decode and execute using Trusted Types indirect eval with fallback to DOM script / Function
                                 val wrappedScriptlet = """
                                     (function() {
                                         try {
                                             if (window.__onyx_scriptlets_applied_for === location.href) return;
-                                            window.__onyx_scriptlets_applied_for = location.href;
                                             var _code = atob('$b64');
                                             var _tt = null;
                                             if (window.trustedTypes && typeof window.trustedTypes.createPolicy === 'function') {
@@ -1274,14 +1275,38 @@ open class BrowserWebViewClient(
                                                     _tt = window.__onyx_tt_policy;
                                                 } catch(_) {}
                                             }
+                                            var _scriptCode = _tt ? _tt.createScript(_code) : _code;
+                                            var _done = false;
                                             try {
-                                                var _script = document.createElement('script');
-                                                _script.textContent = _tt ? _tt.createScript(_code) : _code;
-                                                (document.head || document.documentElement).appendChild(_script);
-                                                _script.remove();
+                                                (0, eval)(_scriptCode);
+                                                _done = true;
                                             } catch(_) {
-                                                var _f = new Function(_code);
-                                                _f();
+                                                try {
+                                                    (new Function(_code))();
+                                                    _done = true;
+                                                } catch(__) {}
+                                            }
+                                            if (!_done) {
+                                                var _target = document.head || document.documentElement;
+                                                if (_target) {
+                                                    var _script = document.createElement('script');
+                                                    var _nonceEl = document.querySelector('script[nonce]');
+                                                    if (_nonceEl) {
+                                                        var _n = _nonceEl.nonce || _nonceEl.getAttribute('nonce');
+                                                        if (_n) _script.setAttribute('nonce', _n);
+                                                    }
+                                                    if (typeof _scriptCode !== 'string') {
+                                                        _script.text = _scriptCode;
+                                                    } else {
+                                                        _script.textContent = _scriptCode;
+                                                    }
+                                                    _target.appendChild(_script);
+                                                    _script.remove();
+                                                    _done = true;
+                                                }
+                                            }
+                                            if (_done) {
+                                                window.__onyx_scriptlets_applied_for = location.href;
                                             }
                                         } catch(ex) {
                                             /* scriptlet error suppressed */

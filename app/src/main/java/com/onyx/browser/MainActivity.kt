@@ -178,6 +178,13 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (::toolbarLayoutDelegate.isInitialized) toolbarLayoutDelegate.lastAddressBarAtBottom = value
         }
     private var lastStatusBarTopInset: Int = 0
+    private var ptrTouchDownX: Float = 0f
+    private var ptrTouchDownY: Float = 0f
+    private var ptrLastMoveY: Float = 0f
+    private var ptrGestureStartedAtTop: Boolean = false
+    private var ptrDisarmedForGesture: Boolean = false
+    private var ptrIsInTouchMove: Boolean = false
+    private val ptrTouchSlop: Int by lazy { android.view.ViewConfiguration.get(this).scaledTouchSlop }
 
     private fun isInPipMode(): Boolean {
         return isCurrentlyInPip ||
@@ -188,16 +195,57 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
         if (ev.actionMasked == MotionEvent.ACTION_DOWN && ::pipController.isInitialized) {
             pipController.onFullscreenUserInteraction()
         }
-        // Multi-touch pinch-to-zoom safety hook: disarm pull-to-refresh while multi-touching
+        val wv = if (::tabManager.isInitialized) tabManager.getActiveWebView() else null
+        // Multi-touch pinch-to-zoom & direction/scroll-position safety hook for pull-to-refresh
         if (ev.pointerCount > 1) {
+            ptrDisarmedForGesture = true
             binding.swipeRefreshLayout.isEnabled = false
         } else if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
-            val wv = tabManager.getActiveWebView()
+            ptrTouchDownX = ev.rawX
+            ptrTouchDownY = ev.rawY
+            ptrLastMoveY = ev.rawY
+            ptrIsInTouchMove = false
+            val url = (wv?.url ?: "").lowercase()
+            // On ACTION_DOWN, check synchronous native top-of-page state so SwipeRefreshLayout always
+            // runs its ACTION_DOWN branch to record a fresh mInitialDownY (preventing stale mInitialDownY).
+            // Inner-container scroll state from TouchBridge is enforced on ACTION_MOVE.
+            val canStartPtr = preferences.isPullToRefreshEnabled &&
+                binding.homeLayout.root.visibility != View.VISIBLE &&
+                wv != null &&
+                !wv.isDevToolsExpanded &&
+                !wv.canScrollVertically(-1) &&
+                wv.scrollY == 0 &&
+                !isReelOrFeedUrl(url)
+            ptrGestureStartedAtTop = canStartPtr
+            ptrDisarmedForGesture = !canStartPtr
             if (wv?.isDevToolsExpanded != true && binding.homeLayout.root.visibility != View.VISIBLE) {
                 binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled
             }
+        } else if (ev.actionMasked == MotionEvent.ACTION_MOVE) {
+            ptrIsInTouchMove = true
+            val dyFromDown = ev.rawY - ptrTouchDownY
+            val dxFromDown = ev.rawX - ptrTouchDownX
+            val dyStep = ev.rawY - ptrLastMoveY
+            ptrLastMoveY = ev.rawY
+            if (wv == null ||
+                wv.scrollY > 0 ||
+                wv.canScrollVertically(-1) ||
+                wv.hasScrolledDuringCurrentTouch ||
+                !wv.touchBridge.isPullToRefreshAllowed
+            ) {
+                ptrDisarmedForGesture = true
+            }
+            // Any upward swipe (scrolling down the page) or horizontal drag permanently disarms PTR for this gesture
+            if (dyFromDown < -ptrTouchSlop ||
+                dyStep < -ptrTouchSlop ||
+                (kotlin.math.abs(dxFromDown) > ptrTouchSlop && kotlin.math.abs(dxFromDown) > kotlin.math.abs(dyFromDown))
+            ) {
+                ptrDisarmedForGesture = true
+            }
         } else if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
-            val wv = tabManager.getActiveWebView()
+            ptrIsInTouchMove = false
+            ptrGestureStartedAtTop = false
+            ptrDisarmedForGesture = false
             binding.swipeRefreshLayout.isEnabled = preferences.isPullToRefreshEnabled && (wv?.isDevToolsExpanded != true) && binding.homeLayout.root.visibility != View.VISIBLE
         }
         return super.dispatchTouchEvent(ev)
@@ -795,7 +843,12 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             // Block pull-to-refresh on homepage and when webview can't scroll up
             if (binding.homeLayout.root.visibility == View.VISIBLE) return@setOnChildScrollUpCallback true
             val webView = tabManager.getActiveWebView() ?: return@setOnChildScrollUpCallback true
-            if (webView.canScrollVertically(-1) || webView.scrollY > 0) return@setOnChildScrollUpCallback true
+            if (webView.canScrollVertically(-1) || webView.scrollY > 0 || webView.hasScrolledDuringCurrentTouch) {
+                return@setOnChildScrollUpCallback true
+            }
+
+            // Block pull-to-refresh if gesture did not start at the top or was disarmed by upward/horizontal scroll
+            if (!ptrGestureStartedAtTop || ptrDisarmedForGesture) return@setOnChildScrollUpCallback true
 
             // Block pull-to-refresh if DevTools panel is open/expanded
             if (webView.isDevToolsExpanded) return@setOnChildScrollUpCallback true
@@ -805,8 +858,8 @@ class MainActivity : AppCompatActivity(), TabActionCallback {
             if (isReelOrFeedUrl(url)) return@setOnChildScrollUpCallback true
 
             // Block pull-to-refresh if inner container is scrolled, overscroll-behavior is none/contain,
-            // or body is overflow-hidden
-            if (!webView.touchBridge.isPullToRefreshAllowed) return@setOnChildScrollUpCallback true
+            // or body is overflow-hidden (enforced during ACTION_MOVE so ACTION_DOWN always initializes mInitialDownY)
+            if (ptrIsInTouchMove && !webView.touchBridge.isPullToRefreshAllowed) return@setOnChildScrollUpCallback true
 
             false
         }
